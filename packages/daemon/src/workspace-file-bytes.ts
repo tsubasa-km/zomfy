@@ -26,11 +26,11 @@ export async function statWorkspaceFile(root: string, path: string): Promise<Fil
 /** `git show` of the committed or staged copy; a path missing there is `exists: false`, not an error. */
 export async function readWorkspaceFileRevision(root: string, params: FileRevisionParams): Promise<FileRevisionContent> {
   await resolveInside(root, params.path)
-  // `./` keeps the path relative to the workspace even when it is a repository subdirectory.
   // A leading dash would read as a git option.
-  if (!/^[w./~^-]+$/.test(params.revision) || params.revision.startsWith('-')) {
+  if (!/^[\w./~^-]+$/.test(params.revision) || params.revision.startsWith('-')) {
     throw new Error(`Invalid revision ${params.revision}`)
   }
+  // `./` keeps the path relative to the workspace even when it is a repository subdirectory.
   const spec = `${params.revision === 'index' ? '' : params.revision}:./${params.path}`
   const proc = Bun.spawn(['git', 'show', spec], {
     cwd: root,

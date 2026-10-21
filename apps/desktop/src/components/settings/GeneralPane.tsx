@@ -41,7 +41,8 @@ export function GeneralPane() {
                 options={[
                   { value: 'created', label: 'Created' },
                   { value: 'name', label: 'Name' },
-                  { value: 'recent', label: 'Recent' }
+                  { value: 'recent', label: 'Recent' },
+                  { value: 'manual', label: 'Manual' }
                 ]}
               />
             }
