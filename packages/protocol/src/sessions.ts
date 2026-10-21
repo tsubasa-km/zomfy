@@ -1,6 +1,17 @@
 /** The execution host owns session status; clients only present it (Orca's agent-status rule). */
 export type SessionStatus = 'idle' | 'working' | 'needs-you' | 'error'
 
+/** Claude's permission modes, as the Agent SDK names them. */
+export type ChatPermissionMode = 'default' | 'acceptEdits' | 'plan' | 'auto' | 'bypassPermissions'
+export type ChatEffort = 'low' | 'medium' | 'high' | 'xhigh' | 'max'
+
+/** What the next turn launches with; null leaves the choice to Claude's own settings. */
+export interface SessionOptions {
+  model: string | null
+  permissionMode: ChatPermissionMode
+  effort: ChatEffort | null
+}
+
 export interface SessionInfo {
   id: string
   /** null for sessions an outside ACP client opened by cwd alone. */
@@ -11,16 +22,85 @@ export interface SessionInfo {
   createdAt: number
   /** Set while a turn runs. */
   turnStartedAt: number | null
+  /** Absent from daemons that predate composer options. */
+  options?: SessionOptions
+}
+
+export interface ChatModel {
+  value: string
+  displayName: string
+  description: string
+  efforts: ChatEffort[]
+  supportsAutoMode?: boolean
+}
+
+export interface ChatCommand {
+  name: string
+  description: string
+  argumentHint: string
+  /** Claude Code's own command, not one from the user, project, a plugin or an MCP server. */
+  builtin?: boolean
+}
+
+/** Claude's `/` menu and model list for a folder, read without running a turn. */
+export interface ChatCatalog {
+  models: ChatModel[]
+  commands: ChatCommand[]
+}
+
+/** A Claude conversation on disk for this folder, open in a tab or not. */
+export interface PastConversation {
+  claudeSessionId: string
+  title: string
+  lastModified: number
+  gitBranch: string | null
+  /** The harness session already showing it, if any. */
+  openSessionId: string | null
+}
+
+/** `_meta` keys the daemon puts on ACP updates for this UI; other clients ignore them. */
+export const CHAT_META = {
+  /** tool_call: Claude's tool name (TodoWrite, Task, Edit…). */
+  toolName: 'harness/toolName',
+  /** tool_call: the Task call whose subagent made this call. */
+  parentToolCallId: 'harness/parentToolCallId',
+  /** usage_update: per-category breakdown and whether it is an estimate. */
+  contextUsage: 'harness/contextUsage'
+} as const
+
+export interface ContextUsageMeta {
+  estimated: boolean
+  categories: { name: string; tokens: number }[]
 }
 
 export const SESSION_METHODS = {
   sessionsList: '_harness/sessions/list',
   sessionCreate: '_harness/sessions/create',
-  sessionClose: '_harness/sessions/close'
+  sessionClose: '_harness/sessions/close',
+  sessionSetOptions: '_harness/sessions/setOptions',
+  sessionCatalog: '_harness/sessions/catalog',
+  sessionFork: '_harness/sessions/fork',
+  sessionRewind: '_harness/sessions/rewind',
+  sessionHistory: '_harness/sessions/history',
+  sessionResume: '_harness/sessions/resume',
+  sessionMentionFiles: '_harness/sessions/mentionFiles'
 } as const
 
 export interface SessionRequests {
   [SESSION_METHODS.sessionsList]: { params: Record<string, never>; result: SessionInfo[] }
   [SESSION_METHODS.sessionCreate]: { params: { workspaceId: string }; result: SessionInfo }
   [SESSION_METHODS.sessionClose]: { params: { sessionId: string }; result: Record<string, never> }
+  [SESSION_METHODS.sessionSetOptions]: {
+    params: { sessionId: string; options: Partial<SessionOptions> }
+    result: SessionInfo
+  }
+  [SESSION_METHODS.sessionCatalog]: { params: { workspaceId: string; refresh?: boolean }; result: ChatCatalog }
+  /** A new tab continuing a copy of the conversation. */
+  [SESSION_METHODS.sessionFork]: { params: { sessionId: string }; result: SessionInfo }
+  /** Drops the conversation from this user message on; returns the message's text for the composer. */
+  [SESSION_METHODS.sessionRewind]: { params: { sessionId: string; messageId: string }; result: { text: string } }
+  [SESSION_METHODS.sessionHistory]: { params: { workspaceId: string }; result: PastConversation[] }
+  [SESSION_METHODS.sessionResume]: { params: { workspaceId: string; claudeSessionId: string }; result: SessionInfo }
+  /** Workspace-relative paths for the composer's @ menu, gitignore respected. */
+  [SESSION_METHODS.sessionMentionFiles]: { params: { workspaceId: string }; result: string[] }
 }

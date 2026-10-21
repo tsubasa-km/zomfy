@@ -12,11 +12,14 @@ import type {
 
 export type { SessionStatus }
 
+export type ChatImage = { mimeType: string; data: string }
+
 export type ThreadItem =
-  | { kind: 'user'; text: string }
+  | { kind: 'user'; text: string; messageId?: string; images?: ChatImage[] }
   | { kind: 'agent'; text: string }
   | { kind: 'thought'; text: string }
-  | { kind: 'notice'; text: string }
+  | { kind: 'notice'; text: string; severity?: string }
+  | { kind: 'compaction'; id: string; status: string }
   | {
       kind: 'tool'
       id: string
@@ -25,11 +28,17 @@ export type ThreadItem =
       status: string
       input: unknown
       output: string
+      /** Claude's tool name (TodoWrite, Task, Edit…), when the daemon reports it. */
+      toolName?: string
+      /** The Task call whose subagent made this call. */
+      parentId?: string | null
     }
   | {
       kind: 'permission'
       requestId: string
       title: string
+      /** The tool call's input (an ExitPlanMode plan, a command). */
+      input?: unknown
       options: acp.PermissionOption[]
       chosen: string | null
     }
