@@ -1,5 +1,12 @@
 import * as acp from "@agentclientprotocol/sdk";
+import {
+  HARNESS_METHODS,
+  HARNESS_NOTIFICATIONS,
+  type HarnessMethod,
+  type HarnessRequests,
+} from "@acp-harness/protocol";
 import { runClaudeTurn, type ClaudeSessionState } from "./claude-turn.ts";
+import type { WorkspaceManager } from "./workspace-manager.ts";
 import { log } from "./log.ts";
 
 interface HarnessSession extends ClaudeSessionState {
@@ -7,8 +14,15 @@ interface HarnessSession extends ClaudeSessionState {
 }
 
 /** One agent app shared by every transport, so sessions outlive the connection that made them. */
-export function createHarnessAgent(): acp.AgentApp {
+export function createHarnessAgent(workspaces: WorkspaceManager): acp.AgentApp {
   const sessions = new Map<string, HarnessSession>();
+  const clients = new Set<acp.AgentContext>();
+
+  workspaces.onChange((state) => {
+    for (const client of clients) {
+      void client.notify(HARNESS_NOTIFICATIONS.stateChanged, state).catch(() => undefined);
+    }
+  });
 
   async function prompt(
     params: acp.PromptRequest,
@@ -38,8 +52,12 @@ export function createHarnessAgent(): acp.AgentApp {
     }
   }
 
-  return acp
+  const app = acp
     .agent({ name: "acp-harness" })
+    .onConnect((connection) => {
+      clients.add(connection.client);
+      void connection.closed.finally(() => clients.delete(connection.client));
+    })
     .onRequest("initialize", () => ({
       protocolVersion: acp.PROTOCOL_VERSION,
       agentCapabilities: {
@@ -63,4 +81,30 @@ export function createHarnessAgent(): acp.AgentApp {
     .onNotification("session/cancel", (ctx) => {
       sessions.get(ctx.params.sessionId)?.pendingTurn?.abort();
     });
+
+  function handle<M extends HarnessMethod>(
+    method: M,
+    run: (params: HarnessRequests[M]["params"]) => Promise<HarnessRequests[M]["result"]>,
+  ): void {
+    // Params come from our own UI over an authenticated socket; the handler validates what it uses.
+    app.onRequest(method, (raw: unknown) => (raw ?? {}) as HarnessRequests[M]["params"], (ctx) =>
+      run(ctx.params),
+    );
+  }
+
+  handle(HARNESS_METHODS.stateGet, () => workspaces.snapshot());
+  handle(HARNESS_METHODS.projectAdd, (p) => workspaces.addProject(p.path));
+  handle(HARNESS_METHODS.projectRemove, async (p) => {
+    await workspaces.removeProject(p.projectId);
+    return {};
+  });
+  handle(HARNESS_METHODS.workspaceCreate, (p) => workspaces.createWorkspace(p));
+  handle(HARNESS_METHODS.workspaceRemove, async (p) => {
+    await workspaces.removeWorkspace(p);
+    return {};
+  });
+  handle(HARNESS_METHODS.branchesList, (p) => workspaces.listBranches(p.projectId));
+  handle(HARNESS_METHODS.floatingCwdSet, (p) => workspaces.setFloatingCwd(p.path));
+
+  return app;
 }

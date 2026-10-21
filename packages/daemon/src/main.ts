@@ -2,10 +2,13 @@ import * as acp from "@agentclientprotocol/sdk";
 import { Readable, Writable } from "node:stream";
 import { createHarnessAgent } from "./harness-agent.ts";
 import { serveWebSocket } from "./websocket-server.ts";
+import { WorkspaceManager } from "./workspace-manager.ts";
 import { log } from "./log.ts";
 
 const DEFAULT_PORT = 7801;
-const agent = createHarnessAgent();
+const workspaces = new WorkspaceManager();
+await workspaces.load();
+const agent = createHarnessAgent(workspaces);
 
 if (process.argv.includes("--stdio")) {
   // For ACP clients that launch the agent themselves (Zed, Orca).
