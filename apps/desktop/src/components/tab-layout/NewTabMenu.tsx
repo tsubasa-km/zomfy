@@ -12,6 +12,7 @@ import {
   DropdownMenuShortcut,
   DropdownMenuTrigger
 } from '@/components/ui/dropdown-menu'
+import { AgentLaunchMenuItems } from '@/components/terminal/AgentLaunchMenuItems'
 import { TabOmnibox } from './TabOmnibox'
 import { focusGroup } from './tab-group-commands'
 import { shortcutLabel } from './tab-shortcuts'
@@ -96,6 +97,7 @@ export function NewTabMenu({ workspaceId, groupId }: { workspaceId: string; grou
             <AgentSection workspaceId={workspaceId} />
             <DropdownMenuSeparator />
             <TerminalSection workspaceId={workspaceId} />
+            <AgentLaunchMenuItems workspaceId={workspaceId} />
             <DropdownMenuSeparator />
             <BrowserSection workspaceId={workspaceId} />
           </>

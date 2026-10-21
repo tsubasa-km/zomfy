@@ -13,6 +13,7 @@ import { SplitLayout } from '@/components/tab-layout/SplitLayout'
 import { TabGroupPane } from '@/components/tab-layout/TabGroupPane'
 import { useTabKeyboard } from '@/components/tab-layout/use-tab-keyboard'
 import { syncWorkspaceFocus, useWorkspaceTabs } from '@/components/tab-layout/workspace-tab-model'
+import { TerminalWorkspaceDialogs } from '@/components/terminal/TerminalWorkspaceDialogs'
 import '@/components/tab-layout/tab-layout.css'
 
 // A workspace's center area, as Orca draws it: a split tree of tab groups (TabGroupSplitNodeTree),
@@ -84,6 +85,7 @@ export function WorkspaceTabs({
         }}
       />
       {switcher}
+      <TerminalWorkspaceDialogs workspaceId={workspaceId} />
     </div>
   )
 }

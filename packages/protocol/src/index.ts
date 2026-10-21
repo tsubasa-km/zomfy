@@ -18,6 +18,7 @@ export * from './quick-open'
 export * from './sessions'
 export * from './settings'
 export * from './terminals'
+export * from './tui-agents'
 export * from './workspaces'
 
 export const HARNESS_METHODS = {
