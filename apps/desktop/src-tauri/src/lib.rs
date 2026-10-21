@@ -33,6 +33,14 @@ pub fn run() {
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_notification::init())
         .invoke_handler(tauri::generate_handler![ensure_local_daemon, wsl_distros, start_wsl_daemon])
-        .run(tauri::generate_context!())
-        .expect("error while running tauri application");
+        .build(tauri::generate_context!())
+        .expect("error while building tauri application")
+        .run(|_app, event| {
+            // Daemons are detached so a crash or update cannot take terminals with it, but quitting
+            // the app is the user ending the work: stop them with it.
+            if let tauri::RunEvent::Exit = event {
+                local_daemon::shutdown();
+                wsl_daemon::shutdown();
+            }
+        });
 }

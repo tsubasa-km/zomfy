@@ -25,8 +25,9 @@ bun install
 cd apps/desktop && bun run tauri dev   # builds the daemon binaries, then opens the app
 ```
 
-The app starts the daemons itself, detached, so they outlive it (terminals and agent turns keep
-running across app restarts, as in Orca):
+The app starts the daemons itself and stops the ones it used when it quits. They run detached from
+the app's process tree, so a crash or a dev rebuild of the app leaves them (and their terminals)
+running, and the next launch reconnects:
 
 - This computer: `packages/daemon/dist` is copied to `%LOCALAPPDATA%\acp-harness\bin` and run from
   there on 127.0.0.1:7801. A daemon that answers with the same build is reused; a different build

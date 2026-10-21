@@ -50,6 +50,15 @@ fn stop(info: &str) {
     let _ = hidden("kill").args(["-TERM", &pid.to_string()]).status();
 }
 
+/// Stops this computer's daemon when the app quits.
+pub fn shutdown() {
+    let Ok(home) = harness_home() else { return };
+    if let Some(info) = read_info(&home) {
+        stop(&info);
+    }
+    let _ = std::fs::remove_file(home.join("daemon.json"));
+}
+
 /// Returns this computer's daemon connection JSON, starting or upgrading the daemon as needed.
 pub fn ensure() -> Result<String, String> {
     let _starting = STARTING.lock().map_err(|e| e.to_string())?;

@@ -65,9 +65,26 @@ fn read_info(distro: &str) -> Option<String> {
         .filter(|s| s.starts_with('{'))
 }
 
+/// Distros this app ensured a daemon in, to stop on quit.
+static USED: Mutex<Vec<String>> = Mutex::new(Vec::new());
+
+/// Stops the daemons this app used; their wsl.exe holders then exit and the distros may idle.
+pub fn shutdown() {
+    let distros = USED.lock().map(|d| d.clone()).unwrap_or_default();
+    for distro in distros {
+        let script = format!("pkill -f \"{INSTALLED_BINARY} --port\"; rm -f \"$HOME/.acp-harness/daemon.json\"");
+        let _ = wsl().args(["-d", &distro, "--exec", "sh", "-c", &script]).status();
+    }
+}
+
 /// Ensures a daemon runs in `distro` and returns its connection JSON ({url, token, protocolPrefix}).
 pub fn ensure(distro: &str) -> Result<String, String> {
     let _starting = STARTING.lock().map_err(|e| e.to_string())?;
+    if let Ok(mut used) = USED.lock() {
+        if !used.iter().any(|d| d == distro) {
+            used.push(distro.to_string());
+        }
+    }
     let upgraded = install(distro)?;
     if !upgraded {
         if let Some(info) = read_info(distro) {
