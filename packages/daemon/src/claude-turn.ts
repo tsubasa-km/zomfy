@@ -4,6 +4,7 @@ import {
   type CanUseTool,
   type SDKMessage,
 } from "@anthropic-ai/claude-agent-sdk";
+import { loadHostSettings } from "./host-settings.ts";
 import { log } from "./log.ts";
 
 export interface ClaudeSessionState {
@@ -37,7 +38,7 @@ export async function runClaudeTurn(input: TurnInput): Promise<acp.StopReason> {
     options: {
       cwd: state.cwd,
       resume: state.claudeSessionId ?? undefined,
-      pathToClaudeCodeExecutable: claudeExecutable,
+      pathToClaudeCodeExecutable: (await loadHostSettings()).claudeExecutablePath || claudeExecutable,
       settingSources: ["user", "project", "local"],
       includePartialMessages: true,
       abortController: abort,

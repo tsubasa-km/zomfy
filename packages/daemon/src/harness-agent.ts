@@ -11,7 +11,9 @@ import type { HandlerContext } from "./handlers/handler-context.ts";
 import { registerFileHandlers } from "./handlers/file-handlers.ts";
 import { registerGitHandlers } from "./handlers/git-handlers.ts";
 import { registerPortHandlers } from "./handlers/port-handlers.ts";
+import { registerQuickOpenHandlers } from "./handlers/quick-open-handlers.ts";
 import { registerSessionHandlers } from "./handlers/session-handlers.ts";
+import { registerSettingsHandlers } from "./handlers/settings-handlers.ts";
 import { registerTerminalHandlers } from "./handlers/terminal-handlers.ts";
 import { registerWorkspaceHandlers } from "./handlers/workspace-handlers.ts";
 import type { WorkspaceManager } from "./workspace-manager.ts";
@@ -170,6 +172,8 @@ export function createHarnessAgent(
     registerFileHandlers,
     registerGitHandlers,
     registerPortHandlers,
+    registerSettingsHandlers,
+    registerQuickOpenHandlers,
   ]) {
     register(ctx);
   }
