@@ -10,6 +10,7 @@ import type { TerminalManager } from "./terminal-manager.ts";
 import type { HandlerContext } from "./handlers/handler-context.ts";
 import { registerFileHandlers } from "./handlers/file-handlers.ts";
 import { registerGitHandlers } from "./handlers/git-handlers.ts";
+import { registerPortHandlers } from "./handlers/port-handlers.ts";
 import { registerSessionHandlers } from "./handlers/session-handlers.ts";
 import { registerTerminalHandlers } from "./handlers/terminal-handlers.ts";
 import { registerWorkspaceHandlers } from "./handlers/workspace-handlers.ts";
@@ -168,6 +169,7 @@ export function createHarnessAgent(
     registerTerminalHandlers,
     registerFileHandlers,
     registerGitHandlers,
+    registerPortHandlers,
   ]) {
     register(ctx);
   }

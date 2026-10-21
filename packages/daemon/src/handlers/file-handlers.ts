@@ -2,6 +2,8 @@ import { HARNESS_METHODS } from "@acp-harness/protocol";
 import { listDirectory, readWorkspaceFile, writeWorkspaceFile } from "../workspace-files.ts";
 import { searchWorkspace } from "../workspace-search.ts";
 import { readWorkspaceFileBinary, readWorkspaceFileRevision, statWorkspaceFile } from "../workspace-file-bytes.ts";
+import { createEntry, deleteEntries, duplicateEntry, renameEntry } from "../workspace-file-ops.ts";
+import { replaceInWorkspace } from "../workspace-replace.ts";
 import type { HandlerContext } from "./handler-context.ts";
 
 export function registerFileHandlers({ handle, workspaceRoot }: HandlerContext): void {
@@ -14,4 +16,17 @@ export function registerFileHandlers({ handle, workspaceRoot }: HandlerContext):
   handle(HARNESS_METHODS.fsReadBinary, async (p) => readWorkspaceFileBinary(workspaceRoot(p.workspaceId), p.path));
   handle(HARNESS_METHODS.fsReadRevision, async (p) => readWorkspaceFileRevision(workspaceRoot(p.workspaceId), p));
   handle(HARNESS_METHODS.fsStat, async (p) => statWorkspaceFile(workspaceRoot(p.workspaceId), p.path));
+  handle(HARNESS_METHODS.fsCreate, async (p) => {
+    await createEntry(workspaceRoot(p.workspaceId), p.path, p.kind);
+    return {};
+  });
+  handle(HARNESS_METHODS.fsRename, async (p) => {
+    await renameEntry(workspaceRoot(p.workspaceId), p.from, p.to);
+    return {};
+  });
+  handle(HARNESS_METHODS.fsDelete, async (p) =>
+    deleteEntries(workspaceRoot(p.workspaceId), p.paths, p.permanent === true),
+  );
+  handle(HARNESS_METHODS.fsDuplicate, async (p) => duplicateEntry(workspaceRoot(p.workspaceId), p.path));
+  handle(HARNESS_METHODS.searchReplace, async (p) => replaceInWorkspace(workspaceRoot(p.workspaceId), p));
 }

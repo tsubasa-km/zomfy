@@ -109,6 +109,13 @@ export class TerminalManager {
     for (const t of this.list()) if (t.workspaceId === workspaceId) this.close(t.id)
   }
 
+  /** Running shells' pids and their workspaces, for attributing listening ports. */
+  shellPids(): Map<number, string> {
+    const pids = new Map<number, string>()
+    for (const t of this.terminals.values()) if (t.info.exitCode === null) pids.set(t.proc.pid, t.info.workspaceId)
+    return pids
+  }
+
   private push(terminalId: string, data: string): void {
     const live = this.terminals.get(terminalId)
     if (!live || !data) return
