@@ -1,11 +1,12 @@
 import { useEffect } from 'react'
-import { Files, GitCompare, PanelRightClose, Search } from 'lucide-react'
+import { Files, GitCompare, PanelRightClose, Plug, Search } from 'lucide-react'
 import { allWorkspaces, getState, setRightSidebar, useStore, type RightSidebarTab } from '@/session-store'
 import { useGitStatus } from '@/hooks/use-git-status'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { FileExplorer } from './FileExplorer'
 import { SourceControl } from './SourceControl'
 import { SearchPanel } from './SearchPanel'
+import { PortsPanel } from './PortsPanel'
 import { cn } from '@/lib/utils'
 
 // Frame and top activity bar follow Orca's right sidebar (right-sidebar/index.tsx,
@@ -13,6 +14,8 @@ import { cn } from '@/lib/utils'
 
 const isMac = navigator.userAgent.includes('Mac')
 const MOD = isMac ? '⌘' : 'Ctrl+'
+// Orca binds Show Ports only on macOS.
+const PORTS_LABEL = isMac ? 'Ports (⌘Shift+I)' : 'Ports'
 
 export function RightSidebar({ workspaceId }: { workspaceId: string }) {
   const { open, tab } = useStore((s) => s.rightSidebar)
@@ -25,7 +28,15 @@ export function RightSidebar({ workspaceId }: { workspaceId: string }) {
       const mod = isMac ? e.metaKey : e.ctrlKey
       if (!mod || !e.shiftKey) return
       const target: RightSidebarTab | null =
-        e.code === 'KeyE' ? 'explorer' : e.code === 'KeyF' ? 'search' : e.code === 'KeyG' ? 'source-control' : null
+        e.code === 'KeyE'
+          ? 'explorer'
+          : e.code === 'KeyF'
+            ? 'search'
+            : e.code === 'KeyG'
+              ? 'source-control'
+              : e.code === 'KeyI' && isMac
+                ? 'ports'
+                : null
       if (!target) return
       e.preventDefault()
       const current = getState().rightSidebar
@@ -46,6 +57,7 @@ export function RightSidebar({ workspaceId }: { workspaceId: string }) {
           badge={changeCount > 0}
           onClick={() => setRightSidebar({ open: true, tab: 'source-control' })}
         />
+        <ActivityButton icon={Plug} label={PORTS_LABEL} onClick={() => setRightSidebar({ open: true, tab: 'ports' })} />
       </div>
     )
   }
@@ -77,6 +89,7 @@ export function RightSidebar({ workspaceId }: { workspaceId: string }) {
           active={tab === 'source-control'}
           onClick={() => setRightSidebar({ tab: 'source-control' })}
         />
+        <ActivityButton top icon={Plug} label={PORTS_LABEL} active={tab === 'ports'} onClick={() => setRightSidebar({ tab: 'ports' })} />
         <div className="ml-auto pr-1">
           <ActivityButton top icon={PanelRightClose} label="Close sidebar" onClick={() => setRightSidebar({ open: false })} />
         </div>
@@ -85,6 +98,8 @@ export function RightSidebar({ workspaceId }: { workspaceId: string }) {
         <FileExplorer key={workspaceId} workspaceId={workspaceId} rootName={workspaceName} />
       ) : tab === 'search' ? (
         <SearchPanel key={workspaceId} workspaceId={workspaceId} />
+      ) : tab === 'ports' ? (
+        <PortsPanel key={workspaceId} workspaceId={workspaceId} />
       ) : (
         <SourceControl key={workspaceId} workspaceId={workspaceId} />
       )}

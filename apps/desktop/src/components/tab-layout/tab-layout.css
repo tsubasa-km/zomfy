@@ -1,0 +1,87 @@
+/* Ported from Orca's main.css / terminal.css: tab strip overflow, split resize handles, tab drop overlay. */
+
+.terminal-tab-strip {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+.terminal-tab-strip::-webkit-scrollbar {
+  width: 0;
+  height: 0;
+}
+
+/* Why: mask fades avoid painting card-colored overlays that mismatch active tabs. */
+.terminal-tab-strip--fade-start.terminal-tab-strip--fade-end {
+  -webkit-mask-image: linear-gradient(to right, transparent, #000 1.5rem, #000 calc(100% - 1.5rem), transparent);
+  mask-image: linear-gradient(to right, transparent, #000 1.5rem, #000 calc(100% - 1.5rem), transparent);
+}
+
+.terminal-tab-strip--fade-start:not(.terminal-tab-strip--fade-end) {
+  -webkit-mask-image: linear-gradient(to right, transparent, #000 1.5rem, #000 100%);
+  mask-image: linear-gradient(to right, transparent, #000 1.5rem, #000 100%);
+}
+
+.terminal-tab-strip--fade-end:not(.terminal-tab-strip--fade-start) {
+  -webkit-mask-image: linear-gradient(to right, #000 0, #000 calc(100% - 1.5rem), transparent);
+  mask-image: linear-gradient(to right, #000 0, #000 calc(100% - 1.5rem), transparent);
+}
+
+.tab-group-split-resize-handle {
+  flex-shrink: 0;
+  position: relative;
+  background: transparent;
+}
+
+.tab-group-split-resize-handle.is-vertical {
+  width: 6px;
+  cursor: col-resize;
+}
+
+.tab-group-split-resize-handle.is-horizontal {
+  height: 6px;
+  cursor: row-resize;
+}
+
+.tab-group-split-resize-handle::after {
+  content: '';
+  position: absolute;
+  border-radius: 1px;
+  background: var(--tab-group-split-divider);
+  transition: background 100ms ease;
+}
+
+.tab-group-split-resize-handle.is-vertical::after {
+  top: 0;
+  bottom: 0;
+  left: 50%;
+  width: 3px;
+  transform: translateX(-50%);
+}
+
+.tab-group-split-resize-handle.is-horizontal::after {
+  left: 0;
+  right: 0;
+  top: 50%;
+  height: 3px;
+  transform: translateY(-50%);
+}
+
+.tab-group-split-resize-handle:hover::after,
+.tab-group-split-resize-handle.is-dragging::after {
+  background: var(--tab-group-split-divider-strong);
+}
+
+.tab-drop-overlay {
+  position: absolute;
+  z-index: 50;
+  background: rgba(59, 130, 246, 0.2);
+  border: 2px solid rgba(59, 130, 246, 0.5);
+  border-radius: 4px;
+  pointer-events: none;
+}
+
+.tab-drop-overlay__label {
+  font-size: 11px;
+  color: var(--primary-foreground);
+  background: color-mix(in srgb, var(--chart-2) 20%, transparent);
+}
