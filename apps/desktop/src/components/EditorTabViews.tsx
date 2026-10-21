@@ -34,6 +34,7 @@ const DIFF_MARKDOWN_MODES: readonly MarkdownViewMode[] = ['source', 'preview']
 async function loadDiffContent(tab: EditorTab): Promise<DiffContent> {
   const { workspaceId, path, staged } = tab
   const kind = getEditorFileKind(path)
+  if (tab.compare) return loadCommitDiffContent(tab, tab.compare)
   const originalRevision = staged ? 'HEAD' : 'index'
   if (kind === 'image') {
     const [original, modified] = await Promise.all([
@@ -68,6 +69,25 @@ async function loadDiffContent(tab: EditorTab): Promise<DiffContent> {
     modifiedMtimeMs: disk?.mtimeMs,
     editable: disk !== null && !disk.truncated
   }
+}
+
+/** Two commits (history, compare with base): both sides come from git and are read-only. */
+async function loadCommitDiffContent(tab: EditorTab, compare: { base: string; head: string }): Promise<DiffContent> {
+  const { workspaceId, path } = tab
+  const kind = getEditorFileKind(path)
+  if (kind === 'pdf') return { kind: 'binary' }
+  const encoding = kind === 'image' ? 'base64' : 'utf8'
+  const [original, modified] = await Promise.all(
+    [compare.base, compare.head].map((revision) =>
+      harnessRequest(HARNESS_METHODS.fsReadRevision, { workspaceId, path, revision, encoding })
+    )
+  )
+  if (!original || !modified) return { kind: 'binary' }
+  if (kind === 'image') {
+    return { kind: 'image', original: original.exists ? original.content : null, modified: modified.exists ? modified.content : null }
+  }
+  if (original.binary || modified.binary) return { kind: 'binary' }
+  return { kind: 'text', original: original.content, modified: modified.content, modifiedExists: modified.exists, editable: false }
 }
 
 /** Orca's single-file diff tab: Monaco's diff editor with an editable working-tree side. */
@@ -114,7 +134,7 @@ export function DiffTabView({ tab }: { tab: EditorTab }) {
     workspaceId: tab.workspaceId,
     path: tab.path,
     knownMtimeMs: mtime,
-    enabled: !tab.staged && content?.kind === 'text',
+    enabled: !tab.staged && !tab.compare && content?.kind === 'text',
     onChange: () => {
       if (getState().editorTabs.find((t) => t.id === tab.id)?.dirty) setExternalChange(true)
       else reload()
@@ -158,7 +178,7 @@ export function DiffTabView({ tab }: { tab: EditorTab }) {
         path={tab.path}
         status={
           <>
-            <span className="shrink-0 text-xs text-muted-foreground">{tab.staged ? 'Staged' : 'Working tree'}</span>
+            <span className="shrink-0 text-xs text-muted-foreground">{tab.compare?.label ?? (tab.staged ? 'Staged' : 'Working tree')}</span>
             {error && (
               <span className="min-w-0 truncate text-xs text-destructive" title={error}>
                 {error}

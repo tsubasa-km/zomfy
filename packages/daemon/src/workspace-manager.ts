@@ -236,7 +236,7 @@ async function gitUserName(path: string): Promise<string | null> {
 }
 
 /** Orca's order: origin/HEAD, then origin/main, origin/master, main, master, then HEAD. */
-async function defaultBaseRef(path: string): Promise<string> {
+export async function defaultBaseRef(path: string): Promise<string> {
   const originHead = await git(path, ['symbolic-ref', '--quiet', '--short', 'refs/remotes/origin/HEAD'], { quiet: true }).catch(() => '')
   if (originHead) return originHead
   for (const ref of ['origin/main', 'origin/master', 'main', 'master']) {

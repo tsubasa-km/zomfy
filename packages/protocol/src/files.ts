@@ -103,8 +103,8 @@ export interface FileBinaryContent {
   mtimeMs: number
 }
 
-/** 'HEAD' is the last commit, 'index' the staged copy: the diff editor's left side. */
-export type FileRevision = 'HEAD' | 'index'
+/** 'HEAD' is the last commit, 'index' the staged copy; any other value is a commit id (history and base-compare diffs). */
+export type FileRevision = 'HEAD' | 'index' | (string & {})
 
 export interface FileRevisionParams {
   workspaceId: string

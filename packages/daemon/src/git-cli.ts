@@ -9,8 +9,15 @@ export class GitError extends Error {
   }
 }
 
-/** Runs the host's git; `quiet` is for probes whose failure is an answer, not an error. stdout is returned trimmed of the trailing newline. */
-export async function git(cwd: string, args: string[], options: { quiet?: boolean } = {}): Promise<string> {
+export interface GitRunOptions {
+  /** For probes whose failure is an answer, not an error. */
+  quiet?: boolean
+  /** Kills git after this long; a stalled network operation must not hang the panel. */
+  timeoutMs?: number
+}
+
+/** Runs the host's git. stdout is returned trimmed of the trailing newline. */
+export async function git(cwd: string, args: string[], options: GitRunOptions = {}): Promise<string> {
   const proc = Bun.spawn(['git', ...args], {
     cwd,
     stdout: 'pipe',
@@ -19,11 +26,19 @@ export async function git(cwd: string, args: string[], options: { quiet?: boolea
     // A credential or editor prompt would hang a daemon nobody is watching.
     env: { ...process.env, GIT_TERMINAL_PROMPT: '0', GIT_EDITOR: 'true' }
   })
+  let timedOut = false
+  const timer = options.timeoutMs
+    ? setTimeout(() => {
+        timedOut = true
+        proc.kill()
+      }, options.timeoutMs)
+    : null
   const [stdout, stderr, code] = await Promise.all([
     new Response(proc.stdout).text(),
     new Response(proc.stderr).text(),
     proc.exited
-  ])
+  ]).finally(() => timer && clearTimeout(timer))
+  if (timedOut) throw new GitError(`git ${args[0]} timed out after ${Math.round((options.timeoutMs ?? 0) / 1000)}s`, stderr)
   if (code !== 0) {
     if (!options.quiet) log(`git ${args.join(' ')} failed in ${cwd}: ${stderr.trim()}`)
     throw new GitError(stderr.trim() || `git ${args[0]} exited with ${code}`, stderr)

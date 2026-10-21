@@ -27,7 +27,11 @@ export async function statWorkspaceFile(root: string, path: string): Promise<Fil
 export async function readWorkspaceFileRevision(root: string, params: FileRevisionParams): Promise<FileRevisionContent> {
   await resolveInside(root, params.path)
   // `./` keeps the path relative to the workspace even when it is a repository subdirectory.
-  const spec = `${params.revision === 'HEAD' ? 'HEAD' : ''}:./${params.path}`
+  // A leading dash would read as a git option.
+  if (!/^[w./~^-]+$/.test(params.revision) || params.revision.startsWith('-')) {
+    throw new Error(`Invalid revision ${params.revision}`)
+  }
+  const spec = `${params.revision === 'index' ? '' : params.revision}:./${params.path}`
   const proc = Bun.spawn(['git', 'show', spec], {
     cwd: root,
     stdout: 'pipe',
