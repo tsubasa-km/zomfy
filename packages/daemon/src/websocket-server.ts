@@ -5,7 +5,7 @@ import {
 } from "@agentclientprotocol/sdk/experimental/server";
 import type { ServerWebSocket } from "bun";
 import { mkdir, writeFile, rm } from "node:fs/promises";
-import { homedir } from "node:os";
+import { HARNESS_HOME } from "./harness-home.ts";
 import { join } from "node:path";
 import { log } from "./log.ts";
 
@@ -16,9 +16,11 @@ const ALLOWED_ORIGINS = new Set([
   "http://localhost:1420", // Vite dev server
   "http://tauri.localhost", // Tauri on Windows
   "tauri://localhost", // Tauri on macOS/Linux
+  // Browser previews (scripts/preview.ts) serve the UI from their own port.
+  ...(process.env.ACP_HARNESS_ALLOWED_ORIGINS?.split(",").filter(Boolean) ?? []),
 ]);
 
-export const DAEMON_INFO_PATH = join(homedir(), ".acp-harness", "daemon.json");
+export const DAEMON_INFO_PATH = join(HARNESS_HOME, "daemon.json");
 
 type WebSocketServerSocket = Parameters<PreparedWebSocketUpgrade["accept"]>[0];
 
@@ -110,7 +112,7 @@ export async function serveWebSocket(
   });
 
   const url = `ws://127.0.0.1:${server.port}/acp`;
-  await mkdir(join(homedir(), ".acp-harness"), { recursive: true });
+  await mkdir(HARNESS_HOME, { recursive: true });
   await writeFile(
     DAEMON_INFO_PATH,
     JSON.stringify({ url, token, protocolPrefix: TOKEN_PROTOCOL_PREFIX, pid: process.pid }),

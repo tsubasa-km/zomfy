@@ -1,6 +1,6 @@
 import * as acp from "@agentclientprotocol/sdk";
 import { createWebSocketStream } from "@agentclientprotocol/sdk/experimental/ws-client";
-import { invoke } from "@tauri-apps/api/core";
+import { invoke, isTauri } from "@tauri-apps/api/core";
 import {
   HARNESS_METHODS,
   HARNESS_NOTIFICATIONS,
@@ -72,6 +72,12 @@ function describeError(error: unknown): string {
 
 /** How to reach each kind of host: the local daemon's file, or a daemon the app starts in WSL. */
 function daemonInfo(hostId: HostId): Promise<string> {
+  if (!isTauri()) {
+    // Browser preview (scripts/preview.ts): its own daemon, handed over at build time; no WSL.
+    const preview = import.meta.env.VITE_HARNESS_DAEMON as string | undefined;
+    if (hostId === LOCAL_HOST && preview) return Promise.resolve(preview);
+    return Promise.reject(new Error(`${hostId} needs the desktop app`));
+  }
   if (hostId === LOCAL_HOST) return invoke<string>("ensure_local_daemon");
   if (hostId.startsWith("wsl:")) return invoke<string>("start_wsl_daemon", { distro: hostId.slice(4) });
   return Promise.reject(new Error(`Unknown host kind: ${hostId}`));

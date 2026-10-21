@@ -15,11 +15,9 @@ import type {
 import { branchExists, currentBranch, git, isGitRepository, localBranches } from './git-cli.ts'
 import { branchPrefixFromUserName, firstFreeCandidate, sanitizeWorkspaceName } from './worktree-naming.ts'
 import { log } from './log.ts'
+import { HARNESS_HOME, WORKSPACE_ROOT } from './harness-home.ts'
 
-const HARNESS_HOME = join(homedir(), '.acp-harness')
 const STATE_PATH = join(HARNESS_HOME, 'state.json')
-/** Same shape as Orca's default `~/orca/workspaces/<repo>/<name>`. */
-const WORKSPACE_ROOT = join(homedir(), 'acp-harness', 'workspaces')
 const FLOATING_FALLBACK = join(HARNESS_HOME, 'floating-workspace')
 export const FLOATING_WORKSPACE_ID = 'floating'
 

@@ -1,11 +1,11 @@
 import { appendFile, mkdir, readFile, rm, writeFile } from 'node:fs/promises'
-import { homedir } from 'node:os'
 import { join } from 'node:path'
 import type * as acp from '@agentclientprotocol/sdk'
 import type { SessionInfo } from '@acp-harness/protocol'
 import { log } from './log.ts'
+import { HARNESS_HOME } from './harness-home.ts'
 
-const SESSIONS_DIR = join(homedir(), '.acp-harness', 'sessions')
+const SESSIONS_DIR = join(HARNESS_HOME, 'sessions')
 const INDEX_PATH = join(SESSIONS_DIR, 'index.json')
 
 export interface SessionRecord extends SessionInfo {

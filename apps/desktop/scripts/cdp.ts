@@ -19,7 +19,9 @@ interface CdpTarget {
 
 async function connect() {
   const targets: CdpTarget[] = await (await fetch(`http://127.0.0.1:${PORT}/json`)).json();
-  const page = targets.find((t) => t.type === "page");
+  // Headless Edge (scripts/preview.ts) also lists its own edge:// pages.
+  const pages = targets.filter((t) => t.type === "page");
+  const page = pages.find((t) => /^(https?|tauri):/.test(t.url)) ?? pages[0];
   if (!page) throw new Error(`No page target on port ${PORT}: ${JSON.stringify(targets)}`);
 
   const socket = new WebSocket(page.webSocketDebuggerUrl);

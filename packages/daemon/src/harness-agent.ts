@@ -1,6 +1,5 @@
 import * as acp from "@agentclientprotocol/sdk";
 import {
-  HARNESS_METHODS,
   HARNESS_NOTIFICATIONS,
   type HarnessMethod,
   type HarnessRequests,
@@ -8,10 +7,12 @@ import {
 import { runClaudeTurn } from "./claude-turn.ts";
 import type { SessionRegistry } from "./session-registry.ts";
 import type { TerminalManager } from "./terminal-manager.ts";
-import { listDirectory, readWorkspaceFile, writeWorkspaceFile } from "./workspace-files.ts";
-import { searchWorkspace } from "./workspace-search.ts";
-import { gitCommit, gitDiff, gitStage, gitStatus, gitUnstage } from "./git-changes.ts";
-import { readOrcaProjects } from "./orca-import.ts";
+import type { HandlerContext } from "./handlers/handler-context.ts";
+import { registerFileHandlers } from "./handlers/file-handlers.ts";
+import { registerGitHandlers } from "./handlers/git-handlers.ts";
+import { registerSessionHandlers } from "./handlers/session-handlers.ts";
+import { registerTerminalHandlers } from "./handlers/terminal-handlers.ts";
+import { registerWorkspaceHandlers } from "./handlers/workspace-handlers.ts";
 import type { WorkspaceManager } from "./workspace-manager.ts";
 import { log } from "./log.ts";
 
@@ -147,86 +148,29 @@ export function createHarnessAgent(
     });
   }
 
-  handle(HARNESS_METHODS.stateGet, () => workspaces.snapshot());
-  handle(HARNESS_METHODS.projectAdd, (p) => workspaces.addProject(p.path));
-  handle(HARNESS_METHODS.projectRemove, async (p) => {
-    const state = await workspaces.snapshot();
-    await workspaces.removeProject(p.projectId);
-    for (const w of state.workspaces.filter((w) => w.projectId === p.projectId)) {
-      await sessions.removeWorkspace(w.id);
-      terminals.closeWorkspace(w.id);
-    }
-    return {};
-  });
-  handle(HARNESS_METHODS.workspaceCreate, (p) => workspaces.createWorkspace(p));
-  handle(HARNESS_METHODS.workspaceRemove, async (p) => {
-    await workspaces.removeWorkspace(p);
-    await sessions.removeWorkspace(p.workspaceId);
-    terminals.closeWorkspace(p.workspaceId);
-    return {};
-  });
-  handle(HARNESS_METHODS.workspaceUpdate, (p) => workspaces.updateWorkspace(p.workspaceId, p.patch));
-  handle(HARNESS_METHODS.branchesList, (p) => workspaces.listBranches(p.projectId));
-  handle(HARNESS_METHODS.floatingCwdSet, (p) => workspaces.setFloatingCwd(p.path));
-  handle(HARNESS_METHODS.sessionsList, async () => sessions.list());
-  handle(HARNESS_METHODS.sessionCreate, async (p) => {
-    const cwd = workspaces.workspacePath(p.workspaceId);
-    if (!cwd) throw new Error(`Unknown workspace ${p.workspaceId}`);
-    const { claudeSessionId: _hidden, ...info } = sessions.create({ workspaceId: p.workspaceId, cwd });
-    return info;
-  });
-  handle(HARNESS_METHODS.sessionClose, async (p) => {
-    pendingTurns.get(p.sessionId)?.abort();
-    await sessions.remove(p.sessionId);
-    return {};
-  });
-
-  function workspaceRoot(workspaceId: string): string {
-    const root = workspaces.workspacePath(workspaceId);
-    if (!root) throw new Error(`Unknown workspace ${workspaceId}`);
-    return root;
+  const ctx: HandlerContext = {
+    handle,
+    workspaces,
+    sessions,
+    terminals,
+    pendingTurns,
+    broadcast,
+    workspaceRoot(workspaceId) {
+      const root = workspaces.workspacePath(workspaceId);
+      if (!root) throw new Error(`Unknown workspace ${workspaceId}`);
+      return root;
+    },
+  };
+  // One register function per area, so each area's handlers live (and change) in their own file.
+  for (const register of [
+    registerWorkspaceHandlers,
+    registerSessionHandlers,
+    registerTerminalHandlers,
+    registerFileHandlers,
+    registerGitHandlers,
+  ]) {
+    register(ctx);
   }
-
-  handle(HARNESS_METHODS.fsList, async (p) => listDirectory(workspaceRoot(p.workspaceId), p.dir));
-  handle(HARNESS_METHODS.fsRead, async (p) => readWorkspaceFile(workspaceRoot(p.workspaceId), p.path));
-  handle(HARNESS_METHODS.fsWrite, async (p) =>
-    writeWorkspaceFile(workspaceRoot(p.workspaceId), p.path, p.content, p.expectedMtimeMs),
-  );
-  handle(HARNESS_METHODS.search, async (p) => searchWorkspace(workspaceRoot(p.workspaceId), p));
-  handle(HARNESS_METHODS.gitStatus, async (p) => gitStatus(workspaceRoot(p.workspaceId)));
-  handle(HARNESS_METHODS.gitDiff, async (p) => gitDiff(workspaceRoot(p.workspaceId), p.path, p.staged));
-  handle(HARNESS_METHODS.gitStage, async (p) => {
-    await gitStage(workspaceRoot(p.workspaceId), p.paths);
-    return {};
-  });
-  handle(HARNESS_METHODS.gitUnstage, async (p) => {
-    await gitUnstage(workspaceRoot(p.workspaceId), p.paths);
-    return {};
-  });
-  handle(HARNESS_METHODS.gitCommit, async (p) => ({
-    commit: await gitCommit(workspaceRoot(p.workspaceId), p.message),
-  }));
-  handle(HARNESS_METHODS.orcaProjects, () => readOrcaProjects());
-  handle(HARNESS_METHODS.shellsList, async () => terminals.listShells());
-  handle(HARNESS_METHODS.terminalsList, async () => terminals.list());
-  handle(HARNESS_METHODS.terminalCreate, async (p) => {
-    const cwd = workspaces.workspacePath(p.workspaceId);
-    if (!cwd) throw new Error(`Unknown workspace ${p.workspaceId}`);
-    return terminals.create({ ...p, cwd });
-  });
-  handle(HARNESS_METHODS.terminalAttach, async (p) => ({ buffer: terminals.replay(p.terminalId) }));
-  handle(HARNESS_METHODS.terminalInput, async (p) => {
-    terminals.write(p.terminalId, p.data);
-    return {};
-  });
-  handle(HARNESS_METHODS.terminalResize, async (p) => {
-    terminals.resize(p.terminalId, p.cols, p.rows);
-    return {};
-  });
-  handle(HARNESS_METHODS.terminalClose, async (p) => {
-    terminals.close(p.terminalId);
-    return {};
-  });
 
   return app;
 }

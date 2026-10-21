@@ -11,7 +11,8 @@ export default defineConfig(() => ({
   resolve: { alias: { "@": fileURLToPath(new URL("./src", import.meta.url)) } },
   clearScreen: false,
   server: {
-    port: 1420,
+    // scripts/preview.ts runs extra copies side by side on their own ports.
+    port: Number(process.env.HARNESS_VITE_PORT ?? 1420),
     strictPort: true,
     host: host || false,
     hmr: host ? { protocol: "ws", host, port: 1421 } : undefined,
