@@ -9,7 +9,8 @@ import type {
   HostInfo,
   Project,
   RemoveWorkspaceParams,
-  Workspace
+  Workspace,
+  WorkspacePatch
 } from '@acp-harness/protocol'
 import { branchExists, currentBranch, git, isGitRepository, localBranches } from './git-cli.ts'
 import { branchPrefixFromUserName, firstFreeCandidate, sanitizeWorkspaceName } from './worktree-naming.ts'
@@ -160,6 +161,21 @@ export class WorkspaceManager {
     }
     this.state.workspaces = this.state.workspaces.filter((w) => w.id !== workspace.id)
     await this.save()
+  }
+
+  async updateWorkspace(workspaceId: string, patch: WorkspacePatch): Promise<Workspace> {
+    const workspace = this.state.workspaces.find((w) => w.id === workspaceId)
+    if (!workspace) throw new Error(`Unknown workspace ${workspaceId}`)
+    const allowed: (keyof WorkspacePatch)[] = ['displayName', 'comment', 'pinned', 'status', 'unread']
+    for (const key of allowed) {
+      if (!(key in patch)) continue
+      const value = patch[key]
+      // An empty string or null clears the field rather than storing it.
+      if (value === undefined || value === null || value === '') delete workspace[key]
+      else Object.assign(workspace, { [key]: typeof value === 'string' ? value.trim() : value })
+    }
+    await this.save()
+    return workspace
   }
 
   async setFloatingCwd(path: string): Promise<Workspace> {

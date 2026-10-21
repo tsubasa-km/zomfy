@@ -78,6 +78,12 @@ export interface EditorTab {
   dirty?: boolean
 }
 
+/** Orca's "Workspace options": group by and sort by. */
+export interface SidebarView {
+  groupBy: 'project' | 'status'
+  sortBy: 'created' | 'name' | 'recent'
+}
+
 export type RightSidebarTab = 'explorer' | 'search' | 'source-control'
 
 export interface StoreState {
@@ -90,6 +96,7 @@ export interface StoreState {
   floating: { open: boolean; maximized: boolean }
   editorTabs: EditorTab[]
   rightSidebar: { open: boolean; tab: RightSidebarTab }
+  sidebarView: SidebarView
   /** WSL distros to reconnect on startup. */
   rememberedHosts: HostId[]
   /** Sessions whose latest turn ended (or asked for approval) since the user last looked. */
@@ -111,7 +118,13 @@ export const LOCAL_HOST: HostId = 'local'
 const LAYOUT_KEY = 'acp-harness.layout.v1'
 type SavedLayout = Pick<
   StoreState,
-  'activeWorkspaceId' | 'activeSessionByWorkspace' | 'floating' | 'editorTabs' | 'rightSidebar' | 'rememberedHosts'
+  | 'activeWorkspaceId'
+  | 'activeSessionByWorkspace'
+  | 'floating'
+  | 'editorTabs'
+  | 'rightSidebar'
+  | 'rememberedHosts'
+  | 'sidebarView'
 >
 
 function readLayout(): Partial<SavedLayout> {
@@ -132,6 +145,7 @@ let state: StoreState = {
   floating: saved.floating ?? { open: false, maximized: false },
   editorTabs: saved.editorTabs ?? [],
   rightSidebar: saved.rightSidebar ?? { open: true, tab: 'explorer' },
+  sidebarView: saved.sidebarView ?? { groupBy: 'project', sortBy: 'created' },
   rememberedHosts: saved.rememberedHosts ?? [],
   unread: {},
   dashboardOpen: false
@@ -149,7 +163,8 @@ function set(next: StoreState): void {
       floating: next.floating,
       editorTabs: next.editorTabs,
       rightSidebar: next.rightSidebar,
-      rememberedHosts: next.rememberedHosts
+      rememberedHosts: next.rememberedHosts,
+      sidebarView: next.sidebarView
     }
     localStorage.setItem(LAYOUT_KEY, JSON.stringify(layout))
   } catch {
@@ -413,6 +428,10 @@ export function markSeen(sessionId: string): void {
 
 export function setDashboardOpen(open: boolean): void {
   set({ ...state, dashboardOpen: open })
+}
+
+export function setSidebarView(change: Partial<SidebarView>): void {
+  set({ ...state, sidebarView: { ...state.sidebarView, ...change } })
 }
 
 export function setFloating(change: Partial<StoreState['floating']>): void {

@@ -1,5 +1,6 @@
 mod daemon_process;
 mod local_daemon;
+mod open_in;
 mod wsl_daemon;
 
 /// Connection info for this computer's daemon, starting (or upgrading) it when needed. Blocking
@@ -27,12 +28,17 @@ async fn start_wsl_daemon(distro: String) -> Result<String, String> {
         .map_err(|e| e.to_string())?
 }
 
+#[tauri::command]
+fn open_workspace_in(target: String, host: String, path: String) -> Result<(), String> {
+    open_in::open_in(&target, &host, &path)
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_notification::init())
-        .invoke_handler(tauri::generate_handler![ensure_local_daemon, wsl_distros, start_wsl_daemon])
+        .invoke_handler(tauri::generate_handler![ensure_local_daemon, wsl_distros, start_wsl_daemon, open_workspace_in])
         .build(tauri::generate_context!())
         .expect("error while building tauri application")
         .run(|_app, event| {

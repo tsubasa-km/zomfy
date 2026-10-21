@@ -209,3 +209,88 @@ export function DeleteWorkspaceDialog({
     </Dialog>
   )
 }
+
+/** Orca's "Workspace details" (the Update item): display name and notes. */
+export function UpdateWorkspaceDialog({
+  workspace,
+  onClose
+}: {
+  workspace: Workspace | null
+  onClose: () => void
+}) {
+  const [displayName, setDisplayName] = useState('')
+  const [comment, setComment] = useState('')
+  const [error, setError] = useState<string | null>(null)
+
+  useEffect(() => {
+    setDisplayName(workspace?.displayName ?? workspace?.name ?? '')
+    setComment(workspace?.comment ?? '')
+    setError(null)
+  }, [workspace])
+
+  async function save() {
+    if (!workspace) return
+    try {
+      await harnessRequest(HARNESS_METHODS.workspaceUpdate, {
+        workspaceId: workspace.id,
+        patch: {
+          // Typing the original name back clears the override.
+          displayName: displayName.trim() === workspace.name ? '' : displayName,
+          comment
+        }
+      })
+      onClose()
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e))
+    }
+  }
+
+  return (
+    <Dialog open={workspace !== null} onOpenChange={(open) => !open && onClose()}>
+      <DialogContent className="sm:max-w-md">
+        <DialogHeader>
+          <DialogTitle>Workspace details</DialogTitle>
+          <DialogDescription className="break-all">{workspace?.path}</DialogDescription>
+        </DialogHeader>
+        <form
+          className="space-y-4"
+          onSubmit={(e) => {
+            e.preventDefault()
+            void save()
+          }}
+        >
+          <div className="space-y-1.5">
+            <Label htmlFor="workspace-display-name" className="text-xs font-medium text-muted-foreground">
+              Display name
+            </Label>
+            <Input
+              id="workspace-display-name"
+              autoFocus
+              value={displayName}
+              onChange={(e) => setDisplayName(e.target.value)}
+            />
+          </div>
+          <div className="space-y-1.5">
+            <Label htmlFor="workspace-comment" className="text-xs font-medium text-muted-foreground">
+              Notes
+            </Label>
+            <textarea
+              id="workspace-comment"
+              value={comment}
+              onChange={(e) => setComment(e.target.value)}
+              placeholder="What is this workspace for?"
+              className="min-h-20 w-full resize-y rounded-md border border-input bg-background px-2.5 py-1.5 text-sm shadow-xs outline-none focus-visible:border-ring focus-visible:ring-1 focus-visible:ring-ring dark:bg-input/30"
+            />
+          </div>
+          {error && <p className="text-sm text-destructive">{error}</p>}
+          <DialogFooter>
+            <Button type="button" variant="outline" onClick={onClose}>
+              Cancel
+            </Button>
+            <Button type="submit">Save</Button>
+          </DialogFooter>
+        </form>
+      </DialogContent>
+    </Dialog>
+  )
+}

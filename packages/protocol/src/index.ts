@@ -22,7 +22,26 @@ export interface Workspace {
   /** The project's own checkout (or folder), as opposed to a worktree the harness created. */
   isPrimary: boolean
   createdAt: number
+  /** Shown instead of `name` when set (Orca's "Update" dialog). */
+  displayName?: string
+  comment?: string
+  pinned?: boolean
+  status?: WorkspaceStatusId
+  /** Marked unread by hand; finished agent turns are tracked by the client. */
+  unread?: boolean
 }
+
+/** Orca's default workspace board statuses. */
+export const WORKSPACE_STATUSES = [
+  { id: 'todo', label: 'Todo' },
+  { id: 'in-progress', label: 'In progress' },
+  { id: 'in-review', label: 'In review' },
+  { id: 'completed', label: 'Done' }
+] as const
+
+export type WorkspaceStatusId = (typeof WORKSPACE_STATUSES)[number]['id']
+
+export type WorkspacePatch = Partial<Pick<Workspace, 'displayName' | 'comment' | 'pinned' | 'status' | 'unread'>>
 
 /** The machine (or WSL distro, SSH host) a daemon runs on. */
 export interface HostInfo {
@@ -187,7 +206,8 @@ export const HARNESS_METHODS = {
   gitCommit: '_harness/git/commit',
   orcaProjects: '_harness/import/orca',
   fsWrite: '_harness/fs/write',
-  search: '_harness/search'
+  search: '_harness/search',
+  workspaceUpdate: '_harness/workspaces/update'
 } as const
 
 export const HARNESS_NOTIFICATIONS = {
@@ -240,6 +260,7 @@ export interface HarnessRequests {
     result: { mtimeMs: number }
   }
   [HARNESS_METHODS.search]: { params: SearchParams; result: SearchResult }
+  [HARNESS_METHODS.workspaceUpdate]: { params: { workspaceId: string; patch: WorkspacePatch }; result: Workspace }
 }
 
 export type HarnessMethod = keyof HarnessRequests

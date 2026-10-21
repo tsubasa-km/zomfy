@@ -165,6 +165,7 @@ export function createHarnessAgent(
     terminals.closeWorkspace(p.workspaceId);
     return {};
   });
+  handle(HARNESS_METHODS.workspaceUpdate, (p) => workspaces.updateWorkspace(p.workspaceId, p.patch));
   handle(HARNESS_METHODS.branchesList, (p) => workspaces.listBranches(p.projectId));
   handle(HARNESS_METHODS.floatingCwdSet, (p) => workspaces.setFloatingCwd(p.path));
   handle(HARNESS_METHODS.sessionsList, async () => sessions.list());
