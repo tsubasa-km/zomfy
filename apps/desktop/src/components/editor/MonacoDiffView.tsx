@@ -37,8 +37,25 @@ export function MonacoDiffView({
   onSaveRef.current = onSave
   const onChangeRef = useRef(onModifiedChange)
   onChangeRef.current = onModifiedChange
+  // Monaco keys language off the URI's extension; the query keeps both sides distinct.
+  const [path, tag] = modelKey.split('#')
+  const originalModelPath = `file:///__harness-diff/${path}?side=original&key=${tag ?? ''}`
+  const modifiedModelPath = `file:///__harness-diff/${path}?side=modified&key=${tag ?? ''}`
   const subscriptions = useRef<monaco.IDisposable[]>([])
-  useEffect(() => () => subscriptions.current.forEach((s) => s.dispose()), [])
+  useEffect(
+    () => () => {
+      subscriptions.current.forEach((s) => s.dispose())
+      // @monaco-editor/react disposes the models before the widget lets go of them, which Monaco
+      // throws on; keep them (keepCurrent*Model) and drop them once the widget is gone, as Orca does.
+      window.setTimeout(() => {
+        for (const modelPath of [originalModelPath, modifiedModelPath]) {
+          const model = monaco.editor.getModel(monaco.Uri.parse(modelPath))
+          if (model && !model.isAttachedToEditor()) model.dispose()
+        }
+      })
+    },
+    [originalModelPath, modifiedModelPath]
+  )
 
   const handleMount: DiffOnMount = (diffEditor) => {
     const modifiedEditor = diffEditor.getModifiedEditor()
@@ -53,8 +70,6 @@ export function MonacoDiffView({
     onMount?.(diffEditor)
   }
 
-  // Monaco keys language off the URI's extension; the query keeps both sides distinct.
-  const [path, tag] = modelKey.split('#')
   return (
     <DiffEditor
       height="100%"
@@ -62,8 +77,10 @@ export function MonacoDiffView({
       modified={modified}
       theme={dark ? 'vs-dark' : 'vs'}
       onMount={handleMount}
-      originalModelPath={`file:///__harness-diff/${path}?side=original&key=${tag ?? ''}`}
-      modifiedModelPath={`file:///__harness-diff/${path}?side=modified&key=${tag ?? ''}`}
+      originalModelPath={originalModelPath}
+      modifiedModelPath={modifiedModelPath}
+      keepCurrentOriginalModel
+      keepCurrentModifiedModel
       options={{
         readOnly: !editable,
         originalEditable: false,
