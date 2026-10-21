@@ -2,7 +2,8 @@ import { useEffect } from 'react'
 import { connectLocalDaemon } from '@/daemon-connection'
 import { useStore } from '@/session-store'
 import { Sidebar } from '@/components/Sidebar'
-import { ThreadView } from '@/components/ThreadView'
+import { WorkspaceTabs } from '@/components/WorkspaceTabs'
+import { FloatingWorkspace } from '@/components/FloatingWorkspace'
 import { TooltipProvider } from '@/components/ui/tooltip'
 import { installSystemTheme } from '@/lib/theme'
 import '@/assets/main.css'
@@ -10,7 +11,7 @@ import '@/assets/main.css'
 installSystemTheme()
 
 export default function App() {
-  const activeSession = useStore((s) => s.sessions.find((x) => x.id === s.activeSessionId) ?? null)
+  const activeWorkspaceId = useStore((s) => s.activeWorkspaceId)
 
   useEffect(() => {
     void connectLocalDaemon()
@@ -21,15 +22,20 @@ export default function App() {
       <div className="flex h-full w-full overflow-hidden bg-background text-foreground">
         <Sidebar />
         <main className="flex min-w-0 flex-1">
-          {activeSession ? (
-            <ThreadView session={activeSession} />
+          {activeWorkspaceId ? (
+            <WorkspaceTabs
+              key={activeWorkspaceId}
+              workspaceId={activeWorkspaceId}
+              emptyHint="No tabs yet. Use + in the tab bar to start Claude in this workspace."
+            />
           ) : (
             <div className="m-auto text-sm text-muted-foreground">
-              Open a folder with + in the sidebar to start a session.
+              Select a workspace, or add a project with + in the sidebar.
             </div>
           )}
         </main>
       </div>
+      <FloatingWorkspace />
     </TooltipProvider>
   )
 }

@@ -11,6 +11,13 @@ packages/daemon   Bun ACP agent: Claude Agent SDK behind it  <──────
 The daemon is meant to run in each environment (Windows, WSL, SSH host) so agents work next to
 their files; the UI only connects.
 
+What works today, following Orca's look and flow:
+
+- Projects (git repos or plain folders) and workspaces. A new workspace is a git worktree at
+  `~/acp-harness/workspaces/<repo>/<name>` on branch `<git user>/<name>`.
+- Workspace tabs, each a Claude session, with Orca's sidebar statuses and "Waiting for you".
+- A floating workspace (Ctrl/Cmd+Alt+A) for work outside any project.
+
 ## Run
 
 ```bash
@@ -32,11 +39,11 @@ cd apps/desktop
 bun run tauri:debug                                   # app with WebView2 DevTools on 127.0.0.1:9223
 bun run cdp screenshot shot.png                       # capture the window
 bun run cdp logs 3000                                 # reload and print console output + exceptions
-NEW_SESSION=1 AUTO_ALLOW=1 scripts/smoke-ui.sh C:/dev/scratch "Reply with: pong"
+NEW_SESSION=1 AUTO_ALLOW=1 scripts/smoke-ui.sh "Reply with: pong"   # floating workspace
 ```
 
-In dev builds `window.__harness.createSession(path)` stands in for the native folder dialog,
-which DevTools cannot click.
+In dev builds `window.__harness` (`createSession`, `harnessRequest`, `state`) stands in for the
+native folder dialog, which DevTools cannot click.
 
 ## Other entry points
 

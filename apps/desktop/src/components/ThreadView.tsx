@@ -43,10 +43,6 @@ export function ThreadView({ session }: { session: Session }) {
 
   return (
     <div className="native-chat-appearance flex min-h-0 min-w-0 flex-1 flex-col bg-chat-canvas text-chat-foreground">
-      <header className="flex h-9 shrink-0 items-center gap-2 border-b border-border px-4">
-        <span className="truncate text-[13px] font-semibold">{session.title}</span>
-        <span className="truncate font-mono text-[11px] text-muted-foreground">{session.cwd}</span>
-      </header>
       <div className="relative min-h-0 flex-1">
         <div className="scrollbar-sleek relative h-full overflow-y-auto [overflow-anchor:none] [scrollbar-gutter:stable_both-edges]">
           <div className={TRANSCRIPT_OUTER_CLASS}>

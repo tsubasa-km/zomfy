@@ -2,10 +2,20 @@ import * as acp from "@agentclientprotocol/sdk";
 import { createWebSocketStream } from "@agentclientprotocol/sdk/experimental/ws-client";
 import { invoke } from "@tauri-apps/api/core";
 import {
+  HARNESS_METHODS,
+  HARNESS_NOTIFICATIONS,
+  type HarnessMethod,
+  type HarnessRequests,
+  type HarnessState,
+} from "@acp-harness/protocol";
+import {
   addSession,
   appendText,
+  findWorkspace,
   getState,
+  removeSession,
   setConnection,
+  setHarnessState,
   updateSession,
   upsertTool,
 } from "./session-store";
@@ -45,6 +55,11 @@ async function openConnection(): Promise<void> {
     .client({ name: "acp-harness-desktop" })
     .onRequest("session/request_permission", (ctx) => requestPermission(ctx.params))
     .onNotification("session/update", (ctx) => applyUpdate(ctx.params))
+    .onNotification(
+      HARNESS_NOTIFICATIONS.stateChanged,
+      (raw: unknown) => raw as HarnessState,
+      (ctx) => setHarnessState(ctx.params),
+    )
     .connect(stream);
   opened.closed.finally(() => {
     // A stale connection closing late must not tear down its replacement.
@@ -59,6 +74,7 @@ async function openConnection(): Promise<void> {
       clientCapabilities: {},
     });
     connection = opened;
+    setHarnessState(await opened.agent.request<HarnessState>(HARNESS_METHODS.stateGet, {}));
     setConnection({ kind: "connected", url: info.url });
   } catch (error) {
     opened.close();
@@ -74,7 +90,7 @@ async function requireConnection(): Promise<acp.ClientConnection> {
 
 // Dev-only hook so scripts/cdp.ts can drive what a native folder dialog would otherwise block.
 if (import.meta.env.DEV) {
-  Object.assign(window, { __harness: { createSession } });
+  Object.assign(window, { __harness: { createSession, harnessRequest, state: getState } });
 }
 
 // Vite HMR re-runs this module with `connection` reset; close the old socket instead of leaking it.
@@ -83,14 +99,38 @@ import.meta.hot?.dispose(() => {
   connection = null;
 });
 
-export async function createSession(cwd: string): Promise<void> {
+export async function harnessRequest<M extends HarnessMethod>(
+  method: M,
+  params: HarnessRequests[M]["params"],
+): Promise<HarnessRequests[M]["result"]> {
+  const conn = await requireConnection();
+  return conn.agent.request<HarnessRequests[M]["result"]>(method, params);
+}
+
+/** Opens a new Claude tab in a workspace and makes it the workspace's active tab. */
+export async function createSession(workspaceId: string): Promise<string> {
+  const workspace = findWorkspace(workspaceId);
+  if (!workspace) throw new Error(`Unknown workspace ${workspaceId}`);
   const conn = await requireConnection();
   const { sessionId } = await conn.agent.request(acp.methods.agent.session.new, {
-    cwd,
+    cwd: workspace.path,
     mcpServers: [],
   });
-  const title = cwd.split(/[\\/]/).filter(Boolean).at(-1) ?? cwd;
-  addSession({ id: sessionId, cwd, title, status: "idle", items: [], turnStartedAt: null });
+  addSession({
+    id: sessionId,
+    workspaceId,
+    cwd: workspace.path,
+    title: "Claude",
+    status: "idle",
+    items: [],
+    turnStartedAt: null,
+  });
+  return sessionId;
+}
+
+export function closeSession(sessionId: string): void {
+  cancelTurn(sessionId);
+  removeSession(sessionId);
 }
 
 export async function sendPrompt(sessionId: string, text: string): Promise<void> {
@@ -98,6 +138,8 @@ export async function sendPrompt(sessionId: string, text: string): Promise<void>
     ...s,
     status: "working",
     turnStartedAt: Date.now(),
+    // Orca renames a fresh agent tab after its first message.
+    title: s.items.length === 0 ? text.replace(/\s+/g, " ").slice(0, 40) : s.title,
     items: [...s.items, { kind: "user", text }],
   }));
   try {
