@@ -98,7 +98,7 @@ const LOCAL_ADDRESS = /^(?:localhost|127(?:\.\d{1,3}){3}|0\.0\.0\.0|\[[0-9a-f:]+
 const LOOKS_LIKE_URL = /^[^\s]+\.[a-z]{2,}(\/.*)?$/i
 const SEARCH_URL = 'https://www.google.com/search?q='
 
-function looksLikeSearchQuery(input: string): boolean {
+export function looksLikeSearchQuery(input: string): boolean {
   if (input.includes(' ')) return true
   if (LOOKS_LIKE_URL.test(input)) return false
   return !(input.includes('.') || input.includes(':'))

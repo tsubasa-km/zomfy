@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import { Globe, Plus, SquareTerminal } from 'lucide-react'
 import { createSession } from '@/daemon-connection'
 import { LOCAL_HOST, allWorkspaces, useStore } from '@/session-store'
@@ -11,6 +12,7 @@ import {
   DropdownMenuShortcut,
   DropdownMenuTrigger
 } from '@/components/ui/dropdown-menu'
+import { TabOmnibox } from './TabOmnibox'
 import { focusGroup } from './tab-group-commands'
 import { shortcutLabel } from './tab-shortcuts'
 import { newTerminalTab, openBrowserTab } from './workspace-tab-model'
@@ -58,11 +60,18 @@ function BrowserSection({ workspaceId }: { workspaceId: string }) {
 }
 
 export function NewTabMenu({ workspaceId, groupId }: { workspaceId: string; groupId: string }) {
+  const [open, setOpen] = useState(false)
+  const [query, setQuery] = useState('')
   return (
     <DropdownMenu
       modal={false}
-      // New tabs join the focused group, so the group whose "+" was used takes focus first.
-      onOpenChange={(open) => open && focusGroup(workspaceId, groupId)}
+      open={open}
+      onOpenChange={(next) => {
+        setOpen(next)
+        setQuery('')
+        // New tabs join the focused group, so the group whose "+" was used takes focus first.
+        if (next) focusGroup(workspaceId, groupId)
+      }}
     >
       <DropdownMenuTrigger asChild>
         <button
@@ -79,11 +88,18 @@ export function NewTabMenu({ workspaceId, groupId }: { workspaceId: string; grou
         sideOffset={6}
         className="w-72 max-w-[calc(100vw-1rem)] rounded-[11px] border-border/80 p-1 shadow-[0_16px_36px_rgba(0,0,0,0.24)]"
       >
-        <AgentSection workspaceId={workspaceId} />
-        <DropdownMenuSeparator />
-        <TerminalSection workspaceId={workspaceId} />
-        <DropdownMenuSeparator />
-        <BrowserSection workspaceId={workspaceId} />
+        <TabOmnibox workspaceId={workspaceId} query={query} onQueryChange={setQuery} onDone={() => setOpen(false)} />
+        {/* While the omnibox has a query its results replace the fixed items, as in Orca. */}
+        {query.trim() === '' && (
+          <>
+            <DropdownMenuSeparator />
+            <AgentSection workspaceId={workspaceId} />
+            <DropdownMenuSeparator />
+            <TerminalSection workspaceId={workspaceId} />
+            <DropdownMenuSeparator />
+            <BrowserSection workspaceId={workspaceId} />
+          </>
+        )}
       </DropdownMenuContent>
     </DropdownMenu>
   )
