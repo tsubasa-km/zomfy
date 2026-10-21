@@ -72,9 +72,13 @@ export interface EditorTab {
   path: string
   staged: boolean
   createdAt: number
+  /** Line to reveal when the editor opens (search results). */
+  line?: number
+  /** Unsaved edits; the tab shows a dot and closing asks first. */
+  dirty?: boolean
 }
 
-export type RightSidebarTab = 'explorer' | 'source-control'
+export type RightSidebarTab = 'explorer' | 'search' | 'source-control'
 
 export interface StoreState {
   hosts: Record<HostId, HostEntry>
@@ -365,12 +369,19 @@ export function openEditorTab(tab: Omit<EditorTab, 'id' | 'createdAt'>): void {
   const existing = state.editorTabs.find(
     (t) => t.workspaceId === tab.workspaceId && t.kind === tab.kind && t.path === tab.path && t.staged === tab.staged
   )
-  const target = existing ?? { ...tab, id: `${tab.kind}:${crypto.randomUUID()}`, createdAt: Date.now() }
+  const target = existing
+    ? { ...existing, ...(tab.line !== undefined ? { line: tab.line } : {}) }
+    : { ...tab, id: `${tab.kind}:${crypto.randomUUID()}`, createdAt: Date.now() }
   set({
     ...state,
-    editorTabs: existing ? state.editorTabs : [...state.editorTabs, target],
+    editorTabs: existing ? state.editorTabs.map((t) => (t.id === target.id ? target : t)) : [...state.editorTabs, target],
     activeSessionByWorkspace: { ...state.activeSessionByWorkspace, [tab.workspaceId]: target.id }
   })
+}
+
+export function setEditorDirty(id: string, dirty: boolean): void {
+  if (state.editorTabs.find((t) => t.id === id)?.dirty === dirty) return
+  set({ ...state, editorTabs: state.editorTabs.map((t) => (t.id === id ? { ...t, dirty } : t)) })
 }
 
 export function closeEditorTab(id: string): void {

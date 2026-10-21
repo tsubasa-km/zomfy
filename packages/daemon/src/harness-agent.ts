@@ -8,7 +8,8 @@ import {
 import { runClaudeTurn } from "./claude-turn.ts";
 import type { SessionRegistry } from "./session-registry.ts";
 import type { TerminalManager } from "./terminal-manager.ts";
-import { listDirectory, readWorkspaceFile } from "./workspace-files.ts";
+import { listDirectory, readWorkspaceFile, writeWorkspaceFile } from "./workspace-files.ts";
+import { searchWorkspace } from "./workspace-search.ts";
 import { gitCommit, gitDiff, gitStage, gitStatus, gitUnstage } from "./git-changes.ts";
 import { readOrcaProjects } from "./orca-import.ts";
 import type { WorkspaceManager } from "./workspace-manager.ts";
@@ -187,6 +188,10 @@ export function createHarnessAgent(
 
   handle(HARNESS_METHODS.fsList, async (p) => listDirectory(workspaceRoot(p.workspaceId), p.dir));
   handle(HARNESS_METHODS.fsRead, async (p) => readWorkspaceFile(workspaceRoot(p.workspaceId), p.path));
+  handle(HARNESS_METHODS.fsWrite, async (p) =>
+    writeWorkspaceFile(workspaceRoot(p.workspaceId), p.path, p.content, p.expectedMtimeMs),
+  );
+  handle(HARNESS_METHODS.search, async (p) => searchWorkspace(workspaceRoot(p.workspaceId), p));
   handle(HARNESS_METHODS.gitStatus, async (p) => gitStatus(workspaceRoot(p.workspaceId)));
   handle(HARNESS_METHODS.gitDiff, async (p) => gitDiff(workspaceRoot(p.workspaceId), p.path, p.staged));
   handle(HARNESS_METHODS.gitStage, async (p) => {

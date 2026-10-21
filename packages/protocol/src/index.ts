@@ -102,6 +102,28 @@ export interface FileContent {
   content: string
   binary: boolean
   truncated: boolean
+  /** For write conflict checks: saving fails if the file changed since this read. */
+  mtimeMs: number
+}
+
+export interface SearchMatch {
+  /** Workspace-relative, '/'-separated. */
+  path: string
+  line: number
+  column: number
+  text: string
+}
+
+export interface SearchParams {
+  workspaceId: string
+  query: string
+  regex?: boolean
+  caseSensitive?: boolean
+}
+
+export interface SearchResult {
+  matches: SearchMatch[]
+  truncated: boolean
 }
 
 export type GitFileStatus = 'modified' | 'added' | 'deleted' | 'renamed' | 'untracked' | 'conflicted'
@@ -163,7 +185,9 @@ export const HARNESS_METHODS = {
   gitStage: '_harness/git/stage',
   gitUnstage: '_harness/git/unstage',
   gitCommit: '_harness/git/commit',
-  orcaProjects: '_harness/import/orca'
+  orcaProjects: '_harness/import/orca',
+  fsWrite: '_harness/fs/write',
+  search: '_harness/search'
 } as const
 
 export const HARNESS_NOTIFICATIONS = {
@@ -211,6 +235,11 @@ export interface HarnessRequests {
   [HARNESS_METHODS.gitUnstage]: { params: { workspaceId: string; paths: string[] }; result: Record<string, never> }
   [HARNESS_METHODS.gitCommit]: { params: { workspaceId: string; message: string }; result: { commit: string } }
   [HARNESS_METHODS.orcaProjects]: { params: Record<string, never>; result: OrcaProject[] }
+  [HARNESS_METHODS.fsWrite]: {
+    params: { workspaceId: string; path: string; content: string; expectedMtimeMs?: number }
+    result: { mtimeMs: number }
+  }
+  [HARNESS_METHODS.search]: { params: SearchParams; result: SearchResult }
 }
 
 export type HarnessMethod = keyof HarnessRequests

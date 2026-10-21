@@ -5,6 +5,8 @@
 //   bun scripts/cdp.ts eval "<js expression>"
 //   bun scripts/cdp.ts click "<css selector>"
 //   bun scripts/cdp.ts type "<css selector>" "<text>"
+//   bun scripts/cdp.ts insert "<text>"           real keyboard text into the focused element (Monaco)
+//   bun scripts/cdp.ts key "Ctrl+S"              real key chord (Ctrl/Shift/Alt/Meta + key)
 import { writeFile } from "node:fs/promises";
 
 const PORT = Number(process.env.HARNESS_CDP_PORT ?? 9223);
@@ -103,6 +105,21 @@ try {
         el.dispatchEvent(new Event("input", { bubbles: true }));
       })()`);
       break;
+    case "insert":
+      await cdp.send("Input.insertText", { text: args[0] ?? "" });
+      break;
+    case "key": {
+      const parts = (args[0] ?? "").split("+");
+      const key = parts.pop()!;
+      const modifiers = parts.reduce((m, p) => m | ({ Alt: 1, Ctrl: 2, Meta: 4, Shift: 8 } as Record<string, number>)[p]!, 0);
+      const named: Record<string, number> = { Enter: 13, Escape: 27, Tab: 9, Backspace: 8, End: 35, Home: 36, ArrowLeft: 37, ArrowUp: 38, ArrowRight: 39, ArrowDown: 40, Delete: 46 };
+      const code = key.length === 1 ? `Key${key.toUpperCase()}` : key;
+      const keyCode = key.length === 1 ? key.toUpperCase().charCodeAt(0) : (named[key] ?? 0);
+      for (const type of ["keyDown", "keyUp"]) {
+        await cdp.send("Input.dispatchKeyEvent", { type, modifiers, key, code, windowsVirtualKeyCode: keyCode });
+      }
+      break;
+    }
     default:
       throw new Error(`unknown command ${command}`);
   }

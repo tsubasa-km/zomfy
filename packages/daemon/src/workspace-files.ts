@@ -1,4 +1,4 @@
-import { open, readdir, realpath, stat } from 'node:fs/promises'
+import { chmod, open, readdir, realpath, rename, stat, writeFile } from 'node:fs/promises'
 import { join, relative, resolve, sep } from 'node:path'
 import type { FileContent, FileEntry } from '@acp-harness/protocol'
 
@@ -52,11 +52,32 @@ export async function readWorkspaceFile(root: string, path: string): Promise<Fil
       path,
       content: binary ? '' : buffer.toString('utf8'),
       binary,
-      truncated: info.size > READ_LIMIT
+      truncated: info.size > READ_LIMIT,
+      mtimeMs: info.mtimeMs
     }
   } finally {
     await handle.close()
   }
+}
+
+/** Saves through a temp file and rename, refusing when the file changed after the editor read it. */
+export async function writeWorkspaceFile(
+  root: string,
+  path: string,
+  content: string,
+  expectedMtimeMs?: number
+): Promise<{ mtimeMs: number }> {
+  const absolute = await resolveInside(root, path)
+  const current = await stat(absolute).catch(() => null)
+  if (current && expectedMtimeMs !== undefined && Math.abs(current.mtimeMs - expectedMtimeMs) > 1) {
+    throw new Error(`${path} changed on disk since it was opened; reload it before saving`)
+  }
+  const temp = `${absolute}.acp-harness-${process.pid}.tmp`
+  await writeFile(temp, content)
+  // Keep the executable bit and other mode flags the original had.
+  if (current) await chmod(temp, current.mode & 0o7777).catch(() => undefined)
+  await rename(temp, absolute)
+  return { mtimeMs: (await stat(absolute)).mtimeMs }
 }
 
 function toPosix(path: string): string {

@@ -1,10 +1,11 @@
 import { useEffect } from 'react'
-import { Files, GitCompare, PanelRightClose } from 'lucide-react'
+import { Files, GitCompare, PanelRightClose, Search } from 'lucide-react'
 import { allWorkspaces, getState, setRightSidebar, useStore, type RightSidebarTab } from '@/session-store'
 import { useGitStatus } from '@/hooks/use-git-status'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { FileExplorer } from './FileExplorer'
 import { SourceControl } from './SourceControl'
+import { SearchPanel } from './SearchPanel'
 import { cn } from '@/lib/utils'
 
 // Frame and top activity bar follow Orca's right sidebar (right-sidebar/index.tsx,
@@ -23,7 +24,8 @@ export function RightSidebar({ workspaceId }: { workspaceId: string }) {
     function onKey(e: KeyboardEvent) {
       const mod = isMac ? e.metaKey : e.ctrlKey
       if (!mod || !e.shiftKey) return
-      const target: RightSidebarTab | null = e.code === 'KeyE' ? 'explorer' : e.code === 'KeyG' ? 'source-control' : null
+      const target: RightSidebarTab | null =
+        e.code === 'KeyE' ? 'explorer' : e.code === 'KeyF' ? 'search' : e.code === 'KeyG' ? 'source-control' : null
       if (!target) return
       e.preventDefault()
       const current = getState().rightSidebar
@@ -37,6 +39,7 @@ export function RightSidebar({ workspaceId }: { workspaceId: string }) {
     return (
       <div className="flex w-10 shrink-0 flex-col items-center border-l border-sidebar-border bg-sidebar pt-1">
         <ActivityButton icon={Files} label={`Explorer (${MOD}Shift+E)`} onClick={() => setRightSidebar({ open: true, tab: 'explorer' })} />
+        <ActivityButton icon={Search} label={`Search (${MOD}Shift+F)`} onClick={() => setRightSidebar({ open: true, tab: 'search' })} />
         <ActivityButton
           icon={GitCompare}
           label={`Source Control (${MOD}Shift+G)`}
@@ -62,6 +65,13 @@ export function RightSidebar({ workspaceId }: { workspaceId: string }) {
         />
         <ActivityButton
           top
+          icon={Search}
+          label={`Search (${MOD}Shift+F)`}
+          active={tab === 'search'}
+          onClick={() => setRightSidebar({ tab: 'search' })}
+        />
+        <ActivityButton
+          top
           icon={GitCompare}
           label={`Source Control (${MOD}Shift+G)`}
           active={tab === 'source-control'}
@@ -73,6 +83,8 @@ export function RightSidebar({ workspaceId }: { workspaceId: string }) {
       </div>
       {tab === 'explorer' ? (
         <FileExplorer key={workspaceId} workspaceId={workspaceId} rootName={workspaceName} />
+      ) : tab === 'search' ? (
+        <SearchPanel key={workspaceId} workspaceId={workspaceId} />
       ) : (
         <SourceControl key={workspaceId} workspaceId={workspaceId} />
       )}

@@ -31,7 +31,8 @@ import {
 } from '@/components/ui/dropdown-menu'
 import { ThreadView } from '@/components/ThreadView'
 import { TerminalView } from '@/components/TerminalView'
-import { DiffTabView, FilePreviewView } from '@/components/EditorTabViews'
+import { DiffTabView } from '@/components/EditorTabViews'
+import { FileEditorView } from '@/components/FileEditorView'
 import { cn } from '@/lib/utils'
 
 // Tab strip classes follow Orca's tab-bar (tab-bar-surface.tsx, SortableTab.tsx, tab-width-rules.ts,
@@ -95,7 +96,7 @@ export function WorkspaceTabs({
       {active?.kind === 'terminal' && <TerminalView key={active.terminal.id} terminal={active.terminal} />}
       {active?.kind === 'editor' &&
         (active.editor.kind === 'file' ? (
-          <FilePreviewView key={active.editor.id} tab={active.editor} />
+          <FileEditorView key={active.editor.id} tab={active.editor} />
         ) : (
           <DiffTabView key={active.editor.id} tab={active.editor} />
         ))}
@@ -156,7 +157,8 @@ function TabItem({ tab, active }: { tab: Tab; active: boolean }) {
       ? closeSession(tab.session.id)
       : tab.kind === 'terminal'
         ? closeTerminal(tab.terminal.id)
-        : closeEditorTab(tab.editor.id)
+        : (!tab.editor.dirty || window.confirm(`Discard unsaved changes to ${tab.editor.path}?`)) &&
+          closeEditorTab(tab.editor.id)
   const select = () =>
     tab.kind === 'chat'
       ? selectSession(tab.session.id)
@@ -194,6 +196,9 @@ function TabItem({ tab, active }: { tab: Tab; active: boolean }) {
         )}
       </span>
       <span className="min-w-0 flex-1 truncate">{title}</span>
+      {tab.kind === 'editor' && tab.editor.dirty && (
+        <span aria-label="Unsaved changes" className="size-2 shrink-0 rounded-full bg-foreground/60" />
+      )}
       <button
         type="button"
         aria-label={`Close ${title}`}
