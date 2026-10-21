@@ -163,17 +163,12 @@ function HostSection({
           )}
         </div>
       )}
-      {kind === 'connecting' && host.id !== LOCAL_HOST && (
-        <p className="px-3 py-1 text-xs text-muted-foreground">Starting the daemon in {host.label}…</p>
+      {kind === 'connecting' && !host.harness && (
+        <p className="px-3 py-1 text-xs text-muted-foreground">Starting the daemon on {host.label}…</p>
       )}
       {kind === 'offline' && host.connection.kind === 'offline' && (
         <div className="mx-2 mt-1 mb-2 space-y-2 rounded-lg border border-border bg-card p-3 text-xs">
           <p className="break-words text-foreground">{host.connection.reason}</p>
-          {host.id === LOCAL_HOST && (
-            <p className="text-muted-foreground">
-              Run <code className="font-mono">bun run daemon</code>, then retry.
-            </p>
-          )}
           <Button size="sm" variant="outline" onClick={() => void connectHost(host.id)}>
             <RotateCw className="size-3.5" />
             Retry

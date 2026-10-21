@@ -72,7 +72,7 @@ function describeError(error: unknown): string {
 
 /** How to reach each kind of host: the local daemon's file, or a daemon the app starts in WSL. */
 function daemonInfo(hostId: HostId): Promise<string> {
-  if (hostId === LOCAL_HOST) return invoke<string>("local_daemon_info");
+  if (hostId === LOCAL_HOST) return invoke<string>("ensure_local_daemon");
   if (hostId.startsWith("wsl:")) return invoke<string>("start_wsl_daemon", { distro: hostId.slice(4) });
   return Promise.reject(new Error(`Unknown host kind: ${hostId}`));
 }
@@ -107,7 +107,7 @@ async function openConnection(hostId: HostId): Promise<void> {
   try {
     info = JSON.parse(await daemonInfo(hostId));
   } catch (error) {
-    const reason = hostId === LOCAL_HOST ? `Daemon not running (${describeError(error)})` : describeError(error);
+    const reason = describeError(error);
     upsertHost(hostId, { connection: { kind: "offline", reason } });
     scheduleReconnect(hostId);
     return;

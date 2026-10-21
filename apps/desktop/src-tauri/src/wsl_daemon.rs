@@ -1,28 +1,22 @@
-//! Starts the harness daemon inside a WSL distro, the way Zed runs its remote server there: a
-//! prebuilt Linux binary is copied into the distro and launched through `wsl.exe`, hidden, and the
-//! desktop then connects to it over WSL's localhost forwarding.
+//! Keeps the harness daemon running inside a WSL distro, the way Zed runs its remote server there: a
+//! prebuilt Linux binary is copied into the distro and started through `wsl.exe`. That wsl.exe is
+//! launched detached from the app, so it outlives the app and also keeps the distro awake (Orca's
+//! "distro holder"); the desktop connects over WSL's localhost forwarding.
 
-use std::io::{BufRead, BufReader};
-use std::path::PathBuf;
-use std::process::{Child, Command, Stdio};
-use std::sync::mpsc;
+use std::process::Command;
+use std::sync::Mutex;
 use std::time::Duration;
 
-#[cfg(windows)]
-use std::os::windows::process::CommandExt;
-
-/// CREATE_NO_WINDOW: without it every wsl.exe call flashes a console window.
-#[cfg(windows)]
-const CREATE_NO_WINDOW: u32 = 0x0800_0000;
+use crate::daemon_process::{built_binary, hidden, port_of, reachable, spawn_detached, stamp, wait_for};
 
 const WSL_DAEMON_PORT: u16 = 7811;
 const INSTALLED_BINARY: &str = "$HOME/.acp-harness/bin/acp-harness-daemon";
 
+/// Two windows (or a retry) asking at once must not start two daemons.
+static STARTING: Mutex<()> = Mutex::new(());
+
 fn wsl() -> Command {
-    let mut command = Command::new("wsl.exe");
-    #[cfg(windows)]
-    command.creation_flags(CREATE_NO_WINDOW);
-    command
+    hidden("wsl.exe")
 }
 
 fn run(command: &mut Command) -> Result<String, String> {
@@ -48,71 +42,45 @@ pub fn list_distros() -> Result<Vec<String>, String> {
         .collect())
 }
 
-fn local_binary() -> Result<PathBuf, String> {
-    // Dev builds use the daemon package's compile output; packaged builds will bundle it.
-    let path = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-        .join("../../../packages/daemon/dist/acp-harness-daemon-linux-x64");
-    path.canonicalize()
-        .map_err(|_| format!("Linux daemon not built: run `bun run build:linux` in packages/daemon ({})", path.display()))
-}
-
-/// Copies the binary into the distro when it differs from the installed one.
-fn install(distro: &str) -> Result<(), String> {
-    let windows_path = local_binary()?;
-    let windows_path = windows_path.to_string_lossy().trim_start_matches(r"\\?\").to_string();
-    let linux_path = run(wsl().args(["-d", distro, "--exec", "wslpath", "-u", &windows_path]))?;
-    // Size + mtime stamp: comparing the 90 MB binary itself over WSL's file bridge takes seconds.
-    let meta = std::fs::metadata(&windows_path).map_err(|e| e.to_string())?;
-    let modified = meta
-        .modified()
-        .ok()
-        .and_then(|t| t.duration_since(std::time::UNIX_EPOCH).ok())
-        .map_or(0, |d| d.as_secs());
-    let stamp = format!("{}-{modified}", meta.len());
+/// Copies the binary into the distro when its stamp changed, stopping the old daemon; returns
+/// whether it upgraded.
+fn install(distro: &str) -> Result<bool, String> {
+    let source = built_binary("acp-harness-daemon-linux-x64")?;
+    let build = stamp(&source)?;
+    let linux_path = run(wsl().args(["-d", distro, "--exec", "wslpath", "-u", &source.to_string_lossy()]))?;
     // The source path and stamp are passed as $1/$2, never spliced into the script.
     let script = format!(
         "set -e; target=\"{INSTALLED_BINARY}\"; mkdir -p \"$(dirname \"$target\")\"; \
          if [ \"$(cat \"$target.stamp\" 2>/dev/null)\" != \"$2\" ] || [ ! -x \"$target\" ]; then \
          cp \"$1\" \"$target.new\"; chmod +x \"$target.new\"; pkill -f \"$target --port\" || true; \
-         mv -f \"$target.new\" \"$target\"; echo \"$2\" > \"$target.stamp\"; fi"
+         mv -f \"$target.new\" \"$target\"; echo \"$2\" > \"$target.stamp\"; echo upgraded; fi"
     );
-    run(wsl().args(["-d", distro, "--exec", "sh", "-c", &script, "sh", &linux_path, &stamp]))?;
-    Ok(())
+    let out = run(wsl().args(["-d", distro, "--exec", "sh", "-c", &script, "sh", &linux_path, &build]))?;
+    Ok(out.contains("upgraded"))
+}
+
+fn read_info(distro: &str) -> Option<String> {
+    run(wsl().args(["-d", distro, "--exec", "sh", "-c", "cat \"$HOME/.acp-harness/daemon.json\""]))
+        .ok()
+        .filter(|s| s.starts_with('{'))
 }
 
 /// Ensures a daemon runs in `distro` and returns its connection JSON ({url, token, protocolPrefix}).
-pub fn start(distro: &str, children: &std::sync::Mutex<Vec<Child>>) -> Result<String, String> {
-    install(distro)?;
-    // A login shell gives the daemon the user's PATH (claude in ~/.local/bin, etc.).
-    let script = format!("exec \"{INSTALLED_BINARY}\" --port={WSL_DAEMON_PORT} --print-connection");
-    let mut child = wsl()
-        .args(["-d", distro, "--exec", "bash", "-lc", &script])
-        .stdin(Stdio::null())
-        .stdout(Stdio::piped())
-        .stderr(Stdio::null())
-        .spawn()
-        .map_err(|e| format!("wsl.exe: {e}"))?;
-
-    let stdout = child.stdout.take().ok_or("no stdout")?;
-    let (tx, rx) = mpsc::channel();
-    std::thread::spawn(move || {
-        for line in BufReader::new(stdout).lines().map_while(Result::ok) {
-            if line.starts_with('{') {
-                let _ = tx.send(line);
-                break;
+pub fn ensure(distro: &str) -> Result<String, String> {
+    let _starting = STARTING.lock().map_err(|e| e.to_string())?;
+    let upgraded = install(distro)?;
+    if !upgraded {
+        if let Some(info) = read_info(distro) {
+            if port_of(&info).is_some_and(reachable) {
+                return Ok(info);
             }
         }
-    });
-
-    match rx.recv_timeout(Duration::from_secs(20)) {
-        Ok(line) => {
-            children.lock().map_err(|e| e.to_string())?.push(child);
-            Ok(line)
-        }
-        Err(_) => {
-            // Usually a daemon is already listening there, so this one exited; reuse its record.
-            let _ = child.kill();
-            run(wsl().args(["-d", distro, "--exec", "sh", "-c", "cat \"$HOME/.acp-harness/daemon.json\""]))
-        }
     }
+    let _ = run(wsl().args(["-d", distro, "--exec", "sh", "-c", "rm -f \"$HOME/.acp-harness/daemon.json\""]));
+    // A login shell gives the daemon the user's PATH (claude in ~/.local/bin, etc.).
+    let script = format!("exec \"{INSTALLED_BINARY}\" --port={WSL_DAEMON_PORT}");
+    let mut command = Command::new("wsl.exe");
+    command.args(["-d", distro, "--exec", "bash", "-lc", &script]);
+    spawn_detached(command)?;
+    wait_for(Duration::from_secs(30), || read_info(distro))
 }

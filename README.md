@@ -22,12 +22,22 @@ What works today, following Orca's look and flow:
 
 ```bash
 bun install
-bun run daemon                       # terminal 1: starts the daemon on 127.0.0.1:7801
-cd apps/desktop && bun run tauri dev # terminal 2: opens the desktop app
+cd apps/desktop && bun run tauri dev   # builds the daemon binaries, then opens the app
 ```
 
-The daemon writes its URL and a random token to `~/.acp-harness/daemon.json`; the app reads it.
-Connections without that token, or from an origin other than the app, are refused.
+The app starts the daemons itself, detached, so they outlive it (terminals and agent turns keep
+running across app restarts, as in Orca):
+
+- This computer: `packages/daemon/dist` is copied to `%LOCALAPPDATA%\acp-harness\bin` and run from
+  there on 127.0.0.1:7801. A daemon that answers with the same build is reused; a different build
+  is replaced.
+- WSL: the Linux binary is copied to `~/.acp-harness/bin` in the distro and started through a
+  detached `wsl.exe` on 127.0.0.1:7811, which also keeps the distro awake.
+
+`bun run build` in `packages/daemon` only rewrites a binary whose bytes changed, so an unchanged
+rebuild never restarts a daemon. Each daemon writes its URL and a random token to
+`~/.acp-harness/daemon.json`; connections without that token, or from another origin, are refused.
+`bun run daemon` still runs one from source by hand.
 
 Claude runs from the `claude` CLI on PATH (override with `HARNESS_CLAUDE_PATH`), so it uses that
 CLI's login and settings.
