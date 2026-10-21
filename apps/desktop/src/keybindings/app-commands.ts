@@ -35,6 +35,7 @@ const APP_COMMAND_HANDLERS: Record<string, CommandHandler> = {
   'sidebar.explorer.toggle': () => toggleRightSidebarTab('explorer'),
   'sidebar.search.toggle': () => toggleRightSidebarTab('search'),
   'sidebar.sourceControl.toggle': () => toggleRightSidebarTab('source-control'),
+  'sidebar.ports.toggle': () => toggleRightSidebarTab('ports'),
   'statusBar.toggle': () => setSetting('statusBarVisible', !getSetting('statusBarVisible')),
   'zoom.in': () => stepZoom('in'),
   'zoom.out': () => stepZoom('out'),

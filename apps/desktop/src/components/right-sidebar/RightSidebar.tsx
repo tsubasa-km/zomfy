@@ -1,6 +1,6 @@
-import { useEffect } from 'react'
 import { Files, GitCompare, PanelRightClose, Plug, Search } from 'lucide-react'
-import { allWorkspaces, getState, setRightSidebar, useStore, type RightSidebarTab } from '@/session-store'
+import { allWorkspaces, setRightSidebar, useStore } from '@/session-store'
+import { useShortcutLabel } from '@/keybindings/keybinding-registry'
 import { useGitStatus } from '@/hooks/use-git-status'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { FileExplorer } from './FileExplorer'
@@ -12,10 +12,10 @@ import { cn } from '@/lib/utils'
 // Frame and top activity bar follow Orca's right sidebar (right-sidebar/index.tsx,
 // right-sidebar-top-activity-bar.tsx, activity-bar-buttons.tsx).
 
-const isMac = navigator.userAgent.includes('Mac')
-const MOD = isMac ? '⌘' : 'Ctrl+'
-// Orca binds Show Ports only on macOS.
-const PORTS_LABEL = isMac ? 'Ports (⌘Shift+I)' : 'Ports'
+// Shortcuts (sidebar.explorer.toggle etc.) live in the keybinding registry.
+function withShortcut(label: string, shortcut: string | null): string {
+  return shortcut ? `${label} (${shortcut})` : label
+}
 
 export function RightSidebar({ workspaceId }: { workspaceId: string }) {
   const { open, tab } = useStore((s) => s.rightSidebar)
@@ -23,41 +23,23 @@ export function RightSidebar({ workspaceId }: { workspaceId: string }) {
   const { status } = useGitStatus(open ? null : workspaceId)
   const changeCount = (status?.staged.length ?? 0) + (status?.unstaged.length ?? 0)
 
-  useEffect(() => {
-    function onKey(e: KeyboardEvent) {
-      const mod = isMac ? e.metaKey : e.ctrlKey
-      if (!mod || !e.shiftKey) return
-      const target: RightSidebarTab | null =
-        e.code === 'KeyE'
-          ? 'explorer'
-          : e.code === 'KeyF'
-            ? 'search'
-            : e.code === 'KeyG'
-              ? 'source-control'
-              : e.code === 'KeyI' && isMac
-                ? 'ports'
-                : null
-      if (!target) return
-      e.preventDefault()
-      const current = getState().rightSidebar
-      setRightSidebar(current.open && current.tab === target ? { open: false } : { open: true, tab: target })
-    }
-    window.addEventListener('keydown', onKey)
-    return () => window.removeEventListener('keydown', onKey)
-  }, [])
+  const explorerLabel = withShortcut('Explorer', useShortcutLabel('sidebar.explorer.toggle'))
+  const searchLabel = withShortcut('Search', useShortcutLabel('sidebar.search.toggle'))
+  const sourceControlLabel = withShortcut('Source Control', useShortcutLabel('sidebar.sourceControl.toggle'))
+  const portsLabel = withShortcut('Ports', useShortcutLabel('sidebar.ports.toggle'))
 
   if (!open) {
     return (
       <div className="flex w-10 shrink-0 flex-col items-center border-l border-sidebar-border bg-sidebar pt-1">
-        <ActivityButton icon={Files} label={`Explorer (${MOD}Shift+E)`} onClick={() => setRightSidebar({ open: true, tab: 'explorer' })} />
-        <ActivityButton icon={Search} label={`Search (${MOD}Shift+F)`} onClick={() => setRightSidebar({ open: true, tab: 'search' })} />
+        <ActivityButton icon={Files} label={explorerLabel} onClick={() => setRightSidebar({ open: true, tab: 'explorer' })} />
+        <ActivityButton icon={Search} label={searchLabel} onClick={() => setRightSidebar({ open: true, tab: 'search' })} />
         <ActivityButton
           icon={GitCompare}
-          label={`Source Control (${MOD}Shift+G)`}
+          label={sourceControlLabel}
           badge={changeCount > 0}
           onClick={() => setRightSidebar({ open: true, tab: 'source-control' })}
         />
-        <ActivityButton icon={Plug} label={PORTS_LABEL} onClick={() => setRightSidebar({ open: true, tab: 'ports' })} />
+        <ActivityButton icon={Plug} label={portsLabel} onClick={() => setRightSidebar({ open: true, tab: 'ports' })} />
       </div>
     )
   }
@@ -71,25 +53,25 @@ export function RightSidebar({ workspaceId }: { workspaceId: string }) {
         <ActivityButton
           top
           icon={Files}
-          label={`Explorer (${MOD}Shift+E)`}
+          label={explorerLabel}
           active={tab === 'explorer'}
           onClick={() => setRightSidebar({ tab: 'explorer' })}
         />
         <ActivityButton
           top
           icon={Search}
-          label={`Search (${MOD}Shift+F)`}
+          label={searchLabel}
           active={tab === 'search'}
           onClick={() => setRightSidebar({ tab: 'search' })}
         />
         <ActivityButton
           top
           icon={GitCompare}
-          label={`Source Control (${MOD}Shift+G)`}
+          label={sourceControlLabel}
           active={tab === 'source-control'}
           onClick={() => setRightSidebar({ tab: 'source-control' })}
         />
-        <ActivityButton top icon={Plug} label={PORTS_LABEL} active={tab === 'ports'} onClick={() => setRightSidebar({ tab: 'ports' })} />
+        <ActivityButton top icon={Plug} label={portsLabel} active={tab === 'ports'} onClick={() => setRightSidebar({ tab: 'ports' })} />
         <div className="ml-auto pr-1">
           <ActivityButton top icon={PanelRightClose} label="Close sidebar" onClick={() => setRightSidebar({ open: false })} />
         </div>

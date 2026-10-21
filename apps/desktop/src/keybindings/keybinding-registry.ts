@@ -47,9 +47,11 @@ export function hasCommandHandler(id: string): boolean {
 
 /** Runs a command as if its shortcut were pressed; false when nothing handles it. */
 export function runCommand(id: string, index = 0): boolean {
-  const handler = handlers.get(id)?.at(-1)
-  if (!handler) return false
-  return handler({ index }) !== false
+  // Newest first; a handler returning false (not its surface) hands over to the next.
+  for (const handler of [...(handlers.get(id) ?? [])].reverse()) {
+    if (handler({ index }) !== false) return true
+  }
+  return false
 }
 
 subscribeKeybindingDefinitions(notifyHandlers)

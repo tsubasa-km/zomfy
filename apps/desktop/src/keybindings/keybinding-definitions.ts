@@ -92,6 +92,14 @@ const APP_DEFINITIONS: KeybindingDefinition[] = [
     defaultBindings: ['Mod+Shift+G'],
     allowInTerminal: true
   },
+  {
+    id: 'sidebar.ports.toggle',
+    title: 'Show Ports',
+    group: 'Global',
+    keywords: ['ports', 'servers', 'forward'],
+    defaultBindings: { mac: ['Mod+Shift+I'], other: [] },
+    allowInTerminal: true
+  },
   { id: 'statusBar.toggle', title: 'Toggle Status Bar', group: 'Global', keywords: ['status bar', 'footer'], defaultBindings: [] },
   { id: 'zoom.in', title: 'Zoom In', group: 'Global', keywords: ['zoom', 'bigger', 'scale'], defaultBindings: ['Mod+Equal', 'Mod+Shift+Plus', 'Mod+NumpadAdd'] },
   { id: 'zoom.out', title: 'Zoom Out', group: 'Global', keywords: ['zoom', 'smaller', 'scale'], defaultBindings: ['Mod+Minus', 'Mod+NumpadSubtract'] },
@@ -99,6 +107,51 @@ const APP_DEFINITIONS: KeybindingDefinition[] = [
   { id: 'theme.system', title: 'Theme: Use System Setting', group: 'Appearance', keywords: ['theme', 'auto'], defaultBindings: [] },
   { id: 'theme.dark', title: 'Theme: Dark', group: 'Appearance', keywords: ['theme', 'dark mode'], defaultBindings: [] },
   { id: 'theme.light', title: 'Theme: Light', group: 'Appearance', keywords: ['theme', 'light mode'], defaultBindings: [] },
+  // Tab commands run in tab-layout/use-tab-keyboard.tsx, which matches these chords itself.
+  { id: 'tab.close', title: 'Close active tab', group: 'Tabs', keywords: ['tab', 'close'], defaultBindings: ['Mod+W'] },
+  { id: 'tab.reopenClosed', title: 'Reopen closed tab', group: 'Tabs', keywords: ['tab', 'reopen', 'restore'], defaultBindings: ['Mod+Shift+T'] },
+  { id: 'tab.newBrowser', title: 'New browser tab', group: 'Tabs', keywords: ['tab', 'browser', 'web'], defaultBindings: ['Mod+Shift+B'] },
+  {
+    id: 'tab.rename',
+    title: 'Rename active tab',
+    group: 'Tabs',
+    keywords: ['tab', 'rename', 'title'],
+    // Ctrl+R is the shell's reverse search outside macOS, so Orca leaves it unbound there.
+    defaultBindings: { mac: ['Mod+R'], other: [] }
+  },
+  {
+    id: 'tab.nextAllTypes',
+    title: 'Next tab (all types)',
+    group: 'Tab Navigation',
+    keywords: ['tab', 'next'],
+    defaultBindings: ['Mod+Shift+BracketRight']
+  },
+  {
+    id: 'tab.previousAllTypes',
+    title: 'Previous tab (all types)',
+    group: 'Tab Navigation',
+    keywords: ['tab', 'previous'],
+    defaultBindings: ['Mod+Shift+BracketLeft']
+  },
+  {
+    id: 'tab.recentSwitcher',
+    title: 'Previous recent tab',
+    group: 'Tab Navigation',
+    keywords: ['tab', 'recent', 'mru', 'switch', 'last used'],
+    // Shift reverses the switcher, so Shift is ignored when matching this chord.
+    defaultBindings: ['Ctrl+Tab'],
+    hideInPalette: true
+  },
+  {
+    id: 'tab.selectByIndex',
+    title: 'Select Tab 1–9',
+    group: 'Tab Navigation',
+    keywords: ['tab', 'number', 'digit', 'index'],
+    // Mod+1–9 jumps between workspaces, so tabs take Ctrl (macOS) or Alt, as in Orca.
+    defaultBindings: { mac: ['Ctrl+1'], other: ['Alt+1'] },
+    digitIndex: true,
+    hideInPalette: true
+  },
   {
     id: 'settings.search',
     title: 'Search Settings',
