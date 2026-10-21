@@ -12,6 +12,7 @@ export * from './files'
 export * from './git'
 export * from './sessions'
 export * from './terminals'
+export * from './tui-agents'
 export * from './workspaces'
 
 export const HARNESS_METHODS = {

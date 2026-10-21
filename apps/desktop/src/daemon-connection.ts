@@ -4,6 +4,7 @@ import { invoke, isTauri } from "@tauri-apps/api/core";
 import {
   HARNESS_METHODS,
   HARNESS_NOTIFICATIONS,
+  type CreateTerminalParams,
   type HarnessMethod,
   type HarnessRequests,
   type HarnessState,
@@ -257,11 +258,15 @@ export function ensureSessionLoaded(sessionId: string): Promise<void> {
 }
 
 /** Starts a shell in a workspace and makes it the active tab. */
-export async function createTerminal(workspaceId: string, shellId?: string): Promise<string> {
+export async function createTerminal(
+  workspaceId: string,
+  shellId?: string,
+  launch?: Pick<CreateTerminalParams, "agent" | "prompt" | "command">,
+): Promise<string> {
   const hostId = hostOf({ workspaceId });
   const info = await harnessRequest(
     HARNESS_METHODS.terminalCreate,
-    { workspaceId, ...(shellId ? { shellId } : {}), cols: 120, rows: 30 },
+    { workspaceId, ...(shellId ? { shellId } : {}), ...launch, cols: 120, rows: 30 },
     hostId,
   );
   const others = getState().terminals.filter((t) => t.hostId === hostId && t.id !== info.id);

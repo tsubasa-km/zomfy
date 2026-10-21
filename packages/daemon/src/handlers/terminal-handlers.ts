@@ -1,7 +1,12 @@
 import { HARNESS_METHODS } from "@acp-harness/protocol";
+import { QuickCommandStore } from "../quick-command-store.ts";
+import { resolveTerminalPaths } from "../terminal-path-links.ts";
+import { detectInstalledAgents } from "../tui-agent-detection.ts";
 import type { HandlerContext } from "./handler-context.ts";
 
 export function registerTerminalHandlers({ handle, terminals, workspaceRoot }: HandlerContext): void {
+  const quickCommands = new QuickCommandStore();
+
   handle(HARNESS_METHODS.shellsList, async () => terminals.listShells());
   handle(HARNESS_METHODS.terminalsList, async () => terminals.list());
   handle(HARNESS_METHODS.terminalCreate, async (p) =>
@@ -20,4 +25,14 @@ export function registerTerminalHandlers({ handle, terminals, workspaceRoot }: H
     terminals.close(p.terminalId);
     return {};
   });
+  handle(HARNESS_METHODS.terminalRestart, async (p) => terminals.restart(p.terminalId));
+  handle(HARNESS_METHODS.terminalRename, async (p) => terminals.rename(p.terminalId, p.title));
+  handle(HARNESS_METHODS.terminalResolvePaths, async (p) => {
+    const info = terminals.get(p.terminalId);
+    return resolveTerminalPaths(info.cwd, workspaceRoot(info.workspaceId), p.paths);
+  });
+  handle(HARNESS_METHODS.agentsDetect, async (p) => detectInstalledAgents(p.refresh === true));
+  handle(HARNESS_METHODS.quickCommandsList, async () => quickCommands.list());
+  handle(HARNESS_METHODS.quickCommandSave, async (p) => quickCommands.save(p.command));
+  handle(HARNESS_METHODS.quickCommandRemove, async (p) => quickCommands.remove(p.id));
 }

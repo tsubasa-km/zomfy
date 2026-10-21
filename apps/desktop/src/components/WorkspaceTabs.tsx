@@ -31,6 +31,9 @@ import {
 } from '@/components/ui/dropdown-menu'
 import { ThreadView } from '@/components/ThreadView'
 import { TerminalView } from '@/components/TerminalView'
+import { AgentLaunchMenuItems } from '@/components/terminal/AgentLaunchMenuItems'
+import { TerminalTabIcon } from '@/components/terminal/TerminalTabIcon'
+import { TerminalTabStripActions } from '@/components/terminal/TerminalTabStripActions'
 import { DiffTabView } from '@/components/EditorTabViews'
 import { FileEditorView } from '@/components/FileEditorView'
 import { cn } from '@/lib/utils'
@@ -89,6 +92,7 @@ export function WorkspaceTabs({
             <TabItem key={tabId(tab)} tab={tab} active={active !== null && tabId(tab) === tabId(active)} />
           ))}
           <NewTabMenu workspaceId={workspaceId} />
+          <TerminalTabStripActions workspaceId={workspaceId} />
         </div>
         {trailing}
       </div>
@@ -140,6 +144,7 @@ function NewTabMenu({ workspaceId }: { workspaceId: string }) {
             New Terminal ({shell.label})
           </DropdownMenuItem>
         ))}
+        <AgentLaunchMenuItems workspaceId={workspaceId} />
       </DropdownMenuContent>
     </DropdownMenu>
   )
@@ -188,7 +193,7 @@ function TabItem({ tab, active }: { tab: Tab; active: boolean }) {
         ) : tab.kind === 'chat' ? (
           <ClaudeIcon size={12} />
         ) : tab.kind === 'terminal' ? (
-          <SquareTerminal className="size-3.5" />
+          <TerminalTabIcon terminal={tab.terminal} active={active} />
         ) : tab.editor.kind === 'diff' ? (
           <GitCompare className="size-3.5" />
         ) : (
