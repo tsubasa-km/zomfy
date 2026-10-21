@@ -28,6 +28,8 @@ const SECTION_LABEL: Record<SectionId, string> = {
   untracked: 'Untracked Files'
 }
 const VIEW_MODE_KEY = 'acp-harness:source-control-view-mode'
+/** Orca keeps an unsent message per workspace across panel and workspace switches (commit-drafts.ts). */
+const commitDrafts = new Map<string, string>()
 const isMac = navigator.userAgent.includes('Mac')
 const errorText = (e: unknown) => (e instanceof Error ? e.message : String(e))
 
@@ -51,7 +53,14 @@ const withOldPaths = (entries: GitChange[]) => entries.flatMap((e) => (e.oldPath
 
 export function SourceControl({ workspaceId }: { workspaceId: string }) {
   const { status, refresh } = useGitStatus(workspaceId)
-  const [message, setMessage] = useState('')
+  const [message, setMessageState] = useState(() => commitDrafts.get(workspaceId) ?? '')
+  const setMessage = useCallback(
+    (next: string) => {
+      commitDrafts.set(workspaceId, next)
+      setMessageState(next)
+    },
+    [workspaceId]
+  )
   const [viewMode, setViewMode] = useState<SourceControlViewMode>(readViewMode)
   const [filterQuery, setFilterQuery] = useState('')
   const [filterExpanded, setFilterExpanded] = useState(false)

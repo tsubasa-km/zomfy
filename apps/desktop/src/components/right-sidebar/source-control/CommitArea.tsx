@@ -66,7 +66,8 @@ export function CommitArea({
               onSubmitShortcut()
             }
           }}
-          placeholder={`Message (${isMac ? '⌘' : 'Ctrl+'}Enter to commit)`}
+          placeholder="Message"
+          title={`${isMac ? '⌘' : 'Ctrl+'}Enter to commit`}
           aria-label="Commit message"
           aria-describedby={notices.map((n) => n.id).join(' ') || undefined}
           className="mt-0.5 min-h-14 w-full resize-none appearance-none rounded-md border border-input bg-background px-2 py-1.5 pr-8 text-xs text-foreground shadow-xs outline-none placeholder:text-muted-foreground/70 focus-visible:border-ring focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:border-input disabled:bg-background disabled:text-foreground disabled:shadow-xs dark:bg-input/30 dark:disabled:bg-input/30"
