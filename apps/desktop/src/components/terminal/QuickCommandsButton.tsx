@@ -56,9 +56,8 @@ export function QuickCommandIcon({ command, size = 12 }: { command: QuickCommand
 
 /** Runs saved commands in new tabs of this workspace; shown in the tab strip next to "+". */
 export function QuickCommandsButton({ workspaceId }: { workspaceId: string }) {
-  const workspace = useStore((s) => allWorkspaces(s).find((w) => w.id === workspaceId))
-  const hostId = workspace?.hostId ?? LOCAL_HOST
-  const projectId = workspace?.projectId ?? null
+  const hostId = useStore((s) => allWorkspaces(s).find((w) => w.id === workspaceId)?.hostId ?? LOCAL_HOST)
+  const projectId = useStore((s) => allWorkspaces(s).find((w) => w.id === workspaceId)?.projectId ?? null)
   const { project, global } = commandsForProject(useQuickCommands(hostId), projectId)
   const all = [...project, ...global]
   const [open, setOpen] = useState(false)
