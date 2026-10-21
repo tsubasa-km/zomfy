@@ -133,7 +133,6 @@ async function forwardMessage(
       if (message.subtype === "init") {
         state.claudeSessionId = message.session_id;
         input.onSlashCommands?.(message.slash_commands);
-        log(`claude init: model ${message.model}, todo tools ${message.tools.filter((t) => /^(TodoWrite|Task[A-Z])/.test(t)).join(",") || "none"}`);
         noteMode(message.permissionMode, input);
       } else if (message.subtype === "status") {
         if (message.permissionMode) noteMode(message.permissionMode, input);
