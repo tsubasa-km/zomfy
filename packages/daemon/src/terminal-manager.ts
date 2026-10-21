@@ -1,6 +1,6 @@
 import { existsSync } from 'node:fs'
 import { basename } from 'node:path'
-import type { CreateTerminalParams, ShellOption, TerminalInfo, TerminalShellKind } from '@acp-harness/protocol'
+import { tuiAgentSpec, type CreateTerminalParams, type ShellOption, type TerminalInfo, type TerminalShellKind } from '@acp-harness/protocol'
 import { log } from './log.ts'
 import { OscScanner } from './terminal-osc.ts'
 import { buildAgentLaunchPlan } from './tui-agent-launch.ts'
@@ -28,6 +28,7 @@ interface LiveTerminal {
   flushTimer: ReturnType<typeof setTimeout> | null
   osc: OscScanner
   oscTitle: string | null
+  oscTitleIsProgram: boolean
   /** Reads so far and when the last one arrived, for the startup typing below. */
   reads: number
   lastReadAt: number
@@ -169,6 +170,7 @@ export class TerminalManager {
       flushTimer: null,
       osc: new OscScanner(),
       oscTitle: null,
+      oscTitleIsProgram: false,
       reads: 0,
       lastReadAt: 0,
       cols,
@@ -233,7 +235,10 @@ export class TerminalManager {
     live.lastReadAt = Date.now()
     const facts = live.osc.scan(data)
     if (facts.title !== undefined || facts.cwd !== undefined) {
-      if (facts.title !== undefined) live.oscTitle = displayTitle(facts.title)
+      if (facts.title !== undefined) {
+        live.oscTitle = displayTitle(facts.title)
+        live.oscTitleIsProgram = isProgramPath(facts.title)
+      }
       if (facts.cwd !== undefined) live.info = { ...live.info, cwd: facts.cwd }
       if (this.refreshTitle(live) || facts.cwd !== undefined) this.titleChanged()
     }
@@ -243,7 +248,10 @@ export class TerminalManager {
 
   /** Recomputes the shown title; true when it changed. */
   private refreshTitle(live: LiveTerminal): boolean {
-    const title = live.info.customTitle || live.oscTitle || live.spec.label
+    // An agent tab keeps the agent's name over ConPTY's program-path title.
+    const agent = live.info.agent ? (tuiAgentSpec(live.info.agent)?.label ?? null) : null
+    const osc = agent && live.oscTitleIsProgram ? null : live.oscTitle
+    const title = live.info.customTitle || osc || agent || live.spec.label
     if (title === live.info.title) return false
     live.info = { ...live.info, title }
     return true
@@ -287,7 +295,11 @@ function envWithoutPath(): Record<string, string | undefined> {
 function displayTitle(raw: string): string | null {
   const title = raw.trim()
   if (!title) return null
-  return /^[A-Za-z]:\\.*\.exe$/i.test(title) ? basename(title.replaceAll('\\', '/')) : title
+  return isProgramPath(title) ? basename(title.replaceAll('\\', '/')) : title
+}
+
+function isProgramPath(title: string): boolean {
+  return /^[A-Za-z]:\\.*\.exe$/i.test(title.trim())
 }
 
 function detectShells(): ShellSpec[] {
