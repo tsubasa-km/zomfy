@@ -7,7 +7,7 @@
     "start": "bun src/main.ts",
     "stdio": "bun src/main.ts --stdio",
     "typecheck": "bun check",
-    "build:linux": "bun scripts/build-binaries.ts bun-linux-x64",
+    "build:linux": "bun scripts/build-binaries.ts bun-linux-x64 bun-linux-arm64",
     "build:windows": "bun scripts/build-binaries.ts bun-windows-x64",
     "build": "bun scripts/build-binaries.ts"
   },

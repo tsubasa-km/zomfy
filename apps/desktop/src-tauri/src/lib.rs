@@ -1,6 +1,8 @@
 mod daemon_process;
 mod local_daemon;
 mod open_in;
+mod ssh_config;
+mod ssh_daemon;
 mod wsl_daemon;
 
 /// Connection info for this computer's daemon, starting (or upgrading) it when needed. Blocking
@@ -28,6 +30,27 @@ async fn start_wsl_daemon(distro: String) -> Result<String, String> {
         .map_err(|e| e.to_string())?
 }
 
+/// Concrete `Host` aliases from ~/.ssh/config (read-only).
+#[tauri::command]
+fn ssh_config_hosts() -> Vec<ssh_config::SshConfigHost> {
+    ssh_config::load_user_hosts()
+}
+
+/// Connection info for an `ssh:<target>` host's daemon, reached through a local port forward.
+#[tauri::command]
+async fn start_ssh_daemon(target: String) -> Result<String, String> {
+    tauri::async_runtime::spawn_blocking(move || ssh_daemon::ensure(&target))
+        .await
+        .map_err(|e| e.to_string())?
+}
+
+#[tauri::command]
+async fn disconnect_ssh_host(target: String) -> Result<(), String> {
+    tauri::async_runtime::spawn_blocking(move || ssh_daemon::disconnect(&target))
+        .await
+        .map_err(|e| e.to_string())
+}
+
 #[tauri::command]
 fn open_workspace_in(target: String, host: String, path: String) -> Result<(), String> {
     open_in::open_in(&target, &host, &path)
@@ -38,7 +61,15 @@ pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_notification::init())
-        .invoke_handler(tauri::generate_handler![ensure_local_daemon, wsl_distros, start_wsl_daemon, open_workspace_in])
+        .invoke_handler(tauri::generate_handler![
+            ensure_local_daemon,
+            wsl_distros,
+            start_wsl_daemon,
+            ssh_config_hosts,
+            start_ssh_daemon,
+            disconnect_ssh_host,
+            open_workspace_in
+        ])
         .build(tauri::generate_context!())
         .expect("error while building tauri application")
         .run(|_app, event| {
@@ -47,6 +78,7 @@ pub fn run() {
             if let tauri::RunEvent::Exit = event {
                 local_daemon::shutdown();
                 wsl_daemon::shutdown();
+                ssh_daemon::shutdown();
             }
         });
 }
