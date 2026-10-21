@@ -1,11 +1,11 @@
 import { query } from '@anthropic-ai/claude-agent-sdk'
 import { git } from './git-cli.ts'
 import { log } from './log.ts'
+import { resolveClaudeExecutable } from './claude-executable.ts'
 
 // Orca's sparkle button (shared/commit-message-generation.ts): one tool-less Claude turn over the
 // staged diff, through the user's own claude CLI so their login applies (as in claude-turn.ts).
 
-const claudeExecutable = process.env.HARNESS_CLAUDE_PATH ?? Bun.which('claude') ?? undefined
 const STAGED_DIFF_BUDGET = 200_000
 const running = new Map<string, AbortController>()
 
@@ -24,7 +24,7 @@ export async function generateCommitMessage(workspaceId: string, cwd: string): P
       prompt: buildCommitMessagePrompt(branch || null, summary, patch),
       options: {
         cwd,
-        pathToClaudeCodeExecutable: claudeExecutable,
+        pathToClaudeCodeExecutable: await resolveClaudeExecutable(),
         tools: [],
         maxTurns: 1,
         persistSession: false,

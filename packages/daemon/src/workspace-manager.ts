@@ -1,5 +1,5 @@
 import { existsSync } from 'node:fs'
-import { mkdir, readFile, writeFile, stat } from 'node:fs/promises'
+import { mkdir, readFile, realpath, writeFile, stat } from 'node:fs/promises'
 import { homedir } from 'node:os'
 import { basename, join, resolve } from 'node:path'
 import type {
@@ -82,13 +82,16 @@ export class WorkspaceManager {
   }
 
   async addProject(path: string): Promise<Project> {
-    const absolute = resolve(path)
+    // realpath expands Windows 8.3 short names (SUZUKI~1), which would otherwise add the folder twice.
+    const absolute = await realpath(resolve(path)).catch(() => resolve(path))
     if (!(await stat(absolute)).isDirectory()) throw new Error(`${absolute} is not a folder`)
     const existing = this.state.projects.find((p) => samePath(p.path, absolute))
     if (existing) return existing
 
     const isGit = await isGitRepository(absolute)
     const root = isGit ? resolve(absolute, await git(absolute, ['rev-parse', '--show-toplevel'])) : absolute
+    const existingRoot = this.state.projects.find((p) => samePath(p.path, root))
+    if (existingRoot) return existingRoot
     const project: Project = {
       id: crypto.randomUUID(),
       name: basename(root).replace(/\.git$/, ''),

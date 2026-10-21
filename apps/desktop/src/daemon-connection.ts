@@ -16,11 +16,11 @@ import {
   type TerminalInfo,
   type TerminalOutput,
 } from "@acp-harness/protocol";
+import { applyChatUpdate } from "./chat-transcript";
 import {
   LOCAL_HOST,
   addSession,
   allProjects,
-  appendText,
   findWorkspace,
   getState,
   markLoaded,
@@ -33,7 +33,7 @@ import {
   setTerminals,
   updateSession,
   upsertHost,
-  upsertTool,
+  type ChatImage,
   type HostId,
 } from "./session-store";
 import { applyHostSettings } from "./stores/host-settings-store";
@@ -127,7 +127,7 @@ async function openConnection(hostId: HostId): Promise<void> {
   const opened = acp
     .client({ name: "acp-harness-desktop" })
     .onRequest("session/request_permission", (ctx) => requestPermission(ctx.params))
-    .onNotification("session/update", (ctx) => applyUpdate(ctx.params))
+    .onNotification("session/update", (ctx) => applyChatUpdate(ctx.params))
     .onNotification(
       HARNESS_NOTIFICATIONS.stateChanged,
       (raw: unknown) => raw as HarnessState,
@@ -321,7 +321,7 @@ import.meta.hot?.dispose(() => {
   connections.clear();
 });
 
-export async function sendPrompt(sessionId: string, text: string): Promise<void> {
+export async function sendPrompt(sessionId: string, text: string, images: ChatImage[] = []): Promise<void> {
   const session = getState().sessions.find((s) => s.id === sessionId);
   if (!session) return;
   // The daemon echoes the prompt back as a user_message_chunk and owns the status from here.
@@ -330,7 +330,10 @@ export async function sendPrompt(sessionId: string, text: string): Promise<void>
     const conn = await requireConnection(session.hostId);
     const { stopReason } = await conn.agent.request(acp.methods.agent.session.prompt, {
       sessionId,
-      prompt: [{ type: "text", text }],
+      prompt: [
+        ...images.map((image): acp.ContentBlock => ({ type: "image", data: image.data, mimeType: image.mimeType })),
+        ...(text ? [{ type: "text" as const, text }] : []),
+      ],
     });
     if (stopReason === "cancelled") {
       updateSession(sessionId, (s) => ({
@@ -370,6 +373,7 @@ function requestPermission(
         kind: "permission",
         requestId,
         title: params.toolCall.title ?? "Tool call",
+        input: params.toolCall.rawInput ?? null,
         options: params.options,
         chosen: null,
       },
@@ -391,43 +395,4 @@ function requestPermission(
       });
     });
   });
-}
-
-function applyUpdate({ sessionId, update }: acp.SessionNotification): void {
-  // A tab that has not replayed its transcript would get a fragment; load fills it in later.
-  if (!getState().sessions.some((s) => s.id === sessionId && s.loaded)) return;
-  switch (update.sessionUpdate) {
-    case "user_message_chunk":
-      if (update.content.type === "text") appendText(sessionId, "user", update.content.text);
-      break;
-    case "agent_message_chunk":
-      if (update.content.type === "text") appendText(sessionId, "agent", update.content.text);
-      break;
-    case "agent_thought_chunk":
-      if (update.content.type === "text") appendText(sessionId, "thought", update.content.text);
-      break;
-    case "tool_call":
-      upsertTool(sessionId, update.toolCallId, {
-        title: update.title,
-        toolKind: update.kind ?? "other",
-        status: update.status ?? "pending",
-        input: update.rawInput ?? null,
-      });
-      break;
-    case "tool_call_update":
-      upsertTool(sessionId, update.toolCallId, {
-        ...(update.title ? { title: update.title } : {}),
-        ...(update.status ? { status: update.status } : {}),
-        ...(update.content ? { output: toolOutputText(update.content) } : {}),
-      });
-      break;
-  }
-}
-
-function toolOutputText(content: acp.ToolCallContent[]): string {
-  return content
-    .map((part) =>
-      part.type === "content" && part.content.type === "text" ? part.content.text : "",
-    )
-    .join("\n");
 }

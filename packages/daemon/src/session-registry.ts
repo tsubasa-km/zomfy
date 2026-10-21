@@ -1,7 +1,7 @@
 import { appendFile, mkdir, readFile, rm, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import type * as acp from '@agentclientprotocol/sdk'
-import type { SessionInfo } from '@acp-harness/protocol'
+import type { SessionInfo, SessionOptions } from '@acp-harness/protocol'
 import { log } from './log.ts'
 import { HARNESS_HOME } from './harness-home.ts'
 
@@ -11,7 +11,10 @@ const INDEX_PATH = join(SESSIONS_DIR, 'index.json')
 export interface SessionRecord extends SessionInfo {
   /** Claude's own session id, so a later turn (or a restarted daemon) resumes the conversation. */
   claudeSessionId: string | null
+  options: SessionOptions
 }
+
+export const DEFAULT_SESSION_OPTIONS: SessionOptions = { model: null, permissionMode: 'default', effort: null }
 
 /**
  * The daemon's single store of sessions: who they belong to, their live status, and a replayable
@@ -26,7 +29,14 @@ export class SessionRegistry {
     try {
       const saved: SessionRecord[] = JSON.parse(await readFile(INDEX_PATH, 'utf8'))
       // A turn cannot outlive the daemon that ran it.
-      for (const r of saved) this.records.set(r.id, { ...r, status: r.status === 'error' ? 'error' : 'idle', turnStartedAt: null })
+      for (const r of saved) {
+        this.records.set(r.id, {
+          ...r,
+          options: { ...DEFAULT_SESSION_OPTIONS, ...r.options },
+          status: r.status === 'error' ? 'error' : 'idle',
+          turnStartedAt: null
+        })
+      }
     } catch {
       // First run.
     }
@@ -45,7 +55,14 @@ export class SessionRegistry {
     return this.records.get(id)
   }
 
-  create(fields: Pick<SessionInfo, 'workspaceId' | 'cwd'>): SessionRecord {
+  all(): SessionRecord[] {
+    return [...this.records.values()]
+  }
+
+  create(
+    fields: Pick<SessionInfo, 'workspaceId' | 'cwd'> &
+      Partial<Pick<SessionRecord, 'title' | 'claudeSessionId' | 'options'>>
+  ): SessionRecord {
     const record: SessionRecord = {
       id: crypto.randomUUID(),
       title: 'Claude',
@@ -53,6 +70,7 @@ export class SessionRegistry {
       createdAt: Date.now(),
       turnStartedAt: null,
       claudeSessionId: null,
+      options: { ...DEFAULT_SESSION_OPTIONS },
       ...fields
     }
     this.records.set(record.id, record)
@@ -83,6 +101,12 @@ export class SessionRegistry {
   async record(id: string, update: acp.SessionUpdate): Promise<void> {
     await mkdir(SESSIONS_DIR, { recursive: true })
     await appendFile(transcriptPath(id), `${JSON.stringify(update)}\n`)
+  }
+
+  /** Rewrites the whole transcript (rewind, fork, a conversation resumed from disk). */
+  async replaceTranscript(id: string, updates: acp.SessionUpdate[]): Promise<void> {
+    await mkdir(SESSIONS_DIR, { recursive: true })
+    await writeFile(transcriptPath(id), updates.map((u) => `${JSON.stringify(u)}\n`).join(''))
   }
 
   async transcript(id: string): Promise<acp.SessionUpdate[]> {

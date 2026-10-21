@@ -1,270 +1,216 @@
-import { useEffect, useRef, useState } from 'react'
-import type * as acp from '@agentclientprotocol/sdk'
-import {
-  ArrowUp,
-  ChevronRight,
-  Eye,
-  Globe,
-  Pencil,
-  Search,
-  ShieldQuestion,
-  Square,
-  SquareTerminal,
-  Trash2,
-  Wrench,
-  type LucideIcon
-} from 'lucide-react'
-import { answerPermission, cancelTurn, sendPrompt } from '@/daemon-connection'
-import { markSeen, type Session, type ThreadItem } from '@/session-store'
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
+import { Copy, GitFork, Quote, Search, TextSelect } from 'lucide-react'
+import { markSeen, openEditorTab, type Session, type ThreadItem } from '@/session-store'
+import { appendToDraft, forkChat, isWorking, rewindTo } from '@/chat-actions'
 import { Button } from '@/components/ui/button'
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible'
-import { NativeChatMarkdown } from '@/components/native-chat/NativeChatMarkdown'
-import { NativeChatExpandable } from '@/components/native-chat/NativeChatExpandable'
-import { cn } from '@/lib/utils'
+import {
+  ContextMenu,
+  ContextMenuContent,
+  ContextMenuItem,
+  ContextMenuSeparator,
+  ContextMenuShortcut,
+  ContextMenuTrigger
+} from '@/components/ui/context-menu'
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle
+} from '@/components/ui/dialog'
+import { NativeChatApprovalCard } from '@/components/native-chat/NativeChatApprovalCard'
+import { NativeChatComposer } from '@/components/native-chat/NativeChatComposer'
+import { NativeChatDockedTaskList } from '@/components/native-chat/NativeChatTaskList'
+import { NativeChatEmptyState } from '@/components/native-chat/NativeChatEmptyState'
+import { NativeChatFindBar } from '@/components/native-chat/NativeChatFindBar'
+import { NativeChatJumpToLatest } from '@/components/native-chat/NativeChatJumpToLatest'
+import { NativeChatMessageRail, type RailItem } from '@/components/native-chat/NativeChatMessageRail'
+import { NativeChatQueuedMessageList } from '@/components/native-chat/NativeChatQueuedMessageList'
+import { NativeChatSelectionQuote, formatNativeChatQuote } from '@/components/native-chat/NativeChatSelectionQuote'
+import { NativeChatTranscriptRow } from '@/components/native-chat/NativeChatTranscriptRow'
+import { buildTranscript } from '@/components/native-chat/native-chat-transcript-model'
+import { useNativeChatFind } from '@/components/native-chat/use-native-chat-find'
 import '@/components/native-chat/native-chat-appearance.css'
 
-// Layout and classes follow Orca's native chat (NativeChatMessageList, *MessageRow, NativeChatToolLine,
-// NativeChatReasoningRow, NativeChatApprovalCard, NativeChatComposerField, NativeChatWorkingStatus).
+// Layout and classes follow Orca's native chat (NativeChatMessageList, NativeChatResolvedView,
+// NativeChatComposer, NativeChatWorkingStatus).
 const TRANSCRIPT_OUTER_CLASS = 'px-3 pt-10 pb-10 sm:px-4'
-const TRANSCRIPT_COLUMN_CLASS =
-  'mx-auto flex w-full max-w-(--chat-content-max-width) flex-col gap-5 px-[5px]'
+const TRANSCRIPT_COLUMN_CLASS = 'mx-auto flex w-full max-w-(--chat-content-max-width) flex-col gap-5 px-[5px]'
+/** Within this of the bottom the transcript follows new output (Orca's autoscroll). */
+const STICK_DISTANCE_PX = 80
+const isMac = navigator.userAgent.includes('Mac')
 
 export function ThreadView({ session }: { session: Session }) {
-  const bottom = useRef<HTMLDivElement>(null)
+  const rootRef = useRef<HTMLDivElement>(null)
+  const scrollRef = useRef<HTMLDivElement>(null)
+  const columnRef = useRef<HTMLDivElement>(null)
+  const textareaRef = useRef<HTMLTextAreaElement>(null)
+  const stick = useRef(true)
+  const [atBottom, setAtBottom] = useState(true)
+  const [menuTarget, setMenuTarget] = useState<{ selection: string; message: string | null }>({ selection: '', message: null })
+  const [rewindTarget, setRewindTarget] = useState<string | null>(null)
+  const working = isWorking(session)
+  const running = working || session.turnStartedAt !== null
+  const model = useMemo(() => buildTranscript(session.items, running, session.cwd), [session.items, running, session.cwd])
+  const find = useNativeChatFind(columnRef, session.items)
+
   // Showing a session is reading it: it leaves the dashboard's Done lane.
   useEffect(() => markSeen(session.id), [session.id, session.status])
-  useEffect(() => {
-    // Braces matter: newer WebView2 returns a Promise here, which React would treat as cleanup.
-    void bottom.current?.scrollIntoView({ block: 'end' })
-  }, [session.items])
+  useLayoutEffect(() => {
+    const scroller = scrollRef.current
+    if (scroller && stick.current) scroller.scrollTop = scroller.scrollHeight
+  }, [session.items, session.turnStartedAt])
 
   const pendingPermission = session.items.findLast(
-    (item): item is Extract<ThreadItem, { kind: 'permission' }> =>
-      item.kind === 'permission' && item.chosen === null
+    (item): item is Extract<ThreadItem, { kind: 'permission' }> => item.kind === 'permission' && item.chosen === null
   )
+  const railItems = useMemo(
+    (): RailItem[] =>
+      model.rows.flatMap((row, index) =>
+        row.kind === 'user' ? [{ id: `${session.id}:${index}`, text: row.item.text.replace(/\s+/g, ' ').slice(0, 200) }] : []
+      ),
+    [model.rows, session.id]
+  )
+  const empty = session.loaded && session.items.length === 0 && !running
+
+  const jumpToLatest = () => {
+    const scroller = scrollRef.current
+    if (!scroller) return
+    stick.current = true
+    scroller.scrollTo({ top: scroller.scrollHeight, behavior: 'smooth' })
+  }
+  const quote = (markdown: string) => {
+    appendToDraft(session.id, markdown)
+    textareaRef.current?.focus()
+  }
 
   return (
-    <div className="native-chat-appearance flex min-h-0 min-w-0 flex-1 flex-col bg-chat-canvas text-chat-foreground">
+    <div
+      ref={rootRef}
+      data-native-chat-root
+      className="native-chat-appearance flex min-h-0 min-w-0 flex-1 flex-col bg-chat-canvas text-chat-foreground"
+      onKeyDown={(event) => {
+        if ((isMac ? event.metaKey : event.ctrlKey) && !event.shiftKey && !event.altKey && event.key.toLowerCase() === 'f') {
+          event.preventDefault()
+          find.show()
+        }
+      }}
+    >
       <div className="relative min-h-0 flex-1">
-        <div className="scrollbar-sleek relative h-full overflow-y-auto [overflow-anchor:none] [scrollbar-gutter:stable_both-edges]">
-          <div className={TRANSCRIPT_OUTER_CLASS}>
-            <div className={TRANSCRIPT_COLUMN_CLASS}>
-              {groupTranscript(session.items).map((row, index) => (
-                <TranscriptRow key={index} row={row} rowKey={`${session.id}:${index}`} />
-              ))}
-              {session.turnStartedAt !== null && <WorkingStatus startedAt={session.turnStartedAt} />}
-              <div ref={bottom} />
-            </div>
-          </div>
-        </div>
-      </div>
-      {pendingPermission && <ApprovalCard permission={pendingPermission} />}
-      <Composer session={session} />
-    </div>
-  )
-}
-
-type TranscriptRowModel =
-  | Exclude<ThreadItem, { kind: 'tool' } | { kind: 'permission' }>
-  | { kind: 'tools'; tools: Extract<ThreadItem, { kind: 'tool' }>[] }
-  | { kind: 'decision'; title: string; chosen: string }
-
-/** Consecutive tool calls read as one run, the way Orca folds them under a run header. */
-function groupTranscript(items: ThreadItem[]): TranscriptRowModel[] {
-  const rows: TranscriptRowModel[] = []
-  for (const item of items) {
-    if (item.kind === 'tool') {
-      const last = rows.at(-1)
-      if (last?.kind === 'tools') last.tools.push(item)
-      else rows.push({ kind: 'tools', tools: [item] })
-    } else if (item.kind === 'permission') {
-      if (item.chosen) rows.push({ kind: 'decision', title: item.title, chosen: item.chosen })
-    } else {
-      rows.push(item)
-    }
-  }
-  return rows
-}
-
-function TranscriptRow({ row, rowKey }: { row: TranscriptRowModel; rowKey: string }) {
-  switch (row.kind) {
-    case 'user':
-      return (
-        <div className="group relative flex flex-col items-end gap-0.5">
-          <div className="max-w-[80%] rounded-xl border border-chat-user-border bg-chat-user-surface px-3.5 py-2.5 text-sm text-chat-foreground-strong">
-            <NativeChatMarkdown rowKey={rowKey} content={row.text} className="text-sm" />
-          </div>
-        </div>
-      )
-    case 'agent':
-      return (
-        <div className="group relative max-w-full text-sm leading-relaxed text-chat-foreground select-text">
-          <NativeChatMarkdown rowKey={rowKey} content={row.text} className="text-sm" />
-        </div>
-      )
-    case 'thought':
-      return <ReasoningRow markdown={row.text} rowKey={rowKey} />
-    case 'tools':
-      return (
-        <div className="flex flex-col">
-          {row.tools.map((tool) => (
-            <ToolLine key={tool.id} tool={tool} />
-          ))}
-        </div>
-      )
-    case 'decision':
-      return (
-        <div className="flex items-center gap-1.5 text-xs text-chat-foreground-faint">
-          <ShieldQuestion className="size-3.5" aria-hidden />
-          <span className="truncate">
-            {row.chosen === 'reject' || row.chosen === 'cancelled' ? 'Rejected' : 'Allowed'}: {row.title}
-          </span>
-        </div>
-      )
-    case 'notice':
-      return (
-        <div className="flex min-h-8 items-center gap-1 border-b border-border text-sm text-chat-foreground-faint tabular-nums">
-          {row.text}
-        </div>
-      )
-  }
-}
-
-function ReasoningRow({ markdown, rowKey }: { markdown: string; rowKey: string }) {
-  const [open, setOpen] = useState(false)
-  if (!markdown.trim()) return null
-  return (
-    <div className="min-w-0 text-sm text-chat-foreground-faint">
-      <Collapsible open={open} onOpenChange={setOpen}>
-        <CollapsibleTrigger asChild>
-          <button
-            type="button"
-            className="group/reasoning flex min-h-6 w-full min-w-0 items-center gap-1.5 rounded-md py-0.5 text-left focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none focus-visible:ring-inset"
-          >
-            <span className="flex size-4 shrink-0 items-center justify-center">
-              <BrainGlyph />
-            </span>
-            <span className="min-w-0 truncate text-sm leading-relaxed text-chat-foreground-faint transition-colors group-hover/reasoning:text-chat-foreground">
-              Thinking
-            </span>
-            <ChevronRight className="size-3.5 shrink-0 text-chat-foreground-faint transition-all group-hover/reasoning:opacity-100 group-data-[state=open]/reasoning:rotate-90 group-data-[state=open]/reasoning:opacity-100 motion-reduce:transition-none can-hover:opacity-0" />
-          </button>
-        </CollapsibleTrigger>
-        <CollapsibleContent>
-          <div className="scrollbar-sleek mt-1 max-h-80 overflow-y-auto pl-5.5 text-chat-foreground-faint">
-            <NativeChatMarkdown rowKey={`${rowKey}:reasoning`} content={markdown} className="text-sm" />
-          </div>
-        </CollapsibleContent>
-      </Collapsible>
-    </div>
-  )
-}
-
-function BrainGlyph() {
-  return (
-    <svg viewBox="0 0 24 24" className="size-3.5" fill="none" stroke="currentColor" strokeWidth={2} aria-hidden>
-      <path d="M12 5a3 3 0 1 0-5.997.125 4 4 0 0 0-2.526 5.77 4 4 0 0 0 .556 6.588A4 4 0 1 0 12 18Z" />
-      <path d="M12 5a3 3 0 1 1 5.997.125 4 4 0 0 1 2.526 5.77 4 4 0 0 1-.556 6.588A4 4 0 1 1 12 18Z" />
-    </svg>
-  )
-}
-
-const TOOL_GLYPHS: Record<acp.ToolKind, LucideIcon> = {
-  read: Eye,
-  edit: Pencil,
-  delete: Trash2,
-  move: Pencil,
-  search: Search,
-  execute: SquareTerminal,
-  think: Wrench,
-  fetch: Globe,
-  switch_mode: Wrench,
-  other: Wrench
-}
-
-const TARGET_CLASS =
-  'min-w-0 truncate text-chat-foreground transition-colors group-hover/tool-line:text-chat-foreground-strong'
-
-function ToolLine({ tool }: { tool: Extract<ThreadItem, { kind: 'tool' }> }) {
-  const [expanded, setExpanded] = useState(false)
-  const Glyph = TOOL_GLYPHS[tool.toolKind] ?? Wrench
-  const failed = tool.status === 'failed'
-  const [verb, ...rest] = tool.title.split(': ')
-  const target = rest.join(': ')
-  const command = commandOf(tool.input)
-  const hasDetail = tool.output.length > 0 || command !== null
-
-  return (
-    <div>
-      <button
-        type="button"
-        onClick={() => hasDetail && setExpanded(!expanded)}
-        className={cn(
-          'group/tool-line flex min-h-6.5 w-full items-center gap-2 rounded-md text-left font-sans text-sm focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none focus-visible:ring-inset',
-          hasDetail ? 'cursor-pointer' : 'cursor-default'
-        )}
-        aria-expanded={hasDetail ? expanded : undefined}
-      >
-        <span
-          className={cn(
-            'flex size-4 shrink-0 items-center justify-center',
-            failed ? 'text-destructive/70' : 'text-chat-foreground-faint'
-          )}
-        >
-          {tool.status === 'in_progress' || tool.status === 'pending' ? (
-            <span className="agent-working-spinner block size-2.5 rounded-full border-[1.5px] border-current border-t-transparent" />
-          ) : (
-            <Glyph aria-hidden className="size-3.5" />
-          )}
-        </span>
-        <span className="shrink-0 text-chat-foreground-faint transition-colors group-hover/tool-line:text-chat-foreground">
-          {verb}
-        </span>
-        {target ? (
-          <span className={TARGET_CLASS} title={target}>
-            {target}
-          </span>
-        ) : null}
-        <span className="ml-auto flex shrink-0 items-center gap-1.5 pl-2">
-          {hasDetail ? (
-            <ChevronRight
-              className={cn(
-                'size-3.5 shrink-0 text-chat-foreground-faint transition-transform motion-reduce:transition-none',
-                expanded && 'rotate-90'
+        <ContextMenu>
+          <ContextMenuTrigger asChild>
+            <div
+              ref={scrollRef}
+              tabIndex={-1}
+              data-native-chat-scroll
+              onScroll={(event) => {
+                const el = event.currentTarget
+                const near = el.scrollHeight - el.scrollTop - el.clientHeight < STICK_DISTANCE_PX
+                stick.current = near
+                setAtBottom(near)
+              }}
+              onContextMenu={(event) => {
+                const row = event.target instanceof Element ? event.target.closest('[data-native-chat-message-text]') : null
+                setMenuTarget({
+                  selection: window.getSelection()?.toString() ?? '',
+                  message: row?.getAttribute('data-native-chat-message-text') ?? null
+                })
+              }}
+              className="scrollbar-sleek relative h-full overflow-y-auto outline-none [overflow-anchor:none] [scrollbar-gutter:stable_both-edges]"
+            >
+              {empty ? (
+                <NativeChatEmptyState session={session} />
+              ) : (
+                <div className={TRANSCRIPT_OUTER_CLASS}>
+                  <div ref={columnRef} data-native-chat-transcript-column className={TRANSCRIPT_COLUMN_CLASS}>
+                    {model.rows.map((row, index) => (
+                      <NativeChatTranscriptRow
+                        key={index}
+                        row={row}
+                        rowKey={`${session.id}:${index}`}
+                        actions={{
+                          ...(working ? {} : { onRewind: setRewindTarget }),
+                          cwd: session.cwd,
+                          onRevealFile: (path) =>
+                            openEditorTab({ workspaceId: session.workspaceId, kind: 'file', path, staged: false })
+                        }}
+                      />
+                    ))}
+                    {session.turnStartedAt !== null && <WorkingStatus startedAt={session.turnStartedAt} />}
+                  </div>
+                </div>
               )}
-            />
-          ) : null}
-        </span>
-      </button>
-      {hasDetail ? (
-        <NativeChatExpandable open={expanded}>
-          <div className="mt-1 mb-2 ml-6 space-y-2">
-            {command ? (
-              <pre className="scrollbar-sleek max-h-64 overflow-auto rounded-lg border border-chat-code-border bg-chat-code-surface p-2 font-mono text-chat-code break-words whitespace-pre-wrap text-chat-foreground">
-                {command}
-              </pre>
+            </div>
+          </ContextMenuTrigger>
+          <ContextMenuContent className="w-56">
+            {menuTarget.selection ? (
+              <>
+                <ContextMenuItem onSelect={() => void navigator.clipboard.writeText(menuTarget.selection)}>
+                  <Copy />
+                  Copy
+                </ContextMenuItem>
+                <ContextMenuItem onSelect={() => quote(formatNativeChatQuote(menuTarget.selection))}>
+                  <Quote />
+                  Add selection to chat
+                </ContextMenuItem>
+              </>
             ) : null}
-            {tool.output ? (
-              <pre
-                className={cn(
-                  'scrollbar-sleek max-h-64 overflow-auto rounded-lg border border-chat-code-border bg-chat-code-surface p-2 font-mono text-chat-code break-words whitespace-pre-wrap',
-                  failed ? 'text-destructive' : 'text-chat-foreground'
-                )}
-              >
-                {tool.output.length > 20_000 ? `${tool.output.slice(0, 20_000)}\n…` : tool.output}
-              </pre>
+            {menuTarget.message !== null ? (
+              <ContextMenuItem onSelect={() => void navigator.clipboard.writeText(menuTarget.message ?? '')}>
+                <TextSelect />
+                Copy message
+              </ContextMenuItem>
             ) : null}
-          </div>
-        </NativeChatExpandable>
-      ) : null}
+            {menuTarget.selection || menuTarget.message !== null ? <ContextMenuSeparator /> : null}
+            <ContextMenuItem onSelect={() => find.show()}>
+              <Search />
+              Find in chat
+              <ContextMenuShortcut>{isMac ? '⌘F' : 'Ctrl+F'}</ContextMenuShortcut>
+            </ContextMenuItem>
+            <ContextMenuItem data-native-chat-fork onSelect={() => void forkChat(session.id)}>
+              <GitFork />
+              Fork session
+            </ContextMenuItem>
+          </ContextMenuContent>
+        </ContextMenu>
+        {find.open ? <NativeChatFindBar find={find} /> : null}
+        <NativeChatMessageRail items={railItems} scrollRef={scrollRef} />
+        <NativeChatJumpToLatest visible={!atBottom && !empty} onJump={jumpToLatest} />
+      </div>
+      <NativeChatSelectionQuote rootRef={rootRef} onQuote={quote} />
+      {pendingPermission && <NativeChatApprovalCard permission={pendingPermission} cwd={session.cwd} />}
+      <NativeChatDockedTaskList list={model.taskList} />
+      <NativeChatQueuedMessageList sessionId={session.id} working={working} />
+      <NativeChatComposer session={session} textareaRef={textareaRef} />
+      <Dialog open={rewindTarget !== null} onOpenChange={(open) => !open && setRewindTarget(null)}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Rewind to this message?</DialogTitle>
+            <DialogDescription>
+              This message and everything after it leave the conversation, and its text returns to the composer. Files
+              the agent changed stay as they are.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setRewindTarget(null)}>
+              Cancel
+            </Button>
+            <Button
+              data-native-chat-rewind-confirm
+              onClick={() => {
+                const target = rewindTarget
+                setRewindTarget(null)
+                if (target) void rewindTo(session.id, target).then(() => textareaRef.current?.focus())
+              }}
+            >
+              Rewind
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
-}
-
-function commandOf(input: unknown): string | null {
-  if (typeof input !== 'object' || input === null) return null
-  const command = (input as Record<string, unknown>).command
-  return typeof command === 'string' ? command : null
 }
 
 function WorkingStatus({ startedAt }: { startedAt: number }) {
@@ -277,107 +223,6 @@ function WorkingStatus({ startedAt }: { startedAt: number }) {
   return (
     <div className="flex min-h-8 items-center gap-1 border-b border-border text-sm text-chat-foreground-faint tabular-nums">
       <span>Working for {seconds}s</span>
-    </div>
-  )
-}
-
-function ApprovalCard({ permission }: { permission: Extract<ThreadItem, { kind: 'permission' }> }) {
-  // Allow first, as Orca puts the primary choice first.
-  const options = [...permission.options].sort(
-    (a, b) => Number(b.kind.startsWith('allow')) - Number(a.kind.startsWith('allow'))
-  )
-  return (
-    <div className="min-h-0 shrink overflow-hidden bg-chat-canvas">
-      <div className="mx-auto flex h-full max-h-full min-h-0 w-full max-w-(--chat-content-max-width) px-3 pt-2 pb-1 sm:px-4">
-        <div
-          role="group"
-          aria-label={permission.title}
-          className="flex min-h-0 w-full flex-1 flex-col gap-2 overflow-hidden rounded-lg border border-input bg-card px-4 py-3 shadow-xs"
-        >
-          <div className="flex shrink-0 items-start gap-2">
-            <ShieldQuestion className="mt-0.5 size-4 shrink-0 text-muted-foreground" />
-            <div className="min-w-0 flex-1">
-              <p className="line-clamp-2 text-sm font-semibold break-words text-foreground">
-                Allow {permission.title}?
-              </p>
-            </div>
-          </div>
-          <div className="flex shrink-0 flex-wrap gap-2">
-            {options.map((option, i) => (
-              <button
-                key={option.optionId}
-                data-approval-option={option.optionId}
-                type="button"
-                onClick={() => answerPermission(permission.requestId, option.optionId)}
-                className={cn(
-                  'rounded-md px-4 py-1.5 text-sm font-semibold transition-colors focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none disabled:pointer-events-none disabled:opacity-50',
-                  i === 0
-                    ? 'bg-primary text-primary-foreground hover:bg-primary/90'
-                    : 'border border-border bg-background text-foreground hover:bg-accent'
-                )}
-              >
-                {option.name}
-              </button>
-            ))}
-          </div>
-        </div>
-      </div>
-    </div>
-  )
-}
-
-function Composer({ session }: { session: Session }) {
-  const [text, setText] = useState('')
-  const working = session.status === 'working' || session.status === 'needs-you'
-
-  function submit() {
-    const value = text.trim()
-    if (!value || working) return
-    setText('')
-    void sendPrompt(session.id, value)
-  }
-
-  return (
-    <div className="shrink-0 bg-chat-canvas">
-      <div className="px-3 pt-2 pb-4 sm:px-4">
-        <div className="relative mx-auto w-full max-w-(--chat-content-max-width)">
-          <div className="rounded-xl border border-chat-composer-border bg-chat-composer-surface p-1.5 shadow-xs [contain:paint]">
-            <textarea
-              aria-label="Message the agent"
-              placeholder="Message the agent"
-              value={text}
-              rows={2}
-              onChange={(e) => setText(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter' && !e.shiftKey && !e.nativeEvent.isComposing) {
-                  e.preventDefault()
-                  submit()
-                }
-              }}
-              className="scrollbar-sleek max-h-[calc(8lh+0.5rem)] min-h-12 w-full resize-none overflow-y-auto bg-transparent px-2 py-1 text-sm text-chat-foreground-strong outline-none placeholder:text-chat-foreground-faint"
-            />
-            <div className="flex flex-wrap items-center gap-2 pt-0.5">
-              <div className="flex w-full items-center justify-between gap-2 text-chat-foreground-faint">
-                <span className="px-2 text-xs">Claude</span>
-                <div className="ml-auto flex items-center gap-1.5">
-                  <Button
-                    type="button"
-                    aria-label={working ? 'Stop the agent' : 'Send'}
-                    onMouseDown={(event) => event.preventDefault()}
-                    onClick={() => (working ? cancelTurn(session.id) : submit())}
-                    disabled={!working && !text.trim()}
-                    variant={working ? 'secondary' : 'default'}
-                    size="icon"
-                    className="size-8 rounded-full"
-                  >
-                    {working ? <Square className="size-3.5 fill-current" /> : <ArrowUp className="size-4" />}
-                  </Button>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
     </div>
   )
 }

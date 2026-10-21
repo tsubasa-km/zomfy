@@ -5,6 +5,8 @@ import {
   type HarnessRequests,
 } from "@acp-harness/protocol";
 import { runClaudeTurn } from "./claude-turn.ts";
+import { noteSlashCommands } from "./claude-catalog.ts";
+import { liveClaudeQueries } from "./live-claude-queries.ts";
 import type { SessionRegistry } from "./session-registry.ts";
 import type { TerminalManager } from "./terminal-manager.ts";
 import type { HandlerContext } from "./handlers/handler-context.ts";
@@ -63,8 +65,9 @@ export function createHarnessAgent(
       // Orca renames a fresh agent tab after its first message.
       ...(firstTurn && text ? { title: text.replace(/\s+/g, " ").slice(0, 40) } : {}),
     });
+    const messageId = crypto.randomUUID();
     for (const block of params.prompt) {
-      await emit(session.id, { sessionUpdate: "user_message_chunk", content: block });
+      await emit(session.id, { sessionUpdate: "user_message_chunk", messageId, content: block });
     }
 
     try {
@@ -72,8 +75,16 @@ export function createHarnessAgent(
         acpSessionId: session.id,
         state: session,
         prompt: params.prompt,
+        messageId,
         abort,
         emit: (update) => emit(session.id, update),
+        onQuery: (query) => {
+          if (query) liveClaudeQueries.set(session.id, query);
+          else liveClaudeQueries.delete(session.id);
+        },
+        onPermissionMode: (permissionMode) =>
+          sessions.update(session.id, { options: { ...session.options, permissionMode } }),
+        onSlashCommands: (names) => noteSlashCommands(session.cwd, names),
         askPermission: async (request) => {
           sessions.update(session.id, { status: "needs-you" });
           try {
@@ -108,7 +119,7 @@ export function createHarnessAgent(
       protocolVersion: acp.PROTOCOL_VERSION,
       agentCapabilities: {
         loadSession: true,
-        promptCapabilities: { embeddedContext: true },
+        promptCapabilities: { embeddedContext: true, image: true },
       },
       agentInfo: { name: "acp-harness", title: "ACP Harness", version: "0.0.1" },
     }))
