@@ -47,16 +47,17 @@ export function DiffTabView({ tab }: { tab: EditorTab }) {
       harnessRequest(HARNESS_METHODS.gitDiff, {
         workspaceId: tab.workspaceId,
         path: tab.path,
-        staged: tab.staged
+        staged: tab.staged,
+        ...(tab.compare ? { compare: { base: tab.compare.base, head: tab.compare.head } } : {})
       }),
-    [tab.workspaceId, tab.path, tab.staged]
+    [tab.workspaceId, tab.path, tab.staged, tab.compare?.base, tab.compare?.head]
   )
   const { data, error, reload } = useLoad<FileDiff>(load)
   const lines = data && !data.binary ? diffFromText(data.patch, MAX_DIFF_LINES) : null
 
   return (
     <div className="native-chat-appearance flex min-h-0 min-w-0 flex-1 flex-col bg-chat-canvas" data-editor-tab={tab.id}>
-      <Header path={tab.path} detail={tab.staged ? 'staged' : 'working tree'} onReload={reload} />
+      <Header path={tab.path} detail={tab.compare?.label ?? (tab.staged ? 'staged' : 'working tree')} onReload={reload} />
       <div className="scrollbar-sleek min-h-0 flex-1 overflow-auto p-3">
         {error && <p className="text-xs text-destructive">{error}</p>}
         {data?.binary && <p className="text-xs text-muted-foreground">Binary file changed.</p>}

@@ -76,6 +76,8 @@ export interface EditorTab {
   line?: number
   /** Unsaved edits; the tab shows a dot and closing asks first. */
   dirty?: boolean
+  /** Diff between two commits (history, compare with base) instead of the index or working tree. */
+  compare?: { base: string; head: string; label: string }
 }
 
 /** Orca's "Workspace options": group by and sort by. */
@@ -382,7 +384,13 @@ export function selectTerminal(terminalId: string): void {
 /** Opens (or refocuses) a file preview or diff tab in its workspace. */
 export function openEditorTab(tab: Omit<EditorTab, 'id' | 'createdAt'>): void {
   const existing = state.editorTabs.find(
-    (t) => t.workspaceId === tab.workspaceId && t.kind === tab.kind && t.path === tab.path && t.staged === tab.staged
+    (t) =>
+      t.workspaceId === tab.workspaceId &&
+      t.kind === tab.kind &&
+      t.path === tab.path &&
+      t.staged === tab.staged &&
+      t.compare?.base === tab.compare?.base &&
+      t.compare?.head === tab.compare?.head
   )
   const target = existing
     ? { ...existing, ...(tab.line !== undefined ? { line: tab.line } : {}) }
