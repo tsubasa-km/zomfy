@@ -1,6 +1,6 @@
 import { useEffect } from 'react'
 import { Files, GitCompare, PanelRightClose } from 'lucide-react'
-import { getState, setRightSidebar, useStore, type RightSidebarTab } from '@/session-store'
+import { allWorkspaces, getState, setRightSidebar, useStore, type RightSidebarTab } from '@/session-store'
 import { useGitStatus } from '@/hooks/use-git-status'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { FileExplorer } from './FileExplorer'
@@ -15,9 +15,7 @@ const MOD = isMac ? '⌘' : 'Ctrl+'
 
 export function RightSidebar({ workspaceId }: { workspaceId: string }) {
   const { open, tab } = useStore((s) => s.rightSidebar)
-  const workspaceName = useStore(
-    (s) => s.harness?.workspaces.find((w) => w.id === workspaceId)?.name ?? ''
-  )
+  const workspaceName = useStore((s) => allWorkspaces(s).find((w) => w.id === workspaceId)?.name ?? '')
   const { status } = useGitStatus(open ? null : workspaceId)
   const changeCount = (status?.staged.length ?? 0) + (status?.unstaged.length ?? 0)
 

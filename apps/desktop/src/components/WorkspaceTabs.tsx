@@ -9,6 +9,8 @@ import {
   ensureSessionLoaded
 } from '@/daemon-connection'
 import {
+  LOCAL_HOST,
+  allWorkspaces,
   closeEditorTab,
   selectSession,
   selectTab,
@@ -107,7 +109,8 @@ function createdAt(tab: Tab): number {
 }
 
 function NewTabMenu({ workspaceId }: { workspaceId: string }) {
-  const shells = useStore((s) => s.shells)
+  const hostId = useStore((s) => allWorkspaces(s).find((w) => w.id === workspaceId)?.hostId ?? LOCAL_HOST)
+  const shells = useStore((s) => s.hosts[hostId]?.shells) ?? []
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>

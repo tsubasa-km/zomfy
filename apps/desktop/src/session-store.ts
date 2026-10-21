@@ -1,6 +1,16 @@
 import { useSyncExternalStore } from 'react'
 import type * as acp from '@agentclientprotocol/sdk'
-import type { HarnessState, SessionInfo, ShellOption, TerminalInfo, Workspace } from '@acp-harness/protocol'
+import type {
+  HarnessState,
+  Project,
+  SessionInfo,
+  SessionStatus,
+  ShellOption,
+  TerminalInfo,
+  Workspace
+} from '@acp-harness/protocol'
+
+export type { SessionStatus }
 
 export type ThreadItem =
   | { kind: 'user'; text: string }
@@ -24,21 +34,35 @@ export type ThreadItem =
       chosen: string | null
     }
 
-import type { SessionStatus } from '@acp-harness/protocol'
-export type { SessionStatus }
+/** 'local' is the desktop's own OS; 'wsl:<distro>' a daemon inside WSL. */
+export type HostId = string
 
 /** The daemon owns status, title and timing; the window adds the transcript it has loaded. */
 export interface Session extends Omit<SessionInfo, 'workspaceId'> {
+  hostId: HostId
   workspaceId: string
   items: ThreadItem[]
   /** Whether this window has the transcript (created here, or replayed with session/load). */
   loaded: boolean
 }
 
+export type HostedTerminal = TerminalInfo & { hostId: HostId }
+export type HostedProject = Project & { hostId: HostId }
+export type HostedWorkspace = Workspace & { hostId: HostId }
+
 export type ConnectionState =
   | { kind: 'connecting' }
   | { kind: 'connected'; url: string }
   | { kind: 'offline'; reason: string }
+
+export interface HostEntry {
+  id: HostId
+  label: string
+  connection: ConnectionState
+  harness: HarnessState | null
+  /** Shells this host offers for new terminal tabs. */
+  shells: ShellOption[]
+}
 
 /** File previews and diffs opened from the right sidebar; they live only in this window. */
 export interface EditorTab {
@@ -53,24 +77,25 @@ export interface EditorTab {
 export type RightSidebarTab = 'explorer' | 'source-control'
 
 export interface StoreState {
-  connection: ConnectionState
-  harness: HarnessState | null
+  hosts: Record<HostId, HostEntry>
   sessions: Session[]
-  terminals: TerminalInfo[]
-  /** Shells the daemon's host offers for new terminal tabs. */
-  shells: ShellOption[]
+  terminals: HostedTerminal[]
   activeWorkspaceId: string | null
   /** Each workspace remembers its own active tab, as Orca's tab groups do. */
   activeSessionByWorkspace: Record<string, string>
   floating: { open: boolean; maximized: boolean }
   editorTabs: EditorTab[]
   rightSidebar: { open: boolean; tab: RightSidebarTab }
+  /** WSL distros to reconnect on startup. */
+  rememberedHosts: HostId[]
 }
+
+export const LOCAL_HOST: HostId = 'local'
 
 const LAYOUT_KEY = 'acp-harness.layout.v1'
 type SavedLayout = Pick<
   StoreState,
-  'activeWorkspaceId' | 'activeSessionByWorkspace' | 'floating' | 'editorTabs' | 'rightSidebar'
+  'activeWorkspaceId' | 'activeSessionByWorkspace' | 'floating' | 'editorTabs' | 'rightSidebar' | 'rememberedHosts'
 >
 
 function readLayout(): Partial<SavedLayout> {
@@ -83,16 +108,15 @@ function readLayout(): Partial<SavedLayout> {
 
 const saved = readLayout()
 let state: StoreState = {
-  connection: { kind: 'connecting' },
-  harness: null,
+  hosts: {},
   sessions: [],
   terminals: [],
-  shells: [],
   activeWorkspaceId: saved.activeWorkspaceId ?? null,
   activeSessionByWorkspace: saved.activeSessionByWorkspace ?? {},
   floating: saved.floating ?? { open: false, maximized: false },
   editorTabs: saved.editorTabs ?? [],
-  rightSidebar: saved.rightSidebar ?? { open: true, tab: 'explorer' }
+  rightSidebar: saved.rightSidebar ?? { open: true, tab: 'explorer' },
+  rememberedHosts: saved.rememberedHosts ?? []
 }
 const listeners = new Set<() => void>()
 
@@ -106,7 +130,8 @@ function set(next: StoreState): void {
       activeSessionByWorkspace: next.activeSessionByWorkspace,
       floating: next.floating,
       editorTabs: next.editorTabs,
-      rightSidebar: next.rightSidebar
+      rightSidebar: next.rightSidebar,
+      rememberedHosts: next.rememberedHosts
     }
     localStorage.setItem(LAYOUT_KEY, JSON.stringify(layout))
   } catch {
@@ -128,36 +153,72 @@ export function getState(): StoreState {
   return state
 }
 
-export function setConnection(connection: ConnectionState): void {
-  set({ ...state, connection })
+// ── Hosts ────────────────────────────────────────────────────────────────
+
+export function upsertHost(id: HostId, change: Partial<HostEntry>): void {
+  const current: HostEntry = state.hosts[id] ?? {
+    id,
+    label: id === LOCAL_HOST ? 'This computer' : id.replace(/^wsl:/, 'WSL: '),
+    connection: { kind: 'connecting' },
+    harness: null,
+    shells: []
+  }
+  set({ ...state, hosts: { ...state.hosts, [id]: { ...current, ...change } } })
 }
 
-export function setHarnessState(harness: HarnessState): void {
-  const known = new Set(harness.workspaces.map((w) => w.id))
+export function rememberHost(id: HostId, remember: boolean): void {
+  const others = state.rememberedHosts.filter((h) => h !== id)
+  set({ ...state, rememberedHosts: remember ? [...others, id] : others })
+}
+
+export function setHarnessState(hostId: HostId, harness: HarnessState): void {
+  const hosts = { ...state.hosts, [hostId]: { ...state.hosts[hostId]!, label: harness.host.label, harness } }
+  const known = new Set(Object.values(hosts).flatMap((h) => h.harness?.workspaces.map((w) => w.id) ?? []))
   const activeWorkspaceId =
     state.activeWorkspaceId && known.has(state.activeWorkspaceId) ? state.activeWorkspaceId : null
   // Tabs of a deleted workspace go with it; their daemon sessions are left idle.
-  const sessions = state.sessions.filter((s) => known.has(s.workspaceId))
+  const sessions = state.sessions.filter((s) => s.hostId !== hostId || known.has(s.workspaceId))
   const editorTabs = state.editorTabs.filter((t) => known.has(t.workspaceId))
-  set({ ...state, harness, activeWorkspaceId, sessions, editorTabs })
+  set({ ...state, hosts, activeWorkspaceId, sessions, editorTabs })
 }
 
-export function findWorkspace(workspaceId: string): Workspace | null {
-  return state.harness?.workspaces.find((w) => w.id === workspaceId) ?? null
+/** Every project, tagged with the host whose daemon owns it. */
+export function allProjects(hosts: StoreState['hosts'] = state.hosts): HostedProject[] {
+  return Object.values(hosts).flatMap((h) => h.harness?.projects.map((p) => ({ ...p, hostId: h.id })) ?? [])
+}
+
+/** Every workspace; only this computer's floating workspace is used, so other hosts' are left out. */
+export function allWorkspaces(s: StoreState = state): HostedWorkspace[] {
+  return Object.values(s.hosts).flatMap(
+    (h) =>
+      h.harness?.workspaces
+        .filter((w) => h.id === LOCAL_HOST || w.id !== h.harness?.floatingWorkspaceId)
+        .map((w) => ({ ...w, hostId: h.id })) ?? []
+  )
+}
+
+export function findWorkspace(workspaceId: string): HostedWorkspace | null {
+  return allWorkspaces().find((w) => w.id === workspaceId) ?? null
+}
+
+export function floatingWorkspaceId(s: StoreState = state): string | null {
+  return s.hosts[LOCAL_HOST]?.harness?.floatingWorkspaceId ?? null
 }
 
 export function isFloating(workspaceId: string): boolean {
-  return state.harness?.floatingWorkspaceId === workspaceId
+  return floatingWorkspaceId() === workspaceId
 }
 
 export function selectWorkspace(workspaceId: string): void {
   set({ ...state, activeWorkspaceId: workspaceId })
 }
 
-/** Applies the daemon's session list, keeping transcripts this window already has. */
-export function mergeSessions(list: SessionInfo[]): void {
+// ── Sessions ─────────────────────────────────────────────────────────────
+
+/** Applies one host's session list, keeping transcripts this window already has. */
+export function mergeSessions(hostId: HostId, list: SessionInfo[]): void {
   const previous = new Map(state.sessions.map((s) => [s.id, s]))
-  const sessions: Session[] = []
+  const sessions: Session[] = state.sessions.filter((s) => s.hostId !== hostId)
   for (const info of list) {
     if (info.workspaceId === null) continue
     const old = previous.get(info.id)
@@ -167,15 +228,15 @@ export function mergeSessions(list: SessionInfo[]): void {
       const seconds = Math.max(1, Math.round((Date.now() - old.turnStartedAt) / 1000))
       items = [...items, { kind: 'notice', text: `Worked for ${seconds}s` }]
     }
-    sessions.push({ ...info, workspaceId: info.workspaceId, items, loaded: old?.loaded ?? false })
+    sessions.push({ ...info, hostId, workspaceId: info.workspaceId, items, loaded: old?.loaded ?? false })
   }
-  set({ ...state, sessions })
+  set({ ...state, sessions: sessions.sort((a, b) => a.createdAt - b.createdAt) })
 }
 
 export function addSession(session: Session): void {
   set({
     ...state,
-    sessions: [...state.sessions, session],
+    sessions: [...state.sessions.filter((s) => s.id !== session.id), session],
     activeSessionByWorkspace: { ...state.activeSessionByWorkspace, [session.workspaceId]: session.id }
   })
 }
@@ -191,67 +252,6 @@ export function removeSession(sessionId: string): void {
     else delete activeSessionByWorkspace[session.workspaceId]
   }
   set({ ...state, sessions, activeSessionByWorkspace })
-}
-
-/** Opens (or refocuses) a file preview or diff tab in its workspace. */
-export function openEditorTab(tab: Omit<EditorTab, 'id' | 'createdAt'>): void {
-  const existing = state.editorTabs.find(
-    (t) => t.workspaceId === tab.workspaceId && t.kind === tab.kind && t.path === tab.path && t.staged === tab.staged
-  )
-  const target = existing ?? { ...tab, id: `${tab.kind}:${crypto.randomUUID()}`, createdAt: Date.now() }
-  set({
-    ...state,
-    editorTabs: existing ? state.editorTabs : [...state.editorTabs, target],
-    activeSessionByWorkspace: { ...state.activeSessionByWorkspace, [tab.workspaceId]: target.id }
-  })
-}
-
-export function closeEditorTab(id: string): void {
-  set({ ...state, editorTabs: state.editorTabs.filter((t) => t.id !== id) })
-}
-
-export function selectTab(workspaceId: string, tabId: string): void {
-  set({ ...state, activeSessionByWorkspace: { ...state.activeSessionByWorkspace, [workspaceId]: tabId } })
-}
-
-export function setRightSidebar(change: Partial<StoreState['rightSidebar']>): void {
-  set({ ...state, rightSidebar: { ...state.rightSidebar, ...change } })
-}
-
-export function setShells(shells: ShellOption[]): void {
-  set({ ...state, shells })
-}
-
-export function setTerminals(terminals: TerminalInfo[]): void {
-  set({ ...state, terminals })
-}
-
-/** Focuses a terminal tab, opening the floating panel when it lives there. */
-export function selectTerminal(terminalId: string): void {
-  const terminal = state.terminals.find((t) => t.id === terminalId)
-  if (!terminal) return
-  const activeSessionByWorkspace = { ...state.activeSessionByWorkspace, [terminal.workspaceId]: terminalId }
-  set(
-    isFloating(terminal.workspaceId)
-      ? { ...state, activeSessionByWorkspace, floating: { ...state.floating, open: true } }
-      : { ...state, activeSessionByWorkspace, activeWorkspaceId: terminal.workspaceId }
-  )
-}
-
-/** Focuses a session wherever it lives: its workspace in the main area, or the floating panel. */
-export function selectSession(sessionId: string): void {
-  const session = state.sessions.find((s) => s.id === sessionId)
-  if (!session) return
-  const activeSessionByWorkspace = { ...state.activeSessionByWorkspace, [session.workspaceId]: sessionId }
-  if (isFloating(session.workspaceId)) {
-    set({ ...state, activeSessionByWorkspace, floating: { ...state.floating, open: true } })
-  } else {
-    set({ ...state, activeSessionByWorkspace, activeWorkspaceId: session.workspaceId })
-  }
-}
-
-export function setFloating(change: Partial<StoreState['floating']>): void {
-  set({ ...state, floating: { ...state.floating, ...change } })
 }
 
 export function updateSession(id: string, change: (s: Session) => Session): void {
@@ -296,6 +296,10 @@ export function upsertTool(
   })
 }
 
+export function markLoaded(id: string): void {
+  updateSession(id, (s) => ({ ...s, loaded: true, items: [] }))
+}
+
 /** Highest-priority status across a workspace's sessions, ordered like Orca's card overlay. */
 export function workspaceStatus(sessions: Session[]): SessionStatus | 'none' {
   if (sessions.some((s) => s.status === 'needs-you')) return 'needs-you'
@@ -304,6 +308,66 @@ export function workspaceStatus(sessions: Session[]): SessionStatus | 'none' {
   return sessions.length > 0 ? 'idle' : 'none'
 }
 
-export function markLoaded(id: string): void {
-  updateSession(id, (s) => ({ ...s, loaded: true, items: [] }))
+/** Focuses a session wherever it lives: its workspace in the main area, or the floating panel. */
+export function selectSession(sessionId: string): void {
+  const session = state.sessions.find((s) => s.id === sessionId)
+  if (session) focusTab(session.workspaceId, sessionId)
+}
+
+// ── Terminals ────────────────────────────────────────────────────────────
+
+export function setTerminals(hostId: HostId, terminals: TerminalInfo[]): void {
+  set({
+    ...state,
+    terminals: [
+      ...state.terminals.filter((t) => t.hostId !== hostId),
+      ...terminals.map((t) => ({ ...t, hostId }))
+    ]
+  })
+}
+
+/** Focuses a terminal tab, opening the floating panel when it lives there. */
+export function selectTerminal(terminalId: string): void {
+  const terminal = state.terminals.find((t) => t.id === terminalId)
+  if (terminal) focusTab(terminal.workspaceId, terminalId)
+}
+
+// ── Editor tabs and layout ───────────────────────────────────────────────
+
+/** Opens (or refocuses) a file preview or diff tab in its workspace. */
+export function openEditorTab(tab: Omit<EditorTab, 'id' | 'createdAt'>): void {
+  const existing = state.editorTabs.find(
+    (t) => t.workspaceId === tab.workspaceId && t.kind === tab.kind && t.path === tab.path && t.staged === tab.staged
+  )
+  const target = existing ?? { ...tab, id: `${tab.kind}:${crypto.randomUUID()}`, createdAt: Date.now() }
+  set({
+    ...state,
+    editorTabs: existing ? state.editorTabs : [...state.editorTabs, target],
+    activeSessionByWorkspace: { ...state.activeSessionByWorkspace, [tab.workspaceId]: target.id }
+  })
+}
+
+export function closeEditorTab(id: string): void {
+  set({ ...state, editorTabs: state.editorTabs.filter((t) => t.id !== id) })
+}
+
+export function selectTab(workspaceId: string, tabId: string): void {
+  set({ ...state, activeSessionByWorkspace: { ...state.activeSessionByWorkspace, [workspaceId]: tabId } })
+}
+
+function focusTab(workspaceId: string, tabId: string): void {
+  const activeSessionByWorkspace = { ...state.activeSessionByWorkspace, [workspaceId]: tabId }
+  set(
+    isFloating(workspaceId)
+      ? { ...state, activeSessionByWorkspace, floating: { ...state.floating, open: true } }
+      : { ...state, activeSessionByWorkspace, activeWorkspaceId: workspaceId }
+  )
+}
+
+export function setRightSidebar(change: Partial<StoreState['rightSidebar']>): void {
+  set({ ...state, rightSidebar: { ...state.rightSidebar, ...change } })
+}
+
+export function setFloating(change: Partial<StoreState['floating']>): void {
+  set({ ...state, floating: { ...state.floating, ...change } })
 }

@@ -1,6 +1,6 @@
 import { useEffect } from 'react'
 import { Maximize2, Minimize2, Minus, PanelsTopLeft } from 'lucide-react'
-import { setFloating, useStore } from '@/session-store'
+import { allWorkspaces, floatingWorkspaceId, setFloating, useStore } from '@/session-store'
 import { WorkspaceTabs } from '@/components/WorkspaceTabs'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { cn } from '@/lib/utils'
@@ -11,10 +11,8 @@ import { cn } from '@/lib/utils'
 const isMac = navigator.userAgent.includes('Mac')
 
 export function FloatingWorkspace() {
-  const floatingId = useStore((s) => s.harness?.floatingWorkspaceId ?? null)
-  const floatingPath = useStore(
-    (s) => s.harness?.workspaces.find((w) => w.id === s.harness?.floatingWorkspaceId)?.path ?? ''
-  )
+  const floatingId = useStore((s) => floatingWorkspaceId(s))
+  const floatingPath = useStore((s) => allWorkspaces(s).find((w) => w.id === floatingWorkspaceId(s))?.path ?? '')
   const { open, maximized } = useStore((s) => s.floating)
   const waiting = useStore((s) =>
     s.sessions.some((x) => x.workspaceId === floatingId && x.status === 'needs-you')

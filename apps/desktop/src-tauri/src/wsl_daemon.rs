@@ -61,12 +61,22 @@ fn install(distro: &str) -> Result<(), String> {
     let windows_path = local_binary()?;
     let windows_path = windows_path.to_string_lossy().trim_start_matches(r"\\?\").to_string();
     let linux_path = run(wsl().args(["-d", distro, "--exec", "wslpath", "-u", &windows_path]))?;
-    // The source path is passed as $1, never spliced into the script.
+    // Size + mtime stamp: comparing the 90 MB binary itself over WSL's file bridge takes seconds.
+    let meta = std::fs::metadata(&windows_path).map_err(|e| e.to_string())?;
+    let modified = meta
+        .modified()
+        .ok()
+        .and_then(|t| t.duration_since(std::time::UNIX_EPOCH).ok())
+        .map_or(0, |d| d.as_secs());
+    let stamp = format!("{}-{modified}", meta.len());
+    // The source path and stamp are passed as $1/$2, never spliced into the script.
     let script = format!(
         "set -e; target=\"{INSTALLED_BINARY}\"; mkdir -p \"$(dirname \"$target\")\"; \
-         if ! cmp -s \"$1\" \"$target\"; then cp \"$1\" \"$target.new\"; chmod +x \"$target.new\"; mv -f \"$target.new\" \"$target\"; fi"
+         if [ \"$(cat \"$target.stamp\" 2>/dev/null)\" != \"$2\" ] || [ ! -x \"$target\" ]; then \
+         cp \"$1\" \"$target.new\"; chmod +x \"$target.new\"; pkill -f \"$target --port\" || true; \
+         mv -f \"$target.new\" \"$target\"; echo \"$2\" > \"$target.stamp\"; fi"
     );
-    run(wsl().args(["-d", distro, "--exec", "sh", "-c", &script, "sh", &linux_path]))?;
+    run(wsl().args(["-d", distro, "--exec", "sh", "-c", &script, "sh", &linux_path, &stamp]))?;
     Ok(())
 }
 

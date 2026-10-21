@@ -1,5 +1,5 @@
 import { useEffect } from 'react'
-import { connectLocalDaemon } from '@/daemon-connection'
+import { connectAllHosts } from '@/daemon-connection'
 import { useStore } from '@/session-store'
 import { Sidebar } from '@/components/Sidebar'
 import { WorkspaceTabs } from '@/components/WorkspaceTabs'
@@ -15,7 +15,7 @@ export default function App() {
   const activeWorkspaceId = useStore((s) => s.activeWorkspaceId)
 
   useEffect(() => {
-    void connectLocalDaemon()
+    connectAllHosts()
   }, [])
 
   return (

@@ -10,6 +10,7 @@ import type { SessionRegistry } from "./session-registry.ts";
 import type { TerminalManager } from "./terminal-manager.ts";
 import { listDirectory, readWorkspaceFile } from "./workspace-files.ts";
 import { gitCommit, gitDiff, gitStage, gitStatus, gitUnstage } from "./git-changes.ts";
+import { readOrcaProjects } from "./orca-import.ts";
 import type { WorkspaceManager } from "./workspace-manager.ts";
 import { log } from "./log.ts";
 
@@ -199,6 +200,7 @@ export function createHarnessAgent(
   handle(HARNESS_METHODS.gitCommit, async (p) => ({
     commit: await gitCommit(workspaceRoot(p.workspaceId), p.message),
   }));
+  handle(HARNESS_METHODS.orcaProjects, () => readOrcaProjects());
   handle(HARNESS_METHODS.shellsList, async () => terminals.listShells());
   handle(HARNESS_METHODS.terminalsList, async () => terminals.list());
   handle(HARNESS_METHODS.terminalCreate, async (p) => {

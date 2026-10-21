@@ -130,6 +130,14 @@ export interface FileDiff {
   binary: boolean
 }
 
+/** A project listed in Orca's active profile, offered for import. */
+export interface OrcaProject {
+  name: string
+  /** As Orca stored it: a local path or a \\wsl.localhost\<distro>\... UNC path. */
+  path: string
+  kind: ProjectKind
+}
+
 export const HARNESS_METHODS = {
   stateGet: '_harness/state/get',
   projectAdd: '_harness/projects/add',
@@ -154,7 +162,8 @@ export const HARNESS_METHODS = {
   gitDiff: '_harness/git/diff',
   gitStage: '_harness/git/stage',
   gitUnstage: '_harness/git/unstage',
-  gitCommit: '_harness/git/commit'
+  gitCommit: '_harness/git/commit',
+  orcaProjects: '_harness/import/orca'
 } as const
 
 export const HARNESS_NOTIFICATIONS = {
@@ -201,6 +210,7 @@ export interface HarnessRequests {
   [HARNESS_METHODS.gitStage]: { params: { workspaceId: string; paths: string[] }; result: Record<string, never> }
   [HARNESS_METHODS.gitUnstage]: { params: { workspaceId: string; paths: string[] }; result: Record<string, never> }
   [HARNESS_METHODS.gitCommit]: { params: { workspaceId: string; message: string }; result: { commit: string } }
+  [HARNESS_METHODS.orcaProjects]: { params: Record<string, never>; result: OrcaProject[] }
 }
 
 export type HarnessMethod = keyof HarnessRequests

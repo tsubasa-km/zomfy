@@ -150,5 +150,9 @@ function detectShells(): ShellSpec[] {
     return shells
   }
   const login = process.env.SHELL || '/bin/bash'
-  return [{ id: 'login', label: login.split('/').at(-1) ?? 'shell', argv: [login, '-l'] }]
+  // The PTY must become the shell's controlling terminal, or bash runs without job control and
+  // Ctrl+C never reaches the foreground program; util-linux setsid -c does exactly that.
+  const setsid = Bun.which('setsid')
+  const argv = setsid ? [setsid, '-c', login, '-l'] : [login, '-l']
+  return [{ id: 'login', label: login.split('/').at(-1) ?? 'shell', argv }]
 }

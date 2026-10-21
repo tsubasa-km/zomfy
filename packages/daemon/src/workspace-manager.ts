@@ -84,6 +84,21 @@ export class WorkspaceManager {
       isPrimary: true,
       createdAt: Date.now()
     })
+    // Worktrees made elsewhere (Orca, the git CLI) are workspaces too, as Orca lists them.
+    if (isGit) {
+      for (const worktree of await listWorktrees(root)) {
+        if (samePath(worktree.path, root)) continue
+        this.state.workspaces.push({
+          id: crypto.randomUUID(),
+          projectId: project.id,
+          name: basename(worktree.path),
+          path: worktree.path,
+          branch: worktree.branch,
+          isPrimary: false,
+          createdAt: Date.now()
+        })
+      }
+    }
     await this.save()
     return project
   }
@@ -187,6 +202,19 @@ export class WorkspaceManager {
     const snapshot = await this.snapshot()
     for (const listener of this.listeners) listener(snapshot)
   }
+}
+
+/** `git worktree list --porcelain` (Git 2.7+); prunable entries whose folder is gone are skipped. */
+async function listWorktrees(root: string): Promise<{ path: string; branch: string | null }[]> {
+  const out = await git(root, ['worktree', 'list', '--porcelain']).catch(() => '')
+  const worktrees: { path: string; branch: string | null }[] = []
+  for (const block of out.split(/\n\n+/)) {
+    const path = /^worktree (.+)$/m.exec(block)?.[1]
+    if (!path || /^bare$/m.test(block) || !existsSync(path)) continue
+    const branch = /^branch refs\/heads\/(.+)$/m.exec(block)?.[1] ?? null
+    worktrees.push({ path: resolve(path), branch })
+  }
+  return worktrees
 }
 
 async function gitUserName(path: string): Promise<string | null> {
