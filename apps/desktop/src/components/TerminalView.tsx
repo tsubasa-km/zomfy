@@ -4,13 +4,14 @@ import { FitAddon } from '@xterm/addon-fit'
 import { SearchAddon } from '@xterm/addon-search'
 import { WebLinksAddon } from '@xterm/addon-web-links'
 import { HARNESS_METHODS, type TerminalInfo } from '@acp-harness/protocol'
-import { closeTerminal, createTerminal, harnessRequest, subscribeTerminalOutput } from '@/daemon-connection'
+import { closeTerminal, harnessRequest, subscribeTerminalOutput } from '@/daemon-connection'
+import { splitTerminal } from '@/components/terminal/terminal-split'
 import { currentTerminalTheme } from '@/lib/terminal-themes'
 import { matchTerminalShortcut } from '@/lib/terminal-shortcuts'
 import { registerFileLinks } from '@/lib/terminal-file-links'
 import { dropPathsText, pathsFromDataTransfer, registerTerminalDropTarget } from '@/lib/terminal-file-drop'
 import { commandsForProject, newQuickCommand, runQuickCommandInTerminal, useQuickCommands } from '@/lib/quick-commands'
-import { LOCAL_HOST, allProjects, allWorkspaces, useStore } from '@/session-store'
+import { LOCAL_HOST, allProjects, allWorkspaces, getState, useStore } from '@/session-store'
 import { TerminalContextMenu } from '@/components/terminal/TerminalContextMenu'
 import { TerminalSearch } from '@/components/terminal/TerminalSearch'
 import { TerminalProcessExitOverlay } from '@/components/terminal/TerminalProcessExitOverlay'
@@ -18,13 +19,14 @@ import { SetTerminalTitleDialog } from '@/components/terminal/SetTerminalTitleDi
 import { requestQuickCommandEditor } from '@/components/terminal/QuickCommandDialog'
 import '@xterm/xterm/css/xterm.css'
 
+/** Input and resizes stop once a terminal is closed or its shell exited; the daemon would refuse them. */
+function isRunning(terminalId: string): boolean {
+  return getState().terminals.some((t) => t.id === terminalId && t.exitCode === null)
+}
+
 function cssVar(name: string): string {
   return getComputedStyle(document.documentElement).getPropertyValue(name).trim()
 }
-
-/** Split requests go to whoever owns pane layout; until one answers, the split opens as a new tab. */
-export const TERMINAL_SPLIT_EVENT = 'harness:terminal-split'
-export type TerminalSplitDetail = { terminalId: string; workspaceId: string; direction: 'right' | 'down' }
 
 /** One shell from the daemon, drawn with xterm.js as Orca's terminal panes are. */
 export function TerminalView({ terminal }: { terminal: TerminalInfo }) {
@@ -43,7 +45,10 @@ export function TerminalView({ terminal }: { terminal: TerminalInfo }) {
   const quickCommands = commandsForProject(useQuickCommands(hostId), projectId)
   const shellKind = terminal.shellKind ?? 'posix'
 
-  const send = (data: string) => void harnessRequest(HARNESS_METHODS.terminalInput, { terminalId: terminal.id, data })
+  const send = (data: string) => {
+    if (!isRunning(terminal.id)) return
+    void harnessRequest(HARNESS_METHODS.terminalInput, { terminalId: terminal.id, data }).catch(() => undefined)
+  }
   const sendRef = useRef(send)
   sendRef.current = send
   const dropRef = useRef((_paths: string[]) => {})
@@ -82,12 +87,14 @@ export function TerminalView({ terminal }: { terminal: TerminalInfo }) {
       if (replayed) xterm.write(data)
       else queued.push(data)
     })
-    void harnessRequest(HARNESS_METHODS.terminalAttach, { terminalId: terminal.id }).then(({ buffer }) => {
-      xterm.write(buffer)
-      for (const data of queued) xterm.write(data)
-      queued.length = 0
-      replayed = true
-    })
+    void harnessRequest(HARNESS_METHODS.terminalAttach, { terminalId: terminal.id })
+      .then(({ buffer }) => {
+        xterm.write(buffer)
+        for (const data of queued) xterm.write(data)
+        queued.length = 0
+        replayed = true
+      })
+      .catch(() => undefined)
 
     const input = xterm.onData((data) => sendRef.current(data))
 
@@ -113,11 +120,12 @@ export function TerminalView({ terminal }: { terminal: TerminalInfo }) {
       clearTimeout(resizeTimer)
       // The PTY resize is debounced; xterm itself reflows on every frame.
       resizeTimer = setTimeout(() => {
+        if (!isRunning(terminal.id)) return
         void harnessRequest(HARNESS_METHODS.terminalResize, {
           terminalId: terminal.id,
           cols: xterm.cols,
           rows: xterm.rows
-        })
+        }).catch(() => undefined)
       }, 80)
     })
     observer.observe(element)
@@ -211,11 +219,7 @@ export function TerminalView({ terminal }: { terminal: TerminalInfo }) {
         onPaste={paste}
         onSelectAll={() => xtermRef.current?.selectAll()}
         onFind={() => setSearchOpen(true)}
-        onSplit={(direction) => {
-          const detail: TerminalSplitDetail = { terminalId: terminal.id, workspaceId: terminal.workspaceId, direction }
-          const event = new CustomEvent(TERMINAL_SPLIT_EVENT, { detail, cancelable: true })
-          if (window.dispatchEvent(event)) void createTerminal(terminal.workspaceId, terminal.shellId)
-        }}
+        onSplit={(direction) => void splitTerminal(terminal.workspaceId, terminal.id, terminal.shellId, direction)}
         onSetTitle={() => setSettingTitle(true)}
         onClearTitle={terminal.customTitle ? () => rename(null) : null}
         onCopyTerminalId={() => void navigator.clipboard.writeText(terminal.id)}

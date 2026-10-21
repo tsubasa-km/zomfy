@@ -1,6 +1,7 @@
 import { SquareTerminal } from 'lucide-react'
 import { TUI_AGENTS, type TerminalInfo } from '@acp-harness/protocol'
 import { TuiAgentIcon } from '@/components/terminal/TuiAgentIcon'
+import { cn } from '@/lib/utils'
 
 /** Names too generic to read an agent from a title. */
 const TITLE_AMBIGUOUS = new Set(['pi', 'continue', 'cursor'])
@@ -21,11 +22,11 @@ export function terminalAgent(terminal: Pick<TerminalInfo, 'agent' | 'title' | '
 }
 
 /** Leading tab icon: the agent's mark for agent tabs, the terminal glyph otherwise. */
-export function TerminalTabIcon({ terminal, active }: { terminal: TerminalInfo; active: boolean }) {
+export function TerminalTabIcon({ terminal, className }: { terminal: TerminalInfo; className?: string }) {
   const agent = terminalAgent(terminal)
-  if (!agent) return <SquareTerminal className="size-3.5" />
+  if (!agent) return <SquareTerminal className={cn('size-3.5', className)} />
   return (
-    <span className={active ? 'inline-flex' : 'inline-flex opacity-70'} data-agent-icon={agent} aria-hidden>
+    <span className="inline-flex shrink-0" data-agent-icon={agent} aria-hidden>
       <TuiAgentIcon agent={agent} size={12} />
     </span>
   )
