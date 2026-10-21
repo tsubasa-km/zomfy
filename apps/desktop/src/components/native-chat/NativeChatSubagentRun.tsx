@@ -32,7 +32,7 @@ function field(input: unknown, key: string): string | null {
 }
 
 /** One Task call: the subagent's headline and state, opening onto the calls it made and its report. */
-export function NativeChatSubagentRun({ node, rowKey }: { node: ToolNode; rowKey: string }) {
+export function NativeChatSubagentRun({ node, rowKey, cwd }: { node: ToolNode; rowKey: string; cwd: string }) {
   const [open, setOpen] = useState(false)
   const { tool, children } = node
   const state = stateOf(tool.status)
@@ -79,7 +79,7 @@ export function NativeChatSubagentRun({ node, rowKey }: { node: ToolNode; rowKey
       {open ? (
         <div className="mt-1 ml-2 border-l border-border pl-3">
           {children.map((child) => (
-            <NativeChatToolLine key={child.id} tool={child} />
+            <NativeChatToolLine key={child.id} tool={child} cwd={cwd} />
           ))}
           {tool.output && !working ? (
             <div className="mt-1 mb-2 text-sm text-chat-foreground">

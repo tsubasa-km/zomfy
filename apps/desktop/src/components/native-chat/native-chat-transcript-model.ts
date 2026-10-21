@@ -20,7 +20,7 @@ export type TranscriptRowModel =
   | { kind: 'agent'; text: string }
   | { kind: 'thought'; text: string }
   | { kind: 'tools'; tools: ToolNode[] }
-  | { kind: 'tasks'; list: NativeChatTaskList; previous: NativeChatTaskList | null }
+  | { kind: 'tasks'; list: NativeChatTaskList; previous: NativeChatTaskList | null; fromBoard?: boolean }
   | { kind: 'decision'; title: string; chosen: string }
   | { kind: 'notice'; text: string; severity?: string }
   | { kind: 'compaction'; status: string }
@@ -58,6 +58,7 @@ export function buildTranscript(items: ThreadItem[], turnRunning: boolean, cwd: 
 
   const rows: TranscriptRowModel[] = []
   let taskList: NativeChatTaskList | null = null
+  const board = new TaskBoard()
   let turnEdits: ToolItem[] = []
   const closeTurn = (): void => {
     const diff = turnDiff(turnEdits, cwd)
@@ -79,6 +80,15 @@ export function buildTranscript(items: ThreadItem[], turnRunning: boolean, cwd: 
             rows.push({ kind: 'tasks', list, previous: taskList })
             taskList = list
           }
+          break
+        }
+        if (board.apply(name, item)) {
+          // A burst of TaskCreate/TaskUpdate calls reads as one change to the list.
+          const list = board.snapshot()
+          const last = rows.at(-1)
+          if (last?.kind === 'tasks' && last.fromBoard) last.list = list
+          else rows.push({ kind: 'tasks', list, previous: taskList, fromBoard: true })
+          taskList = list
           break
         }
         if (item.status === 'completed') turnEdits.push(item)
@@ -132,6 +142,63 @@ function turnDiff(tools: ToolItem[], cwd: string): TurnDiff | null {
     added: list.reduce((n, f) => n + f.added, 0),
     removed: list.reduce((n, f) => n + f.removed, 0)
   }
+}
+
+/**
+ * Claude Code's task tools (TaskCreate/TaskUpdate), which replaced TodoWrite: the list is the fold
+ * of every call, keyed by the id the create call's result announces ("Task #3 created…").
+ */
+class TaskBoard {
+  private readonly tasks = new Map<string, NativeChatTaskList['tasks'][number]>()
+  private created = 0
+
+  apply(name: string, tool: ToolItem): boolean {
+    const input = record(tool.input)
+    if (name === 'TaskCreate') {
+      this.created += 1
+      const id = /#(\d+)/.exec(tool.output)?.[1] ?? String(this.created)
+      const content = text(input.subject) ?? text(input.description) ?? `Task ${id}`
+      const activeForm = text(input.activeForm)
+      this.tasks.set(id, { content, status: 'pending', ...(activeForm ? { activeForm } : {}) })
+      return true
+    }
+    if (name !== 'TaskUpdate') return false
+    const id = text(input.taskId)
+    const task = id ? this.tasks.get(id) : undefined
+    if (!id || !task) return true
+    if (input.status === 'deleted') {
+      this.tasks.delete(id)
+      return true
+    }
+    const status = input.status === 'in_progress' || input.status === 'completed' || input.status === 'pending' ? input.status : task.status
+    const activeForm = text(input.activeForm) ?? task.activeForm
+    this.tasks.set(id, { content: text(input.subject) ?? task.content, status, ...(activeForm ? { activeForm } : {}) })
+    return true
+  }
+
+  snapshot(): NativeChatTaskList {
+    return { tasks: [...this.tasks.values()] }
+  }
+}
+
+function record(value: unknown): Record<string, unknown> {
+  return typeof value === 'object' && value !== null ? Object.fromEntries(Object.entries(value)) : {}
+}
+
+function text(value: unknown): string | undefined {
+  return typeof value === 'string' && value.trim() ? value.trim() : undefined
+}
+
+/** A title or path with the workspace's own prefix dropped, the way Orca shows workspace files. */
+export function shortenPaths(value: string, cwd: string): string {
+  if (!cwd) return value
+  const variants = [cwd, cwd.replaceAll('\\', '/'), cwd.replaceAll('/', '\\')]
+  let out = value
+  for (const root of new Set(variants)) {
+    const escaped = root.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+    out = out.replace(new RegExp(`${escaped}[\\\\/]`, 'gi'), '')
+  }
+  return out
 }
 
 /** Claude reports absolute paths; the workspace's own files read (and open) relative to it. */

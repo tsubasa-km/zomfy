@@ -10,7 +10,7 @@ import { NativeChatSubagentRun } from './NativeChatSubagentRun'
 import { NativeChatTaskList } from './NativeChatTaskList'
 import { NativeChatTurnDiffRollup } from './NativeChatTurnDiffRollup'
 import { NATIVE_CHAT_QUOTE_SOURCE_PROPS } from './NativeChatSelectionQuote'
-import { isSubagentTool, type TranscriptRowModel } from './native-chat-transcript-model'
+import { isSubagentTool, shortenPaths, type TranscriptRowModel } from './native-chat-transcript-model'
 
 // Rows follow Orca's NativeChatUserMessageRow, NativeChatAssistantMessageRow,
 // NativeChatReasoningRow, NativeChatToolRun and NativeChatNoticeRow.
@@ -23,6 +23,8 @@ export type TranscriptRowActions = {
   /** Absent while a turn runs: rewinding needs the agent stopped. */
   onRewind?: (messageId: string) => void
   onRevealFile: (path: string) => void
+  /** The workspace folder, dropped from the paths rows show. */
+  cwd: string
 }
 
 export function NativeChatTranscriptRow({
@@ -89,9 +91,9 @@ export function NativeChatTranscriptRow({
         <div className="flex flex-col">
           {row.tools.map((node) =>
             isSubagentTool(node.tool) ? (
-              <NativeChatSubagentRun key={node.tool.id} node={node} rowKey={rowKey} />
+              <NativeChatSubagentRun key={node.tool.id} node={node} rowKey={rowKey} cwd={actions.cwd} />
             ) : (
-              <NativeChatToolLine key={node.tool.id} tool={node.tool} />
+              <NativeChatToolLine key={node.tool.id} tool={node.tool} cwd={actions.cwd} />
             )
           )}
         </div>
@@ -105,7 +107,7 @@ export function NativeChatTranscriptRow({
         <div className="flex items-center gap-1.5 text-xs text-chat-foreground-faint">
           <ShieldQuestion className="size-3.5" aria-hidden />
           <span className="truncate">
-            {row.chosen === 'reject' || row.chosen === 'cancelled' ? 'Rejected' : 'Allowed'}: {row.title}
+            {row.chosen === 'reject' || row.chosen === 'cancelled' ? 'Rejected' : 'Allowed'}: {shortenPaths(row.title, actions.cwd)}
           </span>
         </div>
       )

@@ -174,7 +174,7 @@ export function NativeChatAutocompleteMenu({
         {command.builtin ? null : <Package className="mt-0.5 size-3.5 shrink-0 text-muted-foreground" />}
         <span className="min-w-0 flex-1">
           <span className="flex min-w-0 items-baseline gap-1.5">
-            <span className="min-w-0 truncate font-mono text-chat-code font-medium">/{command.name}</span>
+            <span className="max-w-full shrink-0 truncate font-mono text-chat-code font-medium">/{command.name}</span>
             {command.argumentHint ? (
               <span className="min-w-0 truncate font-mono text-2xs text-muted-foreground">{command.argumentHint}</span>
             ) : null}

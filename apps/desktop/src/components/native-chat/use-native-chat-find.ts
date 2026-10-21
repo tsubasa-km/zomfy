@@ -54,13 +54,16 @@ export function useNativeChatFind(
   const [activeIndex, setActiveIndex] = useState(-1)
   const revealNext = useRef(false)
 
+  // Why: store updates render synchronously, so a state write here on every streamed chunk would
+  // nest one more sync render per chunk; closed find depends on nothing and writes only once.
+  const searchedVersion = open && query ? contentVersion : null
   useLayoutEffect(() => {
     const registry = highlights()
     const root = transcriptRef.current
     if (!open || !query || !root) {
       registry?.delete(MATCH)
       registry?.delete(ACTIVE)
-      setMatches([])
+      setMatches((current) => (current.length === 0 ? current : []))
       setActiveIndex(-1)
       return
     }
@@ -68,7 +71,7 @@ export function useNativeChatFind(
     registry?.set(MATCH, new Highlight(...found))
     setMatches(found)
     setActiveIndex((current) => (found.length === 0 ? -1 : current >= 0 && current < found.length ? current : 0))
-  }, [open, query, contentVersion, transcriptRef])
+  }, [open, query, searchedVersion, transcriptRef])
 
   useEffect(() => {
     const registry = highlights()

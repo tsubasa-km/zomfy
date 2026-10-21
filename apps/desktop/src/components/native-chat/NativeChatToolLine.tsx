@@ -17,7 +17,7 @@ import { diffFromToolCall } from '@/shared/native-chat-diff'
 import { cn } from '@/lib/utils'
 import { NativeChatExpandable } from './NativeChatExpandable'
 import { NativeChatDiffView } from './NativeChatDiffView'
-import { toolNameOf, type ToolItem } from './native-chat-transcript-model'
+import { shortenPaths, toolNameOf, type ToolItem } from './native-chat-transcript-model'
 
 // Classes follow Orca's NativeChatToolLine / NativeChatToolIcon.
 const TOOL_GLYPHS: Record<acp.ToolKind, LucideIcon> = {
@@ -43,12 +43,12 @@ function glyphFor(tool: ToolItem): LucideIcon {
 const TARGET_CLASS =
   'min-w-0 truncate text-chat-foreground transition-colors group-hover/tool-line:text-chat-foreground-strong'
 
-export function NativeChatToolLine({ tool }: { tool: ToolItem }) {
+export function NativeChatToolLine({ tool, cwd }: { tool: ToolItem; cwd: string }) {
   const [expanded, setExpanded] = useState(false)
   const Glyph = glyphFor(tool)
   const failed = tool.status === 'failed'
   const [verb, ...rest] = tool.title.split(': ')
-  const target = rest.join(': ')
+  const target = shortenPaths(rest.join(': '), cwd)
   const command = commandOf(tool.input)
   const diff = failed ? null : diffFromToolCall(toolNameOf(tool), tool.input)
   const hasDetail = tool.output.length > 0 || command !== null || diff !== null

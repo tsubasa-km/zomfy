@@ -65,8 +65,12 @@ export function ThreadView({ session }: { session: Session }) {
   const pendingPermission = session.items.findLast(
     (item): item is Extract<ThreadItem, { kind: 'permission' }> => item.kind === 'permission' && item.chosen === null
   )
-  const railItems: RailItem[] = model.rows.flatMap((row, index) =>
-    row.kind === 'user' ? [{ id: `${session.id}:${index}`, text: row.item.text.replace(/\s+/g, ' ').slice(0, 200) }] : []
+  const railItems = useMemo(
+    (): RailItem[] =>
+      model.rows.flatMap((row, index) =>
+        row.kind === 'user' ? [{ id: `${session.id}:${index}`, text: row.item.text.replace(/\s+/g, ' ').slice(0, 200) }] : []
+      ),
+    [model.rows, session.id]
   )
   const empty = session.loaded && session.items.length === 0 && !running
 
@@ -127,6 +131,7 @@ export function ThreadView({ session }: { session: Session }) {
                         rowKey={`${session.id}:${index}`}
                         actions={{
                           ...(working ? {} : { onRewind: setRewindTarget }),
+                          cwd: session.cwd,
                           onRevealFile: (path) =>
                             openEditorTab({ workspaceId: session.workspaceId, kind: 'file', path, staged: false })
                         }}
@@ -174,7 +179,7 @@ export function ThreadView({ session }: { session: Session }) {
         <NativeChatJumpToLatest visible={!atBottom && !empty} onJump={jumpToLatest} />
       </div>
       <NativeChatSelectionQuote rootRef={rootRef} onQuote={quote} />
-      {pendingPermission && <NativeChatApprovalCard permission={pendingPermission} />}
+      {pendingPermission && <NativeChatApprovalCard permission={pendingPermission} cwd={session.cwd} />}
       <NativeChatDockedTaskList list={model.taskList} />
       <NativeChatQueuedMessageList sessionId={session.id} working={working} />
       <NativeChatComposer session={session} textareaRef={textareaRef} />

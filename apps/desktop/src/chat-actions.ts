@@ -151,6 +151,16 @@ export async function rewindTo(sessionId: string, messageId: string): Promise<vo
   if (!target) return
   const { text } = await harnessRequest(HARNESS_METHODS.sessionRewind, { sessionId, messageId }, target.hostId)
   patchChatSession(sessionId, { usage: null, draft: text })
+  await reloadTranscript(sessionId)
+}
+
+/** Replays the daemon's transcript into this window from scratch. */
+export function reloadTranscript(sessionId: string): Promise<void> {
   updateSession(sessionId, (s) => ({ ...s, loaded: false }))
-  await ensureSessionLoaded(sessionId)
+  return ensureSessionLoaded(sessionId)
+}
+
+// Dev-only hook so scripts/cdp.ts can drive chat actions without hover-only controls.
+if (import.meta.env.DEV) {
+  Object.assign(window, { __chat: { reloadTranscript, forkChat, rewindTo, submitPrompt } })
 }

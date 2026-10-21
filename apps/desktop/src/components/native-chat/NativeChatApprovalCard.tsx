@@ -3,6 +3,7 @@ import { answerPermission } from '@/daemon-connection'
 import type { ThreadItem } from '@/session-store'
 import { cn } from '@/lib/utils'
 import { NativeChatMarkdown } from './NativeChatMarkdown'
+import { shortenPaths } from './native-chat-transcript-model'
 
 type Permission = Extract<ThreadItem, { kind: 'permission' }>
 
@@ -12,7 +13,7 @@ function planOf(input: unknown): string | null {
 }
 
 /** Orca's NativeChatApprovalCard; an ExitPlanMode request shows the plan it asks to start. */
-export function NativeChatApprovalCard({ permission }: { permission: Permission }) {
+export function NativeChatApprovalCard({ permission, cwd }: { permission: Permission; cwd: string }) {
   // Allow first, as Orca puts the primary choice first.
   const options = [...permission.options].sort(
     (a, b) => Number(b.kind.startsWith('allow')) - Number(a.kind.startsWith('allow'))
@@ -31,7 +32,7 @@ export function NativeChatApprovalCard({ permission }: { permission: Permission 
             <Icon className="mt-0.5 size-4 shrink-0 text-muted-foreground" />
             <div className="min-w-0 flex-1">
               <p className="line-clamp-2 text-sm font-semibold break-words text-foreground">
-                {plan ? permission.title : `Allow ${permission.title}?`}
+                {plan ? permission.title : `Allow ${shortenPaths(permission.title, cwd)}?`}
               </p>
             </div>
           </div>

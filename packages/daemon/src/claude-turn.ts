@@ -95,6 +95,8 @@ export async function runClaudeTurn(input: TurnInput): Promise<acp.StopReason> {
       ...(model ? { model } : {}),
       ...(effort ? { effort } : {}),
       permissionMode,
+      // Headless runs on current models drop the task tools the TUI keeps; the chat draws their list.
+      env: { ...process.env, CLAUDE_CODE_ENABLE_TODO_TOOLS: "1" },
       ...(permissionMode === "bypassPermissions" ? { allowDangerouslySkipPermissions: true } : {}),
     },
   });
@@ -131,6 +133,7 @@ async function forwardMessage(
       if (message.subtype === "init") {
         state.claudeSessionId = message.session_id;
         input.onSlashCommands?.(message.slash_commands);
+        log(`claude init: model ${message.model}, todo tools ${message.tools.filter((t) => /^(TodoWrite|Task[A-Z])/.test(t)).join(",") || "none"}`);
         noteMode(message.permissionMode, input);
       } else if (message.subtype === "status") {
         if (message.permissionMode) noteMode(message.permissionMode, input);
