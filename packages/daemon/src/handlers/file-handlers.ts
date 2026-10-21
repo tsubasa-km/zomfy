@@ -1,6 +1,7 @@
 import { HARNESS_METHODS } from "@acp-harness/protocol";
 import { listDirectory, readWorkspaceFile, writeWorkspaceFile } from "../workspace-files.ts";
 import { searchWorkspace } from "../workspace-search.ts";
+import { readWorkspaceFileBinary, readWorkspaceFileRevision, statWorkspaceFile } from "../workspace-file-bytes.ts";
 import type { HandlerContext } from "./handler-context.ts";
 
 export function registerFileHandlers({ handle, workspaceRoot }: HandlerContext): void {
@@ -10,4 +11,7 @@ export function registerFileHandlers({ handle, workspaceRoot }: HandlerContext):
     writeWorkspaceFile(workspaceRoot(p.workspaceId), p.path, p.content, p.expectedMtimeMs),
   );
   handle(HARNESS_METHODS.search, async (p) => searchWorkspace(workspaceRoot(p.workspaceId), p));
+  handle(HARNESS_METHODS.fsReadBinary, async (p) => readWorkspaceFileBinary(workspaceRoot(p.workspaceId), p.path));
+  handle(HARNESS_METHODS.fsReadRevision, async (p) => readWorkspaceFileRevision(workspaceRoot(p.workspaceId), p));
+  handle(HARNESS_METHODS.fsStat, async (p) => statWorkspaceFile(workspaceRoot(p.workspaceId), p.path));
 }

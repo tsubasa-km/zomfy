@@ -1,0 +1,127 @@
+/* Ported from Orca's main.css (editor header, conflict decorations). */
+
+.editor-header {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  min-height: 32px;
+  padding: 3px 14px;
+  background: var(--editor-surface);
+  border-bottom: 1px solid color-mix(in srgb, var(--border) 72%, transparent);
+  flex-shrink: 0;
+}
+
+.editor-header-text {
+  min-width: 0;
+  flex: 1;
+  overflow: hidden;
+}
+
+.editor-header-path-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  overflow: hidden;
+}
+
+.editor-header-path {
+  display: flex;
+  align-items: center;
+  min-width: 0;
+  flex: 1 1 auto;
+  padding: 0;
+  max-width: 100%;
+  overflow: hidden;
+  border: none;
+  background: transparent;
+  color: var(--muted-foreground);
+  cursor: pointer;
+  font-size: 12px;
+  line-height: 1.2;
+  font-family: ui-monospace, SFMono-Regular, SF Mono, Menlo, Consolas, monospace;
+  white-space: nowrap;
+  text-align: left;
+}
+
+.editor-header-path-prefix {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.editor-header-path-file {
+  flex: 0 0 auto;
+  white-space: nowrap;
+}
+
+.editor-header-path:hover,
+.editor-header-path:focus-visible {
+  color: var(--foreground);
+}
+
+.editor-header-copy-toast {
+  opacity: 0;
+  transform: translateY(2px);
+  transition:
+    opacity 120ms ease,
+    transform 120ms ease;
+  pointer-events: none;
+  flex-shrink: 0;
+  padding: 2px 6px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--accent) 72%, transparent);
+  color: var(--foreground);
+  font-size: 11px;
+  line-height: 1.2;
+  white-space: nowrap;
+}
+
+.editor-header-copy-toast.is-visible {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.monaco-editor .orca-conflict-marker-line {
+  background: color-mix(in srgb, var(--destructive) 12%, transparent);
+}
+
+.monaco-editor .orca-conflict-section-line {
+  border-left: 3px solid transparent;
+}
+
+.monaco-editor .orca-conflict-current-line {
+  background: color-mix(in srgb, var(--git-decoration-modified) 12%, transparent);
+  border-left-color: color-mix(in srgb, var(--git-decoration-modified) 72%, transparent);
+}
+
+.monaco-editor .orca-conflict-base-line {
+  background: color-mix(in srgb, var(--muted-foreground) 7%, transparent);
+  border-left-color: color-mix(in srgb, var(--muted-foreground) 36%, transparent);
+}
+
+.monaco-editor .orca-conflict-incoming-line {
+  background: color-mix(in srgb, var(--git-decoration-renamed) 11%, transparent);
+  border-left-color: color-mix(in srgb, var(--git-decoration-renamed) 68%, transparent);
+}
+
+.monaco-editor .orca-conflict-line-decoration {
+  width: 4px !important;
+  margin-left: 3px;
+  background: var(--destructive);
+  border-radius: 999px;
+}
+
+.monaco-editor .orca-conflict-margin {
+  background: color-mix(in srgb, var(--destructive) 8%, transparent);
+}
+
+.monaco-editor .orca-conflict-marker-label {
+  color: var(--destructive);
+  font-family: var(--font-sans, system-ui, sans-serif);
+  font-size: 11px;
+  font-weight: 600;
+  font-style: normal;
+  opacity: 0.92;
+}
