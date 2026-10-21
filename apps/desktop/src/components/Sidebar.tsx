@@ -89,7 +89,7 @@ export function Sidebar() {
         </div>
       </div>
 
-      <div className="worktree-sidebar-scrollbar mt-1 min-h-0 flex-1 px-1 pb-3">
+      <div className="worktree-sidebar-scrollbar mt-1 min-h-0 flex-1 overflow-x-hidden overflow-y-auto px-1 pb-3">
         {waiting.length > 0 && (
           <section className="mb-2">
             <SectionHeader icon="attention" label="Waiting for you" count={waiting.length} />
