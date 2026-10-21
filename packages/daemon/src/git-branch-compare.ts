@@ -41,10 +41,15 @@ export async function gitBranchCompare(cwd: string, requestedBaseRef?: string | 
 /** Candidates for Orca's "Change Base Ref" picker; bounded so huge repos stay cheap. */
 export async function gitBaseRefs(cwd: string): Promise<{ refs: string[]; defaultBaseRef: string }> {
   const [out, fallback] = await Promise.all([
-    git(cwd, ['for-each-ref', '--count=500', '--sort=-committerdate', '--format=%(refname:short)', 'refs/heads', 'refs/remotes']).catch(() => ''),
+    git(cwd, ['for-each-ref', '--count=500', '--sort=-committerdate', '--format=%(refname)%00%(refname:short)', 'refs/heads', 'refs/remotes']).catch(() => ''),
     defaultBaseRef(cwd)
   ])
-  const refs = out.split('\n').filter((r) => r && !r.endsWith('/HEAD'))
+  // refs/remotes/<remote>/HEAD shortens to the bare remote name, which is not a branch.
+  const refs = out
+    .split('\n')
+    .map((line) => line.split('\0'))
+    .filter(([full, short]) => full && short && !full.endsWith('/HEAD'))
+    .map(([, short]) => short!)
   return { refs, defaultBaseRef: fallback }
 }
 
