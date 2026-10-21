@@ -10,7 +10,17 @@ export function registerTerminalHandlers({ handle, terminals, workspaceRoot }: H
   handle(HARNESS_METHODS.shellsList, async () => terminals.listShells());
   handle(HARNESS_METHODS.terminalsList, async () => terminals.list());
   handle(HARNESS_METHODS.terminalCreate, async (p) =>
-    terminals.create({ ...p, cwd: workspaceRoot(p.workspaceId) }),
+    // Listed field by field: `program` (hook runners) is daemon-internal and must not come from a client.
+    terminals.create({
+      workspaceId: p.workspaceId,
+      shellId: p.shellId,
+      cols: p.cols,
+      rows: p.rows,
+      agent: p.agent,
+      prompt: p.prompt,
+      command: p.command,
+      cwd: workspaceRoot(p.workspaceId),
+    }),
   );
   handle(HARNESS_METHODS.terminalAttach, async (p) => ({ buffer: terminals.replay(p.terminalId) }));
   handle(HARNESS_METHODS.terminalInput, async (p) => {

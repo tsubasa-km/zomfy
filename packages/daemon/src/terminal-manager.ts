@@ -16,6 +16,7 @@ const TITLE_NOTIFY_MS = 150
 interface ShellSpec extends ShellOption {
   argv: string[]
   kind: TerminalShellKind
+  env?: Record<string, string>
 }
 
 interface LiveTerminal {
@@ -36,7 +37,11 @@ interface LiveTerminal {
   rows: number
 }
 
-type CreateParams = CreateTerminalParams & { cwd: string }
+type CreateParams = CreateTerminalParams & {
+  cwd: string
+  /** A program to run instead of a shell (setup scripts); the tab keeps its output after exit. */
+  program?: { argv: string[]; title: string; env?: Record<string, string> }
+}
 
 export class TerminalManager {
   private readonly terminals = new Map<string, LiveTerminal>()
@@ -66,7 +71,16 @@ export class TerminalManager {
   }
 
   async create(params: CreateParams): Promise<TerminalInfo> {
-    const spec = this.shells.find((s) => s.id === params.shellId) ?? this.shells[0]
+    const spec: ShellSpec | undefined = params.program
+      ? {
+          id: 'program',
+          label: params.program.title,
+          argv: params.program.argv,
+          // Hook runners are .cmd files on Windows unless they start with #!.
+          kind: process.platform === 'win32' && /.cmd$/i.test(params.program.argv.at(-1) ?? '') ? 'cmd' : 'posix',
+          env: params.program.env
+        }
+      : (this.shells.find((s) => s.id === params.shellId) ?? this.shells[0])
     if (!spec) throw new Error('No shell found on this host')
     const now = Date.now()
     const info: TerminalInfo = {
@@ -163,7 +177,7 @@ export class TerminalManager {
     const proc = Bun.spawn(spec.argv, {
       cwd: info.cwd,
       terminal: pty,
-      env: { ...envWithoutPath(), PATH, TERM: 'xterm-256color', COLORTERM: 'truecolor' },
+      env: { ...envWithoutPath(), PATH, ...spec.env, TERM: 'xterm-256color', COLORTERM: 'truecolor' },
       // Typed only on the non-terminal overloads; ConPTY children still need it to stay hidden.
       ...({ windowsHide: true } as object)
     })

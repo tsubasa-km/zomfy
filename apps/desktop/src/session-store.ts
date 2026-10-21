@@ -83,7 +83,7 @@ export interface EditorTab {
 /** Orca's "Workspace options": group by and sort by. */
 export interface SidebarView {
   groupBy: 'project' | 'status'
-  sortBy: 'created' | 'name' | 'recent'
+  sortBy: 'created' | 'name' | 'recent' | 'manual'
 }
 
 export type RightSidebarTab = 'explorer' | 'search' | 'source-control' | 'ports'
