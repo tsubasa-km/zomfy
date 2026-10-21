@@ -20,6 +20,7 @@ import {
   mergeSessions,
   removeSession,
   selectTerminal,
+  selectWorkspace,
   setConnection,
   setHarnessState,
   setShells,
@@ -189,7 +190,7 @@ export function closeSession(sessionId: string): void {
 
 // Dev-only hook so scripts/cdp.ts can drive what a native folder dialog would otherwise block.
 if (import.meta.env.DEV) {
-  Object.assign(window, { __harness: { createSession, createTerminal, harnessRequest, state: getState } });
+  Object.assign(window, { __harness: { createSession, createTerminal, harnessRequest, selectWorkspace, state: getState } });
 }
 
 // Vite HMR re-runs this module with `connection` reset; close the old socket instead of leaking it.

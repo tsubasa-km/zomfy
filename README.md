@@ -39,11 +39,16 @@ cd apps/desktop
 bun run tauri:debug                                   # app with WebView2 DevTools on 127.0.0.1:9223
 bun run cdp screenshot shot.png                       # capture the window
 bun run cdp logs 3000                                 # reload and print console output + exceptions
-NEW_SESSION=1 AUTO_ALLOW=1 scripts/smoke-ui.sh "Reply with: pong"   # floating workspace
+NEW_SESSION=1 AUTO_ALLOW=1 scripts/smoke-ui.sh "Reply with: pong"   # in C:\dev\harness-playground
+TARGET=floating NEW_SESSION=1 scripts/smoke-ui.sh "Reply with: pong"       # in the floating workspace
 ```
 
 In dev builds `window.__harness` (`createSession`, `harnessRequest`, `state`) stands in for the
 native folder dialog, which DevTools cannot click.
+
+Tests run against a dedicated repository, `C:\dev\harness-playground`
+(`bun packages/daemon/scripts/ensure-playground.ts` creates and registers it), so real projects
+are never touched.
 
 ## Other entry points
 
