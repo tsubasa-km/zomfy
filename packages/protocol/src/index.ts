@@ -4,12 +4,14 @@
 
 import { FILE_METHODS, type FileRequests } from './files'
 import { GIT_METHODS, type GitRequests } from './git'
+import { PORT_METHODS, type PortRequests } from './ports'
 import { SESSION_METHODS, type SessionRequests } from './sessions'
 import { TERMINAL_METHODS, type TerminalRequests } from './terminals'
 import { WORKSPACE_METHODS, type WorkspaceRequests } from './workspaces'
 
 export * from './files'
 export * from './git'
+export * from './ports'
 export * from './sessions'
 export * from './terminals'
 export * from './workspaces'
@@ -19,7 +21,8 @@ export const HARNESS_METHODS = {
   ...SESSION_METHODS,
   ...TERMINAL_METHODS,
   ...FILE_METHODS,
-  ...GIT_METHODS
+  ...GIT_METHODS,
+  ...PORT_METHODS
 } as const
 
 export const HARNESS_NOTIFICATIONS = {
@@ -34,6 +37,7 @@ export interface HarnessRequests
     SessionRequests,
     TerminalRequests,
     FileRequests,
-    GitRequests {}
+    GitRequests,
+    PortRequests {}
 
 export type HarnessMethod = keyof HarnessRequests

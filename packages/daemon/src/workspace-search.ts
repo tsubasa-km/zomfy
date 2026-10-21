@@ -15,11 +15,17 @@ export async function searchWorkspace(root: string, params: SearchParams): Promi
 
 async function ripgrep(rg: string, root: string, params: SearchParams): Promise<SearchResult> {
   const args = [
+    '--no-config',
     '--json',
+    '--hidden',
+    '--glob', '!.git',
     '--max-columns', String(MAX_LINE),
     '--max-columns-preview',
     params.caseSensitive ? '--case-sensitive' : '--ignore-case',
+    ...(params.wholeWord ? ['--word-regexp'] : []),
     ...(params.regex ? [] : ['--fixed-strings']),
+    ...splitGlobs(params.include).flatMap((glob) => ['--glob', glob]),
+    ...splitGlobs(params.exclude).flatMap((glob) => ['--glob', `!${glob}`]),
     '--',
     params.query,
     '.'
@@ -31,10 +37,16 @@ async function ripgrep(rg: string, root: string, params: SearchParams): Promise<
     if (event.type !== 'match') continue
     const data = event.data
     const text: string = data.lines.text ?? ''
+    const first = data.submatches[0]
+    // rg reports byte offsets; the UI indexes UTF-16 characters.
+    const bytes = Buffer.from(text)
+    const start = first ? bytes.subarray(0, first.start).toString().length : 0
+    const end = first ? bytes.subarray(0, first.end).toString().length : 0
     matches.push({
       path: normalize(data.path.text),
       line: data.line_number,
-      column: (data.submatches[0]?.start ?? 0) + 1,
+      column: start + 1,
+      ...(first ? { length: end - start } : {}),
       text: text.replace(/\r?\n$/, '').slice(0, MAX_LINE)
     })
     if (matches.length >= MAX_MATCHES) {
@@ -49,8 +61,11 @@ async function gitGrep(root: string, params: SearchParams): Promise<SearchResult
   const args = [
     'git', 'grep', '-n', '--column', '-I', '--no-color', '--untracked', '--exclude-standard',
     ...(params.caseSensitive ? [] : ['-i']),
+    ...(params.wholeWord ? ['-w'] : []),
     ...(params.regex ? ['-E'] : ['-F']),
-    '-e', params.query
+    '-e', params.query,
+    '--',
+    ...gitPathspecs(params)
   ]
   const matches: SearchMatch[] = []
   let truncated = false
@@ -84,6 +99,39 @@ async function* run(argv: string[], cwd: string): AsyncGenerator<string> {
   } finally {
     proc.kill()
   }
+}
+
+/** Comma-separated globs, keeping commas inside `{a,b}` groups (Orca's splitSearchGlobPatterns). */
+export function splitGlobs(patterns: string | undefined): string[] {
+  if (!patterns) return []
+  const out: string[] = []
+  let current = ''
+  let depth = 0
+  for (const ch of patterns) {
+    if (ch === '{') depth++
+    else if (ch === '}') depth = Math.max(0, depth - 1)
+    if (ch === ',' && depth === 0) {
+      if (current.trim()) out.push(current.trim())
+      current = ''
+      continue
+    }
+    current += ch
+  }
+  if (current.trim()) out.push(current.trim())
+  return out
+}
+
+/** git grep matches pathspecs from the root, so a bare name or glob also matches at any depth and below. */
+function gitPathspecs(params: SearchParams): string[] {
+  const toSpecs = (glob: string, magic: string): string[] => {
+    const trimmed = glob.replace(/\/+$/, '')
+    if (!trimmed) return []
+    const pattern = trimmed.includes('/') ? trimmed : `**/${trimmed}`
+    return [`:(${magic})${pattern}`, `:(${magic})${pattern}/**`]
+  }
+  const include = splitGlobs(params.include).flatMap((g) => toSpecs(g, 'glob'))
+  const exclude = splitGlobs(params.exclude).flatMap((g) => toSpecs(g, 'exclude,glob'))
+  return [...(include.length ? include : ['.']), ...exclude]
 }
 
 function normalize(path: string): string {

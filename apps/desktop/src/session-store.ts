@@ -84,7 +84,7 @@ export interface SidebarView {
   sortBy: 'created' | 'name' | 'recent'
 }
 
-export type RightSidebarTab = 'explorer' | 'search' | 'source-control'
+export type RightSidebarTab = 'explorer' | 'search' | 'source-control' | 'ports'
 
 export interface StoreState {
   hosts: Record<HostId, HostEntry>
@@ -401,6 +401,18 @@ export function setEditorDirty(id: string, dirty: boolean): void {
 
 export function closeEditorTab(id: string): void {
   set({ ...state, editorTabs: state.editorTabs.filter((t) => t.id !== id) })
+}
+
+/** Follows a file or folder the explorer renamed or moved, so its open tabs keep working. */
+export function moveEditorTabs(workspaceId: string, from: string, to: string): void {
+  const moved = (path: string) => path === from || path.startsWith(`${from}/`)
+  if (!state.editorTabs.some((t) => t.workspaceId === workspaceId && moved(t.path))) return
+  set({
+    ...state,
+    editorTabs: state.editorTabs.map((t) =>
+      t.workspaceId === workspaceId && moved(t.path) ? { ...t, path: to + t.path.slice(from.length) } : t
+    )
+  })
 }
 
 export function selectTab(workspaceId: string, tabId: string): void {
