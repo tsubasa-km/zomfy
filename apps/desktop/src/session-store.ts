@@ -6,7 +6,15 @@ export type ThreadItem =
   | { kind: "agent"; text: string }
   | { kind: "thought"; text: string }
   | { kind: "notice"; text: string }
-  | { kind: "tool"; id: string; title: string; status: string; output: string }
+  | {
+      kind: "tool";
+      id: string;
+      title: string;
+      toolKind: acp.ToolKind;
+      status: string;
+      input: unknown;
+      output: string;
+    }
   | {
       kind: "permission";
       requestId: string;
@@ -23,6 +31,8 @@ export interface Session {
   title: string;
   status: SessionStatus;
   items: ThreadItem[];
+  /** Set while a turn runs, for the live "Working for Ns" line. */
+  turnStartedAt: number | null;
 }
 
 export type ConnectionState =
@@ -97,7 +107,7 @@ export function upsertTool(
   updateSession(id, (s) => {
     const index = s.items.findIndex((item) => item.kind === "tool" && item.id === toolId);
     if (index === -1) {
-      const item: ThreadItem = { kind: "tool", id: toolId, title: "Tool", status: "pending", output: "", ...patch };
+      const item: ThreadItem = { kind: "tool", id: toolId, title: "Tool", toolKind: "other", status: "pending", input: null, output: "", ...patch };
       return { ...s, items: [...s.items, item] };
     }
     const items = s.items.slice();

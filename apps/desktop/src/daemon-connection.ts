@@ -90,13 +90,14 @@ export async function createSession(cwd: string): Promise<void> {
     mcpServers: [],
   });
   const title = cwd.split(/[\\/]/).filter(Boolean).at(-1) ?? cwd;
-  addSession({ id: sessionId, cwd, title, status: "idle", items: [] });
+  addSession({ id: sessionId, cwd, title, status: "idle", items: [], turnStartedAt: null });
 }
 
 export async function sendPrompt(sessionId: string, text: string): Promise<void> {
   updateSession(sessionId, (s) => ({
     ...s,
     status: "working",
+    turnStartedAt: Date.now(),
     items: [...s.items, { kind: "user", text }],
   }));
   try {
@@ -105,15 +106,16 @@ export async function sendPrompt(sessionId: string, text: string): Promise<void>
       sessionId,
       prompt: [{ type: "text", text }],
     });
-    updateSession(sessionId, (s) => ({
-      ...s,
-      status: "idle",
-      items: stopReason === "cancelled" ? [...s.items, { kind: "notice", text: "Stopped" }] : s.items,
-    }));
+    updateSession(sessionId, (s) => {
+      const seconds = Math.max(1, Math.round((Date.now() - (s.turnStartedAt ?? Date.now())) / 1000));
+      const text = stopReason === "cancelled" ? `Stopped after ${seconds}s` : `Worked for ${seconds}s`;
+      return { ...s, status: "idle", turnStartedAt: null, items: [...s.items, { kind: "notice", text }] };
+    });
   } catch (error) {
     updateSession(sessionId, (s) => ({
       ...s,
       status: "error",
+      turnStartedAt: null,
       items: [...s.items, { kind: "agent", text: `\n[error] ${String(error)}` }],
     }));
   }
@@ -176,7 +178,9 @@ function applyUpdate({ sessionId, update }: acp.SessionNotification): void {
     case "tool_call":
       upsertTool(sessionId, update.toolCallId, {
         title: update.title,
+        toolKind: update.kind ?? "other",
         status: update.status ?? "pending",
+        input: update.rawInput ?? null,
       });
       break;
     case "tool_call_update":
