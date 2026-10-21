@@ -26,5 +26,7 @@ if (process.argv.includes("--stdio")) {
   log("ready on stdio");
 } else {
   const portArg = process.argv.find((arg) => arg.startsWith("--port="));
-  await serveWebSocket(agent, portArg ? Number(portArg.slice(7)) : DEFAULT_PORT);
+  await serveWebSocket(agent, portArg ? Number(portArg.slice(7)) : DEFAULT_PORT, {
+    printConnection: process.argv.includes("--print-connection"),
+  });
 }

@@ -6,7 +6,8 @@
   "scripts": {
     "start": "bun src/main.ts",
     "stdio": "bun src/main.ts --stdio",
-    "typecheck": "bun check"
+    "typecheck": "bun check",
+    "build:linux": "bun build --compile --target=bun-linux-x64 src/main.ts --outfile dist/acp-harness-daemon-linux-x64"
   },
   "dependencies": {
     "@agentclientprotocol/sdk": "2.0.0",

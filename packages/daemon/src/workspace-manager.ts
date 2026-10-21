@@ -6,6 +6,7 @@ import type {
   BranchList,
   CreateWorkspaceParams,
   HarnessState,
+  HostInfo,
   Project,
   RemoveWorkspaceParams,
   Workspace
@@ -46,6 +47,7 @@ export class WorkspaceManager {
 
   async snapshot(): Promise<HarnessState> {
     return {
+      host: hostInfo(),
       projects: this.state.projects,
       workspaces: [await this.floatingWorkspace(), ...this.state.workspaces],
       floatingWorkspaceId: FLOATING_WORKSPACE_ID
@@ -200,6 +202,12 @@ async function defaultBaseRef(path: string): Promise<string> {
     if (ok) return ref
   }
   return 'HEAD'
+}
+
+export function hostInfo(): HostInfo {
+  const distro = process.env.WSL_DISTRO_NAME
+  if (process.platform === 'linux' && distro) return { id: `wsl:${distro}`, label: `WSL: ${distro}`, platform: 'linux' }
+  return { id: 'local', label: process.platform === 'win32' ? 'Windows' : 'This computer', platform: process.platform }
 }
 
 function samePath(a: string, b: string): boolean {

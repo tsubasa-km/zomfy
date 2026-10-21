@@ -57,7 +57,11 @@ class BunSocketBridge implements WebSocketServerSocket {
   }
 }
 
-export async function serveWebSocket(agent: acp.AgentApp, port: number): Promise<void> {
+export async function serveWebSocket(
+  agent: acp.AgentApp,
+  port: number,
+  options: { printConnection?: boolean } = {},
+): Promise<void> {
   const token = Buffer.from(crypto.getRandomValues(new Uint8Array(24))).toString("hex");
   const acpServer = new AcpServer({ agent });
 
@@ -113,6 +117,11 @@ export async function serveWebSocket(agent: acp.AgentApp, port: number): Promise
     { mode: 0o600 },
   );
   log(`listening on ${url} (connection info in ${DAEMON_INFO_PATH})`);
+  // A launcher on another OS (the desktop starting a WSL daemon) reads this line instead of the file.
+  if (options.printConnection) {
+    process.stdout.write(`${JSON.stringify({ url, token, protocolPrefix: TOKEN_PROTOCOL_PREFIX })}
+`);
+  }
 
   const shutdown = async () => {
     await rm(DAEMON_INFO_PATH, { force: true });

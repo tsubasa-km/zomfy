@@ -24,7 +24,16 @@ export interface Workspace {
   createdAt: number
 }
 
+/** The machine (or WSL distro, SSH host) a daemon runs on. */
+export interface HostInfo {
+  /** 'local' for the desktop's own OS, 'wsl:<distro>', later 'ssh:<name>'. */
+  id: string
+  label: string
+  platform: string
+}
+
 export interface HarnessState {
+  host: HostInfo
   projects: Project[]
   workspaces: Workspace[]
   floatingWorkspaceId: string
