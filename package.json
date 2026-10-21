@@ -1,0 +1,10 @@
+{
+  "name": "acp-harness",
+  "private": true,
+  "type": "module",
+  "workspaces": ["packages/*", "apps/*"],
+  "scripts": {
+    "daemon": "bun --cwd packages/daemon start",
+    "typecheck": "bun --filter '*' typecheck"
+  }
+}
