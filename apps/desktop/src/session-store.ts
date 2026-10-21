@@ -1,6 +1,6 @@
 import { useSyncExternalStore } from 'react'
 import type * as acp from '@agentclientprotocol/sdk'
-import type { HarnessState, SessionInfo, Workspace } from '@acp-harness/protocol'
+import type { HarnessState, SessionInfo, ShellOption, TerminalInfo, Workspace } from '@acp-harness/protocol'
 
 export type ThreadItem =
   | { kind: 'user'; text: string }
@@ -44,6 +44,9 @@ export interface StoreState {
   connection: ConnectionState
   harness: HarnessState | null
   sessions: Session[]
+  terminals: TerminalInfo[]
+  /** Shells the daemon's host offers for new terminal tabs. */
+  shells: ShellOption[]
   activeWorkspaceId: string | null
   /** Each workspace remembers its own active tab, as Orca's tab groups do. */
   activeSessionByWorkspace: Record<string, string>
@@ -66,6 +69,8 @@ let state: StoreState = {
   connection: { kind: 'connecting' },
   harness: null,
   sessions: [],
+  terminals: [],
+  shells: [],
   activeWorkspaceId: saved.activeWorkspaceId ?? null,
   activeSessionByWorkspace: saved.activeSessionByWorkspace ?? {},
   floating: saved.floating ?? { open: false, maximized: false }
@@ -164,6 +169,26 @@ export function removeSession(sessionId: string): void {
     else delete activeSessionByWorkspace[session.workspaceId]
   }
   set({ ...state, sessions, activeSessionByWorkspace })
+}
+
+export function setShells(shells: ShellOption[]): void {
+  set({ ...state, shells })
+}
+
+export function setTerminals(terminals: TerminalInfo[]): void {
+  set({ ...state, terminals })
+}
+
+/** Focuses a terminal tab, opening the floating panel when it lives there. */
+export function selectTerminal(terminalId: string): void {
+  const terminal = state.terminals.find((t) => t.id === terminalId)
+  if (!terminal) return
+  const activeSessionByWorkspace = { ...state.activeSessionByWorkspace, [terminal.workspaceId]: terminalId }
+  set(
+    isFloating(terminal.workspaceId)
+      ? { ...state, activeSessionByWorkspace, floating: { ...state.floating, open: true } }
+      : { ...state, activeSessionByWorkspace, activeWorkspaceId: terminal.workspaceId }
+  )
 }
 
 /** Focuses a session wherever it lives: its workspace in the main area, or the floating panel. */

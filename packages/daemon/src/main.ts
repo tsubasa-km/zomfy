@@ -4,6 +4,7 @@ import { createHarnessAgent } from "./harness-agent.ts";
 import { serveWebSocket } from "./websocket-server.ts";
 import { WorkspaceManager } from "./workspace-manager.ts";
 import { SessionRegistry } from "./session-registry.ts";
+import { TerminalManager } from "./terminal-manager.ts";
 import { log } from "./log.ts";
 
 const DEFAULT_PORT = 7801;
@@ -11,7 +12,7 @@ const workspaces = new WorkspaceManager();
 await workspaces.load();
 const sessions = new SessionRegistry();
 await sessions.load();
-const agent = createHarnessAgent(workspaces, sessions);
+const agent = createHarnessAgent(workspaces, sessions, new TerminalManager());
 
 if (process.argv.includes("--stdio")) {
   // For ACP clients that launch the agent themselves (Zed, Orca).

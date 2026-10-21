@@ -8,6 +8,9 @@ import {
   type HarnessRequests,
   type HarnessState,
   type SessionInfo,
+  type ShellOption,
+  type TerminalInfo,
+  type TerminalOutput,
 } from "@acp-harness/protocol";
 import {
   addSession,
@@ -16,8 +19,11 @@ import {
   markLoaded,
   mergeSessions,
   removeSession,
+  selectTerminal,
   setConnection,
   setHarnessState,
+  setShells,
+  setTerminals,
   updateSession,
   upsertTool,
 } from "./session-store";
@@ -32,6 +38,7 @@ let connection: acp.ClientConnection | null = null;
 let connecting: Promise<void> | null = null;
 const pendingPermissions = new Map<string, (optionId: string | null) => void>();
 const loading = new Map<string, Promise<void>>();
+const terminalOutputListeners = new Map<string, Set<(data: string) => void>>();
 
 /** Idempotent: StrictMode runs effects twice, and Retry may be clicked while connecting. */
 export function connectLocalDaemon(): Promise<void> {
@@ -67,6 +74,20 @@ async function openConnection(): Promise<void> {
       (raw: unknown) => raw as SessionInfo[],
       (ctx) => mergeSessions(ctx.params),
     )
+    .onNotification(
+      HARNESS_NOTIFICATIONS.terminalsChanged,
+      (raw: unknown) => raw as TerminalInfo[],
+      (ctx) => setTerminals(ctx.params),
+    )
+    .onNotification(
+      HARNESS_NOTIFICATIONS.terminalOutput,
+      (raw: unknown) => raw as TerminalOutput,
+      (ctx) => {
+        for (const listener of terminalOutputListeners.get(ctx.params.terminalId) ?? []) {
+          listener(ctx.params.data);
+        }
+      },
+    )
     .connect(stream);
   opened.closed.finally(() => {
     // A stale connection closing late must not tear down its replacement.
@@ -83,6 +104,8 @@ async function openConnection(): Promise<void> {
     connection = opened;
     setHarnessState(await opened.agent.request<HarnessState>(HARNESS_METHODS.stateGet, {}));
     mergeSessions(await opened.agent.request<SessionInfo[]>(HARNESS_METHODS.sessionsList, {}));
+    setTerminals(await opened.agent.request<TerminalInfo[]>(HARNESS_METHODS.terminalsList, {}));
+    setShells(await opened.agent.request<ShellOption[]>(HARNESS_METHODS.shellsList, {}));
     setConnection({ kind: "connected", url: info.url });
   } catch (error) {
     opened.close();
@@ -133,6 +156,32 @@ export function ensureSessionLoaded(sessionId: string): Promise<void> {
   return pending;
 }
 
+/** Starts a shell in a workspace and makes it the active tab. */
+export async function createTerminal(workspaceId: string, shellId?: string): Promise<string> {
+  const info = await harnessRequest(HARNESS_METHODS.terminalCreate, {
+    workspaceId,
+    ...(shellId ? { shellId } : {}),
+    cols: 120,
+    rows: 30,
+  });
+  setTerminals([...getState().terminals.filter((t) => t.id !== info.id), info]);
+  selectTerminal(info.id);
+  return info.id;
+}
+
+/** Live output for one terminal; returns the unsubscribe function. */
+export function subscribeTerminalOutput(terminalId: string, listener: (data: string) => void): () => void {
+  const set = terminalOutputListeners.get(terminalId) ?? new Set();
+  set.add(listener);
+  terminalOutputListeners.set(terminalId, set);
+  return () => set.delete(listener);
+}
+
+export function closeTerminal(terminalId: string): void {
+  setTerminals(getState().terminals.filter((t) => t.id !== terminalId));
+  void harnessRequest(HARNESS_METHODS.terminalClose, { terminalId }).catch(() => undefined);
+}
+
 export function closeSession(sessionId: string): void {
   removeSession(sessionId);
   void harnessRequest(HARNESS_METHODS.sessionClose, { sessionId }).catch(() => undefined);
@@ -140,7 +189,7 @@ export function closeSession(sessionId: string): void {
 
 // Dev-only hook so scripts/cdp.ts can drive what a native folder dialog would otherwise block.
 if (import.meta.env.DEV) {
-  Object.assign(window, { __harness: { createSession, harnessRequest, state: getState } });
+  Object.assign(window, { __harness: { createSession, createTerminal, harnessRequest, state: getState } });
 }
 
 // Vite HMR re-runs this module with `connection` reset; close the old socket instead of leaking it.

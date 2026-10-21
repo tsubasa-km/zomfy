@@ -64,6 +64,23 @@ export interface SessionInfo {
   turnStartedAt: number | null
 }
 
+export interface TerminalInfo {
+  id: string
+  workspaceId: string
+  title: string
+  /** Shell program the terminal was started with. */
+  shell: string
+  cwd: string
+  createdAt: number
+  /** null while the shell runs. */
+  exitCode: number | null
+}
+
+export interface ShellOption {
+  id: string
+  label: string
+}
+
 export const HARNESS_METHODS = {
   stateGet: '_harness/state/get',
   projectAdd: '_harness/projects/add',
@@ -74,13 +91,27 @@ export const HARNESS_METHODS = {
   floatingCwdSet: '_harness/floating/cwd/set',
   sessionsList: '_harness/sessions/list',
   sessionCreate: '_harness/sessions/create',
-  sessionClose: '_harness/sessions/close'
+  sessionClose: '_harness/sessions/close',
+  shellsList: '_harness/terminals/shells',
+  terminalsList: '_harness/terminals/list',
+  terminalCreate: '_harness/terminals/create',
+  terminalAttach: '_harness/terminals/attach',
+  terminalInput: '_harness/terminals/input',
+  terminalResize: '_harness/terminals/resize',
+  terminalClose: '_harness/terminals/close'
 } as const
 
 export const HARNESS_NOTIFICATIONS = {
   stateChanged: '_harness/state/changed',
-  sessionsChanged: '_harness/sessions/changed'
+  sessionsChanged: '_harness/sessions/changed',
+  terminalsChanged: '_harness/terminals/changed',
+  terminalOutput: '_harness/terminals/output'
 } as const
+
+export interface TerminalOutput {
+  terminalId: string
+  data: string
+}
 
 export interface HarnessRequests {
   [HARNESS_METHODS.stateGet]: { params: Record<string, never>; result: HarnessState }
@@ -93,6 +124,20 @@ export interface HarnessRequests {
   [HARNESS_METHODS.sessionsList]: { params: Record<string, never>; result: SessionInfo[] }
   [HARNESS_METHODS.sessionCreate]: { params: { workspaceId: string }; result: SessionInfo }
   [HARNESS_METHODS.sessionClose]: { params: { sessionId: string }; result: Record<string, never> }
+  [HARNESS_METHODS.shellsList]: { params: Record<string, never>; result: ShellOption[] }
+  [HARNESS_METHODS.terminalsList]: { params: Record<string, never>; result: TerminalInfo[] }
+  [HARNESS_METHODS.terminalCreate]: {
+    params: { workspaceId: string; shellId?: string; cols: number; rows: number }
+    result: TerminalInfo
+  }
+  /** Recent output, so a reloaded window repaints the screen before live output resumes. */
+  [HARNESS_METHODS.terminalAttach]: { params: { terminalId: string }; result: { buffer: string } }
+  [HARNESS_METHODS.terminalInput]: { params: { terminalId: string; data: string }; result: Record<string, never> }
+  [HARNESS_METHODS.terminalResize]: {
+    params: { terminalId: string; cols: number; rows: number }
+    result: Record<string, never>
+  }
+  [HARNESS_METHODS.terminalClose]: { params: { terminalId: string }; result: Record<string, never> }
 }
 
 export type HarnessMethod = keyof HarnessRequests

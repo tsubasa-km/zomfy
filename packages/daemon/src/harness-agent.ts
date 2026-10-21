@@ -7,6 +7,7 @@ import {
 } from "@acp-harness/protocol";
 import { runClaudeTurn } from "./claude-turn.ts";
 import type { SessionRegistry } from "./session-registry.ts";
+import type { TerminalManager } from "./terminal-manager.ts";
 import type { WorkspaceManager } from "./workspace-manager.ts";
 import { log } from "./log.ts";
 
@@ -14,6 +15,7 @@ import { log } from "./log.ts";
 export function createHarnessAgent(
   workspaces: WorkspaceManager,
   sessions: SessionRegistry,
+  terminals: TerminalManager,
 ): acp.AgentApp {
   const clients = new Set<acp.AgentContext>();
   const pendingTurns = new Map<string, AbortController>();
@@ -23,6 +25,10 @@ export function createHarnessAgent(
   }
   workspaces.onChange((state) => broadcast(HARNESS_NOTIFICATIONS.stateChanged, state));
   sessions.onChange((list) => broadcast(HARNESS_NOTIFICATIONS.sessionsChanged, list));
+  terminals.onChange((list) => broadcast(HARNESS_NOTIFICATIONS.terminalsChanged, list));
+  terminals.onOutput((terminalId, data) =>
+    broadcast(HARNESS_NOTIFICATIONS.terminalOutput, { terminalId, data }),
+  );
 
   /** Recorded for replay, then sent to every client so a reconnected window sees live turns. */
   async function emit(sessionId: string, update: acp.SessionUpdate): Promise<void> {
@@ -138,6 +144,7 @@ export function createHarnessAgent(
     await workspaces.removeProject(p.projectId);
     for (const w of state.workspaces.filter((w) => w.projectId === p.projectId)) {
       await sessions.removeWorkspace(w.id);
+      terminals.closeWorkspace(w.id);
     }
     return {};
   });
@@ -145,6 +152,7 @@ export function createHarnessAgent(
   handle(HARNESS_METHODS.workspaceRemove, async (p) => {
     await workspaces.removeWorkspace(p);
     await sessions.removeWorkspace(p.workspaceId);
+    terminals.closeWorkspace(p.workspaceId);
     return {};
   });
   handle(HARNESS_METHODS.branchesList, (p) => workspaces.listBranches(p.projectId));
@@ -159,6 +167,27 @@ export function createHarnessAgent(
   handle(HARNESS_METHODS.sessionClose, async (p) => {
     pendingTurns.get(p.sessionId)?.abort();
     await sessions.remove(p.sessionId);
+    return {};
+  });
+
+  handle(HARNESS_METHODS.shellsList, async () => terminals.listShells());
+  handle(HARNESS_METHODS.terminalsList, async () => terminals.list());
+  handle(HARNESS_METHODS.terminalCreate, async (p) => {
+    const cwd = workspaces.workspacePath(p.workspaceId);
+    if (!cwd) throw new Error(`Unknown workspace ${p.workspaceId}`);
+    return terminals.create({ ...p, cwd });
+  });
+  handle(HARNESS_METHODS.terminalAttach, async (p) => ({ buffer: terminals.replay(p.terminalId) }));
+  handle(HARNESS_METHODS.terminalInput, async (p) => {
+    terminals.write(p.terminalId, p.data);
+    return {};
+  });
+  handle(HARNESS_METHODS.terminalResize, async (p) => {
+    terminals.resize(p.terminalId, p.cols, p.rows);
+    return {};
+  });
+  handle(HARNESS_METHODS.terminalClose, async (p) => {
+    terminals.close(p.terminalId);
     return {};
   });
 
