@@ -4,6 +4,7 @@ import { useStore } from '@/session-store'
 import { Sidebar } from '@/components/Sidebar'
 import { WorkspaceTabs } from '@/components/WorkspaceTabs'
 import { FloatingWorkspace } from '@/components/FloatingWorkspace'
+import { RightSidebar } from '@/components/right-sidebar/RightSidebar'
 import { TooltipProvider } from '@/components/ui/tooltip'
 import { installSystemTheme } from '@/lib/theme'
 import '@/assets/main.css'
@@ -34,6 +35,7 @@ export default function App() {
             </div>
           )}
         </main>
+        {activeWorkspaceId && <RightSidebar workspaceId={activeWorkspaceId} />}
       </div>
       <FloatingWorkspace />
     </TooltipProvider>

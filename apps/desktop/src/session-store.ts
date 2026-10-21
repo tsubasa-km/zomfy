@@ -40,6 +40,18 @@ export type ConnectionState =
   | { kind: 'connected'; url: string }
   | { kind: 'offline'; reason: string }
 
+/** File previews and diffs opened from the right sidebar; they live only in this window. */
+export interface EditorTab {
+  id: string
+  workspaceId: string
+  kind: 'file' | 'diff'
+  path: string
+  staged: boolean
+  createdAt: number
+}
+
+export type RightSidebarTab = 'explorer' | 'source-control'
+
 export interface StoreState {
   connection: ConnectionState
   harness: HarnessState | null
@@ -51,10 +63,15 @@ export interface StoreState {
   /** Each workspace remembers its own active tab, as Orca's tab groups do. */
   activeSessionByWorkspace: Record<string, string>
   floating: { open: boolean; maximized: boolean }
+  editorTabs: EditorTab[]
+  rightSidebar: { open: boolean; tab: RightSidebarTab }
 }
 
 const LAYOUT_KEY = 'acp-harness.layout.v1'
-type SavedLayout = Pick<StoreState, 'activeWorkspaceId' | 'activeSessionByWorkspace' | 'floating'>
+type SavedLayout = Pick<
+  StoreState,
+  'activeWorkspaceId' | 'activeSessionByWorkspace' | 'floating' | 'editorTabs' | 'rightSidebar'
+>
 
 function readLayout(): Partial<SavedLayout> {
   try {
@@ -73,7 +90,9 @@ let state: StoreState = {
   shells: [],
   activeWorkspaceId: saved.activeWorkspaceId ?? null,
   activeSessionByWorkspace: saved.activeSessionByWorkspace ?? {},
-  floating: saved.floating ?? { open: false, maximized: false }
+  floating: saved.floating ?? { open: false, maximized: false },
+  editorTabs: saved.editorTabs ?? [],
+  rightSidebar: saved.rightSidebar ?? { open: true, tab: 'explorer' }
 }
 const listeners = new Set<() => void>()
 
@@ -85,7 +104,9 @@ function set(next: StoreState): void {
     const layout: SavedLayout = {
       activeWorkspaceId: next.activeWorkspaceId,
       activeSessionByWorkspace: next.activeSessionByWorkspace,
-      floating: next.floating
+      floating: next.floating,
+      editorTabs: next.editorTabs,
+      rightSidebar: next.rightSidebar
     }
     localStorage.setItem(LAYOUT_KEY, JSON.stringify(layout))
   } catch {
@@ -117,7 +138,8 @@ export function setHarnessState(harness: HarnessState): void {
     state.activeWorkspaceId && known.has(state.activeWorkspaceId) ? state.activeWorkspaceId : null
   // Tabs of a deleted workspace go with it; their daemon sessions are left idle.
   const sessions = state.sessions.filter((s) => known.has(s.workspaceId))
-  set({ ...state, harness, activeWorkspaceId, sessions })
+  const editorTabs = state.editorTabs.filter((t) => known.has(t.workspaceId))
+  set({ ...state, harness, activeWorkspaceId, sessions, editorTabs })
 }
 
 export function findWorkspace(workspaceId: string): Workspace | null {
@@ -169,6 +191,31 @@ export function removeSession(sessionId: string): void {
     else delete activeSessionByWorkspace[session.workspaceId]
   }
   set({ ...state, sessions, activeSessionByWorkspace })
+}
+
+/** Opens (or refocuses) a file preview or diff tab in its workspace. */
+export function openEditorTab(tab: Omit<EditorTab, 'id' | 'createdAt'>): void {
+  const existing = state.editorTabs.find(
+    (t) => t.workspaceId === tab.workspaceId && t.kind === tab.kind && t.path === tab.path && t.staged === tab.staged
+  )
+  const target = existing ?? { ...tab, id: `${tab.kind}:${crypto.randomUUID()}`, createdAt: Date.now() }
+  set({
+    ...state,
+    editorTabs: existing ? state.editorTabs : [...state.editorTabs, target],
+    activeSessionByWorkspace: { ...state.activeSessionByWorkspace, [tab.workspaceId]: target.id }
+  })
+}
+
+export function closeEditorTab(id: string): void {
+  set({ ...state, editorTabs: state.editorTabs.filter((t) => t.id !== id) })
+}
+
+export function selectTab(workspaceId: string, tabId: string): void {
+  set({ ...state, activeSessionByWorkspace: { ...state.activeSessionByWorkspace, [workspaceId]: tabId } })
+}
+
+export function setRightSidebar(change: Partial<StoreState['rightSidebar']>): void {
+  set({ ...state, rightSidebar: { ...state.rightSidebar, ...change } })
 }
 
 export function setShells(shells: ShellOption[]): void {

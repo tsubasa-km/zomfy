@@ -1,5 +1,5 @@
 import { useEffect } from 'react'
-import { Plus, SquareTerminal, X } from 'lucide-react'
+import { FileCode2, GitCompare, Plus, SquareTerminal, X } from 'lucide-react'
 import type { TerminalInfo } from '@acp-harness/protocol'
 import {
   closeSession,
@@ -8,7 +8,15 @@ import {
   createTerminal,
   ensureSessionLoaded
 } from '@/daemon-connection'
-import { selectSession, selectTerminal, useStore, type Session } from '@/session-store'
+import {
+  closeEditorTab,
+  selectSession,
+  selectTab,
+  selectTerminal,
+  useStore,
+  type EditorTab,
+  type Session
+} from '@/session-store'
 import { AgentStateDot, type AgentDotState } from '@/components/AgentStateDot'
 import { ClaudeIcon } from '@/components/agent-icons'
 import {
@@ -21,6 +29,7 @@ import {
 } from '@/components/ui/dropdown-menu'
 import { ThreadView } from '@/components/ThreadView'
 import { TerminalView } from '@/components/TerminalView'
+import { DiffTabView, FilePreviewView } from '@/components/EditorTabViews'
 import { cn } from '@/lib/utils'
 
 // Tab strip classes follow Orca's tab-bar (tab-bar-surface.tsx, SortableTab.tsx, tab-width-rules.ts,
@@ -32,10 +41,13 @@ const TAB_DOT: Partial<Record<Session['status'], AgentDotState>> = {
   error: 'failed'
 }
 
-type Tab = { kind: 'chat'; session: Session } | { kind: 'terminal'; terminal: TerminalInfo }
+type Tab =
+  | { kind: 'chat'; session: Session }
+  | { kind: 'terminal'; terminal: TerminalInfo }
+  | { kind: 'editor'; editor: EditorTab }
 
 function tabId(tab: Tab): string {
-  return tab.kind === 'chat' ? tab.session.id : tab.terminal.id
+  return tab.kind === 'chat' ? tab.session.id : tab.kind === 'terminal' ? tab.terminal.id : tab.editor.id
 }
 
 export function WorkspaceTabs({
@@ -50,12 +62,14 @@ export function WorkspaceTabs({
 }) {
   const sessions = useStore((s) => s.sessions)
   const terminals = useStore((s) => s.terminals)
+  const editorTabs = useStore((s) => s.editorTabs)
   const activeId = useStore((s) => s.activeSessionByWorkspace[workspaceId])
   const tabs: Tab[] = [
     ...sessions.filter((s) => s.workspaceId === workspaceId).map((session) => ({ kind: 'chat' as const, session })),
     ...terminals
       .filter((t) => t.workspaceId === workspaceId)
-      .map((terminal) => ({ kind: 'terminal' as const, terminal }))
+      .map((terminal) => ({ kind: 'terminal' as const, terminal })),
+    ...editorTabs.filter((t) => t.workspaceId === workspaceId).map((editor) => ({ kind: 'editor' as const, editor }))
   ].sort((a, b) => createdAt(a) - createdAt(b))
   const active = tabs.find((t) => tabId(t) === activeId) ?? tabs.at(-1) ?? null
   const activeChatId = active?.kind === 'chat' ? active.session.id : undefined
@@ -77,13 +91,19 @@ export function WorkspaceTabs({
       </div>
       {active?.kind === 'chat' && <ThreadView key={active.session.id} session={active.session} />}
       {active?.kind === 'terminal' && <TerminalView key={active.terminal.id} terminal={active.terminal} />}
+      {active?.kind === 'editor' &&
+        (active.editor.kind === 'file' ? (
+          <FilePreviewView key={active.editor.id} tab={active.editor} />
+        ) : (
+          <DiffTabView key={active.editor.id} tab={active.editor} />
+        ))}
       {!active && <div className="m-auto text-sm text-muted-foreground">{emptyHint}</div>}
     </div>
   )
 }
 
 function createdAt(tab: Tab): number {
-  return tab.kind === 'chat' ? tab.session.createdAt : tab.terminal.createdAt
+  return tab.kind === 'chat' ? tab.session.createdAt : tab.kind === 'terminal' ? tab.terminal.createdAt : tab.editor.createdAt
 }
 
 function NewTabMenu({ workspaceId }: { workspaceId: string }) {
@@ -122,9 +142,24 @@ function NewTabMenu({ workspaceId }: { workspaceId: string }) {
 }
 
 function TabItem({ tab, active }: { tab: Tab; active: boolean }) {
-  const title = tab.kind === 'chat' ? tab.session.title : tab.terminal.title
-  const close = () => (tab.kind === 'chat' ? closeSession(tab.session.id) : closeTerminal(tab.terminal.id))
-  const select = () => (tab.kind === 'chat' ? selectSession(tab.session.id) : selectTerminal(tab.terminal.id))
+  const title =
+    tab.kind === 'chat'
+      ? tab.session.title
+      : tab.kind === 'terminal'
+        ? tab.terminal.title
+        : `${tab.editor.path.split('/').at(-1)}${tab.editor.kind === 'diff' ? (tab.editor.staged ? ' (staged)' : ' (diff)') : ''}`
+  const close = () =>
+    tab.kind === 'chat'
+      ? closeSession(tab.session.id)
+      : tab.kind === 'terminal'
+        ? closeTerminal(tab.terminal.id)
+        : closeEditorTab(tab.editor.id)
+  const select = () =>
+    tab.kind === 'chat'
+      ? selectSession(tab.session.id)
+      : tab.kind === 'terminal'
+        ? selectTerminal(tab.terminal.id)
+        : selectTab(tab.editor.workspaceId, tab.editor.id)
   const dot = tab.kind === 'chat' ? TAB_DOT[tab.session.status] : undefined
 
   return (
@@ -147,8 +182,12 @@ function TabItem({ tab, active }: { tab: Tab; active: boolean }) {
           <AgentStateDot state={dot} size="sm" />
         ) : tab.kind === 'chat' ? (
           <ClaudeIcon size={12} />
-        ) : (
+        ) : tab.kind === 'terminal' ? (
           <SquareTerminal className="size-3.5" />
+        ) : tab.editor.kind === 'diff' ? (
+          <GitCompare className="size-3.5" />
+        ) : (
+          <FileCode2 className="size-3.5" />
         )}
       </span>
       <span className="min-w-0 flex-1 truncate">{title}</span>
