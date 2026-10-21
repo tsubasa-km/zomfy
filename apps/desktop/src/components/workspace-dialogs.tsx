@@ -1,8 +1,8 @@
 import { useEffect, useState } from 'react'
-import type { BranchList, Project, Workspace } from '@acp-harness/protocol'
+import { TriangleAlert } from 'lucide-react'
+import type { Workspace, WorkspaceInspection } from '@acp-harness/protocol'
 import { HARNESS_METHODS } from '@acp-harness/protocol'
-import { createSession, harnessRequest } from '@/daemon-connection'
-import { selectWorkspace } from '@/session-store'
+import { harnessRequest } from '@/daemon-connection'
 import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'
 import {
@@ -15,131 +15,9 @@ import {
 } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue
-} from '@/components/ui/select'
 
-// Shaped after Orca's NewWorkspaceComposerModal / DeleteWorktreeDialog: name, base branch,
-// optional agent; delete offers the branch alongside the worktree.
-
-const DEFAULT_BASE = '__default__'
-
-export function NewWorkspaceDialog({
-  project,
-  onClose
-}: {
-  project: Project | null
-  onClose: () => void
-}) {
-  const [name, setName] = useState('')
-  const [baseRef, setBaseRef] = useState(DEFAULT_BASE)
-  const [launchClaude, setLaunchClaude] = useState(true)
-  const [branches, setBranches] = useState<BranchList | null>(null)
-  const [error, setError] = useState<string | null>(null)
-  const [busy, setBusy] = useState(false)
-  const isFolder = project?.kind === 'folder'
-
-  useEffect(() => {
-    setName('')
-    setBaseRef(DEFAULT_BASE)
-    setError(null)
-    setBranches(null)
-    if (project?.kind === 'git') {
-      void harnessRequest(HARNESS_METHODS.branchesList, { projectId: project.id }).then(setBranches)
-    }
-  }, [project])
-
-  async function create() {
-    if (!project) return
-    setBusy(true)
-    setError(null)
-    try {
-      const workspace = await harnessRequest(HARNESS_METHODS.workspaceCreate, {
-        projectId: project.id,
-        name: name.trim() || 'workspace',
-        ...(baseRef === DEFAULT_BASE ? {} : { baseRef })
-      })
-      selectWorkspace(workspace.id)
-      if (launchClaude) await createSession(workspace.id)
-      onClose()
-    } catch (e) {
-      setError(e instanceof Error ? e.message : String(e))
-    } finally {
-      setBusy(false)
-    }
-  }
-
-  return (
-    <Dialog open={project !== null} onOpenChange={(open) => !open && onClose()}>
-      <DialogContent className="flex max-h-[calc(100vh-2rem)] flex-col sm:max-w-lg">
-        <DialogHeader>
-          <DialogTitle>{isFolder ? 'Create Folder Workspace' : 'Create Workspace'}</DialogTitle>
-          <DialogDescription>
-            {isFolder
-              ? `A new workspace in ${project?.name}. Folder workspaces share the folder.`
-              : `A new git worktree and branch in ${project?.name}.`}
-          </DialogDescription>
-        </DialogHeader>
-        <form
-          className="space-y-4 pt-3"
-          onSubmit={(e) => {
-            e.preventDefault()
-            void create()
-          }}
-        >
-          <div className="space-y-1.5">
-            <Label htmlFor="workspace-name" className="text-xs font-medium text-muted-foreground">
-              Name
-            </Label>
-            <Input
-              id="workspace-name"
-              autoFocus
-              placeholder="fix-login-bug"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-            />
-          </div>
-          {!isFolder && (
-            <div className="space-y-1.5">
-              <Label className="text-xs font-medium text-muted-foreground">Base branch</Label>
-              <Select value={baseRef} onValueChange={setBaseRef}>
-                <SelectTrigger className="w-full">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value={DEFAULT_BASE}>Default (origin/HEAD, main or master)</SelectItem>
-                  {branches?.branches.map((branch) => (
-                    <SelectItem key={branch} value={branch}>
-                      {branch}
-                      {branch === branches.current ? ' (current)' : ''}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-          )}
-          <label className="flex items-center gap-2 text-sm">
-            <Checkbox checked={launchClaude} onCheckedChange={(v) => setLaunchClaude(v === true)} />
-            Start a Claude session in it
-          </label>
-          {error && <p className="text-sm break-words text-destructive">{error}</p>}
-          <DialogFooter>
-            <Button type="button" variant="outline" onClick={onClose}>
-              Cancel
-            </Button>
-            <Button type="submit" disabled={busy}>
-              {busy ? 'Creating…' : 'Create'}
-            </Button>
-          </DialogFooter>
-        </form>
-      </DialogContent>
-    </Dialog>
-  )
-}
+// Shaped after Orca's DeleteWorktreeDialog (with its dirty-change hint) and WorktreeMetaDialog.
+// The new-workspace composer lives in sidebar/NewWorkspaceDialog.
 
 export function DeleteWorkspaceDialog({
   workspace,
@@ -151,8 +29,16 @@ export function DeleteWorkspaceDialog({
   const [deleteBranch, setDeleteBranch] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
+  const [inspection, setInspection] = useState<WorkspaceInspection | null>(null)
+  const dirty = !!inspection && inspection.modifiedFiles + inspection.untrackedFiles > 0
 
-  useEffect(() => setError(null), [workspace])
+  useEffect(() => {
+    setError(null)
+    setInspection(null)
+    if (workspace?.branch) {
+      void harnessRequest(HARNESS_METHODS.workspaceInspect, { workspaceId: workspace.id }).then(setInspection, () => undefined)
+    }
+  }, [workspace])
 
   async function remove(force: boolean) {
     if (!workspace) return
@@ -180,6 +66,31 @@ export function DeleteWorkspaceDialog({
             Removes the worktree at {workspace?.path}.
           </DialogDescription>
         </DialogHeader>
+        {(dirty || !!inspection?.unpushedCommits) && (
+          <div
+            className="flex gap-2 rounded-md border border-destructive/40 bg-destructive/5 p-2.5 text-xs text-foreground"
+            data-delete-warning
+          >
+            <TriangleAlert className="mt-px size-3.5 shrink-0 text-destructive" />
+            <div className="space-y-0.5">
+              {dirty && (
+                <p>
+                  {inspection!.modifiedFiles > 0 && `${inspection!.modifiedFiles} modified`}
+                  {inspection!.modifiedFiles > 0 && inspection!.untrackedFiles > 0 && ' and '}
+                  {inspection!.untrackedFiles > 0 && `${inspection!.untrackedFiles} untracked`}
+                  {' '}
+                  {inspection!.modifiedFiles + inspection!.untrackedFiles === 1 ? 'file' : 'files'} will be lost.
+                </p>
+              )}
+              {!!inspection?.unpushedCommits && (
+                <p>
+                  {inspection.unpushedCommits} {inspection.unpushedCommits === 1 ? 'commit is' : 'commits are'} not on
+                  upstream or the base branch; the branch keeps them unless it is deleted.
+                </p>
+              )}
+            </div>
+          </div>
+        )}
         {workspace?.branch && (
           <label className="flex items-center gap-2 text-sm">
             <Checkbox checked={deleteBranch} onCheckedChange={(v) => setDeleteBranch(v === true)} />
@@ -195,7 +106,7 @@ export function DeleteWorkspaceDialog({
           <Button variant="outline" onClick={onClose}>
             Cancel
           </Button>
-          {error ? (
+          {error || dirty ? (
             <Button variant="destructive" disabled={busy} onClick={() => void remove(true)}>
               Force Delete
             </Button>

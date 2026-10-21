@@ -6,6 +6,8 @@ import { WorkspaceTabs } from '@/components/WorkspaceTabs'
 import { FloatingWorkspace } from '@/components/FloatingWorkspace'
 import { RightSidebar } from '@/components/right-sidebar/RightSidebar'
 import { AgentDashboard } from '@/components/AgentDashboard'
+import { WorkspaceBoard } from '@/components/sidebar/WorkspaceBoard'
+import { useSidebarStore } from '@/stores/sidebar-store'
 import { installAgentNotifications } from '@/agent-notifications'
 import { TooltipProvider } from '@/components/ui/tooltip'
 import { installSystemTheme } from '@/lib/theme'
@@ -19,6 +21,7 @@ const isMac = navigator.userAgent.includes('Mac')
 export default function App() {
   const activeWorkspaceId = useStore((s) => s.activeWorkspaceId)
   const dashboardOpen = useStore((s) => s.dashboardOpen)
+  const boardOpen = useSidebarStore((s) => s.boardOpen)
 
   useEffect(() => {
     connectAllHosts()
@@ -39,6 +42,8 @@ export default function App() {
         <main className="flex min-w-0 flex-1">
           {dashboardOpen ? (
             <AgentDashboard />
+          ) : boardOpen ? (
+            <WorkspaceBoard />
           ) : activeWorkspaceId ? (
             <WorkspaceTabs
               key={activeWorkspaceId}
@@ -51,7 +56,7 @@ export default function App() {
             </div>
           )}
         </main>
-        {activeWorkspaceId && !dashboardOpen && <RightSidebar workspaceId={activeWorkspaceId} />}
+        {activeWorkspaceId && !dashboardOpen && !boardOpen && <RightSidebar workspaceId={activeWorkspaceId} />}
       </div>
       <FloatingWorkspace />
     </TooltipProvider>

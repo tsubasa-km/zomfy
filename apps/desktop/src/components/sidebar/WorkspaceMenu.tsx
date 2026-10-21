@@ -3,7 +3,9 @@ import {
   Code2,
   Copy,
   ExternalLink,
+  FolderInput,
   FolderOpen,
+  GitFork,
   Mail,
   MailOpen,
   Moon,
@@ -11,10 +13,20 @@ import {
   Pin,
   PinOff,
   Plus,
+  Settings2,
+  Sparkles,
   SquareTerminal,
-  Trash2
+  Trash2,
+  Unlink
 } from 'lucide-react'
-import { HARNESS_METHODS, WORKSPACE_STATUSES, type Workspace, type WorkspaceStatusId } from '@acp-harness/protocol'
+import {
+  HARNESS_METHODS,
+  WORKSPACE_STATUSES,
+  type ProjectGroup,
+  type Workspace,
+  type WorkspacePatch,
+  type WorkspaceStatusId
+} from '@acp-harness/protocol'
 import { cancelTurn, closeTerminal, harnessRequest } from '@/daemon-connection'
 import { getState, markSeen, type HostId } from '@/session-store'
 import {
@@ -59,12 +71,22 @@ export function OpenInSubmenu({ hostId, path }: { hostId: HostId; path: string }
   )
 }
 
-function update(workspaceId: string, patch: Parameters<typeof harnessRequest<typeof HARNESS_METHODS.workspaceUpdate>>[1]['patch']) {
-  void harnessRequest(HARNESS_METHODS.workspaceUpdate, { workspaceId, patch })
+export function updateWorkspace(workspaceId: string, patch: WorkspacePatch): Promise<unknown> {
+  return harnessRequest(HARNESS_METHODS.workspaceUpdate, { workspaceId, patch }).catch((e: unknown) =>
+    window.alert(e instanceof Error ? e.message : String(e))
+  )
+}
+
+const update = (workspaceId: string, patch: WorkspacePatch) => void updateWorkspace(workspaceId, patch)
+
+/** Mark Read also clears the window's per-session unread marks. */
+export function markWorkspaceRead(workspaceId: string, read: boolean): void {
+  update(workspaceId, { unread: !read })
+  if (read) for (const s of getState().sessions) if (s.workspaceId === workspaceId) markSeen(s.id)
 }
 
 /** Stops what runs in a workspace (agent turns, shells) without deleting anything, like Orca's sleep. */
-function sleepWorkspace(workspaceId: string): void {
+export function sleepWorkspace(workspaceId: string): void {
   const state = getState()
   for (const s of state.sessions) if (s.workspaceId === workspaceId && s.status !== 'idle') cancelTurn(s.id)
   for (const t of state.terminals) if (t.workspaceId === workspaceId) closeTerminal(t.id)
@@ -75,13 +97,15 @@ export function WorkspaceMenuItems({
   hostId,
   unread,
   onUpdate,
-  onDelete
+  onDelete,
+  onNewChild
 }: {
   workspace: Workspace
   hostId: HostId
   unread: boolean
   onUpdate: () => void
   onDelete: () => void
+  onNewChild?: () => void
 }) {
   return (
     <>
@@ -110,11 +134,26 @@ export function WorkspaceMenuItems({
           {workspace.status && (
             <>
               <DropdownMenuSeparator />
-              <DropdownMenuItem onSelect={() => update(workspace.id, { status: undefined })}>Clear status</DropdownMenuItem>
+              <DropdownMenuItem onSelect={() => update(workspace.id, { status: null })}>Clear status</DropdownMenuItem>
             </>
           )}
         </DropdownMenuSubContent>
       </DropdownMenuSub>
+      {onNewChild && (
+        <DropdownMenuItem data-workspace-action="new-child" onSelect={onNewChild}>
+          <GitFork className="size-3.5" />
+          New Child Workspace…
+        </DropdownMenuItem>
+      )}
+      {workspace.parentWorkspaceId && (
+        <DropdownMenuItem
+          data-workspace-action="detach"
+          onSelect={() => update(workspace.id, { parentWorkspaceId: null })}
+        >
+          <Unlink className="size-3.5" />
+          Detach from Parent
+        </DropdownMenuItem>
+      )}
       <DropdownMenuSeparator />
       <OpenInSubmenu hostId={hostId} path={workspace.path} />
       <DropdownMenuItem onSelect={() => void navigator.clipboard.writeText(workspace.path)}>
@@ -131,14 +170,7 @@ export function WorkspaceMenuItems({
       </DropdownMenuItem>
       <DropdownMenuItem
         data-workspace-action="read"
-        onSelect={() => {
-          if (unread) {
-            update(workspace.id, { unread: false })
-            for (const s of getState().sessions) if (s.workspaceId === workspace.id) markSeen(s.id)
-          } else {
-            update(workspace.id, { unread: true })
-          }
-        }}
+        onSelect={() => markWorkspaceRead(workspace.id, unread)}
       >
         {unread ? <MailOpen className="size-3.5" /> : <Mail className="size-3.5" />}
         {unread ? 'Mark Read' : 'Mark Unread'}
@@ -163,12 +195,24 @@ export function WorkspaceMenuItems({
 export function ProjectMenuItems({
   hostId,
   path,
+  groups,
+  groupId,
   onNewWorkspace,
+  onSettings,
+  onMoveToGroup,
+  onNewGroup,
+  onCleanUp,
   onRemove
 }: {
   hostId: HostId
   path: string
+  groups: ProjectGroup[]
+  groupId?: string
   onNewWorkspace: () => void
+  onSettings: () => void
+  onMoveToGroup: (groupId: string | null) => void
+  onNewGroup: () => void
+  onCleanUp?: () => void
   onRemove: () => void
 }) {
   return (
@@ -177,6 +221,39 @@ export function ProjectMenuItems({
         <Plus className="size-3.5" />
         New Workspace…
       </DropdownMenuItem>
+      <DropdownMenuItem data-project-action="settings" onSelect={onSettings}>
+        <Settings2 className="size-3.5" />
+        Project Settings…
+      </DropdownMenuItem>
+      <DropdownMenuSub>
+        <DropdownMenuSubTrigger data-project-action="move-to-group">
+          <FolderInput className="size-3.5" />
+          Move to Group
+        </DropdownMenuSubTrigger>
+        <DropdownMenuSubContent>
+          {groups.map((g) => (
+            <DropdownMenuItem key={g.id} data-group-target={g.id} onSelect={() => onMoveToGroup(g.id)}>
+              {g.name}
+              {g.id === groupId && <span className="ml-auto text-xs text-muted-foreground">✓</span>}
+            </DropdownMenuItem>
+          ))}
+          {groups.length > 0 && <DropdownMenuSeparator />}
+          <DropdownMenuItem data-project-action="new-group" onSelect={onNewGroup}>
+            <Plus className="size-3.5" />
+            New Group…
+          </DropdownMenuItem>
+          {groupId && (
+            <DropdownMenuItem onSelect={() => onMoveToGroup(null)}>Remove from Group</DropdownMenuItem>
+          )}
+        </DropdownMenuSubContent>
+      </DropdownMenuSub>
+      {onCleanUp && (
+        <DropdownMenuItem data-project-action="cleanup" onSelect={onCleanUp}>
+          <Sparkles className="size-3.5" />
+          Clean Up Merged Workspaces…
+        </DropdownMenuItem>
+      )}
+      <DropdownMenuSeparator />
       <OpenInSubmenu hostId={hostId} path={path} />
       <DropdownMenuItem onSelect={() => void navigator.clipboard.writeText(path)}>
         <Copy className="size-3.5" />

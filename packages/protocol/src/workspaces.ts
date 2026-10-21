@@ -34,9 +34,10 @@ export interface ProjectGroup {
   sortOrder?: number
 }
 
-export type ProjectPatch = Partial<
-  Pick<Project, 'displayName' | 'defaultBaseRef' | 'worktreeRoot' | 'hooks' | 'groupId'>
->
+/** null (or '') clears a field; JSON drops undefined, so it cannot. */
+export type ProjectPatch = {
+  [K in 'displayName' | 'defaultBaseRef' | 'worktreeRoot' | 'hooks' | 'groupId']?: Project[K] | null
+}
 
 export interface Workspace {
   id: string
@@ -72,9 +73,10 @@ export const WORKSPACE_STATUSES = [
 
 export type WorkspaceStatusId = (typeof WORKSPACE_STATUSES)[number]['id']
 
-export type WorkspacePatch = Partial<
-  Pick<Workspace, 'displayName' | 'comment' | 'pinned' | 'status' | 'unread' | 'parentWorkspaceId'>
->
+/** null (or '') clears a field; JSON drops undefined, so it cannot. */
+export type WorkspacePatch = {
+  [K in 'displayName' | 'comment' | 'pinned' | 'status' | 'unread' | 'parentWorkspaceId']?: Workspace[K] | null
+}
 
 /** The machine (or WSL distro, SSH host) a daemon runs on. */
 export interface HostInfo {
