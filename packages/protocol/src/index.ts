@@ -81,6 +81,46 @@ export interface ShellOption {
   label: string
 }
 
+export interface FileEntry {
+  name: string
+  /** Workspace-relative, '/'-separated. */
+  path: string
+  kind: 'file' | 'dir' | 'symlink'
+}
+
+export interface FileContent {
+  path: string
+  content: string
+  binary: boolean
+  truncated: boolean
+}
+
+export type GitFileStatus = 'modified' | 'added' | 'deleted' | 'renamed' | 'untracked' | 'conflicted'
+
+export interface GitChange {
+  /** Workspace-relative, '/'-separated. */
+  path: string
+  oldPath?: string
+  status: GitFileStatus
+  additions: number | null
+  deletions: number | null
+}
+
+export interface GitStatusResult {
+  isRepo: boolean
+  branch: string | null
+  staged: GitChange[]
+  unstaged: GitChange[]
+}
+
+export interface FileDiff {
+  path: string
+  staged: boolean
+  /** Unified diff text; empty when there is no textual change. */
+  patch: string
+  binary: boolean
+}
+
 export const HARNESS_METHODS = {
   stateGet: '_harness/state/get',
   projectAdd: '_harness/projects/add',
@@ -98,7 +138,14 @@ export const HARNESS_METHODS = {
   terminalAttach: '_harness/terminals/attach',
   terminalInput: '_harness/terminals/input',
   terminalResize: '_harness/terminals/resize',
-  terminalClose: '_harness/terminals/close'
+  terminalClose: '_harness/terminals/close',
+  fsList: '_harness/fs/list',
+  fsRead: '_harness/fs/read',
+  gitStatus: '_harness/git/status',
+  gitDiff: '_harness/git/diff',
+  gitStage: '_harness/git/stage',
+  gitUnstage: '_harness/git/unstage',
+  gitCommit: '_harness/git/commit'
 } as const
 
 export const HARNESS_NOTIFICATIONS = {
@@ -138,6 +185,13 @@ export interface HarnessRequests {
     result: Record<string, never>
   }
   [HARNESS_METHODS.terminalClose]: { params: { terminalId: string }; result: Record<string, never> }
+  [HARNESS_METHODS.fsList]: { params: { workspaceId: string; dir: string }; result: FileEntry[] }
+  [HARNESS_METHODS.fsRead]: { params: { workspaceId: string; path: string }; result: FileContent }
+  [HARNESS_METHODS.gitStatus]: { params: { workspaceId: string }; result: GitStatusResult }
+  [HARNESS_METHODS.gitDiff]: { params: { workspaceId: string; path: string; staged: boolean }; result: FileDiff }
+  [HARNESS_METHODS.gitStage]: { params: { workspaceId: string; paths: string[] }; result: Record<string, never> }
+  [HARNESS_METHODS.gitUnstage]: { params: { workspaceId: string; paths: string[] }; result: Record<string, never> }
+  [HARNESS_METHODS.gitCommit]: { params: { workspaceId: string; message: string }; result: { commit: string } }
 }
 
 export type HarnessMethod = keyof HarnessRequests

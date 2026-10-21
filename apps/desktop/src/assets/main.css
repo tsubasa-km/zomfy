@@ -682,3 +682,63 @@ html.native-shell .app-layout {
   background: color-mix(in srgb, var(--sidebar-accent) 34%, transparent);
   box-shadow: 0 0 0 1px color-mix(in srgb, var(--sidebar-ring) 18%, transparent);
 }
+
+/* Status and diff colors follow the chat scheme without copying the app palette. */
+:root,
+.native-chat-appearance[data-native-chat-scheme='light'] {
+  --destructive: #e40014;
+  --destructive-foreground: #fcf3f3;
+  --status-success: #15803d;
+  --status-success-background: color-mix(in srgb, var(--status-success) 10%, transparent);
+  --status-success-border: color-mix(in srgb, var(--status-success) 25%, transparent);
+  /* Needs-attention states use yellow, separate from errors and working states. */
+  --status-warning: #ca8a04;
+  --jira-priority-high: var(--destructive);
+  --jira-priority-medium: var(--status-warning);
+  --jira-priority-low: var(--callout-note);
+  --status-warning-background: color-mix(in srgb, var(--status-warning) 10%, transparent);
+  --status-warning-border: color-mix(in srgb, var(--status-warning) 25%, transparent);
+  /* GitHub's own hues for the two callout kinds no status token covers. */
+  --callout-note: #0969da;
+  --callout-important: #8250df;
+  --git-decoration-added: #587c0c;
+  --git-decoration-modified: #895503;
+  --git-decoration-deleted: #ad0707;
+  --git-decoration-renamed: #007acc;
+  --git-decoration-untracked: #007100;
+  --git-decoration-copied: #007acc;
+  --git-decoration-ignored: #8c8c8c;
+  --diff-added-ground: color-mix(in srgb, var(--git-decoration-added) 13%, transparent);
+  --diff-added-gutter: color-mix(in srgb, var(--git-decoration-added) 26%, transparent);
+  --diff-removed-ground: color-mix(in srgb, var(--git-decoration-deleted) 11%, transparent);
+  --diff-removed-gutter: color-mix(in srgb, var(--git-decoration-deleted) 22%, transparent);
+}
+
+.dark,
+.native-chat-appearance[data-native-chat-scheme='dark'] {
+  --destructive: #ff6568;
+  --destructive-foreground: #df2225;
+  --status-success: #86efac;
+  --status-success-background: color-mix(in srgb, var(--status-success) 10%, transparent);
+  --status-success-border: color-mix(in srgb, var(--status-success) 25%, transparent);
+  --status-warning: #eab308;
+  --jira-priority-high: var(--destructive);
+  --jira-priority-medium: var(--status-warning);
+  --jira-priority-low: var(--callout-note);
+  --status-warning-background: color-mix(in srgb, var(--status-warning) 10%, transparent);
+  --status-warning-border: color-mix(in srgb, var(--status-warning) 25%, transparent);
+  --callout-note: #4493f8;
+  --callout-important: #ab7df8;
+  --git-decoration-added: #81b88b;
+  --git-decoration-modified: #e2c08d;
+  --git-decoration-deleted: #c74e39;
+  --git-decoration-renamed: #73c991;
+  --git-decoration-untracked: #73c991;
+  --git-decoration-copied: #73c991;
+  --git-decoration-ignored: #6e6e6e;
+  --diff-added-ground: color-mix(in srgb, var(--git-decoration-added) 16%, transparent);
+  --diff-added-gutter: color-mix(in srgb, var(--git-decoration-added) 30%, transparent);
+  --diff-removed-ground: color-mix(in srgb, var(--git-decoration-deleted) 18%, transparent);
+  --diff-removed-gutter: color-mix(in srgb, var(--git-decoration-deleted) 32%, transparent);
+}
+

@@ -8,6 +8,8 @@ import {
 import { runClaudeTurn } from "./claude-turn.ts";
 import type { SessionRegistry } from "./session-registry.ts";
 import type { TerminalManager } from "./terminal-manager.ts";
+import { listDirectory, readWorkspaceFile } from "./workspace-files.ts";
+import { gitCommit, gitDiff, gitStage, gitStatus, gitUnstage } from "./git-changes.ts";
 import type { WorkspaceManager } from "./workspace-manager.ts";
 import { log } from "./log.ts";
 
@@ -132,9 +134,15 @@ export function createHarnessAgent(
     run: (params: HarnessRequests[M]["params"]) => Promise<HarnessRequests[M]["result"]>,
   ): void {
     // Params come from our own UI over an authenticated socket; the handler validates what it uses.
-    app.onRequest(method, (raw: unknown) => (raw ?? {}) as HarnessRequests[M]["params"], (ctx) =>
-      run(ctx.params),
-    );
+    app.onRequest(method, (raw: unknown) => (raw ?? {}) as HarnessRequests[M]["params"], async (ctx) => {
+      try {
+        return await run(ctx.params);
+      } catch (error) {
+        if (error instanceof acp.RequestError) throw error;
+        // Unwrapped errors reach the client as a bare "Internal error"; keep the reason.
+        throw new acp.RequestError(-32000, error instanceof Error ? error.message : String(error));
+      }
+    });
   }
 
   handle(HARNESS_METHODS.stateGet, () => workspaces.snapshot());
@@ -170,6 +178,27 @@ export function createHarnessAgent(
     return {};
   });
 
+  function workspaceRoot(workspaceId: string): string {
+    const root = workspaces.workspacePath(workspaceId);
+    if (!root) throw new Error(`Unknown workspace ${workspaceId}`);
+    return root;
+  }
+
+  handle(HARNESS_METHODS.fsList, async (p) => listDirectory(workspaceRoot(p.workspaceId), p.dir));
+  handle(HARNESS_METHODS.fsRead, async (p) => readWorkspaceFile(workspaceRoot(p.workspaceId), p.path));
+  handle(HARNESS_METHODS.gitStatus, async (p) => gitStatus(workspaceRoot(p.workspaceId)));
+  handle(HARNESS_METHODS.gitDiff, async (p) => gitDiff(workspaceRoot(p.workspaceId), p.path, p.staged));
+  handle(HARNESS_METHODS.gitStage, async (p) => {
+    await gitStage(workspaceRoot(p.workspaceId), p.paths);
+    return {};
+  });
+  handle(HARNESS_METHODS.gitUnstage, async (p) => {
+    await gitUnstage(workspaceRoot(p.workspaceId), p.paths);
+    return {};
+  });
+  handle(HARNESS_METHODS.gitCommit, async (p) => ({
+    commit: await gitCommit(workspaceRoot(p.workspaceId), p.message),
+  }));
   handle(HARNESS_METHODS.shellsList, async () => terminals.listShells());
   handle(HARNESS_METHODS.terminalsList, async () => terminals.list());
   handle(HARNESS_METHODS.terminalCreate, async (p) => {
