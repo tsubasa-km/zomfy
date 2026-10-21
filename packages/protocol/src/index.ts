@@ -49,6 +49,21 @@ export interface BranchList {
   branches: string[]
 }
 
+/** The execution host owns session status; clients only present it (Orca's agent-status rule). */
+export type SessionStatus = 'idle' | 'working' | 'needs-you' | 'error'
+
+export interface SessionInfo {
+  id: string
+  /** null for sessions an outside ACP client opened by cwd alone. */
+  workspaceId: string | null
+  cwd: string
+  title: string
+  status: SessionStatus
+  createdAt: number
+  /** Set while a turn runs. */
+  turnStartedAt: number | null
+}
+
 export const HARNESS_METHODS = {
   stateGet: '_harness/state/get',
   projectAdd: '_harness/projects/add',
@@ -56,11 +71,15 @@ export const HARNESS_METHODS = {
   workspaceCreate: '_harness/workspaces/create',
   workspaceRemove: '_harness/workspaces/remove',
   branchesList: '_harness/git/branches',
-  floatingCwdSet: '_harness/floating/cwd/set'
+  floatingCwdSet: '_harness/floating/cwd/set',
+  sessionsList: '_harness/sessions/list',
+  sessionCreate: '_harness/sessions/create',
+  sessionClose: '_harness/sessions/close'
 } as const
 
 export const HARNESS_NOTIFICATIONS = {
-  stateChanged: '_harness/state/changed'
+  stateChanged: '_harness/state/changed',
+  sessionsChanged: '_harness/sessions/changed'
 } as const
 
 export interface HarnessRequests {
@@ -71,6 +90,9 @@ export interface HarnessRequests {
   [HARNESS_METHODS.workspaceRemove]: { params: RemoveWorkspaceParams; result: Record<string, never> }
   [HARNESS_METHODS.branchesList]: { params: { projectId: string }; result: BranchList }
   [HARNESS_METHODS.floatingCwdSet]: { params: { path: string }; result: Workspace }
+  [HARNESS_METHODS.sessionsList]: { params: Record<string, never>; result: SessionInfo[] }
+  [HARNESS_METHODS.sessionCreate]: { params: { workspaceId: string }; result: SessionInfo }
+  [HARNESS_METHODS.sessionClose]: { params: { sessionId: string }; result: Record<string, never> }
 }
 
 export type HarnessMethod = keyof HarnessRequests

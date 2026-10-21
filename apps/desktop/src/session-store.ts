@@ -1,6 +1,6 @@
 import { useSyncExternalStore } from 'react'
 import type * as acp from '@agentclientprotocol/sdk'
-import type { HarnessState, Workspace } from '@acp-harness/protocol'
+import type { HarnessState, SessionInfo, Workspace } from '@acp-harness/protocol'
 
 export type ThreadItem =
   | { kind: 'user'; text: string }
@@ -24,17 +24,15 @@ export type ThreadItem =
       chosen: string | null
     }
 
-export type SessionStatus = 'idle' | 'working' | 'needs-you' | 'error'
+import type { SessionStatus } from '@acp-harness/protocol'
+export type { SessionStatus }
 
-export interface Session {
-  id: string
+/** The daemon owns status, title and timing; the window adds the transcript it has loaded. */
+export interface Session extends Omit<SessionInfo, 'workspaceId'> {
   workspaceId: string
-  cwd: string
-  title: string
-  status: SessionStatus
   items: ThreadItem[]
-  /** Set while a turn runs, for the live "Working for Ns" line. */
-  turnStartedAt: number | null
+  /** Whether this window has the transcript (created here, or replayed with session/load). */
+  loaded: boolean
 }
 
 export type ConnectionState =
@@ -52,19 +50,42 @@ export interface StoreState {
   floating: { open: boolean; maximized: boolean }
 }
 
+const LAYOUT_KEY = 'acp-harness.layout.v1'
+type SavedLayout = Pick<StoreState, 'activeWorkspaceId' | 'activeSessionByWorkspace' | 'floating'>
+
+function readLayout(): Partial<SavedLayout> {
+  try {
+    return JSON.parse(localStorage.getItem(LAYOUT_KEY) ?? '{}')
+  } catch {
+    return {}
+  }
+}
+
+const saved = readLayout()
 let state: StoreState = {
   connection: { kind: 'connecting' },
   harness: null,
   sessions: [],
-  activeWorkspaceId: null,
-  activeSessionByWorkspace: {},
-  floating: { open: false, maximized: false }
+  activeWorkspaceId: saved.activeWorkspaceId ?? null,
+  activeSessionByWorkspace: saved.activeSessionByWorkspace ?? {},
+  floating: saved.floating ?? { open: false, maximized: false }
 }
 const listeners = new Set<() => void>()
 
 function set(next: StoreState): void {
   state = next
   for (const listener of listeners) listener()
+  try {
+    // Which workspace and tab were open is a per-window convenience, as in Orca's session restore.
+    const layout: SavedLayout = {
+      activeWorkspaceId: next.activeWorkspaceId,
+      activeSessionByWorkspace: next.activeSessionByWorkspace,
+      floating: next.floating
+    }
+    localStorage.setItem(LAYOUT_KEY, JSON.stringify(layout))
+  } catch {
+    // Storage can be unavailable; the layout then starts fresh next time.
+  }
 }
 
 export function useStore<T>(select: (s: StoreState) => T): T {
@@ -104,6 +125,24 @@ export function isFloating(workspaceId: string): boolean {
 
 export function selectWorkspace(workspaceId: string): void {
   set({ ...state, activeWorkspaceId: workspaceId })
+}
+
+/** Applies the daemon's session list, keeping transcripts this window already has. */
+export function mergeSessions(list: SessionInfo[]): void {
+  const previous = new Map(state.sessions.map((s) => [s.id, s]))
+  const sessions: Session[] = []
+  for (const info of list) {
+    if (info.workspaceId === null) continue
+    const old = previous.get(info.id)
+    let items = old?.items ?? []
+    // The turn just ended: draw Orca's settled status line under it.
+    if (old?.loaded && old.turnStartedAt !== null && info.turnStartedAt === null) {
+      const seconds = Math.max(1, Math.round((Date.now() - old.turnStartedAt) / 1000))
+      items = [...items, { kind: 'notice', text: `Worked for ${seconds}s` }]
+    }
+    sessions.push({ ...info, workspaceId: info.workspaceId, items, loaded: old?.loaded ?? false })
+  }
+  set({ ...state, sessions })
 }
 
 export function addSession(session: Session): void {
@@ -148,7 +187,7 @@ export function updateSession(id: string, change: (s: Session) => Session): void
 }
 
 /** Streams arrive as many small chunks; merge them into the trailing item of the same kind. */
-export function appendText(id: string, kind: 'agent' | 'thought', text: string): void {
+export function appendText(id: string, kind: 'user' | 'agent' | 'thought', text: string): void {
   updateSession(id, (s) => {
     const last = s.items.at(-1)
     if (last?.kind === kind) {
@@ -191,4 +230,8 @@ export function workspaceStatus(sessions: Session[]): SessionStatus | 'none' {
   if (sessions.some((s) => s.status === 'working')) return 'working'
   if (sessions.some((s) => s.status === 'error')) return 'error'
   return sessions.length > 0 ? 'idle' : 'none'
+}
+
+export function markLoaded(id: string): void {
+  updateSession(id, (s) => ({ ...s, loaded: true, items: [] }))
 }

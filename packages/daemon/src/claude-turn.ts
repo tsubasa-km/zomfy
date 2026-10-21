@@ -17,7 +17,11 @@ interface TurnInput {
   state: ClaudeSessionState;
   prompt: acp.ContentBlock[];
   abort: AbortController;
-  client: acp.AgentContext;
+  /** Delivers one update to whoever watches the session (recorded and broadcast by the caller). */
+  emit: (update: acp.SessionUpdate) => Promise<void>;
+  askPermission: (
+    request: acp.RequestPermissionRequest,
+  ) => Promise<acp.RequestPermissionResponse>;
 }
 
 // Why: the user's installed CLI carries their login and settings; the SDK's bundled copy would not.
@@ -25,12 +29,8 @@ const claudeExecutable =
   process.env.HARNESS_CLAUDE_PATH ?? Bun.which("claude") ?? undefined;
 
 export async function runClaudeTurn(input: TurnInput): Promise<acp.StopReason> {
-  const { acpSessionId, state, abort, client } = input;
-  const update = (u: acp.SessionUpdate) =>
-    client.notify(acp.methods.client.session.update, {
-      sessionId: acpSessionId,
-      update: u,
-    });
+  const { acpSessionId, state, abort } = input;
+  const update = input.emit;
 
   const stream = query({
     prompt: promptText(input.prompt),
@@ -41,7 +41,7 @@ export async function runClaudeTurn(input: TurnInput): Promise<acp.StopReason> {
       settingSources: ["user", "project", "local"],
       includePartialMessages: true,
       abortController: abort,
-      canUseTool: permissionBridge(acpSessionId, client),
+      canUseTool: permissionBridge(acpSessionId, input.askPermission),
       stderr: (line) => log(`[claude] ${line}`),
     },
   });
@@ -124,11 +124,10 @@ async function forwardMessage(
 
 function permissionBridge(
   acpSessionId: string,
-  client: acp.AgentContext,
+  askPermission: TurnInput["askPermission"],
 ): CanUseTool {
   return async (toolName, input, options) => {
-    const response = await client.request(
-      acp.methods.client.session.requestPermission,
+    const response = await askPermission(
       {
         sessionId: acpSessionId,
         toolCall: {

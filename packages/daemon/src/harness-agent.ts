@@ -5,24 +5,30 @@ import {
   type HarnessMethod,
   type HarnessRequests,
 } from "@acp-harness/protocol";
-import { runClaudeTurn, type ClaudeSessionState } from "./claude-turn.ts";
+import { runClaudeTurn } from "./claude-turn.ts";
+import type { SessionRegistry } from "./session-registry.ts";
 import type { WorkspaceManager } from "./workspace-manager.ts";
 import { log } from "./log.ts";
 
-interface HarnessSession extends ClaudeSessionState {
-  pendingTurn: AbortController | null;
-}
-
 /** One agent app shared by every transport, so sessions outlive the connection that made them. */
-export function createHarnessAgent(workspaces: WorkspaceManager): acp.AgentApp {
-  const sessions = new Map<string, HarnessSession>();
+export function createHarnessAgent(
+  workspaces: WorkspaceManager,
+  sessions: SessionRegistry,
+): acp.AgentApp {
   const clients = new Set<acp.AgentContext>();
+  const pendingTurns = new Map<string, AbortController>();
 
-  workspaces.onChange((state) => {
-    for (const client of clients) {
-      void client.notify(HARNESS_NOTIFICATIONS.stateChanged, state).catch(() => undefined);
-    }
-  });
+  function broadcast(method: string, params: unknown): void {
+    for (const client of clients) void client.notify(method, params).catch(() => undefined);
+  }
+  workspaces.onChange((state) => broadcast(HARNESS_NOTIFICATIONS.stateChanged, state));
+  sessions.onChange((list) => broadcast(HARNESS_NOTIFICATIONS.sessionsChanged, list));
+
+  /** Recorded for replay, then sent to every client so a reconnected window sees live turns. */
+  async function emit(sessionId: string, update: acp.SessionUpdate): Promise<void> {
+    await sessions.record(sessionId, update);
+    broadcast(acp.methods.client.session.update, { sessionId, update });
+  }
 
   async function prompt(
     params: acp.PromptRequest,
@@ -31,24 +37,50 @@ export function createHarnessAgent(workspaces: WorkspaceManager): acp.AgentApp {
     const session = sessions.get(params.sessionId);
     if (!session) throw new Error(`Unknown session ${params.sessionId}`);
 
-    session.pendingTurn?.abort();
+    pendingTurns.get(session.id)?.abort();
     const abort = new AbortController();
-    session.pendingTurn = abort;
+    pendingTurns.set(session.id, abort);
+
+    const text = params.prompt.flatMap((b) => (b.type === "text" ? [b.text] : [])).join("\n");
+    const firstTurn = session.claudeSessionId === null && session.title === "Claude";
+    sessions.update(session.id, {
+      status: "working",
+      turnStartedAt: Date.now(),
+      // Orca renames a fresh agent tab after its first message.
+      ...(firstTurn && text ? { title: text.replace(/\s+/g, " ").slice(0, 40) } : {}),
+    });
+    for (const block of params.prompt) {
+      await emit(session.id, { sessionUpdate: "user_message_chunk", content: block });
+    }
+
     try {
       const stopReason = await runClaudeTurn({
-        acpSessionId: params.sessionId,
+        acpSessionId: session.id,
         state: session,
         prompt: params.prompt,
         abort,
-        client,
+        emit: (update) => emit(session.id, update),
+        askPermission: async (request) => {
+          sessions.update(session.id, { status: "needs-you" });
+          try {
+            return await client.request(acp.methods.client.session.requestPermission, request);
+          } finally {
+            if (pendingTurns.get(session.id) === abort) sessions.update(session.id, { status: "working" });
+          }
+        },
       });
+      sessions.update(session.id, { status: "idle", turnStartedAt: null, claudeSessionId: session.claudeSessionId });
       return { stopReason };
     } catch (error) {
-      if (abort.signal.aborted) return { stopReason: "cancelled" };
+      if (abort.signal.aborted) {
+        sessions.update(session.id, { status: "idle", turnStartedAt: null });
+        return { stopReason: "cancelled" };
+      }
       log(`turn failed: ${error instanceof Error ? error.stack : String(error)}`);
+      sessions.update(session.id, { status: "error", turnStartedAt: null });
       throw error;
     } finally {
-      if (session.pendingTurn === abort) session.pendingTurn = null;
+      if (pendingTurns.get(session.id) === abort) pendingTurns.delete(session.id);
     }
   }
 
@@ -61,25 +93,32 @@ export function createHarnessAgent(workspaces: WorkspaceManager): acp.AgentApp {
     .onRequest("initialize", () => ({
       protocolVersion: acp.PROTOCOL_VERSION,
       agentCapabilities: {
-        loadSession: false,
+        loadSession: true,
         promptCapabilities: { embeddedContext: true },
       },
       agentInfo: { name: "acp-harness", title: "ACP Harness", version: "0.0.1" },
     }))
     .onRequest("authenticate", () => ({}))
     .onRequest("session/new", (ctx) => {
-      const sessionId = crypto.randomUUID();
-      sessions.set(sessionId, {
-        cwd: ctx.params.cwd,
-        claudeSessionId: null,
-        pendingTurn: null,
-      });
-      log(`session ${sessionId} in ${ctx.params.cwd}`);
-      return { sessionId };
+      // Outside ACP clients know only a cwd; harness UIs use `_harness/sessions/create`.
+      const record = sessions.create({ workspaceId: null, cwd: ctx.params.cwd });
+      log(`session ${record.id} in ${ctx.params.cwd}`);
+      return { sessionId: record.id };
+    })
+    .onRequest("session/load", async (ctx) => {
+      if (!sessions.get(ctx.params.sessionId)) throw new Error(`Unknown session ${ctx.params.sessionId}`);
+      // Replay goes only to the client that asked; live updates already reach everyone.
+      for (const update of await sessions.transcript(ctx.params.sessionId)) {
+        await ctx.client.notify(acp.methods.client.session.update, {
+          sessionId: ctx.params.sessionId,
+          update,
+        });
+      }
+      return {};
     })
     .onRequest("session/prompt", (ctx) => prompt(ctx.params, ctx.client))
     .onNotification("session/cancel", (ctx) => {
-      sessions.get(ctx.params.sessionId)?.pendingTurn?.abort();
+      pendingTurns.get(ctx.params.sessionId)?.abort();
     });
 
   function handle<M extends HarnessMethod>(
@@ -95,16 +134,33 @@ export function createHarnessAgent(workspaces: WorkspaceManager): acp.AgentApp {
   handle(HARNESS_METHODS.stateGet, () => workspaces.snapshot());
   handle(HARNESS_METHODS.projectAdd, (p) => workspaces.addProject(p.path));
   handle(HARNESS_METHODS.projectRemove, async (p) => {
+    const state = await workspaces.snapshot();
     await workspaces.removeProject(p.projectId);
+    for (const w of state.workspaces.filter((w) => w.projectId === p.projectId)) {
+      await sessions.removeWorkspace(w.id);
+    }
     return {};
   });
   handle(HARNESS_METHODS.workspaceCreate, (p) => workspaces.createWorkspace(p));
   handle(HARNESS_METHODS.workspaceRemove, async (p) => {
     await workspaces.removeWorkspace(p);
+    await sessions.removeWorkspace(p.workspaceId);
     return {};
   });
   handle(HARNESS_METHODS.branchesList, (p) => workspaces.listBranches(p.projectId));
   handle(HARNESS_METHODS.floatingCwdSet, (p) => workspaces.setFloatingCwd(p.path));
+  handle(HARNESS_METHODS.sessionsList, async () => sessions.list());
+  handle(HARNESS_METHODS.sessionCreate, async (p) => {
+    const cwd = workspaces.workspacePath(p.workspaceId);
+    if (!cwd) throw new Error(`Unknown workspace ${p.workspaceId}`);
+    const { claudeSessionId: _hidden, ...info } = sessions.create({ workspaceId: p.workspaceId, cwd });
+    return info;
+  });
+  handle(HARNESS_METHODS.sessionClose, async (p) => {
+    pendingTurns.get(p.sessionId)?.abort();
+    await sessions.remove(p.sessionId);
+    return {};
+  });
 
   return app;
 }

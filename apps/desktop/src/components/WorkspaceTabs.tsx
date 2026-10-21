@@ -1,5 +1,6 @@
 import { Plus, X } from 'lucide-react'
-import { closeSession, createSession } from '@/daemon-connection'
+import { useEffect } from 'react'
+import { closeSession, createSession, ensureSessionLoaded } from '@/daemon-connection'
 import { selectSession, useStore, type Session } from '@/session-store'
 import { AgentStateDot, type AgentDotState } from '@/components/AgentStateDot'
 import { ClaudeIcon } from '@/components/agent-icons'
@@ -28,6 +29,11 @@ export function WorkspaceTabs({
   const sessions = useStore((s) => s.sessions).filter((s) => s.workspaceId === workspaceId)
   const activeId = useStore((s) => s.activeSessionByWorkspace[workspaceId])
   const active = sessions.find((s) => s.id === activeId) ?? sessions.at(-1) ?? null
+  const activeSessionId = active?.id
+
+  useEffect(() => {
+    if (activeSessionId) void ensureSessionLoaded(activeSessionId)
+  }, [activeSessionId])
 
   return (
     <div className="flex min-h-0 min-w-0 flex-1 flex-col">
