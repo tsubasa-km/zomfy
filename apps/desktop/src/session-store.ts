@@ -88,6 +88,18 @@ export interface StoreState {
   rightSidebar: { open: boolean; tab: RightSidebarTab }
   /** WSL distros to reconnect on startup. */
   rememberedHosts: HostId[]
+  /** Sessions whose latest turn ended (or asked for approval) since the user last looked. */
+  unread: Record<string, true>
+  dashboardOpen: boolean
+}
+
+export type SessionTransition = { session: Session; from: SessionStatus; to: SessionStatus }
+const transitionListeners = new Set<(t: SessionTransition) => void>()
+
+/** Status changes the host reports, for notifications; fired after the store updates. */
+export function onSessionTransition(listener: (t: SessionTransition) => void): () => void {
+  transitionListeners.add(listener)
+  return () => transitionListeners.delete(listener)
 }
 
 export const LOCAL_HOST: HostId = 'local'
@@ -116,7 +128,9 @@ let state: StoreState = {
   floating: saved.floating ?? { open: false, maximized: false },
   editorTabs: saved.editorTabs ?? [],
   rightSidebar: saved.rightSidebar ?? { open: true, tab: 'explorer' },
-  rememberedHosts: saved.rememberedHosts ?? []
+  rememberedHosts: saved.rememberedHosts ?? [],
+  unread: {},
+  dashboardOpen: false
 }
 const listeners = new Set<() => void>()
 
@@ -188,7 +202,7 @@ export function allProjects(hosts: StoreState['hosts'] = state.hosts): HostedPro
 }
 
 /** Every workspace; only this computer's floating workspace is used, so other hosts' are left out. */
-export function allWorkspaces(s: StoreState = state): HostedWorkspace[] {
+export function allWorkspaces(s: Pick<StoreState, 'hosts'> = state): HostedWorkspace[] {
   return Object.values(s.hosts).flatMap(
     (h) =>
       h.harness?.workspaces
@@ -219,6 +233,8 @@ export function selectWorkspace(workspaceId: string): void {
 export function mergeSessions(hostId: HostId, list: SessionInfo[]): void {
   const previous = new Map(state.sessions.map((s) => [s.id, s]))
   const sessions: Session[] = state.sessions.filter((s) => s.hostId !== hostId)
+  const unread = { ...state.unread }
+  const transitions: SessionTransition[] = []
   for (const info of list) {
     if (info.workspaceId === null) continue
     const old = previous.get(info.id)
@@ -228,9 +244,18 @@ export function mergeSessions(hostId: HostId, list: SessionInfo[]): void {
       const seconds = Math.max(1, Math.round((Date.now() - old.turnStartedAt) / 1000))
       items = [...items, { kind: 'notice', text: `Worked for ${seconds}s` }]
     }
-    sessions.push({ ...info, hostId, workspaceId: info.workspaceId, items, loaded: old?.loaded ?? false })
+    const session: Session = { ...info, hostId, workspaceId: info.workspaceId, items, loaded: old?.loaded ?? false }
+    sessions.push(session)
+    if (old && old.status !== info.status) {
+      transitions.push({ session, from: old.status, to: info.status })
+      // Orca marks a workspace unread when its agent finishes or asks, until the user looks.
+      if (info.status === 'needs-you' || (old.status === 'working' && info.status !== 'working')) {
+        unread[info.id] = true
+      }
+    }
   }
-  set({ ...state, sessions: sessions.sort((a, b) => a.createdAt - b.createdAt) })
+  set({ ...state, unread, sessions: sessions.sort((a, b) => a.createdAt - b.createdAt) })
+  for (const t of transitions) for (const listener of transitionListeners) listener(t)
 }
 
 export function addSession(session: Session): void {
@@ -312,6 +337,7 @@ export function workspaceStatus(sessions: Session[]): SessionStatus | 'none' {
 export function selectSession(sessionId: string): void {
   const session = state.sessions.find((s) => s.id === sessionId)
   if (session) focusTab(session.workspaceId, sessionId)
+  if (state.dashboardOpen) set({ ...state, dashboardOpen: false })
 }
 
 // ── Terminals ────────────────────────────────────────────────────────────
@@ -366,6 +392,16 @@ function focusTab(workspaceId: string, tabId: string): void {
 
 export function setRightSidebar(change: Partial<StoreState['rightSidebar']>): void {
   set({ ...state, rightSidebar: { ...state.rightSidebar, ...change } })
+}
+
+export function markSeen(sessionId: string): void {
+  if (!state.unread[sessionId]) return
+  const { [sessionId]: _seen, ...unread } = state.unread
+  set({ ...state, unread })
+}
+
+export function setDashboardOpen(open: boolean): void {
+  set({ ...state, dashboardOpen: open })
 }
 
 export function setFloating(change: Partial<StoreState['floating']>): void {

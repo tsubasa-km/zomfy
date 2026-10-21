@@ -1,0 +1,37 @@
+import { isPermissionGranted, requestPermission, sendNotification } from '@tauri-apps/plugin-notification'
+import { allWorkspaces, getState, isFloating, onSessionTransition, type Session } from './session-store'
+
+// Like Orca's agent-hook-completion-notifications: a desktop notification when an agent finishes
+// or asks for approval, unless the user is already looking at that session.
+
+function isOnScreen(session: Session): boolean {
+  if (!document.hasFocus()) return false
+  const state = getState()
+  if (state.dashboardOpen) return false
+  if (state.activeSessionByWorkspace[session.workspaceId] !== session.id) return false
+  return isFloating(session.workspaceId) ? state.floating.open : state.activeWorkspaceId === session.workspaceId
+}
+
+let permission: Promise<boolean> | null = null
+
+function ensurePermission(): Promise<boolean> {
+  permission ??= isPermissionGranted().then(async (granted) => granted || (await requestPermission()) === 'granted')
+  return permission
+}
+
+export function installAgentNotifications(): void {
+  onSessionTransition(({ session, from, to }) => {
+    const finished = from === 'working' && (to === 'idle' || to === 'error')
+    if (!(to === 'needs-you' || finished) || isOnScreen(session)) return
+    const workspace = allWorkspaces().find((w) => w.id === session.workspaceId)?.name ?? 'workspace'
+    const title =
+      to === 'needs-you'
+        ? `Claude needs you · ${workspace}`
+        : to === 'error'
+          ? `Claude stopped with an error · ${workspace}`
+          : `Claude finished · ${workspace}`
+    void ensurePermission().then((granted) => {
+      if (granted) sendNotification({ title, body: session.title })
+    })
+  })
+}

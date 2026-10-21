@@ -41,6 +41,7 @@ async fn start_wsl_daemon(distro: String, state: tauri::State<'_, WslDaemons>) -
 pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
+        .plugin(tauri_plugin_notification::init())
         .manage(WslDaemons::default())
         .invoke_handler(tauri::generate_handler![local_daemon_info, wsl_distros, start_wsl_daemon])
         .run(tauri::generate_context!())

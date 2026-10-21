@@ -3,6 +3,7 @@ import { open } from '@tauri-apps/plugin-dialog'
 import { invoke } from '@tauri-apps/api/core'
 import {
   Download,
+  LayoutDashboard,
   FolderGit2,
   FolderOpen,
   FolderPlus,
@@ -21,6 +22,7 @@ import {
   allWorkspaces,
   selectSession,
   selectWorkspace,
+  setDashboardOpen,
   useStore,
   workspaceStatus,
   type HostEntry,
@@ -81,7 +83,10 @@ export function Sidebar() {
         <span className="min-w-0 truncate pr-0.5 pl-2 text-xs font-semibold text-muted-foreground/80 select-none">
           Workspaces
         </span>
-        <AddMenu onImportOrca={() => setImporting(true)} />
+        <div className="flex items-center gap-0.5">
+          <DashboardButton />
+          <AddMenu onImportOrca={() => setImporting(true)} />
+        </div>
       </div>
 
       <div className="worktree-sidebar-scrollbar mt-1 min-h-0 flex-1 px-1 pb-3">
@@ -338,6 +343,30 @@ function SessionRow({ session, showWorkspace }: { session: Session; showWorkspac
       </span>
       <AgentStateDot state={SESSION_DOT[session.status]} size="sm" />
     </div>
+  )
+}
+
+function DashboardButton() {
+  const open = useStore((s) => s.dashboardOpen)
+  const attention = useStore((s) => s.sessions.filter((x) => x.status === 'needs-you' || s.unread[x.id]).length)
+  return (
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <Button
+          size="icon-xs"
+          variant="ghost"
+          aria-label="Agent dashboard"
+          className={cn('relative', open && 'bg-accent text-accent-foreground')}
+          onClick={() => setDashboardOpen(!open)}
+        >
+          <LayoutDashboard className="size-3.5" />
+          {attention > 0 && (
+            <span className="absolute top-0.5 right-0.5 size-1.5 rounded-full bg-agent-question" />
+          )}
+        </Button>
+      </TooltipTrigger>
+      <TooltipContent side="right">Agent dashboard ({navigator.userAgent.includes('Mac') ? '⌘⇧D' : 'Ctrl+Shift+D'})</TooltipContent>
+    </Tooltip>
   )
 }
 

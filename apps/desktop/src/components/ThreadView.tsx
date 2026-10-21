@@ -15,7 +15,7 @@ import {
   type LucideIcon
 } from 'lucide-react'
 import { answerPermission, cancelTurn, sendPrompt } from '@/daemon-connection'
-import type { Session, ThreadItem } from '@/session-store'
+import { markSeen, type Session, type ThreadItem } from '@/session-store'
 import { Button } from '@/components/ui/button'
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible'
 import { NativeChatMarkdown } from '@/components/native-chat/NativeChatMarkdown'
@@ -31,6 +31,8 @@ const TRANSCRIPT_COLUMN_CLASS =
 
 export function ThreadView({ session }: { session: Session }) {
   const bottom = useRef<HTMLDivElement>(null)
+  // Showing a session is reading it: it leaves the dashboard's Done lane.
+  useEffect(() => markSeen(session.id), [session.id, session.status])
   useEffect(() => {
     // Braces matter: newer WebView2 returns a Promise here, which React would treat as cleanup.
     void bottom.current?.scrollIntoView({ block: 'end' })
