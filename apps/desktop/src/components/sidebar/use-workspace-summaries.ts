@@ -4,7 +4,8 @@ import { harnessRequest } from '@/daemon-connection'
 import { getState, useStore } from '@/session-store'
 import { setSummaries } from '@/stores/sidebar-store'
 
-const POLL_MS = 15_000
+// Each workspace costs several git processes, so the timer stays slow; state changes refresh sooner.
+const POLL_MS = 30_000
 
 /** Diff stats and ahead/behind for every connected host, refreshed on a timer and on state changes. */
 export function useWorkspaceSummaries(): void {
