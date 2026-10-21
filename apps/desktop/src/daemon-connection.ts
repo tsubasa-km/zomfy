@@ -4,9 +4,11 @@ import { invoke, isTauri } from "@tauri-apps/api/core";
 import {
   HARNESS_METHODS,
   HARNESS_NOTIFICATIONS,
+  SETTINGS_NOTIFICATIONS,
   type HarnessMethod,
   type HarnessRequests,
   type HarnessState,
+  type HostSettings,
   type Project,
   type SessionInfo,
   type ShellOption,
@@ -33,6 +35,7 @@ import {
   upsertTool,
   type HostId,
 } from "./session-store";
+import { applyHostSettings } from "./stores/host-settings-store";
 
 interface DaemonInfo {
   url: string;
@@ -147,6 +150,11 @@ async function openConnection(hostId: HostId): Promise<void> {
           listener(ctx.params.data);
         }
       },
+    )
+    .onNotification(
+      SETTINGS_NOTIFICATIONS.settingsChanged,
+      (raw: unknown) => raw as HostSettings,
+      (ctx) => applyHostSettings(hostId, ctx.params),
     )
     .connect(stream);
   opened.closed.finally(() => {

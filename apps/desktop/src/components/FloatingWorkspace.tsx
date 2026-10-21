@@ -1,14 +1,13 @@
-import { useEffect } from 'react'
 import { Maximize2, Minimize2, Minus, PanelsTopLeft } from 'lucide-react'
 import { allWorkspaces, floatingWorkspaceId, setFloating, useStore } from '@/session-store'
 import { WorkspaceTabs } from '@/components/WorkspaceTabs'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
+import { useShortcutLabel } from '@/keybindings/keybinding-registry'
 import { cn } from '@/lib/utils'
 
 // Follows Orca's floating workspace (FloatingTerminalToggleButton, FloatingTerminalPanelSurface,
-// floating-terminal-panel-bounds): 920×560 at 24px/84px from the bottom-right, Ctrl/Cmd+Alt+A.
-
-const isMac = navigator.userAgent.includes('Mac')
+// floating-terminal-panel-bounds): 920×560 at 24px/84px from the bottom-right. Its shortcut
+// (floatingWorkspace.toggle, Ctrl/Cmd+Alt+A) lives in the keybinding registry.
 
 export function FloatingWorkspace() {
   const floatingId = useStore((s) => floatingWorkspaceId(s))
@@ -18,17 +17,7 @@ export function FloatingWorkspace() {
     s.sessions.some((x) => x.workspaceId === floatingId && x.status === 'needs-you')
   )
 
-  useEffect(() => {
-    function onKey(e: KeyboardEvent) {
-      const mod = isMac ? e.metaKey : e.ctrlKey
-      if (mod && e.altKey && e.code === 'KeyA') {
-        e.preventDefault()
-        setFloating({ open: !open })
-      }
-    }
-    window.addEventListener('keydown', onKey)
-    return () => window.removeEventListener('keydown', onKey)
-  }, [open])
+  const shortcut = useShortcutLabel('floatingWorkspace.toggle')
 
   if (!floatingId) return null
 
@@ -50,7 +39,7 @@ export function FloatingWorkspace() {
             </button>
           </TooltipTrigger>
           <TooltipContent side="left">
-            Floating workspace ({isMac ? '⌘⌥A' : 'Ctrl+Alt+A'})
+            Floating workspace{shortcut ? ` (${shortcut})` : ''}
           </TooltipContent>
         </Tooltip>
       )}
