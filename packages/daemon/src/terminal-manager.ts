@@ -42,8 +42,18 @@ export class TerminalManager {
     return [...this.terminals.values()].map((t) => t.info)
   }
 
-  create(params: { workspaceId: string; cwd: string; shellId?: string; cols: number; rows: number }): TerminalInfo {
-    const shell = this.shells.find((s) => s.id === params.shellId) ?? this.shells[0]
+  create(params: {
+    workspaceId: string
+    cwd: string
+    shellId?: string
+    cols: number
+    rows: number
+    /** A program to run instead of a shell (setup scripts); the tab keeps its output after exit. */
+    command?: { argv: string[]; title: string; env?: Record<string, string> }
+  }): TerminalInfo {
+    const shell = params.command
+      ? { id: 'command', label: params.command.title, argv: params.command.argv }
+      : (this.shells.find((s) => s.id === params.shellId) ?? this.shells[0])
     if (!shell) throw new Error('No shell found on this host')
     const info: TerminalInfo = {
       id: crypto.randomUUID(),
@@ -63,7 +73,7 @@ export class TerminalManager {
     const proc = Bun.spawn(shell.argv, {
       cwd: params.cwd,
       terminal: pty,
-      env: { ...process.env, TERM: 'xterm-256color', COLORTERM: 'truecolor' },
+      env: { ...process.env, ...params.command?.env, TERM: 'xterm-256color', COLORTERM: 'truecolor' },
       // Typed only on the non-terminal overloads; ConPTY children still need it to stay hidden.
       ...({ windowsHide: true } as object)
     })

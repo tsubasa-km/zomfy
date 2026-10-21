@@ -8,6 +8,8 @@ import type {
   HarnessState,
   HostInfo,
   Project,
+  ProjectGroup,
+  ProjectPatch,
   RemoveWorkspaceParams,
   Workspace,
   WorkspacePatch
@@ -24,11 +26,12 @@ export const FLOATING_WORKSPACE_ID = 'floating'
 interface PersistedState {
   projects: Project[]
   workspaces: Workspace[]
+  projectGroups: ProjectGroup[]
   floatingCwd: string
 }
 
 export class WorkspaceManager {
-  private state: PersistedState = { projects: [], workspaces: [], floatingCwd: '' }
+  private state: PersistedState = { projects: [], workspaces: [], projectGroups: [], floatingCwd: '' }
   private readonly listeners = new Set<(state: HarnessState) => void>()
 
   async load(): Promise<void> {
@@ -49,8 +52,28 @@ export class WorkspaceManager {
       host: hostInfo(),
       projects: this.state.projects,
       workspaces: [await this.floatingWorkspace(), ...this.state.workspaces],
-      floatingWorkspaceId: FLOATING_WORKSPACE_ID
+      floatingWorkspaceId: FLOATING_WORKSPACE_ID,
+      projectGroups: this.state.projectGroups
     }
+  }
+
+  /** Workspaces with a project, for the git summaries. */
+  projectWorkspaces(): { workspace: Workspace; project: Project }[] {
+    return this.state.workspaces.flatMap((workspace) => {
+      const project = this.state.projects.find((p) => p.id === workspace.projectId)
+      return project ? [{ workspace, project }] : []
+    })
+  }
+
+  requireWorkspace(workspaceId: string): { workspace: Workspace; project: Project } {
+    const workspace = this.state.workspaces.find((w) => w.id === workspaceId)
+    if (!workspace) throw new Error(`Unknown workspace ${workspaceId}`)
+    return { workspace, project: this.requireProject(workspace.projectId!) }
+  }
+
+  /** The project's configured base, else Orca's default chain. */
+  async baseRefOf(project: Project): Promise<string> {
+    return project.defaultBaseRef || (await defaultBaseRef(project.path))
   }
 
   workspacePath(workspaceId: string): string | null {
@@ -70,7 +93,8 @@ export class WorkspaceManager {
       id: crypto.randomUUID(),
       name: basename(root).replace(/\.git$/, ''),
       path: root,
-      kind: isGit ? 'git' : 'folder'
+      kind: isGit ? 'git' : 'folder',
+      sortOrder: Math.max(-1, ...this.state.projects.map((p) => p.sortOrder ?? 0)) + 1
     }
     this.state.projects.push(project)
     // The project's own checkout is always a workspace, like Orca's main worktree.
@@ -112,32 +136,133 @@ export class WorkspaceManager {
   async listBranches(projectId: string): Promise<BranchList> {
     const project = this.requireProject(projectId)
     if (project.kind !== 'git') return { current: null, branches: [] }
-    return { current: await currentBranch(project.path), branches: await localBranches(project.path) }
+    const remotes = await git(project.path, ['for-each-ref', '--format=%(refname:short)', 'refs/remotes'], {
+      quiet: true
+    }).catch(() => '')
+    return {
+      current: await currentBranch(project.path),
+      branches: await localBranches(project.path),
+      remoteBranches: remotes.split('\n').filter((r) => r && !r.endsWith('/HEAD')),
+      defaultBaseRef: await this.baseRefOf(project),
+      checkedOut: (await listWorktrees(project.path)).flatMap((w) => (w.branch ? [w.branch] : []))
+    }
+  }
+
+  async updateProject(projectId: string, patch: ProjectPatch): Promise<Project> {
+    const project = this.requireProject(projectId)
+    for (const key of ['displayName', 'defaultBaseRef', 'worktreeRoot', 'groupId'] as const) {
+      if (!(key in patch)) continue
+      const value = patch[key]?.trim()
+      if (value) project[key] = value
+      else delete project[key]
+    }
+    if ('hooks' in patch) {
+      const setup = patch.hooks?.setup?.trim()
+      const archive = patch.hooks?.archive?.trim()
+      if (setup || archive) project.hooks = { ...(setup ? { setup } : {}), ...(archive ? { archive } : {}) }
+      else delete project.hooks
+    }
+    await this.save()
+    return project
+  }
+
+  async reorderProjects(projectIds: string[]): Promise<void> {
+    projectIds.forEach((id, index) => {
+      const project = this.state.projects.find((p) => p.id === id)
+      if (project) project.sortOrder = index
+    })
+    await this.save()
+  }
+
+  async reorderWorkspaces(workspaceIds: string[]): Promise<void> {
+    workspaceIds.forEach((id, index) => {
+      const workspace = this.state.workspaces.find((w) => w.id === id)
+      if (workspace) workspace.sortOrder = index
+    })
+    await this.save()
+  }
+
+  async createProjectGroup(name: string, projectIds: string[] = []): Promise<ProjectGroup> {
+    const group: ProjectGroup = {
+      id: crypto.randomUUID(),
+      name: name.trim() || 'Group',
+      sortOrder: this.state.projectGroups.length
+    }
+    this.state.projectGroups.push(group)
+    for (const project of this.state.projects) if (projectIds.includes(project.id)) project.groupId = group.id
+    await this.save()
+    return group
+  }
+
+  async updateProjectGroup(
+    groupId: string,
+    patch: Partial<Pick<ProjectGroup, 'name' | 'collapsed'>>
+  ): Promise<ProjectGroup> {
+    const group = this.state.projectGroups.find((g) => g.id === groupId)
+    if (!group) throw new Error(`Unknown project group ${groupId}`)
+    if (patch.name?.trim()) group.name = patch.name.trim()
+    if (patch.collapsed !== undefined) group.collapsed = patch.collapsed
+    await this.save()
+    return group
+  }
+
+  /** Its projects move back to the top level, as Orca's group delete does. */
+  async removeProjectGroup(groupId: string): Promise<void> {
+    this.state.projectGroups = this.state.projectGroups.filter((g) => g.id !== groupId)
+    for (const project of this.state.projects) if (project.groupId === groupId) delete project.groupId
+    await this.save()
   }
 
   async createWorkspace(params: CreateWorkspaceParams): Promise<Workspace> {
     const project = this.requireProject(params.projectId)
-    const slug = sanitizeWorkspaceName(params.name)
+    const parent = params.parentWorkspaceId
+      ? this.state.workspaces.find((w) => w.id === params.parentWorkspaceId)
+      : undefined
+    const extra = {
+      ...(parent ? { parentWorkspaceId: parent.id } : {}),
+      ...(params.comment?.trim() ? { comment: params.comment.trim() } : {})
+    }
 
     if (project.kind === 'folder') {
       // Orca's folder workspaces share the folder; nothing is created on disk.
-      return this.addWorkspace({ projectId: project.id, name: params.name.trim() || slug, path: project.path, branch: null })
+      const name = params.name.trim() || sanitizeWorkspaceName(params.name)
+      return this.addWorkspace({ projectId: project.id, name, path: project.path, branch: null, ...extra })
     }
 
-    const prefix = branchPrefixFromUserName(await gitUserName(project.path))
-    const projectRoot = join(WORKSPACE_ROOT, sanitizeWorkspaceName(project.name))
-    const name = await firstFreeCandidate(slug, async (candidate) => {
-      const branch = prefix ? `${prefix}/${candidate}` : candidate
-      return !existsSync(join(projectRoot, candidate)) && !(await branchExists(project.path, branch))
-    })
-    const branch = prefix ? `${prefix}/${name}` : name
-    const path = join(projectRoot, name)
-    const base = params.baseRef ?? (await defaultBaseRef(project.path))
-
+    const projectRoot = join(project.worktreeRoot || WORKSPACE_ROOT, sanitizeWorkspaceName(project.name))
     await mkdir(projectRoot, { recursive: true })
-    await git(project.path, ['-c', 'core.longpaths=true', 'worktree', 'add', '--no-track', '-b', branch, path, base])
+    const add = (args: string[]) => git(project.path, ['-c', 'core.longpaths=true', 'worktree', 'add', ...args])
+
+    if (params.existingBranch) {
+      // Orca's "start from an existing branch": check it out instead of branching.
+      const branch = params.existingBranch
+      const slug = sanitizeWorkspaceName(params.name.trim() || branch.split('/').at(-1) || branch)
+      const name = await firstFreeCandidate(slug, async (c) => !existsSync(join(projectRoot, c)))
+      const path = join(projectRoot, name)
+      await add([path, branch])
+      log(`created worktree ${path} on existing ${branch}`)
+      return this.addWorkspace({ projectId: project.id, name, path, branch, ...extra })
+    }
+
+    const override = params.branchName?.trim()
+    if (override && (await branchExists(project.path, override))) {
+      throw new Error(`Branch ${override} already exists; start from it as an existing branch instead`)
+    }
+    const slug = sanitizeWorkspaceName(params.name.trim() || override?.split('/').at(-1) || '')
+    const prefix = branchPrefixFromUserName(await gitUserName(project.path))
+    const name = await firstFreeCandidate(slug, async (candidate) => {
+      if (existsSync(join(projectRoot, candidate))) return false
+      if (override) return true
+      return !(await branchExists(project.path, prefix ? `${prefix}/${candidate}` : candidate))
+    })
+    const branch = override || (prefix ? `${prefix}/${name}` : name)
+    const path = join(projectRoot, name)
+    // A child starts from its parent's branch unless the composer picked a base.
+    const base = params.baseRef || parent?.branch || (await this.baseRefOf(project))
+
+    await add(['--no-track', '-b', branch, path, base])
     log(`created worktree ${path} on ${branch} from ${base}`)
-    return this.addWorkspace({ projectId: project.id, name, path, branch })
+    return this.addWorkspace({ projectId: project.id, name, path, branch, ...extra })
   }
 
   async removeWorkspace(params: RemoveWorkspaceParams): Promise<void> {
@@ -158,13 +283,29 @@ export class WorkspaceManager {
       }
     }
     this.state.workspaces = this.state.workspaces.filter((w) => w.id !== workspace.id)
+    // Children move up to the removed workspace's parent rather than dangling.
+    for (const child of this.state.workspaces) {
+      if (child.parentWorkspaceId !== workspace.id) continue
+      if (workspace.parentWorkspaceId) child.parentWorkspaceId = workspace.parentWorkspaceId
+      else delete child.parentWorkspaceId
+    }
     await this.save()
   }
 
   async updateWorkspace(workspaceId: string, patch: WorkspacePatch): Promise<Workspace> {
     const workspace = this.state.workspaces.find((w) => w.id === workspaceId)
     if (!workspace) throw new Error(`Unknown workspace ${workspaceId}`)
-    const allowed: (keyof WorkspacePatch)[] = ['displayName', 'comment', 'pinned', 'status', 'unread']
+    if (patch.parentWorkspaceId && this.wouldCycle(workspace, patch.parentWorkspaceId)) {
+      throw new Error('A workspace cannot be nested under itself or one of its children')
+    }
+    const allowed: (keyof WorkspacePatch)[] = [
+      'displayName',
+      'comment',
+      'pinned',
+      'status',
+      'unread',
+      'parentWorkspaceId'
+    ]
     for (const key of allowed) {
       if (!(key in patch)) continue
       const value = patch[key]
@@ -197,7 +338,17 @@ export class WorkspaceManager {
     }
   }
 
-  private async addWorkspace(fields: Pick<Workspace, 'projectId' | 'name' | 'path' | 'branch'>): Promise<Workspace> {
+  private wouldCycle(workspace: Workspace, parentId: string): boolean {
+    for (let id: string | undefined = parentId; id; ) {
+      if (id === workspace.id) return true
+      id = this.state.workspaces.find((w) => w.id === id)?.parentWorkspaceId
+    }
+    return false
+  }
+
+  private async addWorkspace(
+    fields: Pick<Workspace, 'projectId' | 'name' | 'path' | 'branch'> & Partial<Workspace>
+  ): Promise<Workspace> {
     const workspace: Workspace = { id: crypto.randomUUID(), isPrimary: false, createdAt: Date.now(), ...fields }
     this.state.workspaces.push(workspace)
     await this.save()
