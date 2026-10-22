@@ -30,6 +30,8 @@ import { isExternalAgentSession } from '@/lib/chat-agents'
 import { isSubmitShortcut, SUBMIT_SHORTCUT_LABEL } from '@/lib/terminal-shortcuts'
 import { useSetting } from '@/stores/settings-store'
 import { MarkdownEditor, type MarkdownEditorHandle } from '@/components/markdown-editor/MarkdownEditor'
+import { loadChatMemo, setChatMemoOpen, useChatMemo } from '@/stores/chat-memo-store'
+import { NativeChatMemoButton, NativeChatMemoPanel } from './NativeChatMemoPanel'
 
 // Layout and classes follow Orca's NativeChatComposer, NativeChatComposerField and
 // NativeChatComposerActions.
@@ -73,6 +75,12 @@ export function NativeChatComposer({
   const [dismissedAt, setDismissedAt] = useState<string | null>(null)
   const [dragging, setDragging] = useState(false)
   const sendKey = useSetting('chatSendKey')
+  // Memos belong to main chats; a side chat's notes would be the main chat's.
+  const memos = useSetting('chatMemosEnabled') && !session.sideOf
+  const memoOpen = useChatMemo(session.id)?.open === true
+  useEffect(() => {
+    if (memos) loadChatMemo(session.id)
+  }, [memos, session.id])
 
   useEffect(() => {
     if (!external) void loadCatalog(session.workspaceId)
@@ -169,6 +177,17 @@ export function NativeChatComposer({
   return (
     <div className="shrink-0 bg-chat-canvas select-none">
       <div className="px-3 pt-2 pb-4 sm:px-4">
+        {memos && memoOpen ? (
+          <div className="mx-auto w-full max-w-(--chat-content-max-width)">
+            <NativeChatMemoPanel
+              sessionId={session.id}
+              onClose={() => {
+                setChatMemoOpen(session.id, false)
+                editorRef.current?.focus()
+              }}
+            />
+          </div>
+        ) : null}
         <div className="relative mx-auto w-full max-w-(--chat-content-max-width)">
           {autocomplete ? (
             <NativeChatAutocompleteMenu autocomplete={autocomplete} activeIndex={selected} listboxId={listboxId} onChoose={choose} />
@@ -242,7 +261,7 @@ export function NativeChatComposer({
                 return true
               }}
               minHeight="3rem"
-              maxHeight="calc(14lh + 0.5rem)"
+              maxHeight="calc(12lh + 0.5rem)"
               className="px-2 py-1 text-sm text-chat-foreground-strong"
             />
             <div className="flex flex-wrap items-center gap-2 pt-0.5">
@@ -308,6 +327,7 @@ export function NativeChatComposer({
                     />
                   ) : null}
                   {usage ? <NativeChatContextUsageRing usage={usage} /> : null}
+                  {memos ? <NativeChatMemoButton sessionId={session.id} /> : null}
                   <NativeChatDictationButton
                     onTranscript={(text) => {
                       // Appends to the draft as it is when the transcript lands, not when recording began.
