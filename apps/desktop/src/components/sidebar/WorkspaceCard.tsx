@@ -16,7 +16,7 @@ import { WorkspaceStatusIcon } from '@/components/sidebar/WorkspaceStatusIcon'
 import { WorkspaceMenuItems, updateWorkspace } from '@/components/sidebar/WorkspaceMenu'
 import { AgentBadge, DiffStatsBadge, ReviewBadge, SyncBadge } from '@/components/sidebar/WorkspaceCardBadges'
 import { SessionRow } from '@/components/sidebar/SessionRow'
-import { currentDrag, endDrag, handleDragOver, startDrag, type DragItem } from '@/components/sidebar/sidebar-drag'
+import { beginSidebarDrag, useSidebarDropTarget, type DragItem } from '@/components/sidebar/sidebar-drag'
 import { workspaceLabel } from '@/components/sidebar/workspace-visibility'
 import { DropdownMenu, DropdownMenuContent, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
 import type { WorktreeStatus } from '@/lib/worktree-status'
@@ -74,6 +74,7 @@ export function WorkspaceCard({
   const unread = !!workspace.unread || sessionUnread
   const title = workspaceLabel(workspace)
   const show = (p: CardProperty) => props.includes(p)
+  const dropRef = useSidebarDropTarget(workspace.id, drop?.accept ?? null, (item, position) => drop?.onDrop(item, position))
 
   const badges = (
     <>
@@ -98,22 +99,8 @@ export function WorkspaceCard({
       data-worktree-card-selected={selected ? 'true' : undefined}
       data-workspace-id={workspace.id}
       data-depth={depth}
-      draggable
-      onDragStart={(e) => startDrag(e, { kind: 'workspace', id: workspace.id, hostId, projectId: workspace.projectId })}
-      onDragEnd={endDrag}
-      onDragOver={drop ? (e) => handleDragOver(e, workspace.id, drop.accept) : undefined}
-      onDrop={
-        drop
-          ? (e) => {
-              e.preventDefault()
-              e.stopPropagation()
-              const position = dropMark ?? 'after'
-              const item = currentDrag()
-              endDrag()
-              if (item) drop.onDrop(item, position)
-            }
-          : undefined
-      }
+      ref={dropRef}
+      onPointerDown={(e) => beginSidebarDrag(e, { kind: 'workspace', id: workspace.id, hostId, projectId: workspace.projectId }, title)}
       onClick={(e) => {
         const toggle = isMac ? e.metaKey : e.ctrlKey
         if (toggle || e.shiftKey) {

@@ -48,7 +48,7 @@ export function FileExplorerRow({
   actions,
   onClick,
   onContextMenu,
-  drag
+  onDragPointerDown
 }: {
   entry: FileEntry
   depth: number
@@ -65,10 +65,7 @@ export function FileExplorerRow({
   actions: FileExplorerRowActions
   onClick: (event: React.MouseEvent<HTMLButtonElement>) => void
   onContextMenu: () => void
-  drag: Pick<
-    React.ButtonHTMLAttributes<HTMLButtonElement>,
-    'onDragStart' | 'onDragEnd' | 'onDragOver' | 'onDragEnter' | 'onDragLeave' | 'onDrop'
-  >
+  onDragPointerDown: (event: React.PointerEvent<HTMLButtonElement>) => void
 }) {
   const isDir = entry.kind === 'dir'
   const targetDir = isDir ? entry.path : parentDir(entry.path)
@@ -83,8 +80,8 @@ export function FileExplorerRow({
           aria-expanded={isDir ? isExpanded : undefined}
           data-file-explorer-row=""
           data-path={entry.path}
+          data-entry-kind={entry.kind}
           data-selected={isSelected ? 'true' : undefined}
-          draggable
           className={cn(
             'flex w-full items-center gap-1 rounded-sm px-2 py-1 text-left text-xs transition-colors outline-none focus-visible:ring-1 focus-visible:ring-ring',
             isSelected ? 'bg-accent text-accent-foreground' : 'hover:bg-accent hover:text-foreground',
@@ -92,7 +89,7 @@ export function FileExplorerRow({
           )}
           style={{ paddingLeft: `${depth * 16 + 8}px` }}
           onClick={onClick}
-          {...drag}
+          onPointerDown={onDragPointerDown}
         >
           {isDir ? (
             <>

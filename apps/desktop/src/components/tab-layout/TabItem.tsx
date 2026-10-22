@@ -8,8 +8,8 @@ import { cn } from '@/lib/utils'
 import { setTabMeta, useTabLayout } from '@/stores/tab-layout-store'
 import { TabContextMenu } from './TabContextMenu'
 import { TabKindIcon } from './TabKindIcon'
-import { draggedTab, endTabDrag, startTabDrag } from './tab-drag'
-import { moveTabTo } from './tab-group-commands'
+import { DragChip } from '@/components/PointerDragLayer'
+import { TAB_DRAG_ACTIVATION_DISTANCE_PX, tabDrag, useInsertionMark } from './tab-drag'
 import { RENAME_TAB_EVENT } from './use-tab-keyboard'
 import {
   activateTab,
@@ -36,7 +36,6 @@ export function TabItem({
   groupId,
   tab,
   groupTabs,
-  index,
   active,
   hasSplit
 }: {
@@ -44,7 +43,6 @@ export function TabItem({
   groupId: string
   tab: WorkspaceTab
   groupTabs: WorkspaceTab[]
-  index: number
   active: boolean
   hasSplit: boolean
 }) {
@@ -53,7 +51,7 @@ export function TabItem({
   const pinned = meta?.pinned === true
   const [menu, setMenu] = useState<{ x: number; y: number; open: boolean } | null>(null)
   const [renaming, setRenaming] = useState<string | null>(null)
-  const [dropSide, setDropSide] = useState<'before' | 'after' | null>(null)
+  const dropSide = useInsertionMark(tab.id)
   const ref = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
@@ -88,28 +86,16 @@ export function TabItem({
         data-tab-kind={tab.kind}
         data-tab-title={title}
         data-pinned={pinned ? 'true' : 'false'}
-        draggable={renaming === null}
-        onDragStart={(e) => startTabDrag(e, { workspaceId, tabId: tab.id, groupId })}
-        onDragEnd={endTabDrag}
-        onDragOver={(e) => {
-          const drag = draggedTab()
-          if (!drag || drag.workspaceId !== workspaceId) return
-          e.preventDefault()
-          e.stopPropagation()
-          const rect = e.currentTarget.getBoundingClientRect()
-          setDropSide(e.clientX < rect.left + rect.width / 2 ? 'before' : 'after')
-        }}
-        onDragLeave={() => setDropSide(null)}
-        onDrop={(e) => {
-          const drag = draggedTab()
-          setDropSide(null)
-          if (!drag || drag.workspaceId !== workspaceId) return
-          e.preventDefault()
-          e.stopPropagation()
-          const rect = e.currentTarget.getBoundingClientRect()
-          const after = e.clientX >= rect.left + rect.width / 2
-          if (drag.tabId !== tab.id) moveTabTo(workspaceId, drag.tabId, groupId, index + (after ? 1 : 0))
-          endTabDrag()
+        onPointerDown={(e) => {
+          if (renaming !== null) return
+          tabDrag.begin(e, {
+            payload: () => ({ workspaceId, tabId: tab.id, groupId, kind: tab.kind }),
+            preview: <DragChip fill icon={dot ? <AgentStateDot state={dot} size="sm" /> : <TabKindIcon tab={tab} />} label={title} />,
+            previewMatchesSource: true,
+            activationDistance: TAB_DRAG_ACTIVATION_DISTANCE_PX,
+            // Orca turns autoscroll off for tab drags: scrolling the strip under the cursor loops.
+            autoScroll: false
+          })
         }}
         onClick={() => activateTab(workspaceId, groupId, tab.id)}
         onDoubleClick={() => canRenameTab(tab) && setRenaming(title)}
@@ -171,7 +157,6 @@ export function TabItem({
           <button
             type="button"
             aria-label={`Close ${title}`}
-            draggable={false}
             className={cn(
               'flex h-4 w-4 shrink-0 items-center justify-center rounded-sm',
               active

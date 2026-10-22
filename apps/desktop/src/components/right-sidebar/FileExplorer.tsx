@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { Ellipsis, FilePlus, FolderPlus, ListCollapse, Loader2, RefreshCw, X } from 'lucide-react'
+import { Ellipsis, File, FilePlus, Folder, FolderPlus, ListCollapse, Loader2, RefreshCw, X } from 'lucide-react'
 import { HARNESS_METHODS, type FileEntry, type GitChange } from '@acp-harness/protocol'
 import { harnessRequest } from '@/daemon-connection'
 import { allWorkspaces, closeEditorTab, getState, moveEditorTabs, openEditorTab, setRightSidebar, useStore } from '@/session-store'
@@ -14,6 +14,8 @@ import {
   DropdownMenuTrigger
 } from '@/components/ui/dropdown-menu'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
+import { DragChip } from '@/components/PointerDragLayer'
+import { filePathDrag } from '@/lib/file-path-drag'
 import { openWorkspaceIn } from '@/components/sidebar/WorkspaceMenu'
 import { FileExplorerRow, type FileExplorerRowActions } from './FileExplorerRow'
 import { InlineInputRow, type InlineInput } from './file-explorer-inline-input'
@@ -31,7 +33,6 @@ type Row =
   | { kind: 'input'; input: InlineInput }
   | { kind: 'error'; message: string }
 
-const DRAG_MIME = 'application/x-acp-harness-paths'
 const DRAG_EXPAND_MS = 600
 const isMac = navigator.userAgent.includes('Mac')
 
@@ -313,30 +314,17 @@ export function FileExplorer({ workspaceId, rootName }: { workspaceId: string; r
     dragExpand.current = null
   }
 
-  function dragOver(event: React.DragEvent, dir: string, hoverDir: string | null) {
-    if (!event.dataTransfer.types.includes(DRAG_MIME)) return
-    event.preventDefault()
-    event.stopPropagation()
-    event.dataTransfer.dropEffect = 'move'
-    if (dropDir !== dir) setDropDir(dir)
-    if (hoverDir === dragExpand.current?.dir) return
-    clearDragExpand()
-    if (hoverDir && !expanded.has(hoverDir)) {
-      dragExpand.current = { dir: hoverDir, timer: setTimeout(() => expand([hoverDir]), DRAG_EXPAND_MS) }
-    }
+  /** The folder a drop on `hit` lands in, and the collapsed folder that hovering there opens. */
+  function dropDirAt(hit: Element): { dir: string; hoverDir: string | null } {
+    const row = hit.closest<HTMLElement>('[data-file-explorer-row]')
+    const path = row?.dataset.path
+    if (!row || path === undefined) return { dir: '', hoverDir: null }
+    const isDir = row.dataset.entryKind === 'dir'
+    return { dir: isDir ? path : parentDir(path), hoverDir: isDir ? path : null }
   }
 
-  function drop(event: React.DragEvent, dir: string) {
-    const raw = event.dataTransfer.getData(DRAG_MIME)
-    setDropDir(null)
-    clearDragExpand()
-    if (!raw) return
-    event.preventDefault()
-    event.stopPropagation()
-    const parsed: unknown = JSON.parse(raw)
-    const paths = (Array.isArray(parsed) ? parsed : []).filter(
-      (p): p is string => typeof p === 'string' && parentDir(p) !== dir && !isWithin(dir, p)
-    )
+  function movePaths(dragged: string[], dir: string) {
+    const paths = dragged.filter((p) => parentDir(p) !== dir && !isWithin(dir, p))
     if (paths.length === 0) return
     void run(async () => {
       const moves: [string, string][] = []
@@ -352,23 +340,45 @@ export function FileExplorer({ workspaceId, rootName }: { workspaceId: string; r
     })
   }
 
-  function rowDrag(entry: FileEntry) {
-    const dir = entry.kind === 'dir' ? entry.path : parentDir(entry.path)
-    return {
-      onDragStart: (event: React.DragEvent) => {
-        const paths = selectionFor(entry)
+  const treeDropRef = filePathDrag.useDropTarget({
+    accepts: (drag) => drag.workspaceId === workspaceId,
+    over: (_drag, { hit }) => {
+      const { dir, hoverDir } = dropDirAt(hit)
+      setDropDir(dir)
+      if (hoverDir === dragExpand.current?.dir) return
+      clearDragExpand()
+      if (hoverDir && !expanded.has(hoverDir)) {
+        dragExpand.current = { dir: hoverDir, timer: setTimeout(() => expand([hoverDir]), DRAG_EXPAND_MS) }
+      }
+    },
+    leave: () => {
+      setDropDir(null)
+      clearDragExpand()
+    },
+    drop: (drag, { hit }) => movePaths(drag.paths, dropDirAt(hit).dir)
+  })
+  const setTree = useCallback(
+    (element: HTMLDivElement | null) => {
+      treeRef.current = element
+      treeDropRef(element)
+    },
+    [treeDropRef]
+  )
+
+  function beginRowDrag(event: React.PointerEvent<HTMLElement>, entry: FileEntry) {
+    const paths = selectionFor(entry)
+    filePathDrag.begin(event, {
+      payload: () => {
         if (!selected.has(entry.path)) select(entry.path)
-        event.dataTransfer.setData(DRAG_MIME, JSON.stringify(paths))
-        event.dataTransfer.setData('text/plain', paths.join('\n'))
-        event.dataTransfer.effectAllowed = 'copyMove'
+        return { workspaceId, paths }
       },
-      onDragEnd: () => {
-        setDropDir(null)
-        clearDragExpand()
-      },
-      onDragOver: (event: React.DragEvent) => dragOver(event, dir, entry.kind === 'dir' ? entry.path : null),
-      onDrop: (event: React.DragEvent) => drop(event, dir)
-    }
+      preview: (
+        <DragChip
+          icon={entry.kind === 'dir' ? <Folder className="size-3" /> : <File className="size-3" />}
+          label={paths.length > 1 ? `${paths.length} items` : entry.name}
+        />
+      )
+    })
   }
 
   function statusFor(entry: FileEntry): { letter: string | null; color: string | null; dot: boolean } {
@@ -452,20 +462,12 @@ export function FileExplorer({ workspaceId, rootName }: { workspaceId: string; r
       <ContextMenu>
         <ContextMenuTrigger asChild>
           <div
-            ref={treeRef}
+            ref={setTree}
             role="tree"
             aria-multiselectable
             data-file-explorer-tree=""
             className="scrollbar-sleek min-h-0 flex-1 overflow-y-auto px-1 pt-1 pb-2"
             onKeyDown={onTreeKeyDown}
-            onDragOver={(event) => dragOver(event, '', null)}
-            onDragLeave={(event) => {
-              if (!event.currentTarget.contains(event.relatedTarget as Node | null)) {
-                setDropDir(null)
-                clearDragExpand()
-              }
-            }}
-            onDrop={(event) => drop(event, '')}
           >
             {rootState === 'loading' || rootState === undefined ? (
               <div className="flex items-center gap-1.5 px-3 py-2 text-xs text-muted-foreground">
@@ -504,7 +506,7 @@ export function FileExplorer({ workspaceId, rootName }: { workspaceId: string; r
                   actions={actionsFor(entry)}
                   onClick={(event) => onRowClick(entry, event)}
                   onContextMenu={() => !selected.has(entry.path) && select(entry.path)}
-                  drag={rowDrag(entry)}
+                  onDragPointerDown={(event) => beginRowDrag(event, entry)}
                 />
               )
             })}

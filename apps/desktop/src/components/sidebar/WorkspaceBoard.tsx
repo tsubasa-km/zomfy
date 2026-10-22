@@ -8,7 +8,6 @@ import {
   selectSingle,
   selectWithGesture,
   setBoardOpen,
-  setDropTarget,
   useSidebarStore,
   type StatusFilterId
 } from '@/stores/sidebar-store'
@@ -17,7 +16,7 @@ import { WorkspaceStatusIcon } from '@/components/sidebar/WorkspaceStatusIcon'
 import { AgentBadge, DiffStatsBadge, SyncBadge } from '@/components/sidebar/WorkspaceCardBadges'
 import { DropLine, renderedOrder } from '@/components/sidebar/WorkspaceCard'
 import { updateWorkspace } from '@/components/sidebar/WorkspaceMenu'
-import { currentDrag, endDrag, handleDragOver, startDrag } from '@/components/sidebar/sidebar-drag'
+import { beginSidebarDrag, useSidebarDropTarget } from '@/components/sidebar/sidebar-drag'
 import { projectLabel, reorderIds, workspaceLabel } from '@/components/sidebar/workspace-visibility'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -159,8 +158,15 @@ function Lane({
     }
   }
 
+  const laneDropRef = useSidebarDropTarget(
+    `lane:${lane.id}`,
+    (item) => item.kind === 'workspace' && 'inside',
+    (item) => drop(item.id, null, 'after')
+  )
+
   return (
     <section
+      ref={laneDropRef}
       className={cn(
         'relative flex h-full min-h-0 min-w-0 flex-col overflow-hidden rounded-md border border-t-2 border-worktree-sidebar-border transition-colors',
         lane.border,
@@ -168,17 +174,6 @@ function Lane({
         laneDrop && 'border-worktree-sidebar-ring bg-worktree-sidebar-accent/70'
       )}
       data-board-lane={lane.id}
-      onDragOver={(e) => {
-        if (currentDrag()?.kind !== 'workspace') return
-        e.preventDefault()
-        setDropTarget({ id: `lane:${lane.id}`, position: 'inside' })
-      }}
-      onDrop={(e) => {
-        e.preventDefault()
-        const item = currentDrag()
-        endDrag()
-        if (item?.kind === 'workspace') drop(item.id, null, 'after')
-      }}
     >
       <div className="flex h-9 shrink-0 items-center gap-2 border-b border-border/70 py-0 pr-2 pl-3">
         <WorkspaceStatusIcon status={status} />
@@ -211,6 +206,12 @@ function BoardCard({
   const selected = useSidebarStore((s) => s.selection.includes(workspace.id))
   const active = useStore((s) => s.activeWorkspaceId === workspace.id)
   const mark = useSidebarStore((s) => (s.dropTarget?.id === `card:${workspace.id}` ? s.dropTarget.position : null))
+  // A card over itself stops there: it neither reorders nor falls through to the lane.
+  const dropRef = useSidebarDropTarget(
+    `card:${workspace.id}`,
+    (item) => item.kind === 'workspace' && (item.id === workspace.id ? 'block' : 'order'),
+    (item, position) => onDrop(item.id, position === 'before' ? 'before' : 'after')
+  )
 
   return (
     <div
@@ -222,20 +223,14 @@ function BoardCard({
       data-worktree-card-selected={selected ? 'true' : undefined}
       data-workspace-id={workspace.id}
       data-board-card={workspace.id}
-      draggable
-      onDragStart={(e) =>
-        startDrag(e, { kind: 'workspace', id: workspace.id, hostId: workspace.hostId, projectId: workspace.projectId })
+      ref={dropRef}
+      onPointerDown={(e) =>
+        beginSidebarDrag(
+          e,
+          { kind: 'workspace', id: workspace.id, hostId: workspace.hostId, projectId: workspace.projectId },
+          workspaceLabel(workspace)
+        )
       }
-      onDragEnd={endDrag}
-      onDragOver={(e) => handleDragOver(e, `card:${workspace.id}`, (item) => item.kind === 'workspace' && item.id !== workspace.id && 'order')}
-      onDrop={(e) => {
-        e.preventDefault()
-        e.stopPropagation()
-        const item = currentDrag()
-        const position = mark === 'before' ? 'before' : 'after'
-        endDrag()
-        if (item?.kind === 'workspace') onDrop(item.id, position)
-      }}
       onClick={(e) => {
         const toggle = isMac ? e.metaKey : e.ctrlKey
         if (toggle || e.shiftKey) {

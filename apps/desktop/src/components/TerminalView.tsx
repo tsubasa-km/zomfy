@@ -11,6 +11,7 @@ import { currentTerminalTheme } from '@/lib/terminal-themes'
 import { matchTerminalShortcut } from '@/lib/terminal-shortcuts'
 import { registerFileLinks } from '@/lib/terminal-file-links'
 import { dropPathsText, pathsFromDataTransfer, registerTerminalDropTarget } from '@/lib/terminal-file-drop'
+import { filePathDrag } from '@/lib/file-path-drag'
 import { commandsForProject, newQuickCommand, runQuickCommandInTerminal, useQuickCommands } from '@/lib/quick-commands'
 import { LOCAL_HOST, allProjects, allWorkspaces, getState, useStore } from '@/session-store'
 import { TerminalContextMenu } from '@/components/terminal/TerminalContextMenu'
@@ -61,6 +62,8 @@ export function TerminalView({ terminal, embedded = false }: { terminal: Termina
     send(dropPathsText(paths, shellKind, hostId))
     xtermRef.current?.focus()
   }
+  // Paths dragged from the file explorer, typed as the explorer gives them (workspace-relative).
+  const explorerDropRef = filePathDrag.useDropTarget({ accepts: () => true, drop: (drag) => dropRef.current(drag.paths) })
 
   useEffect(() => {
     const element = host.current
@@ -172,6 +175,7 @@ export function TerminalView({ terminal, embedded = false }: { terminal: Termina
 
   return (
     <div
+      ref={explorerDropRef}
       className="relative flex min-h-0 min-w-0 flex-1 flex-col"
       style={{ background: currentTerminalTheme().background }}
       onContextMenu={(e) => {

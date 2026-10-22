@@ -9,7 +9,7 @@ import { WorkspaceCard, type WorkspaceDropHandlers } from '@/components/sidebar/
 import { WorkspaceStatusIcon } from '@/components/sidebar/WorkspaceStatusIcon'
 import { GroupHeader } from '@/components/sidebar/GroupHeader'
 import { updateWorkspace } from '@/components/sidebar/WorkspaceMenu'
-import { currentDrag, endDrag } from '@/components/sidebar/sidebar-drag'
+import { useSidebarDropTarget } from '@/components/sidebar/sidebar-drag'
 import {
   projectLabel,
   reorderIds,
@@ -18,7 +18,6 @@ import {
   sortWorkspaces,
   workspaceMatches
 } from '@/components/sidebar/workspace-visibility'
-import { setDropTarget } from '@/stores/sidebar-store'
 import { Button } from '@/components/ui/button'
 import { hostConnectionLabel, hostDotClass } from '@/components/settings/HostsPane'
 import { cn } from '@/lib/utils'
@@ -163,25 +162,15 @@ export function HostSection({
           }
           return (
             <section key={group.id} className="mb-2" data-status-group={group.id}>
-              <div
-                className="flex h-7 min-w-0 items-center gap-1.5 pt-1 pr-1 pl-2"
-                onDragOver={(e) => {
-                  const item = currentDrag()
-                  if (item?.kind !== 'workspace' || item.hostId !== host.id) return
-                  e.preventDefault()
-                  setDropTarget({ id: `status:${group.id}`, position: 'inside' })
-                }}
-                onDrop={(e) => {
-                  e.preventDefault()
-                  const item = currentDrag()
-                  endDrag()
-                  if (item) void updateWorkspace(item.id, { status: status ?? null })
-                }}
+              <StatusGroupHeader
+                id={group.id}
+                hostId={host.id}
+                onDrop={(workspaceId) => void updateWorkspace(workspaceId, { status: status ?? null })}
               >
                 <WorkspaceStatusIcon status={status} />
                 <div className="min-w-0 truncate text-[13px] leading-none font-semibold">{group.label}</div>
                 <span className="text-[11px] text-muted-foreground tabular-nums">{list.length}</span>
-              </div>
+              </StatusGroupHeader>
               {list.map((w) => (
                 <WorkspaceCard
                   key={w.id}
@@ -209,6 +198,30 @@ export function HostSection({
 }
 
 /** A drop in a status group sets that status and the manual order there (Orca's status lanes). */
+/** A status group's header: workspaces dropped on it take that status. */
+function StatusGroupHeader({
+  id,
+  hostId,
+  onDrop,
+  children
+}: {
+  id: string
+  hostId: string
+  onDrop: (workspaceId: string) => void
+  children: React.ReactNode
+}) {
+  const dropRef = useSidebarDropTarget(
+    `status:${id}`,
+    (item) => (item.kind === 'workspace' && item.hostId === hostId ? 'inside' : false),
+    (item) => onDrop(item.id)
+  )
+  return (
+    <div ref={dropRef} className="flex h-7 min-w-0 items-center gap-1.5 pt-1 pr-1 pl-2">
+      {children}
+    </div>
+  )
+}
+
 function moveToStatus(
   workspaceId: string,
   status: Workspace['status'],

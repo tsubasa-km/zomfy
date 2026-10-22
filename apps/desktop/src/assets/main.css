@@ -602,6 +602,17 @@ html.native-shell .app-layout {
   height: 100%;
 }
 
+/* In-app pointer drags (lib/pointer-drag.ts): frames would swallow the moves, and text must not select. */
+html[data-pointer-dragging] iframe {
+  pointer-events: none;
+}
+
+html[data-pointer-dragging],
+html[data-pointer-dragging] * {
+  cursor: grabbing !important;
+  user-select: none !important;
+}
+
 
 
 /* Keep rotation on the compositor: JS style writes caused typing stalls (#12359). */
