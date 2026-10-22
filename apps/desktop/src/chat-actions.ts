@@ -87,6 +87,26 @@ export function appendToDraft(sessionId: string, text: string): void {
   }))
 }
 
+// Composers that should take focus once their chat is on screen (it may not be mounted yet).
+const pendingComposerFocus = new Set<string>()
+const composerFocusListeners = new Set<(sessionId: string) => void>()
+
+export function requestComposerFocus(sessionId: string): void {
+  pendingComposerFocus.add(sessionId)
+  for (const listener of composerFocusListeners) listener(sessionId)
+}
+
+/** Called by a mounted chat view; `focus` runs now if its focus was already asked for, and on later asks. */
+export function onComposerFocusRequest(sessionId: string, focus: () => void): () => void {
+  const listener = (id: string) => {
+    if (id !== sessionId || !pendingComposerFocus.delete(id)) return
+    requestAnimationFrame(focus)
+  }
+  composerFocusListeners.add(listener)
+  listener(sessionId)
+  return () => composerFocusListeners.delete(listener)
+}
+
 export async function setSessionOptions(sessionId: string, options: Partial<SessionOptions>): Promise<void> {
   const target = session(sessionId)
   if (!target?.options) return

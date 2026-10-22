@@ -1,3 +1,4 @@
+import { mkdir } from "node:fs/promises";
 import * as acp from "@agentclientprotocol/sdk";
 import {
   query,
@@ -17,6 +18,7 @@ import {
   type TurnEndMeta,
 } from "@acp-harness/protocol";
 import { resolveClaudeExecutable } from "./claude-executable.ts";
+import { TERMINAL_OUTPUT_DIR, deferTerminalOutputMentions } from "./terminal-output-files.ts";
 import { detectUsageLimit } from "./usage-limit.ts";
 import { log } from "./log.ts";
 
@@ -95,10 +97,13 @@ export async function runClaudeTurn(input: TurnInput): Promise<acp.StopReason> {
     await released;
   }
 
+  await mkdir(TERMINAL_OUTPUT_DIR, { recursive: true }).catch(() => undefined);
   const stream = query({
     prompt: promptStream(),
     options: {
       cwd: state.cwd,
+      // Saved command output that messages point at; reading it needs no approval.
+      additionalDirectories: [TERMINAL_OUTPUT_DIR],
       resume: state.claudeSessionId ?? undefined,
       pathToClaudeCodeExecutable: await resolveClaudeExecutable(),
       settingSources: ["user", "project", "local"],
@@ -400,7 +405,7 @@ function promptContent(blocks: acp.ContentBlock[]): PromptContent {
   for (const block of blocks) {
     switch (block.type) {
       case "text":
-        if (block.text) content.push({ type: "text", text: block.text });
+        if (block.text) content.push({ type: "text", text: deferTerminalOutputMentions(block.text) });
         break;
       case "image": {
         const mediaType = IMAGE_TYPES.find((t) => t === block.mimeType);

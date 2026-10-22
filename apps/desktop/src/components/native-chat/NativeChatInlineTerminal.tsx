@@ -4,18 +4,16 @@ import { MessageSquarePlus, SquareArrowOutUpRight, SquareTerminal, X } from 'luc
 import { HARNESS_METHODS } from '@acp-harness/protocol'
 import { closeTerminal, harnessRequest } from '@/daemon-connection'
 import { openInlineTerminalAsTab } from '@/lib/terminal-command-run'
+import { terminalOutputMention } from '@/lib/terminal-output-mention'
 import { useStore } from '@/session-store'
 import { TerminalView } from '@/components/TerminalView'
 import { NativeChatCommandRunContext } from './NativeChatRunCommandButton'
-
-/** Lines of output a hand-off to the chat keeps (the latest ones). */
-const OUTPUT_LINE_LIMIT = 200
 
 const ACTION_CLASS =
   'flex size-6 shrink-0 items-center justify-center rounded-md text-chat-foreground-faint transition-colors hover:bg-accent hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-50'
 
 /** The terminal a code block's Run started, shown under the block until closed or opened as a tab. */
-export function NativeChatInlineTerminal({ blockKey, command }: { blockKey: string; command: string }) {
+export function NativeChatInlineTerminal({ blockKey }: { blockKey: string }) {
   const runner = useContext(NativeChatCommandRunContext)
   const terminal = useStore((s) =>
     runner ? s.terminals.findLast((t) => t.inline?.sessionId === runner.sessionId && t.inline.blockKey === blockKey) : undefined
@@ -23,10 +21,14 @@ export function NativeChatInlineTerminal({ blockKey, command }: { blockKey: stri
   const [adding, setAdding] = useState(false)
   if (!runner || !terminal) return null
 
+  // An @ mention of a saved file, not the text: the agent reads only as much of it as it needs.
   const addToChat = () => {
     setAdding(true)
     void terminalScreenText(terminal.id)
-      .then((output) => runner.addToChat(outputMarkdown(command, output)))
+      .then((text) =>
+        harnessRequest(HARNESS_METHODS.terminalSaveOutput, { terminalId: terminal.id, sessionId: runner.sessionId, text })
+      )
+      .then(({ path }) => runner.addToChat(terminalOutputMention(path)))
       .catch(() => undefined)
       .finally(() => setAdding(false))
   }
@@ -45,8 +47,8 @@ export function NativeChatInlineTerminal({ blockKey, command }: { blockKey: stri
             className={ACTION_CLASS}
             disabled={adding}
             onClick={addToChat}
-            aria-label="Add output to message"
-            title="Add output to message (the agent sees it only when you send)"
+            aria-label="Attach output to message"
+            title="Attach output to message as a file (the agent reads it only after you send)"
           >
             <MessageSquarePlus className="size-3.5" />
           </button>
@@ -82,7 +84,7 @@ export function NativeChatInlineTerminal({ blockKey, command }: { blockKey: stri
 async function terminalScreenText(terminalId: string): Promise<string> {
   const { buffer } = await harnessRequest(HARNESS_METHODS.terminalAttach, { terminalId })
   // Never opened: xterm parses into its buffer without rendering anything.
-  const xterm = new Terminal({ cols: 160, rows: 50, scrollback: 5000, allowProposedApi: true })
+  const xterm = new Terminal({ cols: 160, rows: 50, scrollback: 10_000, allowProposedApi: true })
   try {
     await new Promise<void>((resolve) => xterm.write(buffer, resolve))
     const lines: string[] = []
@@ -95,14 +97,9 @@ async function terminalScreenText(terminalId: string): Promise<string> {
       else lines.push(text)
     }
     while (lines.length > 0 && lines.at(-1)!.trim() === '') lines.pop()
-    // Shells pad their prompts with blank rows; one is enough in a message.
-    return lines.slice(-OUTPUT_LINE_LIMIT).join('\n').replace(/\n{3,}/g, '\n\n')
+    // Shells pad their prompts with blank rows; one is enough.
+    return lines.join('\n').replace(/\n{3,}/g, '\n\n')
   } finally {
     xterm.dispose()
   }
-}
-
-function outputMarkdown(command: string, output: string): string {
-  const fence = output.includes('```') ? '````' : '```'
-  return `Output of \`${command.trim().split('\n')[0]}\`:\n${fence}text\n${output}\n${fence}`
 }

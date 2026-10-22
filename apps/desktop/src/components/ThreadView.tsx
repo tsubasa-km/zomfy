@@ -1,5 +1,5 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
-import { Copy, CornerDownLeft, GitFork, Quote, Search, TextSelect } from 'lucide-react'
+import { Copy, CornerDownLeft, GitFork, MessagesSquare, Quote, Search, TextSelect } from 'lucide-react'
 import { markSeen, openEditorTab, useStore, type Session, type ThreadItem } from '@/session-store'
 import { runCommandInline } from '@/lib/terminal-command-run'
 import { NativeChatCommandRunContext } from '@/components/native-chat/NativeChatRunCommandButton'
@@ -8,11 +8,13 @@ import {
   forkChat,
   forkUnavailableReason,
   isWorking,
+  onComposerFocusRequest,
   resumeTurn,
   rewindTo,
   setAutoResume
 } from '@/chat-actions'
 import { latestTurnEnd } from '@/chat-transcript'
+import { askInSideChat } from '@/side-chat-actions'
 import { NativeChatUsageLimitBanner } from '@/components/native-chat/NativeChatTurnRecovery'
 import { isExternalAgentSession } from '@/lib/chat-agents'
 import { Button } from '@/components/ui/button'
@@ -93,6 +95,10 @@ export function ThreadView({ session, onSendToMain }: { session: Session; onSend
     }),
     [shells, session.workspaceId, session.id]
   )
+
+  useEffect(() => onComposerFocusRequest(session.id, () => composerRef.current?.focus()), [session.id])
+  // A side chat's own replies hand off to the main chat instead.
+  const askSide = session.sideOf ? undefined : (markdown: string) => void askInSideChat(session, markdown).catch(() => undefined)
 
   // Showing a session is reading it: it leaves the dashboard's Done lane.
   useEffect(() => markSeen(session.id), [session.id, session.status])
@@ -198,6 +204,12 @@ export function ThreadView({ session, onSendToMain }: { session: Session; onSend
                   <Quote />
                   Add selection to chat
                 </ContextMenuItem>
+                {askSide ? (
+                  <ContextMenuItem data-native-chat-ask-side onSelect={() => askSide(formatNativeChatQuote(menuTarget.selection))}>
+                    <MessagesSquare />
+                    Ask in side chat
+                  </ContextMenuItem>
+                ) : null}
               </>
             ) : null}
             {menuTarget.message !== null ? (
@@ -233,7 +245,7 @@ export function ThreadView({ session, onSendToMain }: { session: Session; onSend
         <NativeChatJumpToLatest visible={!atBottom && !empty} onJump={jumpToLatest} />
       </div>
       </NativeChatCommandRunContext.Provider>
-      <NativeChatSelectionQuote rootRef={rootRef} onQuote={quote} />
+      <NativeChatSelectionQuote rootRef={rootRef} onQuote={quote} onAskInSideChat={askSide} />
       {pendingPermission && <NativeChatApprovalCard permission={pendingPermission} cwd={session.cwd} />}
       <NativeChatDockedTaskList list={model.taskList} />
       <NativeChatQueuedMessageList sessionId={session.id} working={working} />

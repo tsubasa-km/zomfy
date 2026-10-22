@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState, type RefObject } from 'react'
-import { Quote } from 'lucide-react'
+import { MessagesSquare, Quote } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Popover, PopoverAnchor, PopoverContent } from '@/components/ui/popover'
 
@@ -32,13 +32,15 @@ export function formatNativeChatQuote(text: string): string {
 
 type QuoteRequest = { text: string; anchor: { getBoundingClientRect: () => DOMRect } }
 
-/** Offers "Add to chat" beside a selection made in an agent's reply. */
+/** Offers "Add to chat" (and, in a main chat, "Ask in side chat") beside a selection in an agent's reply. */
 export function NativeChatSelectionQuote({
   rootRef,
-  onQuote
+  onQuote,
+  onAskInSideChat
 }: {
   rootRef: RefObject<HTMLElement | null>
   onQuote: (markdown: string) => void
+  onAskInSideChat?: (markdown: string) => void
 }) {
   const [request, setRequest] = useState<QuoteRequest | null>(null)
   const contentRef = useRef<HTMLDivElement>(null)
@@ -116,7 +118,7 @@ export function NativeChatSelectionQuote({
           // Keeps the selection, and the focus, where they are until the quote is taken.
           onMouseDown={(event) => event.preventDefault()}
         >
-          <div className="p-0.5">
+          <div className="flex items-center gap-0.5 p-0.5">
             <Button
               variant="ghost"
               size="xs"
@@ -129,6 +131,20 @@ export function NativeChatSelectionQuote({
               <Quote />
               Add to chat
             </Button>
+            {onAskInSideChat ? (
+              <Button
+                variant="ghost"
+                size="xs"
+                data-native-chat-ask-side
+                onClick={() => {
+                  onAskInSideChat(formatNativeChatQuote(request.text))
+                  setRequest(null)
+                }}
+              >
+                <MessagesSquare />
+                Ask in side chat
+              </Button>
+            ) : null}
           </div>
         </PopoverContent>
       ) : null}

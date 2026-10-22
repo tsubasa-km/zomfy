@@ -2,7 +2,9 @@ import React from 'react'
 import Markdown, { type Components } from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import rehypeSanitize from 'rehype-sanitize'
+import { SquareTerminal } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { findTerminalOutputMentions } from '@/lib/terminal-output-mention'
 import { NativeChatCodeBlock } from './NativeChatCodeBlock'
 import { NativeChatMarkdownRowKeyContext } from './native-chat-disclosure-store'
 import './native-chat-markdown.css'
@@ -21,11 +23,17 @@ const DOCUMENT_COMPONENTS: Components = {
       {children}
     </a>
   ),
-  code: ({ children }) => (
+  code: ({ children }) =>
+    typeof children === 'string' && children.startsWith(OUTPUT_CHIP_MARK) ? (
+      <span className="cm-terminal-output-chip" title="Command output, attached to this message">
+        <SquareTerminal className="size-3" />
+        {children.slice(OUTPUT_CHIP_MARK.length)}
+      </span>
+    ) : (
     <code className="rounded bg-accent px-1.5 py-0.5 font-mono text-[0.92em] [overflow-wrap:anywhere]">
       {children}
     </code>
-  ),
+    ),
   pre: ({ node, children }) => {
     const child = React.Children.only(children) as React.ReactElement<{ className?: string; children?: React.ReactNode }>
     const language = /language-([\w-]+)/.exec(child.props.className ?? '')?.[1]
@@ -69,6 +77,37 @@ const DOCUMENT_COMPONENTS: Components = {
   )
 }
 
+/** Prefixes the inline code a terminal-output mention becomes; private use, so never typed. */
+const OUTPUT_CHIP_MARK = ''
+
+type MdNode = { type: string; value?: string; children?: MdNode[] }
+
+/** Turns `@…/terminal-output/…txt` mentions into inline code the `code` renderer draws as chips. */
+function remarkTerminalOutputMentions() {
+  const visit = (node: MdNode): void => {
+    if (!node.children) return
+    node.children = node.children.flatMap((child): MdNode[] => {
+      if (child.type !== 'text' || !child.value) {
+        visit(child)
+        return [child]
+      }
+      const text = child.value
+      const mentions = findTerminalOutputMentions(text)
+      if (mentions.length === 0) return [child]
+      const parts: MdNode[] = []
+      let at = 0
+      for (const m of mentions) {
+        if (m.from > at) parts.push({ type: 'text', value: text.slice(at, m.from) })
+        parts.push({ type: 'inlineCode', value: `${OUTPUT_CHIP_MARK}${m.label}` })
+        at = m.to
+      }
+      if (at < text.length) parts.push({ type: 'text', value: text.slice(at) })
+      return parts
+    })
+  }
+  return visit
+}
+
 export function NativeChatMarkdown({
   content,
   rowKey,
@@ -88,7 +127,7 @@ export function NativeChatMarkdown({
           className
         )}
       >
-        <Markdown remarkPlugins={[remarkGfm]} rehypePlugins={[rehypeSanitize]} components={DOCUMENT_COMPONENTS}>
+        <Markdown remarkPlugins={[remarkGfm, remarkTerminalOutputMentions]} rehypePlugins={[rehypeSanitize]} components={DOCUMENT_COMPONENTS}>
           {content}
         </Markdown>
       </div>

@@ -83,7 +83,7 @@ export function NativeChatCodeBlock({
           {actions}
         </div>
       ) : null}
-      {blockKey ? <NativeChatInlineTerminal blockKey={blockKey} command={code} /> : null}
+      {blockKey ? <NativeChatInlineTerminal blockKey={blockKey} /> : null}
     </div>
   )
 }

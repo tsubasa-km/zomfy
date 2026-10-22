@@ -1,7 +1,7 @@
-import { HARNESS_METHODS, type ChatAgentId } from '@acp-harness/protocol'
+import { HARNESS_METHODS, SIDE_CHAT_DEFAULT_CONTEXT_MESSAGES, type ChatAgentId } from '@acp-harness/protocol'
 import { closeSession, harnessRequest } from '@/daemon-connection'
-import { appendToDraft } from '@/chat-actions'
-import { addSession, getState, selectTab, type Session } from '@/session-store'
+import { appendToDraft, requestComposerFocus } from '@/chat-actions'
+import { addSession, getState, selectTab, setRightSidebar, type Session } from '@/session-store'
 
 /** The workspace's side chat: the newest one, as starting another closes the previous. */
 export function sideChatOf(sessions: Session[], workspaceId: string): Session | null {
@@ -40,4 +40,18 @@ export async function startSideChat(main: Session, agent: ChatAgentId, contextMe
 export function sendToMainChat(main: Session, text: string): void {
   appendToDraft(main.id, text.trim())
   selectTab(main.workspaceId, main.id)
+}
+
+/**
+ * Puts `quote` in the composer of the side chat beside `main`, starting one (Claude, with recent
+ * context) when that chat has none, and shows it; the user writes the question and sends.
+ */
+export async function askInSideChat(main: Session, quote: string): Promise<void> {
+  setRightSidebar({ open: true, tab: 'side-chat' })
+  const existing = sideChatOf(getState().sessions, main.workspaceId)
+  if (existing?.sideOf !== main.id) await startSideChat(main, 'claude', SIDE_CHAT_DEFAULT_CONTEXT_MESSAGES)
+  const side = sideChatOf(getState().sessions, main.workspaceId)
+  if (!side) return
+  appendToDraft(side.id, quote)
+  requestComposerFocus(side.id)
 }
