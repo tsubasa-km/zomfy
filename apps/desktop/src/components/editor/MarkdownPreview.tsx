@@ -148,7 +148,14 @@ export function MarkdownPreview({
   }
 
   return (
-    <div ref={rootRef} className="scrollbar-sleek h-full min-h-0 overflow-auto bg-editor-surface" data-markdown-preview>
+    // Relative links resolve against this file, so its anchors route paths themselves.
+    <div
+      ref={rootRef}
+      className="scrollbar-sleek h-full min-h-0 overflow-auto bg-editor-surface"
+      data-markdown-preview
+      data-link-paths-self
+      data-link-workspace-id={workspaceId}
+    >
       <div className="markdown-preview markdown-body mx-auto max-w-[900px] text-sm text-foreground">
         <Markdown remarkPlugins={[remarkGfm]} rehypePlugins={[rehypeSanitize]} components={components}>
           {content}

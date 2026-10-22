@@ -3,6 +3,7 @@ import { Terminal } from '@xterm/xterm'
 import { FitAddon } from '@xterm/addon-fit'
 import { SearchAddon } from '@xterm/addon-search'
 import { WebLinksAddon } from '@xterm/addon-web-links'
+import { isLinkModifier, openHref } from '@/lib/link-routing'
 import { HARNESS_METHODS, type TerminalInfo } from '@acp-harness/protocol'
 import { closeTerminal, harnessRequest, subscribeTerminalOutput } from '@/daemon-connection'
 import { splitTerminal } from '@/components/terminal/terminal-split'
@@ -75,7 +76,8 @@ export function TerminalView({ terminal }: { terminal: TerminalInfo }) {
     const search = new SearchAddon()
     xterm.loadAddon(fit)
     xterm.loadAddon(search)
-    xterm.loadAddon(new WebLinksAddon())
+    // Same route as every other link: system browser, Mod+click to an in-app tab.
+    xterm.loadAddon(new WebLinksAddon((event, uri) => openHref(uri, { inApp: isLinkModifier(event), workspaceId: terminal.workspaceId })))
     xterm.open(element)
     setSearchAddon(search)
     const fileLinks = registerFileLinks(xterm, terminal.id, terminal.workspaceId, () => cwdRef.current)
