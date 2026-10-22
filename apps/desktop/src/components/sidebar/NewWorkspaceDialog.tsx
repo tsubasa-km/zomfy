@@ -2,12 +2,16 @@ import { useEffect, useMemo, useState } from 'react'
 import { ChevronRight } from 'lucide-react'
 import {
   HARNESS_METHODS,
+  isChatAgentId,
   type BranchList,
+  type ChatAgentId,
   type ProjectHookInfo,
   type Workspace
 } from '@acp-harness/protocol'
 import { createSession, harnessRequest, sendPrompt } from '@/daemon-connection'
-import { selectTerminal, selectWorkspace, useStore, type HostedProject } from '@/session-store'
+import { LOCAL_HOST, selectTerminal, selectWorkspace, useStore, type HostedProject } from '@/session-store'
+import { TuiAgentIcon } from '@/components/terminal/TuiAgentIcon'
+import { useChatAgents } from '@/lib/chat-agents'
 import { BranchCombobox } from '@/components/sidebar/BranchCombobox'
 import { projectLabel, workspaceLabel } from '@/components/sidebar/workspace-visibility'
 import { Button } from '@/components/ui/button'
@@ -28,7 +32,7 @@ const textareaClass =
   'w-full min-w-0 resize-y rounded-md border border-input bg-transparent px-3 py-1.5 text-sm shadow-xs outline-none placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 dark:bg-input/30'
 
 type StartFrom = 'new-branch' | 'existing-branch'
-type AgentChoice = 'claude' | 'none'
+type AgentChoice = ChatAgentId | 'none'
 
 export interface NewWorkspaceRequest {
   project: HostedProject
@@ -41,6 +45,7 @@ export function NewWorkspaceDialog({ request, onClose }: { request: NewWorkspace
   const hosts = useStore((s) => s.hosts)
   const [name, setName] = useState('')
   const [agent, setAgent] = useState<AgentChoice>('claude')
+  const chatAgents = useChatAgents(project?.hostId ?? LOCAL_HOST).agents.filter((a) => a.status === 'ready')
   const [prompt, setPrompt] = useState('')
   const [advanced, setAdvanced] = useState(false)
   const [startFrom, setStartFrom] = useState<StartFrom>('new-branch')
@@ -110,8 +115,8 @@ export function NewWorkspaceDialog({ request, onClose }: { request: NewWorkspace
         project.hostId
       )
       selectWorkspace(workspace.id)
-      if (agent === 'claude') {
-        const sessionId = await createSession(workspace.id)
+      if (agent !== 'none') {
+        const sessionId = await createSession(workspace.id, agent)
         if (prompt.trim()) void sendPrompt(sessionId, prompt.trim())
       } else if (workspace.setupTerminalId) {
         selectTerminal(workspace.setupTerminalId)
@@ -161,12 +166,17 @@ export function NewWorkspaceDialog({ request, onClose }: { request: NewWorkspace
           <div className="grid grid-cols-[8rem_1fr] items-start gap-3">
             <div className="space-y-1.5">
               <Label className={fieldLabel}>Agent</Label>
-              <Select value={agent} onValueChange={(v) => setAgent(v === 'none' ? 'none' : 'claude')}>
+              <Select value={agent} onValueChange={(v) => setAgent(isChatAgentId(v) ? v : 'none')}>
                 <SelectTrigger className="w-full" data-agent-select>
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="claude">Claude</SelectItem>
+                  {(chatAgents.length > 0 ? chatAgents : [{ id: 'claude' as const, label: 'Claude' }]).map((a) => (
+                    <SelectItem key={a.id} value={a.id} data-agent-option={a.id}>
+                      <TuiAgentIcon agent={a.id} size={14} />
+                      {a.label}
+                    </SelectItem>
+                  ))}
                   <SelectItem value="none">No agent</SelectItem>
                 </SelectContent>
               </Select>

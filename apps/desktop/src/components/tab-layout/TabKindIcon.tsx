@@ -1,13 +1,14 @@
 import { FileCode2, GitCompare, Globe } from 'lucide-react'
-import { ClaudeIcon } from '@/components/agent-icons'
 import { TerminalTabIcon } from '@/components/terminal/TerminalTabIcon'
+import { TuiAgentIcon } from '@/components/terminal/TuiAgentIcon'
+import { sessionAgent } from '@/lib/chat-agents'
 import { cn } from '@/lib/utils'
 import type { WorkspaceTab } from './workspace-tab-model'
 
 export function TabKindIcon({ tab, className }: { tab: WorkspaceTab; className?: string }) {
   switch (tab.kind) {
     case 'chat':
-      return <ClaudeIcon size={12} />
+      return <TuiAgentIcon agent={sessionAgent(tab.session)} size={12} />
     case 'terminal':
       return <TerminalTabIcon terminal={tab.terminal} className={className} />
     case 'editor':

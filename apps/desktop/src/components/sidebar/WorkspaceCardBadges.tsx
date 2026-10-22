@@ -2,7 +2,8 @@ import { ArrowDown, ArrowUp } from 'lucide-react'
 import type { WorkspaceSummary } from '@acp-harness/protocol'
 import type { Session } from '@/session-store'
 import { AgentStateDot, type AgentDotState } from '@/components/AgentStateDot'
-import { ClaudeIcon } from '@/components/agent-icons'
+import { TuiAgentIcon } from '@/components/terminal/TuiAgentIcon'
+import { sessionAgent } from '@/lib/chat-agents'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 
 // Small right-aligned card badges, in the source-control panel's +/- colours.
@@ -73,9 +74,10 @@ export function AgentBadge({ sessions }: { sessions: Session[] }) {
   if (sessions.length === 0) return null
   const order: Session['status'][] = ['needs-you', 'working', 'error', 'idle']
   const top = order.find((status) => sessions.some((s) => s.status === status)) ?? 'idle'
+  const lead = sessions.find((s) => s.status === top) ?? sessions[0]!
   return (
     <span className="inline-flex shrink-0 items-center gap-0.5 text-[10px] leading-none text-muted-foreground tabular-nums" data-agent-badge>
-      <ClaudeIcon size={10} />
+      <TuiAgentIcon agent={sessionAgent(lead)} size={10} />
       {sessions.length > 1 && sessions.length}
       <AgentStateDot state={SESSION_DOT[top]} size="sm" />
     </span>

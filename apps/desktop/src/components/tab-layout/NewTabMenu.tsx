@@ -2,7 +2,8 @@ import { useState } from 'react'
 import { Globe, Plus, SquareTerminal } from 'lucide-react'
 import { createSession } from '@/daemon-connection'
 import { LOCAL_HOST, allWorkspaces, useStore } from '@/session-store'
-import { ClaudeIcon } from '@/components/agent-icons'
+import { TuiAgentIcon } from '@/components/terminal/TuiAgentIcon'
+import { useChatAgents } from '@/lib/chat-agents'
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -21,12 +22,38 @@ import { newTerminalTab, openBrowserTab } from './workspace-tab-model'
 // Orca's "+" menu (tab-bar-static-create-menu.tsx). One section per kind of tab; add a new kind as
 // its own section so the menu stays easy to extend.
 
+/** One "New … Chat" per agent this host can run; installed agents that can't chat say why. */
 function AgentSection({ workspaceId }: { workspaceId: string }) {
+  const hostId = useStore((s) => allWorkspaces(s).find((w) => w.id === workspaceId)?.hostId ?? LOCAL_HOST)
+  const { agents } = useChatAgents(hostId)
+  const others = agents.filter((a) => a.id !== 'claude' && a.status !== 'missing')
   return (
-    <DropdownMenuItem data-new-tab="claude" onSelect={() => void createSession(workspaceId)}>
-      <ClaudeIcon size={14} />
-      New Claude Chat
-    </DropdownMenuItem>
+    <>
+      <DropdownMenuItem data-new-tab="claude" onSelect={() => void createSession(workspaceId)}>
+        <TuiAgentIcon agent="claude" size={14} />
+        New Claude Chat
+      </DropdownMenuItem>
+      {others.map((agent) =>
+        agent.status === 'ready' ? (
+          <DropdownMenuItem
+            key={agent.id}
+            data-new-tab={`chat:${agent.id}`}
+            onSelect={() => void createSession(workspaceId, agent.id)}
+          >
+            <TuiAgentIcon agent={agent.id} size={14} />
+            New {agent.label} Chat
+          </DropdownMenuItem>
+        ) : (
+          <DropdownMenuItem key={agent.id} disabled data-new-tab={`chat:${agent.id}`} title={agent.detail ?? undefined}>
+            <TuiAgentIcon agent={agent.id} size={14} />
+            <span className="flex min-w-0 flex-col">
+              <span>New {agent.label} Chat</span>
+              <span className="truncate text-xs text-muted-foreground">{agent.detail}</span>
+            </span>
+          </DropdownMenuItem>
+        )
+      )}
+    </>
   )
 }
 

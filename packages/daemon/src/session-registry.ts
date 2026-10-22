@@ -1,7 +1,7 @@
 import { appendFile, mkdir, readFile, rm, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import type * as acp from '@agentclientprotocol/sdk'
-import type { SessionInfo, SessionOptions } from '@acp-harness/protocol'
+import { chatAgentLabel, type SessionInfo, type SessionOptions } from '@acp-harness/protocol'
 import { log } from './log.ts'
 import { HARNESS_HOME } from './harness-home.ts'
 
@@ -11,6 +11,8 @@ const INDEX_PATH = join(SESSIONS_DIR, 'index.json')
 export interface SessionRecord extends SessionInfo {
   /** Claude's own session id, so a later turn (or a restarted daemon) resumes the conversation. */
   claudeSessionId: string | null
+  /** An external agent's own id for the conversation (its ACP session id). */
+  agentSessionId?: string | null
   options: SessionOptions
 }
 
@@ -34,7 +36,9 @@ export class SessionRegistry {
           ...r,
           options: { ...DEFAULT_SESSION_OPTIONS, ...r.options },
           status: r.status === 'error' ? 'error' : 'idle',
-          turnStartedAt: null
+          turnStartedAt: null,
+          // Its server is not running yet; the next turn starts it.
+          ...(r.agentState?.phase === 'starting' ? { agentState: { ...r.agentState, phase: 'ready' as const } } : {})
         })
       }
     } catch {
@@ -61,11 +65,11 @@ export class SessionRegistry {
 
   create(
     fields: Pick<SessionInfo, 'workspaceId' | 'cwd'> &
-      Partial<Pick<SessionRecord, 'title' | 'claudeSessionId' | 'options'>>
+      Partial<Pick<SessionRecord, 'title' | 'claudeSessionId' | 'options' | 'agent'>>
   ): SessionRecord {
     const record: SessionRecord = {
       id: crypto.randomUUID(),
-      title: 'Claude',
+      title: chatAgentLabel(fields.agent ?? 'claude'),
       status: 'idle',
       createdAt: Date.now(),
       turnStartedAt: null,
@@ -138,7 +142,7 @@ function transcriptPath(id: string): string {
   return join(SESSIONS_DIR, `${id}.jsonl`)
 }
 
-function publicInfo(record: SessionRecord): SessionInfo {
-  const { claudeSessionId: _hidden, ...info } = record
+export function publicInfo(record: SessionRecord): SessionInfo {
+  const { claudeSessionId: _hidden, agentSessionId: _agentHidden, ...info } = record
   return info
 }

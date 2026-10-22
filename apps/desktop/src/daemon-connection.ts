@@ -5,6 +5,7 @@ import {
   HARNESS_METHODS,
   HARNESS_NOTIFICATIONS,
   SETTINGS_NOTIFICATIONS,
+  type ChatAgentId,
   type CreateTerminalParams,
   type HarnessMethod,
   type HarnessRequests,
@@ -235,10 +236,11 @@ export async function addProject(pickedPath: string): Promise<Project> {
   return harnessRequest(HARNESS_METHODS.projectAdd, { path }, hostId);
 }
 
-/** Opens a new Claude tab in a workspace and makes it the workspace's active tab. */
-export async function createSession(workspaceId: string): Promise<string> {
+/** Opens a new chat tab (Claude unless `agent` says otherwise) and makes it the workspace's active tab. */
+export async function createSession(workspaceId: string, agent?: ChatAgentId): Promise<string> {
   const hostId = hostOf({ workspaceId });
-  const info = await harnessRequest(HARNESS_METHODS.sessionCreate, { workspaceId }, hostId);
+  const params = agent && agent !== "claude" ? { workspaceId, agent } : { workspaceId };
+  const info = await harnessRequest(HARNESS_METHODS.sessionCreate, params, hostId);
   addSession({ ...info, hostId, workspaceId, items: [], loaded: true });
   return info.id;
 }

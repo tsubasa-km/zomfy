@@ -99,6 +99,26 @@ export async function setSessionOptions(sessionId: string, options: Partial<Sess
   }
 }
 
+/** An external agent's own option (model, effort, mode); shown at once, reverted if the agent refuses. */
+export async function setAgentOption(sessionId: string, optionId: string, value: string): Promise<void> {
+  const target = session(sessionId)
+  const previous = target?.agentState
+  if (!target || !previous) return
+  updateSession(sessionId, (s) => ({
+    ...s,
+    agentState: { ...previous, options: previous.options.map((o) => (o.id === optionId ? { ...o, currentValue: value } : o)) }
+  }))
+  try {
+    await harnessRequest(HARNESS_METHODS.sessionSetAgentOption, { sessionId, optionId, value }, target.hostId)
+  } catch (error) {
+    updateSession(sessionId, (s) => ({
+      ...s,
+      agentState: previous,
+      items: [...s.items, { kind: 'notice', text: `Couldn't change that option: ${String(error)}`, severity: 'error' }]
+    }))
+  }
+}
+
 export async function loadCatalog(workspaceId: string, refresh = false): Promise<void> {
   const current = getChatState().catalogs[workspaceId]
   if (current && !refresh && current.status !== 'error') return
