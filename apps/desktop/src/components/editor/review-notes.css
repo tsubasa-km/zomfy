@@ -1,0 +1,135 @@
+/* Orca's diff comment chrome (main.css .orca-diff-comment-*): the hover "+" in the gutter, the
+   highlighted note range, and note/draft cards in Monaco view zones. */
+
+.review-note-add-btn {
+  position: absolute;
+  left: 4px;
+  width: 18px;
+  height: 18px;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border: 1px solid color-mix(in srgb, var(--foreground) 22%, var(--border));
+  border-radius: 4px;
+  background: color-mix(in srgb, var(--foreground) 5%, var(--editor-surface));
+  color: color-mix(in srgb, var(--foreground) 78%, var(--muted-foreground));
+  cursor: pointer;
+  z-index: 5;
+  box-shadow: 0 1px 2px color-mix(in srgb, var(--foreground) 12%, transparent);
+}
+
+.review-note-add-btn:hover {
+  color: var(--primary);
+  border-color: color-mix(in srgb, var(--primary) 52%, var(--border));
+  background: color-mix(in srgb, var(--primary) 12%, var(--background));
+}
+
+.monaco-editor .review-note-range-highlight {
+  background: color-mix(in srgb, var(--ring) 38%, transparent);
+  border-left: 3px solid var(--ring);
+}
+
+.monaco-editor .review-note-range-margin {
+  background: color-mix(in srgb, var(--ring) 26%, transparent);
+}
+
+.review-note-zone {
+  width: 100%;
+  padding: 4px 24px 6px 0;
+  box-sizing: border-box;
+}
+
+.review-note-card {
+  position: relative;
+  /* View-zone overlays sit above zone DOM; lifting the card keeps its controls clickable. */
+  z-index: 1;
+  max-width: 420px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  border: 1px solid color-mix(in srgb, var(--foreground) 10%, var(--border));
+  border-radius: 8px;
+  background: var(--background);
+  padding: 10px 12px;
+  font-family: var(--font-sans, system-ui, sans-serif);
+  box-shadow:
+    0 1px 3px rgba(0, 0, 0, 0.04),
+    0 4px 12px rgba(0, 0, 0, 0.03);
+}
+
+.dark .review-note-card {
+  border-color: color-mix(in srgb, var(--foreground) 12%, var(--border));
+  background: color-mix(in srgb, var(--foreground) 2%, var(--editor-surface));
+  box-shadow:
+    0 1px 3px rgba(0, 0, 0, 0.2),
+    0 4px 16px rgba(0, 0, 0, 0.15);
+}
+
+.review-note-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--foreground);
+}
+
+.review-note-pill {
+  display: inline-flex;
+  align-items: center;
+  border: 1px solid color-mix(in srgb, var(--foreground) 10%, var(--border));
+  border-radius: 6px;
+  overflow: hidden;
+}
+
+.review-note-pill-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 26px;
+  height: 22px;
+  padding: 0 6px;
+  border: none;
+  background: transparent;
+  color: var(--muted-foreground);
+  font-size: 11px;
+  cursor: pointer;
+}
+
+.review-note-pill-btn:hover {
+  background: color-mix(in srgb, var(--foreground) 6%, transparent);
+  color: var(--foreground);
+}
+
+.review-note-pill-btn-danger:hover {
+  background: color-mix(in srgb, var(--destructive) 10%, transparent);
+  color: var(--destructive);
+}
+
+.review-note-body {
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--foreground);
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.review-note-textarea {
+  width: 100%;
+  min-height: 64px;
+  resize: vertical;
+  border: 1px solid var(--input);
+  border-radius: 6px;
+  background: transparent;
+  padding: 6px 8px;
+  font-size: 13px;
+  line-height: 1.45;
+  color: var(--foreground);
+  outline: none;
+}
+
+.review-note-textarea:focus {
+  border-color: var(--ring);
+}

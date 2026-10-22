@@ -16,6 +16,9 @@ import { getEditorFileKind, imageMimeType } from '@/components/editor/editor-fil
 import { updateEditorPreferences, useEditorPreferences, type MarkdownViewMode } from '@/components/editor/editor-preferences'
 import { hasGitConflictMarkers } from '@/components/editor/monaco-conflict-decorations'
 import { useFileDiskWatch } from '@/components/editor/use-file-disk-watch'
+import { DiffReviewNotes } from '@/components/editor/DiffReviewNotes'
+import { SendToAgentMenu } from '@/components/SendToAgentMenu'
+import { formatReviewNotes, getReviewNotes, markReviewNotesSent, useReviewNotes } from '@/stores/review-notes-store'
 
 type DiffEditorInstance = Parameters<DiffOnMount>[0]
 
@@ -188,6 +191,7 @@ export function DiffTabView({ tab }: { tab: EditorTab }) {
         }
         controls={
           <>
+            {isText && !showMarkdownPreview && <DiffNotesSendButton workspaceId={tab.workspaceId} path={tab.path} />}
             <EditorHeaderButton
               label="Open file"
               disabled={!canOpenFile}
@@ -302,9 +306,33 @@ export function DiffTabView({ tab }: { tab: EditorTab }) {
               }}
               onSave={(text) => void save(text)}
             />
+            {diffEditor && (
+              <DiffReviewNotes diffEditor={diffEditor} workspaceId={tab.workspaceId} path={tab.path} staged={tab.staged} compare={tab.compare} />
+            )}
           </div>
         )}
       </div>
     </div>
+  )
+}
+
+/** Orca's DiffNotesSendMenu in the diff header: this file's unsent notes to an agent. */
+function DiffNotesSendButton({ workspaceId, path }: { workspaceId: string; path: string }) {
+  const notes = useReviewNotes(workspaceId)
+  const unsent = notes.filter((n) => n.filePath === path && !n.sentAt)
+  const handedOver = useRef<string[]>([])
+  return (
+    <SendToAgentMenu
+      workspaceId={workspaceId}
+      count={unsent.length}
+      disabledTooltip={notes.some((n) => n.filePath === path) ? 'All notes sent' : 'Hover a line and press + to add a note'}
+      tooltip="Send this file's notes to an agent"
+      buildPrompt={() => {
+        const pending = getReviewNotes(workspaceId).filter((n) => n.filePath === path && !n.sentAt)
+        handedOver.current = pending.map((n) => n.id)
+        return pending.length > 0 ? formatReviewNotes(pending) : null
+      }}
+      onSent={() => markReviewNotesSent(workspaceId, handedOver.current)}
+    />
   )
 }

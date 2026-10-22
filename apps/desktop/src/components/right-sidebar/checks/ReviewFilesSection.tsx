@@ -29,7 +29,7 @@ export function openReviewFileDiff(workspaceId: string, review: HostedReview, re
     path,
     staged: false,
     ...(line ? { line } : {}),
-    compare: { ...revisions, label: `${reviewShortLabel(review.provider)} ${reviewNumberLabel(review)}` }
+    compare: { base: revisions.base, head: revisions.head, label: `${reviewShortLabel(review.provider)} ${reviewNumberLabel(review)}` }
   })
 }
 
