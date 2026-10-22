@@ -1,8 +1,7 @@
 import { Maximize2, Minimize2, Minus } from 'lucide-react'
-import { chatAgentLabel } from '@acp-harness/protocol'
+import { chatAgentLabel, isChatAgentId } from '@acp-harness/protocol'
 import { createSession } from '@/daemon-connection'
 import { useSetting } from '@/stores/settings-store'
-import { defaultChatAgent } from '@/lib/default-chat-agent'
 import { useShortcutLabel } from '@/keybindings/keybinding-registry'
 import { TuiAgentIcon } from '@/components/terminal/TuiAgentIcon'
 import { Button } from '@/components/ui/button'
@@ -54,8 +53,8 @@ export function FloatingWorkspaceWindowControls({
   onToggleMaximized: () => void
   onMinimize: () => void
 }) {
-  useSetting('defaultChatAgent')
-  const agent = defaultChatAgent()
+  const saved = useSetting('defaultChatAgent')
+  const agent = isChatAgentId(saved) ? saved : 'claude'
   const agentLabel = `Open ${chatAgentLabel(agent)} in floating workspace`
   const maximizeShortcut = useShortcutLabel('floatingWorkspace.maximize')
   const minimizeShortcut = useShortcutLabel('floatingWorkspace.minimize')

@@ -131,7 +131,7 @@ try {
       break;
     }
     case "drag": {
-      const [x1, y1, x2, y2] = args.slice(0, 4).map(Number) as [number, number, number, number];
+      const [x1 = 0, y1 = 0, x2 = 0, y2 = 0] = args.slice(0, 4).map(Number);
       const size = /^(\d+)x(\d+)$/.exec(args[4] ?? "");
       if (size) await cdp.send("Emulation.setDeviceMetricsOverride", { width: Number(size[1]), height: Number(size[2]), deviceScaleFactor: 1, mobile: false });
       await cdp.send("Input.dispatchMouseEvent", { type: "mousePressed", x: x1, y: y1, button: "left", buttons: 1, clickCount: 1 });
@@ -144,7 +144,7 @@ try {
       break;
     }
     case "dblclick": {
-      const [x, y] = args.slice(0, 2).map(Number) as [number, number];
+      const [x = 0, y = 0] = args.slice(0, 2).map(Number);
       for (const clickCount of [1, 2]) {
         await cdp.send("Input.dispatchMouseEvent", { type: "mousePressed", x, y, button: "left", buttons: 1, clickCount });
         await cdp.send("Input.dispatchMouseEvent", { type: "mouseReleased", x, y, button: "left", buttons: 0, clickCount });
