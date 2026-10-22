@@ -1,4 +1,5 @@
-import { HARNESS_METHODS, type SessionInfo, type SessionOptions } from '@acp-harness/protocol'
+import { HARNESS_METHODS, type SessionInfo, type SessionOptions, type TurnResumeKind } from '@acp-harness/protocol'
+import { isExternalAgentSession } from '@/lib/chat-agents'
 import { cancelTurn, ensureSessionLoaded, harnessRequest, sendPrompt } from '@/daemon-connection'
 import {
   addSession,
@@ -153,11 +154,31 @@ function openSession(info: SessionInfo, hostId: string): void {
   void ensureSessionLoaded(info.id)
 }
 
-export async function forkChat(sessionId: string): Promise<void> {
+/** Why a chat cannot fork, or null: ACP has no stable fork, so other agents' chats go without (as in Orca). */
+export function forkUnavailableReason(s: Pick<Session, 'agent'>): string | null {
+  return isExternalAgentSession(s) ? 'Forking works in Claude chats only' : null
+}
+
+/** A new tab continuing a copy of the conversation; `fromMessageId` ends the copy with that prompt's exchange. */
+export async function forkChat(sessionId: string, fromMessageId?: string): Promise<void> {
   const source = session(sessionId)
   if (!source) return
-  const info = await harnessRequest(HARNESS_METHODS.sessionFork, { sessionId }, source.hostId)
-  openSession(info, source.hostId)
+  const reason = forkUnavailableReason(source)
+  if (reason) {
+    updateSession(sessionId, (s) => ({ ...s, items: [...s.items, { kind: 'notice', text: reason, severity: 'error' }] }))
+    return
+  }
+  try {
+    const info = await harnessRequest(
+      HARNESS_METHODS.sessionFork,
+      { sessionId, ...(fromMessageId ? { fromMessageId } : {}) },
+      source.hostId
+    )
+    openSession(info, source.hostId)
+  } catch (error) {
+    const text = `Couldn't fork this chat: ${error instanceof Error ? error.message : String(error)}`
+    updateSession(sessionId, (s) => ({ ...s, items: [...s.items, { kind: 'notice', text, severity: 'error' }] }))
+  }
 }
 
 export async function resumeConversation(workspaceId: string, claudeSessionId: string, hostId: string): Promise<void> {
@@ -183,4 +204,34 @@ export function reloadTranscript(sessionId: string): Promise<void> {
 // Dev-only hook so scripts/cdp.ts can drive chat actions without hover-only controls.
 if (import.meta.env.DEV) {
   Object.assign(window, { __chat: { reloadTranscript, forkChat, rewindTo, submitPrompt } })
+}
+
+function noteFailure(sessionId: string, what: string, error: unknown): void {
+  const text = `${what}: ${error instanceof Error ? error.message : String(error)}`
+  updateSession(sessionId, (s) => ({ ...s, items: [...s.items, { kind: 'notice', text, severity: 'error' }] }))
+}
+
+/** Continue / Retry / Resume: the daemon re-sends an unanswered prompt, else asks the agent to go on. */
+export async function resumeTurn(sessionId: string, kind: Exclude<TurnResumeKind, 'auto'>): Promise<void> {
+  const target = session(sessionId)
+  if (!target) return
+  // Shown at once; the daemon's broadcast confirms (or the failure below reverts) it.
+  updateSession(sessionId, (s) => ({ ...s, status: 'working', turnStartedAt: Date.now() }))
+  try {
+    await harnessRequest(HARNESS_METHODS.sessionResumeTurn, { sessionId, kind }, target.hostId)
+  } catch (error) {
+    updateSession(sessionId, (s) => ({ ...s, status: target.status, turnStartedAt: null }))
+    noteFailure(sessionId, "Couldn't pick this chat back up", error)
+  }
+}
+
+/** The daemon resumes the chat once the usage limit resets (or retries with backoff when unknown). */
+export async function setAutoResume(sessionId: string, enabled: boolean, resetsAt: number | null): Promise<void> {
+  const target = session(sessionId)
+  if (!target) return
+  try {
+    await harnessRequest(HARNESS_METHODS.sessionSetAutoResume, { sessionId, enabled, resetsAt }, target.hostId)
+  } catch (error) {
+    noteFailure(sessionId, "Couldn't change automatic resume", error)
+  }
 }

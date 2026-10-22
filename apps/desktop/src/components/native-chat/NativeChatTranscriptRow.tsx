@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { ChevronRight, ShieldQuestion, Undo2 } from 'lucide-react'
+import { ChevronRight, GitFork, ShieldQuestion, Undo2 } from 'lucide-react'
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { cn } from '@/lib/utils'
@@ -9,6 +9,11 @@ import { NativeChatToolLine } from './NativeChatToolLine'
 import { NativeChatSubagentRun } from './NativeChatSubagentRun'
 import { NativeChatTaskList } from './NativeChatTaskList'
 import { NativeChatTurnDiffRollup } from './NativeChatTurnDiffRollup'
+import {
+  NativeChatInterruptedContinueButton,
+  NativeChatResumedDivider,
+  NativeChatRetryButton
+} from './NativeChatTurnRecovery'
 import { NATIVE_CHAT_QUOTE_SOURCE_PROPS } from './NativeChatSelectionQuote'
 import { isSubagentTool, shortenPaths, type TranscriptRowModel } from './native-chat-transcript-model'
 
@@ -23,6 +28,12 @@ export type TranscriptRowActions = {
   /** Absent while a turn runs: rewinding needs the agent stopped. */
   onRewind?: (messageId: string) => void
   onRevealFile: (path: string) => void
+  /** A new chat with the conversation through this prompt's exchange. */
+  onForkFrom?: (messageId: string) => void
+  /** Why forking is off in this chat (another agent's); the button shows disabled with it. */
+  forkUnavailable?: string
+  /** Only on the row of a turn that ended short with nothing after it: Continue or Retry. */
+  onRecover?: (kind: 'continue' | 'retry') => void
   /** The workspace folder, dropped from the paths rows show. */
   cwd: string
 }
@@ -40,6 +51,7 @@ export function NativeChatTranscriptRow({
     case 'user': {
       const { item } = row
       const messageId = item.messageId
+      if (item.resumed) return <NativeChatResumedDivider kind={item.resumed} />
       return (
         <div
           className="group relative flex flex-col items-end gap-0.5"
@@ -65,6 +77,16 @@ export function NativeChatTranscriptRow({
             {item.text ? <NativeChatCopyButton text={item.text} /> : null}
             {messageId && actions.onRewind ? (
               <RewindButton onRewind={() => actions.onRewind?.(messageId)} />
+            ) : null}
+            {messageId && actions.onForkFrom ? (
+              <MetaActionButton
+                label={actions.forkUnavailable ?? 'Fork from here'}
+                data-native-chat-fork-from
+                disabled={actions.forkUnavailable !== undefined}
+                onClick={() => actions.onForkFrom?.(messageId)}
+              >
+                <GitFork className="size-3.5" />
+              </MetaActionButton>
             ) : null}
           </div>
         </div>
@@ -121,33 +143,69 @@ export function NativeChatTranscriptRow({
         </div>
       )
     }
-    case 'notice':
+    case 'notice': {
+      const { onRecover } = actions
+      // A usage limit's actions live in the banner above the composer.
+      const recovery =
+        onRecover && row.turnEnd?.reason === 'interrupted' ? (
+          <NativeChatInterruptedContinueButton onContinue={() => onRecover('continue')} />
+        ) : onRecover && row.turnEnd?.reason === 'error' ? (
+          <NativeChatRetryButton onRetry={() => onRecover('retry')} />
+        ) : null
       return row.severity === 'error' ? (
-        <p className="min-w-0 max-w-full text-sm break-words text-destructive select-text">{row.text}</p>
+        <div className="flex min-w-0 max-w-full flex-col items-start gap-1.5">
+          <p className="min-w-0 max-w-full text-sm break-words text-destructive select-text">{row.text}</p>
+          {recovery}
+        </div>
       ) : (
-        <div className="flex min-h-8 items-center gap-1 border-b border-border text-sm text-chat-foreground-faint tabular-nums">
-          {row.text}
+        <div className="flex min-h-8 items-center gap-2 border-b border-border text-sm text-chat-foreground-faint tabular-nums">
+          <span className="min-w-0 flex-1">{row.text}</span>
+          {recovery}
         </div>
       )
+    }
   }
 }
 
 function RewindButton({ onRewind }: { onRewind: () => void }) {
   return (
+    <MetaActionButton label="Rewind to here" data-native-chat-rewind onClick={onRewind}>
+      <Undo2 className="size-3.5" />
+    </MetaActionButton>
+  )
+}
+
+/** An icon button under a message; disabled ones stay hoverable so their tooltip gives the reason. */
+function MetaActionButton({
+  label,
+  disabled = false,
+  onClick,
+  children,
+  ...data
+}: {
+  label: string
+  disabled?: boolean
+  onClick: () => void
+  children: React.ReactNode
+} & Record<`data-${string}`, unknown>) {
+  return (
     <Tooltip>
       <TooltipTrigger asChild>
         <button
           type="button"
-          aria-label="Rewind to here"
-          data-native-chat-rewind
-          className="flex size-6 shrink-0 items-center justify-center rounded-md text-chat-foreground-faint transition-colors hover:bg-accent hover:text-accent-foreground focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
-          onClick={onRewind}
+          aria-label={label}
+          aria-disabled={disabled || undefined}
+          {...data}
+          className="flex size-6 shrink-0 items-center justify-center rounded-md text-chat-foreground-faint transition-colors hover:bg-accent hover:text-accent-foreground focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none aria-disabled:cursor-not-allowed aria-disabled:opacity-50 aria-disabled:hover:bg-transparent aria-disabled:hover:text-chat-foreground-faint"
+          onClick={() => {
+            if (!disabled) onClick()
+          }}
         >
-          <Undo2 className="size-3.5" />
+          {children}
         </button>
       </TooltipTrigger>
       <TooltipContent side="top" sideOffset={4}>
-        Rewind to here
+        {label}
       </TooltipContent>
     </Tooltip>
   )

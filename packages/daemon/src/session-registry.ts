@@ -1,7 +1,13 @@
 import { appendFile, mkdir, readFile, rename, rm, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import type * as acp from '@agentclientprotocol/sdk'
-import { chatAgentLabel, type SessionInfo, type SessionOptions } from '@acp-harness/protocol'
+import {
+  TURN_RECOVERY_META,
+  chatAgentLabel,
+  type SessionInfo,
+  type SessionOptions,
+  type TurnEndMeta
+} from '@acp-harness/protocol'
 import { log } from './log.ts'
 import { HARNESS_HOME } from './harness-home.ts'
 
@@ -34,6 +40,16 @@ export class SessionRegistry {
       const saved: SessionRecord[] = JSON.parse(await readFile(INDEX_PATH, 'utf8'))
       // A turn cannot outlive the daemon that ran it.
       for (const r of saved) {
+        if (r.status === 'working' || r.status === 'needs-you') {
+          // Recorded, so the chat shows where it stopped and can offer Continue.
+          const end: TurnEndMeta = { reason: 'interrupted' }
+          await this.record(r.id, {
+            sessionUpdate: 'notice',
+            severity: 'warning',
+            title: 'Stopped: the daemon restarted during this turn',
+            _meta: { [TURN_RECOVERY_META.turnEnd]: end }
+          }).catch(() => undefined)
+        }
         this.records.set(r.id, {
           ...r,
           options: { ...DEFAULT_SESSION_OPTIONS, ...r.options },

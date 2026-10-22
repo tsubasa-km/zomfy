@@ -1,5 +1,6 @@
 import type { ChatAgentId, ChatAgentSessionState } from './chat-agents'
 import type { SessionRole } from './manager'
+import type { AutoResumeState } from './turn-recovery'
 
 /** The execution host owns session status; clients only present it (Orca's agent-status rule). */
 export type SessionStatus = 'idle' | 'working' | 'needs-you' | 'error'
@@ -35,6 +36,8 @@ export interface SessionInfo {
   role?: SessionRole
   /** Set on a side chat: the main chat it was opened beside. Tab strips leave side chats out. */
   sideOf?: string
+  /** Set while the daemon will resume this chat after a usage limit; absent from older daemons. */
+  autoResume?: AutoResumeState | null
 }
 
 export interface ChatModel {
@@ -112,7 +115,8 @@ export interface SessionRequests {
   }
   [SESSION_METHODS.sessionCatalog]: { params: { workspaceId: string; refresh?: boolean }; result: ChatCatalog }
   /** A new tab continuing a copy of the conversation. */
-  [SESSION_METHODS.sessionFork]: { params: { sessionId: string }; result: SessionInfo }
+  /** `fromMessageId`: the copy ends with that user message's exchange ("Fork from here"). */
+  [SESSION_METHODS.sessionFork]: { params: { sessionId: string; fromMessageId?: string }; result: SessionInfo }
   /** Drops the conversation from this user message on; returns the message's text for the composer. */
   [SESSION_METHODS.sessionRewind]: { params: { sessionId: string; messageId: string }; result: { text: string } }
   [SESSION_METHODS.sessionHistory]: { params: { workspaceId: string }; result: PastConversation[] }

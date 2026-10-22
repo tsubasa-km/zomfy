@@ -12,6 +12,7 @@ import { AutomationsPage } from '@/components/automations/AutomationsPage'
 import { useAutomationState } from '@/stores/automation-store'
 import { SkillsPage } from '@/components/skills/SkillsPage'
 import { installSkillsCommands } from '@/components/skills/skills-commands'
+import { installChatCommands } from '@/components/native-chat/native-chat-commands'
 import { usePluginBootstrap } from '@/plugins/plugin-registry'
 import { OnboardingGate, installOnboardingCommands } from '@/components/onboarding/OnboardingFlow'
 import { QuickOpen } from '@/components/QuickOpen'
@@ -39,6 +40,7 @@ installAgentNotifications()
 installAppCommands()
 installInbox()
 installSkillsCommands()
+installChatCommands()
 installOnboardingCommands()
 installTraySync()
 

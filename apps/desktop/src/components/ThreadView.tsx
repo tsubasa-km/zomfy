@@ -1,7 +1,19 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { Copy, CornerDownLeft, GitFork, Quote, Search, TextSelect } from 'lucide-react'
-import { markSeen, openEditorTab, type Session, type ThreadItem } from '@/session-store'
-import { appendToDraft, forkChat, isWorking, rewindTo } from '@/chat-actions'
+import { markSeen, openEditorTab, useStore, type Session, type ThreadItem } from '@/session-store'
+import { runCommandInNewTerminal } from '@/lib/terminal-command-run'
+import { NativeChatCommandRunContext } from '@/components/native-chat/NativeChatRunCommandButton'
+import {
+  appendToDraft,
+  forkChat,
+  forkUnavailableReason,
+  isWorking,
+  resumeTurn,
+  rewindTo,
+  setAutoResume
+} from '@/chat-actions'
+import { latestTurnEnd } from '@/chat-transcript'
+import { NativeChatUsageLimitBanner } from '@/components/native-chat/NativeChatTurnRecovery'
 import { isExternalAgentSession } from '@/lib/chat-agents'
 import { Button } from '@/components/ui/button'
 import {
@@ -57,9 +69,24 @@ export function ThreadView({ session, onSendToMain }: { session: Session; onSend
   const working = isWorking(session)
   // ACP has no stable fork or rewind, so other agents' chats go without (as in Orca).
   const claudeOnly = !isExternalAgentSession(session)
+  const forkReason = forkUnavailableReason(session)
   const running = working || session.turnStartedAt !== null
   const model = useMemo(() => buildTranscript(session.items, running, session.cwd), [session.items, running, session.cwd])
+  // The latest turn ended short and nothing came after: its row offers Continue or Retry.
+  const turnEnd = running ? null : latestTurnEnd(session.items)
+  const recoveryRow = turnEnd ? model.rows.findLastIndex((row) => row.kind === 'notice' && row.turnEnd !== undefined) : -1
+  const limitResetsAt = turnEnd?.reason === 'usage-limit' ? turnEnd.resetsAt : null
+  const showLimitBanner = !running && (turnEnd?.reason === 'usage-limit' || Boolean(session.autoResume))
   const find = useNativeChatFind(columnRef, session.items)
+  const shells = useStore((s) => s.hosts[session.hostId]?.shells)
+  const commandRunner = useMemo(
+    () => ({
+      shells: shells ?? [],
+      run: (request: { shellId: string; input: string; title: string }) =>
+        void runCommandInNewTerminal(session.workspaceId, request).catch(() => undefined)
+    }),
+    [shells, session.workspaceId]
+  )
 
   // Showing a session is reading it: it leaves the dashboard's Done lane.
   useEffect(() => markSeen(session.id), [session.id, session.status])
@@ -95,6 +122,7 @@ export function ThreadView({ session, onSendToMain }: { session: Session; onSend
     <div
       ref={rootRef}
       data-native-chat-root
+      data-link-workspace-id={session.workspaceId}
       className="native-chat-appearance flex min-h-0 min-w-0 flex-1 flex-col bg-chat-canvas text-chat-foreground"
       onKeyDown={(event) => {
         if ((isMac ? event.metaKey : event.ctrlKey) && !event.shiftKey && !event.altKey && event.key.toLowerCase() === 'f') {
@@ -103,6 +131,7 @@ export function ThreadView({ session, onSendToMain }: { session: Session; onSend
         }
       }}
     >
+      <NativeChatCommandRunContext.Provider value={commandRunner}>
       <div className="relative min-h-0 flex-1">
         <ContextMenu>
           <ContextMenuTrigger asChild>
@@ -137,6 +166,9 @@ export function ThreadView({ session, onSendToMain }: { session: Session; onSend
                         rowKey={`${session.id}:${index}`}
                         actions={{
                           ...(working || !claudeOnly ? {} : { onRewind: setRewindTarget }),
+                          onForkFrom: (messageId) => void forkChat(session.id, messageId),
+                          ...(index === recoveryRow ? { onRecover: (kind) => void resumeTurn(session.id, kind) } : {}),
+                          ...(forkReason ? { forkUnavailable: forkReason } : {}),
                           cwd: session.cwd,
                           onRevealFile: (path) =>
                             openEditorTab({ workspaceId: session.workspaceId, kind: 'file', path, staged: false })
@@ -183,22 +215,30 @@ export function ThreadView({ session, onSendToMain }: { session: Session; onSend
               Find in chat
               <ContextMenuShortcut>{isMac ? '⌘F' : 'Ctrl+F'}</ContextMenuShortcut>
             </ContextMenuItem>
-            {claudeOnly ? (
-              <ContextMenuItem data-native-chat-fork onSelect={() => void forkChat(session.id)}>
-                <GitFork />
-                Fork session
-              </ContextMenuItem>
-            ) : null}
+            <ContextMenuItem data-native-chat-fork disabled={forkReason !== null} onSelect={() => void forkChat(session.id)}>
+              <GitFork />
+              Fork Chat
+              {forkReason ? <span className="ml-auto pl-3 text-xs text-muted-foreground">Claude only</span> : null}
+            </ContextMenuItem>
           </ContextMenuContent>
         </ContextMenu>
         {find.open ? <NativeChatFindBar find={find} /> : null}
         <NativeChatMessageRail items={railItems} scrollRef={scrollRef} />
         <NativeChatJumpToLatest visible={!atBottom && !empty} onJump={jumpToLatest} />
       </div>
+      </NativeChatCommandRunContext.Provider>
       <NativeChatSelectionQuote rootRef={rootRef} onQuote={quote} />
       {pendingPermission && <NativeChatApprovalCard permission={pendingPermission} cwd={session.cwd} />}
       <NativeChatDockedTaskList list={model.taskList} />
       <NativeChatQueuedMessageList sessionId={session.id} working={working} />
+      {showLimitBanner ? (
+        <NativeChatUsageLimitBanner
+          resetsAt={limitResetsAt}
+          autoResume={session.autoResume ?? null}
+          onResume={() => void resumeTurn(session.id, 'resume')}
+          onAutoResumeChange={(enabled) => void setAutoResume(session.id, enabled, limitResetsAt)}
+        />
+      ) : null}
       <NativeChatComposer session={session} editorRef={composerRef} />
       <Dialog open={rewindTarget !== null} onOpenChange={(open) => !open && setRewindTarget(null)}>
         <DialogContent className="sm:max-w-md">

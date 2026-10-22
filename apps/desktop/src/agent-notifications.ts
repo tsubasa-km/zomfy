@@ -39,3 +39,13 @@ export function installAgentNotifications(): void {
     })
   })
 }
+
+/** The daemon resumed a usage-limited chat on its own; said even when the window is focused. */
+export function notifyAutoResumed(sessionId: string): void {
+  const session = getState().sessions.find((s) => s.id === sessionId)
+  if (!session || !getSettings().notificationsEnabled) return
+  const workspace = allWorkspaces().find((w) => w.id === session.workspaceId)?.name ?? 'workspace'
+  void ensurePermission().then((granted) => {
+    if (granted) sendNotification({ title: `Usage limit reset: resumed · ${workspace}`, body: session.title })
+  })
+}

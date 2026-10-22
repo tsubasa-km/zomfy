@@ -10,6 +10,7 @@ import {
   type AutomationSnapshot,
   SETTINGS_NOTIFICATIONS,
   TODO_NOTIFICATIONS,
+  TURN_RECOVERY_NOTIFICATIONS,
   type ChatAgentId,
   type CreateTerminalParams,
   type HarnessMethod,
@@ -25,7 +26,7 @@ import {
   type TerminalOutput,
   type TodoItem,
 } from "@acp-harness/protocol";
-import { applyChatUpdate } from "./chat-transcript";
+import { applyChatUpdate, latestTurnEnd } from "./chat-transcript";
 import { WINDOW_ROLE } from "./lib/window-role";
 import {
   LOCAL_HOST,
@@ -52,6 +53,7 @@ import { applyHostSettings } from "./stores/host-settings-store";
 import { setTodos } from "./stores/inbox-store";
 import { runManagerTool } from "./manager/manager-tool-runner";
 import { applyAutomationSnapshot } from "./stores/automation-store";
+import { notifyAutoResumed } from "./agent-notifications";
 
 interface DaemonInfo {
   url: string;
@@ -226,6 +228,13 @@ async function openConnection(hostId: HostId): Promise<void> {
       AUTOMATION_NOTIFICATIONS.automationsChanged,
       (raw: unknown) => raw as AutomationSnapshot,
       (ctx) => applyAutomationSnapshot(hostId, ctx.params),
+    )
+    .onNotification(
+      TURN_RECOVERY_NOTIFICATIONS.autoResumed,
+      (raw: unknown) => raw as { sessionId: string },
+      (ctx) => {
+        if (WINDOW_ROLE === "main") notifyAutoResumed(ctx.params.sessionId);
+      },
     )
     .connect(stream);
   opened.closed.finally(() => {
@@ -436,25 +445,24 @@ export async function sendPrompt(sessionId: string, text: string, images: ChatIm
   updateSession(sessionId, (s) => ({ ...s, status: "working", turnStartedAt: Date.now() }));
   try {
     const conn = await requireConnection(session.hostId);
-    const { stopReason } = await conn.agent.request(acp.methods.agent.session.prompt, {
+    // A Stop is recorded by the daemon (a "Stopped" row that offers Continue).
+    await conn.agent.request(acp.methods.agent.session.prompt, {
       sessionId,
       prompt: [
         ...images.map((image): acp.ContentBlock => ({ type: "image", data: image.data, mimeType: image.mimeType })),
         ...(text ? [{ type: "text" as const, text }] : []),
       ],
     });
-    if (stopReason === "cancelled") {
-      updateSession(sessionId, (s) => ({
+  } catch (error) {
+    // The daemon records a failed turn's error before replying; only a failure to reach it is new.
+    updateSession(sessionId, (s) => {
+      if (latestTurnEnd(s.items)) return { ...s, turnStartedAt: null };
+      return {
         ...s,
         turnStartedAt: null,
-        items: [...s.items, { kind: "notice", text: "Stopped" }],
-      }));
-    }
-  } catch (error) {
-    updateSession(sessionId, (s) => ({
-      ...s,
-      items: [...s.items, { kind: "agent", text: `\n[error] ${String(error)}` }],
-    }));
+        items: [...s.items, { kind: "notice", text: describeError(error), severity: "error" }],
+      };
+    });
   }
 }
 

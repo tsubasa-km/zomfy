@@ -75,6 +75,7 @@ pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_notification::init())
+        .plugin(tauri_plugin_opener::init())
         // Remembers the main window's size and maximized state; the first launch opens maximized
         // (tauri.conf.json). Visibility is left out so a window hidden to the tray still opens shown.
         .plugin(

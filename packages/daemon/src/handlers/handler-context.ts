@@ -1,5 +1,6 @@
 import type * as acp from "@agentclientprotocol/sdk";
-import type { HarnessMethod, HarnessRequests } from "@acp-harness/protocol";
+import type { HarnessMethod, HarnessRequests, TurnResumeKind } from "@acp-harness/protocol";
+import type { TurnAutoResume } from "../turn-auto-resume.ts";
 import type { AcpAgentSessions } from "../acp-agent-sessions.ts";
 import type { SessionRegistry } from "../session-registry.ts";
 import type { TerminalManager } from "../terminal-manager.ts";
@@ -18,6 +19,10 @@ export interface HandlerContext {
   terminals: TerminalManager;
   /** Running agent turns by session id. */
   pendingTurns: Map<string, AbortController>;
+  /** Starts a Continue/Retry/Resume turn without waiting for it; "busy" while a turn runs. */
+  startRecovery(sessionId: string, kind: TurnResumeKind): Promise<"started" | "busy" | "gone">;
+  /** The daemon-owned resume after a usage limit. */
+  autoResume: TurnAutoResume;
   /** External agents' ACP servers, by session. */
   acpAgents: AcpAgentSessions;
   /** Notifies every connected client. */

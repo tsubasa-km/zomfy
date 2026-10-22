@@ -17,6 +17,7 @@ import { SIDE_CHAT_METHODS, type SideChatRequests } from './side-chats'
 import { SKILL_METHODS, type SkillRequests } from './skills'
 import { TERMINAL_METHODS, type TerminalRequests } from './terminals'
 import { TODO_METHODS, type TodoRequests } from './todos'
+import { TURN_RECOVERY_METHODS, type TurnRecoveryRequests } from './turn-recovery'
 import { VOICE_METHODS, type VoiceRequests } from './voice'
 import { WORKSPACE_METHODS, type WorkspaceRequests } from './workspaces'
 
@@ -38,6 +39,7 @@ export * from './skills'
 export * from './terminals'
 export * from './todos'
 export * from './tui-agents'
+export * from './turn-recovery'
 export * from './voice'
 export * from './workspaces'
 
@@ -58,7 +60,8 @@ export const HARNESS_METHODS = {
   ...AUTOMATION_METHODS,
   ...SKILL_METHODS,
   ...PLUGIN_METHODS,
-  ...VOICE_METHODS
+  ...VOICE_METHODS,
+  ...TURN_RECOVERY_METHODS
 } as const
 
 export const HARNESS_NOTIFICATIONS = {
@@ -85,6 +88,7 @@ export interface HarnessRequests
     AutomationRequests,
     SkillRequests,
     PluginRequests,
-    VoiceRequests {}
+    VoiceRequests,
+    TurnRecoveryRequests {}
 
 export type HarnessMethod = keyof HarnessRequests

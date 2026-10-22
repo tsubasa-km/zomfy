@@ -10,11 +10,14 @@ import {
 } from "@anthropic-ai/claude-agent-sdk";
 import {
   CHAT_META,
+  TURN_RECOVERY_META,
   type ChatPermissionMode,
   type ContextUsageMeta,
   type SessionOptions,
+  type TurnEndMeta,
 } from "@acp-harness/protocol";
 import { resolveClaudeExecutable } from "./claude-executable.ts";
+import { detectUsageLimit } from "./usage-limit.ts";
 import { log } from "./log.ts";
 
 export interface ClaudeSessionState {
@@ -50,8 +53,9 @@ interface TurnInput {
   allowedTools?: string[];
   /** Added to Claude Code's own system prompt (the Manager chat's instructions). */
   appendSystemPrompt?: string;
+  /** How a turn that did not finish cleanly ended (a usage limit, an error), for recovery. */
+  onTurnEnd?: (end: TurnEndMeta) => void;
 }
-
 
 const CHAT_PERMISSION_MODES: readonly ChatPermissionMode[] = [
   "default",
@@ -66,6 +70,9 @@ interface TurnProgress {
   lastMainUsage: number | null;
   agentTextSent: boolean;
   compactions: number;
+  /** Usage-limit signals; read only if the turn fails. */
+  assistantError: string | null;
+  rejected: { resetsAt?: number } | null;
 }
 
 export async function runClaudeTurn(input: TurnInput): Promise<acp.StopReason> {
@@ -114,13 +121,19 @@ export async function runClaudeTurn(input: TurnInput): Promise<acp.StopReason> {
   });
   input.onQuery?.(stream);
 
-  const progress: TurnProgress = { lastMainUsage: null, agentTextSent: false, compactions: 0 };
+  const progress: TurnProgress = {
+    lastMainUsage: null,
+    agentTextSent: false,
+    compactions: 0,
+    assistantError: null,
+    rejected: null,
+  };
   let stopReason: acp.StopReason = "end_turn";
   try {
     for await (const message of stream) {
       if (abort.signal.aborted) return "cancelled";
       if (message.type === "result") {
-        stopReason = await finishTurn(message, stream, progress, update);
+        stopReason = await finishTurn(message, stream, progress, update, input.onTurnEnd);
         release();
         continue;
       }
@@ -183,7 +196,11 @@ async function forwardMessage(
       }
       return;
     }
+    case "rate_limit_event":
+      if (message.rate_limit_info.status === "rejected") progress.rejected = message.rate_limit_info;
+      return;
     case "assistant": {
+      if (message.error) progress.assistantError = message.error;
       if (!message.parent_tool_use_id) {
         const usage = message.message.usage;
         progress.lastMainUsage =
@@ -246,18 +263,23 @@ async function finishTurn(
   stream: Query,
   progress: TurnProgress,
   update: (u: acp.SessionUpdate) => Promise<void>,
+  onTurnEnd: TurnInput["onTurnEnd"],
 ): Promise<acp.StopReason> {
+  const failed = async (title: string, errorText: string): Promise<void> => {
+    const limit = detectUsageLimit({ text: errorText, assistantError: progress.assistantError, rejected: progress.rejected });
+    const end: TurnEndMeta = limit ? { reason: "usage-limit", resetsAt: limit.resetsAt } : { reason: "error" };
+    onTurnEnd?.(end);
+    await update({ sessionUpdate: "notice", severity: "error", title, _meta: { [TURN_RECOVERY_META.turnEnd]: end } });
+  };
   if (message.subtype === "success") {
     // Local commands (/context, /cost…) answer only in the result.
     if (!progress.agentTextSent && message.result.trim() && !message.is_error) {
       await update({ sessionUpdate: "agent_message_chunk", content: { type: "text", text: message.result } });
     }
-    if (message.is_error) {
-      await update({ sessionUpdate: "notice", severity: "error", title: message.result || "The turn failed" });
-    }
+    if (message.is_error) await failed(message.result || "The turn failed", message.result);
   } else {
     log(`turn ended with ${message.subtype}`);
-    await update({ sessionUpdate: "notice", severity: "error", title: resultErrorTitle(message.subtype) });
+    await failed(resultErrorTitle(message.subtype), message.errors.join("\n"));
   }
   await reportContextUsage(message, stream, progress, update).catch((error) =>
     log(`context usage failed: ${String(error)}`),
