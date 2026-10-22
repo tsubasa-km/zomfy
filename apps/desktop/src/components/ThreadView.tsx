@@ -86,12 +86,7 @@ export function ThreadView({ session, onSendToMain }: { session: Session; onSend
       shells: shells ?? [],
       sessionId: session.id,
       run: (request: { shellId: string; input: string; title: string }, blockKey: string) =>
-        void runCommandInline(session.workspaceId, { sessionId: session.id, blockKey }, request).catch(() => undefined),
-      // Output reaches the agent only through the draft, when the user asks for it.
-      addToChat: (markdown: string) => {
-        appendToDraft(session.id, markdown)
-        composerRef.current?.focus()
-      }
+        void runCommandInline(session.workspaceId, { sessionId: session.id, blockKey }, request).catch(() => undefined)
     }),
     [shells, session.workspaceId, session.id]
   )

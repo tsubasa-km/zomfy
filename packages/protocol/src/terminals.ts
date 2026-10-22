@@ -89,7 +89,6 @@ export const TERMINAL_METHODS = {
   terminalRestart: '_harness/terminals/restart',
   terminalRename: '_harness/terminals/rename',
   terminalSetInline: '_harness/terminals/setInline',
-  terminalSaveOutput: '_harness/terminals/saveOutput',
   terminalResolvePaths: '_harness/terminals/resolvePaths',
   agentsDetect: '_harness/terminals/agents',
   quickCommandsList: '_harness/quickCommands/list',
@@ -117,14 +116,6 @@ export interface TerminalRequests {
   [TERMINAL_METHODS.terminalSetInline]: {
     params: { terminalId: string; inline: InlineTerminalAnchor | null }
     result: TerminalInfo
-  }
-  /**
-   * Saves a terminal's text (as the client rendered it) to a file on the daemon host for the chat
-   * `sessionId`, so a message can point the agent at it instead of carrying it; returns the path.
-   */
-  [TERMINAL_METHODS.terminalSaveOutput]: {
-    params: { terminalId: string; sessionId: string; text: string }
-    result: { path: string }
   }
   /**
    * Resolves path text printed in a terminal against its cwd on the daemon host. Each entry is the

@@ -1,5 +1,5 @@
 import { useEffect, useId, useMemo, useRef, useState } from 'react'
-import { ArrowUp, Plus, Square, X } from 'lucide-react'
+import { ArrowUp, Square, X } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { cn } from '@/lib/utils'
@@ -32,6 +32,9 @@ import { useSetting } from '@/stores/settings-store'
 import { MarkdownEditor, type MarkdownEditorHandle } from '@/components/markdown-editor/MarkdownEditor'
 import { loadChatMemo, setChatMemoOpen, useChatMemo } from '@/stores/chat-memo-store'
 import { NativeChatMemoButton, NativeChatMemoPanel } from './NativeChatMemoPanel'
+import { NativeChatAttachMenu } from './NativeChatAttachMenu'
+import { attachChat, attachTerminal, mentionFile } from '@/lib/chat-attachments'
+import { getState } from '@/session-store'
 
 // Layout and classes follow Orca's NativeChatComposer, NativeChatComposerField and
 // NativeChatComposerActions.
@@ -70,6 +73,7 @@ export function NativeChatComposer({
   const agentState = session.agentState
   const listboxId = useId()
   const fileInput = useRef<HTMLInputElement>(null)
+  const composerBox = useRef<HTMLDivElement>(null)
   const [caret, setCaret] = useState(0)
   const [activeIndex, setActiveIndex] = useState(0)
   const [dismissedAt, setDismissedAt] = useState<string | null>(null)
@@ -162,6 +166,39 @@ export function NativeChatComposer({
     setCaret(0)
   }
 
+  // Tabs and explorer files dragged onto the composer become mentions (lib/chat-composer-drop.ts).
+  useEffect(() => {
+    const box = composerBox.current
+    if (!box) return
+    const onTabDrop = (event: Event) => {
+      if (!(event instanceof CustomEvent) || typeof event.detail?.tabId !== 'string') return
+      const { tabId, kind } = event.detail
+      const run =
+        kind === 'chat'
+          ? attachChat(session, tabId)
+          : kind === 'terminal'
+            ? attachTerminal(session, tabId)
+            : Promise.resolve(editorTabPath(tabId, session.workspaceId)).then((path) => path && mentionFile(session, path))
+      void run.catch(() => undefined)
+    }
+    const onFileDrop = (event: Event) => {
+      if (!(event instanceof CustomEvent) || typeof event.detail?.path !== 'string') return
+      if (event.detail.workspaceId === session.workspaceId) mentionFile(session, event.detail.path)
+    }
+    box.addEventListener('harness:tab-drop', onTabDrop)
+    box.addEventListener('harness:file-drop', onFileDrop)
+    return () => {
+      box.removeEventListener('harness:tab-drop', onTabDrop)
+      box.removeEventListener('harness:file-drop', onFileDrop)
+    }
+  }, [session])
+
+  /** Opens the @ file menu at the caret, as typing @ would. */
+  function startFileMention() {
+    const before = draft.slice(0, caret)
+    editorRef.current?.replaceRange(caret, caret, before === '' || /\s$/.test(before) ? '@' : ' @')
+  }
+
   async function addImages(list: Iterable<File>) {
     const images = (await Promise.all([...list].map(readImage))).filter((i): i is ChatImage => i !== null)
     if (images.length > 0) patchChatSession(session.id, (c) => ({ draftImages: [...c.draftImages, ...images] }))
@@ -193,9 +230,11 @@ export function NativeChatComposer({
             <NativeChatAutocompleteMenu autocomplete={autocomplete} activeIndex={selected} listboxId={listboxId} onChoose={choose} />
           ) : null}
           <div
+            ref={composerBox}
             data-native-chat-composer
+            data-chat-composer-drop
             className={cn(
-              'rounded-xl border border-chat-composer-border bg-chat-composer-surface p-1.5 shadow-xs [contain:paint]',
+              'rounded-xl border border-chat-composer-border bg-chat-composer-surface p-1.5 shadow-xs [contain:paint] data-[tab-drop-hover]:border-ring data-[tab-drop-hover]:ring-2 data-[tab-drop-hover]:ring-ring/30',
               dragging && 'border-ring'
             )}
             onDragOver={(event) => {
@@ -267,22 +306,11 @@ export function NativeChatComposer({
             <div className="flex flex-wrap items-center gap-2 pt-0.5">
               <div className="flex w-full items-center justify-between gap-2 text-chat-foreground-faint">
                 <div className="flex min-w-0 items-center gap-0.5">
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="icon-sm"
-                        aria-label="Attach image"
-                        onClick={() => fileInput.current?.click()}
-                      >
-                        <Plus className="size-4" />
-                      </Button>
-                    </TooltipTrigger>
-                    <TooltipContent side="top" sideOffset={4}>
-                      Attach image
-                    </TooltipContent>
-                  </Tooltip>
+                  <NativeChatAttachMenu
+                    session={session}
+                    onPickImages={() => fileInput.current?.click()}
+                    onMentionFile={startFileMention}
+                  />
                   <input
                     ref={fileInput}
                     type="file"
@@ -371,4 +399,10 @@ export function NativeChatComposer({
       </div>
     </div>
   )
+}
+
+/** The workspace file an editor tab shows, when it belongs to `workspaceId`. */
+function editorTabPath(tabId: string, workspaceId: string): string | null {
+  const tab = getState().editorTabs.find((t) => t.id === tabId)
+  return tab && tab.workspaceId === workspaceId ? tab.path : null
 }

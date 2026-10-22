@@ -1,7 +1,6 @@
 import { HARNESS_METHODS } from "@acp-harness/protocol";
 import { QuickCommandStore } from "../quick-command-store.ts";
 import { resolveTerminalPaths } from "../terminal-path-links.ts";
-import { saveTerminalOutput } from "../terminal-output-files.ts";
 import { detectInstalledAgents } from "../tui-agent-detection.ts";
 import type { HandlerContext } from "./handler-context.ts";
 
@@ -40,9 +39,6 @@ export function registerTerminalHandlers({ handle, terminals, workspaceRoot }: H
   handle(HARNESS_METHODS.terminalRestart, async (p) => terminals.restart(p.terminalId));
   handle(HARNESS_METHODS.terminalRename, async (p) => terminals.rename(p.terminalId, p.title));
   handle(HARNESS_METHODS.terminalSetInline, async (p) => terminals.setInline(p.terminalId, p.inline));
-  handle(HARNESS_METHODS.terminalSaveOutput, async (p) => ({
-    path: await saveTerminalOutput(p.sessionId, terminals.get(p.terminalId).title, p.text),
-  }));
   handle(HARNESS_METHODS.terminalResolvePaths, async (p) => {
     const info = terminals.get(p.terminalId);
     return resolveTerminalPaths(info.cwd, workspaceRoot(info.workspaceId), p.paths);

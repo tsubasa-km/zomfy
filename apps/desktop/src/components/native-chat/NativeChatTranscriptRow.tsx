@@ -71,7 +71,7 @@ export function NativeChatTranscriptRow({
                 ))}
               </div>
             ) : null}
-            {item.text ? <NativeChatMarkdown rowKey={rowKey} content={item.text} className="text-sm" /> : null}
+            {item.text ? <NativeChatMarkdown rowKey={rowKey} content={item.text} className="text-sm" mentions /> : null}
           </div>
           <div data-native-chat-find-skip className={cn('flex items-center gap-1 select-none', META_REVEAL)}>
             {item.text ? <NativeChatCopyButton text={item.text} /> : null}

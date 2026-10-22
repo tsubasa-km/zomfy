@@ -1,11 +1,9 @@
 import { useContext, useState } from 'react'
-import { Terminal } from '@xterm/xterm'
 import { MessageSquarePlus, SquareArrowOutUpRight, SquareTerminal, X } from 'lucide-react'
-import { HARNESS_METHODS } from '@acp-harness/protocol'
-import { closeTerminal, harnessRequest } from '@/daemon-connection'
+import { closeTerminal } from '@/daemon-connection'
 import { openInlineTerminalAsTab } from '@/lib/terminal-command-run'
-import { terminalOutputMention } from '@/lib/terminal-output-mention'
-import { useStore } from '@/session-store'
+import { attachTerminal } from '@/lib/chat-attachments'
+import { getState, useStore } from '@/session-store'
 import { TerminalView } from '@/components/TerminalView'
 import { NativeChatCommandRunContext } from './NativeChatRunCommandButton'
 
@@ -21,14 +19,12 @@ export function NativeChatInlineTerminal({ blockKey }: { blockKey: string }) {
   const [adding, setAdding] = useState(false)
   if (!runner || !terminal) return null
 
-  // An @ mention of a saved file, not the text: the agent reads only as much of it as it needs.
+  // A mention of a saved snapshot, not the text: the agent reads only as much of it as it needs.
   const addToChat = () => {
+    const chat = getState().sessions.find((s) => s.id === runner.sessionId)
+    if (!chat) return
     setAdding(true)
-    void terminalScreenText(terminal.id)
-      .then((text) =>
-        harnessRequest(HARNESS_METHODS.terminalSaveOutput, { terminalId: terminal.id, sessionId: runner.sessionId, text })
-      )
-      .then(({ path }) => runner.addToChat(terminalOutputMention(path)))
+    void attachTerminal(chat, terminal.id)
       .catch(() => undefined)
       .finally(() => setAdding(false))
   }
@@ -78,28 +74,4 @@ export function NativeChatInlineTerminal({ blockKey }: { blockKey: string }) {
       </div>
     </div>
   )
-}
-
-/** The terminal's text as a screen shows it: escapes applied, wrapped rows joined, trailing blanks gone. */
-async function terminalScreenText(terminalId: string): Promise<string> {
-  const { buffer } = await harnessRequest(HARNESS_METHODS.terminalAttach, { terminalId })
-  // Never opened: xterm parses into its buffer without rendering anything.
-  const xterm = new Terminal({ cols: 160, rows: 50, scrollback: 10_000, allowProposedApi: true })
-  try {
-    await new Promise<void>((resolve) => xterm.write(buffer, resolve))
-    const lines: string[] = []
-    const active = xterm.buffer.active
-    for (let i = 0; i < active.length; i++) {
-      const line = active.getLine(i)
-      if (!line) continue
-      const text = line.translateToString(true)
-      if (line.isWrapped && lines.length > 0) lines[lines.length - 1] += text
-      else lines.push(text)
-    }
-    while (lines.length > 0 && lines.at(-1)!.trim() === '') lines.pop()
-    // Shells pad their prompts with blank rows; one is enough.
-    return lines.join('\n').replace(/\n{3,}/g, '\n\n')
-  } finally {
-    xterm.dispose()
-  }
 }

@@ -17,8 +17,6 @@ export const NativeChatCommandRunContext = createContext<{
   shells: readonly ShellOption[]
   sessionId: string
   run: (request: CommandRunRequest, blockKey: string) => void
-  /** Appends markdown to the chat's draft: the only way a run's output reaches the agent. */
-  addToChat: (markdown: string) => void
 } | null>(null)
 
 /** Runs a shell fence in a terminal under the block, in the chat's workspace on the chat's host. */

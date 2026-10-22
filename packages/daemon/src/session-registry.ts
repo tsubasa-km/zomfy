@@ -10,6 +10,7 @@ import {
 } from '@acp-harness/protocol'
 import { log } from './log.ts'
 import { HARNESS_HOME } from './harness-home.ts'
+import { CHAT_ATTACHMENT_DIR } from './chat-attachment-files.ts'
 
 const SESSIONS_DIR = join(HARNESS_HOME, 'sessions')
 const INDEX_PATH = join(SESSIONS_DIR, 'index.json')
@@ -112,6 +113,7 @@ export class SessionRegistry {
     this.changed()
     await rm(transcriptPath(id), { force: true })
     await rm(notePath(id), { force: true })
+    await rm(join(CHAT_ATTACHMENT_DIR, id), { recursive: true, force: true })
   }
 
   /** The chat's memo; empty when it has none. */

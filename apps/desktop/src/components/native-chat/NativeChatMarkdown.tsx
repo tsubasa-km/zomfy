@@ -2,9 +2,10 @@ import React from 'react'
 import Markdown, { type Components } from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import rehypeSanitize from 'rehype-sanitize'
-import { SquareTerminal } from 'lucide-react'
+import { File, MessageSquare, SquareTerminal } from 'lucide-react'
 import { cn } from '@/lib/utils'
-import { findTerminalOutputMentions } from '@/lib/terminal-output-mention'
+import { MENTION_TITLE, parseChatMentions, type ChatMention } from '@/lib/chat-mentions'
+import { openChatMention } from '@/lib/chat-attachments'
 import { NativeChatCodeBlock } from './NativeChatCodeBlock'
 import { NativeChatMarkdownRowKeyContext } from './native-chat-disclosure-store'
 import './native-chat-markdown.css'
@@ -24,11 +25,8 @@ const DOCUMENT_COMPONENTS: Components = {
     </a>
   ),
   code: ({ children }) =>
-    typeof children === 'string' && children.startsWith(OUTPUT_CHIP_MARK) ? (
-      <span className="cm-terminal-output-chip" title="Command output, attached to this message">
-        <SquareTerminal className="size-3" />
-        {children.slice(OUTPUT_CHIP_MARK.length)}
-      </span>
+    typeof children === 'string' && children.startsWith(MENTION_MARK) ? (
+      <MentionChip mention={decodeMention(children)} />
     ) : (
     <code className="rounded bg-accent px-1.5 py-0.5 font-mono text-[0.92em] [overflow-wrap:anywhere]">
       {children}
@@ -77,13 +75,43 @@ const DOCUMENT_COMPONENTS: Components = {
   )
 }
 
-/** Prefixes the inline code a terminal-output mention becomes; private use, so never typed. */
-const OUTPUT_CHIP_MARK = ''
+/** Prefixes the inline code a mention becomes (JSON after it); private use, so never typed. */
+const MENTION_MARK = '\uE000'
+const MENTION_ICONS = { file: File, terminal: SquareTerminal, chat: MessageSquare } as const
+
+function decodeMention(code: string): ChatMention {
+  // oxlint-disable-next-line typescript/consistent-type-assertions -- SAFETY: written by remarkChatMentions below.
+  return JSON.parse(code.slice(MENTION_MARK.length)) as ChatMention
+}
+
+function MentionChip({ mention }: { mention: ChatMention }) {
+  const Icon = MENTION_ICONS[mention.kind]
+  return (
+    <span
+      role="button"
+      tabIndex={0}
+      className="chat-mention-chip"
+      title={`${MENTION_TITLE[mention.kind]}: click to open`}
+      onClick={(event) => {
+        const workspaceId = event.currentTarget.closest<HTMLElement>('[data-link-workspace-id]')?.dataset.linkWorkspaceId ?? null
+        openChatMention(mention, workspaceId)
+      }}
+      onKeyDown={(event) => {
+        if (event.key !== 'Enter' && event.key !== ' ') return
+        event.preventDefault()
+        event.currentTarget.click()
+      }}
+    >
+      <Icon className="size-3" />
+      <span>{mention.label}</span>
+    </span>
+  )
+}
 
 type MdNode = { type: string; value?: string; children?: MdNode[] }
 
-/** Turns `@…/terminal-output/…txt` mentions into inline code the `code` renderer draws as chips. */
-function remarkTerminalOutputMentions() {
+/** Turns mentions in a sent message into inline code the `code` renderer draws as chips. */
+function remarkChatMentions() {
   const visit = (node: MdNode): void => {
     if (!node.children) return
     node.children = node.children.flatMap((child): MdNode[] => {
@@ -92,13 +120,13 @@ function remarkTerminalOutputMentions() {
         return [child]
       }
       const text = child.value
-      const mentions = findTerminalOutputMentions(text)
+      const mentions = parseChatMentions(text, { sent: true })
       if (mentions.length === 0) return [child]
       const parts: MdNode[] = []
       let at = 0
       for (const m of mentions) {
         if (m.from > at) parts.push({ type: 'text', value: text.slice(at, m.from) })
-        parts.push({ type: 'inlineCode', value: `${OUTPUT_CHIP_MARK}${m.label}` })
+        parts.push({ type: 'inlineCode', value: `${MENTION_MARK}${JSON.stringify(m)}` })
         at = m.to
       }
       if (at < text.length) parts.push({ type: 'text', value: text.slice(at) })
@@ -111,11 +139,14 @@ function remarkTerminalOutputMentions() {
 export function NativeChatMarkdown({
   content,
   rowKey,
-  className
+  className,
+  mentions = false
 }: {
   content: string
   rowKey?: string
   className?: string
+  /** A user's message: its @ mentions show as chips. */
+  mentions?: boolean
 }): React.JSX.Element {
   return (
     <NativeChatMarkdownRowKeyContext.Provider value={rowKey}>
@@ -127,7 +158,7 @@ export function NativeChatMarkdown({
           className
         )}
       >
-        <Markdown remarkPlugins={[remarkGfm, remarkTerminalOutputMentions]} rehypePlugins={[rehypeSanitize]} components={DOCUMENT_COMPONENTS}>
+        <Markdown remarkPlugins={mentions ? [remarkGfm, remarkChatMentions] : [remarkGfm]} rehypePlugins={[rehypeSanitize]} components={DOCUMENT_COMPONENTS}>
           {content}
         </Markdown>
       </div>

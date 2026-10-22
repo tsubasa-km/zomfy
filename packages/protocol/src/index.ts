@@ -4,6 +4,7 @@
 
 import { AUTOMATION_METHODS, type AutomationRequests } from './automations'
 import { CHAT_AGENT_METHODS, type ChatAgentRequests } from './chat-agents'
+import { CHAT_ATTACHMENT_METHODS, type ChatAttachmentRequests } from './chat-attachments'
 import { FILE_METHODS, type FileRequests } from './files'
 import { GIT_METHODS, type GitRequests } from './git'
 import { HOSTING_METHODS, type HostingRequests } from './hosting'
@@ -24,6 +25,7 @@ import { WORKSPACE_METHODS, type WorkspaceRequests } from './workspaces'
 export * from './automation-schedules'
 export * from './automations'
 export * from './chat-agents'
+export * from './chat-attachments'
 export * from './files'
 export * from './git'
 export * from './hosting'
@@ -55,6 +57,7 @@ export const HARNESS_METHODS = {
   ...QUICK_OPEN_METHODS,
   ...PORT_METHODS,
   ...CHAT_AGENT_METHODS,
+  ...CHAT_ATTACHMENT_METHODS,
   ...TODO_METHODS,
   ...SIDE_CHAT_METHODS,
   ...AUTOMATION_METHODS,
@@ -83,6 +86,7 @@ export interface HarnessRequests
     QuickOpenRequests,
     PortRequests,
     ChatAgentRequests,
+    ChatAttachmentRequests,
     TodoRequests,
     SideChatRequests,
     AutomationRequests,

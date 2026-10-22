@@ -13,7 +13,7 @@ import {
 import { markdownLivePreview } from './markdown-live-preview'
 import { markdownAutoPairs, markdownEditingKeymap } from './markdown-editing-commands'
 import { codeHighlighting } from './markdown-code-highlight'
-import { terminalOutputChips } from './terminal-output-chips'
+import { chatMentionChips } from './chat-mention-chips'
 import './markdown-editor.css'
 
 // A CodeMirror 6 markdown source editor with Obsidian-style live preview, shared by the chat
@@ -116,7 +116,7 @@ export function MarkdownEditor({
           markdownAutoPairs,
           markdownLivePreview,
           codeHighlighting,
-          terminalOutputChips,
+          chatMentionChips,
           EditorView.lineWrapping,
           compartments.current.placeholder.of(placeholder ? placeholderExtension(placeholder) : []),
           compartments.current.attributes.of(EditorView.contentAttributes.of(definedAttributes(contentAttributes))),
