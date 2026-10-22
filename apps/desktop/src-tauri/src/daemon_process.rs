@@ -13,8 +13,6 @@ use std::os::windows::process::CommandExt;
 #[cfg(windows)]
 pub const CREATE_NO_WINDOW: u32 = 0x0800_0000;
 #[cfg(windows)]
-const DETACHED_PROCESS: u32 = 0x0000_0008;
-#[cfg(windows)]
 const CREATE_NEW_PROCESS_GROUP: u32 = 0x0000_0200;
 #[cfg(windows)]
 const CREATE_BREAKAWAY_FROM_JOB: u32 = 0x0100_0000;
@@ -69,12 +67,14 @@ pub fn spawn_detached(mut command: Command) -> Result<(), String> {
     command.stdin(Stdio::null()).stdout(Stdio::null()).stderr(Stdio::null());
     #[cfg(windows)]
     {
+        // Not DETACHED_PROCESS: a console program started with no console opens its own window
+        // (a Windows Terminal window when that is the default); CREATE_NO_WINDOW gives it a hidden one.
         // Breaking away fails inside a job that forbids it (some dev launchers); retry without.
-        command.creation_flags(DETACHED_PROCESS | CREATE_NEW_PROCESS_GROUP | CREATE_BREAKAWAY_FROM_JOB);
+        command.creation_flags(CREATE_NO_WINDOW | CREATE_NEW_PROCESS_GROUP | CREATE_BREAKAWAY_FROM_JOB);
         if command.spawn().is_ok() {
             return Ok(());
         }
-        command.creation_flags(DETACHED_PROCESS | CREATE_NEW_PROCESS_GROUP);
+        command.creation_flags(CREATE_NO_WINDOW | CREATE_NEW_PROCESS_GROUP);
     }
     command.spawn().map(|_| ()).map_err(|e| format!("could not start the daemon: {e}"))
 }

@@ -1,5 +1,6 @@
-// Prevents additional console window on Windows in release, DO NOT REMOVE!!
-#![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
+// No console window on Windows, in debug builds too: a debug exe started outside a terminal
+// would otherwise open one beside the app.
+#![windows_subsystem = "windows"]
 
 fn main() {
     acp_harness_desktop_lib::run()
