@@ -59,6 +59,19 @@ interface TurnInput {
   onTurnEnd?: (end: TurnEndMeta) => void;
   /** Claude's predicted next prompt; arrives after the turn has already returned. */
   onPromptSuggestion?: (suggestion: string) => void;
+  /** A workflow step's tool policy and the shape its result must take. */
+  step?: StepOptions;
+  /** The turn's final text and, with step.outputFormat, its structured result. */
+  onResult?: (result: { text: string; structured: unknown }) => void;
+}
+
+export interface StepOptions {
+  mcpServers?: Options["mcpServers"];
+  strictMcpConfig?: boolean;
+  skills?: string[];
+  allowedTools?: string[];
+  disallowedTools?: string[];
+  outputFormat?: Options["outputFormat"];
 }
 
 // The CLI sends its prompt suggestion after the result; past this the process is let go without one.
@@ -114,6 +127,8 @@ export async function runClaudeTurn(input: TurnInput): Promise<acp.StopReason> {
   }
 
   await mkdir(CHAT_ATTACHMENT_DIR, { recursive: true }).catch(() => undefined);
+  const mcpServers = { ...input.mcpServers, ...input.step?.mcpServers };
+  const allowedTools = [...(input.allowedTools ?? []), ...(input.step?.allowedTools ?? [])];
   const stream = query({
     prompt: promptStream(),
     options: {
@@ -134,8 +149,12 @@ export async function runClaudeTurn(input: TurnInput): Promise<acp.StopReason> {
       // Headless runs on current models drop the task tools the TUI keeps; the chat draws their list.
       env: { ...process.env, ...input.env, CLAUDE_CODE_ENABLE_TODO_TOOLS: "1" },
       ...(permissionMode === "bypassPermissions" ? { allowDangerouslySkipPermissions: true } : {}),
-      ...(input.mcpServers && Object.keys(input.mcpServers).length > 0 ? { mcpServers: input.mcpServers } : {}),
-      ...(input.allowedTools?.length ? { allowedTools: input.allowedTools } : {}),
+      ...(mcpServers && Object.keys(mcpServers).length > 0 ? { mcpServers } : {}),
+      ...(allowedTools.length ? { allowedTools } : {}),
+      ...(input.step?.disallowedTools?.length ? { disallowedTools: input.step.disallowedTools } : {}),
+      ...(input.step?.skills ? { skills: input.step.skills } : {}),
+      ...(input.step?.strictMcpConfig ? { strictMcpConfig: true } : {}),
+      ...(input.step?.outputFormat ? { outputFormat: input.step.outputFormat } : {}),
       ...(input.appendSystemPrompt
         ? { systemPrompt: { type: "preset" as const, preset: "claude_code" as const, append: input.appendSystemPrompt } }
         : {}),
@@ -172,6 +191,9 @@ export async function runClaudeTurn(input: TurnInput): Promise<acp.StopReason> {
         if (abort.signal.aborted) break;
         if (message.type === "result") {
           stopReason = await finishTurn(message, stream, progress, update, input.onTurnEnd);
+          if (message.subtype === "success") {
+            input.onResult?.({ text: message.result, structured: message.structured_output });
+          }
           lingering.set(acpSessionId, lingeringTurn);
           finish(stopReason);
           setTimeout(release, SUGGESTION_WAIT_MS);

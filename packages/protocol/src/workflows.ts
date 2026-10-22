@@ -22,6 +22,30 @@ export interface WorkflowField {
   value: string | number | boolean
 }
 
+/** An MCP server a step's sessions get, on top of (or, with strict, instead of) the host's own. */
+export interface WorkflowMcpServer {
+  name: string
+  /** A ready-made server; command and args are then ignored. */
+  preset?: 'playwright'
+  command?: string
+  args?: string[]
+}
+
+/** What a step's sessions may use; the harness passes it to each session, so it is enforced, not asked. */
+export interface WorkflowToolPolicy {
+  mcp?: WorkflowMcpServer[]
+  /** Only these MCP servers, none from the host's Claude settings. */
+  strictMcp?: boolean
+  /** Skills the session can see and call; absent means the host's usual set. */
+  skills?: string[]
+  /** No file edits (Edit, Write, NotebookEdit). */
+  readOnly?: boolean
+  /** Tools that run without asking (e.g. mcp__playwright__browser_take_screenshot). */
+  allow?: string[]
+  /** Tools the session cannot use at all. */
+  deny?: string[]
+}
+
 /** Several sessions run the step at once, and their outcomes are combined into the step's one. */
 export interface WorkflowParallel {
   count: number
@@ -57,6 +81,8 @@ export interface WorkflowNodeConfig {
   fields?: WorkflowField[]
   /** Custom steps: the outcomes the step can end in; an agent runner must pick one. */
   outcomes?: string[]
+  /** Agent, review and custom agent steps. */
+  tools?: WorkflowToolPolicy
 }
 
 export interface WorkflowNode {
@@ -104,14 +130,70 @@ export function workflowOutcomes(node: Pick<WorkflowNode, 'kind' | 'config'>): W
   return [...(own.length > 0 ? own : ['next']), 'ask']
 }
 
+export type WorkflowRunStatus = 'running' | 'waiting' | 'done' | 'failed' | 'stopped'
+
+/** One visit of a step in a run. */
+export interface WorkflowRunStep {
+  id: string
+  nodeId: string
+  label: string
+  startedAt: number
+  endedAt: number | null
+  /** null while it runs. */
+  outcome: WorkflowOutcome | null
+  /** What the step handed on (an agent's summary, a command's output tail, the person's answer). */
+  summary: string
+  /** The chat sessions that ran it, on the run's host. */
+  sessionIds: string[]
+  error?: string
+}
+
+export interface WorkflowRun {
+  id: string
+  workflowId: string
+  projectId: string
+  /** The graph as it was when the run started, so later edits do not change a running run. */
+  workflow: Workflow
+  task: string
+  status: WorkflowRunStatus
+  /** The step running or waiting now. */
+  currentNodeId: string | null
+  /** Where agent steps run unless they ask for the main workspace. */
+  workspaceId: string
+  /** Rounds taken back along each step's limited outcomes ("changes", "fail"), by node id. */
+  rounds: Record<string, number>
+  /** Sessions a step keeps across rounds, by node id. */
+  sessionsByNode: Record<string, string[]>
+  steps: WorkflowRunStep[]
+  /** Set while the run waits for the person: what they are asked. */
+  waiting?: { question: string; reason: 'human' | 'ask' | 'limit' } | null
+  createdAt: number
+  endedAt: number | null
+}
+
 export const WORKFLOW_METHODS = {
   workflowsList: '_harness/workflows/list',
   workflowSave: '_harness/workflows/save',
-  workflowRemove: '_harness/workflows/remove'
+  workflowRemove: '_harness/workflows/remove',
+  workflowRunStart: '_harness/workflowRuns/start',
+  workflowRunsList: '_harness/workflowRuns/list',
+  workflowRunAnswer: '_harness/workflowRuns/answer',
+  workflowRunStop: '_harness/workflowRuns/stop'
+} as const
+
+export const WORKFLOW_NOTIFICATIONS = {
+  /** Every client of the run's host hears each change of a run. */
+  workflowRunChanged: '_harness/workflowRuns/changed'
 } as const
 
 export interface WorkflowRequests {
   [WORKFLOW_METHODS.workflowsList]: { params: { projectId: string }; result: Workflow[] }
   [WORKFLOW_METHODS.workflowSave]: { params: { workflow: Workflow }; result: Workflow[] }
   [WORKFLOW_METHODS.workflowRemove]: { params: { projectId: string; workflowId: string }; result: Workflow[] }
+  /** Starts the saved workflow on a task; agent steps run in a worktree made for the run (git projects). */
+  [WORKFLOW_METHODS.workflowRunStart]: { params: { projectId: string; workflowId: string; task: string }; result: WorkflowRun }
+  [WORKFLOW_METHODS.workflowRunsList]: { params: { projectId: string }; result: WorkflowRun[] }
+  /** The person's answer to a waiting run; "stop" in a limit stop ends it instead. */
+  [WORKFLOW_METHODS.workflowRunAnswer]: { params: { runId: string; text: string }; result: WorkflowRun }
+  [WORKFLOW_METHODS.workflowRunStop]: { params: { runId: string }; result: WorkflowRun }
 }

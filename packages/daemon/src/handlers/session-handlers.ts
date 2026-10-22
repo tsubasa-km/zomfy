@@ -11,22 +11,16 @@ import {
 } from "../claude-history.ts";
 import { liveClaudeQueries } from "../live-claude-queries.ts";
 import { mentionFiles } from "../mention-files.ts";
+import { noteActivity } from "../session-activity.ts";
 import { log } from "../log.ts";
 
 type UserChunk = Extract<acp.SessionUpdate, { sessionUpdate: "user_message_chunk" }>;
-
-const ACTIVITY_HEADER = "[Project activity since your last turn]";
 
 export function registerSessionHandlers({ handle, sessions, pendingTurns, acpAgents, workspaceRoot, moveSession }: HandlerContext): void {
   handle(HARNESS_METHODS.sessionsList, async () => sessions.list());
   handle(HARNESS_METHODS.sessionMove, (p) => moveSession(p));
   handle(HARNESS_METHODS.sessionAddContext, async (p) => {
-    const session = sessions.get(p.sessionId);
-    if (!session) throw new Error(`Unknown session ${p.sessionId}`);
-    const line = `- ${p.text.replace(/\s+/g, " ").slice(0, 2000)}`;
-    // Kept bounded: a lead away for a long time gets the latest activity, not an unbounded log.
-    const lines = [...(session.seedContext?.split("\n").filter((l) => l.startsWith("- ")) ?? []), line].slice(-40);
-    sessions.update(session.id, { seedContext: [ACTIVITY_HEADER, ...lines].join("\n") });
+    noteActivity(sessions, p.sessionId, p.text);
     return {};
   });
   handle(HARNESS_METHODS.sessionCreate, async (p) => {

@@ -11,6 +11,8 @@ import {
   SETTINGS_NOTIFICATIONS,
   TODO_NOTIFICATIONS,
   PROJECT_LINK_NOTIFICATIONS,
+  WORKFLOW_NOTIFICATIONS,
+  type WorkflowRun,
   type ProjectLink,
   TURN_RECOVERY_NOTIFICATIONS,
   type ChatAgentId,
@@ -55,6 +57,7 @@ import {
 import { applyHostSettings } from "./stores/host-settings-store";
 import { setTodos } from "./stores/inbox-store";
 import { setProjectLinks } from "./stores/project-links-store";
+import { upsertWorkflowRun } from "./stores/workflow-runs-store";
 import { runManagerTool } from "./manager/manager-tool-runner";
 import { applyAutomationSnapshot } from "./stores/automation-store";
 import { notifyAutoResumed } from "./agent-notifications";
@@ -192,6 +195,11 @@ async function openConnection(hostId: HostId): Promise<void> {
       MANAGER_METHODS.managerCall,
       (raw: unknown) => raw as ManagerCallParams,
       (ctx) => runManagerTool(ctx.params),
+    )
+    .onNotification(
+      WORKFLOW_NOTIFICATIONS.workflowRunChanged,
+      (raw: unknown) => raw as WorkflowRun,
+      (ctx) => upsertWorkflowRun(hostId, ctx.params),
     )
     .onNotification(
       PROJECT_LINK_NOTIFICATIONS.projectLinksChanged,
@@ -394,6 +402,11 @@ export function ensureSessionLoaded(sessionId: string): Promise<void> {
       replayBuffers.delete(sessionId);
       batchUpdates(() => {
         for (const notification of buffered) applyChatUpdate(notification);
+        // Approvals still waiting go back under the replayed history, where the live turn is.
+        updateSession(sessionId, (s) => {
+          const open = (i: (typeof s.items)[number]) => i.kind === "permission" && i.chosen === null;
+          return { ...s, items: [...s.items.filter((i) => !open(i)), ...s.items.filter(open)] };
+        });
       });
     };
     pending = requireConnection(session.hostId)

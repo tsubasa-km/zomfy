@@ -8,7 +8,19 @@ import { cn } from '@/lib/utils'
 // (the role, the command, the round limit). Inputs enter on the left, outcomes leave on the right.
 // A step run by several sessions at once draws as a stack with its count.
 
-export type WorkflowCanvasNode = Node<{ node: WorkflowNode; issue: 'error' | 'warning' | null }, WorkflowNodeKind>
+/** How a run went through the step, in a run's view. */
+export interface StepRunState {
+  /** The run is on this step: working on it, or waiting for the person here. */
+  now: 'running' | 'waiting' | null
+  visits: number
+  lastOutcome: string | null
+  failed: boolean
+}
+
+export type WorkflowCanvasNode = Node<
+  { node: WorkflowNode; issue: 'error' | 'warning' | null; run?: StepRunState },
+  WorkflowNodeKind
+>
 
 const ICONS: Record<WorkflowNodeKind, LucideIcon> = {
   start: Play,
@@ -58,7 +70,7 @@ function detail(node: WorkflowNode): string {
 
 function StepNode({ data, selected, type }: NodeProps<WorkflowCanvasNode>) {
   const Icon = ICONS[type]
-  const { node, issue } = data
+  const { node, issue, run } = data
   const parallel = node.config.parallel && node.config.parallel.count > 1 ? node.config.parallel : null
   return (
     <div className="relative" data-workflow-node={node.kind}>
@@ -73,10 +85,15 @@ function StepNode({ data, selected, type }: NodeProps<WorkflowCanvasNode>) {
           />
         ))}
       <div
+        data-step-now={run?.now ?? undefined}
         className={cn(
           'relative w-52 rounded-lg border bg-card px-3 py-2 text-card-foreground shadow-xs transition-colors',
           selected ? 'border-ring ring-2 ring-ring/30' : 'border-border',
-          issue === 'error' && !selected && 'border-destructive/60'
+          issue === 'error' && !selected && 'border-destructive/60',
+          run?.now === 'running' && 'border-primary ring-4 ring-primary/25 motion-safe:animate-pulse',
+          run?.now === 'waiting' && 'border-agent-question ring-4 ring-agent-question/25',
+          run && !run.now && run.visits === 0 && 'opacity-50',
+          run?.failed && 'border-destructive'
         )}
       >
         {type !== 'start' && <Handle id="in" type="target" position={Position.Left} className="!size-2.5 !border-border !bg-background" />}
@@ -111,6 +128,15 @@ function StepNode({ data, selected, type }: NodeProps<WorkflowCanvasNode>) {
           {detail(node)}
           {parallel ? ` · ${JOIN_LABELS[parallel.join]}` : ''}
         </div>
+        {run && (run.visits > 0 || run.now) && (
+          <div className="mt-1 truncate pl-6 text-[11px] font-medium" data-step-visits={run.visits}>
+            {run.now === 'running'
+              ? 'Working…'
+              : run.now === 'waiting'
+                ? 'Waiting for you'
+                : `${run.visits}× · ${run.lastOutcome ?? (run.failed ? 'failed' : '—')}`}
+          </div>
+        )}
         {type !== 'end' && <Handle id="out" type="source" position={Position.Right} className="!size-2.5 !border-border !bg-background" />}
       </div>
     </div>

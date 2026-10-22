@@ -520,8 +520,9 @@ export function upsertTool(
   })
 }
 
+/** A replay rebuilds the transcript; an approval asked before it (a workflow or automation turn) must survive it. */
 export function markLoaded(id: string): void {
-  updateSession(id, (s) => ({ ...s, loaded: true, items: [] }))
+  updateSession(id, (s) => ({ ...s, loaded: true, items: s.items.filter((i) => i.kind === 'permission' && i.chosen === null) }))
 }
 
 /** Highest-priority status across a workspace's sessions, ordered like Orca's card overlay. */

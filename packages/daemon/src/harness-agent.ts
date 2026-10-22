@@ -13,7 +13,7 @@ import {
   type TurnEndMeta,
   type TurnResumeKind,
 } from "@acp-harness/protocol";
-import { runClaudeTurn } from "./claude-turn.ts";
+import { runClaudeTurn, type StepOptions } from "./claude-turn.ts";
 import { TurnAutoResume } from "./turn-auto-resume.ts";
 import { recoveryPrompt } from "./turn-recovery.ts";
 import { detectUsageLimit } from "./usage-limit.ts";
@@ -91,6 +91,8 @@ export function createHarnessAgent(
   }
   const acpAgents = new AcpAgentSessions(sessions, emit);
   const mover = new SessionMover({ workspaces, sessions, pendingTurns, emit });
+  /** Workflow step turns: their tool policy and result shape, picked up when the turn starts. */
+  const stepTurns = new Map<string, { step: StepOptions; onResult: (r: { text: string; structured: unknown }) => void }>();
 
   /**
    * Starts a recovery turn and returns once it is running; it goes on without any window, and
@@ -242,6 +244,7 @@ export function createHarnessAgent(
             : {}),
         onTurnEnd: (turnEnd) => (outcome.end = turnEnd),
         onPromptSuggestion: (promptSuggestion) => sessions.update(session.id, { promptSuggestion }),
+        ...(stepTurns.get(session.id) ?? {}),
       });
       if (stopReason === "cancelled" || abort.signal.aborted) return await interrupted();
       sessions.update(session.id, {
@@ -368,6 +371,16 @@ export function createHarnessAgent(
       return stopReason;
     },
     moveSession: (params) => mover.move(params),
+    async runStepTurn(sessionId, text, step) {
+      let result: { text: string; structured: unknown } = { text: "", structured: undefined };
+      stepTurns.set(sessionId, { step, onResult: (r) => (result = r) });
+      try {
+        const { stopReason } = await prompt({ sessionId, prompt: [{ type: "text", text }] }, askAnyClient, null);
+        return { stopReason, ...result };
+      } finally {
+        stepTurns.delete(sessionId);
+      }
+    },
     workspaceRoot(workspaceId) {
       const root = workspaces.workspacePath(workspaceId);
       if (!root) throw new Error(`Unknown workspace ${workspaceId}`);

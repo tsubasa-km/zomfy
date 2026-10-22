@@ -2,18 +2,16 @@ import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore
 import {
   Background,
   Controls,
-  MarkerType,
   Panel,
   ReactFlow,
   ReactFlowProvider,
   useReactFlow,
   type FinalConnectionState,
-  type Edge,
   type EdgeChange,
   type NodeChange
 } from '@xyflow/react'
 import '@xyflow/react/dist/style.css'
-import { ChevronDown, Plus, Save, Trash2, Workflow as WorkflowIcon, X } from 'lucide-react'
+import { ChevronDown, History, Play, Plus, Save, Trash2, Workflow as WorkflowIcon, X } from 'lucide-react'
 import { toast } from 'sonner'
 import {
   HARNESS_METHODS,
@@ -25,6 +23,7 @@ import {
   type WorkflowOutcome
 } from '@acp-harness/protocol'
 import { harnessRequest } from '@/daemon-connection'
+import type { HostId } from '@/session-store'
 import { Button } from '@/components/ui/button'
 import {
   DropdownMenu,
@@ -39,9 +38,13 @@ import { cn } from '@/lib/utils'
 import { WORKFLOW_NODE_TYPES, type WorkflowCanvasNode } from './workflow-nodes'
 import { WorkflowInspector } from './WorkflowInspector'
 import { WorkflowConnectMenu, type PendingConnection } from './WorkflowConnectMenu'
+import { canvasEdges } from './workflow-canvas-edges'
+import { WorkflowRunView } from './WorkflowRunView'
+import { loadWorkflowRuns, upsertWorkflowRun, useWorkflowRun, useWorkflowRuns } from '@/stores/workflow-runs-store'
+import { Textarea } from '@/components/ui/textarea'
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import {
   NODE_KINDS,
-  outcomeLabel,
   blankWorkflow,
   newNode,
   nextOutcome,
@@ -52,16 +55,6 @@ import {
 
 // A project's agent workflows, drawn as a graph (React Flow): steps are cards, edges carry the
 // outcome that takes a run along them. The harness walks this graph; the editor only shapes it.
-
-const OUTCOME_COLORS: Partial<Record<WorkflowOutcome, string>> = {
-  next: 'var(--muted-foreground)',
-  pass: 'var(--muted-foreground)',
-  answered: 'var(--muted-foreground)',
-  approve: 'var(--status-success)',
-  changes: 'var(--status-warning)',
-  fail: 'var(--destructive)',
-  ask: 'var(--agent-question)'
-}
 
 function subscribeDark(listener: () => void): () => void {
   const observer = new MutationObserver(listener)
@@ -76,6 +69,14 @@ export function WorkflowsPage({ target }: { target: WorkflowsPageTarget }) {
   const [draft, setDraft] = useState<Workflow | null>(null)
   const [dirty, setDirty] = useState(false)
   const [busy, setBusy] = useState(false)
+  const [viewRunId, setViewRunId] = useState<string | null>(null)
+  const [runDialog, setRunDialog] = useState(false)
+  const runs = useWorkflowRuns(target.hostId, target.projectId)
+  const viewRun = useWorkflowRun(viewRunId)
+
+  useEffect(() => {
+    void loadWorkflowRuns(target.hostId, target.projectId).catch(() => undefined)
+  }, [target.hostId, target.projectId])
 
   useEffect(() => {
     let live = true
@@ -142,6 +143,8 @@ export function WorkflowsPage({ target }: { target: WorkflowsPageTarget }) {
 
   const issues = useMemo(() => (draft ? validateWorkflow(draft) : []), [draft])
   const errors = issues.filter((i) => i.level === 'error').length
+  const runnable = !!draft && !dirty && errors === 0 && !!saved?.some((w) => w.id === draft.id)
+  const draftRuns = runs.filter((r) => r.workflowId === draft?.id)
 
   return (
     <div
@@ -190,6 +193,38 @@ export function WorkflowsPage({ target }: { target: WorkflowsPageTarget }) {
               {errors > 0 ? `${errors} problem${errors > 1 ? 's' : ''}` : 'Ready to run'}
             </span>
           )}
+          {draftRuns.length > 0 && (
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="ghost" size="sm" className="h-7 gap-1" data-workflow-runs>
+                  <History className="size-3.5" />
+                  Runs
+                  {draftRuns.some((r) => r.status === 'waiting') && (
+                    <span className="size-1.5 rounded-full bg-agent-question" aria-label="A run is waiting for you" />
+                  )}
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-80">
+                {draftRuns.map((r) => (
+                  <DropdownMenuItem key={r.id} onSelect={() => setViewRunId(r.id)} data-workflow-run-item={r.status}>
+                    <span className="w-16 shrink-0 text-[11px] text-muted-foreground">{r.status}</span>
+                    <span className="min-w-0 flex-1 truncate">{r.task}</span>
+                  </DropdownMenuItem>
+                ))}
+              </DropdownMenuContent>
+            </DropdownMenu>
+          )}
+          <Button
+            variant="outline"
+            size="sm"
+            className="h-7"
+            disabled={!runnable}
+            title={runnable ? 'Run this workflow on a task' : 'Save the workflow without problems to run it'}
+            onClick={() => setRunDialog(true)}
+          >
+            <Play className="size-3.5" />
+            Run…
+          </Button>
           <Button variant="ghost" size="sm" className="h-7" onClick={() => void remove()} disabled={!draft} aria-label="Delete workflow">
             <Trash2 className="size-3.5" />
           </Button>
@@ -210,9 +245,14 @@ export function WorkflowsPage({ target }: { target: WorkflowsPageTarget }) {
           </Button>
         </div>
       </div>
-      {draft ? (
+      {viewRun ? (
+        <ReactFlowProvider key={viewRun.id}>
+          <WorkflowRunView run={viewRun} onBack={() => setViewRunId(null)} />
+        </ReactFlowProvider>
+      ) : draft ? (
         <ReactFlowProvider key={draft.id}>
           <WorkflowCanvas
+            hostId={target.hostId}
             workflow={draft}
             issues={issues}
             onChange={(next) => {
@@ -224,17 +264,93 @@ export function WorkflowsPage({ target }: { target: WorkflowsPageTarget }) {
       ) : (
         <div className="m-auto text-sm text-muted-foreground">Loading workflows…</div>
       )}
+      {draft && (
+        <RunDialog
+          open={runDialog}
+          workflowName={draft.name}
+          onClose={() => setRunDialog(false)}
+          onStart={async (task) => {
+            const run = await harnessRequest(
+              HARNESS_METHODS.workflowRunStart,
+              { projectId: target.projectId, workflowId: draft.id, task },
+              target.hostId
+            )
+            upsertWorkflowRun(target.hostId, run)
+            setViewRunId(run.id)
+            setRunDialog(false)
+          }}
+        />
+      )}
     </div>
+  )
+}
+
+function RunDialog({
+  open,
+  workflowName,
+  onClose,
+  onStart
+}: {
+  open: boolean
+  workflowName: string
+  onClose: () => void
+  onStart: (task: string) => Promise<void>
+}) {
+  const [task, setTask] = useState('')
+  const [busy, setBusy] = useState(false)
+  const start = async () => {
+    if (!task.trim() || busy) return
+    setBusy(true)
+    try {
+      await onStart(task.trim())
+      setTask('')
+    } catch (error) {
+      toast.error('The run did not start', { description: error instanceof Error ? error.message : String(error) })
+    } finally {
+      setBusy(false)
+    }
+  }
+  return (
+    <Dialog open={open} onOpenChange={(next) => !next && onClose()}>
+      <DialogContent className="sm:max-w-lg">
+        <DialogHeader>
+          <DialogTitle>Run “{workflowName}”</DialogTitle>
+          <DialogDescription>The task every step works on. Steps run in a worktree made for this run.</DialogDescription>
+        </DialogHeader>
+        <Textarea
+          autoFocus
+          value={task}
+          onChange={(e) => setTask(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) void start()
+          }}
+          placeholder="What should the run do?"
+          className="min-h-28 text-sm"
+          data-workflow-run-task
+        />
+        <DialogFooter>
+          <Button variant="outline" onClick={onClose}>
+            Cancel
+          </Button>
+          <Button onClick={() => void start()} disabled={!task.trim() || busy}>
+            <Play className="size-3.5" />
+            Start
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   )
 }
 
 type Selection = { node: string } | { edge: string } | null
 
 function WorkflowCanvas({
+  hostId,
   workflow,
   issues,
   onChange
 }: {
+  hostId: HostId
   workflow: Workflow
   issues: WorkflowIssue[]
   onChange: (workflow: Workflow) => void
@@ -270,33 +386,7 @@ function WorkflowCanvas({
     ...(sizes[node.id] ? { measured: sizes[node.id] } : {})
   }))
 
-  const byId = new Map(workflow.nodes.map((n) => [n.id, n]))
-  const edges: Edge[] = workflow.edges.map((edge) => {
-    // A custom step's own outcomes take the accent colour.
-    const color = OUTCOME_COLORS[edge.outcome] ?? 'var(--primary)'
-    const selected = selectedEdge?.id === edge.id
-    const from = byId.get(edge.from)
-    const to = byId.get(edge.to)
-    // Back to an earlier step: under the row, lower the further back it goes, so loops stay readable.
-    const back = !!from && !!to && to.x < from.x - 40
-    return {
-      id: edge.id,
-      source: edge.from,
-      target: edge.to,
-      sourceHandle: back ? 'back-out' : 'out',
-      targetHandle: back ? 'back-in' : 'in',
-      type: 'smoothstep',
-      pathOptions: back && from && to ? { offset: 24 + Math.round((from.x - to.x) / 12), borderRadius: 8 } : { borderRadius: 8 },
-      label: outcomeLabel(edge.outcome),
-      selected,
-      markerEnd: { type: MarkerType.ArrowClosed, color, width: 16, height: 16 },
-      style: { stroke: color, strokeWidth: selected ? 2.5 : 1.5 },
-      labelStyle: { fontSize: 11, fill: color, fontWeight: 500 },
-      labelBgStyle: { fill: 'var(--background)' },
-      labelBgPadding: [4, 2],
-      labelBgBorderRadius: 4
-    }
-  })
+  const edges = canvasEdges(workflow, selectedEdge?.id ?? null)
 
   const removeNodes = (ids: Set<string>) => {
     const kept = workflow.nodes.filter((n) => !ids.has(n.id) || n.kind === 'start')
@@ -431,6 +521,7 @@ function WorkflowCanvas({
       </div>
       <aside className="w-80 shrink-0 overflow-y-auto border-l border-border p-4">
         <WorkflowInspector
+          hostId={hostId}
           workflow={workflow}
           node={selectedNode}
           edge={selectedEdge}

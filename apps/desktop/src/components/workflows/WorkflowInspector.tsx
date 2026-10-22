@@ -16,6 +16,8 @@ import { Textarea } from '@/components/ui/textarea'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { outcomeLabel, type WorkflowIssue } from './workflow-model'
 import { CustomStepEditor } from './WorkflowCustomStepEditor'
+import { WorkflowToolsEditor } from './WorkflowToolsEditor'
+import type { HostId } from '@/session-store'
 
 // The side panel: the selected step's or edge's settings, else the workflow's own name and its issues.
 
@@ -112,6 +114,7 @@ function ParallelFields({
 }
 
 export function WorkflowInspector({
+  hostId,
   workflow,
   node,
   edge,
@@ -122,6 +125,7 @@ export function WorkflowInspector({
   onDelete,
   onSelectIssue
 }: {
+  hostId: HostId
   workflow: Workflow
   node: WorkflowNode | null
   edge: WorkflowEdge | null
@@ -214,7 +218,10 @@ export function WorkflowInspector({
           </Field>
         )}
         {(node.kind === 'agent' || node.kind === 'review' || (node.kind === 'custom' && c.runner !== 'command')) && (
-          <ParallelFields kind={node.kind} config={c} onChange={set} />
+          <>
+            <ParallelFields kind={node.kind} config={c} onChange={set} />
+            <WorkflowToolsEditor hostId={hostId} tools={c.tools} onChange={(tools) => set({ tools })} />
+          </>
         )}
         {node.kind === 'custom' && c.runner === 'command' && (
           <Field label="Command" hint="Runs in the run's workspace; {{key}} fills in a field.">
