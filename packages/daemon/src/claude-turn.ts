@@ -430,6 +430,9 @@ export function toolKind(toolName: string): acp.ToolKind {
 }
 
 export function toolTitle(toolName: string, input: unknown): string {
+  // The harness's own manager tools read as "Harness: list sessions", not their MCP id.
+  const manager = /^mcp__harness__(.+)$/.exec(toolName);
+  if (manager) return `Harness: ${manager[1]!.replaceAll("_", " ")}`;
   if (typeof input !== "object" || input === null) return toolName;
   const fields = Object.fromEntries(Object.entries(input));
   const target =

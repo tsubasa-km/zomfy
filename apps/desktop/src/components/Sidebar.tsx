@@ -3,6 +3,7 @@ import { HARNESS_METHODS, type Workspace } from '@acp-harness/protocol'
 import { harnessRequest } from '@/daemon-connection'
 import { LOCAL_HOST, useStore, type HostEntry, type HostedProject } from '@/session-store'
 import { useSidebarStore } from '@/stores/sidebar-store'
+import { setInboxOpen } from '@/stores/inbox-store'
 import { DeleteWorkspaceDialog, UpdateWorkspaceDialog } from '@/components/workspace-dialogs'
 import { OrcaImportDialog } from '@/components/OrcaImportDialog'
 import { SidebarHeader } from '@/components/sidebar/SidebarHeader'
@@ -101,6 +102,13 @@ export function Sidebar() {
                 Waiting for you
               </div>
               <span className="text-[11px] text-muted-foreground tabular-nums">{waiting.length}</span>
+              <button
+                type="button"
+                className="ml-auto text-[11px] text-muted-foreground hover:text-foreground"
+                onClick={() => setInboxOpen(true)}
+              >
+                Inbox
+              </button>
             </div>
             {waiting.map((s) => (
               <SessionRow key={`w-${s.id}`} session={s} showWorkspace />

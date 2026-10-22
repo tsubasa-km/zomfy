@@ -24,6 +24,7 @@ import { NativeChatApprovalCard } from '@/components/native-chat/NativeChatAppro
 import { NativeChatComposer } from '@/components/native-chat/NativeChatComposer'
 import { NativeChatDockedTaskList } from '@/components/native-chat/NativeChatTaskList'
 import { NativeChatEmptyState } from '@/components/native-chat/NativeChatEmptyState'
+import { ManagerEmptyState } from '@/manager/ManagerEmptyState'
 import { NativeChatFindBar } from '@/components/native-chat/NativeChatFindBar'
 import { NativeChatJumpToLatest } from '@/components/native-chat/NativeChatJumpToLatest'
 import { NativeChatMessageRail, type RailItem } from '@/components/native-chat/NativeChatMessageRail'
@@ -123,7 +124,7 @@ export function ThreadView({ session }: { session: Session }) {
               className="scrollbar-sleek relative h-full overflow-y-auto outline-none [overflow-anchor:none] [scrollbar-gutter:stable_both-edges]"
             >
               {empty ? (
-                <NativeChatEmptyState session={session} />
+                session.role === 'manager' ? <ManagerEmptyState /> : <NativeChatEmptyState session={session} />
               ) : (
                 <div className={TRANSCRIPT_OUTER_CLASS}>
                   <div ref={columnRef} data-native-chat-transcript-column className={TRANSCRIPT_COLUMN_CLASS}>

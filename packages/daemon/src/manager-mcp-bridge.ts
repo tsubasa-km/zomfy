@@ -17,12 +17,17 @@ export async function runManagerMcpBridge(url: string): Promise<void> {
       });
       if (res.status === 202) return;
       const text = await res.text();
+      if (!res.ok) {
+        if (id !== null) write({ jsonrpc: "2.0", id, error: { code: -32603, message: `acp-harness daemon refused the call (${res.status} ${text})` } });
+        return;
+      }
       if (text) write(JSON.parse(text));
     } catch (error) {
       if (id !== null) write({ jsonrpc: "2.0", id, error: { code: -32603, message: `acp-harness daemon unreachable: ${String(error)}` } });
     }
   }
 
+  const inFlight = new Set<Promise<void>>();
   let buffered = "";
   const decoder = new TextDecoder();
   for await (const chunk of Bun.stdin.stream()) {
@@ -31,7 +36,11 @@ export async function runManagerMcpBridge(url: string): Promise<void> {
     while ((newline = buffered.indexOf("\n")) !== -1) {
       const line = buffered.slice(0, newline).trim();
       buffered = buffered.slice(newline + 1);
-      if (line) void relay(line);
+      if (!line) continue;
+      const pending = relay(line).finally(() => inFlight.delete(pending));
+      inFlight.add(pending);
     }
   }
+  // stdin closed: let answers already asked for arrive before exiting.
+  await Promise.all(inFlight);
 }
