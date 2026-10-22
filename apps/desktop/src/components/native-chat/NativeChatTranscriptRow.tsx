@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { ChevronRight, ShieldQuestion, Undo2 } from 'lucide-react'
+import { ChevronRight, GitFork, ShieldQuestion, Undo2 } from 'lucide-react'
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { cn } from '@/lib/utils'
@@ -23,6 +23,10 @@ export type TranscriptRowActions = {
   /** Absent while a turn runs: rewinding needs the agent stopped. */
   onRewind?: (messageId: string) => void
   onRevealFile: (path: string) => void
+  /** A new chat with the conversation through this prompt's exchange. */
+  onForkFrom?: (messageId: string) => void
+  /** Why forking is off in this chat (another agent's); the button shows disabled with it. */
+  forkUnavailable?: string
   /** The workspace folder, dropped from the paths rows show. */
   cwd: string
 }
@@ -65,6 +69,16 @@ export function NativeChatTranscriptRow({
             {item.text ? <NativeChatCopyButton text={item.text} /> : null}
             {messageId && actions.onRewind ? (
               <RewindButton onRewind={() => actions.onRewind?.(messageId)} />
+            ) : null}
+            {messageId && actions.onForkFrom ? (
+              <MetaActionButton
+                label={actions.forkUnavailable ?? 'Fork from here'}
+                data-native-chat-fork-from
+                disabled={actions.forkUnavailable !== undefined}
+                onClick={() => actions.onForkFrom?.(messageId)}
+              >
+                <GitFork className="size-3.5" />
+              </MetaActionButton>
             ) : null}
           </div>
         </div>
@@ -134,20 +148,43 @@ export function NativeChatTranscriptRow({
 
 function RewindButton({ onRewind }: { onRewind: () => void }) {
   return (
+    <MetaActionButton label="Rewind to here" data-native-chat-rewind onClick={onRewind}>
+      <Undo2 className="size-3.5" />
+    </MetaActionButton>
+  )
+}
+
+/** An icon button under a message; disabled ones stay hoverable so their tooltip gives the reason. */
+function MetaActionButton({
+  label,
+  disabled = false,
+  onClick,
+  children,
+  ...data
+}: {
+  label: string
+  disabled?: boolean
+  onClick: () => void
+  children: React.ReactNode
+} & Record<`data-${string}`, unknown>) {
+  return (
     <Tooltip>
       <TooltipTrigger asChild>
         <button
           type="button"
-          aria-label="Rewind to here"
-          data-native-chat-rewind
-          className="flex size-6 shrink-0 items-center justify-center rounded-md text-chat-foreground-faint transition-colors hover:bg-accent hover:text-accent-foreground focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
-          onClick={onRewind}
+          aria-label={label}
+          aria-disabled={disabled || undefined}
+          {...data}
+          className="flex size-6 shrink-0 items-center justify-center rounded-md text-chat-foreground-faint transition-colors hover:bg-accent hover:text-accent-foreground focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none aria-disabled:cursor-not-allowed aria-disabled:opacity-50 aria-disabled:hover:bg-transparent aria-disabled:hover:text-chat-foreground-faint"
+          onClick={() => {
+            if (!disabled) onClick()
+          }}
         >
-          <Undo2 className="size-3.5" />
+          {children}
         </button>
       </TooltipTrigger>
       <TooltipContent side="top" sideOffset={4}>
-        Rewind to here
+        {label}
       </TooltipContent>
     </Tooltip>
   )

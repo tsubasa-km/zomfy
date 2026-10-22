@@ -3,7 +3,7 @@ import { Copy, CornerDownLeft, GitFork, Quote, Search, TextSelect } from 'lucide
 import { markSeen, openEditorTab, useStore, type Session, type ThreadItem } from '@/session-store'
 import { runCommandInNewTerminal } from '@/lib/terminal-command-run'
 import { NativeChatCommandRunContext } from '@/components/native-chat/NativeChatRunCommandButton'
-import { appendToDraft, forkChat, isWorking, rewindTo } from '@/chat-actions'
+import { appendToDraft, forkChat, forkUnavailableReason, isWorking, rewindTo } from '@/chat-actions'
 import { isExternalAgentSession } from '@/lib/chat-agents'
 import { Button } from '@/components/ui/button'
 import {
@@ -58,6 +58,7 @@ export function ThreadView({ session, onSendToMain }: { session: Session; onSend
   const working = isWorking(session)
   // ACP has no stable fork or rewind, so other agents' chats go without (as in Orca).
   const claudeOnly = !isExternalAgentSession(session)
+  const forkReason = forkUnavailableReason(session)
   const running = working || session.turnStartedAt !== null
   const model = useMemo(() => buildTranscript(session.items, running, session.cwd), [session.items, running, session.cwd])
   const find = useNativeChatFind(columnRef, session.items)
@@ -149,6 +150,8 @@ export function ThreadView({ session, onSendToMain }: { session: Session; onSend
                         rowKey={`${session.id}:${index}`}
                         actions={{
                           ...(working || !claudeOnly ? {} : { onRewind: setRewindTarget }),
+                          onForkFrom: (messageId) => void forkChat(session.id, messageId),
+                          ...(forkReason ? { forkUnavailable: forkReason } : {}),
                           cwd: session.cwd,
                           onRevealFile: (path) =>
                             openEditorTab({ workspaceId: session.workspaceId, kind: 'file', path, staged: false })
@@ -195,12 +198,11 @@ export function ThreadView({ session, onSendToMain }: { session: Session; onSend
               Find in chat
               <ContextMenuShortcut>{isMac ? '⌘F' : 'Ctrl+F'}</ContextMenuShortcut>
             </ContextMenuItem>
-            {claudeOnly ? (
-              <ContextMenuItem data-native-chat-fork onSelect={() => void forkChat(session.id)}>
-                <GitFork />
-                Fork session
-              </ContextMenuItem>
-            ) : null}
+            <ContextMenuItem data-native-chat-fork disabled={forkReason !== null} onSelect={() => void forkChat(session.id)}>
+              <GitFork />
+              Fork Chat
+              {forkReason ? <span className="ml-auto pl-3 text-xs text-muted-foreground">Claude only</span> : null}
+            </ContextMenuItem>
           </ContextMenuContent>
         </ContextMenu>
         {find.open ? <NativeChatFindBar find={find} /> : null}

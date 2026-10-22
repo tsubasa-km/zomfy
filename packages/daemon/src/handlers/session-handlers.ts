@@ -64,7 +64,9 @@ export function registerSessionHandlers({ handle, sessions, pendingTurns, acpAge
     const source = requireSession(p.sessionId);
     requireClaude(source, "Forking");
     const claudeSessionId = source.claudeSessionId
-      ? await forkConversation(source.claudeSessionId, source.cwd)
+      ? p.fromMessageId
+        ? await forkThrough(source, source.claudeSessionId, p.fromMessageId)
+        : await forkConversation(source.claudeSessionId, source.cwd)
       : null;
     const fork = sessions.create({
       workspaceId: source.workspaceId,
@@ -130,6 +132,23 @@ export function registerSessionHandlers({ handle, sessions, pendingTurns, acpAge
     await sessions.replaceTranscript(record.id, updates);
     return publicInfo(record);
   });
+
+  /** A fork that ends with this prompt's exchange: everything before the next prompt. */
+  async function forkThrough(source: SessionRecord, claudeSessionId: string, messageId: string): Promise<string> {
+    const transcript = await sessions.transcript(source.id);
+    const isPrompt = (u: acp.SessionUpdate): u is UserChunk => u.sessionUpdate === "user_message_chunk";
+    const start = transcript.findIndex((u) => isPrompt(u) && u.messageId === messageId);
+    if (start === -1) throw new Error("That message is not in this conversation");
+    const next = transcript.findIndex((u, i) => i > start && isPrompt(u) && !!u.messageId && u.messageId !== messageId);
+    const nextChunk = transcript[next];
+    if (next === -1 || !nextChunk || !isPrompt(nextChunk) || !nextChunk.messageId) {
+      return forkConversation(claudeSessionId, source.cwd);
+    }
+    const ordinal = new Set(transcript.slice(0, next).flatMap((u) => (isPrompt(u) && u.messageId ? [u.messageId] : []))).size;
+    const fork = await conversationBefore(claudeSessionId, source.cwd, nextChunk.messageId, ordinal);
+    if (!fork) throw new Error("That message is not in Claude's transcript");
+    return fork;
+  }
 
   /** ACP has no stable fork or rewind; external agents' chats go without (as in Orca). */
   function requireClaude(session: SessionRecord, action: string): void {

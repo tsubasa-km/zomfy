@@ -1,4 +1,5 @@
 import { HARNESS_METHODS, type SessionInfo, type SessionOptions } from '@acp-harness/protocol'
+import { isExternalAgentSession } from '@/lib/chat-agents'
 import { cancelTurn, ensureSessionLoaded, harnessRequest, sendPrompt } from '@/daemon-connection'
 import {
   addSession,
@@ -153,11 +154,31 @@ function openSession(info: SessionInfo, hostId: string): void {
   void ensureSessionLoaded(info.id)
 }
 
-export async function forkChat(sessionId: string): Promise<void> {
+/** Why a chat cannot fork, or null: ACP has no stable fork, so other agents' chats go without (as in Orca). */
+export function forkUnavailableReason(s: Pick<Session, 'agent'>): string | null {
+  return isExternalAgentSession(s) ? 'Forking works in Claude chats only' : null
+}
+
+/** A new tab continuing a copy of the conversation; `fromMessageId` ends the copy with that prompt's exchange. */
+export async function forkChat(sessionId: string, fromMessageId?: string): Promise<void> {
   const source = session(sessionId)
   if (!source) return
-  const info = await harnessRequest(HARNESS_METHODS.sessionFork, { sessionId }, source.hostId)
-  openSession(info, source.hostId)
+  const reason = forkUnavailableReason(source)
+  if (reason) {
+    updateSession(sessionId, (s) => ({ ...s, items: [...s.items, { kind: 'notice', text: reason, severity: 'error' }] }))
+    return
+  }
+  try {
+    const info = await harnessRequest(
+      HARNESS_METHODS.sessionFork,
+      { sessionId, ...(fromMessageId ? { fromMessageId } : {}) },
+      source.hostId
+    )
+    openSession(info, source.hostId)
+  } catch (error) {
+    const text = `Couldn't fork this chat: ${error instanceof Error ? error.message : String(error)}`
+    updateSession(sessionId, (s) => ({ ...s, items: [...s.items, { kind: 'notice', text, severity: 'error' }] }))
+  }
 }
 
 export async function resumeConversation(workspaceId: string, claudeSessionId: string, hostId: string): Promise<void> {

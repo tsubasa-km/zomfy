@@ -40,6 +40,7 @@ import {
 } from './workspace-tab-model'
 import { closeGroup, splitTabTo } from './tab-group-commands'
 import { shortcutLabel } from './tab-shortcuts'
+import { ForkChatTabMenuItem } from '@/components/native-chat/NativeChatForkMenuItem'
 
 // Items and order follow Orca's SortableTabContextMenu, EditorFileTabContextMenu and BrowserTab menus.
 
@@ -150,6 +151,12 @@ export function TabContextMenu({
               <Copy className="size-3.5" />
               Duplicate Tab
             </DropdownMenuItem>
+            <DropdownMenuSeparator />
+          </>
+        )}
+        {tab.kind === 'chat' && (
+          <>
+            <ForkChatTabMenuItem session={tab.session} />
             <DropdownMenuSeparator />
           </>
         )}

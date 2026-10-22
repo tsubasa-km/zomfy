@@ -112,7 +112,8 @@ export interface SessionRequests {
   }
   [SESSION_METHODS.sessionCatalog]: { params: { workspaceId: string; refresh?: boolean }; result: ChatCatalog }
   /** A new tab continuing a copy of the conversation. */
-  [SESSION_METHODS.sessionFork]: { params: { sessionId: string }; result: SessionInfo }
+  /** `fromMessageId`: the copy ends with that user message's exchange ("Fork from here"). */
+  [SESSION_METHODS.sessionFork]: { params: { sessionId: string; fromMessageId?: string }; result: SessionInfo }
   /** Drops the conversation from this user message on; returns the message's text for the composer. */
   [SESSION_METHODS.sessionRewind]: { params: { sessionId: string; messageId: string }; result: { text: string } }
   [SESSION_METHODS.sessionHistory]: { params: { workspaceId: string }; result: PastConversation[] }
