@@ -5,6 +5,8 @@ import { patchChatSession } from '@/stores/chat-store'
 import { getState, openEditorTab, selectTab, selectTerminal, type Session, type ThreadItem } from '@/session-store'
 import { mentionText, type ChatMention } from '@/lib/chat-mentions'
 import { terminalScreenText } from '@/lib/terminal-screen-text'
+import { flashWhenShown } from '@/lib/flash-element'
+import { toast } from 'sonner'
 
 /** Adds a mention to the draft after a space (not a new line), and puts the caret in the composer. */
 export function insertMention(chatId: string, mention: string): void {
@@ -55,30 +57,48 @@ function transcriptText(session: Session): string {
   return lines.join('\n')
 }
 
-/** Shows what a mention names: the file, the chat, or the terminal (under its code block or as a tab). */
+/** Shows what a mention names (the file, the chat, or the terminal) and briefly outlines it there. */
 export function openChatMention(mention: Pick<ChatMention, 'kind' | 'path' | 'sourceId'>, workspaceId: string | null): void {
   const state = getState()
+  const id = CSS.escape(mention.sourceId ?? '')
   if (mention.kind === 'file') {
-    if (workspaceId) openEditorTab({ workspaceId, kind: 'file', path: mention.path, staged: false })
+    if (!workspaceId) return
+    openEditorTab({ workspaceId, kind: 'file', path: mention.path, staged: false })
+    const tab = getState().editorTabs.find((t) => t.workspaceId === workspaceId && t.kind === 'file' && t.path === mention.path)
+    if (tab) flashWhenShown(`[data-editor-tab="${CSS.escape(tab.id)}"]`)
     return
   }
   if (mention.kind === 'chat') {
     const session = state.sessions.find((s) => s.id === mention.sourceId)
-    if (session) selectTab(session.workspaceId, session.id)
+    if (!session) {
+      toast.info('That chat is closed. The message still carries its snapshot.')
+      return
+    }
+    selectTab(session.workspaceId, session.id)
+    flashWhenShown(`[data-chat-session-id="${id}"]`)
     return
   }
   const terminal = state.terminals.find((t) => t.id === mention.sourceId)
-  if (!terminal) return
-  if (!terminal.inline) {
-    selectTerminal(terminal.id)
+  if (!terminal) {
+    toast.info('That terminal is closed. The message still carries its snapshot.')
     return
   }
-  // A Run's terminal: bring its chat forward, then its code block into view.
+  if (!terminal.inline) {
+    selectTerminal(terminal.id)
+    // The xterm host; its parent is the whole terminal view.
+    flashWhenShown(`[data-terminal-id="${id}"]`, { pick: (el) => el.parentElement })
+    return
+  }
+  // A Run's terminal: bring its chat forward, then its code block into view (the outline waits for the scroll).
   const chat = state.sessions.find((s) => s.id === terminal.inline?.sessionId)
   if (chat) selectTab(chat.workspaceId, chat.id)
-  requestAnimationFrame(() =>
-    document
-      .querySelector(`[data-native-chat-inline-terminal="${CSS.escape(terminal.id)}"]`)
-      ?.scrollIntoView({ block: 'center', behavior: 'smooth' })
-  )
+  let scrolled = false
+  flashWhenShown(`[data-native-chat-inline-terminal="${id}"]`, {
+    afterMs: 400,
+    pick: (el) => {
+      if (!scrolled) el.scrollIntoView({ block: 'center', behavior: 'smooth' })
+      scrolled = true
+      return el
+    }
+  })
 }

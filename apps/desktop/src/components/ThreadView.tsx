@@ -129,6 +129,7 @@ export function ThreadView({ session, onSendToMain }: { session: Session; onSend
     <div
       ref={rootRef}
       data-native-chat-root
+      data-chat-session-id={session.id}
       data-link-workspace-id={session.workspaceId}
       className="native-chat-appearance flex min-h-0 min-w-0 flex-1 flex-col bg-chat-canvas text-chat-foreground"
       onKeyDown={(event) => {

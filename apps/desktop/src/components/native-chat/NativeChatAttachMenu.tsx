@@ -43,7 +43,8 @@ export function NativeChatAttachMenu({
       .toSorted((a, b) => Number(b.workspaceId === session.workspaceId) - Number(a.workspaceId === session.workspaceId) || b.createdAt - a.createdAt)
       .slice(0, MENU_LIMIT)
   const chats = order(sessions.filter((s) => s.id !== session.id && !s.sideOf))
-  const shells = order(terminals.filter((t) => !t.inline))
+  // Run terminals under code blocks count too; often they are the only ones open.
+  const shells = order(terminals)
   const attach = (run: () => Promise<void>) => void run().catch(() => undefined)
 
   return (
@@ -76,11 +77,12 @@ export function NativeChatAttachMenu({
           File in this workspace…
         </DropdownMenuItem>
         <DropdownMenuSub>
-          <DropdownMenuSubTrigger disabled={chats.length === 0}>
+          <DropdownMenuSubTrigger>
             <MessageSquare />
             Chat
           </DropdownMenuSubTrigger>
           <DropdownMenuSubContent className="max-h-80 w-72 overflow-y-auto">
+            {chats.length === 0 ? <DropdownMenuItem disabled>No other chats</DropdownMenuItem> : null}
             {chats.map((chat) => (
               <DropdownMenuItem key={chat.id} data-attach-chat={chat.id} onSelect={() => attach(() => attachChat(session, chat.id))}>
                 <span className="min-w-0 flex-1 truncate">{chat.title}</span>
@@ -90,11 +92,12 @@ export function NativeChatAttachMenu({
           </DropdownMenuSubContent>
         </DropdownMenuSub>
         <DropdownMenuSub>
-          <DropdownMenuSubTrigger disabled={shells.length === 0}>
+          <DropdownMenuSubTrigger>
             <SquareTerminal />
             Terminal
           </DropdownMenuSubTrigger>
           <DropdownMenuSubContent className="max-h-80 w-72 overflow-y-auto">
+            {shells.length === 0 ? <DropdownMenuItem disabled>No terminals open</DropdownMenuItem> : null}
             {shells.map((terminal) => (
               <DropdownMenuItem
                 key={terminal.id}
@@ -102,7 +105,9 @@ export function NativeChatAttachMenu({
                 onSelect={() => attach(() => attachTerminal(session, terminal.id))}
               >
                 <span className="min-w-0 flex-1 truncate">{terminal.customTitle || terminal.title}</span>
-                <span className="max-w-24 shrink-0 truncate text-xs text-muted-foreground">{workspaceName(terminal.workspaceId)}</span>
+                <span className="max-w-24 shrink-0 truncate text-xs text-muted-foreground">
+                  {terminal.inline ? 'Run in chat' : workspaceName(terminal.workspaceId)}
+                </span>
               </DropdownMenuItem>
             ))}
           </DropdownMenuSubContent>

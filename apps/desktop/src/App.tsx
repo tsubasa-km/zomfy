@@ -6,6 +6,7 @@ import { Sidebar } from '@/components/Sidebar'
 import { WorkspaceTabs } from '@/components/WorkspaceTabs'
 import { FloatingWorkspace } from '@/components/FloatingWorkspace'
 import { PointerDragLayer } from '@/components/PointerDragLayer'
+import { Toaster } from '@/components/ui/sonner'
 import { RightSidebar } from '@/components/right-sidebar/RightSidebar'
 import { AgentDashboard } from '@/components/AgentDashboard'
 import { SettingsPage } from '@/components/settings/SettingsPage'
@@ -112,6 +113,7 @@ export default function App() {
         <StatusBar />
       </div>
       <FloatingWorkspace />
+      <Toaster />
       <InboxPanel />
       <QuickOpen />
       <CommandPalette />
