@@ -181,9 +181,33 @@ let state: StoreState = {
   dashboardOpen: false
 }
 const listeners = new Set<() => void>()
+let batchDepth = 0
+let batchDirty = false
 
 function set(next: StoreState): void {
   state = next
+  if (batchDepth > 0) {
+    batchDirty = true
+    return
+  }
+  publish(next)
+}
+
+/** Applies many changes with one render and one layout save, e.g. a transcript replay. */
+export function batchUpdates(apply: () => void): void {
+  batchDepth++
+  try {
+    apply()
+  } finally {
+    batchDepth--
+    if (batchDepth === 0 && batchDirty) {
+      batchDirty = false
+      publish(state)
+    }
+  }
+}
+
+function publish(next: StoreState): void {
   for (const listener of listeners) listener()
   // Only the main window owns the saved layout; a pop-out's stale copy must not overwrite it.
   if (WINDOW_ROLE !== 'main') return

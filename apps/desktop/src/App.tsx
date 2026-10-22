@@ -55,6 +55,8 @@ export default function App() {
   const tasksOpen = useTasks((s) => s.open)
 
   useEffect(() => {
+    // index.html shows a themed boot screen until the shell mounts.
+    document.getElementById('boot')?.remove()
     connectAllHosts()
     const stopPicks = listenForDashboardPicks()
     const stopKeys = installKeybindingDispatcher()

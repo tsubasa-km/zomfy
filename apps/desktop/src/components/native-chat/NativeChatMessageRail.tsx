@@ -41,15 +41,31 @@ export function NativeChatMessageRail({
 }) {
   const [activeId, setActiveId] = useState<string | null>(null)
   const railRef = useRef<HTMLDivElement>(null)
+  // Parents rebuild `items` every render; reading it through a ref keeps the listener stable,
+  // and the frame throttle keeps a replaying transcript from cascading renders into a loop.
+  const itemsRef = useRef(items)
+  itemsRef.current = items
+  const itemsKey = items.map((item) => item.id).join('\n')
 
   useEffect(() => {
     const scroller = scrollRef.current
     if (!scroller) return
-    const update = () => setActiveId(readActiveId(scroller, items))
+    let frame = 0
+    const update = () => {
+      if (frame) return
+      frame = requestAnimationFrame(() => {
+        frame = 0
+        const next = readActiveId(scroller, itemsRef.current)
+        setActiveId((current) => (current === next ? current : next))
+      })
+    }
     update()
     scroller.addEventListener('scroll', update, { passive: true })
-    return () => scroller.removeEventListener('scroll', update)
-  }, [items, scrollRef])
+    return () => {
+      cancelAnimationFrame(frame)
+      scroller.removeEventListener('scroll', update)
+    }
+  }, [itemsKey, scrollRef])
 
   if (items.length < 2) return null
 

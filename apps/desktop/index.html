@@ -2,12 +2,38 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    
+
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>ACP Harness</title>
+    <script>
+      // Theme before first paint, from the same setting lib/theme.ts applies later, so the boot
+      // screen below never flashes the wrong palette.
+      try {
+        var theme = JSON.parse(localStorage.getItem('acp-harness.settings.v1') || '{}').theme || 'system'
+        var dark = theme === 'dark' || (theme === 'system' && matchMedia('(prefers-color-scheme: dark)').matches)
+        document.documentElement.classList.add(dark ? 'dark' : 'light')
+      } catch (e) {}
+    </script>
+    <style>
+      /* Boot screen shown until React mounts (dev builds load for seconds). Values mirror the
+         --background / --worktree-sidebar / --border / --muted-foreground tokens in main.css. */
+      html, body { margin: 0; height: 100%; background: #fff; }
+      html.dark, html.dark body { background: #0a0a0a; }
+      #boot { position: fixed; inset: 0; display: flex; font: 13px 'Segoe UI', -apple-system, sans-serif; }
+      #boot-sidebar { width: 280px; background: #f5f5f5; border-right: 1px solid #e5e5e5; }
+      #boot-main { flex: 1; display: flex; align-items: center; justify-content: center; gap: 10px; color: #737373; }
+      #boot-spinner { width: 14px; height: 14px; border-radius: 50%; border: 2px solid currentColor; border-right-color: transparent; animation: boot-spin 0.8s linear infinite; }
+      html.dark #boot-sidebar { background: #2a2a2a; border-right-color: rgb(255 255 255 / 0.07); }
+      html.dark #boot-main { color: #a1a1a1; }
+      @keyframes boot-spin { to { transform: rotate(360deg); } }
+    </style>
   </head>
 
   <body>
+    <div id="boot" aria-hidden="true">
+      <div id="boot-sidebar"></div>
+      <div id="boot-main"><div id="boot-spinner"></div>Starting ACP Harness…</div>
+    </div>
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
   </body>

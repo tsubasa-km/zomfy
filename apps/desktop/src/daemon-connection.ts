@@ -33,6 +33,7 @@ import {
   addSession,
   allProjects,
   findWorkspace,
+  batchUpdates,
   forgetHost,
   getState,
   markLoaded,
@@ -67,6 +68,8 @@ const connections = new Map<HostId, acp.ClientConnection>();
 const connecting = new Map<HostId, Promise<void>>();
 const pendingPermissions = new Map<string, (optionId: string | null) => void>();
 const loading = new Map<string, Promise<void>>();
+// Updates of a transcript being replayed, applied together once the load request returns.
+const replayBuffers = new Map<string, acp.SessionNotification[]>();
 const terminalOutputListeners = new Map<string, Set<(data: string) => void>>();
 const reconnectAttempts = new Map<HostId, number>();
 const reconnectTimers = new Map<HostId, ReturnType<typeof setTimeout>>();
@@ -194,7 +197,11 @@ async function openConnection(hostId: HostId): Promise<void> {
         if (hostId === LOCAL_HOST) setTodos(ctx.params);
       },
     )
-    .onNotification("session/update", (ctx) => applyChatUpdate(ctx.params))
+    .onNotification("session/update", (ctx) => {
+      const replay = replayBuffers.get(ctx.params.sessionId);
+      if (replay) replay.push(ctx.params);
+      else applyChatUpdate(ctx.params);
+    })
     .onNotification(
       HARNESS_NOTIFICATIONS.stateChanged,
       (raw: unknown) => raw as HarnessState,
@@ -365,6 +372,16 @@ export function ensureSessionLoaded(sessionId: string): Promise<void> {
   let pending = loading.get(sessionId);
   if (!pending) {
     markLoaded(sessionId);
+    // The replay arrives as one notification per update; rendering each one made a long chat
+    // visibly build up. Collect them and apply the whole transcript in one render.
+    replayBuffers.set(sessionId, []);
+    const flushReplay = () => {
+      const buffered = replayBuffers.get(sessionId) ?? [];
+      replayBuffers.delete(sessionId);
+      batchUpdates(() => {
+        for (const notification of buffered) applyChatUpdate(notification);
+      });
+    };
     pending = requireConnection(session.hostId)
       .then((conn) =>
         conn.agent.request(acp.methods.agent.session.load, {
@@ -374,7 +391,10 @@ export function ensureSessionLoaded(sessionId: string): Promise<void> {
         }),
       )
       .then(() => undefined)
-      .finally(() => loading.delete(sessionId));
+      .finally(() => {
+        flushReplay();
+        loading.delete(sessionId);
+      });
     loading.set(sessionId, pending);
   }
   return pending;

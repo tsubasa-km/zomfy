@@ -44,6 +44,7 @@ import { registerVoiceHandlers } from "./handlers/voice-handlers.ts";
 import { managerMcp } from "./manager-mcp-server.ts";
 import { ManagerRouting, autoAllowedManagerTools } from "./manager-routing.ts";
 import { log } from "./log.ts";
+import { compactTranscript } from "./transcript-compaction.ts";
 
 /** One agent app shared by every transport, so sessions outlive the connection that made them. */
 export function createHarnessAgent(
@@ -283,7 +284,7 @@ export function createHarnessAgent(
     .onRequest("session/load", async (ctx) => {
       if (!sessions.get(ctx.params.sessionId)) throw new Error(`Unknown session ${ctx.params.sessionId}`);
       // Replay goes only to the client that asked; live updates already reach everyone.
-      for (const update of await sessions.transcript(ctx.params.sessionId)) {
+      for (const update of compactTranscript(await sessions.transcript(ctx.params.sessionId))) {
         await ctx.client.notify(acp.methods.client.session.update, {
           sessionId: ctx.params.sessionId,
           update,
