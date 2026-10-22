@@ -7,7 +7,7 @@ import {
   ReactFlow,
   ReactFlowProvider,
   useReactFlow,
-  type Connection,
+  type FinalConnectionState,
   type Edge,
   type EdgeChange,
   type NodeChange
@@ -17,6 +17,7 @@ import { ChevronDown, Plus, Save, Trash2, Workflow as WorkflowIcon, X } from 'lu
 import { toast } from 'sonner'
 import {
   HARNESS_METHODS,
+  workflowOutcomes,
   type Workflow,
   type WorkflowNode,
   type WorkflowNodeConfig,
@@ -37,9 +38,10 @@ import { openWorkflows, type WorkflowsPageTarget } from '@/stores/workflows-stor
 import { cn } from '@/lib/utils'
 import { WORKFLOW_NODE_TYPES, type WorkflowCanvasNode } from './workflow-nodes'
 import { WorkflowInspector } from './WorkflowInspector'
+import { WorkflowConnectMenu, type PendingConnection } from './WorkflowConnectMenu'
 import {
   NODE_KINDS,
-  OUTCOME_LABELS,
+  outcomeLabel,
   blankWorkflow,
   newNode,
   nextOutcome,
@@ -51,7 +53,7 @@ import {
 // A project's agent workflows, drawn as a graph (React Flow): steps are cards, edges carry the
 // outcome that takes a run along them. The harness walks this graph; the editor only shapes it.
 
-const OUTCOME_COLORS: Record<WorkflowOutcome, string> = {
+const OUTCOME_COLORS: Partial<Record<WorkflowOutcome, string>> = {
   next: 'var(--muted-foreground)',
   pass: 'var(--muted-foreground)',
   answered: 'var(--muted-foreground)',
@@ -270,7 +272,8 @@ function WorkflowCanvas({
 
   const byId = new Map(workflow.nodes.map((n) => [n.id, n]))
   const edges: Edge[] = workflow.edges.map((edge) => {
-    const color = OUTCOME_COLORS[edge.outcome]
+    // A custom step's own outcomes take the accent colour.
+    const color = OUTCOME_COLORS[edge.outcome] ?? 'var(--primary)'
     const selected = selectedEdge?.id === edge.id
     const from = byId.get(edge.from)
     const to = byId.get(edge.to)
@@ -284,7 +287,7 @@ function WorkflowCanvas({
       targetHandle: back ? 'back-in' : 'in',
       type: 'smoothstep',
       pathOptions: back && from && to ? { offset: 24 + Math.round((from.x - to.x) / 12), borderRadius: 8 } : { borderRadius: 8 },
-      label: OUTCOME_LABELS[edge.outcome],
+      label: outcomeLabel(edge.outcome),
       selected,
       markerEnd: { type: MarkerType.ArrowClosed, color, width: 16, height: 16 },
       style: { stroke: color, strokeWidth: selected ? 2.5 : 1.5 },
@@ -333,13 +336,40 @@ function WorkflowCanvas({
     }
   }
 
-  const onConnect = (connection: Connection) => {
-    const from = workflow.nodes.find((n) => n.id === connection.source)
-    if (!from || connection.source === connection.target) return
-    const edge = { id: crypto.randomUUID(), from: from.id, to: connection.target, outcome: nextOutcome(from, workflow) }
-    onChange({ ...workflow, edges: [...workflow.edges, edge] })
-    setSelection({ edge: edge.id })
+  const [pending, setPending] = useState<PendingConnection | null>(null)
+
+  /** Every dragged edge ends here: on a step, or on empty canvas, it asks which outcome it is. */
+  const onConnectEnd = (event: MouseEvent | TouchEvent, state: FinalConnectionState) => {
+    const from = state.fromNode?.id
+    const rect = canvasRef.current?.getBoundingClientRect()
+    if (!from || !rect || state.fromHandle?.type !== 'source') return
+    const point = 'changedTouches' in event ? event.changedTouches[0] : event
+    if (!point) return
+    // A drop on a card's body counts as a drop on the card, not just on its handle.
+    const under = document.elementFromPoint(point.clientX, point.clientY)?.closest<HTMLElement>('.react-flow__node')
+    const to = (state.isValid ? state.toNode?.id : null) ?? under?.dataset.id ?? null
+    if (to === from) return
+    setPending({ from, to, x: point.clientX - rect.left, y: point.clientY - rect.top })
   }
+
+  const connect = (outcome: WorkflowOutcome, kind: WorkflowNodeKind | null) => {
+    if (!pending) return
+    const rect = canvasRef.current?.getBoundingClientRect()
+    let next = workflow
+    let to = pending.to
+    if (!to && kind && rect) {
+      const at = flow.screenToFlowPosition({ x: rect.left + pending.x, y: rect.top + pending.y })
+      const node = newNode(kind, Math.round(at.x), Math.round(at.y - 28))
+      next = { ...next, nodes: [...next.nodes, node] }
+      to = node.id
+    }
+    if (!to) return
+    const edge = { id: crypto.randomUUID(), from: pending.from, to, outcome }
+    onChange({ ...next, edges: [...next.edges, edge] })
+    setSelection(kind ? { node: to } : { edge: edge.id })
+    setPending(null)
+  }
+  const pendingFrom = pending ? workflow.nodes.find((n) => n.id === pending.from) : undefined
 
   const addStep = (kind: WorkflowNodeKind) => {
     const rect = canvasRef.current?.getBoundingClientRect()
@@ -367,7 +397,7 @@ function WorkflowCanvas({
           nodeTypes={WORKFLOW_NODE_TYPES}
           onNodesChange={onNodesChange}
           onEdgesChange={onEdgesChange}
-          onConnect={onConnect}
+          onConnectEnd={onConnectEnd}
           onPaneClick={() => setSelection(null)}
           isValidConnection={(c) => c.source !== c.target}
           deleteKeyCode={['Delete', 'Backspace']}
@@ -387,6 +417,17 @@ function WorkflowCanvas({
             </div>
           </Panel>
         </ReactFlow>
+        {pending && pendingFrom && (
+          <WorkflowConnectMenu
+            pending={pending}
+            fromLabel={pendingFrom.label}
+            outcomes={workflowOutcomes(pendingFrom)}
+            used={new Set(workflow.edges.filter((e) => e.from === pendingFrom.id).map((e) => e.outcome))}
+            suggested={nextOutcome(pendingFrom, workflow)}
+            onPick={connect}
+            onClose={() => setPending(null)}
+          />
+        )}
       </div>
       <aside className="w-80 shrink-0 overflow-y-auto border-l border-border p-4">
         <WorkflowInspector

@@ -1,11 +1,12 @@
 import { memo } from 'react'
 import { Handle, Position, type Node, type NodeProps } from '@xyflow/react'
-import { Bot, CircleCheckBig, Flag, Play, ShieldCheck, SquareTerminal, UserRound, type LucideIcon } from 'lucide-react'
+import { Bot, CircleCheckBig, Flag, Play, Puzzle, ShieldCheck, SquareTerminal, UserRound, type LucideIcon } from 'lucide-react'
 import type { WorkflowNode, WorkflowNodeKind } from '@acp-harness/protocol'
 import { cn } from '@/lib/utils'
 
 // One card per step: its kind's icon and colour, the label, and the line that matters for that kind
 // (the role, the command, the round limit). Inputs enter on the left, outcomes leave on the right.
+// A step run by several sessions at once draws as a stack with its count.
 
 export type WorkflowCanvasNode = Node<{ node: WorkflowNode; issue: 'error' | 'warning' | null }, WorkflowNodeKind>
 
@@ -15,7 +16,8 @@ const ICONS: Record<WorkflowNodeKind, LucideIcon> = {
   review: ShieldCheck,
   check: SquareTerminal,
   human: UserRound,
-  end: Flag
+  end: Flag,
+  custom: Puzzle
 }
 
 /** Accent per kind, from the theme's own tokens. */
@@ -25,8 +27,11 @@ const ACCENT: Record<WorkflowNodeKind, string> = {
   review: 'text-status-success',
   check: 'text-muted-foreground',
   human: 'text-agent-question-text',
-  end: 'text-foreground'
+  end: 'text-foreground',
+  custom: 'text-primary'
 }
+
+const JOIN_LABELS = { all: 'all', majority: 'majority', any: 'any one', first: 'first done' } as const
 
 function detail(node: WorkflowNode): string {
   const c = node.config
@@ -41,6 +46,11 @@ function detail(node: WorkflowNode): string {
       return c.question?.trim() ? c.question : 'Asks the person'
     case 'end':
       return c.result === 'failed' ? 'Ends as failed' : 'Ends as done'
+    case 'custom': {
+      const fields = c.fields?.length ?? 0
+      const runner = c.runner === 'command' ? c.command?.trim() || 'Command' : c.role || 'Agent'
+      return `${runner}${fields > 0 ? ` · ${fields} field${fields > 1 ? 's' : ''}` : ''}`
+    }
     default:
       return 'Where a run begins'
   }
@@ -49,32 +59,60 @@ function detail(node: WorkflowNode): string {
 function StepNode({ data, selected, type }: NodeProps<WorkflowCanvasNode>) {
   const Icon = ICONS[type]
   const { node, issue } = data
+  const parallel = node.config.parallel && node.config.parallel.count > 1 ? node.config.parallel : null
   return (
-    <div
-      data-workflow-node={node.kind}
-      className={cn(
-        'w-52 rounded-lg border bg-card px-3 py-2 text-card-foreground shadow-xs transition-colors',
-        selected ? 'border-ring ring-2 ring-ring/30' : 'border-border',
-        issue === 'error' && !selected && 'border-destructive/60'
-      )}
-    >
-      {type !== 'start' && <Handle id="in" type="target" position={Position.Left} className="!size-2.5 !border-border !bg-background" />}
-      {/* Edges back to an earlier step leave and arrive underneath, clear of the forward ones. */}
-      {type !== 'start' && <Handle id="back-in" type="target" position={Position.Bottom} className="!size-1.5 !border-0 !bg-transparent" isConnectable={false} />}
-      {type !== 'end' && <Handle id="back-out" type="source" position={Position.Bottom} className="!size-1.5 !border-0 !bg-transparent" isConnectable={false} />}
-      <div className="flex items-center gap-2">
-        <Icon className={cn('size-4 shrink-0', ACCENT[type])} />
-        <div className="min-w-0 flex-1 truncate text-[13px] font-medium">{node.label}</div>
-        {issue && (
-          <span
-            aria-label={issue === 'error' ? 'Has problems' : 'Has warnings'}
-            className={cn('size-1.5 shrink-0 rounded-full', issue === 'error' ? 'bg-destructive' : 'bg-status-warning')}
+    <div className="relative" data-workflow-node={node.kind}>
+      {/* The stack behind a parallel step, one sheet per extra session (up to two drawn). */}
+      {parallel &&
+        [2, 1].slice(2 - Math.min(2, parallel.count - 1)).map((depth) => (
+          <div
+            key={depth}
+            aria-hidden
+            className="absolute inset-0 rounded-lg border border-border bg-card"
+            style={{ transform: `translate(${depth * 5}px, ${depth * 5}px)` }}
           />
+        ))}
+      <div
+        className={cn(
+          'relative w-52 rounded-lg border bg-card px-3 py-2 text-card-foreground shadow-xs transition-colors',
+          selected ? 'border-ring ring-2 ring-ring/30' : 'border-border',
+          issue === 'error' && !selected && 'border-destructive/60'
         )}
-        {type === 'end' && node.config.result !== 'failed' && <CircleCheckBig className="size-3.5 shrink-0 text-status-success" />}
+      >
+        {type !== 'start' && <Handle id="in" type="target" position={Position.Left} className="!size-2.5 !border-border !bg-background" />}
+        {/* Edges back to an earlier step leave and arrive underneath, clear of the forward ones. */}
+        {type !== 'start' && (
+          <Handle id="back-in" type="target" position={Position.Bottom} className="!size-1.5 !border-0 !bg-transparent" isConnectable={false} />
+        )}
+        {type !== 'end' && (
+          <Handle id="back-out" type="source" position={Position.Bottom} className="!size-1.5 !border-0 !bg-transparent" isConnectable={false} />
+        )}
+        <div className="flex items-center gap-2">
+          <Icon className={cn('size-4 shrink-0', ACCENT[type])} />
+          <div className="min-w-0 flex-1 truncate text-[13px] font-medium">{node.label}</div>
+          {parallel && (
+            <span
+              className="shrink-0 rounded bg-accent px-1 text-[10px] font-medium text-accent-foreground tabular-nums"
+              title={`${parallel.count} sessions at once; ${JOIN_LABELS[parallel.join]} decides`}
+              data-workflow-parallel={parallel.count}
+            >
+              ×{parallel.count}
+            </span>
+          )}
+          {issue && (
+            <span
+              aria-label={issue === 'error' ? 'Has problems' : 'Has warnings'}
+              className={cn('size-1.5 shrink-0 rounded-full', issue === 'error' ? 'bg-destructive' : 'bg-status-warning')}
+            />
+          )}
+          {type === 'end' && node.config.result !== 'failed' && <CircleCheckBig className="size-3.5 shrink-0 text-status-success" />}
+        </div>
+        <div className="mt-0.5 truncate pl-6 text-[11px] text-muted-foreground">
+          {detail(node)}
+          {parallel ? ` · ${JOIN_LABELS[parallel.join]}` : ''}
+        </div>
+        {type !== 'end' && <Handle id="out" type="source" position={Position.Right} className="!size-2.5 !border-border !bg-background" />}
       </div>
-      <div className="mt-0.5 truncate pl-6 text-[11px] text-muted-foreground">{detail(node)}</div>
-      {type !== 'end' && <Handle id="out" type="source" position={Position.Right} className="!size-2.5 !border-border !bg-background" />}
     </div>
   )
 }
@@ -87,5 +125,6 @@ export const WORKFLOW_NODE_TYPES = {
   review: Step,
   check: Step,
   human: Step,
-  end: Step
+  end: Step,
+  custom: Step
 }

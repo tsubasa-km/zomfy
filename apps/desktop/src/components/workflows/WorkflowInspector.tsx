@@ -1,19 +1,21 @@
 import type React from 'react'
 import { Trash2 } from 'lucide-react'
 import {
-  WORKFLOW_OUTCOMES,
+  workflowOutcomes,
   type Workflow,
   type WorkflowEdge,
   type WorkflowNode,
   type WorkflowNodeConfig,
-  type WorkflowOutcome
+  type WorkflowOutcome,
+  type WorkflowParallel
 } from '@acp-harness/protocol'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import { OUTCOME_LABELS, type WorkflowIssue } from './workflow-model'
+import { outcomeLabel, type WorkflowIssue } from './workflow-model'
+import { CustomStepEditor } from './WorkflowCustomStepEditor'
 
 // The side panel: the selected step's or edge's settings, else the workflow's own name and its issues.
 
@@ -60,6 +62,55 @@ function Choice<T extends string>({
   )
 }
 
+const JOINS: Record<'review' | 'work', { value: WorkflowParallel['join']; label: string }[]> = {
+  review: [
+    { value: 'all', label: 'All must approve' },
+    { value: 'majority', label: 'Most must approve' },
+    { value: 'any', label: 'One approval is enough' }
+  ],
+  work: [
+    { value: 'all', label: 'Wait for all; hand on every result' },
+    { value: 'first', label: 'First to finish wins; stop the rest' }
+  ]
+}
+
+/** How many sessions run the step at once, and how their outcomes become the step's one. */
+function ParallelFields({
+  kind,
+  config,
+  onChange
+}: {
+  kind: WorkflowNode['kind']
+  config: WorkflowNodeConfig
+  onChange: (patch: Partial<WorkflowNodeConfig>) => void
+}) {
+  const joins = JOINS[kind === 'review' ? 'review' : 'work']
+  const count = config.parallel?.count ?? 1
+  const join = joins.find((j) => j.value === config.parallel?.join)?.value ?? joins[0]!.value
+  return (
+    <div className="space-y-3" data-workflow-parallel-fields>
+      <Field label="Sessions at once" hint={kind === 'review' ? 'Independent reviewers of the same change.' : 'Each in its own worktree.'}>
+        <Input
+          type="number"
+          min={1}
+          max={8}
+          value={count}
+          onChange={(e) => {
+            const next = Math.min(8, Math.max(1, Number(e.target.value) || 1))
+            onChange({ parallel: next > 1 ? { count: next, join } : undefined })
+          }}
+          className="h-8 w-24"
+        />
+      </Field>
+      {count > 1 && (
+        <Field label="Decided by">
+          <Choice label="Decided by" value={join} onChange={(value) => onChange({ parallel: { count, join: value } })} options={joins} />
+        </Field>
+      )}
+    </div>
+  )
+}
+
 export function WorkflowInspector({
   workflow,
   node,
@@ -89,7 +140,20 @@ export function WorkflowInspector({
         <Field label="Step name">
           <Input value={node.label} onChange={(e) => onNode(node.id, { label: e.target.value })} className="h-8" />
         </Field>
-        {(node.kind === 'agent' || node.kind === 'review') && (
+        {node.kind === 'custom' && (
+          <Field label="Done by">
+            <Choice
+              label="Done by"
+              value={c.runner ?? 'agent'}
+              onChange={(runner) => set({ runner })}
+              options={[
+                { value: 'agent', label: 'An agent session' },
+                { value: 'command', label: 'A command' }
+              ]}
+            />
+          </Field>
+        )}
+        {(node.kind === 'agent' || node.kind === 'review' || (node.kind === 'custom' && c.runner !== 'command')) && (
           <>
             <Field label="Role" hint="Who the session acts as; it opens its prompt.">
               <Input value={c.role ?? ''} onChange={(e) => set({ role: e.target.value })} className="h-8" />
@@ -149,6 +213,15 @@ export function WorkflowInspector({
             />
           </Field>
         )}
+        {(node.kind === 'agent' || node.kind === 'review' || (node.kind === 'custom' && c.runner !== 'command')) && (
+          <ParallelFields kind={node.kind} config={c} onChange={set} />
+        )}
+        {node.kind === 'custom' && c.runner === 'command' && (
+          <Field label="Command" hint="Runs in the run's workspace; {{key}} fills in a field.">
+            <Input value={c.command ?? ''} onChange={(e) => set({ command: e.target.value })} className="h-8 font-mono text-xs" />
+          </Field>
+        )}
+        {node.kind === 'custom' && <CustomStepEditor config={c} onChange={set} />}
         {node.kind === 'check' && (
           <Field label="Command" hint="Runs in the run's workspace; exit code 0 passes.">
             <Input
@@ -190,7 +263,7 @@ export function WorkflowInspector({
   if (edge) {
     const from = workflow.nodes.find((n) => n.id === edge.from)
     const to = workflow.nodes.find((n) => n.id === edge.to)
-    const options = from ? WORKFLOW_OUTCOMES[from.kind] : []
+    const options = from ? workflowOutcomes(from) : []
     return (
       <div className="space-y-4" data-workflow-inspector="edge">
         <p className="text-xs text-muted-foreground">
@@ -202,7 +275,7 @@ export function WorkflowInspector({
             label="Outcome"
             value={edge.outcome}
             onChange={(outcome) => onEdge(edge.id, outcome)}
-            options={options.map((o) => ({ value: o, label: OUTCOME_LABELS[o] }))}
+            options={options.map((o) => ({ value: o, label: outcomeLabel(o) }))}
           />
         </Field>
         <Button variant="outline" size="sm" onClick={onDelete}>

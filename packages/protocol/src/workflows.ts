@@ -3,15 +3,39 @@
 // step, so loops such as develop → review → back to develop are the graph's, not a model's choice.
 // Saved per project on the host whose daemon owns the project.
 
-export type WorkflowNodeKind = 'start' | 'agent' | 'review' | 'check' | 'human' | 'end'
+export type WorkflowNodeKind = 'start' | 'agent' | 'review' | 'check' | 'human' | 'end' | 'custom'
 
-/** How a step ended; an edge takes the run on when its outcome matches. */
-export type WorkflowOutcome = 'next' | 'approve' | 'changes' | 'pass' | 'fail' | 'answered' | 'ask'
+export type BuiltinWorkflowOutcome = 'next' | 'approve' | 'changes' | 'pass' | 'fail' | 'answered' | 'ask'
+
+/** How a step ended: a built-in outcome, or one a custom step names itself. */
+export type WorkflowOutcome = string
+
+/** A custom step's setting, filled in on the step and usable as {{key}} in its prompt or command. */
+export interface WorkflowField {
+  id: string
+  /** The {{key}} it fills in. */
+  key: string
+  label: string
+  type: 'text' | 'number' | 'boolean' | 'select'
+  /** For 'select'. */
+  options?: string[]
+  value: string | number | boolean
+}
+
+/** Several sessions run the step at once, and their outcomes are combined into the step's one. */
+export interface WorkflowParallel {
+  count: number
+  /**
+   * all: every session must reach the outcome (all approve; all finish); majority: most of them;
+   * any: one is enough; first: the first to finish decides and the others stop.
+   */
+  join: 'all' | 'majority' | 'any' | 'first'
+}
 
 export interface WorkflowNodeConfig {
-  /** Agent and review steps: the role the session plays ("Developer", "Reviewer"…). */
+  /** Agent, review and custom steps: the role the session plays ("Developer", "Reviewer"…). */
   role?: string
-  /** Agent and review steps: what the session is told, on top of the run's task and handoff. */
+  /** Agent, review and custom steps: what the session is told, on top of the run's task and handoff. */
   prompt?: string
   /** Agent steps: keep one session across loops (it remembers earlier rounds), or start fresh each time. */
   session?: 'keep' | 'fresh'
@@ -19,12 +43,20 @@ export interface WorkflowNodeConfig {
   workspace?: 'main' | 'run-worktree'
   /** Review steps: rounds of "changes", check steps: failures, before the run stops and asks the person. */
   maxRounds?: number
-  /** Check steps: a shell command whose exit code is the outcome (0 = pass). */
+  /** Check (and command custom) steps: a shell command whose exit code is the outcome (0 = pass). */
   command?: string
   /** Human steps: what the person is asked. */
   question?: string
   /** End steps: whether reaching it counts as done or failed. */
   result?: 'done' | 'failed'
+  /** Agent, review and custom steps; absent means one session. */
+  parallel?: WorkflowParallel
+  /** Custom steps: an agent session or a command does the work. */
+  runner?: 'agent' | 'command'
+  /** Custom steps: their own settings. */
+  fields?: WorkflowField[]
+  /** Custom steps: the outcomes the step can end in; an agent runner must pick one. */
+  outcomes?: string[]
 }
 
 export interface WorkflowNode {
@@ -55,14 +87,21 @@ export interface Workflow {
   updatedAt: number
 }
 
-/** The outcomes each kind of step can end in, in the order the editor offers them. */
-export const WORKFLOW_OUTCOMES: Record<WorkflowNodeKind, WorkflowOutcome[]> = {
+const BUILTIN_OUTCOMES: Record<Exclude<WorkflowNodeKind, 'custom'>, BuiltinWorkflowOutcome[]> = {
   start: ['next'],
   agent: ['next', 'ask'],
   review: ['approve', 'changes', 'ask'],
   check: ['pass', 'fail'],
   human: ['answered'],
   end: []
+}
+
+/** The outcomes a step can end in, in the order the editor offers them. */
+export function workflowOutcomes(node: Pick<WorkflowNode, 'kind' | 'config'>): WorkflowOutcome[] {
+  if (node.kind !== 'custom') return BUILTIN_OUTCOMES[node.kind]
+  const own = (node.config.outcomes ?? []).filter((o) => o.trim())
+  if (node.config.runner === 'command') return own.length > 0 ? own : ['pass', 'fail']
+  return [...(own.length > 0 ? own : ['next']), 'ask']
 }
 
 export const WORKFLOW_METHODS = {

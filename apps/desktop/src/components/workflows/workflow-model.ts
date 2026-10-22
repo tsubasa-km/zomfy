@@ -1,5 +1,6 @@
 import {
-  WORKFLOW_OUTCOMES,
+  workflowOutcomes,
+  type BuiltinWorkflowOutcome,
   type Workflow,
   type WorkflowNode,
   type WorkflowNodeKind,
@@ -14,10 +15,11 @@ export const NODE_KINDS: { kind: WorkflowNodeKind; label: string; hint: string }
   { kind: 'review', label: 'Review', hint: 'A session approves or sends back' },
   { kind: 'check', label: 'Check', hint: 'A command passes or fails (tests, lint)' },
   { kind: 'human', label: 'Ask the person', hint: 'Waits for your answer' },
+  { kind: 'custom', label: 'Custom', hint: 'Your own fields and outcomes' },
   { kind: 'end', label: 'End', hint: 'The run is done (or failed)' }
 ]
 
-export const OUTCOME_LABELS: Record<WorkflowOutcome, string> = {
+const BUILTIN_LABELS: Record<BuiltinWorkflowOutcome, string> = {
   next: 'Then',
   approve: 'Approved',
   changes: 'Changes requested',
@@ -27,14 +29,32 @@ export const OUTCOME_LABELS: Record<WorkflowOutcome, string> = {
   ask: 'Has a question'
 }
 
+function isBuiltin(outcome: WorkflowOutcome): outcome is BuiltinWorkflowOutcome {
+  return outcome in BUILTIN_LABELS
+}
+
+/** A built-in outcome's wording; a custom step's outcomes read as their own names. */
+export function outcomeLabel(outcome: WorkflowOutcome): string {
+  return isBuiltin(outcome) ? BUILTIN_LABELS[outcome] : outcome
+}
+
 /** Outcomes a step must have an edge for; "ask" is optional (questions go to the Lead without one). */
-const REQUIRED: Record<WorkflowNodeKind, WorkflowOutcome[]> = {
-  start: ['next'],
-  agent: ['next'],
-  review: ['approve', 'changes'],
-  check: ['pass', 'fail'],
-  human: ['answered'],
-  end: []
+function requiredOutcomes(node: WorkflowNode): WorkflowOutcome[] {
+  switch (node.kind) {
+    case 'start':
+    case 'agent':
+      return ['next']
+    case 'review':
+      return ['approve', 'changes']
+    case 'check':
+      return ['pass', 'fail']
+    case 'human':
+      return ['answered']
+    case 'custom':
+      return workflowOutcomes(node).filter((o) => o !== 'ask')
+    default:
+      return []
+  }
 }
 
 const DEFAULT_LABELS: Record<WorkflowNodeKind, string> = {
@@ -43,7 +63,8 @@ const DEFAULT_LABELS: Record<WorkflowNodeKind, string> = {
   review: 'Reviewer',
   check: 'Run tests',
   human: 'Ask the person',
-  end: 'Done'
+  end: 'Done',
+  custom: 'Custom step'
 }
 
 function defaultConfig(kind: WorkflowNodeKind): WorkflowNode['config'] {
@@ -58,6 +79,8 @@ function defaultConfig(kind: WorkflowNodeKind): WorkflowNode['config'] {
       return { question: '' }
     case 'end':
       return { result: 'done' }
+    case 'custom':
+      return { runner: 'agent', role: 'Agent', fields: [], outcomes: [] }
     default:
       return {}
   }
@@ -70,7 +93,7 @@ export function newNode(kind: WorkflowNodeKind, x: number, y: number): WorkflowN
 /** The outcome a new edge from `node` gets: the first of its kind's outcomes not yet drawn. */
 export function nextOutcome(node: WorkflowNode, workflow: Workflow): WorkflowOutcome {
   const used = new Set(workflow.edges.filter((e) => e.from === node.id).map((e) => e.outcome))
-  const options = WORKFLOW_OUTCOMES[node.kind]
+  const options = workflowOutcomes(node)
   return options.find((o) => !used.has(o)) ?? options[0] ?? 'next'
 }
 
@@ -138,25 +161,31 @@ export function validateWorkflow(workflow: Workflow): WorkflowIssue[] {
 
   for (const node of workflow.nodes) {
     const out = workflow.edges.filter((e) => e.from === node.id)
-    for (const outcome of REQUIRED[node.kind]) {
+    for (const outcome of requiredOutcomes(node)) {
       if (!out.some((e) => e.outcome === outcome)) {
-        issues.push({ level: 'error', nodeId: node.id, message: `"${node.label}" needs a "${OUTCOME_LABELS[outcome]}" edge.` })
+        issues.push({ level: 'error', nodeId: node.id, message: `"${node.label}" needs a "${outcomeLabel(outcome)}" edge.` })
       }
     }
     const seen = new Set<WorkflowOutcome>()
     for (const edge of out) {
-      if (!WORKFLOW_OUTCOMES[node.kind].includes(edge.outcome)) {
-        issues.push({ level: 'error', edgeId: edge.id, message: `"${node.label}" cannot end in "${OUTCOME_LABELS[edge.outcome]}".` })
+      if (!workflowOutcomes(node).includes(edge.outcome)) {
+        issues.push({ level: 'error', edgeId: edge.id, message: `"${node.label}" cannot end in "${outcomeLabel(edge.outcome)}".` })
       } else if (seen.has(edge.outcome)) {
-        issues.push({ level: 'error', edgeId: edge.id, message: `"${node.label}" has two "${OUTCOME_LABELS[edge.outcome]}" edges.` })
+        issues.push({ level: 'error', edgeId: edge.id, message: `"${node.label}" has two "${outcomeLabel(edge.outcome)}" edges.` })
       }
       seen.add(edge.outcome)
     }
-    if (node.kind === 'check' && !node.config.command?.trim()) {
+    if ((node.kind === 'check' || (node.kind === 'custom' && node.config.runner === 'command')) && !node.config.command?.trim()) {
       issues.push({ level: 'error', nodeId: node.id, message: `"${node.label}" has no command.` })
     }
     if ((node.kind === 'review' || node.kind === 'check') && !(node.config.maxRounds && node.config.maxRounds > 0)) {
       issues.push({ level: 'error', nodeId: node.id, message: `"${node.label}" needs a round limit.` })
+    }
+    const keys = (node.config.fields ?? []).map((f) => f.key.trim())
+    if (keys.some((k) => !/^[A-Za-z_][\w-]*$/.test(k))) {
+      issues.push({ level: 'error', nodeId: node.id, message: `"${node.label}" has a field without a valid key (letters, digits, _ or -).` })
+    } else if (new Set(keys).size !== keys.length) {
+      issues.push({ level: 'error', nodeId: node.id, message: `"${node.label}" has two fields with the same key.` })
     }
     if (node.kind === 'human' && !node.config.question?.trim()) {
       issues.push({ level: 'warning', nodeId: node.id, message: `"${node.label}" has no question; the step's reason is shown instead.` })
