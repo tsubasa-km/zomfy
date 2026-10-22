@@ -5,6 +5,7 @@ import { useAppOverlays } from '@/stores/app-overlay-store'
 import { Sidebar } from '@/components/Sidebar'
 import { WorkspaceTabs } from '@/components/WorkspaceTabs'
 import { FloatingWorkspace } from '@/components/FloatingWorkspace'
+import { PointerDragLayer } from '@/components/PointerDragLayer'
 import { RightSidebar } from '@/components/right-sidebar/RightSidebar'
 import { AgentDashboard } from '@/components/AgentDashboard'
 import { SettingsPage } from '@/components/settings/SettingsPage'
@@ -115,6 +116,7 @@ export default function App() {
       <QuickOpen />
       <CommandPalette />
       <OnboardingGate />
+      <PointerDragLayer />
     </TooltipProvider>
   )
 }

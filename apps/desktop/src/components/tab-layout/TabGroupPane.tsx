@@ -7,7 +7,7 @@ import { FileEditorView } from '@/components/FileEditorView'
 import { cn } from '@/lib/utils'
 import { BrowserTabView } from './BrowserTabView'
 import { TabStrip } from './TabStrip'
-import { endTabDrag, resolveDropZone, useDraggedTab, type DropZone } from './tab-drag'
+import { resolveTabDropTarget, setInsertionMark, tabDrag, type DropZone } from './tab-drag'
 import { focusGroup, moveTabTo, splitTabTo } from './tab-group-commands'
 import './pane-split-commands'
 import type { WorkspaceTab } from './workspace-tab-model'
@@ -59,22 +59,35 @@ export function TabGroupPane({
 }) {
   const active = tabs.find((t) => t.id === activeId) ?? null
   const activeChatId = active?.kind === 'chat' ? active.id : undefined
-  const drag = useDraggedTab()
   const [zone, setZone] = useState<DropZone | null>(null)
 
   useEffect(() => {
     if (activeChatId) void ensureSessionLoaded(activeChatId)
   }, [activeChatId])
-  useEffect(() => {
-    if (!drag) setZone(null)
-  }, [drag])
 
-  const draggingHere = drag !== null && drag.workspaceId === workspaceId
-  // Dropping a group's only tab on its own pane changes nothing.
-  const pointlessDrop = drag?.groupId === groupId && tabs.length <= 1
+  // Tabs move only within their own workspace, as before; the floating panel is another workspace.
+  const dropRef = tabDrag.useDropTarget({
+    accepts: (drag) => drag.workspaceId === workspaceId,
+    over: (drag, { point, element }) => {
+      const target = resolveTabDropTarget(drag, groupId, element, point)
+      setInsertionMark(target.kind === 'insert' ? target.mark : null)
+      setZone(target.kind === 'split' ? target.side : target.kind === 'move' ? 'center' : null)
+    },
+    leave: () => {
+      setInsertionMark(null)
+      setZone(null)
+    },
+    drop: (drag, { point, element }) => {
+      const target = resolveTabDropTarget(drag, groupId, element, point)
+      if (target.kind === 'insert') moveTabTo(workspaceId, drag.tabId, target.groupId, target.index)
+      else if (target.kind === 'split') splitTabTo(workspaceId, drag.tabId, target.groupId, target.side)
+      else if (target.kind === 'move') moveTabTo(workspaceId, drag.tabId, target.groupId, tabs.length)
+    }
+  })
 
   return (
     <div
+      ref={dropRef}
       data-tab-group-id={groupId}
       data-focused={isFocused ? 'true' : 'false'}
       className={cn('relative flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden', hasSplit && !isFocused && 'opacity-95')}
@@ -91,38 +104,16 @@ export function TabGroupPane({
       />
       <div data-tab-group-body-id={groupId} className="relative flex min-h-0 min-w-0 flex-1 flex-col">
         {active ? <TabBody tab={active} /> : <div className="m-auto text-sm text-muted-foreground">{emptyHint}</div>}
-        {draggingHere && !pointlessDrop && (
-          // Covers terminals, editors and frames, which would otherwise swallow the drag events.
-          <div
-            data-tab-drop-target={groupId}
-            className="absolute inset-0 z-40"
-            onDragOver={(e) => {
-              e.preventDefault()
-              setZone(resolveDropZone(e.currentTarget.getBoundingClientRect(), { x: e.clientX, y: e.clientY }))
-            }}
-            onDragLeave={() => setZone(null)}
-            onDrop={(e) => {
-              e.preventDefault()
-              const target = resolveDropZone(e.currentTarget.getBoundingClientRect(), { x: e.clientX, y: e.clientY })
-              if (target === 'center') {
-                if (drag.groupId !== groupId) moveTabTo(workspaceId, drag.tabId, groupId, tabs.length)
-              } else splitTabTo(workspaceId, drag.tabId, groupId, target)
-              setZone(null)
-              endTabDrag()
-            }}
-          >
-            {zone && (
-              <div aria-hidden className="tab-drop-overlay" style={OVERLAY_RECT[zone]}>
-                {zone !== 'center' && (
-                  <span className="tab-drop-overlay__label pointer-events-none absolute bottom-2 left-2 rounded-sm px-1.5 py-0.5 font-medium">
-                    New split
-                  </span>
-                )}
-              </div>
-            )}
-          </div>
-        )}
       </div>
+      {zone && (
+        <div aria-hidden data-tab-drop-zone={zone} className="tab-drop-overlay" style={OVERLAY_RECT[zone]}>
+          {zone !== 'center' && (
+            <span className="tab-drop-overlay__label pointer-events-none absolute bottom-2 left-2 rounded-sm px-1.5 py-0.5 font-medium">
+              New split
+            </span>
+          )}
+        </div>
+      )}
     </div>
   )
 }

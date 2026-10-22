@@ -9,6 +9,8 @@
 //   bun scripts/cdp.ts key "Ctrl+S"              real key chord (Ctrl/Shift/Alt/Meta + key)
 //   bun scripts/cdp.ts drag x1 y1 x2 y2 [WxH]    real mouse drag (pointer capture works), optional viewport
 //   bun scripts/cdp.ts dblclick x y              real double click
+//   bun scripts/cdp.ts dragshot x1 y1 x2 y2 out.png [drop|escape]   drag, capture mid-drag, then
+//                                                drop (default) or press Escape and release
 import { writeFile } from "node:fs/promises";
 
 const PORT = Number(process.env.HARNESS_CDP_PORT ?? 9223);
@@ -141,6 +143,27 @@ try {
         await cdp.send("Input.dispatchMouseEvent", { type: "mouseMoved", x, y, button: "left", buttons: 1 });
       }
       await cdp.send("Input.dispatchMouseEvent", { type: "mouseReleased", x: x2, y: y2, button: "left", buttons: 0, clickCount: 1 });
+      break;
+    }
+    case "dragshot": {
+      const [x1 = 0, y1 = 0, x2 = 0, y2 = 0] = args.slice(0, 4).map(Number);
+      const out = args[4] ?? "dragshot.png";
+      await cdp.send("Input.dispatchMouseEvent", { type: "mousePressed", x: x1, y: y1, button: "left", buttons: 1, clickCount: 1 });
+      for (let step = 1; step <= 8; step++) {
+        const x = x1 + ((x2 - x1) * step) / 8;
+        const y = y1 + ((y2 - y1) * step) / 8;
+        await cdp.send("Input.dispatchMouseEvent", { type: "mouseMoved", x, y, button: "left", buttons: 1 });
+      }
+      await Bun.sleep(150);
+      const { data } = await cdp.send("Page.captureScreenshot", { format: "png" });
+      await writeFile(out, Buffer.from(data, "base64"));
+      if (args[5] === "escape") {
+        for (const type of ["keyDown", "keyUp"]) {
+          await cdp.send("Input.dispatchKeyEvent", { type, key: "Escape", code: "Escape", windowsVirtualKeyCode: 27 });
+        }
+      }
+      await cdp.send("Input.dispatchMouseEvent", { type: "mouseReleased", x: x2, y: y2, button: "left", buttons: 0, clickCount: 1 });
+      console.log(out);
       break;
     }
     case "dblclick": {

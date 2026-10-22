@@ -11,8 +11,7 @@ import { cn } from '@/lib/utils'
 import { NewTabMenu } from './NewTabMenu'
 import { QuickCommandsButton } from '@/components/terminal/QuickCommandsButton'
 import { TabItem } from './TabItem'
-import { draggedTab, endTabDrag } from './tab-drag'
-import { closeGroup, moveTabTo } from './tab-group-commands'
+import { closeGroup } from './tab-group-commands'
 import type { WorkspaceTab } from './workspace-tab-model'
 
 // Orca's tab-bar-surface.tsx + tab-strip-overflow-navigation.ts: tabs shrink to their floor, then
@@ -140,17 +139,6 @@ export function TabStrip({
     <div
       data-tab-group-strip-id={groupId}
       className="flex h-9 shrink-0 items-stretch border-b border-border bg-card"
-      onDragOver={(e) => {
-        const drag = draggedTab()
-        if (drag?.workspaceId === workspaceId) e.preventDefault()
-      }}
-      onDrop={(e) => {
-        const drag = draggedTab()
-        if (drag?.workspaceId !== workspaceId) return
-        e.preventDefault()
-        moveTabTo(workspaceId, drag.tabId, groupId, tabs.length)
-        endTabDrag()
-      }}
     >
       {overflow.hasOverflow && (
         <ScrollButton direction="start" disabled={!overflow.canScrollStart} onClick={() => scrollBy('start')} />
@@ -160,14 +148,13 @@ export function TabStrip({
         role="tablist"
         className={cn('terminal-tab-strip flex h-full min-w-0 flex-[0_1_auto] items-stretch overflow-x-auto overflow-y-hidden', fade)}
       >
-        {tabs.map((tab, index) => (
+        {tabs.map((tab) => (
           <TabItem
             key={tab.id}
             workspaceId={workspaceId}
             groupId={groupId}
             tab={tab}
             groupTabs={tabs}
-            index={index}
             active={tab.id === activeId}
             hasSplit={hasSplit}
           />
