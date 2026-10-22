@@ -1,8 +1,10 @@
 // Orca's floating-terminal-panel-bounds.ts: the panel's default, clamped and maximized rects, and the
 // edge-anchored record persisted between launches so a window resize keeps it near its corner.
 
-export const DEFAULT_PANEL_WIDTH = 920
-export const DEFAULT_PANEL_HEIGHT = 560
+// Taller and a little narrower than Orca's 920x560: a chat column with room for its transcript.
+// The default rect still shrinks to fit smaller windows.
+export const DEFAULT_PANEL_WIDTH = 840
+export const DEFAULT_PANEL_HEIGHT = 960
 export const MIN_PANEL_WIDTH = 420
 export const MIN_PANEL_HEIGHT = 280
 const MAXIMIZED_MARGIN = 12
