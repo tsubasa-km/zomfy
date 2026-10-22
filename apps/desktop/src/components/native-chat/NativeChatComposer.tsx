@@ -24,6 +24,7 @@ import {
 import { NativeChatPermissionModePicker } from './NativeChatPermissionModePicker'
 import { NativeChatSessionOptionPicker } from './NativeChatSessionOptionPicker'
 import { NativeChatContextUsageRing } from './NativeChatContextUsageRing'
+import { NativeChatDictationButton } from './NativeChatDictationButton'
 import { NativeChatAgentModePicker, NativeChatAgentModelPicker, agentOptionSlots } from './NativeChatAgentOptionPickers'
 import { isExternalAgentSession } from '@/lib/chat-agents'
 
@@ -292,6 +293,13 @@ export function NativeChatComposer({ session, textareaRef }: { session: Session;
                     />
                   ) : null}
                   {usage ? <NativeChatContextUsageRing usage={usage} /> : null}
+                  <NativeChatDictationButton
+                    onTranscript={(text) => {
+                      // Appends to the draft as it is when the transcript lands, not when recording began.
+                      const current = textareaRef.current?.value ?? draft
+                      setDraft(current && !/\s$/.test(current) ? `${current} ${text}` : `${current}${text}`)
+                    }}
+                  />
                   <Button
                     type="button"
                     data-native-chat-critical-action={working ? 'stop' : undefined}

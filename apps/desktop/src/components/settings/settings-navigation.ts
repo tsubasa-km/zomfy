@@ -1,4 +1,4 @@
-import { Bell, BookOpen, Bot, Blocks, Keyboard, Palette, Server, SlidersHorizontal, SquareTerminal, TextCursorInput, type LucideIcon } from 'lucide-react'
+import { Bell, BookOpen, Bot, Blocks, Keyboard, Mic, Palette, Server, SlidersHorizontal, SquareTerminal, TextCursorInput, type LucideIcon } from 'lucide-react'
 
 // Orca's settings sidebar groups and sections (hooks/settings-navigation-*-sections.ts), trimmed
 // to what the harness has. Search entries mirror each pane's rows so search finds a setting.
@@ -128,6 +128,20 @@ export const SETTINGS_SECTIONS: readonly SettingsNavSection[] = [
       { title: 'Agent finished', keywords: ['done', 'complete', 'turn'] },
       { title: 'Agent needs you', keywords: ['permission', 'approval', 'attention'] },
       { title: 'Suppress while focused', keywords: ['focus', 'quiet'] }
+    ]
+  },
+  {
+    id: 'voice',
+    title: 'Voice',
+    description: 'Dictation in the chat composer.',
+    icon: Mic,
+    group: 'interface',
+    entries: [
+      { title: 'Dictation', keywords: ['voice', 'speech', 'microphone', 'dictate', 'whisper'] },
+      { title: 'Transcription endpoint', keywords: ['voice', 'whisper', 'url', 'openai', 'endpoint'] },
+      { title: 'Model', keywords: ['voice', 'whisper', 'model'] },
+      { title: 'API key', keywords: ['voice', 'key', 'token', 'openai'] },
+      { title: 'Language', keywords: ['voice', 'language', 'locale'] }
     ]
   },
   {

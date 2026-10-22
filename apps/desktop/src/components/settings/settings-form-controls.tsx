@@ -209,7 +209,8 @@ export function TextField({
   value,
   placeholder,
   onChange,
-  className
+  className,
+  type
 }: {
   label: string
   description?: string
@@ -218,6 +219,8 @@ export function TextField({
   placeholder?: string
   onChange: (value: string) => void
   className?: string
+  /** 'password' masks secrets such as API keys. */
+  type?: 'text' | 'password'
 }) {
   const [draft, setDraft] = useState(value)
   const [previous, setPrevious] = useState(value)
@@ -236,6 +239,7 @@ export function TextField({
       control={
         <Input
           aria-label={label}
+          type={type}
           value={draft}
           placeholder={placeholder}
           onChange={(e) => setDraft(e.target.value)}

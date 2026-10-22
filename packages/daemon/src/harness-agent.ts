@@ -28,6 +28,7 @@ import type { WorkspaceManager } from "./workspace-manager.ts";
 import { registerTodoHandlers } from "./handlers/todo-handlers.ts";
 import { registerSkillHandlers } from "./handlers/skill-handlers.ts";
 import { registerPluginHandlers } from "./handlers/plugin-handlers.ts";
+import { registerVoiceHandlers } from "./handlers/voice-handlers.ts";
 import { managerMcp } from "./manager-mcp-server.ts";
 import { ManagerRouting, autoAllowedManagerTools } from "./manager-routing.ts";
 import { log } from "./log.ts";
@@ -237,6 +238,7 @@ export function createHarnessAgent(
     registerTodoHandlers,
     registerSkillHandlers,
     registerPluginHandlers,
+    registerVoiceHandlers,
   ]) {
     register(ctx);
   }

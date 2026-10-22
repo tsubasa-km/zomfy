@@ -1,8 +1,11 @@
+use tauri::Manager;
+
 mod daemon_process;
 mod local_daemon;
 mod open_in;
 mod ssh_config;
 mod ssh_daemon;
+mod tray;
 mod wsl_daemon;
 
 /// Connection info for this computer's daemon, starting (or upgrading) it when needed. Blocking
@@ -56,6 +59,17 @@ fn open_workspace_in(target: String, host: String, path: String) -> Result<(), S
     open_in::open_in(&target, &host, &path)
 }
 
+/// Tray attention dot (window hidden and an agent finished or needs the user) and waiting count.
+#[tauri::command]
+fn set_tray_attention(app: tauri::AppHandle, attention: bool, waiting: u32) {
+    tray::set_attention(&app, attention, waiting);
+}
+
+#[tauri::command]
+fn set_minimize_to_tray(enabled: bool) {
+    tray::set_minimize_to_tray(enabled);
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
@@ -68,8 +82,23 @@ pub fn run() {
             ssh_config_hosts,
             start_ssh_daemon,
             disconnect_ssh_host,
-            open_workspace_in
+            open_workspace_in,
+            set_tray_attention,
+            set_minimize_to_tray
         ])
+        .setup(|app| {
+            tray::create(app.handle())?;
+            Ok(())
+        })
+        .on_window_event(|window, event| match event {
+            tauri::WindowEvent::CloseRequested { api, .. } => {
+                if tray::hide_on_close(window) {
+                    api.prevent_close();
+                }
+            }
+            tauri::WindowEvent::Focused(true) => tray::clear_attention(window.app_handle()),
+            _ => {}
+        })
         .build(tauri::generate_context!())
         .expect("error while building tauri application")
         .run(|_app, event| {

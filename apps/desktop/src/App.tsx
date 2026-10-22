@@ -24,6 +24,7 @@ import { installInbox } from '@/components/inbox/inbox-registrations'
 import { installKeybindingDispatcher } from '@/keybindings/keybinding-registry'
 import { TooltipProvider } from '@/components/ui/tooltip'
 import { installTheme } from '@/lib/theme'
+import { installTraySync } from '@/lib/tray-sync'
 import { installUiZoom } from '@/lib/ui-zoom'
 import '@/assets/main.css'
 
@@ -34,6 +35,7 @@ installAppCommands()
 installInbox()
 installSkillsCommands()
 installOnboardingCommands()
+installTraySync()
 
 export default function App() {
   const activeWorkspaceId = useStore((s) => s.activeWorkspaceId)
