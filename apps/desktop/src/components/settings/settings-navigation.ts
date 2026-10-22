@@ -114,7 +114,9 @@ export const SETTINGS_SECTIONS: readonly SettingsNavSection[] = [
       { title: 'Editor Font', keywords: ['editor', 'font', 'monaco'] },
       { title: 'Editor Font Size', keywords: ['editor', 'font size'] },
       { title: 'Word Wrap', keywords: ['editor', 'wrap'] },
-      { title: 'Minimap', keywords: ['editor', 'minimap', 'overview'] }
+      { title: 'Minimap', keywords: ['editor', 'minimap', 'overview'] },
+      { title: 'Send message with', keywords: ['chat', 'composer', 'enter', 'ctrl', 'cmd', 'send', 'newline'] },
+      { title: 'Experimental: chat memos', keywords: ['chat', 'memo', 'notes', 'markdown', 'experimental'] }
     ]
   },
   {

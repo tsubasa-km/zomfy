@@ -22,6 +22,11 @@
   font-family: inherit;
 }
 
+/* Chrome never takes a text selection; message text opts back in where it is rendered. */
+.native-chat-appearance :is(button, [role='button'], [role='option'], [role='tab'], label) {
+  user-select: none;
+}
+
 .native-chat-appearance :is(.font-mono, code, pre) {
   font-family: var(--chat-code-font-family, var(--font-mono));
 }

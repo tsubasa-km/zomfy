@@ -7,6 +7,8 @@ export type ThemePreference = 'system' | 'dark' | 'light'
 /** Orca's terminal shortcut policy: app shortcuts win inside terminals, or the terminal does. */
 export type TerminalShortcutPolicy = 'orca-first' | 'terminal-first'
 export type TerminalCursorStyle = 'block' | 'bar' | 'underline'
+/** Which Enter sends a chat message; the other one inserts a newline. */
+export type ChatSendKey = 'mod-enter' | 'enter'
 
 export interface AppSettings {
   theme: ThemePreference
@@ -51,6 +53,10 @@ export interface AppSettings {
   dictationApiKey: string
   /** Empty lets the service detect the language. */
   dictationLanguage: string
+  /** Cmd/Ctrl+Enter by default, so Enter and Shift+Enter both write newlines in the markdown composer. */
+  chatSendKey: ChatSendKey
+  /** Experimental: a markdown memo per chat, kept by the session's host. */
+  chatMemosEnabled: boolean
 }
 
 export const DEFAULT_SETTINGS: AppSettings = {
@@ -83,7 +89,9 @@ export const DEFAULT_SETTINGS: AppSettings = {
   dictationEndpoint: '',
   dictationModel: 'whisper-1',
   dictationApiKey: '',
-  dictationLanguage: ''
+  dictationLanguage: '',
+  chatSendKey: 'mod-enter',
+  chatMemosEnabled: true
 }
 
 export type SettingKey = keyof AppSettings

@@ -74,7 +74,7 @@ export function NativeChatSessionOptionPicker({
         align="end"
         side="top"
         collisionPadding={8}
-        className="flex w-96 max-w-(--radix-popover-content-available-width) flex-col p-0"
+        className="flex w-96 max-w-(--radix-popover-content-available-width) flex-col p-0 select-none"
       >
         <Command surface="inline" density="menu" label="Search models…" filter={modelChoiceFilter} defaultValue={currentValue}>
           <CommandInput ref={search} placeholder="Search models…" />

@@ -59,7 +59,7 @@ function PickerListbox({ id, children }: { id: string; children: React.ReactNode
       id={id}
       role="listbox"
       data-native-chat-autocomplete
-      className="scrollbar-sleek absolute right-0 bottom-full left-0 z-20 mb-1 max-h-72 overflow-y-auto rounded-lg border border-border bg-popover p-1 text-popover-foreground shadow-[0_10px_24px_rgba(0,0,0,0.18)]"
+      className="scrollbar-sleek absolute right-0 bottom-full left-0 z-20 mb-1 max-h-72 overflow-y-auto rounded-lg border border-border bg-popover p-1 text-popover-foreground shadow-[0_10px_24px_rgba(0,0,0,0.18)] select-none"
     >
       {children}
     </div>
