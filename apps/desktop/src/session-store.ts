@@ -324,6 +324,11 @@ export function selectWorkspace(workspaceId: string): void {
   set({ ...state, activeWorkspaceId: workspaceId })
 }
 
+/** No workspace selected: the main view shows the quick start (components/QuickStart). */
+export function showQuickStart(): void {
+  set({ ...state, activeWorkspaceId: null, dashboardOpen: false })
+}
+
 // ── Sessions ─────────────────────────────────────────────────────────────
 
 /** Applies one host's session list, keeping transcripts this window already has. */
@@ -332,9 +337,19 @@ export function mergeSessions(hostId: HostId, list: SessionInfo[]): void {
   const sessions: Session[] = state.sessions.filter((s) => s.hostId !== hostId)
   const unread = { ...state.unread }
   const transitions: SessionTransition[] = []
+  let activeWorkspaceId = state.activeWorkspaceId
+  const activeSessionByWorkspace = { ...state.activeSessionByWorkspace }
   for (const info of list) {
     if (info.workspaceId === null) continue
     const old = previous.get(info.id)
+    // A chat that moved to another workspace (its agent's move_chat) takes the view along when it was in front.
+    if (old && old.workspaceId !== info.workspaceId) {
+      if (activeSessionByWorkspace[old.workspaceId] === info.id) {
+        delete activeSessionByWorkspace[old.workspaceId]
+        activeSessionByWorkspace[info.workspaceId] = info.id
+        if (activeWorkspaceId === old.workspaceId) activeWorkspaceId = info.workspaceId
+      }
+    }
     let items = old?.items ?? []
     // The turn just ended: draw Orca's settled status line under it.
     if (old?.loaded && old.turnStartedAt !== null && info.turnStartedAt === null) {
@@ -351,7 +366,13 @@ export function mergeSessions(hostId: HostId, list: SessionInfo[]): void {
       }
     }
   }
-  set({ ...state, unread, sessions: sessions.sort((a, b) => a.createdAt - b.createdAt) })
+  set({
+    ...state,
+    unread,
+    activeWorkspaceId,
+    activeSessionByWorkspace,
+    sessions: sessions.sort((a, b) => a.createdAt - b.createdAt)
+  })
   for (const t of transitions) for (const listener of transitionListeners) listener(t)
 }
 

@@ -121,7 +121,7 @@ function appendUserContent(
   })
 }
 
-const RESUME_KINDS: readonly TurnResumeKind[] = ['continue', 'retry', 'resume', 'auto']
+const RESUME_KINDS: readonly TurnResumeKind[] = ['continue', 'retry', 'resume', 'auto', 'moved']
 
 function resumeKind(meta: Record<string, unknown> | null | undefined): TurnResumeKind | null {
   const value = meta?.[TURN_RECOVERY_META.resumed]

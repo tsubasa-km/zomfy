@@ -1,7 +1,7 @@
 import { memo, type ReactNode } from 'react'
-import { BookOpen, CalendarClock, Github, Gitlab, LayoutDashboard, List, Search, type LucideIcon } from 'lucide-react'
+import { BookOpen, CalendarClock, Github, Gitlab, LayoutDashboard, List, Search, SquarePen, type LucideIcon } from 'lucide-react'
 import type { HostingProviderId } from '@acp-harness/protocol'
-import { allProjects, getState, setDashboardOpen, useStore } from '@/session-store'
+import { allProjects, getState, setDashboardOpen, showQuickStart, useStore } from '@/session-store'
 import { setBoardOpen, useSidebarStore } from '@/stores/sidebar-store'
 import { setAutomationsPageOpen, useAutomationState } from '@/stores/automation-store'
 import { setCommandPalette, setSkillsPageOpen, useAppOverlays } from '@/stores/app-overlay-store'
@@ -204,9 +204,27 @@ export const SidebarNav = memo(function SidebarNav() {
   const skillsOpen = useAppOverlays((s) => s.skills)
   const automationsOpen = useAutomationState((s) => s.pageOpen)
   const dashboardOpen = useStore((s) => s.dashboardOpen)
+  const showNewChat = useSetting('showNewChatButton')
+  const quickStartShown = useStore((s) => s.activeWorkspaceId === null && !s.dashboardOpen)
+  const boardOpen = useSidebarStore((s) => s.boardOpen)
+  const tasksOpen = useTasks((s) => s.open)
   return (
     <div className="flex flex-col gap-0.5 px-2 pt-2 pb-1" data-sidebar-navigation>
       <SearchRow />
+      {showNewChat ? (
+        <NavRow
+          icon={SquarePen}
+          label="New chat"
+          data="new-chat"
+          active={quickStartShown && !boardOpen && !tasksOpen}
+          onClick={() => {
+            setBoardOpen(false)
+            setTasks({ open: false })
+            showQuickStart()
+          }}
+          hideSetting="showNewChatButton"
+        />
+      ) : null}
       <SetupChecklistSidebarEntry />
       <TasksRow />
       {showSkills ? (

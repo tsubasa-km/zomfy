@@ -5,7 +5,6 @@ import { LOCAL_HOST, useStore, type HostEntry, type HostedProject } from '@/sess
 import { useSidebarStore } from '@/stores/sidebar-store'
 import { setInboxOpen } from '@/stores/inbox-store'
 import { DeleteWorkspaceDialog, UpdateWorkspaceDialog } from '@/components/workspace-dialogs'
-import { OrcaImportDialog } from '@/components/OrcaImportDialog'
 import { SidebarHeader } from '@/components/sidebar/SidebarHeader'
 import { SidebarSearch } from '@/components/sidebar/SidebarSearch'
 import { SessionRow } from '@/components/sidebar/SessionRow'
@@ -16,7 +15,7 @@ import { NewWorkspaceDialog } from '@/components/sidebar/NewWorkspaceDialog'
 import { SidebarNav } from '@/components/sidebar/SidebarNav'
 import { openNewWorkspace, useNewWorkspaceRequest } from '@/stores/tasks-store'
 import { ProjectSettingsDialog } from '@/components/sidebar/ProjectSettingsDialog'
-import { AddRepoDialog, type AddRepoMode } from '@/components/sidebar/AddRepoDialog'
+import { ProjectDialogs } from '@/components/sidebar/ProjectDialogs'
 import { ProjectGroupNameDialog, type GroupNameRequest } from '@/components/sidebar/ProjectGroupNameDialog'
 import { CleanupMergedDialog } from '@/components/sidebar/CleanupMergedDialog'
 import { useWorkspaceSummaries } from '@/components/sidebar/use-workspace-summaries'
@@ -40,9 +39,7 @@ export function Sidebar() {
   const newWorkspace = useNewWorkspaceRequest()
   const [deleting, setDeleting] = useState<Workspace | null>(null)
   const [updating, setUpdating] = useState<Workspace | null>(null)
-  const [importing, setImporting] = useState(false)
   const [settingsFor, setSettingsFor] = useState<HostedProject | null>(null)
-  const [addRepo, setAddRepo] = useState<AddRepoMode | null>(null)
   const [groupName, setGroupName] = useState<GroupNameRequest | null>(null)
   const [cleanUp, setCleanUp] = useState<HostedProject | null>(null)
   useWorkspaceSummaries()
@@ -88,11 +85,7 @@ export function Sidebar() {
   return (
     <aside className="relative flex min-h-0 w-[280px] flex-shrink-0 flex-col overflow-hidden border-r border-worktree-sidebar-border bg-worktree-sidebar text-worktree-sidebar-foreground">
       <SidebarNav />
-      <SidebarHeader
-        onImportOrca={() => setImporting(true)}
-        onAddRepo={setAddRepo}
-        onNewGroup={(hostId) => setGroupName({ mode: 'create', hostId })}
-      />
+      <SidebarHeader onNewGroup={(hostId) => setGroupName({ mode: 'create', hostId })} />
       <SidebarSearch matchCount={counts.matched} totalCount={counts.total} />
 
       <div
@@ -140,9 +133,8 @@ export function Sidebar() {
       <NewWorkspaceDialog request={newWorkspace} onClose={() => openNewWorkspace(null)} />
       <DeleteWorkspaceDialog workspace={deleting} onClose={() => setDeleting(null)} />
       <UpdateWorkspaceDialog workspace={updating} onClose={() => setUpdating(null)} />
-      <OrcaImportDialog open={importing} onClose={() => setImporting(false)} />
       <ProjectSettingsDialog project={settingsFor} onClose={() => setSettingsFor(null)} />
-      <AddRepoDialog mode={addRepo} onClose={() => setAddRepo(null)} />
+      <ProjectDialogs />
       <ProjectGroupNameDialog request={groupName} onClose={() => setGroupName(null)} />
       <CleanupMergedDialog project={cleanUp} onClose={() => setCleanUp(null)} />
     </aside>

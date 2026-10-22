@@ -1,14 +1,16 @@
 import { HARNESS_METHODS, type WorkspaceSummary } from "@acp-harness/protocol";
 import { readOrcaProjects } from "../orca-import.ts";
 import { effectiveHook, projectHookInfo, runArchiveHook, writeHookRunner } from "../project-hooks.ts";
-import { cloneRepository, createRepository } from "../repo-bootstrap.ts";
+import { cloneRepository, createRepository, expandHome, projectCreationDefaults } from "../repo-bootstrap.ts";
 import { inspectWorkspace, workspaceSummary } from "../workspace-git-summary.ts";
 import { log } from "../log.ts";
 import type { HandlerContext } from "./handler-context.ts";
 
 export function registerWorkspaceHandlers({ handle, workspaces, sessions, terminals }: HandlerContext): void {
   handle(HARNESS_METHODS.stateGet, () => workspaces.snapshot());
-  handle(HARNESS_METHODS.projectAdd, (p) => workspaces.addProject(p.path));
+  handle(HARNESS_METHODS.projectAdd, (p) =>
+    workspaces.addProject(expandHome(p.path), { requireGit: p.requireGit === true }),
+  );
   handle(HARNESS_METHODS.projectRemove, async (p) => {
     const state = await workspaces.snapshot();
     await workspaces.removeProject(p.projectId);
@@ -40,9 +42,13 @@ export function registerWorkspaceHandlers({ handle, workspaces, sessions, termin
       return workspace;
     }
   });
+  handle(HARNESS_METHODS.workspaceCreateScratch, () => workspaces.createScratchWorkspace());
   handle(HARNESS_METHODS.workspaceRemove, async (p) => {
-    const { workspace, project } = workspaces.requireWorkspace(p.workspaceId);
-    if (project.kind === "git" && !workspace.isPrimary) await runArchiveHook(project, workspace.path);
+    const scratch = (await workspaces.snapshot()).workspaces.some((w) => w.id === p.workspaceId && w.scratch);
+    if (!scratch) {
+      const { workspace, project } = workspaces.requireWorkspace(p.workspaceId);
+      if (project.kind === "git" && !workspace.isPrimary) await runArchiveHook(project, workspace.path);
+    }
     await workspaces.removeWorkspace(p);
     await sessions.removeWorkspace(p.workspaceId);
     terminals.closeWorkspace(p.workspaceId);
@@ -68,6 +74,7 @@ export function registerWorkspaceHandlers({ handle, workspaces, sessions, termin
   handle(HARNESS_METHODS.projectCreateRepo, async (p) =>
     workspaces.addProject(await createRepository(p.parentPath, p.name)),
   );
+  handle(HARNESS_METHODS.projectCreationDefaults, () => projectCreationDefaults());
   handle(HARNESS_METHODS.projectGroupCreate, (p) => workspaces.createProjectGroup(p.name, p.projectIds));
   handle(HARNESS_METHODS.projectGroupUpdate, (p) => workspaces.updateProjectGroup(p.groupId, p.patch));
   handle(HARNESS_METHODS.projectGroupRemove, async (p) => {

@@ -2,7 +2,16 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import { SshHostPicker } from '@/components/ssh/SshHostPicker'
 
 /** The sidebar's "Connect SSH host…"; the host then appears as its own section, connecting. */
-export function SshConnectDialog({ open, onClose }: { open: boolean; onClose: () => void }) {
+export function SshConnectDialog({
+  open,
+  onClose,
+  onConnecting
+}: {
+  open: boolean
+  onClose: () => void
+  /** The host whose connection just started (Add Project selects it). */
+  onConnecting?: (hostId: string) => void
+}) {
   return (
     <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
       <DialogContent className="sm:max-w-md" data-ssh-connect-dialog>
@@ -10,7 +19,12 @@ export function SshConnectDialog({ open, onClose }: { open: boolean; onClose: ()
           <DialogTitle>Connect SSH Host</DialogTitle>
           <DialogDescription>Runs a daemon on the host and reaches it through an SSH tunnel.</DialogDescription>
         </DialogHeader>
-        <SshHostPicker onConnect={onClose} />
+        <SshHostPicker
+          onConnect={(hostId) => {
+            onConnecting?.(hostId)
+            onClose()
+          }}
+        />
       </DialogContent>
     </Dialog>
   )

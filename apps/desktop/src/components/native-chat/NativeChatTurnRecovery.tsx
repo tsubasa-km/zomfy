@@ -45,7 +45,8 @@ const RESUMED_LABELS: Record<TurnResumeKind, string> = {
   continue: 'Continued',
   retry: 'Retried',
   resume: 'Resumed after the usage limit',
-  auto: 'Resumed automatically after the usage limit reset'
+  auto: 'Resumed automatically after the usage limit reset',
+  moved: 'Continued in the new workspace'
 }
 
 /** A recovery prompt is not something the user typed, so it reads as a divider, not a bubble. */

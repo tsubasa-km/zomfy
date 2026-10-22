@@ -9,7 +9,7 @@ import {
   type ProjectHookInfo
 } from '@acp-harness/protocol'
 import { createSession, harnessRequest, sendPrompt } from '@/daemon-connection'
-import { LOCAL_HOST, selectTerminal, selectWorkspace, useStore } from '@/session-store'
+import { LOCAL_HOST, selectTerminal, selectWorkspace, useStore, type HostedProject } from '@/session-store'
 import { TuiAgentIcon } from '@/components/terminal/TuiAgentIcon'
 import { useChatAgents } from '@/lib/chat-agents'
 import { setTasks, type NewWorkspaceRequest } from '@/stores/tasks-store'
@@ -27,9 +27,14 @@ import { Switch } from '@/components/ui/switch'
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group'
 import { cn } from '@/lib/utils'
 import { defaultChatAgent } from '@/lib/default-chat-agent'
+import { openAddProjectDialog } from '@/lib/project-dialogs'
+import { suggestWorkspaceName } from '@/lib/workspace-name-suggestion'
+import { IS_MAC } from '@/keybindings/keybinding-chords'
+import { ProjectCombobox } from '@/components/sidebar/ProjectCombobox'
 
 // Orca's NewWorkspaceComposerModal: name, agent and first prompt up front; branch name override,
 // base branch or an existing branch, parent workspace, note and the setup script under Advanced.
+// Opened with Mod+N it starts on the active workspace's project; the Project picker switches it.
 
 const NO_PARENT = '__none__'
 const fieldLabel = 'text-xs font-medium text-muted-foreground'
@@ -42,7 +47,9 @@ type AgentChoice = ChatAgentId | 'none'
 export type { NewWorkspaceRequest }
 
 export function NewWorkspaceDialog({ request, onClose }: { request: NewWorkspaceRequest | null; onClose: () => void }) {
-  const project = request?.project ?? null
+  const [project, setProject] = useState<HostedProject | null>(null)
+  /** What a blank name becomes (Orca's generated creature names). */
+  const [suggestedName, setSuggestedName] = useState('')
   const isGit = project?.kind === 'git'
   const hosts = useStore((s) => s.hosts)
   const [name, setName] = useState('')
@@ -65,6 +72,8 @@ export function NewWorkspaceDialog({ request, onClose }: { request: NewWorkspace
   const [workItem, setWorkItem] = useState<HostedWorkItem | null>(null)
 
   useEffect(() => {
+    setProject(request?.project ?? null)
+    setSuggestedName(request ? suggestWorkspaceName() : '')
     setName('')
     setPrompt('')
     setAgent(defaultChatAgent())
@@ -74,20 +83,41 @@ export function NewWorkspaceDialog({ request, onClose }: { request: NewWorkspace
     setNote('')
     setRunSetup(true)
     setError(null)
-    setBranches(null)
-    setHooks(null)
     setParentId(request?.parent?.id ?? NO_PARENT)
     // A child starts from its parent's branch, as Orca's lineage does.
     setBaseRef(request?.parent?.branch ?? '')
     setAdvanced(!!request?.parent)
     setWorkItem(null)
     if (request?.workItem) linkWorkItem(request.workItem)
-    if (request?.project.kind === 'git') {
-      const { id, hostId } = request.project
-      void harnessRequest(HARNESS_METHODS.branchesList, { projectId: id }, hostId).then(setBranches, () => undefined)
-      void harnessRequest(HARNESS_METHODS.projectHooks, { projectId: id }, hostId).then(setHooks, () => undefined)
-    }
   }, [request])
+
+  const projectId = project?.id
+  const projectHost = project?.hostId
+  const projectIsGit = project?.kind === 'git'
+  useEffect(() => {
+    setBranches(null)
+    setHooks(null)
+    if (!projectId || !projectHost || !projectIsGit) return
+    let live = true
+    const keep = <T,>(set: (value: T) => void) => (value: T) => live && set(value)
+    void harnessRequest(HARNESS_METHODS.branchesList, { projectId }, projectHost).then(keep(setBranches), () => undefined)
+    void harnessRequest(HARNESS_METHODS.projectHooks, { projectId }, projectHost).then(keep(setHooks), () => undefined)
+    return () => {
+      live = false
+    }
+  }, [projectId, projectHost, projectIsGit])
+
+  function changeProject(next: HostedProject) {
+    if (next.id === project?.id && next.hostId === project.hostId) return
+    setProject(next)
+    // Branches, the parent and a linked work item all belonged to the previous project.
+    setBaseRef('')
+    setExistingBranch('')
+    setStartFrom('new-branch')
+    setParentId(NO_PARENT)
+    if (workItem && prompt === buildWorkItemPrompt(workItem)) setPrompt('')
+    setWorkItem(null)
+  }
 
   function linkWorkItem(item: HostedWorkItem) {
     setWorkItem(item)
@@ -134,7 +164,7 @@ export function NewWorkspaceDialog({ request, onClose }: { request: NewWorkspace
         HARNESS_METHODS.workspaceCreate,
         {
           projectId: project.id,
-          name: name.trim() || (existing ? '' : 'workspace'),
+          name: name.trim() || (existing ? '' : suggestedName),
           ...(existing ? { existingBranch: reviewBranch ?? existingBranch } : {}),
           ...(!existing && baseRef ? { baseRef } : {}),
           ...(!existing && branchName.trim() ? { branchName: branchName.trim() } : {}),
@@ -162,7 +192,7 @@ export function NewWorkspaceDialog({ request, onClose }: { request: NewWorkspace
 
   const label = project ? projectLabel(project) : ''
   return (
-    <Dialog open={project !== null} onOpenChange={(open) => !open && onClose()}>
+    <Dialog open={request !== null} onOpenChange={(open) => !open && onClose()}>
       <DialogContent className="flex max-h-[calc(100vh-2rem)] flex-col sm:max-w-lg" data-new-workspace-dialog>
         <DialogHeader>
           <DialogTitle>{isGit ? 'Create Workspace' : 'Create Folder Workspace'}</DialogTitle>
@@ -180,7 +210,25 @@ export function NewWorkspaceDialog({ request, onClose }: { request: NewWorkspace
             e.preventDefault()
             void create()
           }}
+          onKeyDown={(e) => {
+            // Orca's composer: Cmd/Ctrl+Enter creates from any field, including the prompt.
+            if (e.key !== 'Enter' || e.nativeEvent.isComposing || !(IS_MAC ? e.metaKey : e.ctrlKey)) return
+            e.preventDefault()
+            if (!busy) void create()
+          }}
         >
+          <div className="space-y-1.5">
+            <Label className={fieldLabel}>Project</Label>
+            <ProjectCombobox
+              value={project}
+              onChange={changeProject}
+              onAddProject={() => {
+                onClose()
+                openAddProjectDialog(project ? { hostId: project.hostId } : {})
+              }}
+            />
+          </div>
+
           <div className="space-y-1.5">
             <div className="flex items-center justify-between gap-2">
               <Label htmlFor="workspace-name" className={fieldLabel}>
@@ -216,7 +264,7 @@ export function NewWorkspaceDialog({ request, onClose }: { request: NewWorkspace
             <Input
               id="workspace-name"
               autoFocus
-              placeholder={startFrom === 'existing-branch' ? 'Defaults to the branch name' : 'fix-login-bug'}
+              placeholder={startFrom === 'existing-branch' && isGit ? 'Defaults to the branch name' : suggestedName || 'fix-login-bug'}
               value={name}
               onChange={(e) => setName(e.target.value)}
             />
@@ -410,7 +458,7 @@ export function NewWorkspaceDialog({ request, onClose }: { request: NewWorkspace
             <Button type="button" variant="outline" onClick={onClose}>
               Cancel
             </Button>
-            <Button type="submit" disabled={busy}>
+            <Button type="submit" disabled={busy} title={IS_MAC ? '⌘Enter' : 'Ctrl+Enter'}>
               {busy ? 'Creating…' : 'Create'}
             </Button>
           </DialogFooter>

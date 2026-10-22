@@ -15,8 +15,9 @@ import { log } from "../log.ts";
 
 type UserChunk = Extract<acp.SessionUpdate, { sessionUpdate: "user_message_chunk" }>;
 
-export function registerSessionHandlers({ handle, sessions, pendingTurns, acpAgents, workspaceRoot }: HandlerContext): void {
+export function registerSessionHandlers({ handle, sessions, pendingTurns, acpAgents, workspaceRoot, moveSession }: HandlerContext): void {
   handle(HARNESS_METHODS.sessionsList, async () => sessions.list());
+  handle(HARNESS_METHODS.sessionMove, (p) => moveSession(p));
   handle(HARNESS_METHODS.sessionCreate, async (p) => {
     if (p.agent !== undefined && !isChatAgentId(p.agent)) throw new Error(`Unknown agent ${String(p.agent)}`);
     const record = sessions.create({

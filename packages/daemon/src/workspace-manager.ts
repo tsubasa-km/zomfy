@@ -1,5 +1,5 @@
 import { existsSync } from 'node:fs'
-import { mkdir, readFile, realpath, writeFile, stat } from 'node:fs/promises'
+import { mkdir, readdir, readFile, realpath, rm, writeFile, stat } from 'node:fs/promises'
 import { homedir } from 'node:os'
 import { basename, join, resolve } from 'node:path'
 import type {
@@ -14,13 +14,16 @@ import type {
   Workspace,
   WorkspacePatch
 } from '@acp-harness/protocol'
+import { NOT_A_GIT_REPOSITORY } from '@acp-harness/protocol'
 import { branchExists, currentBranch, git, isGitRepository, localBranches } from './git-cli.ts'
 import { branchPrefixFromUserName, firstFreeCandidate, sanitizeWorkspaceName } from './worktree-naming.ts'
 import { log } from './log.ts'
 import { HARNESS_HOME, WORKSPACE_ROOT } from './harness-home.ts'
+import { moveToTrash } from './host-trash.ts'
 
 const STATE_PATH = join(HARNESS_HOME, 'state.json')
 const FLOATING_FALLBACK = join(HARNESS_HOME, 'floating-workspace')
+const SCRATCH_ROOT = join(HARNESS_HOME, 'scratch')
 export const FLOATING_WORKSPACE_ID = 'floating'
 
 interface PersistedState {
@@ -76,19 +79,26 @@ export class WorkspaceManager {
     return project.defaultBaseRef || (await defaultBaseRef(project.path))
   }
 
+  isScratch(workspaceId: string | null): boolean {
+    return this.state.workspaces.some((w) => w.id === workspaceId && w.scratch)
+  }
+
   workspacePath(workspaceId: string): string | null {
     if (workspaceId === FLOATING_WORKSPACE_ID) return this.state.floatingCwd || homedir()
     return this.state.workspaces.find((w) => w.id === workspaceId)?.path ?? null
   }
 
-  async addProject(path: string): Promise<Project> {
+  async addProject(path: string, options: { requireGit?: boolean } = {}): Promise<Project> {
     // realpath expands Windows 8.3 short names (SUZUKI~1), which would otherwise add the folder twice.
     const absolute = await realpath(resolve(path)).catch(() => resolve(path))
-    if (!(await stat(absolute)).isDirectory()) throw new Error(`${absolute} is not a folder`)
+    const isDirectory = await stat(absolute).then((s) => s.isDirectory(), () => false)
+    if (!isDirectory) throw new Error(`${absolute} is not a folder on this host`)
     const existing = this.state.projects.find((p) => samePath(p.path, absolute))
     if (existing) return existing
 
     const isGit = await isGitRepository(absolute)
+    // The client confirms before adding a folder without git features (Orca's NonGitFolderDialog).
+    if (!isGit && options.requireGit) throw new Error(`${NOT_A_GIT_REPOSITORY}: ${absolute}`)
     const root = isGit ? resolve(absolute, await git(absolute, ['rev-parse', '--show-toplevel'])) : absolute
     const existingRoot = this.state.projects.find((p) => samePath(p.path, root))
     if (existingRoot) return existingRoot
@@ -272,6 +282,17 @@ export class WorkspaceManager {
     const workspace = this.state.workspaces.find((w) => w.id === params.workspaceId)
     if (!workspace) throw new Error(`Unknown workspace ${params.workspaceId}`)
     if (workspace.isPrimary) throw new Error("A project's own checkout cannot be removed as a workspace")
+    if (workspace.scratch) {
+      // Whatever the chat left there goes to the trash, not away for good.
+      const trashed = await moveToTrash(workspace.path)
+      if (trashed !== true && (await readdir(workspace.path).catch(() => [])).length > 0) {
+        throw new Error(`The quick chat's folder could not go to the trash (${trashed}): ${workspace.path}`)
+      }
+      await rm(workspace.path, { recursive: true, force: true })
+      this.state.workspaces = this.state.workspaces.filter((w) => w.id !== workspace.id)
+      await this.save()
+      return
+    }
     const project = this.requireProject(workspace.projectId!)
 
     const sharedFolder = project.kind === 'folder'
@@ -318,6 +339,37 @@ export class WorkspaceManager {
     }
     await this.save()
     return workspace
+  }
+
+  /** A quick chat's own dated folder, so a chat can start before anyone picks a project. */
+  async createScratchWorkspace(): Promise<Workspace> {
+    const day = new Date().toISOString().slice(0, 10)
+    const path = join(SCRATCH_ROOT, `${day}-${crypto.randomUUID().slice(0, 6)}`)
+    await mkdir(path, { recursive: true })
+    return this.addWorkspace({ projectId: null, name: 'Quick chat', path, branch: null, scratch: true })
+  }
+
+  /** Drops a scratch workspace its chat moved out of, unless the chat left files there. */
+  async removeScratchIfEmpty(workspaceId: string): Promise<boolean> {
+    const workspace = this.state.workspaces.find((w) => w.id === workspaceId && w.scratch)
+    if (!workspace || (await readdir(workspace.path).catch(() => [])).length > 0) return false
+    await rm(workspace.path, { recursive: true, force: true })
+    this.state.workspaces = this.state.workspaces.filter((w) => w.id !== workspace.id)
+    await this.save()
+    return true
+  }
+
+  /** The workspace whose folder is `path`; a folder no workspace has is added as a project first. */
+  async workspaceForFolder(path: string): Promise<Workspace> {
+    const absolute = await realpath(resolve(path)).catch(() => {
+      throw new Error(`No folder at ${path}`)
+    })
+    const existing = this.state.workspaces.find((w) => samePath(w.path, absolute))
+    if (existing) return existing
+    const project = await this.addProject(absolute)
+    const primary = this.state.workspaces.find((w) => w.projectId === project.id && w.isPrimary)
+    if (!primary) throw new Error(`${project.path} was added, but it has no workspace of its own`)
+    return primary
   }
 
   async setFloatingCwd(path: string): Promise<Workspace> {

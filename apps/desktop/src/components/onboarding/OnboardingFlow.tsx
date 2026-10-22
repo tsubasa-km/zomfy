@@ -1,14 +1,11 @@
 import { useCallback, useEffect, useState } from 'react'
-import { isTauri } from '@tauri-apps/api/core'
-import { open as openDialog } from '@tauri-apps/plugin-dialog'
 import { ChevronLeft, CornerDownLeft } from 'lucide-react'
-import { addProject } from '@/daemon-connection'
 import { LOCAL_HOST, useStore } from '@/session-store'
 import { setOnboardingOpen, useAppOverlays } from '@/stores/app-overlay-store'
 import { getSetting, setSetting } from '@/stores/settings-store'
 import { registerKeybindingDefinitions } from '@/keybindings/keybinding-definitions'
 import { registerCommandHandler } from '@/keybindings/keybinding-registry'
-import { OrcaImportDialog } from '@/components/OrcaImportDialog'
+import { openAddProjectDialog, setOrcaImportOpen, type AddProjectStep } from '@/lib/project-dialogs'
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
@@ -41,7 +38,7 @@ function finishOnboarding(): void {
   setOnboardingOpen(false)
 }
 
-function OnboardingFlow({ onImportOrca }: { onImportOrca: () => void }) {
+function OnboardingFlow() {
   const [index, setIndex] = useState(0)
   const [skipConfirm, setSkipConfirm] = useState(false)
   const step = STEPS[index] ?? 'agent'
@@ -53,11 +50,10 @@ function OnboardingFlow({ onImportOrca }: { onImportOrca: () => void }) {
     else setIndex((i) => Math.min(i + 1, STEPS.length - 1))
   }, [last])
 
-  const addFolder = async () => {
+  // The overlay sits above dialogs, so it closes before the Add Project dialog opens.
+  const addProject = (step: AddProjectStep) => {
     finishOnboarding()
-    if (!isTauri()) return
-    const folder = await openDialog({ directory: true, title: 'Add a project folder or git repository' })
-    if (typeof folder === 'string') await addProject(folder)
+    openAddProjectDialog({ step })
   }
 
   useEffect(() => {
@@ -135,10 +131,10 @@ function OnboardingFlow({ onImportOrca }: { onImportOrca: () => void }) {
             {step === 'notifications' ? <NotificationStep /> : null}
             {step === 'project' ? (
               <ProjectStep
-                onAddFolder={() => void addFolder()}
+                onAddProject={addProject}
                 onImportOrca={() => {
                   finishOnboarding()
-                  onImportOrca()
+                  setOrcaImportOpen(true)
                 }}
               />
             ) : null}
@@ -200,7 +196,6 @@ function OnboardingFlow({ onImportOrca }: { onImportOrca: () => void }) {
 /** Opens the flow once for a new user (no projects yet); someone already set up is never asked. */
 export function OnboardingGate() {
   const open = useAppOverlays((s) => s.onboarding)
-  const [importing, setImporting] = useState(false)
   const local = useStore((s) => s.hosts[LOCAL_HOST])
   const ready = local?.connection.kind === 'connected' && !!local.harness
   const hasProjects = (local?.harness?.projects.length ?? 0) > 0
@@ -211,12 +206,7 @@ export function OnboardingGate() {
     else setOnboardingOpen(true)
   }, [ready, hasProjects])
 
-  return (
-    <>
-      {open ? <OnboardingFlow onImportOrca={() => setImporting(true)} /> : null}
-      <OrcaImportDialog open={importing} onClose={() => setImporting(false)} />
-    </>
-  )
+  return open ? <OnboardingFlow /> : null
 }
 
 export function installOnboardingCommands(): void {

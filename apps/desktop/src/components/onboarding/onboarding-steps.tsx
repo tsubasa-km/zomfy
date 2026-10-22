@@ -1,13 +1,14 @@
 import { useEffect, useState } from 'react'
 import { invoke, isTauri } from '@tauri-apps/api/core'
 import { isPermissionGranted, requestPermission, sendNotification } from '@tauri-apps/plugin-notification'
-import { Bell, Check, Download, FolderPlus, Monitor, Moon, Server, Settings2, Sun } from 'lucide-react'
+import { Bell, Check, Download, FolderPlus, Globe, Monitor, Moon, Plus, Server, Settings2, Sun } from 'lucide-react'
 import { CHAT_AGENT_IDS, chatAgentLabel, type ChatAgentId } from '@acp-harness/protocol'
 import { connectHost } from '@/daemon-connection'
 import { LOCAL_HOST, useStore } from '@/session-store'
 import { useChatAgents } from '@/lib/chat-agents'
 import { setSetting, useSetting, type ThemePreference } from '@/stores/settings-store'
 import { TuiAgentIcon } from '@/components/terminal/TuiAgentIcon'
+import type { AddProjectStep } from '@/lib/project-dialogs'
 import { Button } from '@/components/ui/button'
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible'
 import { Switch } from '@/components/ui/switch'
@@ -242,9 +243,18 @@ export function NotificationStep() {
 }
 
 /** Orca ends on "Add your first project"; the harness also offers its Orca import here. */
-export function ProjectStep({ onAddFolder, onImportOrca }: { onAddFolder: () => void; onImportOrca: () => void }) {
+export function ProjectStep({
+  onAddProject,
+  onImportOrca
+}: {
+  onAddProject: (step: AddProjectStep) => void
+  onImportOrca: () => void
+}) {
+  // Orca's onboarding hands off to the same Add Project dialog as the sidebar.
   const cards = [
-    { key: 'folder', icon: FolderPlus, title: 'Add a project folder', body: 'A git repository or any folder on this computer.', onClick: onAddFolder },
+    { key: 'folder', icon: FolderPlus, title: 'Add a project', body: 'A git repository or any folder, on this computer, WSL or an SSH host.', onClick: () => onAddProject('start') },
+    { key: 'clone', icon: Globe, title: 'Clone from URL', body: 'Clone a remote Git repository.', onClick: () => onAddProject('clone') },
+    { key: 'create', icon: Plus, title: 'Create new project', body: 'Start from an empty folder with a new Git repository.', onClick: () => onAddProject('create') },
     { key: 'orca', icon: Download, title: 'Import from Orca', body: "Bring over Orca's projects, on the host each lives on.", onClick: onImportOrca }
   ]
   return (

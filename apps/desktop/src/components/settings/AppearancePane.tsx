@@ -45,6 +45,7 @@ function UIZoomControl() {
 /** Orca's AppearanceWindowSidebarSection: which optional SidebarNav rows show. */
 function SidebarSection() {
   const tasks = useSetting('showTasksButton')
+  const newChat = useSetting('showNewChatButton')
   const automations = useSetting('showAutomationsButton')
   const skills = useSetting('showSkillsButton')
   const dashboard = useSetting('showAgentDashboardButton')
@@ -53,6 +54,12 @@ function SidebarSection() {
     <div className="space-y-2 not-has-[[data-setting-row]]:hidden">
       <SettingsSubsectionHeader title="Sidebar" description="Rows above the workspace list. Right-click a row to hide it." />
       <div className="divide-y divide-border/40">
+        <SettingsSwitchRow
+          label="Show New Chat Button"
+          keywords={['new chat', 'quick chat', 'sidebar', 'button']}
+          checked={newChat}
+          onChange={(v) => setSetting('showNewChatButton', v)}
+        />
         <SettingsSwitchRow label="Show Tasks Button" keywords={['tasks', 'sidebar', 'button', 'issues']} checked={tasks} onChange={(v) => setSetting('showTasksButton', v)} />
         <SettingsSwitchRow
           label="Show Automations Button"

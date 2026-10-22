@@ -1,5 +1,5 @@
 import type React from 'react'
-import { LoaderCircle, Monitor, RotateCw, Server, TriangleAlert, Unplug } from 'lucide-react'
+import { LoaderCircle, MessageSquare, Monitor, RotateCw, Server, TriangleAlert, Unplug } from 'lucide-react'
 import { HARNESS_METHODS, type ProjectGroup, type Workspace } from '@acp-harness/protocol'
 import { connectHost, disconnectHost, harnessRequest } from '@/daemon-connection'
 import { LOCAL_HOST, findWorkspace, setSidebarView, useStore, type HostEntry, type HostedProject } from '@/session-store'
@@ -76,6 +76,8 @@ export function HostSection({
   const projects = sortProjects(host.harness?.projects ?? [])
   const groups = sortGroups(host.harness?.projectGroups ?? [])
   const visible = useVisibleWorkspaces(host)
+  // Quick chats (components/QuickStart) sit above the projects until their agent files them under one.
+  const quickChats = filtering ? [] : (host.harness?.workspaces ?? []).filter((w) => w.scratch)
   const kind = host.connection.kind
   const hosted = (p: (typeof projects)[number]): HostedProject => ({ ...p, hostId: host.id })
 
@@ -123,6 +125,26 @@ export function HostSection({
             Retry
           </Button>
         </div>
+      )}
+      {quickChats.length > 0 && (
+        <section className="mb-2" data-quick-chats>
+          <div className="flex h-7 min-w-0 items-center gap-1 pt-1 pr-1 pl-4 select-none">
+            <MessageSquare className="size-3.5 shrink-0 text-muted-foreground" />
+            <div className="min-w-0 truncate pl-0.5 text-[13px] leading-none font-semibold">Quick chats</div>
+            <span className="text-[11px] text-muted-foreground tabular-nums">{quickChats.length}</span>
+          </div>
+          {quickChats.map((w) => (
+            <WorkspaceCard
+              key={w.id}
+              workspace={w}
+              hostId={host.id}
+              sessions={sessions.filter((s) => s.workspaceId === w.id)}
+              active={w.id === activeWorkspaceId}
+              onUpdate={() => actions.update(w)}
+              onDelete={() => actions.remove(w)}
+            />
+          ))}
+        </section>
       )}
       {view.groupBy === 'project' ? (
         <>

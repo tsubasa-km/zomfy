@@ -1,5 +1,5 @@
 import type * as acp from "@agentclientprotocol/sdk";
-import type { HarnessMethod, HarnessRequests, TurnResumeKind } from "@acp-harness/protocol";
+import type { HarnessMethod, HarnessRequests, MoveSessionParams, MoveSessionResult, TurnResumeKind } from "@acp-harness/protocol";
 import type { TurnAutoResume } from "../turn-auto-resume.ts";
 import type { AcpAgentSessions } from "../acp-agent-sessions.ts";
 import type { SessionRegistry } from "../session-registry.ts";
@@ -31,4 +31,6 @@ export interface HandlerContext {
   runTurn(sessionId: string, text: string): Promise<acp.StopReason>;
   /** The workspace's directory on this host; throws for unknown ids. */
   workspaceRoot(workspaceId: string): string;
+  /** Moves a chat to another workspace, or when its running turn ends. */
+  moveSession(params: MoveSessionParams): Promise<MoveSessionResult>;
 }

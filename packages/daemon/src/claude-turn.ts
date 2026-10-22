@@ -64,8 +64,15 @@ interface TurnInput {
 // The CLI sends its prompt suggestion after the result; past this the process is let go without one.
 const SUGGESTION_WAIT_MS = 15_000;
 
-/** Per chat, lets go of the previous turn's process still waiting on a suggestion. */
-const lingering = new Map<string, () => void>();
+/** Per chat, the previous turn's process still waiting on a suggestion: lets it go, and when it has. */
+const lingering = new Map<string, { release: () => void; exited: Promise<void> }>();
+
+/** Ends a finished turn's process early and waits for it, before anything moves its files. */
+export async function releaseFinishedTurn(acpSessionId: string): Promise<void> {
+  const turn = lingering.get(acpSessionId);
+  turn?.release();
+  await turn?.exited;
+}
 
 const CHAT_PERMISSION_MODES: readonly ChatPermissionMode[] = [
   "default",
@@ -94,7 +101,7 @@ export async function runClaudeTurn(input: TurnInput): Promise<acp.StopReason> {
   let release!: () => void;
   const released = new Promise<void>((resolve) => (release = resolve));
   abort.signal.addEventListener("abort", () => release());
-  lingering.get(acpSessionId)?.();
+  lingering.get(acpSessionId)?.release();
   const userMessage: SDKUserMessage = {
     type: "user",
     message: { role: "user", content: promptContent(input.prompt) },
@@ -156,6 +163,8 @@ export async function runClaudeTurn(input: TurnInput): Promise<acp.StopReason> {
     settle(reason);
     settle = null;
   };
+  let exited!: () => void;
+  const lingeringTurn = { release, exited: new Promise<void>((resolve) => (exited = resolve)) };
   void (async () => {
     let stopReason: acp.StopReason = "end_turn";
     try {
@@ -163,8 +172,8 @@ export async function runClaudeTurn(input: TurnInput): Promise<acp.StopReason> {
         if (abort.signal.aborted) break;
         if (message.type === "result") {
           stopReason = await finishTurn(message, stream, progress, update, input.onTurnEnd);
+          lingering.set(acpSessionId, lingeringTurn);
           finish(stopReason);
-          lingering.set(acpSessionId, release);
           setTimeout(release, SUGGESTION_WAIT_MS);
         } else if (message.type === "prompt_suggestion") {
           if (message.suggestion.trim()) input.onPromptSuggestion?.(message.suggestion.trim());
@@ -182,7 +191,8 @@ export async function runClaudeTurn(input: TurnInput): Promise<acp.StopReason> {
     } finally {
       finish(abort.signal.aborted ? "cancelled" : stopReason);
       release();
-      if (lingering.get(acpSessionId) === release) lingering.delete(acpSessionId);
+      if (lingering.get(acpSessionId) === lingeringTurn) lingering.delete(acpSessionId);
+      exited();
     }
   })();
   return done;

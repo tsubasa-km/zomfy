@@ -63,7 +63,9 @@ export function DeleteWorkspaceDialog({
         <DialogHeader>
           <DialogTitle>Delete Workspace</DialogTitle>
           <DialogDescription className="break-all">
-            Removes the worktree at {workspace?.path}.
+            {workspace?.scratch
+              ? `Moves the quick chat's folder ${workspace.path} to the trash and closes its chats.`
+              : `Removes the worktree at ${workspace?.path}.`}
           </DialogDescription>
         </DialogHeader>
         {(dirty || !!inspection?.unpushedCommits) && (

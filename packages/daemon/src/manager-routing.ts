@@ -47,9 +47,11 @@ export class ManagerRouting {
   };
 }
 
-/** Claude tools that run without asking: reads always, the manager's own job in a Manager chat. */
+/** Claude tools that run without asking: reads and the chat's own moves always, the manager's job in a Manager chat. */
 export function autoAllowedManagerTools(role: SessionRole | undefined, serverName: string): string[] {
-  return MANAGER_TOOLS.filter((t) => t.readOnly || (role === "manager" && "managerAllowed" in t && t.managerAllowed)).map(
+  return MANAGER_TOOLS.filter(
+    (t) => t.readOnly || ("selfOnly" in t && t.selfOnly) || (role === "manager" && "managerAllowed" in t && t.managerAllowed),
+  ).map(
     (t) => `mcp__${serverName}__${t.name}`,
   );
 }

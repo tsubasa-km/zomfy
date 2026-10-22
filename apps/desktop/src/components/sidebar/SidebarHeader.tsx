@@ -1,9 +1,7 @@
 import { useState } from 'react'
 import { invoke, isTauri } from '@tauri-apps/api/core'
-import { open } from '@tauri-apps/plugin-dialog'
 import {
   Download,
-  FolderInput,
   FolderPlus,
   GitBranchPlus,
   Kanban,
@@ -13,12 +11,12 @@ import {
   Folders,
   TerminalSquare
 } from 'lucide-react'
-import { addProject, connectHost } from '@/daemon-connection'
+import { connectHost } from '@/daemon-connection'
 import { LOCAL_HOST, setDashboardOpen, useStore, type HostId } from '@/session-store'
 import { setBoardOpen, useSidebarStore } from '@/stores/sidebar-store'
 import { SidebarFilterMenu } from '@/components/sidebar/SidebarFilterMenu'
 import { WorkspaceOptionsMenu } from '@/components/sidebar/WorkspaceOptionsMenu'
-import type { AddRepoMode } from '@/components/sidebar/AddRepoDialog'
+import { openAddProjectDialog, setOrcaImportOpen } from '@/lib/project-dialogs'
 import { SshConnectDialog } from '@/components/sidebar/SshConnectDialog'
 import { Button } from '@/components/ui/button'
 import {
@@ -35,15 +33,7 @@ import { cn } from '@/lib/utils'
 // Orca's SidebarHeader / sidebar-header-actions / SidebarToolbar: title, then board, filter, options
 // and add. Skills, Automations and the dashboard are SidebarNav rows, as in Orca.
 
-export function SidebarHeader({
-  onImportOrca,
-  onAddRepo,
-  onNewGroup
-}: {
-  onImportOrca: () => void
-  onAddRepo: (mode: AddRepoMode) => void
-  onNewGroup: (hostId: HostId) => void
-}) {
+export function SidebarHeader({ onNewGroup }: { onNewGroup: (hostId: HostId) => void }) {
   const groupBy = useStore((s) => s.sidebarView.groupBy)
   return (
     <div className="mt-2 flex h-8 min-w-0 items-center justify-between gap-1.5 px-2">
@@ -54,7 +44,7 @@ export function SidebarHeader({
         <BoardButton />
         <SidebarFilterMenu />
         <WorkspaceOptionsMenu />
-        <AddMenu onImportOrca={onImportOrca} onAddRepo={onAddRepo} onNewGroup={onNewGroup} />
+        <AddMenu onNewGroup={onNewGroup} />
       </div>
     </div>
   )
@@ -85,24 +75,10 @@ function BoardButton() {
   )
 }
 
-function AddMenu({
-  onImportOrca,
-  onAddRepo,
-  onNewGroup
-}: {
-  onImportOrca: () => void
-  onAddRepo: (mode: AddRepoMode) => void
-  onNewGroup: (hostId: HostId) => void
-}) {
+function AddMenu({ onNewGroup }: { onNewGroup: (hostId: HostId) => void }) {
   const [distros, setDistros] = useState<string[] | null>(null)
   const [sshOpen, setSshOpen] = useState(false)
   const hosts = useStore((s) => s.hosts)
-  const remoteConnected = Object.values(hosts).some((h) => h.id !== LOCAL_HOST && h.connection.kind === 'connected')
-
-  async function pickFolder() {
-    const folder = await open({ directory: true, title: 'Add a project folder or git repository' })
-    if (typeof folder === 'string') await addProject(folder)
-  }
 
   return (
     <>
@@ -117,25 +93,19 @@ function AddMenu({
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="start" className="w-64">
-        <DropdownMenuItem data-add="project" onSelect={() => void pickFolder()}>
+        <DropdownMenuItem data-add="project" onSelect={() => openAddProjectDialog()}>
           <FolderPlus className="size-4" />
           Add project…
         </DropdownMenuItem>
-        {remoteConnected && (
-          <DropdownMenuItem data-add="path" onSelect={() => onAddRepo('path')}>
-            <FolderInput className="size-4" />
-            Add project on host…
-          </DropdownMenuItem>
-        )}
-        <DropdownMenuItem data-add="clone" onSelect={() => onAddRepo('clone')}>
+        <DropdownMenuItem data-add="clone" onSelect={() => openAddProjectDialog({ step: 'clone' })}>
           <GitBranchPlus className="size-4" />
-          Clone repository…
+          Clone from URL…
         </DropdownMenuItem>
-        <DropdownMenuItem data-add="create-repo" onSelect={() => onAddRepo('create')}>
+        <DropdownMenuItem data-add="create-repo" onSelect={() => openAddProjectDialog({ step: 'create' })}>
           <SquarePlus className="size-4" />
-          Create new repository…
+          Create new project…
         </DropdownMenuItem>
-        <DropdownMenuItem data-add="orca-import" onSelect={onImportOrca}>
+        <DropdownMenuItem data-add="orca-import" onSelect={() => setOrcaImportOpen(true)}>
           <Download className="size-4" />
           Import from Orca…
         </DropdownMenuItem>

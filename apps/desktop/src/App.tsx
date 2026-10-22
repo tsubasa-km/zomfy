@@ -22,6 +22,7 @@ import { CommandPalette } from '@/components/CommandPalette'
 import { StatusBar } from '@/components/status-bar/StatusBar'
 import { WorkspaceBoard } from '@/components/sidebar/WorkspaceBoard'
 import { TasksPage } from '@/components/tasks/TasksPage'
+import { QuickStart } from '@/components/QuickStart'
 import { useTasks } from '@/stores/tasks-store'
 import { useSidebarStore } from '@/stores/sidebar-store'
 import { installAgentNotifications } from '@/agent-notifications'
@@ -87,9 +88,7 @@ export default function App() {
                 emptyHint="No tabs yet. Use + in the tab bar to start Claude in this workspace."
               />
             ) : (
-              <div className="m-auto text-sm text-muted-foreground">
-                Select a workspace, or add a project with + in the sidebar.
-              </div>
+              <QuickStart />
             )}
           </main>
           {activeWorkspaceId && !dashboardOpen && !boardOpen && !tasksOpen && <RightSidebar workspaceId={activeWorkspaceId} />}

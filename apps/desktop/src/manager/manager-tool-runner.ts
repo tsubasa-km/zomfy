@@ -58,6 +58,8 @@ function dispatch({ tool, args, callerSessionId }: ManagerCallParams): Promise<u
       return startSession(reqString(args, 'workspaceId'), optString(args, 'agent'), optString(args, 'prompt'))
     case 'create_workspace':
       return startWorkspace(args)
+    case 'move_chat':
+      return moveChat(args, callerSessionId)
     case 'wait_for_session':
       return waitForSessions(reqStringArray(args, 'sessionIds'), clamp(args.timeoutSeconds, 300, 1, 1800), callerSessionId)
     case 'list_approvals':
@@ -252,6 +254,41 @@ async function startWorkspace(args: Record<string, unknown>): Promise<unknown> {
   )
   const started = await startSessionOn(project.hostId, workspace.id, optString(args, 'agent'), optString(args, 'prompt'))
   return { workspaceId: workspace.id, path: workspace.path, branch: workspace.branch, ...started }
+}
+
+/** Moves the calling chat; a new worktree is made first, on the chat's own host. */
+async function moveChat(args: Record<string, unknown>, callerSessionId: string): Promise<unknown> {
+  const session = requireSession(callerSessionId)
+  requireReachable(session)
+  const worktree = args.newWorktree
+  let workspaceId = optString(args, 'workspaceId')
+  const folder = optString(args, 'folder')
+  if ([workspaceId, folder, worktree].filter((v) => v !== undefined).length !== 1) {
+    throw new ToolError('Give exactly one of workspaceId, folder or newWorktree.')
+  }
+  if (worktree !== undefined) {
+    if (typeof worktree !== 'object' || worktree === null) throw new ToolError('newWorktree must be { projectId, name }.')
+    const fields = { ...worktree }
+    const projectId = reqString(fields, 'projectId')
+    const project = allProjects().find((p) => p.id === projectId)
+    if (!project) throw new ToolError(`Unknown project ${projectId}; use list_workspaces for ids.`)
+    if (project.hostId !== session.hostId) throw new ToolError('A chat can only move to a workspace on its own host.')
+    if (project.kind !== 'git') throw new ToolError("Folder projects have no worktrees; move to the project's workspace instead.")
+    workspaceId = (await harnessRequest(HARNESS_METHODS.workspaceCreate, { projectId, name: reqString(fields, 'name') }, project.hostId)).id
+  } else if (workspaceId) {
+    const target = allWorkspaces(getState()).find((w) => w.id === workspaceId)
+    if (target && target.hostId !== session.hostId) throw new ToolError('A chat can only move to a workspace on its own host.')
+  }
+  const result = await harnessRequest(
+    HARNESS_METHODS.sessionMove,
+    { sessionId: session.id, ...(workspaceId ? { workspaceId } : { folder }) },
+    session.hostId
+  )
+  return {
+    workspaceId: result.workspaceId,
+    moved: result.moved,
+    next: result.moved ? 'Moved; your next turn runs there.' : 'The move happens when this turn ends and the chat continues there by itself. End your turn now.'
+  }
 }
 
 /** For a workspace the store may not have heard about yet. */

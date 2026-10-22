@@ -18,7 +18,8 @@ export type TurnEndMeta =
   | { reason: 'usage-limit'; resetsAt: number | null }
   | { reason: 'error' }
 
-export type TurnResumeKind = 'continue' | 'retry' | 'resume' | 'auto'
+/** 'moved': the chat moved to another workspace mid-task and continues there. */
+export type TurnResumeKind = 'continue' | 'retry' | 'resume' | 'auto' | 'moved'
 
 /** The daemon's scheduled resume of a usage-limited chat. Kept on the session, so it is persisted. */
 export interface AutoResumeState {

@@ -100,8 +100,25 @@ export const SESSION_METHODS = {
   sessionHistory: '_harness/sessions/history',
   sessionResume: '_harness/sessions/resume',
   sessionMentionFiles: '_harness/sessions/mentionFiles',
-  sessionSetAgentOption: '_harness/sessions/setAgentOption'
+  sessionSetAgentOption: '_harness/sessions/setAgentOption',
+  sessionMove: '_harness/sessions/move'
 } as const
+
+/** Moves a Claude chat into another workspace on the same host; exactly one target. */
+export interface MoveSessionParams {
+  sessionId: string
+  workspaceId?: string
+  /** A folder on the host: its workspace, or added as a project when it is none yet. */
+  folder?: string
+}
+
+export interface MoveSessionResult {
+  session: SessionInfo
+  /** The target's workspace, which may have just been added. */
+  workspaceId: string
+  /** false while a turn runs: the chat moves when it ends and then continues there by itself. */
+  moved: boolean
+}
 
 export interface SessionRequests {
   [SESSION_METHODS.sessionsList]: { params: Record<string, never>; result: SessionInfo[] }
@@ -130,4 +147,5 @@ export interface SessionRequests {
     params: { sessionId: string; optionId: string; value: string }
     result: SessionInfo
   }
+  [SESSION_METHODS.sessionMove]: { params: MoveSessionParams; result: MoveSessionResult }
 }

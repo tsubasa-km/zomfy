@@ -4,6 +4,7 @@ import { getSetting, setSetting } from '@/stores/settings-store'
 import { stepZoom } from '@/lib/ui-zoom'
 import { setAutomationsPageOpen } from '@/stores/automation-store'
 import { focusedWorkspaceId, jumpToAgentNeedingYou, selectWorkspaceByIndex, stepWorkspace } from '@/lib/workspace-navigation'
+import { openNewWorkspaceDialog } from '@/lib/project-dialogs'
 import { registerCommandHandler, type CommandHandler } from './keybinding-registry'
 
 /** Orca's right sidebar toggles: open on that tab, or close when it is already showing. */
@@ -24,6 +25,7 @@ const APP_COMMAND_HANDLERS: Record<string, CommandHandler> = {
     const { commandPalette, commandPaletteMode } = getAppOverlays()
     setCommandPalette(!(commandPalette && commandPaletteMode === 'workspaces'), 'workspaces')
   },
+  'workspace.create': () => openNewWorkspaceDialog(),
   'app.settings': () => openSettings(),
   'app.shortcuts': () => openSettings('shortcuts'),
   'app.forceReload': () => window.location.reload(),

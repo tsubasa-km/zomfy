@@ -3,6 +3,7 @@ import {
   HARNESS_NOTIFICATIONS,
   MANAGER_MCP_SERVER_NAME,
   MANAGER_SYSTEM_PROMPT,
+  QUICK_CHAT_SYSTEM_PROMPT,
   TURN_RECOVERY_META,
   TURN_RECOVERY_NOTIFICATIONS,
   chatAgentLabel,
@@ -21,6 +22,7 @@ import { chatAgentLaunch } from "./chat-agent-launch-settings.ts";
 import { noteSlashCommands } from "./claude-catalog.ts";
 import { liveClaudeQueries } from "./live-claude-queries.ts";
 import type { SessionRegistry } from "./session-registry.ts";
+import { SessionMover } from "./session-move.ts";
 import type { TerminalManager } from "./terminal-manager.ts";
 import type { HandlerContext } from "./handlers/handler-context.ts";
 import { registerAutomationHandlers } from "./handlers/automation-handlers.ts";
@@ -64,6 +66,7 @@ export function createHarnessAgent(
       if (ids.has(id)) continue;
       managerMcp.forgetSession(id);
       managerRouting.forgetSession(id);
+      mover.forget(id);
     }
     knownSessionIds = ids;
   });
@@ -84,6 +87,7 @@ export function createHarnessAgent(
     broadcast(acp.methods.client.session.update, { sessionId, update });
   }
   const acpAgents = new AcpAgentSessions(sessions, emit);
+  const mover = new SessionMover({ workspaces, sessions, pendingTurns, emit });
 
   /**
    * Starts a recovery turn and returns once it is running; it goes on without any window, and
@@ -203,6 +207,7 @@ export function createHarnessAgent(
       return { stopReason: "cancelled" };
     };
 
+    const quickChat = workspaces.isScratch(session.workspaceId);
     try {
       const stopReason = external
         ? await external.prompt(agentPrompt, abort, askPermission)
@@ -222,9 +227,14 @@ export function createHarnessAgent(
         onSlashCommands: (names) => noteSlashCommands(session.cwd, names),
         env: (await chatAgentLaunch("claude")).env,
         askPermission,
-        mcpServers: managerMcp.claudeServers(session.id, session.role === "manager"),
+        // A quick chat sees its harness tools up front, so it can move itself into a project.
+        mcpServers: managerMcp.claudeServers(session.id, session.role === "manager" || quickChat),
         allowedTools: autoAllowedManagerTools(session.role, MANAGER_MCP_SERVER_NAME),
-        ...(session.role === "manager" ? { appendSystemPrompt: MANAGER_SYSTEM_PROMPT } : {}),
+        ...(session.role === "manager"
+          ? { appendSystemPrompt: MANAGER_SYSTEM_PROMPT }
+          : quickChat
+            ? { appendSystemPrompt: QUICK_CHAT_SYSTEM_PROMPT }
+            : {}),
         onTurnEnd: (turnEnd) => (outcome.end = turnEnd),
         onPromptSuggestion: (promptSuggestion) => sessions.update(session.id, { promptSuggestion }),
       });
@@ -235,6 +245,7 @@ export function createHarnessAgent(
         claudeSessionId: session.claudeSessionId,
       });
       autoResume.turnEnded(session.id, outcome.end);
+      if (!outcome.end) void continueAfterMove(session.id, ask, client);
       return { stopReason };
     } catch (error) {
       if (abort.signal.aborted) return await interrupted();
@@ -322,6 +333,21 @@ export function createHarnessAgent(
     });
   }
 
+  /** A move the agent asked for mid-turn happens once the turn ends; the chat then carries on there. */
+  async function continueAfterMove(sessionId: string, ask: Ask, client: acp.AgentContext | null): Promise<void> {
+    try {
+      const text = await mover.turnEnded(sessionId);
+      if (text) await prompt({ sessionId, prompt: [{ type: "text", text }] }, ask, client, "moved");
+    } catch (error) {
+      log(`moving ${sessionId} failed: ${String(error)}`);
+      await emit(sessionId, {
+        sessionUpdate: "notice",
+        severity: "error",
+        title: `Could not move this chat: ${error instanceof Error ? error.message : String(error)}`,
+      }).catch(() => undefined);
+    }
+  }
+
   const ctx: HandlerContext = {
     handle,
     workspaces,
@@ -336,6 +362,7 @@ export function createHarnessAgent(
       const { stopReason } = await prompt({ sessionId, prompt: [{ type: "text", text }] }, askAnyClient, null);
       return stopReason;
     },
+    moveSession: (params) => mover.move(params),
     workspaceRoot(workspaceId) {
       const root = workspaces.workspacePath(workspaceId);
       if (!root) throw new Error(`Unknown workspace ${workspaceId}`);

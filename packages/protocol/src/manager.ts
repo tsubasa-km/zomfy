@@ -49,6 +49,8 @@ export interface ManagerToolDefinition {
   readOnly: boolean
   /** Part of the manager's job: auto-allowed in a Manager session, asked elsewhere. */
   managerAllowed?: boolean
+  /** Changes only where the calling chat runs: auto-allowed in every chat. */
+  selfOnly?: boolean
 }
 
 const str = (description: string) => ({ type: 'string', description })
@@ -142,6 +144,27 @@ export const MANAGER_TOOLS = [
     managerAllowed: true
   },
   {
+    name: 'move_chat',
+    description:
+      "Moves THIS chat into another workspace on its host so you work in that folder: an existing workspace, a folder (added as a project when it is not one yet), or a new git worktree of a project. Use it when the task belongs somewhere other than the chat's current folder, e.g. a quick chat started in a scratch folder. The move happens when your current turn ends and the conversation then continues there by itself, so end your turn right after calling it with one short line. Give exactly one of workspaceId, folder or newWorktree.",
+    inputSchema: {
+      type: 'object',
+      properties: {
+        workspaceId: str('Existing workspace on this host (from list_workspaces).'),
+        folder: str('Absolute folder path on this host.'),
+        newWorktree: {
+          type: 'object',
+          description: "New git worktree for parallel work on a branch.",
+          properties: { projectId: str('Git project (from list_workspaces).'), name: str('Workspace and branch name.') },
+          required: ['projectId', 'name']
+        }
+      }
+    },
+    readOnly: false,
+    managerAllowed: true,
+    selfOnly: true
+  },
+  {
     name: 'wait_for_session',
     description:
       'Waits until any of the sessions stops working (finished, needs the person, failed) or the timeout passes, then reports each one\'s status and last reply. A timeout or "unverifiable" is a checkpoint, not a failure: wait again or inspect.',
@@ -212,3 +235,6 @@ How to work:
 - After send_prompt or create_*, call wait_for_session. A timeout or "unverifiable" (host out of contact) is a checkpoint, not a failure: never assume an agent died. Read its transcript with read_session before deciding.
 - When an agent needs the person (status needs-you), list_approvals shows what it asks. Forward decisions to the person with forward_to_person rather than approving risky actions yourself.
 - Finish with a short report per task: outcome, evidence (what you read), and anything still waiting on the person.`
+
+/** Appended to Claude's system prompt in a quick chat, which starts in a throwaway folder. */
+export const QUICK_CHAT_SYSTEM_PROMPT = `This chat started as a quick chat in a scratch folder the person did not choose, so they need not think about folders. When the request concerns one of their projects or needs a real home (a new app, an existing repository), find it with \`${MANAGER_MCP_SERVER_NAME}\` list_workspaces and call move_chat before working on files, then end your turn; the conversation continues in the new folder by itself. Answer questions that need no project right here.`

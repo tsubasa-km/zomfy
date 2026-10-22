@@ -39,6 +39,13 @@ const APP_DEFINITIONS: KeybindingDefinition[] = [
     keywords: ['workspace', 'worktree', 'switch', 'jump', 'search'],
     defaultBindings: { mac: ['Mod+J'], other: ['Mod+Shift+J'] }
   },
+  {
+    id: 'workspace.create',
+    title: 'Create Workspace',
+    group: 'Global',
+    keywords: ['workspace', 'worktree', 'create', 'new workspace'],
+    defaultBindings: ['Mod+N', 'Mod+Shift+N']
+  },
   { id: 'app.settings', title: 'Open Settings', group: 'Global', keywords: ['settings', 'preferences'], defaultBindings: ['Mod+Comma'] },
   { id: 'app.shortcuts', title: 'Open Keyboard Shortcuts', group: 'Global', keywords: ['keybindings', 'shortcuts', 'keys'], defaultBindings: [] },
   { id: 'app.forceReload', title: 'Force Reload', group: 'Global', keywords: ['reload', 'refresh'], defaultBindings: ['Mod+Shift+R'] },
