@@ -1,4 +1,5 @@
 import { useEffect } from 'react'
+import { isTauri } from '@tauri-apps/api/core'
 import { Window, getCurrentWindow } from '@tauri-apps/api/window'
 import { connectAllHosts } from '@/daemon-connection'
 import { handleSessionPicks, setDashboardOpen, useStore } from '@/session-store'
@@ -21,6 +22,7 @@ export default function DashboardWindow() {
 
   useEffect(() => {
     connectAllHosts()
+    if (!isTauri()) return
     // Closing the app's main window takes its pop-out with it.
     const unlisten = Window.getByLabel('main').then((main) =>
       main?.once('tauri://destroyed', () => void getCurrentWindow().close())
@@ -30,7 +32,7 @@ export default function DashboardWindow() {
 
   useEffect(() => {
     // The dashboard's own close (button, Escape) closes this window.
-    if (!open) void getCurrentWindow().close()
+    if (!open && isTauri()) void getCurrentWindow().close()
   }, [open])
 
   return (
