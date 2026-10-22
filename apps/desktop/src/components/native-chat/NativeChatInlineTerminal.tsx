@@ -35,7 +35,7 @@ export function NativeChatInlineTerminal({ blockKey }: { blockKey: string }) {
         <SquareTerminal className="size-3.5 shrink-0 text-chat-foreground-faint" />
         <span className="min-w-0 flex-1 truncate font-sans text-xs text-chat-foreground-faint">
           {terminal.title}
-          {terminal.exitCode !== null ? ` · exited ${terminal.exitCode}` : ''}
+          {terminal.exitCode === null ? '' : terminal.endedWithHost ? ' · ended when the app closed' : ` · exited ${terminal.exitCode}`}
         </span>
         <div className="-mr-1 flex items-center gap-0.5">
           <button

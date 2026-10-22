@@ -33,6 +33,8 @@ export interface TerminalInfo {
   customTitle?: string | null
   /** Set while the terminal shows under a chat code block; null or absent for a tab. */
   inline?: InlineTerminalAnchor | null
+  /** Its host stopped while it ran (an app restart); the output is what it printed before. */
+  endedWithHost?: boolean
 }
 
 export interface ShellOption {

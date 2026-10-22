@@ -7,6 +7,7 @@ import { SessionRegistry } from "./session-registry.ts";
 import { TerminalManager } from "./terminal-manager.ts";
 import { log } from "./log.ts";
 import { runManagerMcpBridge } from "./manager-mcp-bridge.ts";
+import { pruneChatAttachments } from "./chat-attachment-files.ts";
 
 const DEFAULT_PORT = 7801;
 const bridgeIndex = process.argv.indexOf("--mcp-bridge");
@@ -19,7 +20,9 @@ const workspaces = new WorkspaceManager();
 await workspaces.load();
 const sessions = new SessionRegistry();
 await sessions.load();
-const agent = createHarnessAgent(workspaces, sessions, new TerminalManager());
+void pruneChatAttachments().catch((error) => log(`attachment cleanup failed: ${error}`));
+// Inline terminals of chats deleted while the host was down are dropped on restore.
+const agent = createHarnessAgent(workspaces, sessions, new TerminalManager((id) => sessions.get(id) !== undefined));
 
 if (process.argv.includes("--stdio")) {
   // For ACP clients that launch the agent themselves (Zed, Orca).

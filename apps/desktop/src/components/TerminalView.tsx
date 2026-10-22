@@ -207,7 +207,8 @@ export function TerminalView({ terminal, embedded = false }: { terminal: Termina
           }}
         />
       )}
-      {terminal.exitCode !== null && (
+      {/* Under a code block the header says how it ended; the output stays uncovered. */}
+      {!embedded && terminal.exitCode !== null && (
         <TerminalProcessExitOverlay
           exitCode={terminal.exitCode}
           onRestart={restart}

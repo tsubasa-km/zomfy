@@ -210,6 +210,7 @@
   --input: #e5e5e5;
   --ring: #a1a1a1;
   --terminal-pane-locate: var(--color-blue-600);
+  --mention-foreground: var(--color-blue-600);
   --ai-action-accent: var(--color-violet-500);
   /* "An agent is asking you something" — one hue for every surface that shows
      it (sidebar, tabs, dashboard, kanban). Orange, not amber: it has to stay
@@ -327,6 +328,7 @@
   --input: rgb(255 255 255 / 0.15);
   --ring: #737373;
   --terminal-pane-locate: var(--color-blue-400);
+  --mention-foreground: var(--color-blue-400);
   --ai-action-accent: var(--color-violet-400);
   --agent-question: var(--color-orange-500);
   --agent-question-text: var(--color-orange-300);

@@ -1,10 +1,30 @@
-import { mkdir, writeFile } from 'node:fs/promises'
+import { mkdir, readdir, rm, stat, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import type { SaveChatAttachmentParams } from '@acp-harness/protocol'
 import { HARNESS_HOME } from './harness-home.ts'
+import { log } from './log.ts'
 
 /** Snapshots messages mention (terminal screens, chat transcripts); Claude may read them without asking. */
 export const CHAT_ATTACHMENT_DIR = join(HARNESS_HOME, 'attachments')
+/** Old enough that the chat has moved on; a deleted chat takes its snapshots with it sooner. */
+const ATTACHMENT_MAX_AGE_MS = 30 * 24 * 60 * 60 * 1000
+
+/** Deletes snapshots past their age, so mentions never pile up on the host's disk. */
+export async function pruneChatAttachments(): Promise<void> {
+  const cutoff = Date.now() - ATTACHMENT_MAX_AGE_MS
+  const names = await readdir(CHAT_ATTACHMENT_DIR, { recursive: true }).catch(() => [])
+  let removed = 0
+  for (const name of names) {
+    if (!name.endsWith('.txt')) continue
+    const path = join(CHAT_ATTACHMENT_DIR, name)
+    const info = await stat(path).catch(() => null)
+    if (info && info.mtimeMs < cutoff) {
+      await rm(path, { force: true })
+      removed += 1
+    }
+  }
+  if (removed > 0) log(`removed ${removed} chat attachment snapshot(s) older than 30 days`)
+}
 
 /**
  * Writes the snapshot as `<chat>/<kind>/<source id>/<time>-<title>.txt`; the client reads kind,
