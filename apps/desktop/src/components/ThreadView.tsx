@@ -1,6 +1,8 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { Copy, CornerDownLeft, GitFork, Quote, Search, TextSelect } from 'lucide-react'
-import { markSeen, openEditorTab, type Session, type ThreadItem } from '@/session-store'
+import { markSeen, openEditorTab, useStore, type Session, type ThreadItem } from '@/session-store'
+import { runCommandInNewTerminal } from '@/lib/terminal-command-run'
+import { NativeChatCommandRunContext } from '@/components/native-chat/NativeChatRunCommandButton'
 import { appendToDraft, forkChat, isWorking, rewindTo } from '@/chat-actions'
 import { isExternalAgentSession } from '@/lib/chat-agents'
 import { Button } from '@/components/ui/button'
@@ -59,6 +61,15 @@ export function ThreadView({ session, onSendToMain }: { session: Session; onSend
   const running = working || session.turnStartedAt !== null
   const model = useMemo(() => buildTranscript(session.items, running, session.cwd), [session.items, running, session.cwd])
   const find = useNativeChatFind(columnRef, session.items)
+  const shells = useStore((s) => s.hosts[session.hostId]?.shells)
+  const commandRunner = useMemo(
+    () => ({
+      shells: shells ?? [],
+      run: (request: { shellId: string; input: string; title: string }) =>
+        void runCommandInNewTerminal(session.workspaceId, request).catch(() => undefined)
+    }),
+    [shells, session.workspaceId]
+  )
 
   // Showing a session is reading it: it leaves the dashboard's Done lane.
   useEffect(() => markSeen(session.id), [session.id, session.status])
@@ -94,6 +105,7 @@ export function ThreadView({ session, onSendToMain }: { session: Session; onSend
     <div
       ref={rootRef}
       data-native-chat-root
+      data-link-workspace-id={session.workspaceId}
       className="native-chat-appearance flex min-h-0 min-w-0 flex-1 flex-col bg-chat-canvas text-chat-foreground"
       onKeyDown={(event) => {
         if ((isMac ? event.metaKey : event.ctrlKey) && !event.shiftKey && !event.altKey && event.key.toLowerCase() === 'f') {
@@ -102,6 +114,7 @@ export function ThreadView({ session, onSendToMain }: { session: Session; onSend
         }
       }}
     >
+      <NativeChatCommandRunContext.Provider value={commandRunner}>
       <div className="relative min-h-0 flex-1">
         <ContextMenu>
           <ContextMenuTrigger asChild>
@@ -194,6 +207,7 @@ export function ThreadView({ session, onSendToMain }: { session: Session; onSend
         <NativeChatMessageRail items={railItems} scrollRef={scrollRef} />
         <NativeChatJumpToLatest visible={!atBottom && !empty} onJump={jumpToLatest} />
       </div>
+      </NativeChatCommandRunContext.Provider>
       <NativeChatSelectionQuote rootRef={rootRef} onQuote={quote} />
       {pendingPermission && <NativeChatApprovalCard permission={pendingPermission} cwd={session.cwd} />}
       <NativeChatDockedTaskList list={model.taskList} />

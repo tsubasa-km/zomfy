@@ -4,6 +4,7 @@ import { translate } from '@/i18n/i18n'
 import { cn } from '@/lib/utils'
 import { getCodeFenceLanguageLabel } from './code-fence-language-label'
 import { NativeChatCopyButton } from './NativeChatCopyButton'
+import { NativeChatRunCommandButton } from './NativeChatRunCommandButton'
 import {
   NativeChatMarkdownRowKeyContext,
   useNativeChatDisclosure
@@ -35,6 +36,7 @@ export function NativeChatCodeBlock({
   const actions = code ? (
     <>
       <NativeChatCodeWrapButton wrapped={wrapped} onToggle={() => setWrapped(!wrapped)} />
+      <NativeChatRunCommandButton code={code} language={language} />
       <NativeChatCopyButton
         text={code}
         label={translate('components.native-chat.copyCode', 'Copy code')}
