@@ -95,7 +95,7 @@ export interface SidebarView {
   sortBy: 'created' | 'name' | 'recent' | 'manual'
 }
 
-export type RightSidebarTab = 'explorer' | 'search' | 'source-control' | 'ports'
+export type RightSidebarTab = 'explorer' | 'search' | 'source-control' | 'checks' | 'ports'
 
 export interface StoreState {
   hosts: Record<HostId, HostEntry>

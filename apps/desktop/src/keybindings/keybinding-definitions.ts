@@ -93,6 +93,14 @@ const APP_DEFINITIONS: KeybindingDefinition[] = [
     allowInTerminal: true
   },
   {
+    id: 'sidebar.checks.toggle',
+    title: 'Show Checks',
+    group: 'Global',
+    keywords: ['checks', 'ci', 'pull request', 'merge request', 'review'],
+    defaultBindings: [],
+    allowInTerminal: true
+  },
+  {
     id: 'sidebar.ports.toggle',
     title: 'Show Ports',
     group: 'Global',

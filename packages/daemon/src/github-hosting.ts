@@ -234,17 +234,16 @@ export const githubHosting: HostingProvider = {
 
   async reviewForBranch(ctx, branch) {
     const prs = await gh<GhPr[]>(ctx, ['pr', 'list', ...repoArg(ctx), '--head', branch, '--state', 'all', '--limit', '5', '--json', PR_FIELDS])
-    return pickBranchReview(prs.filter((pr) => pr.headRefName === branch).map(mapPullRequest))
+    return pickBranchReview(prs.filter((pr) => pr.headRefName === branch && !pr.isCrossRepository).map(mapPullRequest))
   },
 
-  async recentReviewsByBranch(ctx) {
+  async review(ctx, number) {
+    return mapPullRequest(await gh<GhPr>(ctx, ['pr', 'view', String(number), ...repoArg(ctx), '--json', PR_FIELDS]))
+  },
+
+  async recentReviews(ctx) {
     const prs = await gh<GhPr[]>(ctx, ['pr', 'list', ...repoArg(ctx), '--state', 'all', '--limit', '50', '--json', PR_FIELDS])
-    const byBranch = new Map<string, HostedReview[]>()
-    for (const pr of prs) {
-      if (pr.isCrossRepository || !pr.headRefName) continue
-      byBranch.set(pr.headRefName, [...(byBranch.get(pr.headRefName) ?? []), mapPullRequest(pr)])
-    }
-    return new Map([...byBranch].map(([branch, reviews]) => [branch, pickBranchReview(reviews)!]))
+    return prs.map(mapPullRequest)
   },
 
   async checks(ctx, number) {

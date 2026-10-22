@@ -1,6 +1,14 @@
 import { ArrowDown, ArrowUp } from 'lucide-react'
 import type { WorkspaceSummary } from '@acp-harness/protocol'
-import type { Session } from '@/session-store'
+import { selectWorkspace, setRightSidebar, type Session } from '@/session-store'
+import { useCardReview } from '@/stores/hosting-store'
+import {
+  HostedReviewIcon,
+  REVIEW_DECISION_LABEL,
+  providerName,
+  reviewNumberLabel,
+  reviewShortLabel
+} from '@/components/right-sidebar/checks/review-presentation'
 import { AgentStateDot, type AgentDotState } from '@/components/AgentStateDot'
 import { ClaudeIcon } from '@/components/agent-icons'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
@@ -79,5 +87,44 @@ export function AgentBadge({ sessions }: { sessions: Session[] }) {
       {sessions.length > 1 && sessions.length}
       <AgentStateDot state={SESSION_DOT[top]} size="sm" />
     </span>
+  )
+}
+
+const CHECKS_LABEL = { success: 'Passing', failure: 'Failed', pending: 'Pending', neutral: 'Neutral', none: 'None' } as const
+
+/** Orca's card review indicator: the branch's PR/MR, toned by its checks; opens the Checks tab. */
+export function ReviewBadge({ workspaceId, showNumber }: { workspaceId: string; showNumber: boolean }) {
+  const review = useCardReview(workspaceId)
+  if (!review) return null
+  const label = reviewShortLabel(review.provider)
+  return (
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <button
+          type="button"
+          className="inline-flex shrink-0 items-center gap-0.5 rounded text-[10px] leading-none text-muted-foreground tabular-nums hover:text-foreground"
+          aria-label={`${label} ${reviewNumberLabel(review)}: ${review.title}`}
+          data-review-badge={review.state}
+          onClick={(e) => {
+            e.stopPropagation()
+            selectWorkspace(workspaceId)
+            setRightSidebar({ open: true, tab: 'checks' })
+          }}
+        >
+          <HostedReviewIcon review={review} toneByChecks className="size-3" />
+          {showNumber && reviewNumberLabel(review)}
+        </button>
+      </TooltipTrigger>
+      <TooltipContent side="right" className="max-w-72">
+        <div className="font-medium">
+          {label} {reviewNumberLabel(review)} · {review.state}
+        </div>
+        <div className="break-words">{review.title}</div>
+        <div className="text-muted-foreground">
+          Checks: {CHECKS_LABEL[review.checksStatus]}
+          {review.reviewDecision ? ` · ${REVIEW_DECISION_LABEL[review.reviewDecision]}` : ''} · {providerName(review.provider)}
+        </div>
+      </TooltipContent>
+    </Tooltip>
   )
 }

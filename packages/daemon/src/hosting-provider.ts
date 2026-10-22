@@ -31,9 +31,11 @@ export interface CreateReviewInput {
 export interface HostingProvider {
   id: HostingProviderId
   tool: HostingTool
+  /** Same-repository reviews only: a fork's `main` must never pass for the local `main`. */
   reviewForBranch(ctx: HostingContext, branch: string): Promise<HostedReview | null>
-  /** Recent reviews keyed by head branch, in one call, for sidebar cards. */
-  recentReviewsByBranch(ctx: HostingContext): Promise<Map<string, HostedReview>>
+  review(ctx: HostingContext, number: number): Promise<HostedReview>
+  /** The most recently updated reviews, in one call, for sidebar cards. */
+  recentReviews(ctx: HostingContext): Promise<HostedReview[]>
   checks(ctx: HostingContext, number: number): Promise<HostedCheck[]>
   comments(ctx: HostingContext, number: number): Promise<HostedReviewComment[]>
   reviewFiles(ctx: HostingContext, number: number): Promise<{ files: HostedReviewFile[]; baseSha: string | null; headSha: string | null; baseRefName: string }>

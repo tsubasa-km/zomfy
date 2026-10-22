@@ -205,20 +205,17 @@ export const gitlabHosting: HostingProvider = {
       ctx,
       `${project(ctx)}/merge_requests?source_branch=${encodeURIComponent(branch)}&state=all&order_by=updated_at&per_page=5`
     )
-    const picked = pickBranchReview(list.map(mapMergeRequest))
-    if (!picked) return null
+    const picked = pickBranchReview(list.map(mapMergeRequest).filter((r) => !r.isCrossRepository))
     // Only the single-MR endpoint reports the head pipeline and approval state.
-    return mapMergeRequest(await api<GlMr>(ctx, `${project(ctx)}/merge_requests/${picked.number}`))
+    return picked ? gitlabHosting.review(ctx, picked.number) : null
   },
 
-  async recentReviewsByBranch(ctx) {
-    const list = await api<GlMr[]>(ctx, `${project(ctx)}/merge_requests?state=all&order_by=updated_at&per_page=50`)
-    const byBranch = new Map<string, HostedReview[]>()
-    for (const review of list.map(mapMergeRequest)) {
-      if (review.isCrossRepository) continue
-      byBranch.set(review.headRefName, [...(byBranch.get(review.headRefName) ?? []), review])
-    }
-    return new Map([...byBranch].map(([branch, reviews]) => [branch, pickBranchReview(reviews)!]))
+  async review(ctx, number) {
+    return mapMergeRequest(await api<GlMr>(ctx, `${project(ctx)}/merge_requests/${number}`))
+  },
+
+  async recentReviews(ctx) {
+    return (await api<GlMr[]>(ctx, `${project(ctx)}/merge_requests?state=all&order_by=updated_at&per_page=50`)).map(mapMergeRequest)
   },
 
   async checks(ctx, number) {

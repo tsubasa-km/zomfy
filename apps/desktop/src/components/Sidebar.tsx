@@ -17,6 +17,7 @@ import { AddRepoDialog, type AddRepoMode } from '@/components/sidebar/AddRepoDia
 import { ProjectGroupNameDialog, type GroupNameRequest } from '@/components/sidebar/ProjectGroupNameDialog'
 import { CleanupMergedDialog } from '@/components/sidebar/CleanupMergedDialog'
 import { useWorkspaceSummaries } from '@/components/sidebar/use-workspace-summaries'
+import { useCardReviewSummaries } from '@/stores/hosting-store'
 import { projectLabel, workspaceMatches } from '@/components/sidebar/workspace-visibility'
 
 // Markup and classes follow Orca's sidebar (sidebar/index.tsx, SidebarHeader, WorktreeList); the
@@ -42,6 +43,7 @@ export function Sidebar() {
   const [groupName, setGroupName] = useState<GroupNameRequest | null>(null)
   const [cleanUp, setCleanUp] = useState<HostedProject | null>(null)
   useWorkspaceSummaries()
+  useCardReviewSummaries()
 
   const orderedHosts = orderHosts(hosts)
   const waiting = sessions.filter((s) => s.status === 'needs-you')

@@ -38,6 +38,20 @@ export async function reviewDiffRevisions(
   return { base: mergeBase.trim(), head }
 }
 
+const LINK_KEY = 'acpHarnessReview'
+
+/** The review a branch was checked out for (Orca's linked PR), so fork heads still find theirs. */
+export async function linkedReviewNumber(cwd: string, branch: string): Promise<number | null> {
+  const out = await git(cwd, ['config', '--get', `branch.${branch}.${LINK_KEY}`], { quiet: true }).catch(() => '')
+  const number = Number(out.trim())
+  return Number.isInteger(number) && number > 0 ? number : null
+}
+
+async function linkReview(cwd: string, branch: string, number: number): Promise<string> {
+  await git(cwd, ['config', `branch.${branch}.${LINK_KEY}`, String(number)])
+  return branch
+}
+
 /**
  * A local branch with the review's head for a new worktree. Same-repository reviews get their own
  * branch name tracking the remote; fork heads land on `pr-<n>` / `mr-<n>`.
@@ -50,19 +64,20 @@ export async function checkoutReviewBranch(
 ): Promise<string> {
   const head = review.headRefName
   if (head && !review.isCrossRepository) {
-    if (await branchExists(cwd, head)) return head
+    if (await branchExists(cwd, head)) return linkReview(cwd, head, review.number)
     await git(cwd, ['fetch', '--no-tags', remote.remote, `+refs/heads/${head}:refs/remotes/${remote.remote}/${head}`], {
       timeoutMs: FETCH_TIMEOUT
     })
     await git(cwd, ['branch', '--track', head, `${remote.remote}/${head}`])
-    return head
+    return linkReview(cwd, head, review.number)
   }
   const branch = `${provider.id === 'gitlab' ? 'mr' : 'pr'}-${review.number}`
-  if (await branchExists(cwd, branch)) return branch
-  await git(cwd, ['fetch', '--no-tags', remote.remote, `${provider.reviewHeadRef(review.number)}:refs/heads/${branch}`], {
-    timeoutMs: FETCH_TIMEOUT
-  })
-  return branch
+  if (!(await branchExists(cwd, branch))) {
+    await git(cwd, ['fetch', '--no-tags', remote.remote, `${provider.reviewHeadRef(review.number)}:refs/heads/${branch}`], {
+      timeoutMs: FETCH_TIMEOUT
+    })
+  }
+  return linkReview(cwd, branch, review.number)
 }
 
 /** "fix-login_bug" → "Fix login bug" (Orca's humanizeBranchSlug, roughly). */
