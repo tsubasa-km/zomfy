@@ -4,18 +4,24 @@ import { invoke, isTauri } from "@tauri-apps/api/core";
 import {
   HARNESS_METHODS,
   HARNESS_NOTIFICATIONS,
+  MANAGER_METHODS,
+  MANAGER_ROUTING_CAPABILITY,
   SETTINGS_NOTIFICATIONS,
+  TODO_NOTIFICATIONS,
   type ChatAgentId,
   type CreateTerminalParams,
   type HarnessMethod,
   type HarnessRequests,
   type HarnessState,
   type HostSettings,
+  type ManagerCallParams,
   type Project,
   type SessionInfo,
+  type SessionRole,
   type ShellOption,
   type TerminalInfo,
   type TerminalOutput,
+  type TodoItem,
 } from "@acp-harness/protocol";
 import { applyChatUpdate } from "./chat-transcript";
 import {
@@ -40,6 +46,8 @@ import {
   type HostId,
 } from "./session-store";
 import { applyHostSettings } from "./stores/host-settings-store";
+import { setTodos } from "./stores/inbox-store";
+import { runManagerTool } from "./manager/manager-tool-runner";
 
 interface DaemonInfo {
   url: string;
@@ -164,6 +172,19 @@ async function openConnection(hostId: HostId): Promise<void> {
   const opened = acp
     .client({ name: "acp-harness-desktop" })
     .onRequest("session/request_permission", (ctx) => requestPermission(ctx.params))
+    // A manager agent on this host reaching sessions on any host; this window carries the call.
+    .onRequest(
+      MANAGER_METHODS.managerCall,
+      (raw: unknown) => raw as ManagerCallParams,
+      (ctx) => runManagerTool(ctx.params),
+    )
+    .onNotification(
+      TODO_NOTIFICATIONS.todosChanged,
+      (raw: unknown) => raw as TodoItem[],
+      (ctx) => {
+        if (hostId === LOCAL_HOST) setTodos(ctx.params);
+      },
+    )
     .onNotification("session/update", (ctx) => applyChatUpdate(ctx.params))
     .onNotification(
       HARNESS_NOTIFICATIONS.stateChanged,
@@ -212,7 +233,7 @@ async function openConnection(hostId: HostId): Promise<void> {
   try {
     await opened.agent.request(acp.methods.agent.initialize, {
       protocolVersion: acp.PROTOCOL_VERSION,
-      clientCapabilities: {},
+      clientCapabilities: { _meta: { [MANAGER_ROUTING_CAPABILITY]: true } },
     });
     if (userDisconnected.has(hostId)) {
       opened.close();
@@ -232,6 +253,8 @@ async function openConnection(hostId: HostId): Promise<void> {
       connection: { kind: "connected", url: info.url },
     });
     if (hostId !== LOCAL_HOST) rememberHost(hostId, true);
+    // The person's todos live on this computer's daemon; an older daemon has none.
+    if (hostId === LOCAL_HOST) void opened.agent.request<TodoItem[]>(HARNESS_METHODS.todosList, {}).then(setTodos, () => undefined);
     reconnectAttempts.delete(hostId);
   } catch (error) {
     opened.close();
@@ -293,12 +316,24 @@ export async function addProject(pickedPath: string): Promise<Project> {
   return harnessRequest(HARNESS_METHODS.projectAdd, { path }, hostId);
 }
 
-/** Opens a new chat tab (Claude unless `agent` says otherwise) and makes it the workspace's active tab. */
-export async function createSession(workspaceId: string, agent?: ChatAgentId): Promise<string> {
-  const hostId = hostOf({ workspaceId });
-  const params = agent && agent !== "claude" ? { workspaceId, agent } : { workspaceId };
+/**
+ * Opens a new chat tab (Claude unless `agent` says otherwise) and makes it the workspace's active tab.
+ * `hostId` is for a workspace this window may not have heard about yet; `focus: false` leaves the
+ * visible tab alone (a manager starting agents in the background).
+ */
+export async function createSession(
+  workspaceId: string,
+  agent?: ChatAgentId,
+  extra: { hostId?: HostId; role?: SessionRole; focus?: boolean } = {},
+): Promise<string> {
+  const hostId = extra.hostId ?? hostOf({ workspaceId });
+  const params = {
+    workspaceId,
+    ...(agent && agent !== "claude" ? { agent } : {}),
+    ...(extra.role ? { role: extra.role } : {}),
+  };
   const info = await harnessRequest(HARNESS_METHODS.sessionCreate, params, hostId);
-  addSession({ ...info, hostId, workspaceId, items: [], loaded: true });
+  addSession({ ...info, hostId, workspaceId, items: [], loaded: true }, extra.focus ?? true);
   return info.id;
 }
 
@@ -370,7 +405,7 @@ export function closeSession(sessionId: string): void {
 // Dev-only hook so scripts/cdp.ts can drive what a native folder dialog would otherwise block.
 if (import.meta.env.DEV) {
   Object.assign(window, {
-    __harness: { addProject, createSession, createTerminal, connectHost, harnessRequest, selectWorkspace, state: getState },
+    __harness: { addProject, createSession, createTerminal, connectHost, harnessRequest, selectWorkspace, state: getState, runManagerTool },
   });
 }
 
@@ -415,8 +450,11 @@ export function cancelTurn(sessionId: string): void {
   void connections.get(session.hostId)?.agent.notify(acp.methods.agent.session.cancel, { sessionId });
 }
 
-export function answerPermission(requestId: string, optionId: string | null): void {
-  pendingPermissions.get(requestId)?.(optionId);
+/** False when the request is not held by this window (another window ran the turn). */
+export function answerPermission(requestId: string, optionId: string | null): boolean {
+  const resolve = pendingPermissions.get(requestId);
+  resolve?.(optionId);
+  return resolve !== undefined;
 }
 
 function requestPermission(

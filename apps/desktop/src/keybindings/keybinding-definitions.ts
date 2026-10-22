@@ -74,6 +74,22 @@ const APP_DEFINITIONS: KeybindingDefinition[] = [
     allowInTerminal: true
   },
   {
+    id: 'inbox.toggle',
+    title: 'Toggle Inbox',
+    group: 'Global',
+    keywords: ['inbox', 'todo', 'approvals', 'waiting', 'needs you', 'unread'],
+    defaultBindings: ['Mod+Alt+I'],
+    allowInTerminal: true
+  },
+  {
+    id: 'manager.open',
+    title: 'Open Manager Agent',
+    group: 'Global',
+    keywords: ['manager', 'orchestrate', 'coordinator', 'agents'],
+    defaultBindings: ['Mod+Alt+M'],
+    allowInTerminal: true
+  },
+  {
     id: 'floatingWorkspace.toggle',
     title: 'Toggle Floating Workspace',
     group: 'Global',

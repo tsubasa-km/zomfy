@@ -15,6 +15,8 @@ import { WorkspaceBoard } from '@/components/sidebar/WorkspaceBoard'
 import { useSidebarStore } from '@/stores/sidebar-store'
 import { installAgentNotifications } from '@/agent-notifications'
 import { installAppCommands } from '@/keybindings/app-commands'
+import { InboxPanel } from '@/components/inbox/InboxPanel'
+import { installInbox } from '@/components/inbox/inbox-registrations'
 import { installKeybindingDispatcher } from '@/keybindings/keybinding-registry'
 import { TooltipProvider } from '@/components/ui/tooltip'
 import { installTheme } from '@/lib/theme'
@@ -25,6 +27,7 @@ installTheme()
 installUiZoom()
 installAgentNotifications()
 installAppCommands()
+installInbox()
 
 export default function App() {
   const activeWorkspaceId = useStore((s) => s.activeWorkspaceId)
@@ -70,6 +73,7 @@ export default function App() {
         <StatusBar />
       </div>
       <FloatingWorkspace />
+      <InboxPanel />
       <QuickOpen />
       <CommandPalette />
     </TooltipProvider>
