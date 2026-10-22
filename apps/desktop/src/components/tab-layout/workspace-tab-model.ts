@@ -34,6 +34,8 @@ import {
   type ReopenSpec,
   type TabMeta
 } from '@/stores/tab-layout-store'
+import { forgetPanes, isSecondaryPane, useTerminalPaneState } from '@/stores/terminal-pane-store'
+import { tabPaneTerminalIds } from '@/components/terminal/terminal-pane-commands'
 
 /** Every kind of tab a workspace's tab groups hold, in one shape. */
 export type WorkspaceTab =
@@ -47,6 +49,8 @@ export function useWorkspaceTabs(workspaceId: string): WorkspaceTab[] {
   const terminals = useStore((s) => s.terminals)
   const editorTabs = useStore((s) => s.editorTabs)
   const browserTabs = useBrowserTabs()
+  // A split terminal tab is its leader terminal; the other panes are not tabs of their own.
+  const panes = useTerminalPaneState()
   return useMemo(
     () =>
       [
@@ -54,7 +58,7 @@ export function useWorkspaceTabs(workspaceId: string): WorkspaceTab[] {
           .filter((s) => s.workspaceId === workspaceId && !s.sideOf)
           .map((session) => ({ kind: 'chat' as const, id: session.id, createdAt: session.createdAt, session })),
         ...terminals
-          .filter((t) => t.workspaceId === workspaceId)
+          .filter((t) => t.workspaceId === workspaceId && !isSecondaryPane(t.id, panes))
           .map((terminal) => ({ kind: 'terminal' as const, id: terminal.id, createdAt: terminal.createdAt, terminal })),
         ...editorTabs
           .filter((t) => t.workspaceId === workspaceId)
@@ -63,7 +67,7 @@ export function useWorkspaceTabs(workspaceId: string): WorkspaceTab[] {
           .filter((t) => t.workspaceId === workspaceId)
           .map((browser) => ({ kind: 'browser' as const, id: browser.id, createdAt: browser.createdAt, browser }))
       ].sort((a, b) => a.createdAt - b.createdAt),
-    [sessions, terminals, editorTabs, browserTabs, workspaceId]
+    [sessions, terminals, editorTabs, browserTabs, workspaceId, panes]
   )
 }
 
@@ -156,11 +160,12 @@ export function closeWorkspaceTabs(workspaceId: string, tabs: WorkspaceTab[]): b
   const next = removeTabsFromLayout(workspaceId, ids)
   for (const tab of tabs) {
     if (tab.kind === 'chat') closeSession(tab.id)
-    else if (tab.kind === 'terminal') closeTerminal(tab.id)
+    else if (tab.kind === 'terminal') for (const id of tabPaneTerminalIds(tab.id)) closeTerminal(id)
     else if (tab.kind === 'editor') closeEditorTab(tab.id)
   }
   removeBrowserTabs(tabs.filter((t) => t.kind === 'browser').map((t) => t.id))
   forgetTabMeta(ids)
+  forgetPanes(ids)
   // Session close picks its own fallback; the focused group's MRU choice wins, as in Orca.
   if (next) selectTab(workspaceId, next)
   return true

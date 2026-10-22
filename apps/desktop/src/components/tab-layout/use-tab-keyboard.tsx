@@ -12,6 +12,7 @@ import {
   type WorkspaceTab
 } from './workspace-tab-model'
 import { TabKindIcon } from './TabKindIcon'
+import { closeActivePane } from './pane-split-commands'
 
 export const RENAME_TAB_EVENT = 'acp-harness:rename-tab'
 
@@ -90,6 +91,8 @@ export function useTabKeyboard({
       }
       switch (action) {
         case 'tab.close':
+          // A split terminal closes its active pane first, as Orca's terminal.closePane does.
+          if (active?.kind === 'terminal' && closeActivePane()) break
           if (active && !getTabLayoutState().meta[active.id]?.pinned) closeWorkspaceTabs(workspaceId, [active])
           break
         case 'tab.reopenClosed':

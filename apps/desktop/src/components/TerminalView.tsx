@@ -4,8 +4,8 @@ import { FitAddon } from '@xterm/addon-fit'
 import { SearchAddon } from '@xterm/addon-search'
 import { WebLinksAddon } from '@xterm/addon-web-links'
 import { HARNESS_METHODS, type TerminalInfo } from '@acp-harness/protocol'
-import { closeTerminal, harnessRequest, subscribeTerminalOutput } from '@/daemon-connection'
-import { splitTerminal } from '@/components/terminal/terminal-split'
+import { harnessRequest, subscribeTerminalOutput } from '@/daemon-connection'
+import { closeTerminalPane, splitTerminalPane } from '@/components/terminal/terminal-pane-commands'
 import { currentTerminalTheme } from '@/lib/terminal-themes'
 import { matchTerminalShortcut } from '@/lib/terminal-shortcuts'
 import { registerFileLinks } from '@/lib/terminal-file-links'
@@ -202,7 +202,7 @@ export function TerminalView({ terminal }: { terminal: TerminalInfo }) {
         <TerminalProcessExitOverlay
           exitCode={terminal.exitCode}
           onRestart={restart}
-          onClose={() => closeTerminal(terminal.id)}
+          onClose={() => closeTerminalPane(terminal.workspaceId, terminal.id)}
         />
       )}
       <TerminalContextMenu
@@ -219,11 +219,11 @@ export function TerminalView({ terminal }: { terminal: TerminalInfo }) {
         onPaste={paste}
         onSelectAll={() => xtermRef.current?.selectAll()}
         onFind={() => setSearchOpen(true)}
-        onSplit={(direction) => void splitTerminal(terminal.workspaceId, terminal.id, terminal.shellId, direction)}
+        onSplit={(direction) => void splitTerminalPane(terminal.workspaceId, terminal.id, direction)}
         onSetTitle={() => setSettingTitle(true)}
         onClearTitle={terminal.customTitle ? () => rename(null) : null}
         onCopyTerminalId={() => void navigator.clipboard.writeText(terminal.id)}
-        onClose={() => closeTerminal(terminal.id)}
+        onClose={() => closeTerminalPane(terminal.workspaceId, terminal.id)}
         onClearScreen={() => {
           xtermRef.current?.clear()
           focus()

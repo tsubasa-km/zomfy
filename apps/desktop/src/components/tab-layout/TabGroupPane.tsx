@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { ensureSessionLoaded } from '@/daemon-connection'
 import { ThreadView } from '@/components/ThreadView'
-import { TerminalView } from '@/components/TerminalView'
+import { TerminalTabBody } from '@/components/terminal/TerminalPaneTree'
 import { DiffTabView } from '@/components/EditorTabViews'
 import { FileEditorView } from '@/components/FileEditorView'
 import { cn } from '@/lib/utils'
@@ -9,6 +9,7 @@ import { BrowserTabView } from './BrowserTabView'
 import { TabStrip } from './TabStrip'
 import { endTabDrag, resolveDropZone, useDraggedTab, type DropZone } from './tab-drag'
 import { focusGroup, moveTabTo, splitTabTo } from './tab-group-commands'
+import './pane-split-commands'
 import type { WorkspaceTab } from './workspace-tab-model'
 
 const OVERLAY_RECT: Record<DropZone, React.CSSProperties> = {
@@ -24,7 +25,7 @@ function TabBody({ tab }: { tab: WorkspaceTab }) {
     case 'chat':
       return <ThreadView key={tab.id} session={tab.session} />
     case 'terminal':
-      return <TerminalView key={tab.id} terminal={tab.terminal} />
+      return <TerminalTabBody key={tab.id} tabId={tab.id} terminal={tab.terminal} />
     case 'editor':
       return tab.editor.kind === 'file' ? (
         <FileEditorView key={tab.id} tab={tab.editor} />

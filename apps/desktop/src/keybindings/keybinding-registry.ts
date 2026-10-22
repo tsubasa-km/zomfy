@@ -123,7 +123,9 @@ export function installKeybindingDispatcher(): () => void {
     const inTerminal = !!target?.closest('.xterm')
     const terminalFirst = getSetting('terminalShortcutPolicy') === 'terminal-first'
     const overrides = getSetting('keybindings')
-    for (const definition of keybindingDefinitions()) {
+    const all = keybindingDefinitions()
+    // Focus-scoped commands go first; one that does not apply here hands the chord to the next match.
+    for (const definition of [...all.filter((d) => d.scope === 'terminal'), ...all.filter((d) => d.scope !== 'terminal')]) {
       if (!hasCommandHandler(definition.id)) continue
       if (inTerminal && terminalFirst && !definition.allowInTerminal) continue
       for (const binding of effectiveBindings(definition, overrides)) {
@@ -132,8 +134,9 @@ export function installKeybindingDispatcher(): () => void {
         if (runCommand(definition.id, index)) {
           event.preventDefault()
           event.stopPropagation()
+          return
         }
-        return
+        break
       }
     }
   }

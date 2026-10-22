@@ -386,6 +386,33 @@ export function placeTab(workspaceId: string, tabId: string, preferredGroupId: s
   }
 }
 
+/** A terminal tab whose leader pane closed takes the next pane's id, keeping its slot, focus and title. */
+export function renameTab(workspaceId: string, oldId: string, newId: string): void {
+  const layout = state.layouts[workspaceId]
+  const swap = (id: string) => (id === oldId ? newId : id)
+  const layouts = layout
+    ? {
+        ...state.layouts,
+        [workspaceId]: {
+          ...layout,
+          groups: Object.fromEntries(
+            Object.entries(layout.groups).map(([id, g]) => [
+              id,
+              {
+                ...g,
+                tabOrder: g.tabOrder.map(swap),
+                recentTabIds: g.recentTabIds.map(swap),
+                activeTabId: g.activeTabId === null ? null : swap(g.activeTabId)
+              }
+            ])
+          )
+        }
+      }
+    : state.layouts
+  const { [oldId]: moved, ...meta } = state.meta
+  commit({ ...state, layouts, meta: moved ? { ...meta, [newId]: moved } : meta })
+}
+
 /** The group drawn at the tree's top-right corner, which carries the strip's trailing controls. */
 export function topRightGroupId(node: LayoutNode): string {
   if (node.type === 'leaf') return node.groupId

@@ -18,6 +18,8 @@ export interface KeybindingDefinition {
   digitIndex?: boolean
   /** Hidden from the command palette (digit-index commands need a key to mean anything). */
   hideInPalette?: boolean
+  /** Orca's terminal scope: acts on the focused pane or chat, and is tried before global commands sharing its chord. */
+  scope?: 'terminal'
 }
 
 const APP_DEFINITIONS: KeybindingDefinition[] = [

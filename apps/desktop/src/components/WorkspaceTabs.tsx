@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef } from 'react'
-import { allWorkspaces, useStore } from '@/session-store'
+import { allWorkspaces, getState, useStore } from '@/session-store'
 import {
   emptyLayout,
   layoutFor,
@@ -14,6 +14,8 @@ import { TabGroupPane } from '@/components/tab-layout/TabGroupPane'
 import { useTabKeyboard } from '@/components/tab-layout/use-tab-keyboard'
 import { syncWorkspaceFocus, useWorkspaceTabs } from '@/components/tab-layout/workspace-tab-model'
 import { TerminalWorkspaceDialogs } from '@/components/terminal/TerminalWorkspaceDialogs'
+import { reconcileWorkspacePanes } from '@/components/terminal/terminal-pane-commands'
+import { paneOwnerTab, setActivePane, useTerminalPaneState } from '@/stores/terminal-pane-store'
 import '@/components/tab-layout/tab-layout.css'
 
 // A workspace's center area, as Orca draws it: a split tree of tab groups (TabGroupSplitNodeTree),
@@ -30,7 +32,10 @@ export function WorkspaceTabs({
   emptyHint: string
 }) {
   const tabs = useWorkspaceTabs(workspaceId)
-  const focusTabId = useStore((s) => s.activeSessionByWorkspace[workspaceId])
+  const focusedId = useStore((s) => s.activeSessionByWorkspace[workspaceId])
+  const panes = useTerminalPaneState()
+  // Focusing a split pane's terminal (a notification, Jump to agent) focuses its tab and that pane.
+  const focusTabId = useMemo(() => (focusedId ? paneOwnerTab(focusedId) : undefined), [focusedId, panes])
   // Gone tabs are pruned only once the owning host has listed its sessions and terminals.
   const hostListed = useStore((s) => {
     const hostId = allWorkspaces(s).find((w) => w.id === workspaceId)?.hostId
@@ -44,6 +49,11 @@ export function WorkspaceTabs({
   )
 
   useEffect(() => {
+    if (focusedId && focusTabId && focusedId !== focusTabId) setActivePane(focusTabId, focusedId)
+  }, [focusedId, focusTabId])
+
+  useEffect(() => {
+    if (hostListed) reconcileWorkspacePanes(workspaceId, getState().terminals)
     // Recomputed from the store, not the render's copy, so a move made since then is kept.
     storeReconciledLayout(workspaceId, reconcileLayout(layoutFor(workspaceId), liveIds, focusTabId, hostListed))
     syncWorkspaceFocus(workspaceId)
