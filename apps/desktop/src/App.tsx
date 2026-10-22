@@ -10,6 +10,10 @@ import { AgentDashboard } from '@/components/AgentDashboard'
 import { SettingsPage } from '@/components/settings/SettingsPage'
 import { AutomationsPage } from '@/components/automations/AutomationsPage'
 import { useAutomationState } from '@/stores/automation-store'
+import { SkillsPage } from '@/components/skills/SkillsPage'
+import { installSkillsCommands } from '@/components/skills/skills-commands'
+import { usePluginBootstrap } from '@/plugins/plugin-registry'
+import { OnboardingGate, installOnboardingCommands } from '@/components/onboarding/OnboardingFlow'
 import { QuickOpen } from '@/components/QuickOpen'
 import { CommandPalette } from '@/components/CommandPalette'
 import { StatusBar } from '@/components/status-bar/StatusBar'
@@ -25,6 +29,7 @@ import { installKeybindingDispatcher } from '@/keybindings/keybinding-registry'
 import { TooltipProvider } from '@/components/ui/tooltip'
 import { installTheme } from '@/lib/theme'
 import { listenForDashboardPicks } from '@/lib/dashboard-window'
+import { installTraySync } from '@/lib/tray-sync'
 import { installUiZoom } from '@/lib/ui-zoom'
 import '@/assets/main.css'
 
@@ -33,12 +38,17 @@ installUiZoom()
 installAgentNotifications()
 installAppCommands()
 installInbox()
+installSkillsCommands()
+installOnboardingCommands()
+installTraySync()
 
 export default function App() {
   const activeWorkspaceId = useStore((s) => s.activeWorkspaceId)
   const dashboardOpen = useStore((s) => s.dashboardOpen)
   const settingsOpen = useAppOverlays((s) => s.settings.open)
   const automationsOpen = useAutomationState((s) => s.pageOpen)
+  const skillsOpen = useAppOverlays((s) => s.skills)
+  usePluginBootstrap()
   const boardOpen = useSidebarStore((s) => s.boardOpen)
   const tasksOpen = useTasks((s) => s.open)
 
@@ -88,6 +98,11 @@ export default function App() {
               <SettingsPage />
             </div>
           )}
+          {skillsOpen && (
+            <div className="absolute inset-0 z-30 flex">
+              <SkillsPage />
+            </div>
+          )}
         </div>
         <StatusBar />
       </div>
@@ -95,6 +110,7 @@ export default function App() {
       <InboxPanel />
       <QuickOpen />
       <CommandPalette />
+      <OnboardingGate />
     </TooltipProvider>
   )
 }

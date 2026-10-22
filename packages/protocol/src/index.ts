@@ -7,13 +7,16 @@ import { CHAT_AGENT_METHODS, type ChatAgentRequests } from './chat-agents'
 import { FILE_METHODS, type FileRequests } from './files'
 import { GIT_METHODS, type GitRequests } from './git'
 import { HOSTING_METHODS, type HostingRequests } from './hosting'
+import { PLUGIN_METHODS, type PluginRequests } from './plugins'
 import { PORT_METHODS, type PortRequests } from './ports'
 import { QUICK_OPEN_METHODS, type QuickOpenRequests } from './quick-open'
 import { SESSION_METHODS, type SessionRequests } from './sessions'
 import { SETTINGS_METHODS, type SettingsRequests } from './settings'
 import { SIDE_CHAT_METHODS, type SideChatRequests } from './side-chats'
+import { SKILL_METHODS, type SkillRequests } from './skills'
 import { TERMINAL_METHODS, type TerminalRequests } from './terminals'
 import { TODO_METHODS, type TodoRequests } from './todos'
+import { VOICE_METHODS, type VoiceRequests } from './voice'
 import { WORKSPACE_METHODS, type WorkspaceRequests } from './workspaces'
 
 export * from './automation-schedules'
@@ -23,14 +26,17 @@ export * from './files'
 export * from './git'
 export * from './hosting'
 export * from './manager'
+export * from './plugins'
 export * from './ports'
 export * from './quick-open'
 export * from './sessions'
 export * from './settings'
 export * from './side-chats'
+export * from './skills'
 export * from './terminals'
 export * from './todos'
 export * from './tui-agents'
+export * from './voice'
 export * from './workspaces'
 
 export const HARNESS_METHODS = {
@@ -46,7 +52,10 @@ export const HARNESS_METHODS = {
   ...CHAT_AGENT_METHODS,
   ...TODO_METHODS,
   ...SIDE_CHAT_METHODS,
-  ...AUTOMATION_METHODS
+  ...AUTOMATION_METHODS,
+  ...SKILL_METHODS,
+  ...PLUGIN_METHODS,
+  ...VOICE_METHODS
 } as const
 
 export const HARNESS_NOTIFICATIONS = {
@@ -69,6 +78,9 @@ export interface HarnessRequests
     ChatAgentRequests,
     TodoRequests,
     SideChatRequests,
-    AutomationRequests {}
+    AutomationRequests,
+    SkillRequests,
+    PluginRequests,
+    VoiceRequests {}
 
 export type HarnessMethod = keyof HarnessRequests

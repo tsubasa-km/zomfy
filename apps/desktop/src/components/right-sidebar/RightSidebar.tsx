@@ -10,6 +10,9 @@ import { PortsPanel } from './PortsPanel'
 import { ChecksPanel } from './checks/ChecksPanel'
 import { useCardReview, useWorkspaceReview } from '@/stores/hosting-store'
 import { SideChatPanel } from './SideChatPanel'
+import { PluginPanel } from './PluginPanel'
+import { useActivePluginPanels } from '@/plugins/plugin-registry'
+import { resolvePluginPanelIcon } from '@/plugins/plugin-panel-icons'
 import { cn } from '@/lib/utils'
 
 // Frame and top activity bar follow Orca's right sidebar (right-sidebar/index.tsx,
@@ -33,6 +36,9 @@ export function RightSidebar({ workspaceId }: { workspaceId: string }) {
   const checksLabel = withShortcut('Checks', useShortcutLabel('sidebar.checks.toggle'))
   const checksStatus = useChecksDot(workspaceId)
   const sideChatLabel = withShortcut('Side chat', useShortcutLabel('sidebar.sideChat.toggle'))
+  // Enabled plugins' panels join the activity bar after the built-in tabs, as in Orca.
+  const pluginPanels = useActivePluginPanels()
+  const activePluginPanel = pluginPanels.find((p) => p.tab === tab)
 
   if (!open) {
     return (
@@ -57,6 +63,14 @@ export function RightSidebar({ workspaceId }: { workspaceId: string }) {
           label={sideChatLabel}
           onClick={() => setRightSidebar({ open: true, tab: 'side-chat' })}
         />
+        {pluginPanels.map((panel) => (
+          <ActivityButton
+            key={panel.tab}
+            icon={resolvePluginPanelIcon(panel.icon)}
+            label={`${panel.title} · ${panel.pluginName}`}
+            onClick={() => setRightSidebar({ open: true, tab: panel.tab })}
+          />
+        ))}
       </div>
     )
   }
@@ -108,6 +122,16 @@ export function RightSidebar({ workspaceId }: { workspaceId: string }) {
           active={tab === 'side-chat'}
           onClick={() => setRightSidebar({ tab: 'side-chat' })}
         />
+        {pluginPanels.map((panel) => (
+          <ActivityButton
+            key={panel.tab}
+            top
+            icon={resolvePluginPanelIcon(panel.icon)}
+            label={`${panel.title} · ${panel.pluginName}`}
+            active={tab === panel.tab}
+            onClick={() => setRightSidebar({ tab: panel.tab })}
+          />
+        ))}
         <div className="ml-auto pr-1">
           <ActivityButton top icon={PanelRightClose} label="Close sidebar" onClick={() => setRightSidebar({ open: false })} />
         </div>
@@ -122,6 +146,8 @@ export function RightSidebar({ workspaceId }: { workspaceId: string }) {
         <SideChatPanel key={workspaceId} workspaceId={workspaceId} />
       ) : tab === 'ports' ? (
         <PortsPanel key={workspaceId} workspaceId={workspaceId} />
+      ) : activePluginPanel ? (
+        <PluginPanel key={activePluginPanel.tab} panel={activePluginPanel} workspaceId={workspaceId} />
       ) : (
         <SourceControl key={workspaceId} workspaceId={workspaceId} />
       )}

@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { invoke, isTauri } from '@tauri-apps/api/core'
 import { open } from '@tauri-apps/plugin-dialog'
 import {
+  BookOpen,
   Download,
   FolderInput,
   FolderPlus,
@@ -19,6 +20,8 @@ import { addProject, connectHost } from '@/daemon-connection'
 import { LOCAL_HOST, setDashboardOpen, useStore, type HostId } from '@/session-store'
 import { setBoardOpen, useSidebarStore } from '@/stores/sidebar-store'
 import { setAutomationsPageOpen, useAutomationState } from '@/stores/automation-store'
+import { setSkillsPageOpen, useAppOverlays } from '@/stores/app-overlay-store'
+import { useSetting } from '@/stores/settings-store'
 import { SidebarFilterMenu } from '@/components/sidebar/SidebarFilterMenu'
 import { WorkspaceOptionsMenu } from '@/components/sidebar/WorkspaceOptionsMenu'
 import type { AddRepoMode } from '@/components/sidebar/AddRepoDialog'
@@ -56,6 +59,7 @@ export function SidebarHeader({
         {groupBy === 'project' ? 'Projects' : 'Workspaces'}
       </span>
       <div className="flex shrink-0 items-center gap-0.5">
+        <SkillsButton />
         <BoardButton />
         <DashboardButton />
         <AutomationsButton />
@@ -64,6 +68,30 @@ export function SidebarHeader({
         <AddMenu onImportOrca={onImportOrca} onAddRepo={onAddRepo} onNewGroup={onNewGroup} />
       </div>
     </div>
+  )
+}
+
+/** Orca's opt-in sidebar Skills entry (showSkillsButton). */
+function SkillsButton() {
+  const shown = useSetting('showSkillsButton')
+  const open = useAppOverlays((s) => s.skills)
+  if (!shown) return null
+  return (
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <Button
+          size="icon-xs"
+          variant="ghost"
+          aria-label="Skills"
+          aria-pressed={open}
+          className={cn('text-muted-foreground', open && 'bg-accent text-accent-foreground')}
+          onClick={() => setSkillsPageOpen(!open)}
+        >
+          <BookOpen className="size-3.5" />
+        </Button>
+      </TooltipTrigger>
+      <TooltipContent side="bottom">Skills</TooltipContent>
+    </Tooltip>
   )
 }
 

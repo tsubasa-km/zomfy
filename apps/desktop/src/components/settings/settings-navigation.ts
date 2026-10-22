@@ -1,4 +1,4 @@
-import { Bell, Bot, Keyboard, Palette, Server, SlidersHorizontal, SquareTerminal, TextCursorInput, type LucideIcon } from 'lucide-react'
+import { Bell, BookOpen, Bot, Blocks, Keyboard, Mic, Palette, Server, SlidersHorizontal, SquareTerminal, TextCursorInput, type LucideIcon } from 'lucide-react'
 
 // Orca's settings sidebar groups and sections (hooks/settings-navigation-*-sections.ts), trimmed
 // to what the harness has. Search entries mirror each pane's rows so search finds a setting.
@@ -39,6 +39,28 @@ export const SETTINGS_SECTIONS: readonly SettingsNavSection[] = [
     ]
   },
   {
+    id: 'skills',
+    title: 'Skills',
+    description: 'Browse the agent skills on each host.',
+    icon: BookOpen,
+    group: 'capabilities',
+    entries: [
+      { title: 'Open Skills', keywords: ['skills', 'SKILL.md', 'browse'] },
+      { title: 'Show Skills in sidebar', keywords: ['skills', 'sidebar', 'button'] }
+    ]
+  },
+  {
+    id: 'plugins',
+    title: 'Plugins',
+    description: 'Panels and commands from plugin folders on this computer.',
+    icon: Blocks,
+    group: 'capabilities',
+    entries: [
+      { title: 'Plugins folder', keywords: ['plugin', 'install', 'folder', 'orca-plugin.json'] },
+      { title: 'Installed plugins', keywords: ['plugin', 'enable', 'disable', 'panel', 'command'] }
+    ]
+  },
+  {
     id: 'general',
     title: 'General',
     description: 'Workspace defaults, app setup, and maintenance.',
@@ -48,6 +70,8 @@ export const SETTINGS_SECTIONS: readonly SettingsNavSection[] = [
       { title: 'Group workspaces by', keywords: ['sidebar', 'project', 'status'] },
       { title: 'Sort workspaces by', keywords: ['sidebar', 'name', 'recent', 'created'] },
       { title: 'Status bar', keywords: ['footer', 'status bar'] },
+      { title: 'Minimize to Tray on Close', keywords: ['tray', 'minimize', 'close', 'background'] },
+      { title: 'Run setup again', keywords: ['onboarding', 'welcome', 'first run', 'setup'] },
       { title: 'Reset all settings', keywords: ['defaults', 'restore'] }
     ]
   },
@@ -104,6 +128,20 @@ export const SETTINGS_SECTIONS: readonly SettingsNavSection[] = [
       { title: 'Agent finished', keywords: ['done', 'complete', 'turn'] },
       { title: 'Agent needs you', keywords: ['permission', 'approval', 'attention'] },
       { title: 'Suppress while focused', keywords: ['focus', 'quiet'] }
+    ]
+  },
+  {
+    id: 'voice',
+    title: 'Voice',
+    description: 'Dictation in the chat composer.',
+    icon: Mic,
+    group: 'interface',
+    entries: [
+      { title: 'Dictation', keywords: ['voice', 'speech', 'microphone', 'dictate', 'whisper'] },
+      { title: 'Transcription endpoint', keywords: ['voice', 'whisper', 'url', 'openai', 'endpoint'] },
+      { title: 'Model', keywords: ['voice', 'whisper', 'model'] },
+      { title: 'API key', keywords: ['voice', 'key', 'token', 'openai'] },
+      { title: 'Language', keywords: ['voice', 'language', 'locale'] }
     ]
   },
   {

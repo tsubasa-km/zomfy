@@ -6,12 +6,18 @@ export interface AppOverlays {
   /** Open when it names the workspace whose files Ctrl+P lists. */
   quickOpen: { open: boolean; workspaceId: string | null }
   commandPalette: boolean
+  /** Orca's Skills page, which also replaces the app view. */
+  skills: boolean
+  /** Orca's first-run flow; reopened from Settings › General. */
+  onboarding: boolean
 }
 
 const store = createExternalStore<AppOverlays>({
   settings: { open: false, section: 'general' },
   quickOpen: { open: false, workspaceId: null },
-  commandPalette: false
+  commandPalette: false,
+  skills: false,
+  onboarding: false
 })
 
 export const useAppOverlays = store.use
@@ -46,4 +52,12 @@ export function setQuickOpen(workspaceId: string | null): void {
 
 export function setCommandPalette(open: boolean): void {
   store.update((s) => ({ ...s, commandPalette: open, quickOpen: open ? { ...s.quickOpen, open: false } : s.quickOpen }))
+}
+
+export function setSkillsPageOpen(open: boolean): void {
+  store.update((s) => ({ ...s, skills: open, settings: open ? { ...s.settings, open: false } : s.settings, commandPalette: false }))
+}
+
+export function setOnboardingOpen(open: boolean): void {
+  store.update((s) => ({ ...s, onboarding: open, settings: open ? { ...s.settings, open: false } : s.settings, commandPalette: false }))
 }

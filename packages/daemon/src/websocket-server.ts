@@ -1,3 +1,4 @@
+import { PLUGIN_PANEL_PATH_PREFIX, pluginPanels } from "./plugin-panel-server.ts";
 import type * as acp from "@agentclientprotocol/sdk";
 import {
   AcpServer,
@@ -75,6 +76,7 @@ export async function serveWebSocket(
       const url = new URL(req.url);
       // Agents on this host reach the manager tools here; a per-session bearer token guards it.
       if (url.pathname === MANAGER_MCP_PATH) return managerMcp.handleHttp(req);
+      if (url.pathname.startsWith(PLUGIN_PANEL_PATH_PREFIX)) return pluginPanels.handleHttp(req);
       if (url.pathname !== "/acp") return new Response("not found", { status: 404 });
       const origin = req.headers.get("origin");
       if (origin && !ALLOWED_ORIGINS.has(origin)) {

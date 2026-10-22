@@ -222,6 +222,16 @@ export function registerKeybindingDefinitions(added: readonly KeybindingDefiniti
   for (const listener of listeners) listener()
 }
 
+/** Drops commands that came and went at runtime (a disabled plugin's). */
+export function unregisterKeybindingDefinitions(ids: readonly string[]): void {
+  const drop = new Set(ids)
+  const kept = definitions.filter((d) => !drop.has(d.id))
+  if (kept.length === definitions.length) return
+  definitions.splice(0, definitions.length, ...kept)
+  snapshot = definitions.slice()
+  for (const listener of listeners) listener()
+}
+
 export function subscribeKeybindingDefinitions(listener: () => void): () => void {
   listeners.add(listener)
   return () => listeners.delete(listener)

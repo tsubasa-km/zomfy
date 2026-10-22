@@ -12,6 +12,9 @@ import { HostsPane } from './HostsPane'
 import { InputEditingPane } from './InputEditingPane'
 import { NotificationsPane } from './NotificationsPane'
 import { ShortcutsPane } from './ShortcutsPane'
+import { SkillsPane } from './SkillsPane'
+import { PluginsPane } from './PluginsPane'
+import { VoicePane } from './VoicePane'
 import { TerminalPane } from './TerminalPane'
 
 // Orca's settings page (settings-page-renderer.tsx): it replaces the app view, with a section
@@ -35,6 +38,12 @@ function renderPane(id: string, query: string): ReactNode {
       return <ShortcutsPane searchQuery={query} />
     case 'hosts':
       return <HostsPane />
+    case 'skills':
+      return <SkillsPane />
+    case 'plugins':
+      return <PluginsPane />
+    case 'voice':
+      return <VoicePane />
     default:
       return null
   }
