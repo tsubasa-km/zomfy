@@ -22,6 +22,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Switch } from '@/components/ui/switch'
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group'
 import { cn } from '@/lib/utils'
+import { defaultChatAgent } from '@/lib/default-chat-agent'
 
 // Orca's NewWorkspaceComposerModal: name, agent and first prompt up front; branch name override,
 // base branch or an existing branch, parent workspace, note and the setup script under Advanced.
@@ -44,7 +45,7 @@ export function NewWorkspaceDialog({ request, onClose }: { request: NewWorkspace
   const isGit = project?.kind === 'git'
   const hosts = useStore((s) => s.hosts)
   const [name, setName] = useState('')
-  const [agent, setAgent] = useState<AgentChoice>('claude')
+  const [agent, setAgent] = useState<AgentChoice>(defaultChatAgent)
   const chatAgents = useChatAgents(project?.hostId ?? LOCAL_HOST).agents.filter((a) => a.status === 'ready')
   const [prompt, setPrompt] = useState('')
   const [advanced, setAdvanced] = useState(false)
@@ -63,7 +64,7 @@ export function NewWorkspaceDialog({ request, onClose }: { request: NewWorkspace
   useEffect(() => {
     setName('')
     setPrompt('')
-    setAgent('claude')
+    setAgent(defaultChatAgent())
     setStartFrom('new-branch')
     setExistingBranch('')
     setBranchName('')

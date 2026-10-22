@@ -11,6 +11,7 @@ import { SettingsPage } from '@/components/settings/SettingsPage'
 import { SkillsPage } from '@/components/skills/SkillsPage'
 import { installSkillsCommands } from '@/components/skills/skills-commands'
 import { usePluginBootstrap } from '@/plugins/plugin-registry'
+import { OnboardingGate, installOnboardingCommands } from '@/components/onboarding/OnboardingFlow'
 import { QuickOpen } from '@/components/QuickOpen'
 import { CommandPalette } from '@/components/CommandPalette'
 import { StatusBar } from '@/components/status-bar/StatusBar'
@@ -32,6 +33,7 @@ installAgentNotifications()
 installAppCommands()
 installInbox()
 installSkillsCommands()
+installOnboardingCommands()
 
 export default function App() {
   const activeWorkspaceId = useStore((s) => s.activeWorkspaceId)
@@ -87,6 +89,7 @@ export default function App() {
       <InboxPanel />
       <QuickOpen />
       <CommandPalette />
+      <OnboardingGate />
     </TooltipProvider>
   )
 }

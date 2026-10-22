@@ -1,6 +1,10 @@
 import { useStore, type HostEntry } from '@/session-store'
 import { updateHostSettings, useHostSettings } from '@/stores/host-settings-store'
-import { ClaudeIcon } from '@/components/agent-icons'
+import { LOCAL_HOST } from '@/session-store'
+import { setSetting, useSetting } from '@/stores/settings-store'
+import { useChatAgents } from '@/lib/chat-agents'
+import { TuiAgentIcon } from '@/components/terminal/TuiAgentIcon'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { SettingsRow, SettingsSubsectionHeader, TextField } from './settings-form-controls'
 import { sortedHosts } from './HostsPane'
 import { ChatAgentLaunchSettings } from './ChatAgentLaunchSettings'
@@ -29,22 +33,35 @@ function ClaudeCommandRow({ host }: { host: HostEntry }) {
   )
 }
 
+/** Orca's default-agent picker, over the chat agents this computer can run. */
+function DefaultAgentSelect() {
+  const value = useSetting('defaultChatAgent')
+  const ready = useChatAgents(LOCAL_HOST).agents.filter((a) => a.status === 'ready')
+  const options = ready.some((a) => a.id === 'claude') ? ready : [{ id: 'claude' as const, label: 'Claude' }, ...ready]
+  return (
+    <Select value={value} onValueChange={(v) => setSetting('defaultChatAgent', v)}>
+      <SelectTrigger className="h-8 w-48" aria-label="Default agent" data-default-agent>
+        <SelectValue />
+      </SelectTrigger>
+      <SelectContent>
+        {options.map((a) => (
+          <SelectItem key={a.id} value={a.id}>
+            <TuiAgentIcon agent={a.id} size={14} />
+            {a.label}
+          </SelectItem>
+        ))}
+      </SelectContent>
+    </Select>
+  )
+}
+
 export function AgentsPane() {
   const hosts = useStore((s) => s.hosts)
   return (
     <div className="space-y-8">
       <div className="space-y-2 not-has-[[data-setting-row]]:hidden">
-        <SettingsSubsectionHeader title="Default agent" description="New agent tabs start this agent; the + menu starts the others." />
-        <SettingsRow
-          label="Default agent"
-          keywords={['claude', 'agent']}
-          control={
-            <span className="inline-flex items-center gap-2 text-sm">
-              <ClaudeIcon size={16} />
-              Claude Code
-            </span>
-          }
-        />
+        <SettingsSubsectionHeader title="Default agent" description="New workspaces start a chat with this agent; the + menu starts any of them." />
+        <SettingsRow label="Default agent" keywords={['claude', 'agent']} control={<DefaultAgentSelect />} />
       </div>
       <div className="space-y-2 not-has-[[data-setting-row]]:hidden">
         <SettingsSubsectionHeader title="Claude Code" description="Each host's daemon runs its own CLI with that host's login and settings." />

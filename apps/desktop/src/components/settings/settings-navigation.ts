@@ -70,6 +70,8 @@ export const SETTINGS_SECTIONS: readonly SettingsNavSection[] = [
       { title: 'Group workspaces by', keywords: ['sidebar', 'project', 'status'] },
       { title: 'Sort workspaces by', keywords: ['sidebar', 'name', 'recent', 'created'] },
       { title: 'Status bar', keywords: ['footer', 'status bar'] },
+      { title: 'Minimize to Tray on Close', keywords: ['tray', 'minimize', 'close', 'background'] },
+      { title: 'Run setup again', keywords: ['onboarding', 'welcome', 'first run', 'setup'] },
       { title: 'Reset all settings', keywords: ['defaults', 'restore'] }
     ]
   },

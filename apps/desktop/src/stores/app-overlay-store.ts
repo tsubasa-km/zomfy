@@ -8,13 +8,16 @@ export interface AppOverlays {
   commandPalette: boolean
   /** Orca's Skills page, which also replaces the app view. */
   skills: boolean
+  /** Orca's first-run flow; reopened from Settings › General. */
+  onboarding: boolean
 }
 
 const store = createExternalStore<AppOverlays>({
   settings: { open: false, section: 'general' },
   quickOpen: { open: false, workspaceId: null },
   commandPalette: false,
-  skills: false
+  skills: false,
+  onboarding: false
 })
 
 export const useAppOverlays = store.use
@@ -53,4 +56,8 @@ export function setCommandPalette(open: boolean): void {
 
 export function setSkillsPageOpen(open: boolean): void {
   store.update((s) => ({ ...s, skills: open, settings: open ? { ...s.settings, open: false } : s.settings, commandPalette: false }))
+}
+
+export function setOnboardingOpen(open: boolean): void {
+  store.update((s) => ({ ...s, onboarding: open, settings: open ? { ...s.settings, open: false } : s.settings, commandPalette: false }))
 }
