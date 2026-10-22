@@ -12,6 +12,8 @@ import { QuickOpen } from '@/components/QuickOpen'
 import { CommandPalette } from '@/components/CommandPalette'
 import { StatusBar } from '@/components/status-bar/StatusBar'
 import { WorkspaceBoard } from '@/components/sidebar/WorkspaceBoard'
+import { TasksPage } from '@/components/tasks/TasksPage'
+import { useTasks } from '@/stores/tasks-store'
 import { useSidebarStore } from '@/stores/sidebar-store'
 import { installAgentNotifications } from '@/agent-notifications'
 import { installAppCommands } from '@/keybindings/app-commands'
@@ -34,6 +36,7 @@ export default function App() {
   const dashboardOpen = useStore((s) => s.dashboardOpen)
   const settingsOpen = useAppOverlays((s) => s.settings.open)
   const boardOpen = useSidebarStore((s) => s.boardOpen)
+  const tasksOpen = useTasks((s) => s.open)
 
   useEffect(() => {
     connectAllHosts()
@@ -50,6 +53,8 @@ export default function App() {
               <AgentDashboard />
             ) : boardOpen ? (
               <WorkspaceBoard />
+            ) : tasksOpen ? (
+              <TasksPage />
             ) : activeWorkspaceId ? (
               <WorkspaceTabs
                 key={activeWorkspaceId}
@@ -62,7 +67,7 @@ export default function App() {
               </div>
             )}
           </main>
-          {activeWorkspaceId && !dashboardOpen && !boardOpen && <RightSidebar workspaceId={activeWorkspaceId} />}
+          {activeWorkspaceId && !dashboardOpen && !boardOpen && !tasksOpen && <RightSidebar workspaceId={activeWorkspaceId} />}
           {/* Orca's settings replace the app view; the views stay mounted underneath to keep their state. */}
           {settingsOpen && (
             <div className="absolute inset-0 z-30 flex">

@@ -1,17 +1,21 @@
 import { useEffect, useMemo, useState } from 'react'
-import { ChevronRight } from 'lucide-react'
+import { ChevronRight, X } from 'lucide-react'
 import {
   HARNESS_METHODS,
   isChatAgentId,
   type BranchList,
   type ChatAgentId,
-  type ProjectHookInfo,
-  type Workspace
+  type HostedWorkItem,
+  type ProjectHookInfo
 } from '@acp-harness/protocol'
 import { createSession, harnessRequest, sendPrompt } from '@/daemon-connection'
-import { LOCAL_HOST, selectTerminal, selectWorkspace, useStore, type HostedProject } from '@/session-store'
+import { LOCAL_HOST, selectTerminal, selectWorkspace, useStore } from '@/session-store'
 import { TuiAgentIcon } from '@/components/terminal/TuiAgentIcon'
 import { useChatAgents } from '@/lib/chat-agents'
+import { setTasks, type NewWorkspaceRequest } from '@/stores/tasks-store'
+import { WorkItemPicker } from '@/components/tasks/WorkItemPicker'
+import { buildWorkItemPrompt, workItemLabel, workItemWorkspaceName } from '@/components/tasks/work-item-prompt'
+import { HostedReviewIcon } from '@/components/right-sidebar/checks/review-presentation'
 import { BranchCombobox } from '@/components/sidebar/BranchCombobox'
 import { projectLabel, workspaceLabel } from '@/components/sidebar/workspace-visibility'
 import { Button } from '@/components/ui/button'
@@ -34,10 +38,7 @@ const textareaClass =
 type StartFrom = 'new-branch' | 'existing-branch'
 type AgentChoice = ChatAgentId | 'none'
 
-export interface NewWorkspaceRequest {
-  project: HostedProject
-  parent?: Workspace
-}
+export type { NewWorkspaceRequest }
 
 export function NewWorkspaceDialog({ request, onClose }: { request: NewWorkspaceRequest | null; onClose: () => void }) {
   const project = request?.project ?? null
@@ -59,6 +60,8 @@ export function NewWorkspaceDialog({ request, onClose }: { request: NewWorkspace
   const [hooks, setHooks] = useState<ProjectHookInfo | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
+  /** Orca's linked work item: a PR/MR checks out its head; its text seeds the first prompt. */
+  const [workItem, setWorkItem] = useState<HostedWorkItem | null>(null)
 
   useEffect(() => {
     setName('')
@@ -76,12 +79,32 @@ export function NewWorkspaceDialog({ request, onClose }: { request: NewWorkspace
     // A child starts from its parent's branch, as Orca's lineage does.
     setBaseRef(request?.parent?.branch ?? '')
     setAdvanced(!!request?.parent)
+    setWorkItem(null)
+    if (request?.workItem) linkWorkItem(request.workItem)
     if (request?.project.kind === 'git') {
       const { id, hostId } = request.project
       void harnessRequest(HARNESS_METHODS.branchesList, { projectId: id }, hostId).then(setBranches, () => undefined)
       void harnessRequest(HARNESS_METHODS.projectHooks, { projectId: id }, hostId).then(setHooks, () => undefined)
     }
   }, [request])
+
+  function linkWorkItem(item: HostedWorkItem) {
+    setWorkItem(item)
+    setName(workItemWorkspaceName(item))
+    setAgent('claude')
+    setPrompt(buildWorkItemPrompt(item))
+    // List rows carry no body; fetch it so the prompt holds the item's text.
+    if (item.body === undefined && request) {
+      void harnessRequest(
+        HARNESS_METHODS.hostingWorkItem,
+        { projectId: request.project.id, kind: item.kind, number: item.number },
+        request.project.hostId
+      ).then((full) => {
+        setWorkItem((current) => (current?.number === full.number && current.kind === full.kind ? full : current))
+        setPrompt((current) => (current === buildWorkItemPrompt(item) ? buildWorkItemPrompt(full) : current))
+      }, () => undefined)
+    }
+  }
 
   const siblings = useMemo(
     () => (project ? (hosts[project.hostId]?.harness?.workspaces ?? []).filter((w) => w.projectId === project.id && w.branch) : []),
@@ -99,22 +122,29 @@ export function NewWorkspaceDialog({ request, onClose }: { request: NewWorkspace
     setBusy(true)
     setError(null)
     try {
-      const existing = isGit && startFrom === 'existing-branch'
+      // A PR/MR workspace checks out the review's head instead of branching from the base.
+      const reviewBranch =
+        isGit && workItem?.kind === 'review'
+          ? (await harnessRequest(HARNESS_METHODS.hostingCheckoutReview, { projectId: project.id, number: workItem.number }, project.hostId)).branch
+          : null
+      const existing = (isGit && startFrom === 'existing-branch') || reviewBranch !== null
+      const linkedNote = workItem ? `${workItemLabel(workItem)}: ${workItem.title}` : ''
       const workspace = await harnessRequest(
         HARNESS_METHODS.workspaceCreate,
         {
           projectId: project.id,
           name: name.trim() || (existing ? '' : 'workspace'),
-          ...(existing ? { existingBranch } : {}),
+          ...(existing ? { existingBranch: reviewBranch ?? existingBranch } : {}),
           ...(!existing && baseRef ? { baseRef } : {}),
           ...(!existing && branchName.trim() ? { branchName: branchName.trim() } : {}),
           ...(parentId !== NO_PARENT ? { parentWorkspaceId: parentId } : {}),
-          ...(note.trim() ? { comment: note.trim() } : {}),
+          ...(note.trim() || linkedNote ? { comment: note.trim() || linkedNote } : {}),
           runSetup: runSetup && !!setupScript
         },
         project.hostId
       )
       selectWorkspace(workspace.id)
+      setTasks({ open: false })
       if (agent !== 'none') {
         const sessionId = await createSession(workspace.id, agent)
         if (prompt.trim()) void sendPrompt(sessionId, prompt.trim())
@@ -151,9 +181,37 @@ export function NewWorkspaceDialog({ request, onClose }: { request: NewWorkspace
           }}
         >
           <div className="space-y-1.5">
-            <Label htmlFor="workspace-name" className={fieldLabel}>
-              Name
-            </Label>
+            <div className="flex items-center justify-between gap-2">
+              <Label htmlFor="workspace-name" className={fieldLabel}>
+                Name
+              </Label>
+              {isGit && project && <WorkItemPicker project={project} onPick={linkWorkItem} />}
+            </div>
+            {workItem && (
+              <div className="flex min-w-0 items-center gap-1.5 rounded-md border border-border/60 bg-muted/30 px-2 py-1 text-xs" data-linked-work-item>
+                {workItem.kind === 'review' ? (
+                  <HostedReviewIcon review={{ provider: workItem.provider, state: workItem.state, checksStatus: 'none' }} className="size-3.5 shrink-0" />
+                ) : null}
+                <span className="shrink-0 font-medium">{workItemLabel(workItem)}</span>
+                <span className="min-w-0 flex-1 truncate text-muted-foreground">{workItem.title}</span>
+                {workItem.kind === 'review' && workItem.headRefName && (
+                  <span className="max-w-32 shrink-0 truncate font-mono text-[10px] text-muted-foreground" title="Checks out the review's head">
+                    {workItem.headRefName}
+                  </span>
+                )}
+                <button
+                  type="button"
+                  aria-label="Unlink"
+                  className="shrink-0 text-muted-foreground hover:text-foreground"
+                  onClick={() => {
+                    if (prompt === buildWorkItemPrompt(workItem)) setPrompt('')
+                    setWorkItem(null)
+                  }}
+                >
+                  <X className="size-3.5" />
+                </button>
+              </div>
+            )}
             <Input
               id="workspace-name"
               autoFocus

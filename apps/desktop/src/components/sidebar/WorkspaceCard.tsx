@@ -11,9 +11,10 @@ import {
   type CardProperty
 } from '@/stores/sidebar-store'
 import StatusIndicator from '@/components/sidebar/StatusIndicator'
+import { setTasks } from '@/stores/tasks-store'
 import { WorkspaceStatusIcon } from '@/components/sidebar/WorkspaceStatusIcon'
 import { WorkspaceMenuItems, updateWorkspace } from '@/components/sidebar/WorkspaceMenu'
-import { AgentBadge, DiffStatsBadge, SyncBadge } from '@/components/sidebar/WorkspaceCardBadges'
+import { AgentBadge, DiffStatsBadge, ReviewBadge, SyncBadge } from '@/components/sidebar/WorkspaceCardBadges'
 import { SessionRow } from '@/components/sidebar/SessionRow'
 import { currentDrag, endDrag, handleDragOver, startDrag, type DragItem } from '@/components/sidebar/sidebar-drag'
 import { workspaceLabel } from '@/components/sidebar/workspace-visibility'
@@ -78,6 +79,8 @@ export function WorkspaceCard({
     <>
       {show('changes') && <DiffStatsBadge summary={summary} />}
       {show('sync') && <SyncBadge summary={summary} />}
+      {/* The branch's PR/MR rides with the branch property. */}
+      {show('branch') && <ReviewBadge workspaceId={workspace.id} showNumber={!compact} />}
     </>
   )
 
@@ -120,6 +123,7 @@ export function WorkspaceCard({
         selectSingle(workspace.id)
         selectWorkspace(workspace.id)
         setBoardOpen(false)
+        setTasks({ open: false })
         if (workspace.unread) void updateWorkspace(workspace.id, { unread: false })
       }}
       onContextMenu={(e) => {

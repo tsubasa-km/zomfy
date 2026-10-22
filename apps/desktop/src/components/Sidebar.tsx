@@ -12,12 +12,15 @@ import { SessionRow } from '@/components/sidebar/SessionRow'
 import { HostSection, hasActiveFilters } from '@/components/sidebar/HostSection'
 import type { SidebarActions } from '@/components/sidebar/ProjectSection'
 import { BulkActionBar } from '@/components/sidebar/BulkActionBar'
-import { NewWorkspaceDialog, type NewWorkspaceRequest } from '@/components/sidebar/NewWorkspaceDialog'
+import { NewWorkspaceDialog } from '@/components/sidebar/NewWorkspaceDialog'
+import { TasksNavButton } from '@/components/sidebar/TasksNavButton'
+import { openNewWorkspace, useNewWorkspaceRequest } from '@/stores/tasks-store'
 import { ProjectSettingsDialog } from '@/components/sidebar/ProjectSettingsDialog'
 import { AddRepoDialog, type AddRepoMode } from '@/components/sidebar/AddRepoDialog'
 import { ProjectGroupNameDialog, type GroupNameRequest } from '@/components/sidebar/ProjectGroupNameDialog'
 import { CleanupMergedDialog } from '@/components/sidebar/CleanupMergedDialog'
 import { useWorkspaceSummaries } from '@/components/sidebar/use-workspace-summaries'
+import { useCardReviewSummaries } from '@/stores/hosting-store'
 import { projectLabel, workspaceMatches } from '@/components/sidebar/workspace-visibility'
 
 // Markup and classes follow Orca's sidebar (sidebar/index.tsx, SidebarHeader, WorktreeList); the
@@ -34,7 +37,7 @@ export function Sidebar() {
   const sessions = useStore((s) => s.sessions)
   const unread = useStore((s) => s.unread)
   const filters = useSidebarStore((s) => s.filters)
-  const [newWorkspace, setNewWorkspace] = useState<NewWorkspaceRequest | null>(null)
+  const newWorkspace = useNewWorkspaceRequest()
   const [deleting, setDeleting] = useState<Workspace | null>(null)
   const [updating, setUpdating] = useState<Workspace | null>(null)
   const [importing, setImporting] = useState(false)
@@ -43,6 +46,7 @@ export function Sidebar() {
   const [groupName, setGroupName] = useState<GroupNameRequest | null>(null)
   const [cleanUp, setCleanUp] = useState<HostedProject | null>(null)
   useWorkspaceSummaries()
+  useCardReviewSummaries()
 
   const orderedHosts = orderHosts(hosts)
   const waiting = sessions.filter((s) => s.status === 'needs-you')
@@ -67,7 +71,7 @@ export function Sidebar() {
   }, [hosts, filters, sessions, unread])
 
   const actions: SidebarActions = {
-    newWorkspace: (project, parent) => setNewWorkspace({ project, parent }),
+    newWorkspace: (project, parent) => openNewWorkspace({ project, parent }),
     update: setUpdating,
     remove: setDeleting,
     projectSettings: setSettingsFor,
@@ -83,6 +87,7 @@ export function Sidebar() {
 
   return (
     <aside className="relative flex min-h-0 w-[280px] flex-shrink-0 flex-col overflow-hidden border-r border-worktree-sidebar-border bg-worktree-sidebar text-worktree-sidebar-foreground">
+      <TasksNavButton />
       <SidebarHeader
         onImportOrca={() => setImporting(true)}
         onAddRepo={setAddRepo}
@@ -132,7 +137,7 @@ export function Sidebar() {
 
       <BulkActionBar />
 
-      <NewWorkspaceDialog request={newWorkspace} onClose={() => setNewWorkspace(null)} />
+      <NewWorkspaceDialog request={newWorkspace} onClose={() => openNewWorkspace(null)} />
       <DeleteWorkspaceDialog workspace={deleting} onClose={() => setDeleting(null)} />
       <UpdateWorkspaceDialog workspace={updating} onClose={() => setUpdating(null)} />
       <OrcaImportDialog open={importing} onClose={() => setImporting(false)} />

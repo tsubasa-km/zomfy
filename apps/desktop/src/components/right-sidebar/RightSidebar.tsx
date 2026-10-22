@@ -1,4 +1,4 @@
-import { Files, GitCompare, PanelRightClose, Plug, Search } from 'lucide-react'
+import { Files, GitCompare, ListChecks, PanelRightClose, Plug, Search } from 'lucide-react'
 import { allWorkspaces, setRightSidebar, useStore } from '@/session-store'
 import { useShortcutLabel } from '@/keybindings/keybinding-registry'
 import { useGitStatus } from '@/hooks/use-git-status'
@@ -7,6 +7,8 @@ import { FileExplorer } from './FileExplorer'
 import { SourceControl } from './SourceControl'
 import { SearchPanel } from './SearchPanel'
 import { PortsPanel } from './PortsPanel'
+import { ChecksPanel } from './checks/ChecksPanel'
+import { useCardReview, useWorkspaceReview } from '@/stores/hosting-store'
 import { cn } from '@/lib/utils'
 
 // Frame and top activity bar follow Orca's right sidebar (right-sidebar/index.tsx,
@@ -27,6 +29,8 @@ export function RightSidebar({ workspaceId }: { workspaceId: string }) {
   const searchLabel = withShortcut('Search', useShortcutLabel('sidebar.search.toggle'))
   const sourceControlLabel = withShortcut('Source Control', useShortcutLabel('sidebar.sourceControl.toggle'))
   const portsLabel = withShortcut('Ports', useShortcutLabel('sidebar.ports.toggle'))
+  const checksLabel = withShortcut('Checks', useShortcutLabel('sidebar.checks.toggle'))
+  const checksStatus = useChecksDot(workspaceId)
 
   if (!open) {
     return (
@@ -38,6 +42,12 @@ export function RightSidebar({ workspaceId }: { workspaceId: string }) {
           label={sourceControlLabel}
           badge={changeCount > 0}
           onClick={() => setRightSidebar({ open: true, tab: 'source-control' })}
+        />
+        <ActivityButton
+          icon={ListChecks}
+          label={checksLabel}
+          dot={checksStatus}
+          onClick={() => setRightSidebar({ open: true, tab: 'checks' })}
         />
         <ActivityButton icon={Plug} label={portsLabel} onClick={() => setRightSidebar({ open: true, tab: 'ports' })} />
       </div>
@@ -71,6 +81,14 @@ export function RightSidebar({ workspaceId }: { workspaceId: string }) {
           active={tab === 'source-control'}
           onClick={() => setRightSidebar({ tab: 'source-control' })}
         />
+        <ActivityButton
+          top
+          icon={ListChecks}
+          label={checksLabel}
+          active={tab === 'checks'}
+          dot={checksStatus}
+          onClick={() => setRightSidebar({ tab: 'checks' })}
+        />
         <ActivityButton top icon={Plug} label={portsLabel} active={tab === 'ports'} onClick={() => setRightSidebar({ tab: 'ports' })} />
         <div className="ml-auto pr-1">
           <ActivityButton top icon={PanelRightClose} label="Close sidebar" onClick={() => setRightSidebar({ open: false })} />
@@ -80,6 +98,8 @@ export function RightSidebar({ workspaceId }: { workspaceId: string }) {
         <FileExplorer key={workspaceId} workspaceId={workspaceId} rootName={workspaceName} />
       ) : tab === 'search' ? (
         <SearchPanel key={workspaceId} workspaceId={workspaceId} />
+      ) : tab === 'checks' ? (
+        <ChecksPanel key={workspaceId} workspaceId={workspaceId} />
       ) : tab === 'ports' ? (
         <PortsPanel key={workspaceId} workspaceId={workspaceId} />
       ) : (
@@ -95,6 +115,7 @@ function ActivityButton({
   active,
   top,
   badge,
+  dot,
   onClick
 }: {
   icon: React.ComponentType<{ size?: number }>
@@ -102,6 +123,8 @@ function ActivityButton({
   active?: boolean
   top?: boolean
   badge?: boolean
+  /** Orca's checks status dot on the Checks button. */
+  dot?: DotStatus | null
   onClick: () => void
 }) {
   return (
@@ -119,6 +142,7 @@ function ActivityButton({
         >
           <Icon size={top ? 16 : 18} />
           {badge && <div className="absolute top-[7px] right-[7px] size-[7px] rounded-full bg-agent-question ring-1 ring-sidebar" />}
+          {dot && !badge && <div className={cn('absolute top-[7px] right-[7px] size-[7px] rounded-full ring-1 ring-sidebar', STATUS_DOT_COLOR[dot])} />}
           {active && top && <div className="absolute right-[25%] bottom-0 left-[25%] h-[2px] rounded-t bg-foreground" />}
         </button>
       </TooltipTrigger>
@@ -127,4 +151,22 @@ function ActivityButton({
       </TooltipContent>
     </Tooltip>
   )
+}
+
+type DotStatus = 'success' | 'failure' | 'pending'
+
+const STATUS_DOT_COLOR: Record<DotStatus, string> = {
+  success: 'bg-emerald-500',
+  failure: 'bg-rose-500',
+  pending: 'bg-amber-500'
+}
+
+/** The workspace review's checks roll-up, once something has looked it up. */
+function useChecksDot(workspaceId: string): DotStatus | null {
+  const entry = useWorkspaceReview(workspaceId)
+  const card = useCardReview(workspaceId)
+  const review = entry.review ?? card
+  if (!review || (review.state !== 'open' && review.state !== 'draft')) return null
+  const status = entry.checksStatus ?? review.checksStatus
+  return status === 'success' || status === 'failure' || status === 'pending' ? status : null
 }

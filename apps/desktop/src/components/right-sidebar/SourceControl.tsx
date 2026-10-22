@@ -8,6 +8,8 @@ import { ActionButton, ChangeRow, DirectoryRow, SectionHeader } from './source-c
 import { CommitArea } from './source-control/CommitArea'
 import { GitHistoryPanel } from './source-control/GitHistoryPanel'
 import { SourceControlHeader, type SourceControlViewMode } from './source-control/SourceControlHeader'
+import { SourceControlReviewLink } from './source-control/SourceControlReviewLink'
+import { ReviewNotesShelf } from './source-control/ReviewNotesShelf'
 import { BaseRefDialog, BulkActionBar, DiscardDialog, type PendingDiscard } from './source-control/source-control-dialogs'
 import { resolveDropdownItems, resolvePrimaryAction, type ActionInputs } from './source-control/source-control-actions'
 import { buildChangeTree, directoryFiles, flattenChangeTree, type ChangeTreeNode } from './source-control/source-control-tree'
@@ -376,10 +378,12 @@ export function SourceControl({ workspaceId }: { workspaceId: string }) {
           branchContext.refresh()
         }}
         branch={status?.branch ?? null}
+        reviewSlot={<SourceControlReviewLink workspaceId={workspaceId} branch={status?.branch ?? null} />}
         compareSummary={compareSummary}
         compareLoading={branchContext.compare.loading}
         baseRef={branchContext.baseRef}
       />
+      <ReviewNotesShelf workspaceId={workspaceId} />
 
       <div className="scrollbar-sleek relative flex flex-1 flex-col overflow-auto pt-1" style={{ paddingBottom: selected.size > 0 ? 50 : undefined }}>
         <CommitArea

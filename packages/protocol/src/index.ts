@@ -5,6 +5,7 @@
 import { CHAT_AGENT_METHODS, type ChatAgentRequests } from './chat-agents'
 import { FILE_METHODS, type FileRequests } from './files'
 import { GIT_METHODS, type GitRequests } from './git'
+import { HOSTING_METHODS, type HostingRequests } from './hosting'
 import { PORT_METHODS, type PortRequests } from './ports'
 import { QUICK_OPEN_METHODS, type QuickOpenRequests } from './quick-open'
 import { SESSION_METHODS, type SessionRequests } from './sessions'
@@ -16,6 +17,7 @@ import { WORKSPACE_METHODS, type WorkspaceRequests } from './workspaces'
 export * from './chat-agents'
 export * from './files'
 export * from './git'
+export * from './hosting'
 export * from './manager'
 export * from './ports'
 export * from './quick-open'
@@ -32,6 +34,7 @@ export const HARNESS_METHODS = {
   ...TERMINAL_METHODS,
   ...FILE_METHODS,
   ...GIT_METHODS,
+  ...HOSTING_METHODS,
   ...SETTINGS_METHODS,
   ...QUICK_OPEN_METHODS,
   ...PORT_METHODS,
@@ -52,6 +55,7 @@ export interface HarnessRequests
     TerminalRequests,
     FileRequests,
     GitRequests,
+    HostingRequests,
     SettingsRequests,
     QuickOpenRequests,
     PortRequests,

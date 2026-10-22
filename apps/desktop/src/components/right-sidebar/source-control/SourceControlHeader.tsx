@@ -23,7 +23,8 @@ export function SourceControlHeader({
   branch,
   compareSummary,
   compareLoading,
-  baseRef
+  baseRef,
+  reviewSlot
 }: {
   filterQuery: string
   filterExpanded: boolean
@@ -37,6 +38,8 @@ export function SourceControlHeader({
   compareSummary: GitBranchCompareSummary | null
   compareLoading: boolean
   baseRef: string | null
+  /** The branch's PR/MR link or Create button, in place of the toolbar spacer. */
+  reviewSlot?: React.ReactNode
 }) {
   const inputRef = useRef<HTMLInputElement>(null)
   const normalized = filterQuery.trim()
@@ -89,7 +92,7 @@ export function SourceControlHeader({
           </>
         ) : (
           <>
-            <span className="min-w-0 flex-1" aria-hidden="true" />
+            {reviewSlot ?? <span className="min-w-0 flex-1" aria-hidden="true" />}
             <button
               type="button"
               className={cn(
