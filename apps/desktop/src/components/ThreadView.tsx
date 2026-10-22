@@ -3,7 +3,17 @@ import { Copy, CornerDownLeft, GitFork, Quote, Search, TextSelect } from 'lucide
 import { markSeen, openEditorTab, useStore, type Session, type ThreadItem } from '@/session-store'
 import { runCommandInNewTerminal } from '@/lib/terminal-command-run'
 import { NativeChatCommandRunContext } from '@/components/native-chat/NativeChatRunCommandButton'
-import { appendToDraft, forkChat, forkUnavailableReason, isWorking, rewindTo } from '@/chat-actions'
+import {
+  appendToDraft,
+  forkChat,
+  forkUnavailableReason,
+  isWorking,
+  resumeTurn,
+  rewindTo,
+  setAutoResume
+} from '@/chat-actions'
+import { latestTurnEnd } from '@/chat-transcript'
+import { NativeChatUsageLimitBanner } from '@/components/native-chat/NativeChatTurnRecovery'
 import { isExternalAgentSession } from '@/lib/chat-agents'
 import { Button } from '@/components/ui/button'
 import {
@@ -61,6 +71,11 @@ export function ThreadView({ session, onSendToMain }: { session: Session; onSend
   const forkReason = forkUnavailableReason(session)
   const running = working || session.turnStartedAt !== null
   const model = useMemo(() => buildTranscript(session.items, running, session.cwd), [session.items, running, session.cwd])
+  // The latest turn ended short and nothing came after: its row offers Continue or Retry.
+  const turnEnd = running ? null : latestTurnEnd(session.items)
+  const recoveryRow = turnEnd ? model.rows.findLastIndex((row) => row.kind === 'notice' && row.turnEnd !== undefined) : -1
+  const limitResetsAt = turnEnd?.reason === 'usage-limit' ? turnEnd.resetsAt : null
+  const showLimitBanner = !running && (turnEnd?.reason === 'usage-limit' || Boolean(session.autoResume))
   const find = useNativeChatFind(columnRef, session.items)
   const shells = useStore((s) => s.hosts[session.hostId]?.shells)
   const commandRunner = useMemo(
@@ -151,6 +166,7 @@ export function ThreadView({ session, onSendToMain }: { session: Session; onSend
                         actions={{
                           ...(working || !claudeOnly ? {} : { onRewind: setRewindTarget }),
                           onForkFrom: (messageId) => void forkChat(session.id, messageId),
+                          ...(index === recoveryRow ? { onRecover: (kind) => void resumeTurn(session.id, kind) } : {}),
                           ...(forkReason ? { forkUnavailable: forkReason } : {}),
                           cwd: session.cwd,
                           onRevealFile: (path) =>
@@ -214,6 +230,14 @@ export function ThreadView({ session, onSendToMain }: { session: Session; onSend
       {pendingPermission && <NativeChatApprovalCard permission={pendingPermission} cwd={session.cwd} />}
       <NativeChatDockedTaskList list={model.taskList} />
       <NativeChatQueuedMessageList sessionId={session.id} working={working} />
+      {showLimitBanner ? (
+        <NativeChatUsageLimitBanner
+          resetsAt={limitResetsAt}
+          autoResume={session.autoResume ?? null}
+          onResume={() => void resumeTurn(session.id, 'resume')}
+          onAutoResumeChange={(enabled) => void setAutoResume(session.id, enabled, limitResetsAt)}
+        />
+      ) : null}
       <NativeChatComposer session={session} textareaRef={textareaRef} />
       <Dialog open={rewindTarget !== null} onOpenChange={(open) => !open && setRewindTarget(null)}>
         <DialogContent className="sm:max-w-md">

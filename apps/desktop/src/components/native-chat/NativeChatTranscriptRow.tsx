@@ -9,6 +9,11 @@ import { NativeChatToolLine } from './NativeChatToolLine'
 import { NativeChatSubagentRun } from './NativeChatSubagentRun'
 import { NativeChatTaskList } from './NativeChatTaskList'
 import { NativeChatTurnDiffRollup } from './NativeChatTurnDiffRollup'
+import {
+  NativeChatInterruptedContinueButton,
+  NativeChatResumedDivider,
+  NativeChatRetryButton
+} from './NativeChatTurnRecovery'
 import { NATIVE_CHAT_QUOTE_SOURCE_PROPS } from './NativeChatSelectionQuote'
 import { isSubagentTool, shortenPaths, type TranscriptRowModel } from './native-chat-transcript-model'
 
@@ -27,6 +32,8 @@ export type TranscriptRowActions = {
   onForkFrom?: (messageId: string) => void
   /** Why forking is off in this chat (another agent's); the button shows disabled with it. */
   forkUnavailable?: string
+  /** Only on the row of a turn that ended short with nothing after it: Continue or Retry. */
+  onRecover?: (kind: 'continue' | 'retry') => void
   /** The workspace folder, dropped from the paths rows show. */
   cwd: string
 }
@@ -44,6 +51,7 @@ export function NativeChatTranscriptRow({
     case 'user': {
       const { item } = row
       const messageId = item.messageId
+      if (item.resumed) return <NativeChatResumedDivider kind={item.resumed} />
       return (
         <div
           className="group relative flex flex-col items-end gap-0.5"
@@ -135,14 +143,27 @@ export function NativeChatTranscriptRow({
         </div>
       )
     }
-    case 'notice':
+    case 'notice': {
+      const { onRecover } = actions
+      // A usage limit's actions live in the banner above the composer.
+      const recovery =
+        onRecover && row.turnEnd?.reason === 'interrupted' ? (
+          <NativeChatInterruptedContinueButton onContinue={() => onRecover('continue')} />
+        ) : onRecover && row.turnEnd?.reason === 'error' ? (
+          <NativeChatRetryButton onRetry={() => onRecover('retry')} />
+        ) : null
       return row.severity === 'error' ? (
-        <p className="min-w-0 max-w-full text-sm break-words text-destructive select-text">{row.text}</p>
+        <div className="flex min-w-0 max-w-full flex-col items-start gap-1.5">
+          <p className="min-w-0 max-w-full text-sm break-words text-destructive select-text">{row.text}</p>
+          {recovery}
+        </div>
       ) : (
-        <div className="flex min-h-8 items-center gap-1 border-b border-border text-sm text-chat-foreground-faint tabular-nums">
-          {row.text}
+        <div className="flex min-h-8 items-center gap-2 border-b border-border text-sm text-chat-foreground-faint tabular-nums">
+          <span className="min-w-0 flex-1">{row.text}</span>
+          {recovery}
         </div>
       )
+    }
   }
 }
 

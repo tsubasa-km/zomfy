@@ -7,6 +7,8 @@ import type {
   SessionStatus,
   ShellOption,
   TerminalInfo,
+  TurnEndMeta,
+  TurnResumeKind,
   Workspace
 } from '@acp-harness/protocol'
 import { WINDOW_ROLE } from '@/lib/window-role'
@@ -16,10 +18,10 @@ export type { SessionStatus }
 export type ChatImage = { mimeType: string; data: string }
 
 export type ThreadItem =
-  | { kind: 'user'; text: string; messageId?: string; images?: ChatImage[] }
+  | { kind: 'user'; text: string; messageId?: string; images?: ChatImage[]; resumed?: TurnResumeKind }
   | { kind: 'agent'; text: string }
   | { kind: 'thought'; text: string }
-  | { kind: 'notice'; text: string; severity?: string }
+  | { kind: 'notice'; text: string; severity?: string; turnEnd?: TurnEndMeta }
   | { kind: 'compaction'; id: string; status: string }
   | {
       kind: 'tool'

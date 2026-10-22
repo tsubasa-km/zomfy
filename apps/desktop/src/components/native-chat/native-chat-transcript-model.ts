@@ -1,4 +1,5 @@
 import { diffFromToolCall, type NativeChatDiffLine } from '@/shared/native-chat-diff'
+import type { TurnEndMeta } from '@acp-harness/protocol'
 import type { ThreadItem } from '@/session-store'
 import {
   isTaskListTool,
@@ -22,7 +23,7 @@ export type TranscriptRowModel =
   | { kind: 'tools'; tools: ToolNode[] }
   | { kind: 'tasks'; list: NativeChatTaskList; previous: NativeChatTaskList | null; fromBoard?: boolean }
   | { kind: 'decision'; title: string; chosen: string }
-  | { kind: 'notice'; text: string; severity?: string }
+  | { kind: 'notice'; text: string; severity?: string; turnEnd?: TurnEndMeta }
   | { kind: 'compaction'; status: string }
   | { kind: 'turn-diff'; diff: TurnDiff }
 
@@ -110,7 +111,12 @@ export function buildTranscript(items: ThreadItem[], turnRunning: boolean, cwd: 
         rows.push({ kind: item.kind, text: item.text })
         break
       case 'notice':
-        rows.push({ kind: 'notice', text: item.text, ...(item.severity ? { severity: item.severity } : {}) })
+        rows.push({
+          kind: 'notice',
+          text: item.text,
+          ...(item.severity ? { severity: item.severity } : {}),
+          ...(item.turnEnd ? { turnEnd: item.turnEnd } : {})
+        })
         break
       case 'compaction':
         rows.push({ kind: 'compaction', status: item.status })
