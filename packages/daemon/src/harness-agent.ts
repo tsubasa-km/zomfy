@@ -23,6 +23,7 @@ import { registerHostingHandlers } from "./handlers/hosting-handlers.ts";
 import { registerPortHandlers } from "./handlers/port-handlers.ts";
 import { registerQuickOpenHandlers } from "./handlers/quick-open-handlers.ts";
 import { registerSessionHandlers } from "./handlers/session-handlers.ts";
+import { registerSessionNoteHandlers } from "./handlers/session-note-handlers.ts";
 import { registerSettingsHandlers } from "./handlers/settings-handlers.ts";
 import { registerSideChatHandlers } from "./handlers/side-chat-handlers.ts";
 import { registerTerminalHandlers } from "./handlers/terminal-handlers.ts";
@@ -263,6 +264,7 @@ export function createHarnessAgent(
   for (const register of [
     registerWorkspaceHandlers,
     registerSessionHandlers,
+    registerSessionNoteHandlers,
     registerTerminalHandlers,
     registerFileHandlers,
     registerGitHandlers,

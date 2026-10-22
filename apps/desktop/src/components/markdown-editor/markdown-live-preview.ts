@@ -148,7 +148,8 @@ function build(view: EditorView): DecorationSet {
             const checked = /x/i.test(state.doc.sliceString(node.from, node.to))
             if (!touchesSelection(state, node.from, node.to) || !focused) out.push(tasks[checked ? 1 : 0]!.range(node.from, node.to))
             const task = node.node.parent
-            if (checked && task && node.to < task.to) out.push(taskDone.range(node.to, task.to))
+            const textStart = state.doc.sliceString(node.to, node.to + 1) === ' ' ? node.to + 1 : node.to
+            if (checked && task && textStart < task.to) out.push(taskDone.range(textStart, task.to))
             return
           }
           case 'Blockquote':

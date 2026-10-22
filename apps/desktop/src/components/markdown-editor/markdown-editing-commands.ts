@@ -2,10 +2,12 @@ import { EditorSelection, type EditorState, type StateCommand } from '@codemirro
 import { EditorView, type KeyBinding } from '@codemirror/view'
 import { syntaxTree } from '@codemirror/language'
 import { insertNewlineAndIndent } from '@codemirror/commands'
-import { deleteMarkupBackward, insertNewlineContinueMarkup } from '@codemirror/lang-markdown'
+import { deleteMarkupBackward, insertNewlineContinueMarkupCommand } from '@codemirror/lang-markdown'
 
 // Obsidian's editing helpers on top of lang-markdown's list/quote continuation.
 
+// Enter on an empty item ends the list, as in Obsidian, instead of loosening it.
+const continueMarkup = insertNewlineContinueMarkupCommand({ nonTightLists: false })
 const LIST_ITEM = /^(\s*)([-*+]|\d+[.)])(\s+)/
 const PAIRS: Record<string, string> = { '(': ')', '[': ']', '"': '"', '`': '`' }
 const CLOSERS = new Set([')', ']'])
@@ -129,7 +131,7 @@ const deletePair: StateCommand = ({ state, dispatch }) => {
 }
 
 export const markdownEditingKeymap: readonly KeyBinding[] = [
-  { key: 'Enter', run: (view) => insertNewlineContinueMarkup(view) || insertNewlineAndIndent(view) },
+  { key: 'Enter', run: (view) => continueMarkup(view) || insertNewlineAndIndent(view) },
   // Obsidian's soft break: a new line inside the item, without a new marker.
   { key: 'Shift-Enter', run: insertNewlineAndIndent },
   { key: 'Backspace', run: (view) => deletePair(view) || deleteMarkupBackward(view) },
@@ -167,8 +169,8 @@ export const markdownAutoPairs = EditorView.inputHandler.of((view, from, to, tex
   if (text === '*') {
     if (selected) return apply(`*${selected}*`, 1, 1 + selected.length)
     if (next === '*') return moveOver(view, to)
-    // The second star of `**` closes itself, so `**|**` waits for the bold text.
-    if (prev === '*' && state.sliceDoc(from - 2, from - 1) !== '*' && freeAfter && !inCode(state, from)) {
+    // An opening `**` (after a space or at a line start) closes itself, so `**|**` waits for the text.
+    if (prev === '*' && /^\s?$/.test(state.sliceDoc(from - 2, from - 1)) && freeAfter && !inCode(state, from)) {
       return apply('***', 1)
     }
     return false
