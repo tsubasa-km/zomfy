@@ -105,6 +105,24 @@ const APP_DEFINITIONS: KeybindingDefinition[] = [
     defaultBindings: ['Mod+Alt+A'],
     allowInTerminal: true
   },
+  {
+    id: 'floatingWorkspace.maximize',
+    title: 'Maximize Floating Workspace Panel',
+    group: 'Global',
+    keywords: ['floating', 'workspace', 'panel', 'maximize', 'expand'],
+    // Pairs with the toggle (Cmd+Opt+A) so maximize stays one-handed; unbound off macOS, as in Orca.
+    defaultBindings: { mac: ['Mod+Alt+Shift+A'], other: [] },
+    allowInTerminal: true
+  },
+  {
+    id: 'floatingWorkspace.minimize',
+    title: 'Minimize Floating Workspace Panel',
+    group: 'Global',
+    keywords: ['floating', 'workspace', 'panel', 'minimize', 'hide'],
+    // The toggle owns show/hide; this is for a user-bound "hide panel" shortcut.
+    defaultBindings: [],
+    allowInTerminal: true
+  },
   { id: 'sidebar.right.toggle', title: 'Toggle Right Sidebar', group: 'Global', keywords: ['sidebar', 'panel'], defaultBindings: ['Mod+L'] },
   { id: 'sidebar.explorer.toggle', title: 'Show Explorer', group: 'Global', keywords: ['files', 'tree'], defaultBindings: ['Mod+Shift+E'], allowInTerminal: true },
   { id: 'sidebar.search.toggle', title: 'Show Search', group: 'Global', keywords: ['find', 'grep'], defaultBindings: ['Mod+Shift+F'], allowInTerminal: true },

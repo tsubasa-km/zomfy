@@ -11,6 +11,8 @@ import {
 } from '@/session-store'
 import { openSettings } from '@/stores/app-overlay-store'
 import { setSetting, useSetting } from '@/stores/settings-store'
+import { FloatingWorkspaceTriggerMenu } from '@/components/floating-workspace/FloatingWorkspaceTriggerMenu'
+import { useFloatingWorkspaceTrigger } from '@/components/floating-workspace/use-floating-workspace-trigger'
 import { useShortcutLabel } from '@/keybindings/keybinding-registry'
 import { jumpToAgentNeedingYou } from '@/lib/workspace-navigation'
 import { zoomPercent } from '@/lib/ui-zoom'
@@ -156,25 +158,32 @@ function FloatingWorkspaceSegment() {
   const floatingId = useStore((s) => floatingWorkspaceId(s))
   const open = useStore((s) => s.floating.open)
   const waiting = useStore((s) => s.sessions.some((x) => x.workspaceId === floatingId && x.status === 'needs-you'))
+  const unread = useStore((s) => s.sessions.some((x) => x.workspaceId === floatingId && s.unread[x.id] === true))
   const label = useShortcutLabel('floatingWorkspace.toggle')
-  if (!floatingId) return null
+  const { statusBar } = useFloatingWorkspaceTrigger()
+  // Orca shows this only when the toggle lives in the status bar; otherwise it is the floating button.
+  if (!floatingId || !statusBar) return null
+  const attention = !open && (waiting || unread)
   return (
-    <Tooltip>
-      <TooltipTrigger asChild>
-        <button
-          type="button"
-          aria-label={waiting ? 'Floating workspace, new activity' : 'Floating workspace'}
-          onClick={() => setFloating({ open: !open })}
-          className="relative inline-flex size-5 cursor-pointer items-center justify-center rounded border border-border bg-secondary text-secondary-foreground shadow-xs transition-colors hover:bg-accent hover:text-accent-foreground"
-        >
-          <PanelsTopLeft className="size-3.5" />
-          {waiting ? <span aria-hidden className="pointer-events-none absolute top-0.5 right-0.5 size-1.5 rounded-full bg-agent-question ring-1 ring-secondary" /> : null}
-        </button>
-      </TooltipTrigger>
-      <TooltipContent side="top" sideOffset={6}>
-        Floating workspace{label ? ` (${label})` : ''}
-      </TooltipContent>
-    </Tooltip>
+    <FloatingWorkspaceTriggerMenu currentLocation="status-bar" className="inline-flex">
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <button
+            type="button"
+            aria-label={attention ? 'Floating workspace, new activity' : 'Floating workspace'}
+            aria-pressed={open}
+            onClick={() => setFloating({ open: !open })}
+            className="relative inline-flex size-5 cursor-pointer items-center justify-center rounded border border-border bg-secondary text-secondary-foreground shadow-xs transition-colors hover:bg-accent hover:text-accent-foreground"
+          >
+            <PanelsTopLeft className="size-3.5" />
+            {attention ? <span aria-hidden className="pointer-events-none absolute top-0.5 right-0.5 size-1.5 rounded-full bg-amber-500 ring-1 ring-secondary" /> : null}
+          </button>
+        </TooltipTrigger>
+        <TooltipContent side="top" sideOffset={6}>
+          Floating workspace{label ? ` (${label})` : ''}
+        </TooltipContent>
+      </Tooltip>
+    </FloatingWorkspaceTriggerMenu>
   )
 }
 

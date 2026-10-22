@@ -33,7 +33,7 @@ const APP_COMMAND_HANDLERS: Record<string, CommandHandler> = {
   'agent.jumpToNeedsYou': () => jumpToAgentNeedingYou(),
   'dashboard.toggle': () => setDashboardOpen(!getState().dashboardOpen),
   'floatingWorkspace.toggle': () => {
-    if (!floatingWorkspaceId()) return false
+    if (!floatingWorkspaceId() || !getSetting('floatingWorkspaceEnabled')) return false
     setFloating({ open: !getState().floating.open })
   },
   'sidebar.right.toggle': () => setRightSidebar({ open: !getState().rightSidebar.open }),
