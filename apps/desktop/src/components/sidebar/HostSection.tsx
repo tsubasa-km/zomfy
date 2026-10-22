@@ -20,6 +20,7 @@ import {
 } from '@/components/sidebar/workspace-visibility'
 import { setDropTarget } from '@/stores/sidebar-store'
 import { Button } from '@/components/ui/button'
+import { hostConnectionLabel, hostDotClass } from '@/components/settings/HostsPane'
 import { cn } from '@/lib/utils'
 
 const STATUS_GROUPS = [
@@ -108,12 +109,15 @@ export function HostSection({
   return (
     <div className="mb-1" data-host-id={host.id}>
       {showHeader && <HostHeader host={host} />}
+      {host.notice && kind === 'connected' && (
+        <p className="mx-2 mt-1 mb-2 rounded-lg border border-border bg-card p-2 text-xs text-muted-foreground">{host.notice}</p>
+      )}
       {kind === 'connecting' && !host.harness && (
         <p className="px-3 py-1 text-xs text-muted-foreground">Starting the daemon on {host.label}…</p>
       )}
       {host.connection.kind === 'offline' && (
         <div className="mx-2 mt-1 mb-2 space-y-2 rounded-lg border border-border bg-card p-3 text-xs">
-          <p className="break-words text-foreground">{host.connection.reason}</p>
+          <p className="break-words text-foreground">{hostConnectionLabel(host)}</p>
           <Button size="sm" variant="outline" onClick={() => void connectHost(host.id)}>
             <RotateCw className="size-3.5" />
             Retry
@@ -227,22 +231,31 @@ function HostHeader({ host }: { host: HostEntry }) {
       {host.id === LOCAL_HOST ? <Monitor className="size-3.5" /> : <Server className="size-3.5" />}
       <span className="min-w-0 truncate">{host.label}</span>
       <span
-        className={cn(
-          'block size-1.5 shrink-0 rounded-full',
-          kind === 'connected' && 'bg-emerald-500',
-          kind === 'connecting' && 'animate-pulse bg-yellow-500',
-          kind === 'offline' && 'bg-red-500'
-        )}
+        title={hostConnectionLabel(host)}
+        data-host-dot={kind === 'offline' ? (host.connection.kind === 'offline' && host.connection.daemon) || 'offline' : kind}
+        className={cn('block size-1.5 shrink-0 rounded-full', hostDotClass(host), kind === 'connecting' && 'animate-pulse')}
       />
       {host.id !== LOCAL_HOST && (
-        <button
-          type="button"
-          aria-label={`Disconnect ${host.label}`}
-          className="ml-auto flex size-5 items-center justify-center rounded text-muted-foreground opacity-0 group-hover/host:opacity-100 hover:text-foreground"
-          onClick={() => disconnectHost(host.id)}
-        >
-          <Unplug className="size-3.5" />
-        </button>
+        <span className="ml-auto flex items-center opacity-0 group-hover/host:opacity-100 focus-within:opacity-100">
+          {kind === 'offline' && (
+            <button
+              type="button"
+              aria-label={`Reconnect ${host.label}`}
+              className="flex size-5 items-center justify-center rounded text-muted-foreground hover:text-foreground"
+              onClick={() => void connectHost(host.id)}
+            >
+              <RotateCw className="size-3.5" />
+            </button>
+          )}
+          <button
+            type="button"
+            aria-label={`Disconnect ${host.label}`}
+            className="flex size-5 items-center justify-center rounded text-muted-foreground hover:text-foreground"
+            onClick={() => disconnectHost(host.id)}
+          >
+            <Unplug className="size-3.5" />
+          </button>
+        </span>
       )}
     </div>
   )

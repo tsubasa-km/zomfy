@@ -22,6 +22,7 @@ import {
   addSession,
   allProjects,
   findWorkspace,
+  forgetHost,
   getState,
   markLoaded,
   mergeSessions,
@@ -34,6 +35,7 @@ import {
   updateSession,
   upsertHost,
   type ChatImage,
+  type DaemonVerdict,
   type HostId,
 } from "./session-store";
 import { applyHostSettings } from "./stores/host-settings-store";
@@ -42,6 +44,8 @@ interface DaemonInfo {
   url: string;
   token: string;
   protocolPrefix: string;
+  /** SSH: the remote's previous daemon had exited, so this connect started a new one. */
+  previousExited?: boolean;
 }
 
 const connections = new Map<HostId, acp.ClientConnection>();
@@ -51,6 +55,8 @@ const loading = new Map<string, Promise<void>>();
 const terminalOutputListeners = new Map<string, Set<(data: string) => void>>();
 const reconnectAttempts = new Map<HostId, number>();
 const reconnectTimers = new Map<HostId, ReturnType<typeof setTimeout>>();
+/** Hosts the user disconnected while a connect was in flight; that connect must not revive them. */
+const userDisconnected = new Set<HostId>();
 
 /** A daemon restarting (an upgrade, a WSL distro waking up) comes back; keep trying with backoff. */
 function scheduleReconnect(hostId: HostId): void {
@@ -74,6 +80,24 @@ function describeError(error: unknown): string {
   return String(error);
 }
 
+/** The SSH launcher rejects with `{verdict, reason}` JSON; everything else is a plain message. */
+function hostFailure(error: unknown): { reason: string; daemon?: DaemonVerdict } {
+  const text = describeError(error);
+  try {
+    const parsed: unknown = JSON.parse(text);
+    if (typeof parsed === "object" && parsed !== null && "reason" in parsed && typeof parsed.reason === "string") {
+      const verdict = "verdict" in parsed ? parsed.verdict : null;
+      const daemon = verdict === "live" || verdict === "exited" || verdict === "unverifiable" ? verdict : undefined;
+      return daemon ? { reason: parsed.reason, daemon } : { reason: parsed.reason };
+    }
+  } catch {
+    // Not JSON: a plain message.
+  }
+  return { reason: text };
+}
+
+export const isSshHost = (hostId: HostId): boolean => hostId.startsWith("ssh:");
+
 /** How to reach each kind of host: the local daemon's file, or a daemon the app starts in WSL. */
 function daemonInfo(hostId: HostId): Promise<string> {
   if (!isTauri()) {
@@ -84,11 +108,13 @@ function daemonInfo(hostId: HostId): Promise<string> {
   }
   if (hostId === LOCAL_HOST) return invoke<string>("ensure_local_daemon");
   if (hostId.startsWith("wsl:")) return invoke<string>("start_wsl_daemon", { distro: hostId.slice(4) });
+  if (isSshHost(hostId)) return invoke<string>("start_ssh_daemon", { target: hostId.slice(4) });
   return Promise.reject(new Error(`Unknown host kind: ${hostId}`));
 }
 
 /** Idempotent per host: StrictMode runs effects twice, and Retry may be clicked while connecting. */
 export function connectHost(hostId: HostId): Promise<void> {
+  userDisconnected.delete(hostId);
   if (connections.has(hostId)) return Promise.resolve();
   let pending = connecting.get(hostId);
   if (!pending) {
@@ -98,17 +124,26 @@ export function connectHost(hostId: HostId): Promise<void> {
   return pending;
 }
 
-/** Connects this computer and every WSL distro the user connected before. */
+/** Connects this computer and every WSL distro and SSH host the user connected before. */
 export function connectAllHosts(): void {
   void connectHost(LOCAL_HOST);
   for (const hostId of getState().rememberedHosts) void connectHost(hostId);
 }
 
+/** Closes this window's link to a host; its daemon keeps running (stopped when the app quits). */
 export function disconnectHost(hostId: HostId): void {
+  if (hostId === LOCAL_HOST) return;
+  userDisconnected.add(hostId);
   rememberHost(hostId, false);
   clearTimeout(reconnectTimers.get(hostId));
   reconnectTimers.delete(hostId);
-  connections.get(hostId)?.close();
+  reconnectAttempts.delete(hostId);
+  const conn = connections.get(hostId);
+  // Removed first so its close handler does not mark the host offline again.
+  connections.delete(hostId);
+  conn?.close();
+  if (isSshHost(hostId) && isTauri()) void invoke("disconnect_ssh_host", { target: hostId.slice(4) }).catch(() => undefined);
+  forgetHost(hostId);
 }
 
 async function openConnection(hostId: HostId): Promise<void> {
@@ -117,11 +152,12 @@ async function openConnection(hostId: HostId): Promise<void> {
   try {
     info = JSON.parse(await daemonInfo(hostId));
   } catch (error) {
-    const reason = describeError(error);
-    upsertHost(hostId, { connection: { kind: "offline", reason } });
+    if (userDisconnected.has(hostId)) return;
+    upsertHost(hostId, { connection: { kind: "offline", ...hostFailure(error) } });
     scheduleReconnect(hostId);
     return;
   }
+  if (userDisconnected.has(hostId)) return;
 
   const stream = createWebSocketStream(info.url, { protocols: [info.protocolPrefix + info.token] });
   const opened = acp
@@ -162,7 +198,13 @@ async function openConnection(hostId: HostId): Promise<void> {
     // A stale connection closing late must not tear down its replacement.
     if (connections.get(hostId) !== opened) return;
     connections.delete(hostId);
-    upsertHost(hostId, { connection: { kind: "offline", reason: "Disconnected from daemon" } });
+    upsertHost(hostId, {
+      connection: {
+        kind: "offline",
+        reason: "Lost contact with the daemon; it may still be running there",
+        daemon: hostId === LOCAL_HOST ? undefined : "unverifiable",
+      },
+    });
     scheduleReconnect(hostId);
   });
 
@@ -171,8 +213,16 @@ async function openConnection(hostId: HostId): Promise<void> {
       protocolVersion: acp.PROTOCOL_VERSION,
       clientCapabilities: {},
     });
+    if (userDisconnected.has(hostId)) {
+      opened.close();
+      return;
+    }
     connections.set(hostId, opened);
-    upsertHost(hostId, {});
+    upsertHost(hostId, {
+      notice: info.previousExited
+        ? "The daemon there had exited (its terminals and agent turns ended); a new one was started."
+        : undefined,
+    });
     setHarnessState(hostId, await opened.agent.request<HarnessState>(HARNESS_METHODS.stateGet, {}));
     mergeSessions(hostId, await opened.agent.request<SessionInfo[]>(HARNESS_METHODS.sessionsList, {}));
     setTerminals(hostId, await opened.agent.request<TerminalInfo[]>(HARNESS_METHODS.terminalsList, {}));
@@ -184,7 +234,11 @@ async function openConnection(hostId: HostId): Promise<void> {
     reconnectAttempts.delete(hostId);
   } catch (error) {
     opened.close();
-    upsertHost(hostId, { connection: { kind: "offline", reason: describeError(error) } });
+    if (userDisconnected.has(hostId)) return;
+    // The record was fresh, so the daemon was just seen running; only the link failed.
+    upsertHost(hostId, {
+      connection: { kind: "offline", reason: describeError(error), daemon: hostId === LOCAL_HOST ? undefined : "unverifiable" },
+    });
     scheduleReconnect(hostId);
   }
 }
@@ -221,9 +275,12 @@ export async function harnessRequest<M extends HarnessMethod>(
 
 /**
  * WSL folders picked through Windows (`\\wsl.localhost\<distro>\...` or `\\wsl$\...`) belong to that
- * distro's daemon, under their Linux path; everything else belongs to this computer.
+ * distro's daemon, under their Linux path; `ssh://<alias or user@host[:port]>/<path>` to that SSH host;
+ * everything else belongs to this computer.
  */
 export function hostForPath(path: string): { hostId: HostId; path: string } {
+  const ssh = /^ssh:\/\/([^/]+)(\/.*)?$/i.exec(path.trim());
+  if (ssh) return { hostId: `ssh:${ssh[1]}`, path: ssh[2] ?? "/" };
   const match = /^\\\\wsl(?:\.localhost|\$)\\([^\\]+)(\\.*)?$/i.exec(path);
   if (!match) return { hostId: LOCAL_HOST, path };
   return { hostId: `wsl:${match[1]}`, path: (match[2] ?? "\\").replaceAll("\\", "/") };

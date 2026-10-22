@@ -6,7 +6,9 @@ import { join } from 'node:path'
 
 const targets: Record<string, string> = {
   'bun-windows-x64': 'acp-harness-daemon-windows-x64.exe',
-  'bun-linux-x64': 'acp-harness-daemon-linux-x64'
+  'bun-linux-x64': 'acp-harness-daemon-linux-x64',
+  // SSH hosts such as DGX Spark / Graviton are aarch64; bun cross-compiles to it.
+  'bun-linux-arm64': 'acp-harness-daemon-linux-arm64'
 }
 const wanted = process.argv.slice(2)
 const root = join(import.meta.dir, '..')

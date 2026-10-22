@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { FolderGit2, FolderOpen, Monitor, Server } from 'lucide-react'
 import { HARNESS_METHODS, type OrcaProject } from '@acp-harness/protocol'
 import { addProject, harnessRequest, hostForPath } from '@/daemon-connection'
-import { LOCAL_HOST, allProjects, useStore } from '@/session-store'
+import { LOCAL_HOST, allProjects, hostLabel, useStore } from '@/session-store'
 import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'
 import {
@@ -103,7 +103,7 @@ export function OrcaImportDialog({ open, onClose }: { open: boolean; onClose: ()
                     <span className="font-medium">{project.name}</span>
                     <span className="ml-auto flex items-center gap-1 text-xs text-muted-foreground">
                       {hostId === LOCAL_HOST ? <Monitor className="size-3" /> : <Server className="size-3" />}
-                      {hostId === LOCAL_HOST ? 'This computer' : hostId.replace(/^wsl:/, 'WSL: ')}
+                      {hostLabel(hostId)}
                     </span>
                   </div>
                   <div className="truncate font-mono text-[11px] text-muted-foreground">{path}</div>

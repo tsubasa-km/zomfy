@@ -27,7 +27,7 @@ import {
   type WorkspacePatch,
   type WorkspaceStatusId
 } from '@acp-harness/protocol'
-import { cancelTurn, closeTerminal, harnessRequest } from '@/daemon-connection'
+import { cancelTurn, closeTerminal, harnessRequest, isSshHost } from '@/daemon-connection'
 import { getState, markSeen, type HostId } from '@/session-store'
 import {
   DropdownMenuItem,
@@ -58,10 +58,13 @@ export function OpenInSubmenu({ hostId, path }: { hostId: HostId; path: string }
           <Code2 className="size-3.5" />
           VS Code
         </DropdownMenuItem>
-        <DropdownMenuItem onSelect={() => openWorkspaceIn('explorer', hostId, path)}>
-          <FolderOpen className="size-3.5" />
-          File Explorer
-        </DropdownMenuItem>
+        {/* No local file manager can show an SSH host's folders; VS Code Remote-SSH can. */}
+        {!isSshHost(hostId) && (
+          <DropdownMenuItem onSelect={() => openWorkspaceIn('explorer', hostId, path)}>
+            <FolderOpen className="size-3.5" />
+            File Explorer
+          </DropdownMenuItem>
+        )}
         <DropdownMenuItem onSelect={() => openWorkspaceIn('terminal', hostId, path)}>
           <SquareTerminal className="size-3.5" />
           Terminal
