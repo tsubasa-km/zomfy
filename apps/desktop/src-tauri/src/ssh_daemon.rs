@@ -1,28 +1,34 @@
 //! Runs the harness daemon on an SSH host the way VS Code Remote-SSH runs its server: the system
 //! `ssh` (so the user's config, keys, agent and ProxyJump all apply) detects the remote platform,
 //! uploads the matching Linux binary when its stamp changed, starts it bound to the remote's
-//! 127.0.0.1, and the desktop reaches it through a long-lived `ssh -L` forward.
+//! 127.0.0.1, and the desktop reaches it through a local relay port whose connections each run
+//! `ssh -W` to the daemon's port.
 //!
-//! Why `-L` rather than `ssh -W`/stdio: one authenticated connection carries every WebSocket the
-//! window opens (reconnects included) without re-running auth per socket, and the daemon keeps its
-//! plain TCP listener, the same one local and WSL hosts use.
+//! Why `-W` rather than one long-lived `-L`: `-L` cannot be separated from the LocalForwards in the
+//! user's own config for that host (ClearAllForwardings drops ours too), so a tunnel would grab
+//! ports the user's own `ssh` sessions need. Stdio forwarding binds nothing; the window opens one
+//! socket per host, so the extra login per reconnect is cheap.
 //!
 //! Every ssh runs with `BatchMode=yes`: the app never handles passwords, so a host that would prompt
 //! fails fast with a message pointing at key auth instead of hanging on an invisible prompt.
 
 use std::collections::HashMap;
 use std::io::Read;
-use std::net::TcpListener;
+use std::net::{Shutdown, TcpListener, TcpStream};
 use std::path::{Path, PathBuf};
 use std::process::{Child, Stdio};
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, LazyLock, Mutex};
 use std::time::{Duration, Instant};
 
 use crate::daemon_process::{built_binary, hidden, port_of, reachable, stamp};
 
-const COMMON_OPTIONS: [&str; 8] = [
+const COMMON_OPTIONS: [&str; 10] = [
     "-o",
     "BatchMode=yes",
+    // Never bind the LocalForward/RemoteForward ports from the user's config for this host.
+    "-o",
+    "ClearAllForwardings=yes",
     "-o",
     "ConnectTimeout=15",
     "-o",
@@ -274,29 +280,6 @@ fn ssh_program() -> PathBuf {
     PathBuf::from(exe)
 }
 
-/// Keeps the last few KB of a pipe so a chatty stream can neither block the child nor grow forever.
-fn drain_tail(mut pipe: impl Read + Send + 'static) -> Arc<Mutex<String>> {
-    let tail = Arc::new(Mutex::new(String::new()));
-    let sink = tail.clone();
-    std::thread::spawn(move || {
-        let mut buf = [0u8; 4096];
-        while let Ok(n) = pipe.read(&mut buf) {
-            if n == 0 {
-                break;
-            }
-            if let Ok(mut t) = sink.lock() {
-                t.push_str(&String::from_utf8_lossy(&buf[..n]));
-                if t.len() > 16_384 {
-                    let cut = t.len() - 8192;
-                    let cut = (cut..t.len()).find(|i| t.is_char_boundary(*i)).unwrap_or(0);
-                    t.drain(..cut);
-                }
-            }
-        }
-    });
-    tail
-}
-
 /// Runs `command` to completion with stdin fed from `upload`, killing it after `timeout`.
 fn run_with_timeout(
     mut command: std::process::Command,
@@ -439,19 +422,28 @@ pub fn tunneled_info(info: &str, local_port: u16, previous_exited: bool, platfor
     Ok(value.to_string())
 }
 
+/// A loopback port relaying each accepted connection through its own `ssh -W` to the daemon.
 struct Tunnel {
-    child: Child,
     local_port: u16,
     remote_port: u16,
+    closed: Arc<AtomicBool>,
+    children: Arc<Mutex<Vec<Child>>>,
 }
 
 impl Tunnel {
     fn usable_for(&mut self, remote_port: u16) -> bool {
-        self.remote_port == remote_port && matches!(self.child.try_wait(), Ok(None)) && reachable(self.local_port)
+        self.remote_port == remote_port && !self.closed.load(Ordering::SeqCst) && reachable(self.local_port)
     }
-    fn close(mut self) {
-        let _ = self.child.kill();
-        let _ = self.child.wait();
+    fn close(self) {
+        self.closed.store(true, Ordering::SeqCst);
+        // Wakes the blocking accept so the relay thread sees `closed` and exits.
+        let _ = TcpStream::connect(("127.0.0.1", self.local_port));
+        if let Ok(mut children) = self.children.lock() {
+            for mut child in children.drain(..) {
+                let _ = child.kill();
+                let _ = child.wait();
+            }
+        }
     }
 }
 
@@ -460,44 +452,61 @@ static TUNNELS: LazyLock<Mutex<HashMap<String, Tunnel>>> = LazyLock::new(|| Mute
 static LOCKS: LazyLock<Mutex<HashMap<String, Arc<Mutex<()>>>>> = LazyLock::new(|| Mutex::new(HashMap::new()));
 /// Hosts this app ensured a daemon on, to stop on quit.
 static USED: Mutex<Vec<String>> = Mutex::new(Vec::new());
+/// The daemon pid each host last served this app; a cleanly stopped daemon deletes its record,
+/// so a new pid is the only sign the old one (and its terminals) went away.
+static LAST_PIDS: LazyLock<Mutex<HashMap<String, u64>>> = LazyLock::new(|| Mutex::new(HashMap::new()));
 
-fn free_local_port() -> Result<u16, String> {
-    let listener = TcpListener::bind(("127.0.0.1", 0)).map_err(|e| format!("no free local port: {e}"))?;
-    listener.local_addr().map(|a| a.port()).map_err(|e| e.to_string())
+fn pid_of(info: &str) -> Option<u64> {
+    serde_json::from_str::<serde_json::Value>(info).ok()?.get("pid")?.as_u64()
 }
 
-/// Forwards a free local port to the daemon's port on the host's loopback.
-fn open_tunnel(dest: &Destination, remote_port: u16) -> Result<Tunnel, String> {
-    let local_port = free_local_port()?;
-    let forward = format!("127.0.0.1:{local_port}:127.0.0.1:{remote_port}");
-    // `ExitOnForwardFailure=no`: a LocalForward in the user's own config for this host would
-    // otherwise collide and end the tunnel; ours is checked by probing the port instead (Orca's fix).
+/// Pipes one local socket through `ssh -W` to the daemon; ends when either side closes.
+fn relay_connection(socket: TcpStream, dest: &Destination, remote_port: u16, children: &Mutex<Vec<Child>>) {
+    let target = format!("127.0.0.1:{remote_port}");
     let mut command = hidden(&ssh_program().to_string_lossy());
     command
-        .args(ssh_argv(dest, &["-N", "-o", "ExitOnForwardFailure=no", "-L", &forward], None))
+        .args(ssh_argv(dest, &["-W", &target], None))
         .env("SSH_ASKPASS_REQUIRE", "never")
-        .stdin(Stdio::null())
-        .stdout(Stdio::null())
-        .stderr(Stdio::piped());
-    let mut child = command.spawn().map_err(|e| format!("could not run ssh: {e}"))?;
-    let stderr = drain_tail(child.stderr.take().ok_or("no stderr")?);
-    let deadline = Instant::now() + Duration::from_secs(30);
-    loop {
-        if let Ok(Some(_)) = child.try_wait() {
-            std::thread::sleep(Duration::from_millis(30));
-            let err = stderr.lock().map(|s| s.clone()).unwrap_or_default();
-            return Err(format!("The SSH tunnel closed: {}", describe_ssh_failure(&err, &dest.host)));
-        }
-        if reachable(local_port) {
-            return Ok(Tunnel { child, local_port, remote_port });
-        }
-        if Instant::now() >= deadline {
-            let _ = child.kill();
-            let _ = child.wait();
-            return Err(format!("The SSH tunnel to {} did not open within 30 seconds", dest.host));
-        }
-        std::thread::sleep(Duration::from_millis(150));
+        .stdin(Stdio::piped())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::null());
+    let Ok(mut child) = command.spawn() else { return };
+    let (Some(mut to_ssh), Some(mut from_ssh)) = (child.stdin.take(), child.stdout.take()) else {
+        let _ = child.kill();
+        return;
+    };
+    let (Ok(mut socket_read), mut socket_write) = (socket.try_clone(), socket) else { return };
+    if let Ok(mut list) = children.lock() {
+        list.retain_mut(|c| matches!(c.try_wait(), Ok(None)));
+        list.push(child);
     }
+    std::thread::spawn(move || {
+        let _ = std::io::copy(&mut socket_read, &mut to_ssh);
+    });
+    std::thread::spawn(move || {
+        let _ = std::io::copy(&mut from_ssh, &mut socket_write);
+        let _ = socket_write.shutdown(Shutdown::Both);
+    });
+}
+
+/// Listens on a free loopback port and relays each connection to the daemon's port on the host.
+fn open_tunnel(dest: &Destination, remote_port: u16) -> Result<Tunnel, String> {
+    let listener = TcpListener::bind(("127.0.0.1", 0)).map_err(|e| format!("no free local port: {e}"))?;
+    let local_port = listener.local_addr().map(|a| a.port()).map_err(|e| e.to_string())?;
+    let closed = Arc::new(AtomicBool::new(false));
+    let children: Arc<Mutex<Vec<Child>>> = Arc::default();
+    let (dest, stop, active) = (dest.clone(), closed.clone(), children.clone());
+    std::thread::spawn(move || {
+        for socket in listener.incoming() {
+            if stop.load(Ordering::SeqCst) {
+                break;
+            }
+            if let Ok(socket) = socket {
+                relay_connection(socket, &dest, remote_port, &active);
+            }
+        }
+    });
+    Ok(Tunnel { local_port, remote_port, closed, children })
 }
 
 /// Ensures a daemon runs on `target` and returns its connection JSON with a tunneled url. Errors are
@@ -530,7 +539,11 @@ pub fn ensure(target: &str) -> Result<String, String> {
         tunnels.insert(target.to_string(), tunnel);
     }
     let local_port = tunnels.get(target).map(|t| t.local_port).ok_or("tunnel vanished")?;
-    tunneled_info(&prepared.info, local_port, prepared.previous_exited, &prepared.platform)
+    let replaced = match (pid_of(&prepared.info), LAST_PIDS.lock()) {
+        (Some(pid), Ok(mut last)) => last.insert(target.to_string(), pid).is_some_and(|old| old != pid),
+        _ => false,
+    };
+    tunneled_info(&prepared.info, local_port, prepared.previous_exited || replaced, &prepared.platform)
 }
 
 /// Closes the tunnel; the remote daemon keeps running so its terminals and agent turns survive.

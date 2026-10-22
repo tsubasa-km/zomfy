@@ -247,7 +247,9 @@ export function rememberHost(id: HostId, remember: boolean): void {
 }
 
 export function setHarnessState(hostId: HostId, harness: HarnessState): void {
-  const hosts = { ...state.hosts, [hostId]: { ...state.hosts[hostId]!, label: harness.host.label, harness } }
+  // An SSH daemon cannot tell it is remote and calls itself "This computer"; the client knows better.
+  const label = harness.host.id === hostId ? harness.host.label : hostLabel(hostId)
+  const hosts = { ...state.hosts, [hostId]: { ...state.hosts[hostId]!, label, harness } }
   const known = new Set(Object.values(hosts).flatMap((h) => h.harness?.workspaces.map((w) => w.id) ?? []))
   const activeWorkspaceId =
     state.activeWorkspaceId && known.has(state.activeWorkspaceId) ? state.activeWorkspaceId : null
