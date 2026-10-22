@@ -8,6 +8,8 @@ import { FloatingWorkspace } from '@/components/FloatingWorkspace'
 import { RightSidebar } from '@/components/right-sidebar/RightSidebar'
 import { AgentDashboard } from '@/components/AgentDashboard'
 import { SettingsPage } from '@/components/settings/SettingsPage'
+import { AutomationsPage } from '@/components/automations/AutomationsPage'
+import { useAutomationState } from '@/stores/automation-store'
 import { QuickOpen } from '@/components/QuickOpen'
 import { CommandPalette } from '@/components/CommandPalette'
 import { StatusBar } from '@/components/status-bar/StatusBar'
@@ -22,6 +24,7 @@ import { installInbox } from '@/components/inbox/inbox-registrations'
 import { installKeybindingDispatcher } from '@/keybindings/keybinding-registry'
 import { TooltipProvider } from '@/components/ui/tooltip'
 import { installTheme } from '@/lib/theme'
+import { listenForDashboardPicks } from '@/lib/dashboard-window'
 import { installUiZoom } from '@/lib/ui-zoom'
 import '@/assets/main.css'
 
@@ -35,12 +38,18 @@ export default function App() {
   const activeWorkspaceId = useStore((s) => s.activeWorkspaceId)
   const dashboardOpen = useStore((s) => s.dashboardOpen)
   const settingsOpen = useAppOverlays((s) => s.settings.open)
+  const automationsOpen = useAutomationState((s) => s.pageOpen)
   const boardOpen = useSidebarStore((s) => s.boardOpen)
   const tasksOpen = useTasks((s) => s.open)
 
   useEffect(() => {
     connectAllHosts()
-    return installKeybindingDispatcher()
+    const stopPicks = listenForDashboardPicks()
+    const stopKeys = installKeybindingDispatcher()
+    return () => {
+      stopPicks()
+      stopKeys()
+    }
   }, [])
 
   return (
@@ -69,6 +78,11 @@ export default function App() {
           </main>
           {activeWorkspaceId && !dashboardOpen && !boardOpen && !tasksOpen && <RightSidebar workspaceId={activeWorkspaceId} />}
           {/* Orca's settings replace the app view; the views stay mounted underneath to keep their state. */}
+          {automationsOpen && (
+            <div className="absolute inset-0 z-20 flex">
+              <AutomationsPage />
+            </div>
+          )}
           {settingsOpen && (
             <div className="absolute inset-0 z-30 flex">
               <SettingsPage />

@@ -1,5 +1,5 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
-import { Copy, GitFork, Quote, Search, TextSelect } from 'lucide-react'
+import { Copy, CornerDownLeft, GitFork, Quote, Search, TextSelect } from 'lucide-react'
 import { markSeen, openEditorTab, type Session, type ThreadItem } from '@/session-store'
 import { appendToDraft, forkChat, isWorking, rewindTo } from '@/chat-actions'
 import { isExternalAgentSession } from '@/lib/chat-agents'
@@ -43,7 +43,8 @@ const TRANSCRIPT_COLUMN_CLASS = 'mx-auto flex w-full max-w-(--chat-content-max-w
 const STICK_DISTANCE_PX = 80
 const isMac = navigator.userAgent.includes('Mac')
 
-export function ThreadView({ session }: { session: Session }) {
+/** `onSendToMain`: a side chat's hand-off of a message or selection to the main chat's composer. */
+export function ThreadView({ session, onSendToMain }: { session: Session; onSendToMain?: (text: string) => void }) {
   const rootRef = useRef<HTMLDivElement>(null)
   const scrollRef = useRef<HTMLDivElement>(null)
   const columnRef = useRef<HTMLDivElement>(null)
@@ -164,6 +165,15 @@ export function ThreadView({ session }: { session: Session }) {
               <ContextMenuItem onSelect={() => void navigator.clipboard.writeText(menuTarget.message ?? '')}>
                 <TextSelect />
                 Copy message
+              </ContextMenuItem>
+            ) : null}
+            {onSendToMain && (menuTarget.selection || menuTarget.message) ? (
+              <ContextMenuItem
+                data-side-chat-send
+                onSelect={() => onSendToMain(menuTarget.selection || (menuTarget.message ?? ''))}
+              >
+                <CornerDownLeft />
+                Send to main chat
               </ContextMenuItem>
             ) : null}
             {menuTarget.selection || menuTarget.message !== null ? <ContextMenuSeparator /> : null}

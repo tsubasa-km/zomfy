@@ -1,3 +1,4 @@
+import type * as acp from "@agentclientprotocol/sdk";
 import type { HarnessMethod, HarnessRequests } from "@acp-harness/protocol";
 import type { AcpAgentSessions } from "../acp-agent-sessions.ts";
 import type { SessionRegistry } from "../session-registry.ts";
@@ -21,6 +22,8 @@ export interface HandlerContext {
   acpAgents: AcpAgentSessions;
   /** Notifies every connected client. */
   broadcast(method: string, params: unknown): void;
+  /** Runs one turn no client asked for (automations); permission asks go to an open window. */
+  runTurn(sessionId: string, text: string): Promise<acp.StopReason>;
   /** The workspace's directory on this host; throws for unknown ids. */
   workspaceRoot(workspaceId: string): string;
 }

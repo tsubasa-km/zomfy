@@ -124,6 +124,15 @@ const APP_DEFINITIONS: KeybindingDefinition[] = [
     defaultBindings: { mac: ['Mod+Shift+I'], other: [] },
     allowInTerminal: true
   },
+  { id: 'automations.open', title: 'Open Automations', group: 'Global', keywords: ['automations', 'schedule', 'cron', 'recurring'], defaultBindings: [] },
+  {
+    id: 'sidebar.sideChat.toggle',
+    title: 'Toggle Side Chat',
+    group: 'Global',
+    keywords: ['side chat', 'btw', 'aside', 'quick question', 'ask'],
+    defaultBindings: ['Mod+Alt+B'],
+    allowInTerminal: true
+  },
   { id: 'statusBar.toggle', title: 'Toggle Status Bar', group: 'Global', keywords: ['status bar', 'footer'], defaultBindings: [] },
   { id: 'zoom.in', title: 'Zoom In', group: 'Global', keywords: ['zoom', 'bigger', 'scale'], defaultBindings: ['Mod+Equal', 'Mod+Shift+Plus', 'Mod+NumpadAdd'] },
   { id: 'zoom.out', title: 'Zoom Out', group: 'Global', keywords: ['zoom', 'smaller', 'scale'], defaultBindings: ['Mod+Minus', 'Mod+NumpadSubtract'] },

@@ -15,6 +15,7 @@ import { liveClaudeQueries } from "./live-claude-queries.ts";
 import type { SessionRegistry } from "./session-registry.ts";
 import type { TerminalManager } from "./terminal-manager.ts";
 import type { HandlerContext } from "./handlers/handler-context.ts";
+import { registerAutomationHandlers } from "./handlers/automation-handlers.ts";
 import { registerChatAgentHandlers } from "./handlers/chat-agent-handlers.ts";
 import { registerFileHandlers } from "./handlers/file-handlers.ts";
 import { registerGitHandlers } from "./handlers/git-handlers.ts";
@@ -23,6 +24,7 @@ import { registerPortHandlers } from "./handlers/port-handlers.ts";
 import { registerQuickOpenHandlers } from "./handlers/quick-open-handlers.ts";
 import { registerSessionHandlers } from "./handlers/session-handlers.ts";
 import { registerSettingsHandlers } from "./handlers/settings-handlers.ts";
+import { registerSideChatHandlers } from "./handlers/side-chat-handlers.ts";
 import { registerTerminalHandlers } from "./handlers/terminal-handlers.ts";
 import { registerWorkspaceHandlers } from "./handlers/workspace-handlers.ts";
 import type { WorkspaceManager } from "./workspace-manager.ts";
@@ -69,17 +71,34 @@ export function createHarnessAgent(
   }
   const acpAgents = new AcpAgentSessions(sessions, emit);
 
-  async function prompt(
-    params: acp.PromptRequest,
-    client: acp.AgentContext,
-  ): Promise<acp.PromptResponse> {
+  type Ask = (request: acp.RequestPermissionRequest) => Promise<acp.RequestPermissionResponse>;
+
+  /** For turns no client started (automations): the newest window that answers permission asks. */
+  const askAnyClient: Ask = async (request) => {
+    for (const client of [...clients].reverse()) {
+      try {
+        return await client.request(acp.methods.client.session.requestPermission, request);
+      } catch {
+        // A window that does not answer asks (the dashboard pop-out); try the next.
+      }
+    }
+    await emit(request.sessionId, {
+      sessionUpdate: "notice",
+      severity: "warning",
+      title: `No window was open to approve ${request.toolCall.title ?? "a tool call"}, so it was denied`,
+    }).catch(() => undefined);
+    return { outcome: { outcome: "cancelled" } };
+  };
+
+  /** `client` is the window that started the turn (null for automations); manager tool calls route through it. */
+  async function prompt(params: acp.PromptRequest, ask: Ask, client: acp.AgentContext | null): Promise<acp.PromptResponse> {
     const session = sessions.get(params.sessionId);
     if (!session) throw new Error(`Unknown session ${params.sessionId}`);
 
     pendingTurns.get(session.id)?.abort();
     const abort = new AbortController();
     pendingTurns.set(session.id, abort);
-    managerRouting.noteTurn(session.id, client);
+    if (client) managerRouting.noteTurn(session.id, client);
 
     const text = params.prompt.flatMap((b) => (b.type === "text" ? [b.text] : [])).join("\n");
     const external = acpAgents.for(session);
@@ -100,19 +119,24 @@ export function createHarnessAgent(
     const askPermission = async (request: acp.RequestPermissionRequest) => {
       sessions.update(session.id, { status: "needs-you" });
       try {
-        return await client.request(acp.methods.client.session.requestPermission, { ...request, sessionId: session.id });
+        return await ask({ ...request, sessionId: session.id });
       } finally {
         if (pendingTurns.get(session.id) === abort) sessions.update(session.id, { status: "working" });
       }
     };
 
+    // A side chat's seed rides on its first turn only; the transcript shows just what was typed.
+    const seed = session.seedContext;
+    const agentPrompt: acp.ContentBlock[] = seed ? [{ type: "text", text: seed }, ...params.prompt] : params.prompt;
+    if (seed) sessions.update(session.id, { seedContext: null });
+
     try {
       const stopReason = external
-        ? await external.prompt(params.prompt, abort, askPermission)
+        ? await external.prompt(agentPrompt, abort, askPermission)
         : await runClaudeTurn({
         acpSessionId: session.id,
         state: session,
-        prompt: params.prompt,
+        prompt: agentPrompt,
         messageId,
         abort,
         emit: (update) => emit(session.id, update),
@@ -187,7 +211,13 @@ export function createHarnessAgent(
       }
       return {};
     })
-    .onRequest("session/prompt", (ctx) => prompt(ctx.params, ctx.client))
+    .onRequest("session/prompt", (ctx) =>
+      prompt(
+        ctx.params,
+        (request) => ctx.client.request(acp.methods.client.session.requestPermission, request),
+        ctx.client,
+      ),
+    )
     .onNotification("session/cancel", (ctx) => {
       pendingTurns.get(ctx.params.sessionId)?.abort();
     });
@@ -216,6 +246,10 @@ export function createHarnessAgent(
     pendingTurns,
     acpAgents,
     broadcast,
+    async runTurn(sessionId, text) {
+      const { stopReason } = await prompt({ sessionId, prompt: [{ type: "text", text }] }, askAnyClient, null);
+      return stopReason;
+    },
     workspaceRoot(workspaceId) {
       const root = workspaces.workspacePath(workspaceId);
       if (!root) throw new Error(`Unknown workspace ${workspaceId}`);
@@ -235,6 +269,8 @@ export function createHarnessAgent(
     registerQuickOpenHandlers,
     registerChatAgentHandlers,
     registerTodoHandlers,
+    registerSideChatHandlers,
+    registerAutomationHandlers,
   ]) {
     register(ctx);
   }

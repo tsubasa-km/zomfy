@@ -14,6 +14,8 @@ export interface SessionRecord extends SessionInfo {
   /** An external agent's own id for the conversation (its ACP session id). */
   agentSessionId?: string | null
   options: SessionOptions
+  /** Context the next turn's prompt starts with, unseen in the transcript (a side chat's seed). */
+  seedContext?: string | null
 }
 
 export const DEFAULT_SESSION_OPTIONS: SessionOptions = { model: null, permissionMode: 'default', effort: null }
@@ -65,7 +67,7 @@ export class SessionRegistry {
 
   create(
     fields: Pick<SessionInfo, 'workspaceId' | 'cwd'> &
-      Partial<Pick<SessionRecord, 'title' | 'claudeSessionId' | 'options' | 'agent' | 'role'>>
+      Partial<Pick<SessionRecord, 'title' | 'claudeSessionId' | 'options' | 'agent' | 'role' | 'sideOf' | 'seedContext'>>
   ): SessionRecord {
     const record: SessionRecord = {
       id: crypto.randomUUID(),
@@ -143,6 +145,6 @@ function transcriptPath(id: string): string {
 }
 
 export function publicInfo(record: SessionRecord): SessionInfo {
-  const { claudeSessionId: _hidden, agentSessionId: _agentHidden, ...info } = record
+  const { claudeSessionId: _hidden, agentSessionId: _agentHidden, seedContext: _seedHidden, ...info } = record
   return info
 }

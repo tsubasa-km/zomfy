@@ -2,6 +2,7 @@ import { getState, setDashboardOpen, setFloating, setRightSidebar, floatingWorks
 import { getAppOverlays, openSettings, setCommandPalette, setQuickOpen } from '@/stores/app-overlay-store'
 import { getSetting, setSetting } from '@/stores/settings-store'
 import { stepZoom } from '@/lib/ui-zoom'
+import { setAutomationsPageOpen } from '@/stores/automation-store'
 import { focusedWorkspaceId, jumpToAgentNeedingYou, selectWorkspaceByIndex, stepWorkspace } from '@/lib/workspace-navigation'
 import { registerCommandHandler, type CommandHandler } from './keybinding-registry'
 
@@ -37,6 +38,8 @@ const APP_COMMAND_HANDLERS: Record<string, CommandHandler> = {
   'sidebar.sourceControl.toggle': () => toggleRightSidebarTab('source-control'),
   'sidebar.checks.toggle': () => toggleRightSidebarTab('checks'),
   'sidebar.ports.toggle': () => toggleRightSidebarTab('ports'),
+  'automations.open': () => setAutomationsPageOpen(true),
+  'sidebar.sideChat.toggle': () => toggleRightSidebarTab('side-chat'),
   'statusBar.toggle': () => setSetting('statusBarVisible', !getSetting('statusBarVisible')),
   'zoom.in': () => stepZoom('in'),
   'zoom.out': () => stepZoom('out'),

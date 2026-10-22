@@ -33,6 +33,8 @@ export interface SessionInfo {
   agentState?: ChatAgentSessionState
   /** 'manager' for the Manager chat, which gets the orchestration system prompt. */
   role?: SessionRole
+  /** Set on a side chat: the main chat it was opened beside. Tab strips leave side chats out. */
+  sideOf?: string
 }
 
 export interface ChatModel {

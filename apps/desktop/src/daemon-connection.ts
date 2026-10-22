@@ -2,10 +2,12 @@ import * as acp from "@agentclientprotocol/sdk";
 import { createWebSocketStream } from "@agentclientprotocol/sdk/experimental/ws-client";
 import { invoke, isTauri } from "@tauri-apps/api/core";
 import {
+  AUTOMATION_NOTIFICATIONS,
   HARNESS_METHODS,
   HARNESS_NOTIFICATIONS,
   MANAGER_METHODS,
   MANAGER_ROUTING_CAPABILITY,
+  type AutomationSnapshot,
   SETTINGS_NOTIFICATIONS,
   TODO_NOTIFICATIONS,
   type ChatAgentId,
@@ -24,6 +26,7 @@ import {
   type TodoItem,
 } from "@acp-harness/protocol";
 import { applyChatUpdate } from "./chat-transcript";
+import { WINDOW_ROLE } from "./lib/window-role";
 import {
   LOCAL_HOST,
   addSession,
@@ -48,6 +51,7 @@ import {
 import { applyHostSettings } from "./stores/host-settings-store";
 import { setTodos } from "./stores/inbox-store";
 import { runManagerTool } from "./manager/manager-tool-runner";
+import { applyAutomationSnapshot } from "./stores/automation-store";
 
 interface DaemonInfo {
   url: string;
@@ -171,7 +175,10 @@ async function openConnection(hostId: HostId): Promise<void> {
   const stream = createWebSocketStream(info.url, { protocols: [info.protocolPrefix + info.token] });
   const opened = acp
     .client({ name: "acp-harness-desktop" })
-    .onRequest("session/request_permission", (ctx) => requestPermission(ctx.params))
+    .onRequest("session/request_permission", (ctx) =>
+      // The dashboard pop-out cannot show an approval card; the daemon asks the main window instead.
+      WINDOW_ROLE === "main" ? requestPermission(ctx.params) : Promise.reject(new Error("This window does not answer approvals")),
+    )
     // A manager agent on this host reaching sessions on any host; this window carries the call.
     .onRequest(
       MANAGER_METHODS.managerCall,
@@ -214,6 +221,11 @@ async function openConnection(hostId: HostId): Promise<void> {
       SETTINGS_NOTIFICATIONS.settingsChanged,
       (raw: unknown) => raw as HostSettings,
       (ctx) => applyHostSettings(hostId, ctx.params),
+    )
+    .onNotification(
+      AUTOMATION_NOTIFICATIONS.automationsChanged,
+      (raw: unknown) => raw as AutomationSnapshot,
+      (ctx) => applyAutomationSnapshot(hostId, ctx.params),
     )
     .connect(stream);
   opened.closed.finally(() => {

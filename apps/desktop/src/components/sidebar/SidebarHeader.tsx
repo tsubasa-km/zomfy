@@ -7,6 +7,7 @@ import {
   FolderPlus,
   GitBranchPlus,
   Kanban,
+  CalendarClock,
   LayoutDashboard,
   Plus,
   Server,
@@ -17,6 +18,7 @@ import {
 import { addProject, connectHost } from '@/daemon-connection'
 import { LOCAL_HOST, setDashboardOpen, useStore, type HostId } from '@/session-store'
 import { setBoardOpen, useSidebarStore } from '@/stores/sidebar-store'
+import { setAutomationsPageOpen, useAutomationState } from '@/stores/automation-store'
 import { SidebarFilterMenu } from '@/components/sidebar/SidebarFilterMenu'
 import { WorkspaceOptionsMenu } from '@/components/sidebar/WorkspaceOptionsMenu'
 import type { AddRepoMode } from '@/components/sidebar/AddRepoDialog'
@@ -56,6 +58,7 @@ export function SidebarHeader({
       <div className="flex shrink-0 items-center gap-0.5">
         <BoardButton />
         <DashboardButton />
+        <AutomationsButton />
         <SidebarFilterMenu />
         <WorkspaceOptionsMenu />
         <AddMenu onImportOrca={onImportOrca} onAddRepo={onAddRepo} onNewGroup={onNewGroup} />
@@ -110,6 +113,27 @@ function DashboardButton() {
         </Button>
       </TooltipTrigger>
       <TooltipContent side="bottom">Agent dashboard ({isMac ? '⌘⇧D' : 'Ctrl+Shift+D'})</TooltipContent>
+    </Tooltip>
+  )
+}
+
+function AutomationsButton() {
+  const open = useAutomationState((s) => s.pageOpen)
+  return (
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <Button
+          size="icon-xs"
+          variant="ghost"
+          aria-label="Automations"
+          data-automations-toggle
+          className={cn('text-muted-foreground', open && 'bg-accent text-accent-foreground')}
+          onClick={() => setAutomationsPageOpen(!open)}
+        >
+          <CalendarClock className="size-3.5" />
+        </Button>
+      </TooltipTrigger>
+      <TooltipContent side="bottom">Automations</TooltipContent>
     </Tooltip>
   )
 }
