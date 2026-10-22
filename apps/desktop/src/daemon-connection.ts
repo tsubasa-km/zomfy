@@ -404,7 +404,7 @@ export function ensureSessionLoaded(sessionId: string): Promise<void> {
 export async function createTerminal(
   workspaceId: string,
   shellId?: string,
-  launch?: Pick<CreateTerminalParams, "agent" | "prompt" | "command">,
+  launch?: Pick<CreateTerminalParams, "agent" | "prompt" | "command" | "inline">,
   /** `select: false` leaves focus where it is (a new split pane focuses itself instead). */
   options: { select?: boolean } = {},
 ): Promise<string> {
@@ -441,6 +441,7 @@ export function closeTerminal(terminalId: string): void {
 export function closeSession(sessionId: string): void {
   const session = getState().sessions.find((s) => s.id === sessionId);
   if (!session) return;
+  for (const t of getState().terminals) if (t.inline?.sessionId === sessionId) closeTerminal(t.id);
   removeSession(sessionId);
   void harnessRequest(HARNESS_METHODS.sessionClose, { sessionId }, session.hostId).catch(() => undefined);
 }

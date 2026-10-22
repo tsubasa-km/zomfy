@@ -15,11 +15,22 @@ export type CommandRunRequest = { shellId: string; input: string; title: string 
 /** Provided by the chat transcript only, so code blocks elsewhere (skills, previews) never run. */
 export const NativeChatCommandRunContext = createContext<{
   shells: readonly ShellOption[]
-  run: (request: CommandRunRequest) => void
+  sessionId: string
+  run: (request: CommandRunRequest, blockKey: string) => void
+  /** Appends markdown to the chat's draft: the only way a run's output reaches the agent. */
+  addToChat: (markdown: string) => void
 } | null>(null)
 
-/** Runs a shell fence in a new terminal tab of the chat's workspace, on the chat's host. */
-export function NativeChatRunCommandButton({ code, language }: { code: string; language?: string }) {
+/** Runs a shell fence in a terminal under the block, in the chat's workspace on the chat's host. */
+export function NativeChatRunCommandButton({
+  code,
+  language,
+  blockKey
+}: {
+  code: string
+  language?: string
+  blockKey: string
+}) {
   const runner = useContext(NativeChatCommandRunContext)
   const family = commandShellFamily(language)
   const lines = useMemo(() => (family ? runnableCommandLines(code, language) : []), [code, language, family])
@@ -31,7 +42,9 @@ export function NativeChatRunCommandButton({ code, language }: { code: string; l
       type="button"
       data-native-chat-run-command
       onClick={() => {
-        if (shell) runner.run({ shellId: shell.id, input: commandTerminalInput(lines, family), title: commandTerminalTitle(lines) })
+        if (shell) {
+          runner.run({ shellId: shell.id, input: commandTerminalInput(lines, family), title: commandTerminalTitle(lines) }, blockKey)
+        }
       }}
       aria-label={label}
       aria-disabled={shell ? undefined : true}

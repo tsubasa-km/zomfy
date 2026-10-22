@@ -58,7 +58,8 @@ export function useWorkspaceTabs(workspaceId: string): WorkspaceTab[] {
           .filter((s) => s.workspaceId === workspaceId && !s.sideOf)
           .map((session) => ({ kind: 'chat' as const, id: session.id, createdAt: session.createdAt, session })),
         ...terminals
-          .filter((t) => t.workspaceId === workspaceId && !isSecondaryPane(t.id, panes))
+          // Inline terminals live under a chat code block until opened as a tab.
+          .filter((t) => t.workspaceId === workspaceId && !t.inline && !isSecondaryPane(t.id, panes))
           .map((terminal) => ({ kind: 'terminal' as const, id: terminal.id, createdAt: terminal.createdAt, terminal })),
         ...editorTabs
           .filter((t) => t.workspaceId === workspaceId)

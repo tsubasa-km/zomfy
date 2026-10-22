@@ -3,6 +3,13 @@ import type { TuiAgentId } from './tui-agents'
 /** The command grammar a terminal's shell reads, for quoting typed or dropped text. */
 export type TerminalShellKind = 'posix' | 'powershell' | 'cmd'
 
+/** A chat code block a terminal runs under, instead of being a tab. */
+export interface InlineTerminalAnchor {
+  sessionId: string
+  /** Identifies the block within the chat (row and source line). */
+  blockKey: string
+}
+
 export interface TerminalInfo {
   id: string
   workspaceId: string
@@ -24,6 +31,8 @@ export interface TerminalInfo {
   agent?: TuiAgentId | null
   /** Title set with "Set Title…"; wins over OSC titles. */
   customTitle?: string | null
+  /** Set while the terminal shows under a chat code block; null or absent for a tab. */
+  inline?: InlineTerminalAnchor | null
 }
 
 export interface ShellOption {
@@ -65,6 +74,8 @@ export interface CreateTerminalParams {
   prompt?: string
   /** Typed verbatim into the shell once it is ready; end it with a carriage return to run it (quick commands). */
   command?: string
+  /** Starts the terminal under a chat code block rather than as a tab. */
+  inline?: InlineTerminalAnchor
 }
 
 export const TERMINAL_METHODS = {
@@ -77,6 +88,7 @@ export const TERMINAL_METHODS = {
   terminalClose: '_harness/terminals/close',
   terminalRestart: '_harness/terminals/restart',
   terminalRename: '_harness/terminals/rename',
+  terminalSetInline: '_harness/terminals/setInline',
   terminalResolvePaths: '_harness/terminals/resolvePaths',
   agentsDetect: '_harness/terminals/agents',
   quickCommandsList: '_harness/quickCommands/list',
@@ -100,6 +112,11 @@ export interface TerminalRequests {
   [TERMINAL_METHODS.terminalRestart]: { params: { terminalId: string }; result: TerminalInfo }
   /** null clears the custom title. */
   [TERMINAL_METHODS.terminalRename]: { params: { terminalId: string; title: string | null }; result: TerminalInfo }
+  /** null turns an inline terminal into an ordinary tab. */
+  [TERMINAL_METHODS.terminalSetInline]: {
+    params: { terminalId: string; inline: InlineTerminalAnchor | null }
+    result: TerminalInfo
+  }
   /**
    * Resolves path text printed in a terminal against its cwd on the daemon host. Each entry is the
    * workspace-relative path of an existing file inside the terminal's workspace, else null.

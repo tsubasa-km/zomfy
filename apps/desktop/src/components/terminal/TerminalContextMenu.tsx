@@ -36,7 +36,8 @@ export interface TerminalMenuActions {
   onPaste: () => void
   onSelectAll: () => void
   onFind: () => void
-  onSplit: (direction: 'right' | 'down') => void
+  /** Absent where the terminal is not a tab (under a chat code block). */
+  onSplit?: (direction: 'right' | 'down') => void
   onSetTitle: () => void
   onClearTitle: (() => void) | null
   onCopyTerminalId: () => void
@@ -139,15 +140,19 @@ export function TerminalContextMenu({
             </DropdownMenuItem>
           </DropdownMenuSubContent>
         </DropdownMenuSub>
-        <DropdownMenuSeparator />
-        <DropdownMenuItem className="whitespace-nowrap" onSelect={() => actions.onSplit('right')}>
-          <PanelRightClose />
-          Split Terminal Right
-        </DropdownMenuItem>
-        <DropdownMenuItem className="whitespace-nowrap" onSelect={() => actions.onSplit('down')}>
-          <PanelBottomClose />
-          Split Terminal Down
-        </DropdownMenuItem>
+        {actions.onSplit ? (
+          <>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem className="whitespace-nowrap" onSelect={() => actions.onSplit?.('right')}>
+              <PanelRightClose />
+              Split Terminal Right
+            </DropdownMenuItem>
+            <DropdownMenuItem className="whitespace-nowrap" onSelect={() => actions.onSplit?.('down')}>
+              <PanelBottomClose />
+              Split Terminal Down
+            </DropdownMenuItem>
+          </>
+        ) : null}
         <DropdownMenuSeparator />
         <DropdownMenuItem
           onSelect={() => {

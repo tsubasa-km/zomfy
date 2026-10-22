@@ -95,7 +95,8 @@ export class TerminalManager {
       startedAt: now,
       exitCode: null,
       agent: params.agent ?? null,
-      customTitle: null
+      customTitle: null,
+      inline: params.inline ?? null
     }
     // Built before spawning so a bad agent id fails the request instead of leaving a stray shell.
     const plan = params.agent ? buildAgentLaunchPlan(params.agent, params.prompt, spec.kind) : null
@@ -123,6 +124,13 @@ export class TerminalManager {
     const live = this.require(terminalId)
     live.info = { ...live.info, customTitle: title?.trim() || null }
     this.refreshTitle(live)
+    this.changed()
+    return live.info
+  }
+
+  setInline(terminalId: string, inline: TerminalInfo['inline']): TerminalInfo {
+    const live = this.require(terminalId)
+    live.info = { ...live.info, inline: inline ?? null }
     this.changed()
     return live.info
   }

@@ -19,6 +19,7 @@ export function registerTerminalHandlers({ handle, terminals, workspaceRoot }: H
       agent: p.agent,
       prompt: p.prompt,
       command: p.command,
+      inline: p.inline,
       cwd: workspaceRoot(p.workspaceId),
     }),
   );
@@ -37,6 +38,7 @@ export function registerTerminalHandlers({ handle, terminals, workspaceRoot }: H
   });
   handle(HARNESS_METHODS.terminalRestart, async (p) => terminals.restart(p.terminalId));
   handle(HARNESS_METHODS.terminalRename, async (p) => terminals.rename(p.terminalId, p.title));
+  handle(HARNESS_METHODS.terminalSetInline, async (p) => terminals.setInline(p.terminalId, p.inline));
   handle(HARNESS_METHODS.terminalResolvePaths, async (p) => {
     const info = terminals.get(p.terminalId);
     return resolveTerminalPaths(info.cwd, workspaceRoot(info.workspaceId), p.paths);

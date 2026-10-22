@@ -1,7 +1,7 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { Copy, CornerDownLeft, GitFork, Quote, Search, TextSelect } from 'lucide-react'
 import { markSeen, openEditorTab, useStore, type Session, type ThreadItem } from '@/session-store'
-import { runCommandInNewTerminal } from '@/lib/terminal-command-run'
+import { runCommandInline } from '@/lib/terminal-command-run'
 import { NativeChatCommandRunContext } from '@/components/native-chat/NativeChatRunCommandButton'
 import {
   appendToDraft,
@@ -82,10 +82,16 @@ export function ThreadView({ session, onSendToMain }: { session: Session; onSend
   const commandRunner = useMemo(
     () => ({
       shells: shells ?? [],
-      run: (request: { shellId: string; input: string; title: string }) =>
-        void runCommandInNewTerminal(session.workspaceId, request).catch(() => undefined)
+      sessionId: session.id,
+      run: (request: { shellId: string; input: string; title: string }, blockKey: string) =>
+        void runCommandInline(session.workspaceId, { sessionId: session.id, blockKey }, request).catch(() => undefined),
+      // Output reaches the agent only through the draft, when the user asks for it.
+      addToChat: (markdown: string) => {
+        appendToDraft(session.id, markdown)
+        composerRef.current?.focus()
+      }
     }),
-    [shells, session.workspaceId]
+    [shells, session.workspaceId, session.id]
   )
 
   // Showing a session is reading it: it leaves the dashboard's Done lane.

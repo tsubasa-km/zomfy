@@ -29,8 +29,11 @@ function cssVar(name: string): string {
   return getComputedStyle(document.documentElement).getPropertyValue(name).trim()
 }
 
-/** One shell from the daemon, drawn with xterm.js as Orca's terminal panes are. */
-export function TerminalView({ terminal }: { terminal: TerminalInfo }) {
+/**
+ * One shell from the daemon, drawn with xterm.js as Orca's terminal panes are. `embedded` is a
+ * terminal under a chat code block: it neither takes focus on mount nor splits.
+ */
+export function TerminalView({ terminal, embedded = false }: { terminal: TerminalInfo; embedded?: boolean }) {
   const host = useRef<HTMLDivElement>(null)
   const xtermRef = useRef<Terminal | null>(null)
   const cwdRef = useRef(terminal.cwd)
@@ -131,7 +134,7 @@ export function TerminalView({ terminal }: { terminal: TerminalInfo }) {
       }, 80)
     })
     observer.observe(element)
-    xterm.focus()
+    if (!embedded) xterm.focus()
 
     // Follow the OS light/dark switch the app theme already tracks.
     const themeObserver = new MutationObserver(() => (xterm.options.theme = currentTerminalTheme()))
@@ -221,7 +224,7 @@ export function TerminalView({ terminal }: { terminal: TerminalInfo }) {
         onPaste={paste}
         onSelectAll={() => xtermRef.current?.selectAll()}
         onFind={() => setSearchOpen(true)}
-        onSplit={(direction) => void splitTerminalPane(terminal.workspaceId, terminal.id, direction)}
+        onSplit={embedded ? undefined : (direction) => void splitTerminalPane(terminal.workspaceId, terminal.id, direction)}
         onSetTitle={() => setSettingTitle(true)}
         onClearTitle={terminal.customTitle ? () => rename(null) : null}
         onCopyTerminalId={() => void navigator.clipboard.writeText(terminal.id)}
