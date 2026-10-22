@@ -93,16 +93,23 @@ export async function loadReview(workspaceId: string, force = false): Promise<vo
   }
 }
 
+const checksInFlight = new Map<string, number>()
+
 export async function loadChecks(workspaceId: string, force = false): Promise<void> {
   const entry = store.get().byWorkspace[workspaceId]
   const number = entry?.review?.number
-  if (!number || entry.checksLoading) return
+  if (!number || (entry.checksLoading && checksInFlight.get(workspaceId) === number)) return
+  checksInFlight.set(workspaceId, number)
   patch(workspaceId, { checksLoading: true, checksError: null })
+  // A reply for a review the workspace has since moved off must not land on the new one.
+  const current = () => checksInFlight.get(workspaceId) === number && store.get().byWorkspace[workspaceId]?.review?.number === number
   try {
     const result = await harnessRequest(HARNESS_METHODS.hostingChecks, { workspaceId, number, force })
-    patch(workspaceId, { checks: result.checks, checksStatus: result.status, checksLoading: false })
+    if (current()) patch(workspaceId, { checks: result.checks, checksStatus: result.status, checksLoading: false })
   } catch (e) {
-    patch(workspaceId, { checksLoading: false, checksError: message(e) })
+    if (current()) patch(workspaceId, { checksLoading: false, checksError: message(e) })
+  } finally {
+    if (checksInFlight.get(workspaceId) === number) checksInFlight.delete(workspaceId)
   }
 }
 

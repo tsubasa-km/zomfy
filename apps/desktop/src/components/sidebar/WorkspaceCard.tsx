@@ -11,6 +11,7 @@ import {
   type CardProperty
 } from '@/stores/sidebar-store'
 import StatusIndicator from '@/components/sidebar/StatusIndicator'
+import { setTasks } from '@/stores/tasks-store'
 import { WorkspaceStatusIcon } from '@/components/sidebar/WorkspaceStatusIcon'
 import { WorkspaceMenuItems, updateWorkspace } from '@/components/sidebar/WorkspaceMenu'
 import { AgentBadge, DiffStatsBadge, ReviewBadge, SyncBadge } from '@/components/sidebar/WorkspaceCardBadges'
@@ -122,6 +123,7 @@ export function WorkspaceCard({
         selectSingle(workspace.id)
         selectWorkspace(workspace.id)
         setBoardOpen(false)
+        setTasks({ open: false })
         if (workspace.unread) void updateWorkspace(workspace.id, { unread: false })
       }}
       onContextMenu={(e) => {
