@@ -26,10 +26,13 @@ export async function startSideChat(main: Session, agent: ChatAgentId, contextMe
     { sessionId: main.id, contextMessages, ...(agent !== 'claude' ? { agent } : {}) },
     main.hostId
   )
-  // addSession makes it the workspace's active tab; a side chat has none, so the old one returns.
-  const activeTab = getState().activeSessionByWorkspace[main.workspaceId]
-  addSession({ ...info, hostId: main.hostId, workspaceId: main.workspaceId, items: [], loaded: false })
-  if (activeTab) selectTab(main.workspaceId, activeTab)
+  // The host's broadcast may have brought it (and its replay) in already; re-adding would wipe that.
+  if (!getState().sessions.some((s) => s.id === info.id)) {
+    // addSession makes it the workspace's active tab; a side chat has none, so the old one returns.
+    const activeTab = getState().activeSessionByWorkspace[main.workspaceId]
+    addSession({ ...info, hostId: main.hostId, workspaceId: main.workspaceId, items: [], loaded: false })
+    if (activeTab) selectTab(main.workspaceId, activeTab)
+  }
   if (previous) closeSession(previous.id)
 }
 
