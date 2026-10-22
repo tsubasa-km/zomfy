@@ -108,6 +108,8 @@ export function NativeChatComposer({
     return { ...query, mode: 'mention', items: matchFiles(files?.value ?? [], query.query), status: files?.status ?? 'loading' }
   }, [query?.mode, query?.query, query?.start, query?.end, catalog, files, dismissedAt, draft, external, agentState])
   const optionCount = autocomplete?.items.length ?? 0
+  // Claude's guess at the next prompt shows in the empty composer; Tab takes it, as in the Claude apps.
+  const suggestion = !working && draft === '' && draftImages.length === 0 ? (session.promptSuggestion ?? null) : null
   const selected = Math.min(activeIndex, Math.max(0, optionCount - 1))
 
   function setDraft(value: string) {
@@ -132,6 +134,10 @@ export function NativeChatComposer({
   }
 
   function handleKeyDown(e: KeyboardEvent): boolean {
+    if (suggestion && e.key === 'Tab' && !e.shiftKey && !e.altKey && !e.ctrlKey && !e.metaKey) {
+      editorRef.current?.replaceRange(0, 0, suggestion)
+      return true
+    }
     if (autocomplete && optionCount > 0) {
       if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
         const step = e.key === 'ArrowDown' ? 1 : -1
@@ -277,7 +283,7 @@ export function NativeChatComposer({
             <MarkdownEditor
               ref={editorRef}
               value={draft}
-              placeholder={working ? 'Queue a follow-up' : 'Message the agent'}
+              placeholder={working ? 'Queue a follow-up' : (suggestion ?? 'Message the agent')}
               contentAttributes={{
                 'aria-label': 'Message the agent',
                 'aria-multiline': 'true',
@@ -285,7 +291,8 @@ export function NativeChatComposer({
                 'aria-expanded': String(autocomplete !== null),
                 'aria-controls': autocomplete ? listboxId : undefined,
                 'aria-activedescendant': autocomplete && optionCount > 0 ? `${listboxId}-option-${selected}` : undefined,
-                'data-native-chat-input': ''
+                'data-native-chat-input': '',
+                'aria-description': suggestion ? `Suggestion: ${suggestion}. Press Tab to use it.` : undefined
               }}
               onChange={(value) => {
                 setDraft(value)

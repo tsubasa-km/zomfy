@@ -57,7 +57,15 @@ interface TurnInput {
   appendSystemPrompt?: string;
   /** How a turn that did not finish cleanly ended (a usage limit, an error), for recovery. */
   onTurnEnd?: (end: TurnEndMeta) => void;
+  /** Claude's predicted next prompt; arrives after the turn has already returned. */
+  onPromptSuggestion?: (suggestion: string) => void;
 }
+
+// The CLI sends its prompt suggestion after the result; past this the process is let go without one.
+const SUGGESTION_WAIT_MS = 15_000;
+
+/** Per chat, lets go of the previous turn's process still waiting on a suggestion. */
+const lingering = new Map<string, () => void>();
 
 const CHAT_PERMISSION_MODES: readonly ChatPermissionMode[] = [
   "default",
@@ -86,6 +94,7 @@ export async function runClaudeTurn(input: TurnInput): Promise<acp.StopReason> {
   let release!: () => void;
   const released = new Promise<void>((resolve) => (release = resolve));
   abort.signal.addEventListener("abort", () => release());
+  lingering.get(acpSessionId)?.();
   const userMessage: SDKUserMessage = {
     type: "user",
     message: { role: "user", content: promptContent(input.prompt) },
@@ -114,6 +123,7 @@ export async function runClaudeTurn(input: TurnInput): Promise<acp.StopReason> {
       ...(model ? { model } : {}),
       ...(effort ? { effort } : {}),
       permissionMode,
+      promptSuggestions: true,
       // Headless runs on current models drop the task tools the TUI keeps; the chat draws their list.
       env: { ...process.env, ...input.env, CLAUDE_CODE_ENABLE_TODO_TOOLS: "1" },
       ...(permissionMode === "bypassPermissions" ? { allowDangerouslySkipPermissions: true } : {}),
@@ -133,22 +143,49 @@ export async function runClaudeTurn(input: TurnInput): Promise<acp.StopReason> {
     assistantError: null,
     rejected: null,
   };
-  let stopReason: acp.StopReason = "end_turn";
-  try {
-    for await (const message of stream) {
-      if (abort.signal.aborted) return "cancelled";
-      if (message.type === "result") {
-        stopReason = await finishTurn(message, stream, progress, update, input.onTurnEnd);
-        release();
-        continue;
-      }
-      await forwardMessage(message, input, progress);
-    }
-  } finally {
+  // The turn returns at its result; the stream is drained past it only for the prompt suggestion.
+  let settle: ((reason: acp.StopReason) => void) | null = null;
+  let fail!: (error: unknown) => void;
+  const done = new Promise<acp.StopReason>((resolve, reject) => {
+    settle = resolve;
+    fail = reject;
+  });
+  const finish = (reason: acp.StopReason): void => {
+    if (!settle) return;
     input.onQuery?.(null);
-    release();
-  }
-  return abort.signal.aborted ? "cancelled" : stopReason;
+    settle(reason);
+    settle = null;
+  };
+  void (async () => {
+    let stopReason: acp.StopReason = "end_turn";
+    try {
+      for await (const message of stream) {
+        if (abort.signal.aborted) break;
+        if (message.type === "result") {
+          stopReason = await finishTurn(message, stream, progress, update, input.onTurnEnd);
+          finish(stopReason);
+          lingering.set(acpSessionId, release);
+          setTimeout(release, SUGGESTION_WAIT_MS);
+        } else if (message.type === "prompt_suggestion") {
+          if (message.suggestion.trim()) input.onPromptSuggestion?.(message.suggestion.trim());
+          release();
+        } else if (settle) {
+          await forwardMessage(message, input, progress);
+        }
+      }
+    } catch (error) {
+      if (settle) {
+        input.onQuery?.(null);
+        settle = null;
+        fail(error);
+      } else log(`after the turn: ${String(error)}`);
+    } finally {
+      finish(abort.signal.aborted ? "cancelled" : stopReason);
+      release();
+      if (lingering.get(acpSessionId) === release) lingering.delete(acpSessionId);
+    }
+  })();
+  return done;
 }
 
 async function forwardMessage(

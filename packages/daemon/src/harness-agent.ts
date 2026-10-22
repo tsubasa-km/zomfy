@@ -158,6 +158,7 @@ export function createHarnessAgent(
     sessions.update(session.id, {
       status: "working",
       turnStartedAt: Date.now(),
+      promptSuggestion: null,
       // Orca renames a fresh agent tab after its first message.
       ...(firstTurn && text ? { title: text.replace(/\s+/g, " ").slice(0, 40) } : {}),
     });
@@ -225,6 +226,7 @@ export function createHarnessAgent(
         allowedTools: autoAllowedManagerTools(session.role, MANAGER_MCP_SERVER_NAME),
         ...(session.role === "manager" ? { appendSystemPrompt: MANAGER_SYSTEM_PROMPT } : {}),
         onTurnEnd: (turnEnd) => (outcome.end = turnEnd),
+        onPromptSuggestion: (promptSuggestion) => sessions.update(session.id, { promptSuggestion }),
       });
       if (stopReason === "cancelled" || abort.signal.aborted) return await interrupted();
       sessions.update(session.id, {

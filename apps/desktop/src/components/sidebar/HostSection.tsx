@@ -1,5 +1,5 @@
 import type React from 'react'
-import { Monitor, RotateCw, Server, Unplug } from 'lucide-react'
+import { LoaderCircle, Monitor, RotateCw, Server, TriangleAlert, Unplug } from 'lucide-react'
 import { HARNESS_METHODS, type ProjectGroup, type Workspace } from '@acp-harness/protocol'
 import { connectHost, disconnectHost, harnessRequest } from '@/daemon-connection'
 import { LOCAL_HOST, findWorkspace, setSidebarView, useStore, type HostEntry, type HostedProject } from '@/session-store'
@@ -21,6 +21,7 @@ import {
 import { Button } from '@/components/ui/button'
 import { hostConnectionLabel, hostDotClass } from '@/components/settings/HostsPane'
 import { cn } from '@/lib/utils'
+import { claudeCliWarning, updateClaudeCliOn, useClaudeCliStatus, useClaudeCliUpdating } from '@/stores/claude-cli-store'
 
 const STATUS_GROUPS = [
   { id: 'in-progress', label: 'In progress' },
@@ -237,6 +238,25 @@ function moveToStatus(
   setSidebarView({ sortBy: 'manual' })
 }
 
+function ClaudeCliWarning({ hostId }: { hostId: string }) {
+  const status = useClaudeCliStatus(hostId)
+  const busy = useClaudeCliUpdating(hostId)
+  if (!status?.outdated) return null
+  return (
+    <button
+      type="button"
+      title={busy ? 'Updating Claude Code…' : `${claudeCliWarning(status)} Click to run \`claude update\`.`}
+      aria-label="Update Claude Code"
+      data-claude-cli-outdated
+      disabled={busy}
+      className="flex size-5 shrink-0 items-center justify-center rounded text-amber-500 hover:bg-accent"
+      onClick={() => void updateClaudeCliOn(hostId)}
+    >
+      {busy ? <LoaderCircle className="size-3.5 animate-spin" /> : <TriangleAlert className="size-3.5" />}
+    </button>
+  )
+}
+
 function HostHeader({ host }: { host: HostEntry }) {
   const kind = host.connection.kind
   return (
@@ -248,6 +268,7 @@ function HostHeader({ host }: { host: HostEntry }) {
         data-host-dot={kind === 'offline' ? (host.connection.kind === 'offline' && host.connection.daemon) || 'offline' : kind}
         className={cn('block size-1.5 shrink-0 rounded-full', hostDotClass(host), kind === 'connecting' && 'animate-pulse')}
       />
+      <ClaudeCliWarning hostId={host.id} />
       {host.id !== LOCAL_HOST && (
         <span className="ml-auto flex items-center opacity-0 group-hover/host:opacity-100 focus-within:opacity-100">
           {kind === 'offline' && (

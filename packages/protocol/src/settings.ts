@@ -14,9 +14,29 @@ export const DEFAULT_HOST_SETTINGS: HostSettings = {
   claudeExecutablePath: null
 }
 
+/** The Claude Code CLI a host runs turns with, against the version the daemon's Agent SDK targets. */
+export interface ClaudeCliStatus {
+  /** null when no `claude` was found, so turns use the SDK's bundled copy. */
+  path: string | null
+  /** From `claude --version`; null when it would not run. */
+  version: string | null
+  expected: string
+  /** `version` is older than `expected`: newer SDK options may fail or be ignored. */
+  outdated: boolean
+}
+
+export interface ClaudeCliUpdateResult {
+  status: ClaudeCliStatus
+  ok: boolean
+  /** What `claude update` printed, for when it fails. */
+  output: string
+}
+
 export const SETTINGS_METHODS = {
   settingsGet: '_harness/settings/get',
-  settingsUpdate: '_harness/settings/update'
+  settingsUpdate: '_harness/settings/update',
+  claudeCliStatus: '_harness/settings/claudeCli',
+  claudeCliUpdate: '_harness/settings/claudeCliUpdate'
 } as const
 
 export const SETTINGS_NOTIFICATIONS = {
@@ -27,4 +47,6 @@ export const SETTINGS_NOTIFICATIONS = {
 export interface SettingsRequests {
   [SETTINGS_METHODS.settingsGet]: { params: Record<string, never>; result: HostSettings }
   [SETTINGS_METHODS.settingsUpdate]: { params: { patch: Partial<HostSettings> }; result: HostSettings }
+  [SETTINGS_METHODS.claudeCliStatus]: { params: Record<string, never>; result: ClaudeCliStatus }
+  [SETTINGS_METHODS.claudeCliUpdate]: { params: Record<string, never>; result: ClaudeCliUpdateResult }
 }

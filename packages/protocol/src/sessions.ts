@@ -38,6 +38,8 @@ export interface SessionInfo {
   sideOf?: string
   /** Set while the daemon will resume this chat after a usage limit; absent from older daemons. */
   autoResume?: AutoResumeState | null
+  /** Claude's guess at the next prompt, offered as the composer's Tab completion; cleared by the next turn. */
+  promptSuggestion?: string | null
 }
 
 export interface ChatModel {

@@ -8,6 +8,15 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { SettingsRow, SettingsSubsectionHeader, TextField } from './settings-form-controls'
 import { sortedHosts } from './HostsPane'
 import { ChatAgentLaunchSettings } from './ChatAgentLaunchSettings'
+import { Button } from '@/components/ui/button'
+import { cn } from '@/lib/utils'
+import {
+  claudeCliWarning,
+  loadClaudeCliStatus,
+  updateClaudeCliOn,
+  useClaudeCliStatus,
+  useClaudeCliUpdating
+} from '@/stores/claude-cli-store'
 
 function ClaudeCommandRow({ host }: { host: HostEntry }) {
   const settings = useHostSettings(host.id)
@@ -21,14 +30,51 @@ function ClaudeCommandRow({ host }: { host: HostEntry }) {
     )
   }
   return (
-    <TextField
-      label={`Claude Code command · ${host.label}`}
-      description="Path to the CLI agent turns run on this host. Empty finds `claude` on PATH."
-      keywords={['claude', 'path', 'executable', 'cli']}
-      value={settings.claudeExecutablePath ?? ''}
-      placeholder="claude"
-      className="w-72 font-mono text-xs"
-      onChange={(value) => void updateHostSettings(host.id, { claudeExecutablePath: value || null })}
+    <>
+      <TextField
+        label={`Claude Code command · ${host.label}`}
+        description="Path to the CLI agent turns run on this host. Empty finds `claude` on PATH."
+        keywords={['claude', 'path', 'executable', 'cli']}
+        value={settings.claudeExecutablePath ?? ''}
+        placeholder="claude"
+        className="w-72 font-mono text-xs"
+        onChange={(value) =>
+          void updateHostSettings(host.id, { claudeExecutablePath: value || null }).then(() => loadClaudeCliStatus(host.id))
+        }
+      />
+      <ClaudeVersionRow host={host} />
+    </>
+  )
+}
+
+function ClaudeVersionRow({ host }: { host: HostEntry }) {
+  const status = useClaudeCliStatus(host.id)
+  const busy = useClaudeCliUpdating(host.id)
+  if (!status) return null
+  const description = !status.path
+    ? 'No `claude` command found; chats use the copy bundled with Zomfy, without your login.'
+    : status.version === null
+      ? `\`${status.path} --version\` did not run.`
+      : status.outdated
+        ? claudeCliWarning(status)
+        : `Up to date for Zomfy (built for ${status.expected}).`
+  return (
+    <SettingsRow
+      label={`Claude Code version · ${host.label}`}
+      description={description}
+      keywords={['claude', 'version', 'update', 'cli']}
+      control={
+        <div className="flex items-center gap-2">
+          <span className={cn('font-mono text-xs', status.outdated ? 'text-amber-500' : 'text-muted-foreground')}>
+            {status.version ?? '—'}
+          </span>
+          {status.path && (
+            <Button size="sm" variant="outline" disabled={busy} onClick={() => void updateClaudeCliOn(host.id)}>
+              {busy ? 'Updating…' : 'Update'}
+            </Button>
+          )}
+        </div>
+      }
     />
   )
 }
