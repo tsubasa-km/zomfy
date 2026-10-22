@@ -15,8 +15,8 @@ export interface ChatMention {
   sourceId?: string
 }
 
-/** `@<dir>/attachments/<chat>/<kind>~<source>~<14-digit time>~<title, spaces as _>.txt` */
-const ATTACHMENT = /@(\S*?[\\/]attachments[\\/][\w-]+[\\/](terminal|chat)~([\w.-]+)~\d{14}~(\S+?)\.txt)(?=\s|$)/g
+/** `@<dir>/attachments/<chat>/<kind>/<source>/<14-digit time>-<title, spaces as _>.txt` */
+const ATTACHMENT = /@(\S*?[\\/]attachments[\\/][\w-]+[\\/](terminal|chat)[\\/]([\w.-]+)[\\/]\d{14}-(\S+?)\.txt)(?=\s|$)/g
 /** A completed `@path` (whitespace after it, or the end of a sent message), never an email's `@`. */
 const FILE = /(?<=^|\s)@([^\s@`]+)(?=\s)/g
 const FILE_AT_END = /(?<=^|\s)@([^\s@`]+)(?=\s|$)/g
