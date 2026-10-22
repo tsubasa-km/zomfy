@@ -13,6 +13,7 @@ import { liveClaudeQueries } from "./live-claude-queries.ts";
 import type { SessionRegistry } from "./session-registry.ts";
 import type { TerminalManager } from "./terminal-manager.ts";
 import type { HandlerContext } from "./handlers/handler-context.ts";
+import { registerAutomationHandlers } from "./handlers/automation-handlers.ts";
 import { registerChatAgentHandlers } from "./handlers/chat-agent-handlers.ts";
 import { registerFileHandlers } from "./handlers/file-handlers.ts";
 import { registerGitHandlers } from "./handlers/git-handlers.ts";
@@ -234,6 +235,7 @@ export function createHarnessAgent(
     registerQuickOpenHandlers,
     registerChatAgentHandlers,
     registerSideChatHandlers,
+    registerAutomationHandlers,
   ]) {
     register(ctx);
   }
