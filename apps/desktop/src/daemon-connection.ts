@@ -376,6 +376,8 @@ export async function createTerminal(
   workspaceId: string,
   shellId?: string,
   launch?: Pick<CreateTerminalParams, "agent" | "prompt" | "command">,
+  /** `select: false` leaves focus where it is (a new split pane focuses itself instead). */
+  options: { select?: boolean } = {},
 ): Promise<string> {
   const hostId = hostOf({ workspaceId });
   const info = await harnessRequest(
@@ -385,7 +387,7 @@ export async function createTerminal(
   );
   const others = getState().terminals.filter((t) => t.hostId === hostId && t.id !== info.id);
   setTerminals(hostId, [...others, info]);
-  selectTerminal(info.id);
+  if (options.select !== false) selectTerminal(info.id);
   return info.id;
 }
 

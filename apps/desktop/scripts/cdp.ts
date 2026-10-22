@@ -1,12 +1,14 @@
 // Inspect and drive the running desktop app over the WebView2 DevTools protocol.
 // Start the app with `bun run tauri:debug` first, then:
-//   bun scripts/cdp.ts screenshot [out.png]
+//   bun scripts/cdp.ts screenshot [out.png] [WxH]   WxH emulates that viewport for the capture
 //   bun scripts/cdp.ts logs [ms]            reload and print console output + exceptions
 //   bun scripts/cdp.ts eval "<js expression>"
 //   bun scripts/cdp.ts click "<css selector>"
 //   bun scripts/cdp.ts type "<css selector>" "<text>"
 //   bun scripts/cdp.ts insert "<text>"           real keyboard text into the focused element (Monaco)
 //   bun scripts/cdp.ts key "Ctrl+S"              real key chord (Ctrl/Shift/Alt/Meta + key)
+//   bun scripts/cdp.ts drag x1 y1 x2 y2 [WxH]    real mouse drag (pointer capture works), optional viewport
+//   bun scripts/cdp.ts dblclick x y              real double click
 import { writeFile } from "node:fs/promises";
 
 const PORT = Number(process.env.HARNESS_CDP_PORT ?? 9223);
@@ -64,6 +66,12 @@ try {
   switch (command) {
     case "screenshot": {
       const out = args[0] ?? "screenshot.png";
+      const size = /^(\d+)x(\d+)$/.exec(args[1] ?? "");
+      if (size) {
+        await cdp.send("Emulation.setDeviceMetricsOverride", { width: Number(size[1]), height: Number(size[2]), deviceScaleFactor: 1, mobile: false });
+        // Let resize listeners re-anchor before the capture.
+        await Bun.sleep(400);
+      }
       const { data } = await cdp.send("Page.captureScreenshot", { format: "png" });
       await writeFile(out, Buffer.from(data, "base64"));
       console.log(out);
@@ -119,6 +127,27 @@ try {
       const keyCode = key.length === 1 ? key.toUpperCase().charCodeAt(0) : (named[key] ?? 0);
       for (const type of ["keyDown", "keyUp"]) {
         await cdp.send("Input.dispatchKeyEvent", { type, modifiers, key, code, windowsVirtualKeyCode: keyCode });
+      }
+      break;
+    }
+    case "drag": {
+      const [x1 = 0, y1 = 0, x2 = 0, y2 = 0] = args.slice(0, 4).map(Number);
+      const size = /^(\d+)x(\d+)$/.exec(args[4] ?? "");
+      if (size) await cdp.send("Emulation.setDeviceMetricsOverride", { width: Number(size[1]), height: Number(size[2]), deviceScaleFactor: 1, mobile: false });
+      await cdp.send("Input.dispatchMouseEvent", { type: "mousePressed", x: x1, y: y1, button: "left", buttons: 1, clickCount: 1 });
+      for (let step = 1; step <= 8; step++) {
+        const x = x1 + ((x2 - x1) * step) / 8;
+        const y = y1 + ((y2 - y1) * step) / 8;
+        await cdp.send("Input.dispatchMouseEvent", { type: "mouseMoved", x, y, button: "left", buttons: 1 });
+      }
+      await cdp.send("Input.dispatchMouseEvent", { type: "mouseReleased", x: x2, y: y2, button: "left", buttons: 0, clickCount: 1 });
+      break;
+    }
+    case "dblclick": {
+      const [x = 0, y = 0] = args.slice(0, 2).map(Number);
+      for (const clickCount of [1, 2]) {
+        await cdp.send("Input.dispatchMouseEvent", { type: "mousePressed", x, y, button: "left", buttons: 1, clickCount });
+        await cdp.send("Input.dispatchMouseEvent", { type: "mouseReleased", x, y, button: "left", buttons: 0, clickCount });
       }
       break;
     }

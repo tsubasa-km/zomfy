@@ -10,6 +10,9 @@ export type TerminalCursorStyle = 'block' | 'bar' | 'underline'
 /** Which Enter sends a chat message; the other one inserts a newline. */
 export type ChatSendKey = 'mod-enter' | 'enter'
 
+/** Orca's floatingTerminalTriggerLocation: where the floating workspace toggle lives. */
+export type FloatingWorkspaceTriggerLocation = 'floating-button' | 'status-bar'
+
 export interface AppSettings {
   theme: ThemePreference
   /** Chromium-style zoom level: each step of 1 scales by 1.2. */
@@ -39,6 +42,15 @@ export interface AppSettings {
   keybindings: Record<string, string[]>
   /** Orca's opt-in Skills button in the sidebar. */
   showSkillsButton: boolean
+  /** Sidebar nav rows, each hideable from its context menu (Orca's show*Button settings). */
+  showTasksButton: boolean
+  showAutomationsButton: boolean
+  showAgentDashboardButton: boolean
+  /** The onboarding checklist row was hidden from the sidebar. */
+  setupGuideSidebarDismissed: boolean
+  /** Orca's floatingTerminalEnabled. */
+  floatingWorkspaceEnabled: boolean
+  floatingWorkspaceTriggerLocation: FloatingWorkspaceTriggerLocation
   /** Agent new chats start with (Orca's defaultTuiAgent); 'claude' unless onboarding or settings pick another. */
   defaultChatAgent: string
   /** First-run flow finished or skipped; settings can reopen it. */
@@ -82,6 +94,12 @@ export const DEFAULT_SETTINGS: AppSettings = {
   statusBarHiddenItems: [],
   keybindings: {},
   showSkillsButton: false,
+  showTasksButton: true,
+  showAutomationsButton: true,
+  showAgentDashboardButton: true,
+  setupGuideSidebarDismissed: false,
+  floatingWorkspaceEnabled: true,
+  floatingWorkspaceTriggerLocation: 'floating-button',
   defaultChatAgent: 'claude',
   onboardingDone: false,
   minimizeToTrayOnClose: false,

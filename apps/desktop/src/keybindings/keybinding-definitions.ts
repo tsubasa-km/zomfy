@@ -18,6 +18,8 @@ export interface KeybindingDefinition {
   digitIndex?: boolean
   /** Hidden from the command palette (digit-index commands need a key to mean anything). */
   hideInPalette?: boolean
+  /** Orca's terminal scope: acts on the focused pane or chat, and is tried before global commands sharing its chord. */
+  scope?: 'terminal'
 }
 
 const APP_DEFINITIONS: KeybindingDefinition[] = [
@@ -27,7 +29,15 @@ const APP_DEFINITIONS: KeybindingDefinition[] = [
     title: 'Command Palette',
     group: 'Global',
     keywords: ['commands', 'palette', 'switch', 'jump', 'workspace'],
-    defaultBindings: ['Mod+Shift+P', 'Mod+J']
+    // macOS gives Cmd+J to Switch Workspace, as Orca's worktree palette has it.
+    defaultBindings: { mac: ['Mod+Shift+P'], other: ['Mod+Shift+P', 'Mod+J'] }
+  },
+  {
+    id: 'workspace.palette',
+    title: 'Switch Workspace',
+    group: 'Global',
+    keywords: ['workspace', 'worktree', 'switch', 'jump', 'search'],
+    defaultBindings: { mac: ['Mod+J'], other: ['Mod+Shift+J'] }
   },
   { id: 'app.settings', title: 'Open Settings', group: 'Global', keywords: ['settings', 'preferences'], defaultBindings: ['Mod+Comma'] },
   { id: 'app.shortcuts', title: 'Open Keyboard Shortcuts', group: 'Global', keywords: ['keybindings', 'shortcuts', 'keys'], defaultBindings: [] },
@@ -95,6 +105,24 @@ const APP_DEFINITIONS: KeybindingDefinition[] = [
     group: 'Global',
     keywords: ['floating', 'terminal', 'panel'],
     defaultBindings: ['Mod+Alt+A'],
+    allowInTerminal: true
+  },
+  {
+    id: 'floatingWorkspace.maximize',
+    title: 'Maximize Floating Workspace Panel',
+    group: 'Global',
+    keywords: ['floating', 'workspace', 'panel', 'maximize', 'expand'],
+    // Pairs with the toggle (Cmd+Opt+A) so maximize stays one-handed; unbound off macOS, as in Orca.
+    defaultBindings: { mac: ['Mod+Alt+Shift+A'], other: [] },
+    allowInTerminal: true
+  },
+  {
+    id: 'floatingWorkspace.minimize',
+    title: 'Minimize Floating Workspace Panel',
+    group: 'Global',
+    keywords: ['floating', 'workspace', 'panel', 'minimize', 'hide'],
+    // The toggle owns show/hide; this is for a user-bound "hide panel" shortcut.
+    defaultBindings: [],
     allowInTerminal: true
   },
   { id: 'sidebar.right.toggle', title: 'Toggle Right Sidebar', group: 'Global', keywords: ['sidebar', 'panel'], defaultBindings: ['Mod+L'] },

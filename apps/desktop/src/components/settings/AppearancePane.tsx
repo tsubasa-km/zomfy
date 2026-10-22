@@ -1,5 +1,12 @@
 import { Minus, Plus, RotateCcw } from 'lucide-react'
-import { DEFAULT_SETTINGS, setSetting, useSetting, type TerminalCursorStyle, type ThemePreference } from '@/stores/settings-store'
+import {
+  DEFAULT_SETTINGS,
+  setSetting,
+  useSetting,
+  type FloatingWorkspaceTriggerLocation,
+  type TerminalCursorStyle,
+  type ThemePreference
+} from '@/stores/settings-store'
 import { UI_ZOOM_MAX, UI_ZOOM_MIN, UI_ZOOM_STEP, zoomPercent } from '@/lib/ui-zoom'
 import { useShortcutLabel } from '@/keybindings/keybinding-registry'
 import { Button } from '@/components/ui/button'
@@ -12,7 +19,8 @@ import {
   TextField
 } from './settings-form-controls'
 
-// Orca's Appearance pane: Interface (theme, zoom, IDE font) and Terminal typography.
+// Orca's Appearance pane: Interface (theme, zoom, IDE font), Sidebar rows, the floating workspace
+// toggle (Orca's FloatingWorkspacePane) and Terminal typography.
 
 function UIZoomControl() {
   const level = useSetting('uiZoomLevel')
@@ -30,6 +38,79 @@ function UIZoomControl() {
         <RotateCcw className="size-3" />
         Reset
       </Button>
+    </div>
+  )
+}
+
+/** Orca's AppearanceWindowSidebarSection: which optional SidebarNav rows show. */
+function SidebarSection() {
+  const tasks = useSetting('showTasksButton')
+  const automations = useSetting('showAutomationsButton')
+  const skills = useSetting('showSkillsButton')
+  const dashboard = useSetting('showAgentDashboardButton')
+  const checklist = useSetting('setupGuideSidebarDismissed')
+  return (
+    <div className="space-y-2 not-has-[[data-setting-row]]:hidden">
+      <SettingsSubsectionHeader title="Sidebar" description="Rows above the workspace list. Right-click a row to hide it." />
+      <div className="divide-y divide-border/40">
+        <SettingsSwitchRow label="Show Tasks Button" keywords={['tasks', 'sidebar', 'button', 'issues']} checked={tasks} onChange={(v) => setSetting('showTasksButton', v)} />
+        <SettingsSwitchRow
+          label="Show Automations Button"
+          keywords={['automations', 'automation', 'schedule', 'sidebar']}
+          checked={automations}
+          onChange={(v) => setSetting('showAutomationsButton', v)}
+        />
+        <SettingsSwitchRow label="Show Skills Button" keywords={['skills', 'sidebar', 'button']} checked={skills} onChange={(v) => setSetting('showSkillsButton', v)} />
+        <SettingsSwitchRow
+          label="Show Agent Dashboard Button"
+          keywords={['dashboard', 'agents', 'sidebar']}
+          checked={dashboard}
+          onChange={(v) => setSetting('showAgentDashboardButton', v)}
+        />
+        <SettingsSwitchRow
+          label="Show Onboarding Checklist"
+          description="Shown until setup is complete."
+          keywords={['onboarding', 'setup', 'checklist', 'sidebar']}
+          checked={!checklist}
+          onChange={(v) => setSetting('setupGuideSidebarDismissed', !v)}
+        />
+      </div>
+    </div>
+  )
+}
+
+/** Orca's FloatingWorkspacePane: the feature switch and where its toggle lives. */
+function FloatingWorkspaceSection() {
+  const enabled = useSetting('floatingWorkspaceEnabled')
+  const location = useSetting('floatingWorkspaceTriggerLocation')
+  return (
+    <div className="space-y-2 not-has-[[data-setting-row]]:hidden">
+      <SettingsSubsectionHeader title="Floating Workspace" />
+      <div className="divide-y divide-border/40">
+        <SettingsSwitchRow
+          label="Enable Floating Workspace"
+          description="Shows the floating workspace button and panel."
+          keywords={['floating', 'workspace', 'terminal', 'quick panel']}
+          checked={enabled}
+          onChange={(v) => setSetting('floatingWorkspaceEnabled', v)}
+        />
+        <SettingsRow
+          label="Toggle Button Location"
+          description="The keyboard shortcut works regardless of where the toggle is shown."
+          keywords={['floating', 'status bar', 'button']}
+          control={
+            <SettingsSegmentedControl<FloatingWorkspaceTriggerLocation>
+              ariaLabel="Toggle Button Location"
+              value={location === 'status-bar' ? 'status-bar' : 'floating-button'}
+              onChange={(value) => setSetting('floatingWorkspaceTriggerLocation', value)}
+              options={[
+                { value: 'floating-button', label: 'Floating Button' },
+                { value: 'status-bar', label: 'Status Bar' }
+              ]}
+            />
+          }
+        />
+      </div>
     </div>
   )
 }
@@ -81,6 +162,10 @@ export function AppearancePane() {
           />
         </div>
       </div>
+
+      <SidebarSection />
+
+      <FloatingWorkspaceSection />
 
       <div className="space-y-2 not-has-[[data-setting-row]]:hidden">
         <SettingsSubsectionHeader title="Terminal" description="Typography for terminal tabs on every host." />

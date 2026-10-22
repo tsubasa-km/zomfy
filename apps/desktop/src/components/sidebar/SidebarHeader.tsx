@@ -2,14 +2,11 @@ import { useState } from 'react'
 import { invoke, isTauri } from '@tauri-apps/api/core'
 import { open } from '@tauri-apps/plugin-dialog'
 import {
-  BookOpen,
   Download,
   FolderInput,
   FolderPlus,
   GitBranchPlus,
   Kanban,
-  CalendarClock,
-  LayoutDashboard,
   Plus,
   Server,
   SquarePlus,
@@ -19,9 +16,6 @@ import {
 import { addProject, connectHost } from '@/daemon-connection'
 import { LOCAL_HOST, setDashboardOpen, useStore, type HostId } from '@/session-store'
 import { setBoardOpen, useSidebarStore } from '@/stores/sidebar-store'
-import { setAutomationsPageOpen, useAutomationState } from '@/stores/automation-store'
-import { setSkillsPageOpen, useAppOverlays } from '@/stores/app-overlay-store'
-import { useSetting } from '@/stores/settings-store'
 import { SidebarFilterMenu } from '@/components/sidebar/SidebarFilterMenu'
 import { WorkspaceOptionsMenu } from '@/components/sidebar/WorkspaceOptionsMenu'
 import type { AddRepoMode } from '@/components/sidebar/AddRepoDialog'
@@ -38,10 +32,8 @@ import {
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { cn } from '@/lib/utils'
 
-// Orca's SidebarHeader / sidebar-header-actions / SidebarToolbar: title, then board, dashboard,
-// filter, options and add.
-
-const isMac = navigator.userAgent.includes('Mac')
+// Orca's SidebarHeader / sidebar-header-actions / SidebarToolbar: title, then board, filter, options
+// and add. Skills, Automations and the dashboard are SidebarNav rows, as in Orca.
 
 export function SidebarHeader({
   onImportOrca,
@@ -59,39 +51,12 @@ export function SidebarHeader({
         {groupBy === 'project' ? 'Projects' : 'Workspaces'}
       </span>
       <div className="flex shrink-0 items-center gap-0.5">
-        <SkillsButton />
         <BoardButton />
-        <DashboardButton />
-        <AutomationsButton />
         <SidebarFilterMenu />
         <WorkspaceOptionsMenu />
         <AddMenu onImportOrca={onImportOrca} onAddRepo={onAddRepo} onNewGroup={onNewGroup} />
       </div>
     </div>
-  )
-}
-
-/** Orca's opt-in sidebar Skills entry (showSkillsButton). */
-function SkillsButton() {
-  const shown = useSetting('showSkillsButton')
-  const open = useAppOverlays((s) => s.skills)
-  if (!shown) return null
-  return (
-    <Tooltip>
-      <TooltipTrigger asChild>
-        <Button
-          size="icon-xs"
-          variant="ghost"
-          aria-label="Skills"
-          aria-pressed={open}
-          className={cn('text-muted-foreground', open && 'bg-accent text-accent-foreground')}
-          onClick={() => setSkillsPageOpen(!open)}
-        >
-          <BookOpen className="size-3.5" />
-        </Button>
-      </TooltipTrigger>
-      <TooltipContent side="bottom">Skills</TooltipContent>
-    </Tooltip>
   )
 }
 
@@ -116,52 +81,6 @@ function BoardButton() {
         </Button>
       </TooltipTrigger>
       <TooltipContent side="bottom">Workspace board</TooltipContent>
-    </Tooltip>
-  )
-}
-
-function DashboardButton() {
-  const open = useStore((s) => s.dashboardOpen)
-  const attention = useStore((s) => s.sessions.filter((x) => x.status === 'needs-you' || s.unread[x.id]).length)
-  return (
-    <Tooltip>
-      <TooltipTrigger asChild>
-        <Button
-          size="icon-xs"
-          variant="ghost"
-          aria-label="Agent dashboard"
-          className={cn('relative text-muted-foreground', open && 'bg-accent text-accent-foreground')}
-          onClick={() => {
-            if (!open) setBoardOpen(false)
-            setDashboardOpen(!open)
-          }}
-        >
-          <LayoutDashboard className="size-3.5" />
-          {attention > 0 && <span className="absolute top-0.5 right-0.5 size-1.5 rounded-full bg-agent-question" />}
-        </Button>
-      </TooltipTrigger>
-      <TooltipContent side="bottom">Agent dashboard ({isMac ? '⌘⇧D' : 'Ctrl+Shift+D'})</TooltipContent>
-    </Tooltip>
-  )
-}
-
-function AutomationsButton() {
-  const open = useAutomationState((s) => s.pageOpen)
-  return (
-    <Tooltip>
-      <TooltipTrigger asChild>
-        <Button
-          size="icon-xs"
-          variant="ghost"
-          aria-label="Automations"
-          data-automations-toggle
-          className={cn('text-muted-foreground', open && 'bg-accent text-accent-foreground')}
-          onClick={() => setAutomationsPageOpen(!open)}
-        >
-          <CalendarClock className="size-3.5" />
-        </Button>
-      </TooltipTrigger>
-      <TooltipContent side="bottom">Automations</TooltipContent>
     </Tooltip>
   )
 }

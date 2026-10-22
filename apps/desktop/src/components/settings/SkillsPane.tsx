@@ -33,7 +33,7 @@ export function SkillsPane() {
       </SearchableSetting>
       <SettingsSwitchRow
         label="Show Skills in sidebar"
-        description="Adds a Skills button to the sidebar header."
+        description="Adds a Skills row to the sidebar navigation."
         keywords={['skills', 'sidebar', 'button']}
         checked={showButton}
         onChange={(checked) => setSetting('showSkillsButton', checked)}

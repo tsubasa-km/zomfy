@@ -1,4 +1,4 @@
-import { CornerDownLeft, FolderGit2, Terminal } from 'lucide-react'
+import { CornerDownLeft, FolderGit2, PanelBottomClose, PanelRightClose, Terminal } from 'lucide-react'
 import { allWorkspaces, floatingWorkspaceId, selectWorkspace, setDashboardOpen, useStore, workspaceStatus } from '@/session-store'
 import { closeSettings, setCommandPalette, useAppOverlays } from '@/stores/app-overlay-store'
 import { keybindingDefinitions } from '@/keybindings/keybinding-definitions'
@@ -7,6 +7,7 @@ import { formatChord } from '@/keybindings/keybinding-chords'
 import { useSetting } from '@/stores/settings-store'
 import { ShortcutKeyCombo } from '@/components/ShortcutKeyCombo'
 import { AgentStateDot } from '@/components/AgentStateDot'
+import { canSplitActiveChat, splitActiveChat } from '@/components/tab-layout/pane-split-commands'
 import { CommandDialog, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command'
 
 // Ctrl/Cmd+Shift+P and Ctrl/Cmd+J: Orca's Cmd+J palette (switch workspace, quick actions) merged
@@ -14,6 +15,7 @@ import { CommandDialog, CommandEmpty, CommandGroup, CommandInput, CommandItem, C
 
 export function CommandPalette() {
   const open = useAppOverlays((s) => s.commandPalette)
+  const workspacesOnly = useAppOverlays((s) => s.commandPaletteMode === 'workspaces')
   useCommandRegistryVersion()
   const overrides = useSetting('keybindings')
   const hosts = useStore((s) => s.hosts)
@@ -25,6 +27,8 @@ export function CommandPalette() {
   const hostCount = Object.keys(hosts).length
 
   const close = () => setCommandPalette(false)
+  // Orca's Cmd+J quick actions (native-chat-split-quick-actions.ts), offered while the active chat can move.
+  const chatSplit = open && !workspacesOnly && canSplitActiveChat()
 
   return (
     <CommandDialog
@@ -35,9 +39,12 @@ export function CommandPalette() {
       onCloseAutoFocus={(e) => e.preventDefault()}
       commandProps={{ loop: true }}
     >
-      <CommandInput placeholder="Type a command or workspace name..." className="!h-9 !py-2" />
+      <CommandInput
+        placeholder={workspacesOnly ? 'Search workspaces...' : 'Type a command or workspace name...'}
+        className="!h-9 !py-2"
+      />
       <CommandList className="max-h-[420px] p-2" data-command-palette-list>
-        <CommandEmpty>No matching commands or workspaces.</CommandEmpty>
+        <CommandEmpty>{workspacesOnly ? 'No matching workspaces.' : 'No matching commands or workspaces.'}</CommandEmpty>
         {workspaces.length > 0 ? (
           <CommandGroup heading="Workspaces">
             {workspaces.map((workspace) => {
@@ -71,27 +78,52 @@ export function CommandPalette() {
             })}
           </CommandGroup>
         ) : null}
-        <CommandGroup heading="Commands">
-          {commands.map((definition) => {
-            const first = effectiveBindings(definition, overrides)[0]
-            return (
+        {chatSplit ? (
+          <CommandGroup heading="Quick Actions">
+            {([
+              { direction: 'right', title: 'Split Chat Right', description: 'Open the active chat in a split pane to the right.', icon: PanelRightClose },
+              { direction: 'down', title: 'Split Chat Down', description: 'Open the active chat in a split pane below.', icon: PanelBottomClose }
+            ] as const).map(({ direction, title, description, icon: Icon }) => (
               <CommandItem
-                key={definition.id}
-                value={`command ${definition.id} ${definition.title} ${definition.group} ${(definition.keywords ?? []).join(' ')}`}
+                key={direction}
+                value={`quick split-chat-${direction} ${title} move chat ${direction} chat pane`}
                 onSelect={() => {
                   close()
-                  // After the dialog closes, so focus-sensitive commands see the app, not the palette.
-                  requestAnimationFrame(() => runCommand(definition.id))
+                  requestAnimationFrame(() => splitActiveChat(direction))
                 }}
                 className="!py-1.5"
+                data-quick-action={`split-chat-${direction}`}
               >
-                <Terminal className="size-3.5 shrink-0 text-muted-foreground" />
-                <span className="min-w-0 truncate">{definition.title}</span>
-                {first ? <ShortcutKeyCombo keys={formatChord(first)} className="ml-auto shrink-0" /> : null}
+                <Icon className="size-3.5 shrink-0 text-muted-foreground" />
+                <span className="min-w-0 truncate">{title}</span>
+                <span className="min-w-0 truncate text-xs text-muted-foreground">{description}</span>
               </CommandItem>
-            )
-          })}
-        </CommandGroup>
+            ))}
+          </CommandGroup>
+        ) : null}
+        {workspacesOnly ? null : (
+          <CommandGroup heading="Commands">
+            {commands.map((definition) => {
+              const first = effectiveBindings(definition, overrides)[0]
+              return (
+                <CommandItem
+                  key={definition.id}
+                  value={`command ${definition.id} ${definition.title} ${definition.group} ${(definition.keywords ?? []).join(' ')}`}
+                  onSelect={() => {
+                    close()
+                    // After the dialog closes, so focus-sensitive commands see the app, not the palette.
+                    requestAnimationFrame(() => runCommand(definition.id))
+                  }}
+                  className="!py-1.5"
+                >
+                  <Terminal className="size-3.5 shrink-0 text-muted-foreground" />
+                  <span className="min-w-0 truncate">{definition.title}</span>
+                  {first ? <ShortcutKeyCombo keys={formatChord(first)} className="ml-auto shrink-0" /> : null}
+                </CommandItem>
+              )
+            })}
+          </CommandGroup>
+        )}
       </CommandList>
     </CommandDialog>
   )

@@ -20,6 +20,10 @@ const APP_COMMAND_HANDLERS: Record<string, CommandHandler> = {
     setQuickOpen(target)
   },
   'app.commandPalette': () => setCommandPalette(!getAppOverlays().commandPalette),
+  'workspace.palette': () => {
+    const { commandPalette, commandPaletteMode } = getAppOverlays()
+    setCommandPalette(!(commandPalette && commandPaletteMode === 'workspaces'), 'workspaces')
+  },
   'app.settings': () => openSettings(),
   'app.shortcuts': () => openSettings('shortcuts'),
   'app.forceReload': () => window.location.reload(),
@@ -29,7 +33,7 @@ const APP_COMMAND_HANDLERS: Record<string, CommandHandler> = {
   'agent.jumpToNeedsYou': () => jumpToAgentNeedingYou(),
   'dashboard.toggle': () => setDashboardOpen(!getState().dashboardOpen),
   'floatingWorkspace.toggle': () => {
-    if (!floatingWorkspaceId()) return false
+    if (!floatingWorkspaceId() || !getSetting('floatingWorkspaceEnabled')) return false
     setFloating({ open: !getState().floating.open })
   },
   'sidebar.right.toggle': () => setRightSidebar({ open: !getState().rightSidebar.open }),
