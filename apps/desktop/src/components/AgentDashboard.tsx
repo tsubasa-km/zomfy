@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { XIcon } from 'lucide-react'
+import { ExternalLink, XIcon } from 'lucide-react'
 import {
   allWorkspaces,
   selectSession,
@@ -14,6 +14,8 @@ import { TuiAgentIcon } from '@/components/terminal/TuiAgentIcon'
 import { sessionAgent } from '@/lib/chat-agents'
 import { Switch } from '@/components/ui/switch'
 import { cn } from '@/lib/utils'
+import { canPopOutDashboard, popOutDashboard } from '@/lib/dashboard-window'
+import { WINDOW_ROLE } from '@/lib/window-role'
 
 // Follows Orca's agent dashboard (dashboard-popout/AgentKanbanBoard.tsx, AgentKanbanCard.tsx):
 // Needs You / Working / Done / Idle lanes; Done holds turns the user has not looked at yet.
@@ -62,6 +64,18 @@ export function AgentDashboard() {
             <Switch checked={showIdle} onCheckedChange={setShowIdle} />
             Show idle
           </label>
+          {WINDOW_ROLE === 'main' && canPopOutDashboard() ? (
+            <button
+              type="button"
+              aria-label="Open dashboard in its own window"
+              title="Open in its own window"
+              data-dashboard-popout
+              className="rounded-sm p-1 text-muted-foreground opacity-70 transition-opacity hover:opacity-100"
+              onClick={() => void popOutDashboard()}
+            >
+              <ExternalLink className="size-4" />
+            </button>
+          ) : null}
           <button
             type="button"
             aria-label="Close dashboard"

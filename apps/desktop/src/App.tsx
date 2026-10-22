@@ -20,6 +20,7 @@ import { installAppCommands } from '@/keybindings/app-commands'
 import { installKeybindingDispatcher } from '@/keybindings/keybinding-registry'
 import { TooltipProvider } from '@/components/ui/tooltip'
 import { installTheme } from '@/lib/theme'
+import { listenForDashboardPicks } from '@/lib/dashboard-window'
 import { installUiZoom } from '@/lib/ui-zoom'
 import '@/assets/main.css'
 
@@ -37,7 +38,12 @@ export default function App() {
 
   useEffect(() => {
     connectAllHosts()
-    return installKeybindingDispatcher()
+    const stopPicks = listenForDashboardPicks()
+    const stopKeys = installKeybindingDispatcher()
+    return () => {
+      stopPicks()
+      stopKeys()
+    }
   }, [])
 
   return (

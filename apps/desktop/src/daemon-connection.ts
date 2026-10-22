@@ -20,6 +20,7 @@ import {
   type TerminalOutput,
 } from "@acp-harness/protocol";
 import { applyChatUpdate } from "./chat-transcript";
+import { WINDOW_ROLE } from "./lib/window-role";
 import {
   LOCAL_HOST,
   addSession,
@@ -166,7 +167,10 @@ async function openConnection(hostId: HostId): Promise<void> {
   const stream = createWebSocketStream(info.url, { protocols: [info.protocolPrefix + info.token] });
   const opened = acp
     .client({ name: "acp-harness-desktop" })
-    .onRequest("session/request_permission", (ctx) => requestPermission(ctx.params))
+    .onRequest("session/request_permission", (ctx) =>
+      // The dashboard pop-out cannot show an approval card; the daemon asks the main window instead.
+      WINDOW_ROLE === "main" ? requestPermission(ctx.params) : Promise.reject(new Error("This window does not answer approvals")),
+    )
     .onNotification("session/update", (ctx) => applyChatUpdate(ctx.params))
     .onNotification(
       HARNESS_NOTIFICATIONS.stateChanged,

@@ -9,6 +9,7 @@ import type {
   TerminalInfo,
   Workspace
 } from '@acp-harness/protocol'
+import { WINDOW_ROLE } from '@/lib/window-role'
 
 export type { SessionStatus }
 
@@ -174,6 +175,8 @@ const listeners = new Set<() => void>()
 function set(next: StoreState): void {
   state = next
   for (const listener of listeners) listener()
+  // Only the main window owns the saved layout; a pop-out's stale copy must not overwrite it.
+  if (WINDOW_ROLE !== 'main') return
   try {
     // Which workspace and tab were open is a per-window convenience, as in Orca's session restore.
     const layout: SavedLayout = {
@@ -391,8 +394,16 @@ export function workspaceStatus(sessions: Session[]): SessionStatus | 'none' {
   return sessions.length > 0 ? 'idle' : 'none'
 }
 
+let sessionPickHandler: ((sessionId: string) => void) | null = null
+
+/** A window that cannot show sessions itself (the dashboard pop-out) hands picks elsewhere. */
+export function handleSessionPicks(handler: (sessionId: string) => void): void {
+  sessionPickHandler = handler
+}
+
 /** Focuses a session wherever it lives: its workspace in the main area, or the floating panel. */
 export function selectSession(sessionId: string): void {
+  if (sessionPickHandler) return sessionPickHandler(sessionId)
   const session = state.sessions.find((s) => s.id === sessionId)
   // A side chat has no tab; it shows in its workspace's right sidebar.
   if (session?.sideOf) {
