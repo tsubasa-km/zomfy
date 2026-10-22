@@ -8,6 +8,8 @@ import { FloatingWorkspace } from '@/components/FloatingWorkspace'
 import { RightSidebar } from '@/components/right-sidebar/RightSidebar'
 import { AgentDashboard } from '@/components/AgentDashboard'
 import { SettingsPage } from '@/components/settings/SettingsPage'
+import { AutomationsPage } from '@/components/automations/AutomationsPage'
+import { useAutomationState } from '@/stores/automation-store'
 import { QuickOpen } from '@/components/QuickOpen'
 import { CommandPalette } from '@/components/CommandPalette'
 import { StatusBar } from '@/components/status-bar/StatusBar'
@@ -30,6 +32,7 @@ export default function App() {
   const activeWorkspaceId = useStore((s) => s.activeWorkspaceId)
   const dashboardOpen = useStore((s) => s.dashboardOpen)
   const settingsOpen = useAppOverlays((s) => s.settings.open)
+  const automationsOpen = useAutomationState((s) => s.pageOpen)
   const boardOpen = useSidebarStore((s) => s.boardOpen)
 
   useEffect(() => {
@@ -61,6 +64,11 @@ export default function App() {
           </main>
           {activeWorkspaceId && !dashboardOpen && !boardOpen && <RightSidebar workspaceId={activeWorkspaceId} />}
           {/* Orca's settings replace the app view; the views stay mounted underneath to keep their state. */}
+          {automationsOpen && (
+            <div className="absolute inset-0 z-20 flex">
+              <AutomationsPage />
+            </div>
+          )}
           {settingsOpen && (
             <div className="absolute inset-0 z-30 flex">
               <SettingsPage />

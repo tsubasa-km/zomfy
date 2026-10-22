@@ -100,6 +100,7 @@ const APP_DEFINITIONS: KeybindingDefinition[] = [
     defaultBindings: { mac: ['Mod+Shift+I'], other: [] },
     allowInTerminal: true
   },
+  { id: 'automations.open', title: 'Open Automations', group: 'Global', keywords: ['automations', 'schedule', 'cron', 'recurring'], defaultBindings: [] },
   {
     id: 'sidebar.sideChat.toggle',
     title: 'Toggle Side Chat',

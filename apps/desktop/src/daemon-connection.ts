@@ -2,8 +2,10 @@ import * as acp from "@agentclientprotocol/sdk";
 import { createWebSocketStream } from "@agentclientprotocol/sdk/experimental/ws-client";
 import { invoke, isTauri } from "@tauri-apps/api/core";
 import {
+  AUTOMATION_NOTIFICATIONS,
   HARNESS_METHODS,
   HARNESS_NOTIFICATIONS,
+  type AutomationSnapshot,
   SETTINGS_NOTIFICATIONS,
   type ChatAgentId,
   type CreateTerminalParams,
@@ -40,6 +42,7 @@ import {
   type HostId,
 } from "./session-store";
 import { applyHostSettings } from "./stores/host-settings-store";
+import { applyAutomationSnapshot } from "./stores/automation-store";
 
 interface DaemonInfo {
   url: string;
@@ -193,6 +196,11 @@ async function openConnection(hostId: HostId): Promise<void> {
       SETTINGS_NOTIFICATIONS.settingsChanged,
       (raw: unknown) => raw as HostSettings,
       (ctx) => applyHostSettings(hostId, ctx.params),
+    )
+    .onNotification(
+      AUTOMATION_NOTIFICATIONS.automationsChanged,
+      (raw: unknown) => raw as AutomationSnapshot,
+      (ctx) => applyAutomationSnapshot(hostId, ctx.params),
     )
     .connect(stream);
   opened.closed.finally(() => {
