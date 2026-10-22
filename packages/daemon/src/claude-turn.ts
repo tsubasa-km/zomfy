@@ -2,6 +2,7 @@ import * as acp from "@agentclientprotocol/sdk";
 import {
   query,
   type CanUseTool,
+  type Options,
   type PermissionMode,
   type Query,
   type SDKMessage,
@@ -43,6 +44,12 @@ interface TurnInput {
   onSlashCommands?: (names: string[]) => void;
   /** This host's Claude variables from the Agents settings (an account's CLAUDE_CONFIG_DIR…). */
   env?: Record<string, string>;
+  /** MCP servers the daemon provides (the manager tools). */
+  mcpServers?: Options["mcpServers"];
+  /** Tools that run without asking (the read-only manager tools). */
+  allowedTools?: string[];
+  /** Added to Claude Code's own system prompt (the Manager chat's instructions). */
+  appendSystemPrompt?: string;
 }
 
 
@@ -98,6 +105,11 @@ export async function runClaudeTurn(input: TurnInput): Promise<acp.StopReason> {
       // Headless runs on current models drop the task tools the TUI keeps; the chat draws their list.
       env: { ...process.env, ...input.env, CLAUDE_CODE_ENABLE_TODO_TOOLS: "1" },
       ...(permissionMode === "bypassPermissions" ? { allowDangerouslySkipPermissions: true } : {}),
+      ...(input.mcpServers && Object.keys(input.mcpServers).length > 0 ? { mcpServers: input.mcpServers } : {}),
+      ...(input.allowedTools?.length ? { allowedTools: input.allowedTools } : {}),
+      ...(input.appendSystemPrompt
+        ? { systemPrompt: { type: "preset" as const, preset: "claude_code" as const, append: input.appendSystemPrompt } }
+        : {}),
     },
   });
   input.onQuery?.(stream);

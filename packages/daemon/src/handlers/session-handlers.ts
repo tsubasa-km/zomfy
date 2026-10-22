@@ -23,6 +23,7 @@ export function registerSessionHandlers({ handle, sessions, pendingTurns, acpAge
       workspaceId: p.workspaceId,
       cwd: workspaceRoot(p.workspaceId),
       ...(p.agent && p.agent !== "claude" ? { agent: p.agent } : {}),
+      ...(p.role === "manager" ? { role: p.role, title: "Manager" } : {}),
     });
     // Started now, as Orca opens a chat's session on create, so its model and mode pickers fill in.
     acpAgents.for(record)?.ensureStarted().catch((error) => log(`starting ${p.agent} failed: ${String(error)}`));

@@ -6,8 +6,15 @@ import { WorkspaceManager } from "./workspace-manager.ts";
 import { SessionRegistry } from "./session-registry.ts";
 import { TerminalManager } from "./terminal-manager.ts";
 import { log } from "./log.ts";
+import { runManagerMcpBridge } from "./manager-mcp-bridge.ts";
 
 const DEFAULT_PORT = 7801;
+const bridgeIndex = process.argv.indexOf("--mcp-bridge");
+if (bridgeIndex !== -1) {
+  // An agent's stdio MCP server, not a daemon: relay and exit with stdin.
+  await runManagerMcpBridge(process.argv[bridgeIndex + 1] ?? "");
+  process.exit(0);
+}
 const workspaces = new WorkspaceManager();
 await workspaces.load();
 const sessions = new SessionRegistry();

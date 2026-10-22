@@ -1,4 +1,5 @@
 import type { ChatAgentId, ChatAgentSessionState } from './chat-agents'
+import type { SessionRole } from './manager'
 
 /** The execution host owns session status; clients only present it (Orca's agent-status rule). */
 export type SessionStatus = 'idle' | 'working' | 'needs-you' | 'error'
@@ -30,6 +31,8 @@ export interface SessionInfo {
   agent?: ChatAgentId
   /** An external ACP agent's own options and commands; absent on Claude sessions. */
   agentState?: ChatAgentSessionState
+  /** 'manager' for the Manager chat, which gets the orchestration system prompt. */
+  role?: SessionRole
 }
 
 export interface ChatModel {
@@ -96,7 +99,10 @@ export const SESSION_METHODS = {
 export interface SessionRequests {
   [SESSION_METHODS.sessionsList]: { params: Record<string, never>; result: SessionInfo[] }
   /** `agent` defaults to Claude. */
-  [SESSION_METHODS.sessionCreate]: { params: { workspaceId: string; agent?: ChatAgentId }; result: SessionInfo }
+  [SESSION_METHODS.sessionCreate]: {
+    params: { workspaceId: string; agent?: ChatAgentId; role?: SessionRole }
+    result: SessionInfo
+  }
   [SESSION_METHODS.sessionClose]: { params: { sessionId: string }; result: Record<string, never> }
   [SESSION_METHODS.sessionSetOptions]: {
     params: { sessionId: string; options: Partial<SessionOptions> }

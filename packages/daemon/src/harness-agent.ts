@@ -1,6 +1,8 @@
 import * as acp from "@agentclientprotocol/sdk";
 import {
   HARNESS_NOTIFICATIONS,
+  MANAGER_MCP_SERVER_NAME,
+  MANAGER_SYSTEM_PROMPT,
   chatAgentLabel,
   type HarnessMethod,
   type HarnessRequests,
@@ -23,6 +25,9 @@ import { registerSettingsHandlers } from "./handlers/settings-handlers.ts";
 import { registerTerminalHandlers } from "./handlers/terminal-handlers.ts";
 import { registerWorkspaceHandlers } from "./handlers/workspace-handlers.ts";
 import type { WorkspaceManager } from "./workspace-manager.ts";
+import { registerTodoHandlers } from "./handlers/todo-handlers.ts";
+import { managerMcp } from "./manager-mcp-server.ts";
+import { ManagerRouting, autoAllowedManagerTools } from "./manager-routing.ts";
 import { log } from "./log.ts";
 
 /** One agent app shared by every transport, so sessions outlive the connection that made them. */
@@ -33,6 +38,18 @@ export function createHarnessAgent(
 ): acp.AgentApp {
   const clients = new Set<acp.AgentContext>();
   const pendingTurns = new Map<string, AbortController>();
+  const managerRouting = new ManagerRouting();
+  managerMcp.setRoute(managerRouting.route);
+  let knownSessionIds = new Set<string>();
+  sessions.onChange((list) => {
+    const ids = new Set(list.map((s) => s.id));
+    for (const id of knownSessionIds) {
+      if (ids.has(id)) continue;
+      managerMcp.forgetSession(id);
+      managerRouting.forgetSession(id);
+    }
+    knownSessionIds = ids;
+  });
 
   function broadcast(method: string, params: unknown): void {
     for (const client of clients) void client.notify(method, params).catch(() => undefined);
@@ -61,6 +78,7 @@ export function createHarnessAgent(
     pendingTurns.get(session.id)?.abort();
     const abort = new AbortController();
     pendingTurns.set(session.id, abort);
+    managerRouting.noteTurn(session.id, client);
 
     const text = params.prompt.flatMap((b) => (b.type === "text" ? [b.text] : [])).join("\n");
     const external = acpAgents.for(session);
@@ -106,6 +124,9 @@ export function createHarnessAgent(
         onSlashCommands: (names) => noteSlashCommands(session.cwd, names),
         env: (await chatAgentLaunch("claude")).env,
         askPermission,
+        mcpServers: managerMcp.claudeServers(session.id, session.role === "manager"),
+        allowedTools: autoAllowedManagerTools(session.role, MANAGER_MCP_SERVER_NAME),
+        ...(session.role === "manager" ? { appendSystemPrompt: MANAGER_SYSTEM_PROMPT } : {}),
       });
       sessions.update(session.id, { status: "idle", turnStartedAt: null, claudeSessionId: session.claudeSessionId });
       return { stopReason };
@@ -131,16 +152,22 @@ export function createHarnessAgent(
     .agent({ name: "acp-harness" })
     .onConnect((connection) => {
       clients.add(connection.client);
-      void connection.closed.finally(() => clients.delete(connection.client));
+      void connection.closed.finally(() => {
+        clients.delete(connection.client);
+        managerRouting.forgetClient(connection.client);
+      });
     })
-    .onRequest("initialize", () => ({
+    .onRequest("initialize", (ctx) => {
+      managerRouting.noteInitialize(ctx.client, ctx.params);
+      return {
       protocolVersion: acp.PROTOCOL_VERSION,
       agentCapabilities: {
         loadSession: true,
         promptCapabilities: { embeddedContext: true, image: true },
       },
       agentInfo: { name: "acp-harness", title: "ACP Harness", version: "0.0.1" },
-    }))
+      };
+    })
     .onRequest("authenticate", () => ({}))
     .onRequest("session/new", (ctx) => {
       // Outside ACP clients know only a cwd; harness UIs use `_harness/sessions/create`.
@@ -205,6 +232,7 @@ export function createHarnessAgent(
     registerSettingsHandlers,
     registerQuickOpenHandlers,
     registerChatAgentHandlers,
+    registerTodoHandlers,
   ]) {
     register(ctx);
   }

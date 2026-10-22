@@ -8,6 +8,7 @@ import { mkdir, writeFile, rm } from "node:fs/promises";
 import { HARNESS_HOME } from "./harness-home.ts";
 import { join } from "node:path";
 import { log } from "./log.ts";
+import { MANAGER_MCP_PATH, managerMcp } from "./manager-mcp-server.ts";
 
 // Browsers do not apply CORS to WebSockets, so any page could reach a localhost port.
 // The token travels as a subprotocol because browser WebSockets cannot set headers.
@@ -72,6 +73,8 @@ export async function serveWebSocket(
     port,
     fetch(req, srv) {
       const url = new URL(req.url);
+      // Agents on this host reach the manager tools here; a per-session bearer token guards it.
+      if (url.pathname === MANAGER_MCP_PATH) return managerMcp.handleHttp(req);
       if (url.pathname !== "/acp") return new Response("not found", { status: 404 });
       const origin = req.headers.get("origin");
       if (origin && !ALLOWED_ORIGINS.has(origin)) {
@@ -112,6 +115,7 @@ export async function serveWebSocket(
   });
 
   const url = `ws://127.0.0.1:${server.port}/acp`;
+  managerMcp.setBaseUrl(`http://127.0.0.1:${server.port}`);
   await mkdir(HARNESS_HOME, { recursive: true });
   await writeFile(
     DAEMON_INFO_PATH,
