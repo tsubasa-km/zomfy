@@ -30,7 +30,12 @@ export function NativeChatMemoButton({ sessionId }: { sessionId: string }) {
         >
           <NotebookPen className="size-4" />
           {hasContent ? (
-            <span aria-hidden data-native-chat-memo-dot className="absolute top-1.5 right-1.5 size-1.5 rounded-full bg-foreground" />
+            // Annotation amber: reads as "has notes", apart from the orange needs-you dot.
+            <span
+              aria-hidden
+              data-native-chat-memo-dot
+              className="absolute top-1 right-1 size-2 rounded-full bg-annotation-highlight ring-2 ring-background"
+            />
           ) : null}
         </Button>
       </TooltipTrigger>
