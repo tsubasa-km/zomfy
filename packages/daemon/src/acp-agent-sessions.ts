@@ -1,6 +1,7 @@
 import type * as acp from '@agentclientprotocol/sdk'
 import { AcpAgentSession, emptyAgentState } from './acp-agent-session.ts'
 import type { SessionRecord, SessionRegistry } from './session-registry.ts'
+import { managerMcp } from './manager-mcp-server.ts'
 
 /** The ACP servers running for this daemon's external-agent sessions, one per session. */
 export class AcpAgentSessions {
@@ -29,7 +30,8 @@ export class AcpAgentSessions {
       agent = new AcpAgentSession(record.agent, record.cwd, record.agentSessionId ?? null, record.agentState ?? emptyAgentState(), {
         emit: (update) => this.emit(record.id, update),
         onState: (agentState) => this.sessions.update(record.id, { agentState }),
-        onAgentSessionId: (agentSessionId) => this.sessions.update(record.id, { agentSessionId })
+        onAgentSessionId: (agentSessionId) => this.sessions.update(record.id, { agentSessionId }),
+        mcpServers: (capabilities) => managerMcp.acpServers(record.id, capabilities)
       })
       this.live.set(record.id, agent)
     }

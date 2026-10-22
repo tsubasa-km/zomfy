@@ -27,6 +27,8 @@ export interface AcpAgentSessionHooks {
   onState(state: ChatAgentSessionState): void
   /** The agent's own id for the conversation, kept so a restarted server reopens it. */
   onAgentSessionId(id: string): void
+  /** MCP servers to offer the agent's session (the manager tools), per what it supports. */
+  mcpServers?(capabilities: acp.AgentCapabilities): acp.McpServer[]
 }
 
 interface Running {
@@ -166,8 +168,9 @@ export class AcpAgentSession {
     capabilities: acp.AgentCapabilities
   ): Promise<{ agentSessionId: string; setup: SessionSetup }> {
     const previous = this.agentSessionId
+    const mcpServers = this.hooks.mcpServers?.(capabilities) ?? []
     if (previous) {
-      const request = { sessionId: previous, cwd: this.cwd, mcpServers: [] }
+      const request = { sessionId: previous, cwd: this.cwd, mcpServers }
       try {
         if (capabilities.sessionCapabilities?.resume) {
           return { agentSessionId: previous, setup: await conn.agent.request(acp.methods.agent.session.resume, request) }
@@ -190,7 +193,7 @@ export class AcpAgentSession {
         title: `${chatAgentLabel(this.agent)} could not reopen its conversation; the next message starts a new one`
       })
     }
-    const created = await conn.agent.request(acp.methods.agent.session.new, { cwd: this.cwd, mcpServers: [] })
+    const created = await conn.agent.request(acp.methods.agent.session.new, { cwd: this.cwd, mcpServers })
     this.agentSessionId = created.sessionId
     this.hooks.onAgentSessionId(created.sessionId)
     return { agentSessionId: created.sessionId, setup: created }

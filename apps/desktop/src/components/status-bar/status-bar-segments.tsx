@@ -24,7 +24,7 @@ import { registerStatusBarItem } from './status-bar-registry'
 // Built-in segments, styled like Orca's (SshStatusSegment, the floating-terminal toggle):
 // compact text-xs buttons with a hover wash, each with a tooltip.
 
-function Segment({
+export function Segment({
   label,
   tooltip,
   onClick,

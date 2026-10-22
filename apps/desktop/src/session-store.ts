@@ -316,11 +316,13 @@ export function mergeSessions(hostId: HostId, list: SessionInfo[]): void {
   for (const t of transitions) for (const listener of transitionListeners) listener(t)
 }
 
-export function addSession(session: Session): void {
+export function addSession(session: Session, focus = true): void {
   set({
     ...state,
     sessions: [...state.sessions.filter((s) => s.id !== session.id), session],
-    activeSessionByWorkspace: { ...state.activeSessionByWorkspace, [session.workspaceId]: session.id }
+    activeSessionByWorkspace: focus
+      ? { ...state.activeSessionByWorkspace, [session.workspaceId]: session.id }
+      : state.activeSessionByWorkspace
   })
 }
 
