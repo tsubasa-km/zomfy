@@ -51,13 +51,10 @@ export function WorkspaceCard({
   drop,
   onUpdate,
   onDelete,
-  onNewChild,
-  hostBadge
+  onNewChild
 }: {
   workspace: Workspace
   hostId: HostId
-  /** The host's short name when the card sits in a project merged across hosts. */
-  hostBadge?: string
   projectName?: string
   sessions: Session[]
   active: boolean
@@ -131,11 +128,6 @@ export function WorkspaceCard({
           <StatusIndicator status={CARD_STATUS[workspaceStatus(sessions)]} />
           <div className={cn('min-w-0 truncate text-[13px] leading-5', unread && 'font-semibold')}>{title}</div>
           {workspace.pinned && <Pin className="size-3 shrink-0 fill-amber-400 text-amber-400" aria-label="Pinned" />}
-          {hostBadge && (
-            <span className="shrink-0 rounded border border-worktree-sidebar-border px-1 text-[10px] leading-4 text-muted-foreground" data-workspace-host={hostId}>
-              {hostBadge}
-            </span>
-          )}
           {poppedOut && <AppWindow className="size-3 shrink-0 text-muted-foreground" aria-label="Open in its own window" />}
           {unread && <span className="size-1.5 shrink-0 rounded-full bg-agent-question" aria-label="Unread" />}
         </div>

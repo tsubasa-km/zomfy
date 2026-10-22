@@ -22,7 +22,6 @@ import { sortedHosts } from '@/components/settings/HostsPane'
 import { hostSnapshot } from '@/lib/host-snapshots'
 import { cn } from '@/lib/utils'
 import { defaultHostId } from '@/lib/default-host'
-import { groupRepositoryCopies, type ProjectCopies } from '@/lib/repository-copies'
 import { useSetting } from '@/stores/settings-store'
 
 // One list of projects across every host: where a project lives is its badge, not a section, so
@@ -58,12 +57,12 @@ interface Source {
   stale: boolean
 }
 
-/** Short host names: "WSL" (the distro when there are several), the SSH alias, "Windows". */
-function shortHostNames(hosts: HostEntry[]): Record<HostId, string> {
+/** Short host names for project badges; the default host's projects, most of them, carry none. */
+function hostBadges(hosts: HostEntry[], defaultHost: HostId): Record<HostId, string | null> {
   const wslCount = hosts.filter((h) => h.id.startsWith('wsl:')).length
   const short = (h: HostEntry) =>
     h.id.startsWith('wsl:') ? (wslCount > 1 ? h.id.slice(4) : 'WSL') : h.id.startsWith('ssh:') ? h.id.slice(4) : h.label
-  return Object.fromEntries(hosts.map((h) => [h.id, short(h)]))
+  return Object.fromEntries(hosts.map((h) => [h.id, h.id === defaultHost ? null : short(h)]))
 }
 
 export function ProjectList({ actions }: { actions: SidebarActions }) {
@@ -82,10 +81,7 @@ export function ProjectList({ actions }: { actions: SidebarActions }) {
     return harness ? [{ host, harness, stale: !live }] : []
   })
   useSetting('defaultHost')
-  const defaultHost = defaultHostId()
-  const names = shortHostNames(ordered)
-  // The default host's projects, most of them, carry no badge.
-  const badges: Record<HostId, string | null> = Object.fromEntries(ordered.map((h) => [h.id, h.id === defaultHost ? null : names[h.id]!]))
+  const badges = hostBadges(ordered, defaultHostId())
   const stale = new Set(sources.filter((s) => s.stale).map((s) => s.host.id))
   const offline = new Set(sources.filter((s) => s.host.connection.kind === 'offline').map((s) => s.host.id))
 
@@ -105,8 +101,6 @@ export function ProjectList({ actions }: { actions: SidebarActions }) {
     ? []
     : sources.flatMap((s) => s.harness.workspaces.filter((w) => w.scratch).map((w) => ({ ...w, hostId: s.host.id })))
   const groups = sources.flatMap((s) => sortGroups(s.harness.projectGroups ?? []).map((group) => ({ group, hostId: s.host.id })))
-  // A repository added on several hosts lists once, under its copy on the default host.
-  const entries = groupRepositoryCopies(projects, defaultHost)
 
   // Filters hide projects left with nothing to show (Orca's empty-project rows), but never when unfiltered.
   const projectVisible = (projectId: string) =>
@@ -123,36 +117,23 @@ export function ProjectList({ actions }: { actions: SidebarActions }) {
     if (order) void harnessRequest(HARNESS_METHODS.projectsReorder, { projectIds: order }, project.hostId)
   }
 
-  const badgeText = (hostId: HostId) => (badges[hostId] ? `${badges[hostId]}${offline.has(hostId) ? ' · offline' : ''}` : null)
-
-  const renderProject = ({ primary: project, copies }: ProjectCopies<HostedProject>) => {
-    const members = [project, ...copies]
-    if (!members.some((m) => projectVisible(m.id))) return null
-    const allStale = members.every((m) => stale.has(m.hostId))
-    // "+Windows": this project also has a copy there.
-    const hostBadge = [
-      badgeText(project.hostId),
-      ...copies.map((c) => `+${badgeText(c.hostId) ?? names[c.hostId] ?? c.hostId}`)
-    ]
-      .filter(Boolean)
-      .join(' ')
-    return (
-      <div key={project.id} className={cn(allStale && 'opacity-60')} data-host-stale={allStale || undefined}>
+  const renderProject = (project: HostedProject) =>
+    projectVisible(project.id) ? (
+      <div key={project.id} className={cn(stale.has(project.hostId) && 'opacity-60')} data-host-stale={stale.has(project.hostId) || undefined}>
         <ProjectSection
           project={project}
-          copies={copies}
-          badgeFor={(hostId) => names[hostId] ?? hostId}
           groups={groups.filter((g) => g.hostId === project.hostId).map((g) => g.group)}
-          workspaces={visible.filter((w) => members.some((m) => m.hostId === w.hostId && m.id === w.projectId))}
+          workspaces={visible.filter((w) => w.hostId === project.hostId && w.projectId === project.id)}
           sessions={sessions}
           activeWorkspaceId={activeWorkspaceId}
           actions={actions}
           onProjectDrop={projectDrop(project)}
-          hostBadge={hostBadge || undefined}
+          hostBadge={
+            badges[project.hostId] ? `${badges[project.hostId]}${offline.has(project.hostId) ? ' · offline' : ''}` : undefined
+          }
         />
       </div>
-    )
-  }
+    ) : null
 
   const loading = ordered.some((h) => h.connection.kind === 'connecting' && !h.harness && !hostSnapshot(h.id))
 
@@ -182,8 +163,8 @@ export function ProjectList({ actions }: { actions: SidebarActions }) {
       {view.groupBy === 'project' ? (
         <>
           {groups.map(({ group, hostId }) => {
-            const members = entries.filter((e) => e.primary.hostId === hostId && e.primary.groupId === group.id)
-            if (filtering && !members.some((e) => [e.primary, ...e.copies].some((p) => projectVisible(p.id)))) return null
+            const members = projects.filter((p) => p.hostId === hostId && p.groupId === group.id)
+            if (filtering && !members.some((p) => projectVisible(p.id))) return null
             return (
               <ProjectGroupSection
                 key={`${hostId}:${group.id}`}
@@ -199,8 +180,8 @@ export function ProjectList({ actions }: { actions: SidebarActions }) {
               </ProjectGroupSection>
             )
           })}
-          {entries
-            .filter(({ primary: p }) => !p.groupId || !groups.some((g) => g.hostId === p.hostId && g.group.id === p.groupId))
+          {projects
+            .filter((p) => !p.groupId || !groups.some((g) => g.hostId === p.hostId && g.group.id === p.groupId))
             .map(renderProject)}
         </>
       ) : (
