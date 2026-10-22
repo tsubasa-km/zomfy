@@ -9,6 +9,7 @@ import { PORT_METHODS, type PortRequests } from './ports'
 import { QUICK_OPEN_METHODS, type QuickOpenRequests } from './quick-open'
 import { SESSION_METHODS, type SessionRequests } from './sessions'
 import { SETTINGS_METHODS, type SettingsRequests } from './settings'
+import { SIDE_CHAT_METHODS, type SideChatRequests } from './side-chats'
 import { TERMINAL_METHODS, type TerminalRequests } from './terminals'
 import { WORKSPACE_METHODS, type WorkspaceRequests } from './workspaces'
 
@@ -19,6 +20,7 @@ export * from './ports'
 export * from './quick-open'
 export * from './sessions'
 export * from './settings'
+export * from './side-chats'
 export * from './terminals'
 export * from './tui-agents'
 export * from './workspaces'
@@ -32,7 +34,8 @@ export const HARNESS_METHODS = {
   ...SETTINGS_METHODS,
   ...QUICK_OPEN_METHODS,
   ...PORT_METHODS,
-  ...CHAT_AGENT_METHODS
+  ...CHAT_AGENT_METHODS,
+  ...SIDE_CHAT_METHODS
 } as const
 
 export const HARNESS_NOTIFICATIONS = {
@@ -51,6 +54,7 @@ export interface HarnessRequests
     SettingsRequests,
     QuickOpenRequests,
     PortRequests,
-    ChatAgentRequests {}
+    ChatAgentRequests,
+    SideChatRequests {}
 
 export type HarnessMethod = keyof HarnessRequests

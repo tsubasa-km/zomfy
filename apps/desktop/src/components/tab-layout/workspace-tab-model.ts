@@ -51,7 +51,7 @@ export function useWorkspaceTabs(workspaceId: string): WorkspaceTab[] {
     () =>
       [
         ...sessions
-          .filter((s) => s.workspaceId === workspaceId)
+          .filter((s) => s.workspaceId === workspaceId && !s.sideOf)
           .map((session) => ({ kind: 'chat' as const, id: session.id, createdAt: session.createdAt, session })),
         ...terminals
           .filter((t) => t.workspaceId === workspaceId)

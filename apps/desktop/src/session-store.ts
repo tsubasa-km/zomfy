@@ -103,7 +103,7 @@ export interface SidebarView {
   sortBy: 'created' | 'name' | 'recent' | 'manual'
 }
 
-export type RightSidebarTab = 'explorer' | 'search' | 'source-control' | 'ports'
+export type RightSidebarTab = 'explorer' | 'search' | 'source-control' | 'ports' | 'side-chat'
 
 export interface StoreState {
   hosts: Record<HostId, HostEntry>
@@ -394,7 +394,10 @@ export function workspaceStatus(sessions: Session[]): SessionStatus | 'none' {
 /** Focuses a session wherever it lives: its workspace in the main area, or the floating panel. */
 export function selectSession(sessionId: string): void {
   const session = state.sessions.find((s) => s.id === sessionId)
-  if (session) focusTab(session.workspaceId, sessionId)
+  // A side chat has no tab; it shows in its workspace's right sidebar.
+  if (session?.sideOf) {
+    set({ ...state, activeWorkspaceId: session.workspaceId, rightSidebar: { open: true, tab: 'side-chat' } })
+  } else if (session) focusTab(session.workspaceId, sessionId)
   if (state.dashboardOpen) set({ ...state, dashboardOpen: false })
 }
 

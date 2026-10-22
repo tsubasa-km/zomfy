@@ -30,6 +30,8 @@ export interface SessionInfo {
   agent?: ChatAgentId
   /** An external ACP agent's own options and commands; absent on Claude sessions. */
   agentState?: ChatAgentSessionState
+  /** Set on a side chat: the main chat it was opened beside. Tab strips leave side chats out. */
+  sideOf?: string
 }
 
 export interface ChatModel {

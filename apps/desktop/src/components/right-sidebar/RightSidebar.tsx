@@ -1,4 +1,4 @@
-import { Files, GitCompare, PanelRightClose, Plug, Search } from 'lucide-react'
+import { Files, GitCompare, MessagesSquare, PanelRightClose, Plug, Search } from 'lucide-react'
 import { allWorkspaces, setRightSidebar, useStore } from '@/session-store'
 import { useShortcutLabel } from '@/keybindings/keybinding-registry'
 import { useGitStatus } from '@/hooks/use-git-status'
@@ -7,6 +7,7 @@ import { FileExplorer } from './FileExplorer'
 import { SourceControl } from './SourceControl'
 import { SearchPanel } from './SearchPanel'
 import { PortsPanel } from './PortsPanel'
+import { SideChatPanel } from './SideChatPanel'
 import { cn } from '@/lib/utils'
 
 // Frame and top activity bar follow Orca's right sidebar (right-sidebar/index.tsx,
@@ -27,6 +28,7 @@ export function RightSidebar({ workspaceId }: { workspaceId: string }) {
   const searchLabel = withShortcut('Search', useShortcutLabel('sidebar.search.toggle'))
   const sourceControlLabel = withShortcut('Source Control', useShortcutLabel('sidebar.sourceControl.toggle'))
   const portsLabel = withShortcut('Ports', useShortcutLabel('sidebar.ports.toggle'))
+  const sideChatLabel = withShortcut('Side chat', useShortcutLabel('sidebar.sideChat.toggle'))
 
   if (!open) {
     return (
@@ -40,6 +42,11 @@ export function RightSidebar({ workspaceId }: { workspaceId: string }) {
           onClick={() => setRightSidebar({ open: true, tab: 'source-control' })}
         />
         <ActivityButton icon={Plug} label={portsLabel} onClick={() => setRightSidebar({ open: true, tab: 'ports' })} />
+        <ActivityButton
+          icon={MessagesSquare}
+          label={sideChatLabel}
+          onClick={() => setRightSidebar({ open: true, tab: 'side-chat' })}
+        />
       </div>
     )
   }
@@ -47,7 +54,11 @@ export function RightSidebar({ workspaceId }: { workspaceId: string }) {
   return (
     <aside
       data-right-sidebar
-      className="flex w-[300px] shrink-0 flex-col overflow-hidden border-l border-sidebar-border bg-sidebar text-sidebar-foreground"
+      className={cn(
+        'flex shrink-0 flex-col overflow-hidden border-l border-sidebar-border bg-sidebar text-sidebar-foreground',
+        // A chat needs more room than a file tree.
+        tab === 'side-chat' ? 'w-[420px]' : 'w-[300px]'
+      )}
     >
       <div className="flex h-[36px] min-h-[36px] items-center overflow-hidden border-b border-border">
         <ActivityButton
@@ -72,6 +83,13 @@ export function RightSidebar({ workspaceId }: { workspaceId: string }) {
           onClick={() => setRightSidebar({ tab: 'source-control' })}
         />
         <ActivityButton top icon={Plug} label={portsLabel} active={tab === 'ports'} onClick={() => setRightSidebar({ tab: 'ports' })} />
+        <ActivityButton
+          top
+          icon={MessagesSquare}
+          label={sideChatLabel}
+          active={tab === 'side-chat'}
+          onClick={() => setRightSidebar({ tab: 'side-chat' })}
+        />
         <div className="ml-auto pr-1">
           <ActivityButton top icon={PanelRightClose} label="Close sidebar" onClick={() => setRightSidebar({ open: false })} />
         </div>
@@ -80,6 +98,8 @@ export function RightSidebar({ workspaceId }: { workspaceId: string }) {
         <FileExplorer key={workspaceId} workspaceId={workspaceId} rootName={workspaceName} />
       ) : tab === 'search' ? (
         <SearchPanel key={workspaceId} workspaceId={workspaceId} />
+      ) : tab === 'side-chat' ? (
+        <SideChatPanel key={workspaceId} workspaceId={workspaceId} />
       ) : tab === 'ports' ? (
         <PortsPanel key={workspaceId} workspaceId={workspaceId} />
       ) : (
