@@ -15,6 +15,7 @@ import { resolveDropdownItems, resolvePrimaryAction, type ActionInputs } from '.
 import { buildChangeTree, directoryFiles, flattenChangeTree, type ChangeTreeNode } from './source-control/source-control-tree'
 import { useBranchContext } from './source-control/use-branch-context'
 import { useCommitFlows } from './source-control/use-commit-flows'
+import { isSourceControlSplitOpenModifier, openEditorTabInSplit } from './source-control/split-open'
 
 // Layout follows Orca's source control panel (source-control/panel/panel-ready.tsx, panel-content.tsx):
 // header toolbar, commit area, Changes / Staged / Untracked sections, "Committed on Branch",
@@ -165,8 +166,15 @@ export function SourceControl({ workspaceId }: { workspaceId: string }) {
     [workspaceId]
   )
 
-  // Orca's use-selection: plain click opens and clears, Cmd/Ctrl toggles, Shift selects a range.
+  // Orca's use-selection: plain click opens and clears, Cmd/Ctrl toggles, Shift selects a range —
+  // except that Orca's split-open modifiers (Cmd/Ctrl, Shift, Alt) win and open the diff in a split.
   const handleRowClick = (event: React.MouseEvent, key: string, section: SectionId, entry: GitChange) => {
+    if (isSourceControlSplitOpenModifier(event, isMac)) {
+      if (selected.size > 0) setSelected(new Set())
+      anchorKey.current = key
+      void openEditorTabInSplit({ workspaceId, kind: 'diff', path: entry.path, staged: section === 'staged' })
+      return
+    }
     if (event.shiftKey && anchorKey.current) {
       const keys = visibleFiles.map((f) => f.key)
       const from = keys.indexOf(anchorKey.current)
@@ -232,15 +240,17 @@ export function SourceControl({ workspaceId }: { workspaceId: string }) {
     viewMode === 'tree'
       ? flattenChangeTree(buildChangeTree('branch', branchEntries), collapsedDirs)
       : branchEntries.map((entry) => ({ type: 'file', key: `branch::${entry.path}`, entry, depth: 0 }))
-  const openBranchDiff = (entry: GitChange) => {
+  const openBranchDiff = (entry: GitChange, event?: React.MouseEvent) => {
     if (!compareSummary?.mergeBase || !compareSummary.headOid) return
-    openEditorTab({
+    const tab = {
       workspaceId,
-      kind: 'diff',
+      kind: 'diff' as const,
       path: entry.path,
       staged: false,
       compare: { base: compareSummary.mergeBase, head: compareSummary.headOid, label: `vs ${compareSummary.baseRef}` }
-    })
+    }
+    if (event && isSourceControlSplitOpenModifier(event, isMac)) void openEditorTabInSplit(tab)
+    else openEditorTab(tab)
   }
   const loadCommitFiles = useCallback(
     (item: GitHistoryItem) => harnessRequest(HARNESS_METHODS.gitCommitChanges, { workspaceId, commit: item.id }),
@@ -468,7 +478,7 @@ export function SourceControl({ workspaceId }: { workspaceId: string }) {
                   entry={row.entry}
                   depth={row.depth}
                   showPathHint={viewMode === 'list'}
-                  onClick={() => openBranchDiff(row.entry)}
+                  onClick={(event) => openBranchDiff(row.entry, event)}
                   onOpenDiff={() => openBranchDiff(row.entry)}
                 />
               ))}

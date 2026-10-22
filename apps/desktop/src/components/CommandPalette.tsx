@@ -1,4 +1,4 @@
-import { CornerDownLeft, FolderGit2, Terminal } from 'lucide-react'
+import { CornerDownLeft, FolderGit2, PanelBottomClose, PanelRightClose, Terminal } from 'lucide-react'
 import { allWorkspaces, floatingWorkspaceId, selectWorkspace, setDashboardOpen, useStore, workspaceStatus } from '@/session-store'
 import { closeSettings, setCommandPalette, useAppOverlays } from '@/stores/app-overlay-store'
 import { keybindingDefinitions } from '@/keybindings/keybinding-definitions'
@@ -7,6 +7,7 @@ import { formatChord } from '@/keybindings/keybinding-chords'
 import { useSetting } from '@/stores/settings-store'
 import { ShortcutKeyCombo } from '@/components/ShortcutKeyCombo'
 import { AgentStateDot } from '@/components/AgentStateDot'
+import { canSplitActiveChat, splitActiveChat } from '@/components/tab-layout/pane-split-commands'
 import { CommandDialog, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command'
 
 // Ctrl/Cmd+Shift+P and Ctrl/Cmd+J: Orca's Cmd+J palette (switch workspace, quick actions) merged
@@ -26,6 +27,8 @@ export function CommandPalette() {
   const hostCount = Object.keys(hosts).length
 
   const close = () => setCommandPalette(false)
+  // Orca's Cmd+J quick actions (native-chat-split-quick-actions.ts), offered while the active chat can move.
+  const chatSplit = open && !workspacesOnly && canSplitActiveChat()
 
   return (
     <CommandDialog
@@ -73,6 +76,29 @@ export function CommandPalette() {
                 </CommandItem>
               )
             })}
+          </CommandGroup>
+        ) : null}
+        {chatSplit ? (
+          <CommandGroup heading="Quick Actions">
+            {([
+              { direction: 'right', title: 'Split Chat Right', description: 'Open the active chat in a split pane to the right.', icon: PanelRightClose },
+              { direction: 'down', title: 'Split Chat Down', description: 'Open the active chat in a split pane below.', icon: PanelBottomClose }
+            ] as const).map(({ direction, title, description, icon: Icon }) => (
+              <CommandItem
+                key={direction}
+                value={`quick split-chat-${direction} ${title} move chat ${direction} chat pane`}
+                onSelect={() => {
+                  close()
+                  requestAnimationFrame(() => splitActiveChat(direction))
+                }}
+                className="!py-1.5"
+                data-quick-action={`split-chat-${direction}`}
+              >
+                <Icon className="size-3.5 shrink-0 text-muted-foreground" />
+                <span className="min-w-0 truncate">{title}</span>
+                <span className="min-w-0 truncate text-xs text-muted-foreground">{description}</span>
+              </CommandItem>
+            ))}
           </CommandGroup>
         ) : null}
         {workspacesOnly ? null : (
