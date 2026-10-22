@@ -13,7 +13,7 @@ import { HostSection, hasActiveFilters } from '@/components/sidebar/HostSection'
 import type { SidebarActions } from '@/components/sidebar/ProjectSection'
 import { BulkActionBar } from '@/components/sidebar/BulkActionBar'
 import { NewWorkspaceDialog } from '@/components/sidebar/NewWorkspaceDialog'
-import { TasksNavButton } from '@/components/sidebar/TasksNavButton'
+import { SidebarNav } from '@/components/sidebar/SidebarNav'
 import { openNewWorkspace, useNewWorkspaceRequest } from '@/stores/tasks-store'
 import { ProjectSettingsDialog } from '@/components/sidebar/ProjectSettingsDialog'
 import { AddRepoDialog, type AddRepoMode } from '@/components/sidebar/AddRepoDialog'
@@ -87,7 +87,7 @@ export function Sidebar() {
 
   return (
     <aside className="relative flex min-h-0 w-[280px] flex-shrink-0 flex-col overflow-hidden border-r border-worktree-sidebar-border bg-worktree-sidebar text-worktree-sidebar-foreground">
-      <TasksNavButton />
+      <SidebarNav />
       <SidebarHeader
         onImportOrca={() => setImporting(true)}
         onAddRepo={setAddRepo}

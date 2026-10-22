@@ -20,6 +20,10 @@ const APP_COMMAND_HANDLERS: Record<string, CommandHandler> = {
     setQuickOpen(target)
   },
   'app.commandPalette': () => setCommandPalette(!getAppOverlays().commandPalette),
+  'workspace.palette': () => {
+    const { commandPalette, commandPaletteMode } = getAppOverlays()
+    setCommandPalette(!(commandPalette && commandPaletteMode === 'workspaces'), 'workspaces')
+  },
   'app.settings': () => openSettings(),
   'app.shortcuts': () => openSettings('shortcuts'),
   'app.forceReload': () => window.location.reload(),

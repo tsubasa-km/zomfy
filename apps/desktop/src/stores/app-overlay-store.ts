@@ -1,11 +1,15 @@
 import { createExternalStore } from './external-store'
 
+export type CommandPaletteMode = 'all' | 'workspaces'
+
 /** Window-level surfaces that cover the workspace view: settings page, Ctrl+P, command palette. */
 export interface AppOverlays {
   settings: { open: boolean; section: string }
   /** Open when it names the workspace whose files Ctrl+P lists. */
   quickOpen: { open: boolean; workspaceId: string | null }
   commandPalette: boolean
+  /** 'workspaces' is Orca's worktree palette (sidebar Search, Switch Workspace): commands are left out. */
+  commandPaletteMode: CommandPaletteMode
   /** Orca's Skills page, which also replaces the app view. */
   skills: boolean
   /** Orca's first-run flow; reopened from Settings › General. */
@@ -16,6 +20,7 @@ const store = createExternalStore<AppOverlays>({
   settings: { open: false, section: 'general' },
   quickOpen: { open: false, workspaceId: null },
   commandPalette: false,
+  commandPaletteMode: 'all',
   skills: false,
   onboarding: false
 })
@@ -50,8 +55,13 @@ export function setQuickOpen(workspaceId: string | null): void {
   }))
 }
 
-export function setCommandPalette(open: boolean): void {
-  store.update((s) => ({ ...s, commandPalette: open, quickOpen: open ? { ...s.quickOpen, open: false } : s.quickOpen }))
+export function setCommandPalette(open: boolean, mode: CommandPaletteMode = 'all'): void {
+  store.update((s) => ({
+    ...s,
+    commandPalette: open,
+    commandPaletteMode: open ? mode : s.commandPaletteMode,
+    quickOpen: open ? { ...s.quickOpen, open: false } : s.quickOpen
+  }))
 }
 
 export function setSkillsPageOpen(open: boolean): void {

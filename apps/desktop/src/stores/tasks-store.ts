@@ -1,4 +1,4 @@
-import type { HostedWorkItem, WorkItemKind, WorkItemPreset, Workspace } from '@acp-harness/protocol'
+import type { HostedWorkItem, HostingProviderId, WorkItemKind, WorkItemPreset, Workspace } from '@acp-harness/protocol'
 import type { HostedProject } from '@/session-store'
 import { createExternalStore } from './external-store'
 
@@ -10,6 +10,8 @@ export interface TasksState {
   projectId: string | null
   kind: WorkItemKind
   preset: WorkItemPreset
+  /** Hosting provider each project's Tasks page last reported, for the sidebar's provider shortcuts. */
+  providerByProject: Record<string, HostingProviderId>
 }
 
 const KEY = 'acp-harness.tasks.v1'
@@ -24,10 +26,16 @@ function readSaved(): Partial<TasksState> {
 
 const saved = readSaved()
 const store = createExternalStore<TasksState>(
-  { open: false, projectId: saved.projectId ?? null, kind: saved.kind ?? 'issue', preset: saved.preset ?? 'open' },
-  ({ projectId, kind, preset }) => {
+  {
+    open: false,
+    projectId: saved.projectId ?? null,
+    kind: saved.kind ?? 'issue',
+    preset: saved.preset ?? 'open',
+    providerByProject: saved.providerByProject ?? {}
+  },
+  ({ projectId, kind, preset, providerByProject }) => {
     try {
-      localStorage.setItem(KEY, JSON.stringify({ projectId, kind, preset }))
+      localStorage.setItem(KEY, JSON.stringify({ projectId, kind, preset, providerByProject }))
     } catch {
       // Remembered for this session only.
     }
@@ -39,6 +47,11 @@ export const getTasks = store.get
 
 export function setTasks(change: Partial<TasksState>): void {
   store.update((s) => ({ ...s, ...change }))
+}
+
+export function rememberProjectProvider(projectId: string, provider: HostingProviderId): void {
+  if (store.get().providerByProject[projectId] === provider) return
+  store.update((s) => ({ ...s, providerByProject: { ...s.providerByProject, [projectId]: provider } }))
 }
 
 export interface NewWorkspaceRequest {

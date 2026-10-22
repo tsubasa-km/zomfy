@@ -1,6 +1,6 @@
 // Inspect and drive the running desktop app over the WebView2 DevTools protocol.
 // Start the app with `bun run tauri:debug` first, then:
-//   bun scripts/cdp.ts screenshot [out.png]
+//   bun scripts/cdp.ts screenshot [out.png] [WxH]   WxH emulates that viewport for the capture
 //   bun scripts/cdp.ts logs [ms]            reload and print console output + exceptions
 //   bun scripts/cdp.ts eval "<js expression>"
 //   bun scripts/cdp.ts click "<css selector>"
@@ -64,6 +64,12 @@ try {
   switch (command) {
     case "screenshot": {
       const out = args[0] ?? "screenshot.png";
+      const size = /^(\d+)x(\d+)$/.exec(args[1] ?? "");
+      if (size) {
+        await cdp.send("Emulation.setDeviceMetricsOverride", { width: Number(size[1]), height: Number(size[2]), deviceScaleFactor: 1, mobile: false });
+        // Let resize listeners re-anchor before the capture.
+        await Bun.sleep(400);
+      }
       const { data } = await cdp.send("Page.captureScreenshot", { format: "png" });
       await writeFile(out, Buffer.from(data, "base64"));
       console.log(out);

@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { CircleDot, List, LoaderCircle, RefreshCw, Search, X } from 'lucide-react'
 import type { HostedWorkItem, HostingProviderId, WorkItemKind, WorkItemPreset } from '@acp-harness/protocol'
 import { allProjects, allWorkspaces, getState, useStore, type HostedProject } from '@/session-store'
-import { openNewWorkspace, setTasks, useTasks } from '@/stores/tasks-store'
+import { openNewWorkspace, rememberProjectProvider, setTasks, useTasks } from '@/stores/tasks-store'
 import { projectLabel } from '@/components/sidebar/workspace-visibility'
 import { Button } from '@/components/ui/button'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
@@ -74,6 +74,9 @@ export function TasksPage() {
     limit
   })
   const provider = availability?.provider ?? 'github'
+  useEffect(() => {
+    if (project && availability?.provider) rememberProjectProvider(project.id, availability.provider)
+  }, [project, availability?.provider])
   const presets = presetsFor(provider, tasks.kind)
 
   useEffect(() => {

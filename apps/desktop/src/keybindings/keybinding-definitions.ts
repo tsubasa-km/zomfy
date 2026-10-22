@@ -27,7 +27,15 @@ const APP_DEFINITIONS: KeybindingDefinition[] = [
     title: 'Command Palette',
     group: 'Global',
     keywords: ['commands', 'palette', 'switch', 'jump', 'workspace'],
-    defaultBindings: ['Mod+Shift+P', 'Mod+J']
+    // macOS gives Cmd+J to Switch Workspace, as Orca's worktree palette has it.
+    defaultBindings: { mac: ['Mod+Shift+P'], other: ['Mod+Shift+P', 'Mod+J'] }
+  },
+  {
+    id: 'workspace.palette',
+    title: 'Switch Workspace',
+    group: 'Global',
+    keywords: ['workspace', 'worktree', 'switch', 'jump', 'search'],
+    defaultBindings: { mac: ['Mod+J'], other: ['Mod+Shift+J'] }
   },
   { id: 'app.settings', title: 'Open Settings', group: 'Global', keywords: ['settings', 'preferences'], defaultBindings: ['Mod+Comma'] },
   { id: 'app.shortcuts', title: 'Open Keyboard Shortcuts', group: 'Global', keywords: ['keybindings', 'shortcuts', 'keys'], defaultBindings: [] },

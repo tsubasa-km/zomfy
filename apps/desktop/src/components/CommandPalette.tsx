@@ -14,6 +14,7 @@ import { CommandDialog, CommandEmpty, CommandGroup, CommandInput, CommandItem, C
 
 export function CommandPalette() {
   const open = useAppOverlays((s) => s.commandPalette)
+  const workspacesOnly = useAppOverlays((s) => s.commandPaletteMode === 'workspaces')
   useCommandRegistryVersion()
   const overrides = useSetting('keybindings')
   const hosts = useStore((s) => s.hosts)
@@ -35,9 +36,12 @@ export function CommandPalette() {
       onCloseAutoFocus={(e) => e.preventDefault()}
       commandProps={{ loop: true }}
     >
-      <CommandInput placeholder="Type a command or workspace name..." className="!h-9 !py-2" />
+      <CommandInput
+        placeholder={workspacesOnly ? 'Search workspaces...' : 'Type a command or workspace name...'}
+        className="!h-9 !py-2"
+      />
       <CommandList className="max-h-[420px] p-2" data-command-palette-list>
-        <CommandEmpty>No matching commands or workspaces.</CommandEmpty>
+        <CommandEmpty>{workspacesOnly ? 'No matching workspaces.' : 'No matching commands or workspaces.'}</CommandEmpty>
         {workspaces.length > 0 ? (
           <CommandGroup heading="Workspaces">
             {workspaces.map((workspace) => {
@@ -71,27 +75,29 @@ export function CommandPalette() {
             })}
           </CommandGroup>
         ) : null}
-        <CommandGroup heading="Commands">
-          {commands.map((definition) => {
-            const first = effectiveBindings(definition, overrides)[0]
-            return (
-              <CommandItem
-                key={definition.id}
-                value={`command ${definition.id} ${definition.title} ${definition.group} ${(definition.keywords ?? []).join(' ')}`}
-                onSelect={() => {
-                  close()
-                  // After the dialog closes, so focus-sensitive commands see the app, not the palette.
-                  requestAnimationFrame(() => runCommand(definition.id))
-                }}
-                className="!py-1.5"
-              >
-                <Terminal className="size-3.5 shrink-0 text-muted-foreground" />
-                <span className="min-w-0 truncate">{definition.title}</span>
-                {first ? <ShortcutKeyCombo keys={formatChord(first)} className="ml-auto shrink-0" /> : null}
-              </CommandItem>
-            )
-          })}
-        </CommandGroup>
+        {workspacesOnly ? null : (
+          <CommandGroup heading="Commands">
+            {commands.map((definition) => {
+              const first = effectiveBindings(definition, overrides)[0]
+              return (
+                <CommandItem
+                  key={definition.id}
+                  value={`command ${definition.id} ${definition.title} ${definition.group} ${(definition.keywords ?? []).join(' ')}`}
+                  onSelect={() => {
+                    close()
+                    // After the dialog closes, so focus-sensitive commands see the app, not the palette.
+                    requestAnimationFrame(() => runCommand(definition.id))
+                  }}
+                  className="!py-1.5"
+                >
+                  <Terminal className="size-3.5 shrink-0 text-muted-foreground" />
+                  <span className="min-w-0 truncate">{definition.title}</span>
+                  {first ? <ShortcutKeyCombo keys={formatChord(first)} className="ml-auto shrink-0" /> : null}
+                </CommandItem>
+              )
+            })}
+          </CommandGroup>
+        )}
       </CommandList>
     </CommandDialog>
   )
