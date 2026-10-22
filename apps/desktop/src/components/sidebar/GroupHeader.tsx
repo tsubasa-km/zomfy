@@ -1,9 +1,9 @@
 import { ChevronRight, Folder, MoreHorizontal, Pencil, Trash2 } from 'lucide-react'
 import { HARNESS_METHODS, type ProjectGroup } from '@acp-harness/protocol'
 import { harnessRequest } from '@/daemon-connection'
-import { setDropTarget, useSidebarStore } from '@/stores/sidebar-store'
+import { useSidebarStore } from '@/stores/sidebar-store'
 import type { SidebarActions } from '@/components/sidebar/ProjectSection'
-import { currentDrag, endDrag } from '@/components/sidebar/sidebar-drag'
+import { useSidebarDropTarget } from '@/components/sidebar/sidebar-drag'
 import { Button } from '@/components/ui/button'
 import {
   DropdownMenu,
@@ -29,6 +29,11 @@ export function GroupHeader({
   onDropProject: (projectId: string) => void
 }) {
   const dropping = useSidebarStore((s) => s.dropTarget?.id === `group:${group.id}`)
+  const dropRef = useSidebarDropTarget(
+    `group:${group.id}`,
+    (item) => (item.kind === 'project' && item.hostId === hostId ? 'inside' : false),
+    (item) => onDropProject(item.id)
+  )
   const update = (patch: Partial<Pick<ProjectGroup, 'name' | 'collapsed'>>) =>
     void harnessRequest(HARNESS_METHODS.projectGroupUpdate, { groupId: group.id, patch }, hostId)
 
@@ -39,19 +44,8 @@ export function GroupHeader({
         dropping && 'bg-worktree-sidebar-accent/70 ring-1 ring-worktree-sidebar-ring'
       )}
       data-project-group-header={group.id}
+      ref={dropRef}
       onClick={() => update({ collapsed: !group.collapsed })}
-      onDragOver={(e) => {
-        const item = currentDrag()
-        if (item?.kind !== 'project' || item.hostId !== hostId) return
-        e.preventDefault()
-        setDropTarget({ id: `group:${group.id}`, position: 'inside' })
-      }}
-      onDrop={(e) => {
-        e.preventDefault()
-        const item = currentDrag()
-        endDrag()
-        if (item?.kind === 'project') onDropProject(item.id)
-      }}
     >
       <ChevronRight
         className={cn('size-3 shrink-0 text-muted-foreground transition-transform', !group.collapsed && 'rotate-90')}

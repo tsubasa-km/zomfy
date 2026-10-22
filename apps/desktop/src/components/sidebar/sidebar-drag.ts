@@ -1,9 +1,11 @@
-import type React from 'react'
+import { createElement, type ReactNode } from 'react'
 import type { HostId } from '@/session-store'
+import { DragChip } from '@/components/PointerDragLayer'
+import { createPointerDragChannel, type DragPoint } from '@/lib/pointer-drag'
 import { setDropTarget, type DropTarget } from '@/stores/sidebar-store'
 
-// Native drag and drop for the sidebar and board (Orca's worktree-sidebar-drag / workspace-status-drag-data).
-// dataTransfer cannot be read during dragover, so the dragged item is also kept here.
+// Pointer drag and drop for the sidebar and board (Orca's worktree-sidebar-drag /
+// workspace-status-drag-data); the board shares the channel, so sidebar cards drop into lanes.
 
 export interface DragItem {
   kind: 'workspace' | 'project'
@@ -12,44 +14,49 @@ export interface DragItem {
   projectId: string | null
 }
 
-const DRAG_TYPE = 'application/x-acp-harness-item'
-let current: DragItem | null = null
+export const sidebarDrag = createPointerDragChannel<DragItem>()
 
-export function startDrag(e: React.DragEvent, item: DragItem): void {
-  current = item
-  e.dataTransfer.effectAllowed = 'move'
-  e.dataTransfer.setData(DRAG_TYPE, JSON.stringify(item))
-  e.stopPropagation()
-}
-
-export function currentDrag(): DragItem | null {
-  return current
-}
-
-export function endDrag(): void {
-  current = null
-  setDropTarget(null)
+export function beginSidebarDrag(event: React.PointerEvent<HTMLElement>, item: DragItem, label: string, icon?: ReactNode): void {
+  sidebarDrag.begin(event, {
+    payload: () => item,
+    preview: createElement(DragChip, { label, icon }),
+    onEnd: () => setDropTarget(null)
+  })
 }
 
 /** Top or bottom half; with `inside`, the middle third nests (Orca's lineage drop). */
-export function dropPosition(e: React.DragEvent, inside = false): DropTarget['position'] {
-  const rect = e.currentTarget.getBoundingClientRect()
-  const y = (e.clientY - rect.top) / Math.max(1, rect.height)
+export function dropPosition(rect: DOMRect, point: DragPoint, inside = false): DropTarget['position'] {
+  const y = (point.y - rect.top) / Math.max(1, rect.height)
   if (inside && y > 1 / 3 && y < 2 / 3) return 'inside'
   return y < 0.5 ? 'before' : 'after'
 }
 
-/** Accepts the drag when `accept` says so and marks where it would land. */
-export function handleDragOver(
-  e: React.DragEvent,
+/**
+ * What a drag over a target may do: reorder before/after it, also nest under it, land inside it
+ * (groups, status headers, lanes), or stop here without a drop (a card over itself).
+ */
+export type DropVerdict = false | 'order' | 'order-or-nest' | 'inside' | 'block'
+
+/** Registers a sidebar drop target that marks where the item would land and drops it there. */
+export function useSidebarDropTarget(
   targetId: string,
-  accept: (item: DragItem) => false | 'order' | 'order-or-nest'
-): void {
-  const item = current
-  const verdict = item ? accept(item) : false
-  if (!verdict) return
-  e.preventDefault()
-  e.stopPropagation()
-  e.dataTransfer.dropEffect = 'move'
-  setDropTarget({ id: targetId, position: dropPosition(e, verdict === 'order-or-nest') })
+  accept: ((item: DragItem) => DropVerdict) | null,
+  onDrop: (item: DragItem, position: DropTarget['position']) => void
+): (element: HTMLElement | null) => void {
+  const position = (verdict: DropVerdict, element: HTMLElement, point: DragPoint) =>
+    verdict === 'inside' ? 'inside' : dropPosition(element.getBoundingClientRect(), point, verdict === 'order-or-nest')
+  return sidebarDrag.useDropTarget(
+    accept && {
+      accepts: (item) => accept(item) !== false,
+      over: (item, { point, element }) => {
+        const verdict = accept(item)
+        setDropTarget(verdict && verdict !== 'block' ? { id: targetId, position: position(verdict, element, point) } : null)
+      },
+      leave: () => setDropTarget(null),
+      drop: (item, { point, element }) => {
+        const verdict = accept(item)
+        if (verdict && verdict !== 'block') onDrop(item, position(verdict, element, point))
+      }
+    }
+  )
 }

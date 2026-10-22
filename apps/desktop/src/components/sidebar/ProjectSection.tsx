@@ -5,7 +5,7 @@ import { setSidebarView, useStore, type HostId, type HostedProject, type Session
 import { toggleProjectCollapsed, useSidebarStore } from '@/stores/sidebar-store'
 import { DropLine, WorkspaceCard } from '@/components/sidebar/WorkspaceCard'
 import { ProjectMenuItems, updateWorkspace } from '@/components/sidebar/WorkspaceMenu'
-import { currentDrag, endDrag, handleDragOver, startDrag, type DragItem } from '@/components/sidebar/sidebar-drag'
+import { beginSidebarDrag, useSidebarDropTarget, type DragItem } from '@/components/sidebar/sidebar-drag'
 import {
   buildWorkspaceTree,
   projectLabel,
@@ -59,6 +59,11 @@ export function ProjectSection({
   const collapsed = useSidebarStore((s) => s.collapsedProjects.includes(project.id))
   const headerDrop = useSidebarStore((s) => (s.dropTarget?.id === `project:${project.id}` ? s.dropTarget.position : null))
   const label = projectLabel(project)
+  const headerDropRef = useSidebarDropTarget(
+    `project:${project.id}`,
+    (item) => (item.kind === 'project' && item.hostId === project.hostId && item.id !== project.id ? 'order' : false),
+    (item, position) => onProjectDrop(item, position === 'before' ? 'before' : 'after')
+  )
   const tree = buildWorkspaceTree(sortWorkspaces(workspaces, view, sessions))
 
   /** Reorder among the target's siblings, or nest under the target (Orca's lineage drop). */
@@ -115,23 +120,12 @@ export function ProjectSection({
       <div
         className="flex h-7 min-w-0 cursor-pointer items-center gap-1 pt-1 pr-1 pl-1 select-none"
         title={project.path}
-        draggable
+        ref={headerDropRef}
         data-project-header
         onClick={() => toggleProjectCollapsed(project.id)}
-        onDragStart={(e) => startDrag(e, { kind: 'project', id: project.id, hostId: project.hostId, projectId: project.id })}
-        onDragEnd={endDrag}
-        onDragOver={(e) =>
-          handleDragOver(e, `project:${project.id}`, (item) =>
-            item.kind === 'project' && item.hostId === project.hostId && item.id !== project.id ? 'order' : false
-          )
+        onPointerDown={(e) =>
+          beginSidebarDrag(e, { kind: 'project', id: project.id, hostId: project.hostId, projectId: project.id }, label)
         }
-        onDrop={(e) => {
-          e.preventDefault()
-          const item = currentDrag()
-          const position = headerDrop === 'before' ? 'before' : 'after'
-          endDrag()
-          if (item?.kind === 'project') onProjectDrop(item, position)
-        }}
       >
         <ChevronRight
           className={cn('size-3 shrink-0 text-muted-foreground transition-transform', !collapsed && 'rotate-90')}
