@@ -1,9 +1,10 @@
 import { useEffect, useState } from 'react'
 import { GitBranch, History, MessageSquare } from 'lucide-react'
-import { HARNESS_METHODS, type PastConversation } from '@acp-harness/protocol'
+import { HARNESS_METHODS, chatAgentLabel, type PastConversation } from '@acp-harness/protocol'
 import { harnessRequest } from '@/daemon-connection'
 import { selectSession, type Session } from '@/session-store'
 import { resumeConversation } from '@/chat-actions'
+import { isExternalAgentSession, sessionAgent } from '@/lib/chat-agents'
 
 function relativeTime(ms: number): string {
   const minutes = Math.round((Date.now() - ms) / 60_000)
@@ -18,7 +19,12 @@ function relativeTime(ms: number): string {
 export function NativeChatEmptyState({ session }: { session: Session }) {
   const [history, setHistory] = useState<PastConversation[] | null>(null)
   const [failed, setFailed] = useState<string | null>(null)
+  const external = isExternalAgentSession(session)
+  const label = chatAgentLabel(sessionAgent(session))
+  const agentState = session.agentState
   useEffect(() => {
+    // Past conversations are Claude's own transcripts on disk.
+    if (external) return
     let live = true
     harnessRequest(HARNESS_METHODS.sessionHistory, { workspaceId: session.workspaceId }, session.hostId)
       .then((list) => live && setHistory(list))
@@ -26,7 +32,7 @@ export function NativeChatEmptyState({ session }: { session: Session }) {
     return () => {
       live = false
     }
-  }, [session.workspaceId, session.hostId])
+  }, [session.workspaceId, session.hostId, external])
   const others = history?.filter((c) => c.openSessionId !== session.id) ?? []
 
   return (
@@ -34,10 +40,19 @@ export function NativeChatEmptyState({ session }: { session: Session }) {
       <div className="flex size-12 items-center justify-center rounded-full bg-accent text-accent-foreground">
         <MessageSquare className="size-6" />
       </div>
-      <p className="text-sm font-medium text-chat-foreground-strong">Start a conversation with Claude</p>
+      <p className="text-sm font-medium text-chat-foreground-strong">Start a conversation with {label}</p>
       <p className="max-w-sm text-xs text-balance text-chat-foreground-faint">
         Type / for commands, @ to mention a file, or paste an image.
       </p>
+      {agentState?.phase === 'starting' ? (
+        <p className="text-xs text-chat-foreground-faint" data-agent-phase="starting">
+          Starting {label}…
+        </p>
+      ) : agentState?.phase === 'failed' ? (
+        <p className="max-w-md text-xs text-balance text-destructive" data-agent-phase="failed">
+          {agentState.error ?? `${label} could not start`}
+        </p>
+      ) : null}
       {others.length > 0 ? (
         <div className="mt-4 w-full max-w-md text-left" data-native-chat-history>
           <div className="flex items-center gap-1.5 px-2 pb-1 text-2xs font-semibold tracking-[0.05em] text-muted-foreground uppercase">

@@ -3,6 +3,7 @@ import { updateHostSettings, useHostSettings } from '@/stores/host-settings-stor
 import { ClaudeIcon } from '@/components/agent-icons'
 import { SettingsRow, SettingsSubsectionHeader, TextField } from './settings-form-controls'
 import { sortedHosts } from './HostsPane'
+import { ChatAgentLaunchSettings } from './ChatAgentLaunchSettings'
 
 function ClaudeCommandRow({ host }: { host: HostEntry }) {
   const settings = useHostSettings(host.id)
@@ -33,7 +34,7 @@ export function AgentsPane() {
   return (
     <div className="space-y-8">
       <div className="space-y-2 not-has-[[data-setting-row]]:hidden">
-        <SettingsSubsectionHeader title="Default agent" description="New agent tabs start this agent." />
+        <SettingsSubsectionHeader title="Default agent" description="New agent tabs start this agent; the + menu starts the others." />
         <SettingsRow
           label="Default agent"
           keywords={['claude', 'agent']}
@@ -52,6 +53,17 @@ export function AgentsPane() {
             <ClaudeCommandRow key={host.id} host={host} />
           ))}
         </div>
+      </div>
+      <div className="space-y-2">
+        <SettingsSubsectionHeader
+          title="Chat agents"
+          description="Agents each host can run as chats. Other agents run their own ACP server on the host, with that host’s login, command and variables."
+        />
+        {sortedHosts(hosts)
+          .filter((host) => host.connection.kind === 'connected')
+          .map((host) => (
+            <ChatAgentLaunchSettings key={host.id} host={host} />
+          ))}
       </div>
     </div>
   )

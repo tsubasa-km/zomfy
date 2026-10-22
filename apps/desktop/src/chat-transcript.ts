@@ -50,6 +50,26 @@ export function applyChatUpdate({ sessionId, update }: acp.SessionNotification):
       })
       break
     }
+    case 'plan':
+      // An ACP plan is the whole list each time, as a TodoWrite call is; it reads as one.
+      updateSession(sessionId, (s) => ({
+        ...s,
+        items: [
+          ...s.items,
+          {
+            kind: 'tool',
+            id: `plan:${s.items.length}`,
+            title: 'Plan',
+            toolKind: 'think',
+            toolName: 'TodoWrite',
+            status: 'completed',
+            input: { todos: update.entries.map((e) => ({ content: e.content, status: e.status })) },
+            output: '',
+            parentId: null
+          }
+        ]
+      }))
+      break
     case 'notice':
       pushItem(sessionId, { kind: 'notice', text: update.title, severity: update.severity })
       break

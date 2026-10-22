@@ -41,6 +41,8 @@ interface TurnInput {
   onPermissionMode?: (mode: ChatPermissionMode) => void;
   /** The `/` menu Claude reported at the start of the turn. */
   onSlashCommands?: (names: string[]) => void;
+  /** This host's Claude variables from the Agents settings (an account's CLAUDE_CONFIG_DIR…). */
+  env?: Record<string, string>;
 }
 
 
@@ -94,7 +96,7 @@ export async function runClaudeTurn(input: TurnInput): Promise<acp.StopReason> {
       ...(effort ? { effort } : {}),
       permissionMode,
       // Headless runs on current models drop the task tools the TUI keeps; the chat draws their list.
-      env: { ...process.env, CLAUDE_CODE_ENABLE_TODO_TOOLS: "1" },
+      env: { ...process.env, ...input.env, CLAUDE_CODE_ENABLE_TODO_TOOLS: "1" },
       ...(permissionMode === "bypassPermissions" ? { allowDangerouslySkipPermissions: true } : {}),
     },
   });

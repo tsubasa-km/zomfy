@@ -1,15 +1,19 @@
 import * as acp from "@agentclientprotocol/sdk";
 import {
   HARNESS_NOTIFICATIONS,
+  chatAgentLabel,
   type HarnessMethod,
   type HarnessRequests,
 } from "@acp-harness/protocol";
 import { runClaudeTurn } from "./claude-turn.ts";
+import { AcpAgentSessions } from "./acp-agent-sessions.ts";
+import { chatAgentLaunch } from "./chat-agent-launch-settings.ts";
 import { noteSlashCommands } from "./claude-catalog.ts";
 import { liveClaudeQueries } from "./live-claude-queries.ts";
 import type { SessionRegistry } from "./session-registry.ts";
 import type { TerminalManager } from "./terminal-manager.ts";
 import type { HandlerContext } from "./handlers/handler-context.ts";
+import { registerChatAgentHandlers } from "./handlers/chat-agent-handlers.ts";
 import { registerFileHandlers } from "./handlers/file-handlers.ts";
 import { registerGitHandlers } from "./handlers/git-handlers.ts";
 import { registerPortHandlers } from "./handlers/port-handlers.ts";
@@ -45,6 +49,7 @@ export function createHarnessAgent(
     await sessions.record(sessionId, update);
     broadcast(acp.methods.client.session.update, { sessionId, update });
   }
+  const acpAgents = new AcpAgentSessions(sessions, emit);
 
   async function prompt(
     params: acp.PromptRequest,
@@ -58,7 +63,10 @@ export function createHarnessAgent(
     pendingTurns.set(session.id, abort);
 
     const text = params.prompt.flatMap((b) => (b.type === "text" ? [b.text] : [])).join("\n");
-    const firstTurn = session.claudeSessionId === null && session.title === "Claude";
+    const external = acpAgents.for(session);
+    const firstTurn = external
+      ? session.title === chatAgentLabel(external.agent) && (await sessions.transcript(session.id)).length === 0
+      : session.claudeSessionId === null && session.title === "Claude";
     sessions.update(session.id, {
       status: "working",
       turnStartedAt: Date.now(),
@@ -70,8 +78,19 @@ export function createHarnessAgent(
       await emit(session.id, { sessionUpdate: "user_message_chunk", messageId, content: block });
     }
 
+    const askPermission = async (request: acp.RequestPermissionRequest) => {
+      sessions.update(session.id, { status: "needs-you" });
+      try {
+        return await client.request(acp.methods.client.session.requestPermission, { ...request, sessionId: session.id });
+      } finally {
+        if (pendingTurns.get(session.id) === abort) sessions.update(session.id, { status: "working" });
+      }
+    };
+
     try {
-      const stopReason = await runClaudeTurn({
+      const stopReason = external
+        ? await external.prompt(params.prompt, abort, askPermission)
+        : await runClaudeTurn({
         acpSessionId: session.id,
         state: session,
         prompt: params.prompt,
@@ -85,14 +104,8 @@ export function createHarnessAgent(
         onPermissionMode: (permissionMode) =>
           sessions.update(session.id, { options: { ...session.options, permissionMode } }),
         onSlashCommands: (names) => noteSlashCommands(session.cwd, names),
-        askPermission: async (request) => {
-          sessions.update(session.id, { status: "needs-you" });
-          try {
-            return await client.request(acp.methods.client.session.requestPermission, request);
-          } finally {
-            if (pendingTurns.get(session.id) === abort) sessions.update(session.id, { status: "working" });
-          }
-        },
+        env: (await chatAgentLaunch("claude")).env,
+        askPermission,
       });
       sessions.update(session.id, { status: "idle", turnStartedAt: null, claudeSessionId: session.claudeSessionId });
       return { stopReason };
@@ -102,6 +115,11 @@ export function createHarnessAgent(
         return { stopReason: "cancelled" };
       }
       log(`turn failed: ${error instanceof Error ? error.stack : String(error)}`);
+      if (external) {
+        // An agent's own failure (not signed in, exited) stays in the transcript, not just this reply.
+        const title = error instanceof Error ? error.message : String(error);
+        await emit(session.id, { sessionUpdate: "notice", severity: "error", title }).catch(() => undefined);
+      }
       sessions.update(session.id, { status: "error", turnStartedAt: null });
       throw error;
     } finally {
@@ -168,6 +186,7 @@ export function createHarnessAgent(
     sessions,
     terminals,
     pendingTurns,
+    acpAgents,
     broadcast,
     workspaceRoot(workspaceId) {
       const root = workspaces.workspacePath(workspaceId);
@@ -185,6 +204,7 @@ export function createHarnessAgent(
     registerPortHandlers,
     registerSettingsHandlers,
     registerQuickOpenHandlers,
+    registerChatAgentHandlers,
   ]) {
     register(ctx);
   }

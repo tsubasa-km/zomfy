@@ -2,6 +2,7 @@
 // names for extensions, so these never collide with protocol methods. Each area keeps its types,
 // method names and request shapes in its own file; this one only composes them.
 
+import { CHAT_AGENT_METHODS, type ChatAgentRequests } from './chat-agents'
 import { FILE_METHODS, type FileRequests } from './files'
 import { GIT_METHODS, type GitRequests } from './git'
 import { PORT_METHODS, type PortRequests } from './ports'
@@ -11,6 +12,7 @@ import { SETTINGS_METHODS, type SettingsRequests } from './settings'
 import { TERMINAL_METHODS, type TerminalRequests } from './terminals'
 import { WORKSPACE_METHODS, type WorkspaceRequests } from './workspaces'
 
+export * from './chat-agents'
 export * from './files'
 export * from './git'
 export * from './ports'
@@ -29,7 +31,8 @@ export const HARNESS_METHODS = {
   ...GIT_METHODS,
   ...SETTINGS_METHODS,
   ...QUICK_OPEN_METHODS,
-  ...PORT_METHODS
+  ...PORT_METHODS,
+  ...CHAT_AGENT_METHODS
 } as const
 
 export const HARNESS_NOTIFICATIONS = {
@@ -47,6 +50,7 @@ export interface HarnessRequests
     GitRequests,
     SettingsRequests,
     QuickOpenRequests,
-    PortRequests {}
+    PortRequests,
+    ChatAgentRequests {}
 
 export type HarnessMethod = keyof HarnessRequests

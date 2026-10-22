@@ -10,7 +10,8 @@ import {
 } from '@/session-store'
 import { AgentStateDot, type AgentDotState } from '@/components/AgentStateDot'
 import { AgentQuestionIcon } from '@/components/AgentQuestionIcon'
-import { ClaudeIcon } from '@/components/agent-icons'
+import { TuiAgentIcon } from '@/components/terminal/TuiAgentIcon'
+import { sessionAgent } from '@/lib/chat-agents'
 import { Switch } from '@/components/ui/switch'
 import { cn } from '@/lib/utils'
 
@@ -144,7 +145,7 @@ function AgentCard({
       >
         <div className="flex w-full items-center gap-1.5">
           <span className="inline-flex shrink-0">
-            <ClaudeIcon size={13} />
+            <TuiAgentIcon agent={sessionAgent(session)} size={13} />
           </span>
           <span className="min-w-0 truncate text-[13px] font-medium">{session.title}</span>
           <AgentStateDot state={session.status === 'error' ? 'failed' : DOT[bucket]} className="ml-auto" />

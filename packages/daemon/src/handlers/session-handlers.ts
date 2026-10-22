@@ -1,7 +1,7 @@
 import type * as acp from "@agentclientprotocol/sdk";
-import { HARNESS_METHODS, type SessionInfo } from "@acp-harness/protocol";
+import { HARNESS_METHODS, isChatAgentId } from "@acp-harness/protocol";
 import type { HandlerContext } from "./handler-context.ts";
-import type { SessionRecord } from "../session-registry.ts";
+import { publicInfo, type SessionRecord } from "../session-registry.ts";
 import { chatCatalog } from "../claude-catalog.ts";
 import {
   conversationBefore,
@@ -11,14 +11,23 @@ import {
 } from "../claude-history.ts";
 import { liveClaudeQueries } from "../live-claude-queries.ts";
 import { mentionFiles } from "../mention-files.ts";
+import { log } from "../log.ts";
 
 type UserChunk = Extract<acp.SessionUpdate, { sessionUpdate: "user_message_chunk" }>;
 
-export function registerSessionHandlers({ handle, sessions, pendingTurns, workspaceRoot }: HandlerContext): void {
+export function registerSessionHandlers({ handle, sessions, pendingTurns, acpAgents, workspaceRoot }: HandlerContext): void {
   handle(HARNESS_METHODS.sessionsList, async () => sessions.list());
-  handle(HARNESS_METHODS.sessionCreate, async (p) =>
-    publicInfo(sessions.create({ workspaceId: p.workspaceId, cwd: workspaceRoot(p.workspaceId) })),
-  );
+  handle(HARNESS_METHODS.sessionCreate, async (p) => {
+    if (p.agent !== undefined && !isChatAgentId(p.agent)) throw new Error(`Unknown agent ${String(p.agent)}`);
+    const record = sessions.create({
+      workspaceId: p.workspaceId,
+      cwd: workspaceRoot(p.workspaceId),
+      ...(p.agent && p.agent !== "claude" ? { agent: p.agent } : {}),
+    });
+    // Started now, as Orca opens a chat's session on create, so its model and mode pickers fill in.
+    acpAgents.for(record)?.ensureStarted().catch((error) => log(`starting ${p.agent} failed: ${String(error)}`));
+    return publicInfo(record);
+  });
   handle(HARNESS_METHODS.sessionClose, async (p) => {
     pendingTurns.get(p.sessionId)?.abort();
     await sessions.remove(p.sessionId);
@@ -38,12 +47,21 @@ export function registerSessionHandlers({ handle, sessions, pendingTurns, worksp
     return publicInfo(session);
   });
 
+  handle(HARNESS_METHODS.sessionSetAgentOption, async (p) => {
+    const session = requireSession(p.sessionId);
+    const agent = acpAgents.for(session);
+    if (!agent) throw new Error("Claude chats set options with setOptions");
+    await agent.setOption(p.optionId, p.value);
+    return publicInfo(session);
+  });
+
   handle(HARNESS_METHODS.sessionCatalog, async (p) => chatCatalog(workspaceRoot(p.workspaceId), p.refresh));
 
   handle(HARNESS_METHODS.sessionMentionFiles, async (p) => mentionFiles(workspaceRoot(p.workspaceId)));
 
   handle(HARNESS_METHODS.sessionFork, async (p) => {
     const source = requireSession(p.sessionId);
+    requireClaude(source, "Forking");
     const claudeSessionId = source.claudeSessionId
       ? await forkConversation(source.claudeSessionId, source.cwd)
       : null;
@@ -63,6 +81,7 @@ export function registerSessionHandlers({ handle, sessions, pendingTurns, worksp
 
   handle(HARNESS_METHODS.sessionRewind, async (p) => {
     const session = requireSession(p.sessionId);
+    requireClaude(session, "Rewinding");
     if (pendingTurns.has(session.id)) throw new Error("Stop the agent before rewinding");
     const transcript = await sessions.transcript(session.id);
     const isPrompt = (u: acp.SessionUpdate): u is UserChunk => u.sessionUpdate === "user_message_chunk";
@@ -111,14 +130,14 @@ export function registerSessionHandlers({ handle, sessions, pendingTurns, worksp
     return publicInfo(record);
   });
 
+  /** ACP has no stable fork or rewind; external agents' chats go without (as in Orca). */
+  function requireClaude(session: SessionRecord, action: string): void {
+    if (session.agent && session.agent !== "claude") throw new Error(`${action} works in Claude chats only`);
+  }
+
   function requireSession(id: string): SessionRecord {
     const session = sessions.get(id);
     if (!session) throw new Error(`Unknown session ${id}`);
     return session;
   }
-}
-
-function publicInfo(record: SessionRecord): SessionInfo {
-  const { claudeSessionId: _hidden, ...info } = record;
-  return info;
 }

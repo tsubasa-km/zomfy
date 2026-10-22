@@ -1,6 +1,7 @@
 import { allWorkspaces, selectSession, useStore, type Session } from '@/session-store'
 import { AgentStateDot } from '@/components/AgentStateDot'
-import { ClaudeIcon } from '@/components/agent-icons'
+import { TuiAgentIcon } from '@/components/terminal/TuiAgentIcon'
+import { sessionAgent } from '@/lib/chat-agents'
 import { SESSION_DOT } from '@/components/sidebar/WorkspaceCardBadges'
 
 // Orca's worktree-card-compact-agent-row: one agent tab under its workspace card.
@@ -18,7 +19,7 @@ export function SessionRow({ session, showWorkspace }: { session: Session; showW
         selectSession(session.id)
       }}
     >
-      <ClaudeIcon size={11} />
+      <TuiAgentIcon agent={sessionAgent(session)} size={11} />
       <span className="min-w-0 flex-1 truncate">
         {showWorkspace ? `${workspaceName} · ` : ''}
         {session.title}

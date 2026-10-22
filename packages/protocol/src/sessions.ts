@@ -1,3 +1,5 @@
+import type { ChatAgentId, ChatAgentSessionState } from './chat-agents'
+
 /** The execution host owns session status; clients only present it (Orca's agent-status rule). */
 export type SessionStatus = 'idle' | 'working' | 'needs-you' | 'error'
 
@@ -24,6 +26,10 @@ export interface SessionInfo {
   turnStartedAt: number | null
   /** Absent from daemons that predate composer options. */
   options?: SessionOptions
+  /** The agent the session runs; absent (older daemons) means Claude. */
+  agent?: ChatAgentId
+  /** An external ACP agent's own options and commands; absent on Claude sessions. */
+  agentState?: ChatAgentSessionState
 }
 
 export interface ChatModel {
@@ -83,12 +89,14 @@ export const SESSION_METHODS = {
   sessionRewind: '_harness/sessions/rewind',
   sessionHistory: '_harness/sessions/history',
   sessionResume: '_harness/sessions/resume',
-  sessionMentionFiles: '_harness/sessions/mentionFiles'
+  sessionMentionFiles: '_harness/sessions/mentionFiles',
+  sessionSetAgentOption: '_harness/sessions/setAgentOption'
 } as const
 
 export interface SessionRequests {
   [SESSION_METHODS.sessionsList]: { params: Record<string, never>; result: SessionInfo[] }
-  [SESSION_METHODS.sessionCreate]: { params: { workspaceId: string }; result: SessionInfo }
+  /** `agent` defaults to Claude. */
+  [SESSION_METHODS.sessionCreate]: { params: { workspaceId: string; agent?: ChatAgentId }; result: SessionInfo }
   [SESSION_METHODS.sessionClose]: { params: { sessionId: string }; result: Record<string, never> }
   [SESSION_METHODS.sessionSetOptions]: {
     params: { sessionId: string; options: Partial<SessionOptions> }
@@ -103,4 +111,9 @@ export interface SessionRequests {
   [SESSION_METHODS.sessionResume]: { params: { workspaceId: string; claudeSessionId: string }; result: SessionInfo }
   /** Workspace-relative paths for the composer's @ menu, gitignore respected. */
   [SESSION_METHODS.sessionMentionFiles]: { params: { workspaceId: string }; result: string[] }
+  /** Sets one of an external agent's own session options (see ChatAgentOption). */
+  [SESSION_METHODS.sessionSetAgentOption]: {
+    params: { sessionId: string; optionId: string; value: string }
+    result: SessionInfo
+  }
 }

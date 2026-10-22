@@ -1,4 +1,5 @@
 import type { HarnessMethod, HarnessRequests } from "@acp-harness/protocol";
+import type { AcpAgentSessions } from "../acp-agent-sessions.ts";
 import type { SessionRegistry } from "../session-registry.ts";
 import type { TerminalManager } from "../terminal-manager.ts";
 import type { WorkspaceManager } from "../workspace-manager.ts";
@@ -16,6 +17,8 @@ export interface HandlerContext {
   terminals: TerminalManager;
   /** Running agent turns by session id. */
   pendingTurns: Map<string, AbortController>;
+  /** External agents' ACP servers, by session. */
+  acpAgents: AcpAgentSessions;
   /** Notifies every connected client. */
   broadcast(method: string, params: unknown): void;
   /** The workspace's directory on this host; throws for unknown ids. */

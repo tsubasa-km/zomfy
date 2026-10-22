@@ -2,7 +2,9 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { FileText, Globe, Search } from 'lucide-react'
 import { createSession } from '@/daemon-connection'
 import { openEditorTab } from '@/session-store'
-import { ClaudeIcon } from '@/components/agent-icons'
+import type { ChatAgentId } from '@acp-harness/protocol'
+import { TuiAgentIcon } from '@/components/terminal/TuiAgentIcon'
+import { useChatAgents, workspaceHostId } from '@/lib/chat-agents'
 import { Input } from '@/components/ui/input'
 import { isImeOwnedKeyboardEvent } from '@/lib/ime-composition-keyboard-event'
 import { cn } from '@/lib/utils'
@@ -16,11 +18,10 @@ import { activateTab, openBrowserTab, tabTitle, useWorkspaceTabs, type Workspace
 // file, opens a URL or search, or launches an agent.
 
 const PLACEHOLDER = 'Search open tabs, files, URLs, agents…'
-const AGENTS = [{ id: 'claude', label: 'Claude' }]
 
 type Option =
   | { kind: 'tab'; tab: WorkspaceTab; title: string }
-  | { kind: 'agent'; id: string; label: string }
+  | { kind: 'agent'; id: ChatAgentId; label: string }
   | { kind: 'file'; path: string }
   | { kind: 'url'; url: string }
   | { kind: 'search'; query: string; url: string }
@@ -45,7 +46,7 @@ function presentation(option: Option): { icon: React.ReactNode; label: string; d
     case 'tab':
       return { icon: <TabKindIcon tab={option.tab} className="shrink-0" />, label: 'Switch to tab', detail: option.title }
     case 'agent':
-      return { icon: <ClaudeIcon size={14} />, label: 'Launch agent', detail: option.label }
+      return { icon: <TuiAgentIcon agent={option.id} size={14} />, label: 'Launch agent', detail: option.label }
     case 'file':
       return { icon: <FileText className="size-3.5 shrink-0" />, label: 'Open file', detail: option.path }
     case 'url':
@@ -68,6 +69,7 @@ export function TabOmnibox({
   onDone: () => void
 }) {
   const tabs = useWorkspaceTabs(workspaceId)
+  const chatAgents = useChatAgents(workspaceHostId(workspaceId)).agents
   const meta = useTabLayout((s) => s.meta)
   const [files, setFiles] = useState<string[]>([])
   const [selected, setSelected] = useState(0)
@@ -93,14 +95,17 @@ export function TabOmnibox({
       const title = tabTitle(tab, meta[tab.id])
       if (title.toLowerCase().includes(lower) && result.length < 3) result.push({ kind: 'tab', tab, title })
     }
-    for (const agent of AGENTS) {
-      if (agent.id.startsWith(lower) || agent.label.toLowerCase().startsWith(lower)) result.push({ kind: 'agent', ...agent })
+    for (const agent of chatAgents) {
+      if (agent.status !== 'ready') continue
+      if (agent.id.startsWith(lower) || agent.label.toLowerCase().startsWith(lower)) {
+        result.push({ kind: 'agent', id: agent.id, label: agent.label })
+      }
     }
     for (const path of matchFiles(files, q, 5)) result.push({ kind: 'file', path })
     if (looksLikeSearchQuery(q)) result.push({ kind: 'search', query: q, url: normalizeAddress(q) })
     else result.push({ kind: 'url', url: normalizeAddress(q) })
     return result
-  }, [query, tabs, meta, files])
+  }, [query, tabs, meta, files, chatAgents])
 
   const active = Math.min(selected, Math.max(0, options.length - 1))
 
@@ -114,7 +119,7 @@ export function TabOmnibox({
         break
       }
       case 'agent':
-        void createSession(workspaceId)
+        void createSession(workspaceId, option.id)
         break
       case 'file':
         openEditorTab({ workspaceId, kind: 'file', path: option.path, staged: false })

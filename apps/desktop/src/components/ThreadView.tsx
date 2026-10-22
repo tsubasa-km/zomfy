@@ -2,6 +2,7 @@ import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { Copy, GitFork, Quote, Search, TextSelect } from 'lucide-react'
 import { markSeen, openEditorTab, type Session, type ThreadItem } from '@/session-store'
 import { appendToDraft, forkChat, isWorking, rewindTo } from '@/chat-actions'
+import { isExternalAgentSession } from '@/lib/chat-agents'
 import { Button } from '@/components/ui/button'
 import {
   ContextMenu,
@@ -51,6 +52,8 @@ export function ThreadView({ session }: { session: Session }) {
   const [menuTarget, setMenuTarget] = useState<{ selection: string; message: string | null }>({ selection: '', message: null })
   const [rewindTarget, setRewindTarget] = useState<string | null>(null)
   const working = isWorking(session)
+  // ACP has no stable fork or rewind, so other agents' chats go without (as in Orca).
+  const claudeOnly = !isExternalAgentSession(session)
   const running = working || session.turnStartedAt !== null
   const model = useMemo(() => buildTranscript(session.items, running, session.cwd), [session.items, running, session.cwd])
   const find = useNativeChatFind(columnRef, session.items)
@@ -130,7 +133,7 @@ export function ThreadView({ session }: { session: Session }) {
                         row={row}
                         rowKey={`${session.id}:${index}`}
                         actions={{
-                          ...(working ? {} : { onRewind: setRewindTarget }),
+                          ...(working || !claudeOnly ? {} : { onRewind: setRewindTarget }),
                           cwd: session.cwd,
                           onRevealFile: (path) =>
                             openEditorTab({ workspaceId: session.workspaceId, kind: 'file', path, staged: false })
@@ -168,10 +171,12 @@ export function ThreadView({ session }: { session: Session }) {
               Find in chat
               <ContextMenuShortcut>{isMac ? '⌘F' : 'Ctrl+F'}</ContextMenuShortcut>
             </ContextMenuItem>
-            <ContextMenuItem data-native-chat-fork onSelect={() => void forkChat(session.id)}>
-              <GitFork />
-              Fork session
-            </ContextMenuItem>
+            {claudeOnly ? (
+              <ContextMenuItem data-native-chat-fork onSelect={() => void forkChat(session.id)}>
+                <GitFork />
+                Fork session
+              </ContextMenuItem>
+            ) : null}
           </ContextMenuContent>
         </ContextMenu>
         {find.open ? <NativeChatFindBar find={find} /> : null}

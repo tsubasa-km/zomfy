@@ -9,6 +9,7 @@ import {
   isWorking,
   loadCatalog,
   loadMentionFiles,
+  setAgentOption,
   setSessionOptions,
   stopTurn,
   submitPrompt
@@ -23,6 +24,8 @@ import {
 import { NativeChatPermissionModePicker } from './NativeChatPermissionModePicker'
 import { NativeChatSessionOptionPicker } from './NativeChatSessionOptionPicker'
 import { NativeChatContextUsageRing } from './NativeChatContextUsageRing'
+import { NativeChatAgentModePicker, NativeChatAgentModelPicker, agentOptionSlots } from './NativeChatAgentOptionPickers'
+import { isExternalAgentSession } from '@/lib/chat-agents'
 
 // Layout and classes follow Orca's NativeChatComposer, NativeChatComposerField and
 // NativeChatComposerActions.
@@ -48,6 +51,9 @@ export function NativeChatComposer({ session, textareaRef }: { session: Session;
   const catalog = useChatStore((s) => s.catalogs[session.workspaceId])
   const files = useChatStore((s) => s.mentionFiles[session.workspaceId])
   const working = isWorking(session)
+  // Other agents bring their own commands and options over ACP; the workspace catalog is Claude's.
+  const external = isExternalAgentSession(session)
+  const agentState = session.agentState
   const listboxId = useId()
   const fileInput = useRef<HTMLInputElement>(null)
   const [caret, setCaret] = useState(0)
@@ -56,8 +62,8 @@ export function NativeChatComposer({ session, textareaRef }: { session: Session;
   const [dragging, setDragging] = useState(false)
 
   useEffect(() => {
-    void loadCatalog(session.workspaceId)
-  }, [session.workspaceId])
+    if (!external) void loadCatalog(session.workspaceId)
+  }, [session.workspaceId, external])
 
   const query = composerAutocompleteQuery(draft, caret)
   useEffect(() => {
@@ -70,12 +76,12 @@ export function NativeChatComposer({ session, textareaRef }: { session: Session;
       return {
         ...query,
         mode: 'slash',
-        items: matchCommands(catalog?.value?.commands ?? [], query.query),
-        status: catalog?.status ?? 'loading'
+        items: matchCommands(external ? (agentState?.commands ?? []) : (catalog?.value?.commands ?? []), query.query),
+        status: external ? (agentState?.phase === 'starting' ? 'loading' : 'ready') : (catalog?.status ?? 'loading')
       }
     }
     return { ...query, mode: 'mention', items: matchFiles(files?.value ?? [], query.query), status: files?.status ?? 'loading' }
-  }, [query?.mode, query?.query, query?.start, query?.end, catalog, files, dismissedAt, draft])
+  }, [query?.mode, query?.query, query?.start, query?.end, catalog, files, dismissedAt, draft, external, agentState])
   const optionCount = autocomplete?.items.length ?? 0
   const selected = Math.min(activeIndex, Math.max(0, optionCount - 1))
 
@@ -116,6 +122,8 @@ export function NativeChatComposer({ session, textareaRef }: { session: Session;
   const models = catalog?.value?.models ?? []
   const currentModel = models.find((m) => m.value === (options?.model ?? 'default'))
   const canSend = draft.trim().length > 0 || draftImages.length > 0
+  const slots = agentOptionSlots(agentState?.options ?? [])
+  const changeAgentOption = (optionId: string, value: string) => void setAgentOption(session.id, optionId, value)
 
   return (
     <div className="shrink-0 bg-chat-canvas">
@@ -251,7 +259,14 @@ export function NativeChatComposer({ session, textareaRef }: { session: Session;
                       e.target.value = ''
                     }}
                   />
-                  {options ? (
+                  {external ? (
+                    <>
+                      {slots.mode ? <NativeChatAgentModePicker option={slots.mode} onChange={changeAgentOption} /> : null}
+                      {slots.others.map((option) => (
+                        <NativeChatAgentModePicker key={option.id} option={option} onChange={changeAgentOption} />
+                      ))}
+                    </>
+                  ) : options ? (
                     <NativeChatPermissionModePicker
                       current={options.permissionMode}
                       autoAvailable={currentModel?.supportsAutoMode === true}
@@ -260,7 +275,15 @@ export function NativeChatComposer({ session, textareaRef }: { session: Session;
                   ) : null}
                 </div>
                 <div className="ml-auto flex items-center gap-1.5">
-                  {options ? (
+                  {external ? (
+                    slots.model ? (
+                      <NativeChatAgentModelPicker model={slots.model} effort={slots.effort} onChange={changeAgentOption} />
+                    ) : agentState?.phase === 'starting' ? (
+                      <span className="px-1 text-xs" data-agent-phase="starting">
+                        Starting…
+                      </span>
+                    ) : null
+                  ) : options ? (
                     <NativeChatSessionOptionPicker
                       options={options}
                       models={models}
