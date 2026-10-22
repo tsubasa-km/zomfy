@@ -115,7 +115,7 @@ export function NativeChatContextUsageRing({ usage }: { usage: ContextUsage }) {
           side="top"
           align="end"
           sideOffset={8}
-          className="w-72"
+          className="w-72 select-none"
           onOpenAutoFocus={(event) => event.preventDefault()}
           onCloseAutoFocus={(event) => event.preventDefault()}
         >

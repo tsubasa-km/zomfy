@@ -27,6 +27,11 @@ import { NativeChatContextUsageRing } from './NativeChatContextUsageRing'
 import { NativeChatDictationButton } from './NativeChatDictationButton'
 import { NativeChatAgentModePicker, NativeChatAgentModelPicker, agentOptionSlots } from './NativeChatAgentOptionPickers'
 import { isExternalAgentSession } from '@/lib/chat-agents'
+import { isSubmitShortcut, SUBMIT_SHORTCUT_LABEL } from '@/lib/terminal-shortcuts'
+import { useSetting } from '@/stores/settings-store'
+import { MarkdownEditor, type MarkdownEditorHandle } from '@/components/markdown-editor/MarkdownEditor'
+import { loadChatMemo, setChatMemoOpen, useChatMemo } from '@/stores/chat-memo-store'
+import { NativeChatMemoButton, NativeChatMemoPanel } from './NativeChatMemoPanel'
 
 // Layout and classes follow Orca's NativeChatComposer, NativeChatComposerField and
 // NativeChatComposerActions.
@@ -47,7 +52,15 @@ function readImage(file: File): Promise<ChatImage | null> {
   })
 }
 
-export function NativeChatComposer({ session, textareaRef }: { session: Session; textareaRef: React.RefObject<HTMLTextAreaElement | null> }) {
+const SEND_LABEL = { 'mod-enter': SUBMIT_SHORTCUT_LABEL, enter: '↵' } as const
+
+export function NativeChatComposer({
+  session,
+  editorRef
+}: {
+  session: Session
+  editorRef: React.RefObject<MarkdownEditorHandle | null>
+}) {
   const { draft, draftImages, usage } = useChatSession(session.id)
   const catalog = useChatStore((s) => s.catalogs[session.workspaceId])
   const files = useChatStore((s) => s.mentionFiles[session.workspaceId])
@@ -61,6 +74,13 @@ export function NativeChatComposer({ session, textareaRef }: { session: Session;
   const [activeIndex, setActiveIndex] = useState(0)
   const [dismissedAt, setDismissedAt] = useState<string | null>(null)
   const [dragging, setDragging] = useState(false)
+  const sendKey = useSetting('chatSendKey')
+  // Memos belong to main chats; a side chat's notes would be the main chat's.
+  const memos = useSetting('chatMemosEnabled') && !session.sideOf
+  const memoOpen = useChatMemo(session.id)?.open === true
+  useEffect(() => {
+    if (memos) loadChatMemo(session.id)
+  }, [memos, session.id])
 
   useEffect(() => {
     if (!external) void loadCatalog(session.workspaceId)
@@ -86,14 +106,8 @@ export function NativeChatComposer({ session, textareaRef }: { session: Session;
   const optionCount = autocomplete?.items.length ?? 0
   const selected = Math.min(activeIndex, Math.max(0, optionCount - 1))
 
-  function setDraft(value: string, nextCaret?: number) {
+  function setDraft(value: string) {
     patchChatSession(session.id, { draft: value })
-    if (nextCaret !== undefined) {
-      setCaret(nextCaret)
-      requestAnimationFrame(() => {
-        textareaRef.current?.setSelectionRange(nextCaret, nextCaret)
-      })
-    }
   }
 
   function choose(index: number) {
@@ -102,9 +116,43 @@ export function NativeChatComposer({ session, textareaRef }: { session: Session;
       autocomplete.mode === 'slash'
         ? `/${autocomplete.items[index]?.name ?? autocomplete.query} `
         : `@${autocomplete.items[index] ?? autocomplete.query} `
-    const value = draft.slice(0, autocomplete.start) + insert + draft.slice(autocomplete.end)
     setActiveIndex(0)
-    setDraft(value, autocomplete.start + insert.length)
+    editorRef.current?.replaceRange(autocomplete.start, autocomplete.end, insert)
+  }
+
+  /** The chosen Enter sends; with Enter chosen, Cmd/Ctrl+Enter sends too. */
+  function isSendKey(e: KeyboardEvent): boolean {
+    if (e.key !== 'Enter' || e.shiftKey || e.altKey) return false
+    if (isSubmitShortcut(e)) return true
+    return sendKey === 'enter' && !e.ctrlKey && !e.metaKey
+  }
+
+  function handleKeyDown(e: KeyboardEvent): boolean {
+    if (autocomplete && optionCount > 0) {
+      if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+        const step = e.key === 'ArrowDown' ? 1 : -1
+        setActiveIndex((selected + step + optionCount) % optionCount)
+        return true
+      }
+      const plainEnter = e.key === 'Enter' && !e.shiftKey && !e.altKey && !e.ctrlKey && !e.metaKey
+      if (e.key === 'Tab' || plainEnter) {
+        // With Enter sending, a fully typed command sends on Enter; Tab always completes.
+        const exact = autocomplete.mode === 'slash' && autocomplete.items[selected]?.name === autocomplete.query
+        if (e.key === 'Tab' || !exact || sendKey !== 'enter') {
+          choose(selected)
+          return true
+        }
+      }
+    }
+    if (autocomplete && e.key === 'Escape') {
+      setDismissedAt(draft)
+      return true
+    }
+    if (isSendKey(e)) {
+      submit()
+      return true
+    }
+    return false
   }
 
   function submit() {
@@ -127,8 +175,19 @@ export function NativeChatComposer({ session, textareaRef }: { session: Session;
   const changeAgentOption = (optionId: string, value: string) => void setAgentOption(session.id, optionId, value)
 
   return (
-    <div className="shrink-0 bg-chat-canvas">
+    <div className="shrink-0 bg-chat-canvas select-none">
       <div className="px-3 pt-2 pb-4 sm:px-4">
+        {memos && memoOpen ? (
+          <div className="mx-auto w-full max-w-(--chat-content-max-width)">
+            <NativeChatMemoPanel
+              sessionId={session.id}
+              onClose={() => {
+                setChatMemoOpen(session.id, false)
+                editorRef.current?.focus()
+              }}
+            />
+          </div>
+        ) : null}
         <div className="relative mx-auto w-full max-w-(--chat-content-max-width)">
           {autocomplete ? (
             <NativeChatAutocompleteMenu autocomplete={autocomplete} activeIndex={selected} listboxId={listboxId} onChoose={choose} />
@@ -176,59 +235,34 @@ export function NativeChatComposer({ session, textareaRef }: { session: Session;
                 ))}
               </div>
             ) : null}
-            <textarea
-              ref={textareaRef}
-              aria-label="Message the agent"
-              placeholder={working ? 'Queue a follow-up' : 'Message the agent'}
+            <MarkdownEditor
+              ref={editorRef}
               value={draft}
-              rows={2}
-              role="combobox"
-              aria-expanded={autocomplete !== null}
-              aria-controls={autocomplete ? listboxId : undefined}
-              aria-activedescendant={autocomplete && optionCount > 0 ? `${listboxId}-option-${selected}` : undefined}
-              onChange={(e) => {
-                setDraft(e.target.value)
-                setCaret(e.target.selectionStart)
+              placeholder={working ? 'Queue a follow-up' : 'Message the agent'}
+              contentAttributes={{
+                'aria-label': 'Message the agent',
+                'aria-multiline': 'true',
+                role: 'combobox',
+                'aria-expanded': String(autocomplete !== null),
+                'aria-controls': autocomplete ? listboxId : undefined,
+                'aria-activedescendant': autocomplete && optionCount > 0 ? `${listboxId}-option-${selected}` : undefined,
+                'data-native-chat-input': ''
+              }}
+              onChange={(value) => {
+                setDraft(value)
                 setActiveIndex(0)
               }}
-              onSelect={(e) => setCaret(e.currentTarget.selectionStart)}
-              onPaste={(event) => {
-                const images = [...event.clipboardData.files].filter((f) => IMAGE_TYPES.has(f.type))
-                if (images.length === 0) return
-                event.preventDefault()
+              onCaretChange={setCaret}
+              onKeyDown={handleKeyDown}
+              onPasteFiles={(files) => {
+                const images = files.filter((f) => IMAGE_TYPES.has(f.type))
+                if (images.length === 0) return false
                 void addImages(images)
+                return true
               }}
-              onKeyDown={(e) => {
-                if (e.nativeEvent.isComposing) return
-                if (autocomplete && optionCount > 0) {
-                  if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
-                    e.preventDefault()
-                    const step = e.key === 'ArrowDown' ? 1 : -1
-                    setActiveIndex((selected + step + optionCount) % optionCount)
-                    return
-                  }
-                  if (e.key === 'Tab' || (e.key === 'Enter' && !e.shiftKey)) {
-                    // A fully typed command sends on Enter; Tab always completes.
-                    const exact =
-                      autocomplete.mode === 'slash' && autocomplete.items[selected]?.name === autocomplete.query
-                    if (e.key === 'Tab' || !exact) {
-                      e.preventDefault()
-                      choose(selected)
-                      return
-                    }
-                  }
-                }
-                if (autocomplete && e.key === 'Escape') {
-                  e.preventDefault()
-                  setDismissedAt(draft)
-                  return
-                }
-                if (e.key === 'Enter' && !e.shiftKey) {
-                  e.preventDefault()
-                  submit()
-                }
-              }}
-              className="scrollbar-sleek max-h-[calc(8lh+0.5rem)] min-h-12 w-full resize-none overflow-y-auto bg-transparent px-2 py-1 text-sm text-chat-foreground-strong outline-none placeholder:text-chat-foreground-faint"
+              minHeight="3rem"
+              maxHeight="calc(12lh + 0.5rem)"
+              className="px-2 py-1 text-sm text-chat-foreground-strong"
             />
             <div className="flex flex-wrap items-center gap-2 pt-0.5">
               <div className="flex w-full items-center justify-between gap-2 text-chat-foreground-faint">
@@ -293,31 +327,42 @@ export function NativeChatComposer({ session, textareaRef }: { session: Session;
                     />
                   ) : null}
                   {usage ? <NativeChatContextUsageRing usage={usage} /> : null}
+                  {memos ? <NativeChatMemoButton sessionId={session.id} /> : null}
                   <NativeChatDictationButton
                     onTranscript={(text) => {
                       // Appends to the draft as it is when the transcript lands, not when recording began.
-                      const current = textareaRef.current?.value ?? draft
+                      const current = editorRef.current?.getValue() ?? draft
                       setDraft(current && !/\s$/.test(current) ? `${current} ${text}` : `${current}${text}`)
                     }}
                   />
-                  <Button
-                    type="button"
-                    data-native-chat-critical-action={working ? 'stop' : undefined}
-                    aria-label={working ? 'Stop the agent' : 'Send'}
-                    onMouseDown={(event) => event.preventDefault()}
-                    onClick={(event) => {
-                      // A double-click lands after the first send started; it must not stop the new turn.
-                      if (event.detail > 1) return
-                      if (working) stopTurn(session.id)
-                      else submit()
-                    }}
-                    disabled={!working && !canSend}
-                    variant={working ? 'secondary' : 'default'}
-                    size="icon"
-                    className="size-8 rounded-full"
-                  >
-                    {working ? <Square className="size-3.5 fill-current" /> : <ArrowUp className="size-4" />}
-                  </Button>
+                  {/* A disabled button gets no pointer events, so the hint hangs on a wrapper. */}
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <span className="inline-flex">
+                        <Button
+                          type="button"
+                          data-native-chat-critical-action={working ? 'stop' : undefined}
+                          aria-label={working ? 'Stop the agent' : 'Send'}
+                          onMouseDown={(event) => event.preventDefault()}
+                          onClick={(event) => {
+                            // A double-click lands after the first send started; it must not stop the new turn.
+                            if (event.detail > 1) return
+                            if (working) stopTurn(session.id)
+                            else submit()
+                          }}
+                          disabled={!working && !canSend}
+                          variant={working ? 'secondary' : 'default'}
+                          size="icon"
+                          className="size-8 rounded-full"
+                        >
+                          {working ? <Square className="size-3.5 fill-current" /> : <ArrowUp className="size-4" />}
+                        </Button>
+                      </span>
+                    </TooltipTrigger>
+                    <TooltipContent side="top" sideOffset={4} data-native-chat-send-hint>
+                      {working ? 'Stop the agent' : `Send (${SEND_LABEL[sendKey]})`}
+                    </TooltipContent>
+                  </Tooltip>
                 </div>
               </div>
             </div>

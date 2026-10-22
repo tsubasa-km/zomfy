@@ -11,6 +11,7 @@ import { PLUGIN_METHODS, type PluginRequests } from './plugins'
 import { PORT_METHODS, type PortRequests } from './ports'
 import { QUICK_OPEN_METHODS, type QuickOpenRequests } from './quick-open'
 import { SESSION_METHODS, type SessionRequests } from './sessions'
+import { SESSION_NOTE_METHODS, type SessionNoteRequests } from './session-notes'
 import { SETTINGS_METHODS, type SettingsRequests } from './settings'
 import { SIDE_CHAT_METHODS, type SideChatRequests } from './side-chats'
 import { SKILL_METHODS, type SkillRequests } from './skills'
@@ -30,6 +31,7 @@ export * from './plugins'
 export * from './ports'
 export * from './quick-open'
 export * from './sessions'
+export * from './session-notes'
 export * from './settings'
 export * from './side-chats'
 export * from './skills'
@@ -42,6 +44,7 @@ export * from './workspaces'
 export const HARNESS_METHODS = {
   ...WORKSPACE_METHODS,
   ...SESSION_METHODS,
+  ...SESSION_NOTE_METHODS,
   ...TERMINAL_METHODS,
   ...FILE_METHODS,
   ...GIT_METHODS,
@@ -68,6 +71,7 @@ export const HARNESS_NOTIFICATIONS = {
 export interface HarnessRequests
   extends WorkspaceRequests,
     SessionRequests,
+    SessionNoteRequests,
     TerminalRequests,
     FileRequests,
     GitRequests,

@@ -1,4 +1,4 @@
-import { appendFile, mkdir, readFile, rm, writeFile } from 'node:fs/promises'
+import { appendFile, mkdir, readFile, rename, rm, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import type * as acp from '@agentclientprotocol/sdk'
 import { chatAgentLabel, type SessionInfo, type SessionOptions } from '@acp-harness/protocol'
@@ -95,6 +95,28 @@ export class SessionRegistry {
     this.records.delete(id)
     this.changed()
     await rm(transcriptPath(id), { force: true })
+    await rm(notePath(id), { force: true })
+  }
+
+  /** The chat's memo; empty when it has none. */
+  async readNote(id: string): Promise<string> {
+    try {
+      return await readFile(notePath(id), 'utf8')
+    } catch {
+      return ''
+    }
+  }
+
+  /** Empty text removes the memo; otherwise written whole, via a temp file so a crash never truncates it. */
+  async writeNote(id: string, text: string): Promise<void> {
+    if (!text) {
+      await rm(notePath(id), { force: true })
+      return
+    }
+    await mkdir(SESSIONS_DIR, { recursive: true })
+    const temp = `${notePath(id)}.${process.pid}.tmp`
+    await writeFile(temp, text)
+    await rename(temp, notePath(id))
   }
 
   /** Removes every session of a workspace that no longer exists. */
@@ -142,6 +164,10 @@ export class SessionRegistry {
 
 function transcriptPath(id: string): string {
   return join(SESSIONS_DIR, `${id}.jsonl`)
+}
+
+function notePath(id: string): string {
+  return join(SESSIONS_DIR, `${id}.notes.md`)
 }
 
 export function publicInfo(record: SessionRecord): SessionInfo {

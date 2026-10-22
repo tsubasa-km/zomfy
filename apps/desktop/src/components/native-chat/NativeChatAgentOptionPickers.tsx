@@ -54,7 +54,7 @@ export function NativeChatAgentModePicker({ option, onChange }: { option: ChatAg
           {option.name}
         </TooltipContent>
       </Tooltip>
-      <DropdownMenuContent align="start" side="top" collisionPadding={8} className="w-72">
+      <DropdownMenuContent align="start" side="top" collisionPadding={8} className="w-72 select-none">
         <DropdownMenuRadioGroup aria-label={option.name} value={option.currentValue}>
           {option.choices.map((choice) => (
             <DropdownMenuRadioItem
@@ -115,7 +115,7 @@ export function NativeChatAgentModelPicker({
         align="end"
         side="top"
         collisionPadding={8}
-        className="flex w-96 max-w-(--radix-popover-content-available-width) flex-col p-0"
+        className="flex w-96 max-w-(--radix-popover-content-available-width) flex-col p-0 select-none"
       >
         <Command surface="inline" density="menu" label="Search models…" filter={modelChoiceFilter} defaultValue={model.currentValue}>
           <CommandInput ref={search} placeholder="Search models…" />

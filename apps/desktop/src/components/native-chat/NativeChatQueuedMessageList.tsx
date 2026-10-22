@@ -34,7 +34,7 @@ export function NativeChatQueuedMessageList({ sessionId, working }: { sessionId:
         <div className="divide-y divide-border rounded-md border border-border bg-card text-card-foreground">
           <div
             className={cn(
-              'flex items-center gap-1 rounded-t-md py-1 pr-1 pl-2.5 text-xs text-muted-foreground',
+              'flex items-center gap-1 rounded-t-md py-1 pr-1 pl-2.5 text-xs text-muted-foreground select-none',
               queuePaused && 'bg-muted',
               !expanded && 'rounded-b-md'
             )}

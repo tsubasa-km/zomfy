@@ -22,6 +22,7 @@ import {
 } from '@/components/ui/dialog'
 import { NativeChatApprovalCard } from '@/components/native-chat/NativeChatApprovalCard'
 import { NativeChatComposer } from '@/components/native-chat/NativeChatComposer'
+import type { MarkdownEditorHandle } from '@/components/markdown-editor/MarkdownEditor'
 import { NativeChatDockedTaskList } from '@/components/native-chat/NativeChatTaskList'
 import { NativeChatEmptyState } from '@/components/native-chat/NativeChatEmptyState'
 import { ManagerEmptyState } from '@/manager/ManagerEmptyState'
@@ -48,7 +49,7 @@ export function ThreadView({ session, onSendToMain }: { session: Session; onSend
   const rootRef = useRef<HTMLDivElement>(null)
   const scrollRef = useRef<HTMLDivElement>(null)
   const columnRef = useRef<HTMLDivElement>(null)
-  const textareaRef = useRef<HTMLTextAreaElement>(null)
+  const composerRef = useRef<MarkdownEditorHandle>(null)
   const stick = useRef(true)
   const [atBottom, setAtBottom] = useState(true)
   const [menuTarget, setMenuTarget] = useState<{ selection: string; message: string | null }>({ selection: '', message: null })
@@ -87,7 +88,7 @@ export function ThreadView({ session, onSendToMain }: { session: Session; onSend
   }
   const quote = (markdown: string) => {
     appendToDraft(session.id, markdown)
-    textareaRef.current?.focus()
+    composerRef.current?.focus()
   }
 
   return (
@@ -198,7 +199,7 @@ export function ThreadView({ session, onSendToMain }: { session: Session; onSend
       {pendingPermission && <NativeChatApprovalCard permission={pendingPermission} cwd={session.cwd} />}
       <NativeChatDockedTaskList list={model.taskList} />
       <NativeChatQueuedMessageList sessionId={session.id} working={working} />
-      <NativeChatComposer session={session} textareaRef={textareaRef} />
+      <NativeChatComposer session={session} editorRef={composerRef} />
       <Dialog open={rewindTarget !== null} onOpenChange={(open) => !open && setRewindTarget(null)}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
@@ -217,7 +218,7 @@ export function ThreadView({ session, onSendToMain }: { session: Session; onSend
               onClick={() => {
                 const target = rewindTarget
                 setRewindTarget(null)
-                if (target) void rewindTo(session.id, target).then(() => textareaRef.current?.focus())
+                if (target) void rewindTo(session.id, target).then(() => composerRef.current?.focus())
               }}
             >
               Rewind
@@ -237,7 +238,7 @@ function WorkingStatus({ startedAt }: { startedAt: number }) {
   }, [])
   const seconds = Math.max(0, Math.floor((now - startedAt) / 1000))
   return (
-    <div className="flex min-h-8 items-center gap-1 border-b border-border text-sm text-chat-foreground-faint tabular-nums">
+    <div className="flex min-h-8 items-center gap-1 border-b border-border text-sm text-chat-foreground-faint tabular-nums select-none">
       <span>Working for {seconds}s</span>
     </div>
   )

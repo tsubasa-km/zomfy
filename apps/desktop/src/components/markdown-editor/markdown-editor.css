@@ -1,0 +1,227 @@
+/* Live-preview markdown editor (MarkdownEditor.tsx). Colours come from the chat tokens; code
+   tokens use VS Code Light+/Dark+, the themes the transcript's code blocks render with. */
+
+.md-editor {
+  --md-tok-keyword: #0000ff;
+  --md-tok-control: #af00db;
+  --md-tok-string: #a31515;
+  --md-tok-comment: #008000;
+  --md-tok-number: #098658;
+  --md-tok-type: #267f99;
+  --md-tok-function: #795e26;
+  --md-tok-variable: #001080;
+  --md-tok-tag: #800000;
+  --md-tok-attribute: #e50000;
+  --md-tok-regexp: #811f3f;
+}
+
+.dark .md-editor,
+[data-native-chat-scheme='dark'] .md-editor {
+  --md-tok-keyword: #569cd6;
+  --md-tok-control: #c586c0;
+  --md-tok-string: #ce9178;
+  --md-tok-comment: #6a9955;
+  --md-tok-number: #b5cea8;
+  --md-tok-type: #4ec9b0;
+  --md-tok-function: #dcdcaa;
+  --md-tok-variable: #9cdcfe;
+  --md-tok-tag: #569cd6;
+  --md-tok-attribute: #9cdcfe;
+  --md-tok-regexp: #d16969;
+}
+
+[data-native-chat-scheme='light'] .md-editor {
+  --md-tok-keyword: #0000ff;
+  --md-tok-control: #af00db;
+  --md-tok-string: #a31515;
+  --md-tok-comment: #008000;
+  --md-tok-number: #098658;
+  --md-tok-type: #267f99;
+  --md-tok-function: #795e26;
+  --md-tok-variable: #001080;
+  --md-tok-tag: #800000;
+  --md-tok-attribute: #e50000;
+  --md-tok-regexp: #811f3f;
+}
+
+.md-editor .cm-editor {
+  max-height: var(--md-editor-max-height, none);
+  background: transparent;
+  color: inherit;
+  font-size: inherit;
+  user-select: text;
+}
+
+.md-editor .cm-editor.cm-focused {
+  outline: none;
+}
+
+.md-editor .cm-scroller {
+  min-height: var(--md-editor-min-height, 0);
+  overflow: auto;
+  font-family: inherit;
+  line-height: 1.5;
+}
+
+.md-editor .cm-content {
+  padding: 0;
+  caret-color: var(--chat-foreground-strong, currentColor);
+  font-family: inherit;
+}
+
+.md-editor .cm-line {
+  padding: 0;
+}
+
+.md-editor .cm-placeholder {
+  color: var(--chat-foreground-faint, var(--muted-foreground));
+}
+
+.md-editor .cm-md-syntax,
+.md-editor .cm-md-list-mark,
+.md-editor .cm-md-code-info {
+  color: var(--chat-foreground-faint, var(--muted-foreground));
+}
+
+.md-editor .cm-md-heading {
+  color: var(--chat-foreground-strong, inherit);
+  font-weight: 600;
+}
+
+/* The transcript's heading ratios (native-chat-markdown.css). */
+.md-editor .cm-md-h1 {
+  font-size: 1.2857142857em;
+}
+
+.md-editor .cm-md-h2 {
+  font-size: 1.1428571429em;
+}
+
+.md-editor .cm-md-h3 {
+  font-size: 1.0714285714em;
+}
+
+.md-editor .cm-md-strong {
+  color: var(--chat-foreground-strong, inherit);
+  font-weight: 600;
+}
+
+.md-editor .cm-md-em {
+  font-style: italic;
+}
+
+.md-editor .cm-md-strike,
+.md-editor .cm-md-task-done {
+  text-decoration: line-through;
+  text-decoration-color: color-mix(in srgb, currentColor 60%, transparent);
+}
+
+.md-editor .cm-md-task-done {
+  color: var(--chat-foreground-faint, var(--muted-foreground));
+}
+
+.md-editor .cm-md-link {
+  color: var(--chat-foreground-strong, inherit);
+  text-decoration: underline;
+  text-decoration-color: color-mix(in srgb, currentColor 40%, transparent);
+  text-underline-offset: 2px;
+}
+
+.md-editor .cm-md-inline-code {
+  border: 1px solid var(--chat-inline-code-border, var(--border));
+  border-radius: var(--radius-sm, 0.375rem);
+  background: var(--chat-inline-code-surface, var(--muted));
+  padding: 0 0.25rem;
+  color: var(--chat-code-foreground, inherit);
+  font-family: var(--chat-code-font-family, var(--font-mono));
+  font-size: 0.8571428571em;
+}
+
+.md-editor .cm-md-codeblock {
+  border-inline: 1px solid var(--chat-code-border, var(--border));
+  background: var(--chat-code-surface, var(--muted));
+  padding-inline: 0.5rem;
+  color: var(--chat-code-foreground, inherit);
+  font-family: var(--chat-code-font-family, var(--font-mono));
+  font-size: 0.8571428571em;
+}
+
+.md-editor .cm-md-codeblock-first {
+  border-top: 1px solid var(--chat-code-border, var(--border));
+  border-top-left-radius: var(--radius-sm, 0.375rem);
+  border-top-right-radius: var(--radius-sm, 0.375rem);
+}
+
+.md-editor .cm-md-codeblock-last {
+  border-bottom: 1px solid var(--chat-code-border, var(--border));
+  border-bottom-left-radius: var(--radius-sm, 0.375rem);
+  border-bottom-right-radius: var(--radius-sm, 0.375rem);
+}
+
+.md-editor .cm-md-quote {
+  border-left: 2px solid var(--border);
+  padding-left: 0.75rem;
+  color: var(--chat-foreground-faint, var(--muted-foreground));
+}
+
+.md-editor .cm-md-hr {
+  background: linear-gradient(var(--border), var(--border)) center / 100% 1px no-repeat;
+}
+
+.md-editor .cm-md-bullet {
+  color: var(--chat-foreground-faint, var(--muted-foreground));
+}
+
+.md-editor .cm-md-task-box {
+  margin: 0 0.375rem 0 0;
+  vertical-align: -0.125em;
+  width: 0.875em;
+  height: 0.875em;
+  cursor: pointer;
+  accent-color: var(--primary);
+}
+
+.md-editor .tok-keyword {
+  color: var(--md-tok-keyword);
+}
+
+.md-editor .tok-control {
+  color: var(--md-tok-control);
+}
+
+.md-editor .tok-string {
+  color: var(--md-tok-string);
+}
+
+.md-editor .tok-comment {
+  color: var(--md-tok-comment);
+  font-style: italic;
+}
+
+.md-editor .tok-number {
+  color: var(--md-tok-number);
+}
+
+.md-editor .tok-type {
+  color: var(--md-tok-type);
+}
+
+.md-editor .tok-function {
+  color: var(--md-tok-function);
+}
+
+.md-editor .tok-variable {
+  color: var(--md-tok-variable);
+}
+
+.md-editor .tok-tag {
+  color: var(--md-tok-tag);
+}
+
+.md-editor .tok-attribute {
+  color: var(--md-tok-attribute);
+}
+
+.md-editor .tok-regexp {
+  color: var(--md-tok-regexp);
+}
