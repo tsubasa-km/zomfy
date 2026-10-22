@@ -1,5 +1,5 @@
 import { Fragment } from 'react'
-import { ChevronRight, FolderGit2, FolderOpen, FolderPlus, MoreHorizontal, Plus, Settings2, Unlink } from 'lucide-react'
+import { ChevronRight, FolderGit2, FolderOpen, FolderPlus, MoreHorizontal, Plus, Settings2, Unlink, Workflow as WorkflowIcon } from 'lucide-react'
 import { HARNESS_METHODS, type ProjectGroup, type Workspace } from '@acp-harness/protocol'
 import { harnessRequest } from '@/daemon-connection'
 import { setSidebarView, useStore, type HostId, type HostedProject, type Session } from '@/session-store'
@@ -27,6 +27,7 @@ import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip
 import { cn } from '@/lib/utils'
 import { openAddProjectDialog } from '@/lib/project-dialogs'
 import { unlinkProject } from '@/stores/project-links-store'
+import { openWorkflows } from '@/stores/workflows-store'
 
 /** Dialogs and flows the sidebar root owns; sections only ask for them. */
 export interface SidebarActions {
@@ -213,6 +214,13 @@ export function ProjectSection({
                 onRemove={() => actions.removeProject(project)}
               />
               <DropdownMenuSeparator />
+              <DropdownMenuItem
+                data-project-action="workflows"
+                onSelect={() => openWorkflows({ hostId: project.hostId, projectId: project.id, projectName: label })}
+              >
+                <WorkflowIcon className="size-3.5" />
+                Workflows…
+              </DropdownMenuItem>
               <DropdownMenuItem
                 data-project-action="add-workspace-elsewhere"
                 onSelect={() =>

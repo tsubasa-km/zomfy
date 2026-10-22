@@ -1,0 +1,257 @@
+import type React from 'react'
+import { Trash2 } from 'lucide-react'
+import {
+  WORKFLOW_OUTCOMES,
+  type Workflow,
+  type WorkflowEdge,
+  type WorkflowNode,
+  type WorkflowNodeConfig,
+  type WorkflowOutcome
+} from '@acp-harness/protocol'
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
+import { Textarea } from '@/components/ui/textarea'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { OUTCOME_LABELS, type WorkflowIssue } from './workflow-model'
+
+// The side panel: the selected step's or edge's settings, else the workflow's own name and its issues.
+
+function Field({ label, hint, children }: { label: string; hint?: string; children: React.ReactNode }) {
+  return (
+    <div className="space-y-1.5">
+      <Label className="text-xs">{label}</Label>
+      {children}
+      {hint && <p className="text-[11px] text-muted-foreground">{hint}</p>}
+    </div>
+  )
+}
+
+function Choice<T extends string>({
+  value,
+  options,
+  onChange,
+  label
+}: {
+  value: T
+  options: { value: T; label: string }[]
+  onChange: (value: T) => void
+  label: string
+}) {
+  return (
+    <Select
+      value={value}
+      onValueChange={(v) => {
+        const picked = options.find((o) => o.value === v)
+        if (picked) onChange(picked.value)
+      }}
+    >
+      <SelectTrigger className="h-8 w-full" aria-label={label}>
+        <SelectValue />
+      </SelectTrigger>
+      <SelectContent>
+        {options.map((o) => (
+          <SelectItem key={o.value} value={o.value}>
+            {o.label}
+          </SelectItem>
+        ))}
+      </SelectContent>
+    </Select>
+  )
+}
+
+export function WorkflowInspector({
+  workflow,
+  node,
+  edge,
+  issues,
+  onWorkflow,
+  onNode,
+  onEdge,
+  onDelete,
+  onSelectIssue
+}: {
+  workflow: Workflow
+  node: WorkflowNode | null
+  edge: WorkflowEdge | null
+  issues: WorkflowIssue[]
+  onWorkflow: (patch: Partial<Pick<Workflow, 'name' | 'description'>>) => void
+  onNode: (id: string, patch: Partial<Omit<WorkflowNode, 'config'>> & { config?: Partial<WorkflowNodeConfig> }) => void
+  onEdge: (id: string, outcome: WorkflowOutcome) => void
+  onDelete: () => void
+  onSelectIssue: (issue: WorkflowIssue) => void
+}) {
+  if (node) {
+    const c = node.config
+    const set = (config: Partial<WorkflowNodeConfig>) => onNode(node.id, { config })
+    return (
+      <div className="space-y-4" data-workflow-inspector="node">
+        <Field label="Step name">
+          <Input value={node.label} onChange={(e) => onNode(node.id, { label: e.target.value })} className="h-8" />
+        </Field>
+        {(node.kind === 'agent' || node.kind === 'review') && (
+          <>
+            <Field label="Role" hint="Who the session acts as; it opens its prompt.">
+              <Input value={c.role ?? ''} onChange={(e) => set({ role: e.target.value })} className="h-8" />
+            </Field>
+            <Field label="Instructions" hint="Added to the run's task and the previous step's handoff.">
+              <Textarea value={c.prompt ?? ''} onChange={(e) => set({ prompt: e.target.value })} className="min-h-28 text-xs" />
+            </Field>
+          </>
+        )}
+        {node.kind === 'agent' && (
+          <>
+            <Field label="Session" hint="Keep: the same chat across rounds, so it remembers the reviews.">
+              <Choice
+                label="Session"
+                value={c.session ?? 'keep'}
+                onChange={(session) => set({ session })}
+                options={[
+                  { value: 'keep', label: 'Keep across rounds' },
+                  { value: 'fresh', label: 'Fresh each time' }
+                ]}
+              />
+            </Field>
+            <Field label="Runs in">
+              <Choice
+                label="Runs in"
+                value={c.workspace ?? 'run-worktree'}
+                onChange={(workspace) => set({ workspace })}
+                options={[
+                  { value: 'run-worktree', label: 'A worktree made for the run' },
+                  { value: 'main', label: "The project's main workspace" }
+                ]}
+              />
+            </Field>
+          </>
+        )}
+        {node.kind === 'review' && (
+          <Field label="Round limit" hint="After this many sends-back the run stops and asks you.">
+            <Input
+              type="number"
+              min={1}
+              max={20}
+              value={c.maxRounds ?? ''}
+              onChange={(e) => set({ maxRounds: e.target.value === '' ? undefined : Math.max(1, Number(e.target.value)) })}
+              className="h-8 w-24"
+            />
+          </Field>
+        )}
+        {node.kind === 'check' && (
+          <Field label="Failure limit" hint="After this many failures the run stops and asks you.">
+            <Input
+              type="number"
+              min={1}
+              max={20}
+              value={c.maxRounds ?? ''}
+              onChange={(e) => set({ maxRounds: e.target.value === '' ? undefined : Math.max(1, Number(e.target.value)) })}
+              className="h-8 w-24"
+            />
+          </Field>
+        )}
+        {node.kind === 'check' && (
+          <Field label="Command" hint="Runs in the run's workspace; exit code 0 passes.">
+            <Input
+              value={c.command ?? ''}
+              placeholder="bun test"
+              onChange={(e) => set({ command: e.target.value })}
+              className="h-8 font-mono text-xs"
+            />
+          </Field>
+        )}
+        {node.kind === 'human' && (
+          <Field label="Question" hint="Shown in your inbox; your answer goes back to the step that asked.">
+            <Textarea value={c.question ?? ''} onChange={(e) => set({ question: e.target.value })} className="min-h-20 text-xs" />
+          </Field>
+        )}
+        {node.kind === 'end' && (
+          <Field label="Run ends as">
+            <Choice
+              label="Run ends as"
+              value={c.result ?? 'done'}
+              onChange={(result) => set({ result })}
+              options={[
+                { value: 'done', label: 'Done' },
+                { value: 'failed', label: 'Failed' }
+              ]}
+            />
+          </Field>
+        )}
+        {node.kind !== 'start' && (
+          <Button variant="outline" size="sm" onClick={onDelete}>
+            <Trash2 className="size-3.5" />
+            Delete step
+          </Button>
+        )}
+      </div>
+    )
+  }
+
+  if (edge) {
+    const from = workflow.nodes.find((n) => n.id === edge.from)
+    const to = workflow.nodes.find((n) => n.id === edge.to)
+    const options = from ? WORKFLOW_OUTCOMES[from.kind] : []
+    return (
+      <div className="space-y-4" data-workflow-inspector="edge">
+        <p className="text-xs text-muted-foreground">
+          From <span className="font-medium text-foreground">{from?.label}</span> to{' '}
+          <span className="font-medium text-foreground">{to?.label}</span>
+        </p>
+        <Field label="Taken when the step ends in" hint="The harness follows only the edge that matches the step's outcome.">
+          <Choice
+            label="Outcome"
+            value={edge.outcome}
+            onChange={(outcome) => onEdge(edge.id, outcome)}
+            options={options.map((o) => ({ value: o, label: OUTCOME_LABELS[o] }))}
+          />
+        </Field>
+        <Button variant="outline" size="sm" onClick={onDelete}>
+          <Trash2 className="size-3.5" />
+          Delete edge
+        </Button>
+      </div>
+    )
+  }
+
+  return (
+    <div className="space-y-4" data-workflow-inspector="workflow">
+      <Field label="Workflow name">
+        <Input value={workflow.name} onChange={(e) => onWorkflow({ name: e.target.value })} className="h-8" />
+      </Field>
+      <Field label="Description">
+        <Textarea value={workflow.description ?? ''} onChange={(e) => onWorkflow({ description: e.target.value })} className="min-h-16 text-xs" />
+      </Field>
+      <div className="space-y-1.5">
+        <Label className="text-xs">Checks</Label>
+        {issues.length === 0 ? (
+          <p className="text-xs text-status-success">Ready to run.</p>
+        ) : (
+          <ul className="space-y-1" data-workflow-issues>
+            {issues.map((issue, i) => (
+              <li key={i}>
+                <button
+                  type="button"
+                  className="flex w-full items-start gap-1.5 rounded px-1 py-0.5 text-left text-xs hover:bg-accent"
+                  onClick={() => onSelectIssue(issue)}
+                >
+                  <span
+                    className={
+                      issue.level === 'error'
+                        ? 'mt-1 size-1.5 shrink-0 rounded-full bg-destructive'
+                        : 'mt-1 size-1.5 shrink-0 rounded-full bg-status-warning'
+                    }
+                  />
+                  <span>{issue.message}</span>
+                </button>
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
+      <p className="text-[11px] text-muted-foreground">
+        Drag from a step's right handle to another step to add an edge; select a step or edge to edit it. Delete removes the
+        selection.
+      </p>
+    </div>
+  )
+}

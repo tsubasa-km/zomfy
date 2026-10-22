@@ -38,6 +38,7 @@ import { registerSessionNoteHandlers } from "./handlers/session-note-handlers.ts
 import { registerChatAttachmentHandlers } from "./handlers/chat-attachment-handlers.ts";
 import { registerSettingsHandlers } from "./handlers/settings-handlers.ts";
 import { registerProjectLinkHandlers } from "./handlers/project-link-handlers.ts";
+import { registerWorkflowHandlers } from "./handlers/workflow-handlers.ts";
 import { registerSideChatHandlers } from "./handlers/side-chat-handlers.ts";
 import { registerTerminalHandlers } from "./handlers/terminal-handlers.ts";
 import { registerWorkspaceHandlers } from "./handlers/workspace-handlers.ts";
@@ -395,6 +396,7 @@ export function createHarnessAgent(
     registerVoiceHandlers,
     registerTurnRecoveryHandlers,
     registerProjectLinkHandlers,
+    registerWorkflowHandlers,
   ]) {
     register(ctx);
   }

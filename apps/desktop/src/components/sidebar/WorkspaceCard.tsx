@@ -20,6 +20,7 @@ import { beginSidebarDrag, useSidebarDropTarget, type DragItem } from '@/compone
 import { workspaceLabel } from '@/components/sidebar/workspace-visibility'
 import { DropdownMenu, DropdownMenuContent, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
 import type { WorktreeStatus } from '@/lib/worktree-status'
+import { openWorkflows } from '@/stores/workflows-store'
 import { cn } from '@/lib/utils'
 
 // Markup follows Orca's worktree-card-surface / worktree-card-header / worktree-card-meta-row, with the
@@ -114,6 +115,7 @@ export function WorkspaceCard({
         selectSingle(workspace.id)
         selectWorkspace(workspace.id)
         setBoardOpen(false)
+        openWorkflows(null)
         setTasks({ open: false })
         if (workspace.unread) void updateWorkspace(workspace.id, { unread: false })
       }}

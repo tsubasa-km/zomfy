@@ -6,6 +6,7 @@ import { setBoardOpen, useSidebarStore } from '@/stores/sidebar-store'
 import { setAutomationsPageOpen, useAutomationState } from '@/stores/automation-store'
 import { setCommandPalette, setSkillsPageOpen, useAppOverlays } from '@/stores/app-overlay-store'
 import { getTasks, setTasks, useTasks } from '@/stores/tasks-store'
+import { openWorkflows } from '@/stores/workflows-store'
 import { setSetting, useSetting, type SettingKey } from '@/stores/settings-store'
 import { useShortcutKeys } from '@/keybindings/keybinding-registry'
 import { ShortcutKeyCombo } from '@/components/ShortcutKeyCombo'
@@ -220,6 +221,7 @@ export const SidebarNav = memo(function SidebarNav() {
           onClick={() => {
             setBoardOpen(false)
             setTasks({ open: false })
+            openWorkflows(null)
             showQuickStart()
           }}
           hideSetting="showNewChatButton"

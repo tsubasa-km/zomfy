@@ -22,6 +22,8 @@ import { StatusBar } from '@/components/status-bar/StatusBar'
 import { WorkspaceBoard } from '@/components/sidebar/WorkspaceBoard'
 import { TasksPage } from '@/components/tasks/TasksPage'
 import { WorkspaceMain } from '@/components/WorkspaceColumns'
+import { WorkflowsPage } from '@/components/workflows/WorkflowsPage'
+import { useWorkflowsPage } from '@/stores/workflows-store'
 import { installWorkspaceWindows } from '@/lib/workspace-window'
 import { installLeadActivity } from '@/lib/project-lead'
 import { useTasks } from '@/stores/tasks-store'
@@ -57,6 +59,7 @@ export default function App() {
   usePluginBootstrap()
   const boardOpen = useSidebarStore((s) => s.boardOpen)
   const tasksOpen = useTasks((s) => s.open)
+  const workflowsPage = useWorkflowsPage()
 
   useEffect(() => {
     // index.html shows a themed boot screen until the shell mounts.
@@ -80,7 +83,9 @@ export default function App() {
         <div className="relative flex min-h-0 flex-1 overflow-hidden">
           <Sidebar />
           <main className="flex min-w-0 flex-1">
-            {dashboardOpen ? (
+            {workflowsPage ? (
+              <WorkflowsPage key={`${workflowsPage.hostId}:${workflowsPage.projectId}`} target={workflowsPage} />
+            ) : dashboardOpen ? (
               <AgentDashboard />
             ) : boardOpen ? (
               <WorkspaceBoard />
@@ -90,7 +95,7 @@ export default function App() {
               <WorkspaceMain />
             )}
           </main>
-          {activeWorkspaceId && !dashboardOpen && !boardOpen && !tasksOpen && <RightSidebar workspaceId={activeWorkspaceId} />}
+          {activeWorkspaceId && !workflowsPage && !dashboardOpen && !boardOpen && !tasksOpen && <RightSidebar workspaceId={activeWorkspaceId} />}
           {/* Orca's settings replace the app view; the views stay mounted underneath to keep their state. */}
           {automationsOpen && (
             <div className="absolute inset-0 z-20 flex">
