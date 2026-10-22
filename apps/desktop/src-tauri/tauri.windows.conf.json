@@ -1,0 +1,16 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "bundle": {
+    "targets": ["nsis"],
+    "resources": {
+      "../../../packages/daemon/dist/acp-harness-daemon-windows-x64.exe": "daemon/acp-harness-daemon-windows-x64.exe",
+      "../../../packages/daemon/dist/acp-harness-daemon-linux-x64": "daemon/acp-harness-daemon-linux-x64",
+      "../../../packages/daemon/dist/acp-harness-daemon-linux-arm64": "daemon/acp-harness-daemon-linux-arm64"
+    },
+    "windows": {
+      "nsis": {
+        "installMode": "currentUser"
+      }
+    }
+  }
+}

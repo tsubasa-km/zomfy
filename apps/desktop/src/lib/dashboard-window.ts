@@ -22,7 +22,7 @@ export async function popOutDashboard(): Promise<void> {
   }
   new WebviewWindow(DASHBOARD_WINDOW_LABEL, {
     url: '/index.html?window=dashboard',
-    title: 'Agents — ACP Harness',
+    title: 'Agents — Zomfy',
     width: 1100,
     height: 720,
     minWidth: 560,

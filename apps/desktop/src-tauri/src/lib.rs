@@ -99,6 +99,9 @@ pub fn run() {
             set_minimize_to_tray
         ])
         .setup(|app| {
+            if let Ok(dir) = app.path().resource_dir() {
+                daemon_process::set_resource_dir(dir);
+            }
             tray::create(app.handle())?;
             Ok(())
         })

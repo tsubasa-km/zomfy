@@ -1,24 +1,45 @@
-# acp-harness
+# Zomfy
 
-An agent-first harness. A daemon runs agents (Claude Code today) behind the Agent Client
-Protocol (ACP), and a lightweight Tauri desktop app connects to it over WebSocket.
+A comfy desktop for running coding agents. Zomfy keeps chats, terminals and editors for every
+project in one window, on this computer, inside WSL, or on SSH hosts, so you steer the work
+without juggling windows and contexts.
+
+- **Hosts side by side**: Windows, WSL distros and SSH hosts in one sidebar. A small daemon runs
+  next to the files on each host; the app only connects.
+- **Chats with Claude Code** (and other ACP agents): fork a chat, continue after an interruption,
+  resume automatically once a usage limit resets, keep a markdown memo beside the chat.
+- **Side chat**: select text in a reply and ask about it in a side chat without disturbing the
+  main conversation.
+- **Run commands from the chat**: shell code blocks get a Run button; the output appears under the
+  block and reaches the agent only when you attach it.
+- **Mentions**: attach a file, another chat or a terminal snapshot from the + menu or by dragging a
+  tab onto the composer; the agent reads it on demand.
+- **Workspaces**: git worktrees or plain folders, split views, a floating workspace, a manager
+  agent across projects, tasks, automations and an agent dashboard.
+
+Zomfy started as a port of [Orca](https://github.com/stablyai/orca)'s interface (MIT); see
+[THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
+
+## Install (Windows)
+
+1. Install [Claude Code](https://docs.claude.com/en/docs/claude-code) and sign in once with
+   `claude`. Zomfy runs the `claude` CLI on each host, so it uses that login and settings.
+2. Download `Zomfy_<version>_x64-setup.exe` from
+   [Releases](https://github.com/tsubasa-km/zomfy/releases) and run it.
+   The installer is not code-signed yet, so Windows SmartScreen asks first: choose
+   **More info → Run anyway**.
+3. Optional: WSL distros show up by themselves; add SSH hosts from the sidebar (Zomfy uses your
+   system `ssh` and `~/.ssh/config`, and copies its daemon to `~/.acp-harness/bin` on the host).
+
+## How it fits together
 
 ```
-apps/desktop      Tauri + React UI (Orca-style layout)  ──ws://127.0.0.1:7801/acp──┐
-packages/daemon   Bun ACP agent: Claude Agent SDK behind it  <───────────────────────┘
+apps/desktop      Tauri + React UI  ──ws://127.0.0.1:<port>/acp──┐
+packages/daemon   Bun ACP agent: Claude Agent SDK behind it  <───┘  (one per host)
+packages/protocol The `_harness/*` methods both sides share
 ```
 
-The daemon is meant to run in each environment (Windows, WSL, SSH host) so agents work next to
-their files; the UI only connects.
-
-What works today, following Orca's look and flow:
-
-- Projects (git repos or plain folders) and workspaces. A new workspace is a git worktree at
-  `~/acp-harness/workspaces/<repo>/<name>` on branch `<git user>/<name>`.
-- Workspace tabs, each a Claude session, with Orca's sidebar statuses and "Waiting for you".
-- A floating workspace (Ctrl/Cmd+Alt+A) for work outside any project.
-
-## Run
+## Develop
 
 ```bash
 bun install

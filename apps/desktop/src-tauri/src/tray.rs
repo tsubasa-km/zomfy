@@ -12,7 +12,7 @@ use tauri::tray::{MouseButton, MouseButtonState, TrayIcon, TrayIconBuilder, Tray
 use tauri::{AppHandle, Emitter, Manager, Runtime, Window};
 
 const TRAY_ID: &str = "main";
-const TOOLTIP: &str = "ACP Harness";
+const TOOLTIP: &str = "Zomfy";
 
 static MINIMIZE_TO_TRAY: AtomicBool = AtomicBool::new(false);
 
@@ -51,7 +51,7 @@ fn with_dot(base: &Image<'_>) -> Image<'static> {
 }
 
 fn menu<R: Runtime>(app: &AppHandle<R>, waiting: u32) -> tauri::Result<Menu<R>> {
-    let open = MenuItem::with_id(app, "open", "Open ACP Harness", true, None::<&str>)?;
+    let open = MenuItem::with_id(app, "open", "Open Zomfy", true, None::<&str>)?;
     let quit = MenuItem::with_id(app, "quit", "Quit", true, None::<&str>)?;
     let sep = PredefinedMenuItem::separator(app)?;
     if waiting == 0 {

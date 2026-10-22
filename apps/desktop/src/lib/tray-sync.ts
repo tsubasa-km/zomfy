@@ -43,7 +43,7 @@ export function installTraySync(): void {
       return
     }
     // Once only, as Orca does: closing hid the window, the app and its daemons still run.
-    if (await isPermissionGranted()) sendNotification({ title: 'ACP Harness', body: 'ACP Harness is still running in the system tray' })
+    if (await isPermissionGranted()) sendNotification({ title: 'Zomfy', body: 'Zomfy is still running in the system tray' })
   })
   void listen('tray-jump-needs-you', () => runCommand('agent.jumpToNeedsYou'))
 }

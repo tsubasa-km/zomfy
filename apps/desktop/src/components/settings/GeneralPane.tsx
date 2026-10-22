@@ -65,7 +65,7 @@ export function GeneralPane() {
           {navigator.userAgent.includes('Windows') ? (
             <SettingsSwitchRow
               label="Minimize to Tray on Close"
-              description="When enabled, closing the window keeps ACP Harness and its daemons running in the system tray instead of quitting."
+              description="When enabled, closing the window keeps Zomfy and its daemons running in the system tray instead of quitting."
               keywords={['tray', 'minimize', 'close', 'background']}
               checked={minimizeToTray}
               onChange={(checked) => setSetting('minimizeToTrayOnClose', checked)}

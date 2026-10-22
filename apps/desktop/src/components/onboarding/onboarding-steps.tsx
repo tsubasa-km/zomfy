@@ -219,7 +219,7 @@ export function NotificationStep() {
   const sendTest = async () => {
     if (!isTauri()) return setTest('denied')
     const granted = (await isPermissionGranted()) || (await requestPermission()) === 'granted'
-    if (granted) sendNotification({ title: 'ACP Harness', body: 'Notifications are on.' })
+    if (granted) sendNotification({ title: 'Zomfy', body: 'Notifications are on.' })
     setTest(granted ? 'sent' : 'denied')
   }
   return (

@@ -23,12 +23,12 @@ type StepId = 'agent' | 'theme' | 'wsl' | 'notifications' | 'project'
 const STEP_COPY: Record<StepId, { title: string; subtitle: string; tooltip: string }> = {
   agent: {
     title: 'Pick your default agent',
-    subtitle: "ACP Harness works with every chat agent. Choose the one you'll reach for most. Switch any time.",
+    subtitle: "Zomfy works with every chat agent. Choose the one you'll reach for most. Switch any time.",
     tooltip: 'Default Agent'
   },
   theme: { title: 'Make it feel like home', subtitle: 'Pick the look you want to stare at for hours.', tooltip: 'Appearance' },
   wsl: { title: 'Connect WSL', subtitle: 'Work inside a Linux distro with its own daemon, tools and agents.', tooltip: 'WSL' },
-  notifications: { title: 'Set up notifications', subtitle: 'ACP Harness will notify you when agents are done or need help.', tooltip: 'Notifications' },
+  notifications: { title: 'Set up notifications', subtitle: 'Zomfy will notify you when agents are done or need help.', tooltip: 'Notifications' },
   project: { title: 'Add your first project', subtitle: 'Agents work in projects: a repository or folder, with a workspace per task.', tooltip: 'Project' }
 }
 
@@ -86,13 +86,13 @@ function OnboardingFlow({ onImportOrca }: { onImportOrca: () => void }) {
     >
       <section
         role="dialog"
-        aria-label="ACP Harness onboarding"
+        aria-label="Zomfy onboarding"
         aria-modal="true"
         data-onboarding-modal
         className="relative flex h-[calc(100vh-2rem)] max-h-[960px] min-h-0 w-[calc(100vw-2rem)] max-w-[1100px] flex-col overflow-hidden rounded-xl border border-border bg-card text-card-foreground shadow-[0_10px_24px_rgba(0,0,0,0.18)]"
       >
         <div className="relative flex h-full min-h-0 flex-col px-6 pt-8 pb-6 sm:px-8 sm:pt-9 sm:pb-8">
-          <div className="text-base font-semibold tracking-tight">ACP Harness</div>
+          <div className="text-base font-semibold tracking-tight">Zomfy</div>
 
           <div className="mt-10 flex items-center gap-2">
             {STEPS.map((id, i) => (
@@ -121,7 +121,7 @@ function OnboardingFlow({ onImportOrca }: { onImportOrca: () => void }) {
           </div>
 
           <div className="mt-8 shrink-0">
-            {index === 0 ? <div className="mb-2 text-xs font-medium tracking-[0.18em] text-muted-foreground uppercase">Welcome to ACP Harness</div> : null}
+            {index === 0 ? <div className="mb-2 text-xs font-medium tracking-[0.18em] text-muted-foreground uppercase">Welcome to Zomfy</div> : null}
             <h1 className="text-[34px] leading-[1.15] font-semibold tracking-tight text-foreground" data-onboarding-step={step}>
               {copy.title}
             </h1>

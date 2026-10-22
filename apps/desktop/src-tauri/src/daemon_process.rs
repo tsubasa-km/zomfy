@@ -5,6 +5,7 @@
 use std::net::{SocketAddr, TcpStream};
 use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio};
+use std::sync::OnceLock;
 use std::time::{Duration, Instant};
 
 #[cfg(windows)]
@@ -17,12 +18,24 @@ const CREATE_NEW_PROCESS_GROUP: u32 = 0x0000_0200;
 #[cfg(windows)]
 const CREATE_BREAKAWAY_FROM_JOB: u32 = 0x0100_0000;
 
-/// Where `bun run build` in packages/daemon leaves the binaries; packaged builds will bundle them.
+static RESOURCE_DIR: OnceLock<PathBuf> = OnceLock::new();
+
+/// The installed app's resource folder, where the installer put the daemon binaries.
+pub fn set_resource_dir(dir: PathBuf) {
+    let _ = RESOURCE_DIR.set(dir);
+}
+
+/// The daemon binary `name`: bundled under `daemon/` in an installed app (tauri.windows.conf.json),
+/// else where `bun run build` in packages/daemon leaves it (dev builds).
 pub fn built_binary(name: &str) -> Result<PathBuf, String> {
-    let path = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../../packages/daemon/dist").join(name);
+    let bundled = RESOURCE_DIR.get().map(|dir| dir.join("daemon").join(name));
+    let path = match bundled {
+        Some(path) if !cfg!(debug_assertions) && path.is_file() => path,
+        _ => PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../../packages/daemon/dist").join(name),
+    };
     path.canonicalize()
         .map(|p| PathBuf::from(p.to_string_lossy().trim_start_matches(r"\\?\")))
-        .map_err(|_| format!("Daemon not built: run `bun run build` in packages/daemon ({})", path.display()))
+        .map_err(|_| format!("Daemon binary missing: {} (dev builds: run `bun run build` in packages/daemon)", path.display()))
 }
 
 /// Size + mtime: enough to tell builds apart without hashing a 90 MB file.

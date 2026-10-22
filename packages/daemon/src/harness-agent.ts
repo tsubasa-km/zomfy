@@ -272,7 +272,7 @@ export function createHarnessAgent(
         loadSession: true,
         promptCapabilities: { embeddedContext: true, image: true },
       },
-      agentInfo: { name: "acp-harness", title: "ACP Harness", version: "0.0.1" },
+      agentInfo: { name: "acp-harness", title: "Zomfy", version: "0.0.1" },
       };
     })
     .onRequest("authenticate", () => ({}))

@@ -139,7 +139,7 @@ export class AcpAgentSession {
         protocolVersion: acp.PROTOCOL_VERSION,
         // No fs or terminal: the agent edits and runs commands itself, on this same host.
         clientCapabilities: { fs: { readTextFile: false, writeTextFile: false }, terminal: false },
-        clientInfo: { name: 'acp-harness', title: 'ACP Harness', version: '0.0.1' }
+        clientInfo: { name: 'acp-harness', title: 'Zomfy', version: '0.0.1' }
       })
       const capabilities = init.agentCapabilities ?? {}
       const { agentSessionId, setup } = await this.openSession(conn, capabilities)
