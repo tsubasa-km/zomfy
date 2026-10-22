@@ -10,6 +10,7 @@ import { AgentDashboard } from '@/components/AgentDashboard'
 import { SettingsPage } from '@/components/settings/SettingsPage'
 import { SkillsPage } from '@/components/skills/SkillsPage'
 import { installSkillsCommands } from '@/components/skills/skills-commands'
+import { usePluginBootstrap } from '@/plugins/plugin-registry'
 import { QuickOpen } from '@/components/QuickOpen'
 import { CommandPalette } from '@/components/CommandPalette'
 import { StatusBar } from '@/components/status-bar/StatusBar'
@@ -37,6 +38,7 @@ export default function App() {
   const dashboardOpen = useStore((s) => s.dashboardOpen)
   const settingsOpen = useAppOverlays((s) => s.settings.open)
   const skillsOpen = useAppOverlays((s) => s.skills)
+  usePluginBootstrap()
   const boardOpen = useSidebarStore((s) => s.boardOpen)
 
   useEffect(() => {

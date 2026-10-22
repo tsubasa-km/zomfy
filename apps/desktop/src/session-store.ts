@@ -103,7 +103,8 @@ export interface SidebarView {
   sortBy: 'created' | 'name' | 'recent' | 'manual'
 }
 
-export type RightSidebarTab = 'explorer' | 'search' | 'source-control' | 'ports'
+/** `plugin:<publisher.id>/<panelId>` names an enabled plugin's panel. */
+export type RightSidebarTab = 'explorer' | 'search' | 'source-control' | 'ports' | `plugin:${string}`
 
 export interface StoreState {
   hosts: Record<HostId, HostEntry>

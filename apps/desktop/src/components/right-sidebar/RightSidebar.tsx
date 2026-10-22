@@ -7,6 +7,9 @@ import { FileExplorer } from './FileExplorer'
 import { SourceControl } from './SourceControl'
 import { SearchPanel } from './SearchPanel'
 import { PortsPanel } from './PortsPanel'
+import { PluginPanel } from './PluginPanel'
+import { useActivePluginPanels } from '@/plugins/plugin-registry'
+import { resolvePluginPanelIcon } from '@/plugins/plugin-panel-icons'
 import { cn } from '@/lib/utils'
 
 // Frame and top activity bar follow Orca's right sidebar (right-sidebar/index.tsx,
@@ -27,6 +30,9 @@ export function RightSidebar({ workspaceId }: { workspaceId: string }) {
   const searchLabel = withShortcut('Search', useShortcutLabel('sidebar.search.toggle'))
   const sourceControlLabel = withShortcut('Source Control', useShortcutLabel('sidebar.sourceControl.toggle'))
   const portsLabel = withShortcut('Ports', useShortcutLabel('sidebar.ports.toggle'))
+  // Enabled plugins' panels join the activity bar after the built-in tabs, as in Orca.
+  const pluginPanels = useActivePluginPanels()
+  const activePluginPanel = pluginPanels.find((p) => p.tab === tab)
 
   if (!open) {
     return (
@@ -40,6 +46,14 @@ export function RightSidebar({ workspaceId }: { workspaceId: string }) {
           onClick={() => setRightSidebar({ open: true, tab: 'source-control' })}
         />
         <ActivityButton icon={Plug} label={portsLabel} onClick={() => setRightSidebar({ open: true, tab: 'ports' })} />
+        {pluginPanels.map((panel) => (
+          <ActivityButton
+            key={panel.tab}
+            icon={resolvePluginPanelIcon(panel.icon)}
+            label={`${panel.title} · ${panel.pluginName}`}
+            onClick={() => setRightSidebar({ open: true, tab: panel.tab })}
+          />
+        ))}
       </div>
     )
   }
@@ -72,6 +86,16 @@ export function RightSidebar({ workspaceId }: { workspaceId: string }) {
           onClick={() => setRightSidebar({ tab: 'source-control' })}
         />
         <ActivityButton top icon={Plug} label={portsLabel} active={tab === 'ports'} onClick={() => setRightSidebar({ tab: 'ports' })} />
+        {pluginPanels.map((panel) => (
+          <ActivityButton
+            key={panel.tab}
+            top
+            icon={resolvePluginPanelIcon(panel.icon)}
+            label={`${panel.title} · ${panel.pluginName}`}
+            active={tab === panel.tab}
+            onClick={() => setRightSidebar({ tab: panel.tab })}
+          />
+        ))}
         <div className="ml-auto pr-1">
           <ActivityButton top icon={PanelRightClose} label="Close sidebar" onClick={() => setRightSidebar({ open: false })} />
         </div>
@@ -82,6 +106,8 @@ export function RightSidebar({ workspaceId }: { workspaceId: string }) {
         <SearchPanel key={workspaceId} workspaceId={workspaceId} />
       ) : tab === 'ports' ? (
         <PortsPanel key={workspaceId} workspaceId={workspaceId} />
+      ) : activePluginPanel ? (
+        <PluginPanel key={activePluginPanel.tab} panel={activePluginPanel} workspaceId={workspaceId} />
       ) : (
         <SourceControl key={workspaceId} workspaceId={workspaceId} />
       )}

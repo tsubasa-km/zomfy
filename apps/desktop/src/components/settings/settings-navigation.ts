@@ -1,4 +1,4 @@
-import { Bell, BookOpen, Bot, Keyboard, Palette, Server, SlidersHorizontal, SquareTerminal, TextCursorInput, type LucideIcon } from 'lucide-react'
+import { Bell, BookOpen, Bot, Blocks, Keyboard, Palette, Server, SlidersHorizontal, SquareTerminal, TextCursorInput, type LucideIcon } from 'lucide-react'
 
 // Orca's settings sidebar groups and sections (hooks/settings-navigation-*-sections.ts), trimmed
 // to what the harness has. Search entries mirror each pane's rows so search finds a setting.
@@ -47,6 +47,17 @@ export const SETTINGS_SECTIONS: readonly SettingsNavSection[] = [
     entries: [
       { title: 'Open Skills', keywords: ['skills', 'SKILL.md', 'browse'] },
       { title: 'Show Skills in sidebar', keywords: ['skills', 'sidebar', 'button'] }
+    ]
+  },
+  {
+    id: 'plugins',
+    title: 'Plugins',
+    description: 'Panels and commands from plugin folders on this computer.',
+    icon: Blocks,
+    group: 'capabilities',
+    entries: [
+      { title: 'Plugins folder', keywords: ['plugin', 'install', 'folder', 'orca-plugin.json'] },
+      { title: 'Installed plugins', keywords: ['plugin', 'enable', 'disable', 'panel', 'command'] }
     ]
   },
   {

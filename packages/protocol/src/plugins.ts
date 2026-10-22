@@ -96,5 +96,9 @@ export interface PluginRequests {
     params: { pluginKey: string; enabled: boolean; consentFingerprint?: string }
     result: PluginsSnapshot
   }
-  [PLUGIN_METHODS.pluginPanelRead]: { params: { pluginKey: string; panelId: string }; result: { html: string } }
+  /** Issues a daemon URL path serving the panel under its own CSP, themed like the app. */
+  [PLUGIN_METHODS.pluginPanelRead]: {
+    params: { pluginKey: string; panelId: string; theme?: { scheme: 'dark' | 'light'; tokensCss: string } }
+    result: { path: string }
+  }
 }
