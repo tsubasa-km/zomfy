@@ -3,11 +3,19 @@ import {
   HARNESS_NOTIFICATIONS,
   MANAGER_MCP_SERVER_NAME,
   MANAGER_SYSTEM_PROMPT,
+  TURN_RECOVERY_META,
+  TURN_RECOVERY_NOTIFICATIONS,
   chatAgentLabel,
   type HarnessMethod,
   type HarnessRequests,
+  type TurnEndMeta,
+  type TurnResumeKind,
 } from "@acp-harness/protocol";
 import { runClaudeTurn } from "./claude-turn.ts";
+import { TurnAutoResume } from "./turn-auto-resume.ts";
+import { recoveryPrompt } from "./turn-recovery.ts";
+import { detectUsageLimit } from "./usage-limit.ts";
+import { registerTurnRecoveryHandlers } from "./handlers/turn-recovery-handlers.ts";
 import { AcpAgentSessions } from "./acp-agent-sessions.ts";
 import { chatAgentLaunch } from "./chat-agent-launch-settings.ts";
 import { noteSlashCommands } from "./claude-catalog.ts";
@@ -74,7 +82,35 @@ export function createHarnessAgent(
   }
   const acpAgents = new AcpAgentSessions(sessions, emit);
 
-  type Ask = (request: acp.RequestPermissionRequest) => Promise<acp.RequestPermissionResponse>;
+  /**
+   * Starts a recovery turn and returns once it is running; it goes on without any window, and
+   * permission asks reach whichever window is open.
+   */
+  async function startRecovery(sessionId: string, kind: TurnResumeKind): Promise<"started" | "busy" | "gone"> {
+    if (!sessions.get(sessionId)) return "gone";
+    if (pendingTurns.has(sessionId)) return "busy";
+    const blocks = recoveryPrompt(await sessions.transcript(sessionId));
+    void prompt({ sessionId, prompt: blocks }, askAnyClient, null, kind).catch(() => undefined);
+    return "started";
+  }
+
+  const autoResume = new TurnAutoResume(
+    sessions,
+    async (sessionId) => {
+      const outcome = await startRecovery(sessionId, "auto");
+      if (outcome === "started") broadcast(TURN_RECOVERY_NOTIFICATIONS.autoResumed, { sessionId });
+      return outcome;
+    },
+    (sessionId) =>
+      void emit(sessionId, {
+        sessionUpdate: "notice",
+        severity: "warning",
+        title: "Stopped resuming automatically: the usage limit kept refusing. Resume when you're ready.",
+      }).catch(() => undefined),
+  );
+  autoResume.start();
+
+  type Ask =(request: acp.RequestPermissionRequest) => Promise<acp.RequestPermissionResponse>;
 
   /** For turns no client started (automations): the newest window that answers permission asks. */
   const askAnyClient: Ask = async (request) => {
@@ -93,8 +129,16 @@ export function createHarnessAgent(
     return { outcome: { outcome: "cancelled" } };
   };
 
-  /** `client` is the window that started the turn (null for automations); manager tool calls route through it. */
-  async function prompt(params: acp.PromptRequest, ask: Ask, client: acp.AgentContext | null): Promise<acp.PromptResponse> {
+  /**
+   * `client` is the window that started the turn (null for automations); manager tool calls route
+   * through it. `resumed` marks a recovery turn, whose prompt the transcript shows as a divider.
+   */
+  async function prompt(
+    params: acp.PromptRequest,
+    ask: Ask,
+    client: acp.AgentContext | null,
+    resumed?: TurnResumeKind,
+  ): Promise<acp.PromptResponse> {
     const session = sessions.get(params.sessionId);
     if (!session) throw new Error(`Unknown session ${params.sessionId}`);
 
@@ -116,7 +160,12 @@ export function createHarnessAgent(
     });
     const messageId = crypto.randomUUID();
     for (const block of params.prompt) {
-      await emit(session.id, { sessionUpdate: "user_message_chunk", messageId, content: block });
+      await emit(session.id, {
+        sessionUpdate: "user_message_chunk",
+        messageId,
+        content: block,
+        ...(resumed ? { _meta: { [TURN_RECOVERY_META.resumed]: resumed } } : {}),
+      });
     }
 
     const askPermission = async (request: acp.RequestPermissionRequest) => {
@@ -132,6 +181,23 @@ export function createHarnessAgent(
     const seed = session.seedContext;
     const agentPrompt: acp.ContentBlock[] = seed ? [{ type: "text", text: seed }, ...params.prompt] : params.prompt;
     if (seed) sessions.update(session.id, { seedContext: null });
+
+    // Set by the turn when it ends short (a usage limit, an error); a holder, as a callback writes it.
+    const outcome: { end: TurnEndMeta | null } = { end: null };
+    // A Stop (not a newer prompt taking over, nor the chat closing) leaves a row that offers Continue.
+    const interrupted = async (): Promise<acp.PromptResponse> => {
+      if (pendingTurns.get(session.id) !== abort || !sessions.get(session.id)) return { stopReason: "cancelled" };
+      sessions.update(session.id, { status: "idle", turnStartedAt: null, claudeSessionId: session.claudeSessionId });
+      const stopped: TurnEndMeta = { reason: "interrupted" };
+      await emit(session.id, {
+        sessionUpdate: "notice",
+        severity: "info",
+        title: "Stopped",
+        _meta: { [TURN_RECOVERY_META.turnEnd]: stopped },
+      }).catch(() => undefined);
+      autoResume.turnEnded(session.id, stopped);
+      return { stopReason: "cancelled" };
+    };
 
     try {
       const stopReason = external
@@ -155,21 +221,31 @@ export function createHarnessAgent(
         mcpServers: managerMcp.claudeServers(session.id, session.role === "manager"),
         allowedTools: autoAllowedManagerTools(session.role, MANAGER_MCP_SERVER_NAME),
         ...(session.role === "manager" ? { appendSystemPrompt: MANAGER_SYSTEM_PROMPT } : {}),
+        onTurnEnd: (turnEnd) => (outcome.end = turnEnd),
       });
-      sessions.update(session.id, { status: "idle", turnStartedAt: null, claudeSessionId: session.claudeSessionId });
+      if (stopReason === "cancelled" || abort.signal.aborted) return await interrupted();
+      sessions.update(session.id, {
+        status: outcome.end ? "error" : "idle",
+        turnStartedAt: null,
+        claudeSessionId: session.claudeSessionId,
+      });
+      autoResume.turnEnded(session.id, outcome.end);
       return { stopReason };
     } catch (error) {
-      if (abort.signal.aborted) {
-        sessions.update(session.id, { status: "idle", turnStartedAt: null });
-        return { stopReason: "cancelled" };
-      }
+      if (abort.signal.aborted) return await interrupted();
       log(`turn failed: ${error instanceof Error ? error.stack : String(error)}`);
-      if (external) {
-        // An agent's own failure (not signed in, exited) stays in the transcript, not just this reply.
-        const title = error instanceof Error ? error.message : String(error);
-        await emit(session.id, { sessionUpdate: "notice", severity: "error", title }).catch(() => undefined);
-      }
-      sessions.update(session.id, { status: "error", turnStartedAt: null });
+      // The failure stays in the transcript, not just this reply, and can offer Retry or Resume.
+      const title = error instanceof Error ? error.message : String(error);
+      const limit = external ? undefined : detectUsageLimit({ text: title });
+      const failed: TurnEndMeta = limit ? { reason: "usage-limit", resetsAt: limit.resetsAt } : { reason: "error" };
+      await emit(session.id, {
+        sessionUpdate: "notice",
+        severity: "error",
+        title,
+        _meta: { [TURN_RECOVERY_META.turnEnd]: failed },
+      }).catch(() => undefined);
+      sessions.update(session.id, { status: "error", turnStartedAt: null, claudeSessionId: session.claudeSessionId });
+      autoResume.turnEnded(session.id, failed);
       throw error;
     } finally {
       if (pendingTurns.get(session.id) === abort) pendingTurns.delete(session.id);
@@ -247,6 +323,8 @@ export function createHarnessAgent(
     sessions,
     terminals,
     pendingTurns,
+    startRecovery,
+    autoResume,
     acpAgents,
     broadcast,
     async runTurn(sessionId, text) {
@@ -277,6 +355,7 @@ export function createHarnessAgent(
     registerSkillHandlers,
     registerPluginHandlers,
     registerVoiceHandlers,
+    registerTurnRecoveryHandlers,
   ]) {
     register(ctx);
   }
