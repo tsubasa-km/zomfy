@@ -43,6 +43,20 @@ export class WorkspaceManager {
     } catch {
       // First run: nothing saved yet.
     }
+    // Remotes change outside Zomfy; reread them in the background so startup does not wait on git.
+    void this.refreshRemotes()
+  }
+
+  private async refreshRemotes(): Promise<void> {
+    let changed = false
+    for (const project of this.state.projects) {
+      if (project.kind !== 'git') continue
+      const identity = await repositoryIdentity(project.path)
+      if (identity.remoteUrl === project.remoteUrl && identity.rootCommit === project.rootCommit) continue
+      Object.assign(project, identity)
+      changed = true
+    }
+    if (changed) await this.save().catch((error) => log(`saving remotes failed: ${String(error)}`))
   }
 
   onChange(listener: (state: HarnessState) => void): () => void {
@@ -107,7 +121,8 @@ export class WorkspaceManager {
       name: basename(root).replace(/\.git$/, ''),
       path: root,
       kind: isGit ? 'git' : 'folder',
-      sortOrder: Math.max(-1, ...this.state.projects.map((p) => p.sortOrder ?? 0)) + 1
+      sortOrder: Math.max(-1, ...this.state.projects.map((p) => p.sortOrder ?? 0)) + 1,
+      ...(isGit ? await repositoryIdentity(root) : {})
     }
     this.state.projects.push(project)
     // The project's own checkout is always a workspace, like Orca's main worktree.
@@ -422,6 +437,25 @@ export class WorkspaceManager {
     const snapshot = await this.snapshot()
     for (const listener of this.listeners) listener(snapshot)
   }
+}
+
+/** `origin`'s URL (else the first remote's) and the first commit; '' for none, left out when git could not tell. */
+async function repositoryIdentity(path: string): Promise<Pick<Project, 'remoteUrl' | 'rootCommit'>> {
+  const identity: Pick<Project, 'remoteUrl' | 'rootCommit'> = {}
+  try {
+    const remotes = (await git(path, ['remote'], { quiet: true })).split('\n').filter(Boolean)
+    const name = remotes.includes('origin') ? 'origin' : remotes[0]
+    // `remote get-url` needs Git 2.7; `config` reads the same value on any version.
+    identity.remoteUrl = name ? (await git(path, ['config', '--get', `remote.${name}.url`], { quiet: true })).trim() : ''
+  } catch {
+    // Unreadable remotes leave the field as it was.
+  }
+  // An empty repository has no commits, so rev-list fails; that reads as ''.
+  identity.rootCommit = await git(path, ['rev-list', '--max-parents=0', 'HEAD'], { quiet: true }).then(
+    (out) => out.split('\n').filter(Boolean).sort()[0] ?? '',
+    () => ''
+  )
+  return identity
 }
 
 /** `git worktree list --porcelain` (Git 2.7+); prunable entries whose folder is gone are skipped. */

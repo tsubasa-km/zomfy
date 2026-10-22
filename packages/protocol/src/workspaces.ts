@@ -24,6 +24,12 @@ export interface Project {
   groupId?: string
   /** Manual order (Orca's "Project order: Manual"); lower first. */
   sortOrder?: number
+  /**
+   * Who this repository is, so clients can show its copies on several hosts as one project: the
+   * `origin` URL (else the first remote's) and the first commit; '' when there is none.
+   */
+  remoteUrl?: string
+  rootCommit?: string
 }
 
 /** Orca's project groups: a named folder of projects in the sidebar. */
