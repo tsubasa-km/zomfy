@@ -43,7 +43,7 @@ export type ThreadItem =
       chosen: string | null
     }
 
-/** 'local' is the desktop's own OS; 'wsl:<distro>' a daemon inside WSL. */
+/** 'local' is the desktop's own OS; 'wsl:<distro>' a daemon inside WSL; 'ssh:<alias or user@host[:port]>' one on an SSH host. */
 export type HostId = string
 
 /** The daemon owns status, title and timing; the window adds the transcript it has loaded. */
@@ -59,10 +59,16 @@ export type HostedTerminal = TerminalInfo & { hostId: HostId }
 export type HostedProject = Project & { hostId: HostId }
 export type HostedWorkspace = Workspace & { hostId: HostId }
 
+/**
+ * What is known about a remote host's daemon while this window cannot use it. Loss of contact is
+ * never evidence the daemon died, so an unreachable host is `unverifiable`, not `exited`.
+ */
+export type DaemonVerdict = 'live' | 'unverifiable' | 'exited'
+
 export type ConnectionState =
   | { kind: 'connecting' }
   | { kind: 'connected'; url: string }
-  | { kind: 'offline'; reason: string }
+  | { kind: 'offline'; reason: string; daemon?: DaemonVerdict }
 
 export interface HostEntry {
   id: HostId
@@ -71,6 +77,8 @@ export interface HostEntry {
   harness: HarnessState | null
   /** Shells this host offers for new terminal tabs. */
   shells: ShellOption[]
+  /** Something the last connect found that the user should know (a daemon that had exited). */
+  notice?: string
 }
 
 /** File previews and diffs opened from the right sidebar; they live only in this window. */
@@ -108,7 +116,7 @@ export interface StoreState {
   editorTabs: EditorTab[]
   rightSidebar: { open: boolean; tab: RightSidebarTab }
   sidebarView: SidebarView
-  /** WSL distros to reconnect on startup. */
+  /** WSL distros and SSH hosts to reconnect on startup. */
   rememberedHosts: HostId[]
   /** Sessions whose latest turn ended (or asked for approval) since the user last looked. */
   unread: Record<string, true>
@@ -202,12 +210,32 @@ export function getState(): StoreState {
 export function upsertHost(id: HostId, change: Partial<HostEntry>): void {
   const current: HostEntry = state.hosts[id] ?? {
     id,
-    label: id === LOCAL_HOST ? 'This computer' : id.replace(/^wsl:/, 'WSL: '),
+    label: hostLabel(id),
     connection: { kind: 'connecting' },
     harness: null,
     shells: []
   }
   set({ ...state, hosts: { ...state.hosts, [id]: { ...current, ...change } } })
+}
+
+export function hostLabel(id: HostId): string {
+  if (id === LOCAL_HOST) return 'This computer'
+  return id.replace(/^wsl:/, 'WSL: ').replace(/^ssh:/, 'SSH: ')
+}
+
+/** Drops a disconnected host and everything of its from this window; reconnecting brings it back. */
+export function forgetHost(id: HostId): void {
+  if (id === LOCAL_HOST) return
+  const { [id]: gone, ...hosts } = state.hosts
+  if (!gone) return
+  const workspaceIds = new Set(gone.harness?.workspaces.map((w) => w.id) ?? [])
+  set({
+    ...state,
+    hosts,
+    sessions: state.sessions.filter((s) => s.hostId !== id),
+    terminals: state.terminals.filter((t) => t.hostId !== id),
+    activeWorkspaceId: state.activeWorkspaceId && workspaceIds.has(state.activeWorkspaceId) ? null : state.activeWorkspaceId
+  })
 }
 
 export function rememberHost(id: HostId, remember: boolean): void {

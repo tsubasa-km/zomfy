@@ -1,13 +1,26 @@
 import { useState } from 'react'
 import { invoke, isTauri } from '@tauri-apps/api/core'
 import { open } from '@tauri-apps/plugin-dialog'
-import { Download, FolderPlus, GitBranchPlus, Kanban, LayoutDashboard, Plus, Server, SquarePlus, Folders } from 'lucide-react'
+import {
+  Download,
+  FolderInput,
+  FolderPlus,
+  GitBranchPlus,
+  Kanban,
+  LayoutDashboard,
+  Plus,
+  Server,
+  SquarePlus,
+  Folders,
+  TerminalSquare
+} from 'lucide-react'
 import { addProject, connectHost } from '@/daemon-connection'
 import { LOCAL_HOST, setDashboardOpen, useStore, type HostId } from '@/session-store'
 import { setBoardOpen, useSidebarStore } from '@/stores/sidebar-store'
 import { SidebarFilterMenu } from '@/components/sidebar/SidebarFilterMenu'
 import { WorkspaceOptionsMenu } from '@/components/sidebar/WorkspaceOptionsMenu'
 import type { AddRepoMode } from '@/components/sidebar/AddRepoDialog'
+import { SshConnectDialog } from '@/components/sidebar/SshConnectDialog'
 import { Button } from '@/components/ui/button'
 import {
   DropdownMenu,
@@ -111,7 +124,9 @@ function AddMenu({
   onNewGroup: (hostId: HostId) => void
 }) {
   const [distros, setDistros] = useState<string[] | null>(null)
+  const [sshOpen, setSshOpen] = useState(false)
   const hosts = useStore((s) => s.hosts)
+  const remoteConnected = Object.values(hosts).some((h) => h.id !== LOCAL_HOST && h.connection.kind === 'connected')
 
   async function pickFolder() {
     const folder = await open({ directory: true, title: 'Add a project folder or git repository' })
@@ -119,6 +134,7 @@ function AddMenu({
   }
 
   return (
+    <>
     <DropdownMenu
       onOpenChange={(o) => {
         if (o && distros === null && isTauri()) void invoke<string[]>('wsl_distros').then(setDistros, () => setDistros([]))
@@ -134,6 +150,12 @@ function AddMenu({
           <FolderPlus className="size-4" />
           Add project…
         </DropdownMenuItem>
+        {remoteConnected && (
+          <DropdownMenuItem data-add="path" onSelect={() => onAddRepo('path')}>
+            <FolderInput className="size-4" />
+            Add project on host…
+          </DropdownMenuItem>
+        )}
         <DropdownMenuItem data-add="clone" onSelect={() => onAddRepo('clone')}>
           <GitBranchPlus className="size-4" />
           Clone repository…
@@ -150,6 +172,11 @@ function AddMenu({
         <DropdownMenuItem data-add="group" onSelect={() => onNewGroup(LOCAL_HOST)}>
           <Folders className="size-4" />
           New project group…
+        </DropdownMenuItem>
+        <DropdownMenuSeparator />
+        <DropdownMenuItem data-add="ssh" onSelect={() => setSshOpen(true)}>
+          <TerminalSquare className="size-4" />
+          Connect SSH host…
         </DropdownMenuItem>
         {distros && distros.length > 0 && (
           <>
@@ -173,5 +200,7 @@ function AddMenu({
         )}
       </DropdownMenuContent>
     </DropdownMenu>
+    <SshConnectDialog open={sshOpen} onClose={() => setSshOpen(false)} />
+    </>
   )
 }

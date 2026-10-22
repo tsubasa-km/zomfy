@@ -117,11 +117,11 @@ export const SETTINGS_SECTIONS: readonly SettingsNavSection[] = [
   {
     id: 'hosts',
     title: 'Hosts',
-    description: 'This computer and WSL distros: connection state and per-host settings.',
+    description: 'This computer, WSL distros and SSH hosts: connection state and per-host settings.',
     icon: Server,
     group: 'remote',
     entries: [
-      { title: 'Connection', keywords: ['daemon', 'wsl', 'remote', 'connected', 'offline'] },
+      { title: 'Connection', keywords: ['daemon', 'wsl', 'ssh', 'remote', 'tunnel', 'connected', 'offline'] },
       { title: 'Default shell', keywords: ['shell'] }
     ]
   }

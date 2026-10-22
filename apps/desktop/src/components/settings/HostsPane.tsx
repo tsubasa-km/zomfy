@@ -1,12 +1,13 @@
-import { RefreshCw } from 'lucide-react'
-import { connectHost } from '@/daemon-connection'
+import { RefreshCw, Unplug } from 'lucide-react'
+import { connectHost, disconnectHost } from '@/daemon-connection'
 import { LOCAL_HOST, useStore, type HostEntry } from '@/session-store'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
+import { SshHostPicker } from '@/components/ssh/SshHostPicker'
 import { DefaultShellRow } from './TerminalPane'
 import { SettingsRow, SettingsSubsectionHeader } from './settings-form-controls'
 
-/** Connection dot colours follow Orca's SshStatusSegment. */
+/** Connection dot colours follow Orca's SshStatusSegment; an unverifiable daemon is not shown as dead. */
 export function hostDotClass(host: Pick<HostEntry, 'connection'>): string {
   switch (host.connection.kind) {
     case 'connected':
@@ -14,18 +15,32 @@ export function hostDotClass(host: Pick<HostEntry, 'connection'>): string {
     case 'connecting':
       return 'bg-status-warning'
     case 'offline':
-      return 'bg-destructive'
+      return host.connection.daemon === 'unverifiable'
+        ? 'bg-muted-foreground'
+        : host.connection.daemon === 'live'
+          ? 'bg-status-warning'
+          : 'bg-destructive'
   }
 }
 
 export function hostConnectionLabel(host: Pick<HostEntry, 'connection'>): string {
-  switch (host.connection.kind) {
+  const c = host.connection
+  switch (c.kind) {
     case 'connected':
       return 'Connected'
     case 'connecting':
       return 'Connecting…'
     case 'offline':
-      return `Offline: ${host.connection.reason}`
+      switch (c.daemon) {
+        case 'unverifiable':
+          return `Unreachable, daemon state unverifiable: ${c.reason}`
+        case 'live':
+          return `Daemon live but not reachable from here: ${c.reason}`
+        case 'exited':
+          return `Daemon exited: ${c.reason}`
+        default:
+          return `Offline: ${c.reason}`
+      }
   }
 }
 
@@ -49,14 +64,23 @@ function HostCard({ host }: { host: HostEntry }) {
         }
         description={hostConnectionLabel(host)}
         action={
-          host.connection.kind === 'offline' ? (
-            <Button variant="outline" size="xs" onClick={() => void connectHost(host.id)}>
-              <RefreshCw />
-              Reconnect
-            </Button>
-          ) : null
+          <span className="inline-flex gap-1.5">
+            {host.connection.kind === 'offline' ? (
+              <Button variant="outline" size="xs" onClick={() => void connectHost(host.id)}>
+                <RefreshCw />
+                Reconnect
+              </Button>
+            ) : null}
+            {host.id !== LOCAL_HOST ? (
+              <Button variant="outline" size="xs" onClick={() => disconnectHost(host.id)}>
+                <Unplug />
+                Disconnect
+              </Button>
+            ) : null}
+          </span>
         }
       />
+      {host.notice ? <p className="text-xs text-muted-foreground">{host.notice}</p> : null}
       <div className="divide-y divide-border/40">
         <SettingsRow
           label="Connection"
@@ -82,6 +106,10 @@ export function HostsPane() {
       {list.map((host) => (
         <HostCard key={host.id} host={host} />
       ))}
+      <div className="space-y-2 rounded-lg border border-border/60 bg-background/40 px-4 py-3" data-ssh-connect>
+        <SettingsSubsectionHeader title="Connect SSH host" description="Runs a daemon on the host and reaches it through an SSH tunnel." />
+        <SshHostPicker />
+      </div>
     </div>
   )
 }
