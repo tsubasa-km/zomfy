@@ -35,6 +35,22 @@ export interface AppSettings {
   statusBarHiddenItems: string[]
   /** Keybinding overrides by command id; an empty list disables the command's shortcut. */
   keybindings: Record<string, string[]>
+  /** Orca's opt-in Skills button in the sidebar. */
+  showSkillsButton: boolean
+  /** Agent new chats start with (Orca's defaultTuiAgent); 'claude' unless onboarding or settings pick another. */
+  defaultChatAgent: string
+  /** First-run flow finished or skipped; settings can reopen it. */
+  onboardingDone: boolean
+  /** Windows: closing the window hides it to the tray instead of quitting (Orca's minimizeToTrayOnClose). */
+  minimizeToTrayOnClose: boolean
+  /** Composer dictation, sent only to the transcription endpoint configured below. */
+  voiceDictationEnabled: boolean
+  /** OpenAI-compatible `/audio/transcriptions` base URL, e.g. https://api.openai.com/v1 or a local server. */
+  dictationEndpoint: string
+  dictationModel: string
+  dictationApiKey: string
+  /** Empty lets the service detect the language. */
+  dictationLanguage: string
 }
 
 export const DEFAULT_SETTINGS: AppSettings = {
@@ -58,7 +74,16 @@ export const DEFAULT_SETTINGS: AppSettings = {
   notifySuppressWhenFocused: true,
   statusBarVisible: true,
   statusBarHiddenItems: [],
-  keybindings: {}
+  keybindings: {},
+  showSkillsButton: false,
+  defaultChatAgent: 'claude',
+  onboardingDone: false,
+  minimizeToTrayOnClose: false,
+  voiceDictationEnabled: false,
+  dictationEndpoint: '',
+  dictationModel: 'whisper-1',
+  dictationApiKey: '',
+  dictationLanguage: ''
 }
 
 export type SettingKey = keyof AppSettings

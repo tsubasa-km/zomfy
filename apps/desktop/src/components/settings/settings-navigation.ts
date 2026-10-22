@@ -1,4 +1,4 @@
-import { Bell, Bot, Keyboard, Palette, Server, SlidersHorizontal, SquareTerminal, TextCursorInput, type LucideIcon } from 'lucide-react'
+import { Bell, BookOpen, Bot, Keyboard, Palette, Server, SlidersHorizontal, SquareTerminal, TextCursorInput, type LucideIcon } from 'lucide-react'
 
 // Orca's settings sidebar groups and sections (hooks/settings-navigation-*-sections.ts), trimmed
 // to what the harness has. Search entries mirror each pane's rows so search finds a setting.
@@ -36,6 +36,17 @@ export const SETTINGS_SECTIONS: readonly SettingsNavSection[] = [
     entries: [
       { title: 'Default agent', keywords: ['claude', 'agent'] },
       { title: 'Claude Code command', description: 'CLI each host runs for agent turns.', keywords: ['claude', 'path', 'executable', 'cli'] }
+    ]
+  },
+  {
+    id: 'skills',
+    title: 'Skills',
+    description: 'Browse the agent skills on each host.',
+    icon: BookOpen,
+    group: 'capabilities',
+    entries: [
+      { title: 'Open Skills', keywords: ['skills', 'SKILL.md', 'browse'] },
+      { title: 'Show Skills in sidebar', keywords: ['skills', 'sidebar', 'button'] }
     ]
   },
   {

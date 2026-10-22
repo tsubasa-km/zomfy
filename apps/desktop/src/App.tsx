@@ -8,6 +8,8 @@ import { FloatingWorkspace } from '@/components/FloatingWorkspace'
 import { RightSidebar } from '@/components/right-sidebar/RightSidebar'
 import { AgentDashboard } from '@/components/AgentDashboard'
 import { SettingsPage } from '@/components/settings/SettingsPage'
+import { SkillsPage } from '@/components/skills/SkillsPage'
+import { installSkillsCommands } from '@/components/skills/skills-commands'
 import { QuickOpen } from '@/components/QuickOpen'
 import { CommandPalette } from '@/components/CommandPalette'
 import { StatusBar } from '@/components/status-bar/StatusBar'
@@ -28,11 +30,13 @@ installUiZoom()
 installAgentNotifications()
 installAppCommands()
 installInbox()
+installSkillsCommands()
 
 export default function App() {
   const activeWorkspaceId = useStore((s) => s.activeWorkspaceId)
   const dashboardOpen = useStore((s) => s.dashboardOpen)
   const settingsOpen = useAppOverlays((s) => s.settings.open)
+  const skillsOpen = useAppOverlays((s) => s.skills)
   const boardOpen = useSidebarStore((s) => s.boardOpen)
 
   useEffect(() => {
@@ -67,6 +71,11 @@ export default function App() {
           {settingsOpen && (
             <div className="absolute inset-0 z-30 flex">
               <SettingsPage />
+            </div>
+          )}
+          {skillsOpen && (
+            <div className="absolute inset-0 z-30 flex">
+              <SkillsPage />
             </div>
           )}
         </div>
