@@ -132,6 +132,12 @@ export interface StoreState {
   /** Sessions whose latest turn ended (or asked for approval) since the user last looked. */
   unread: Record<string, true>
   dashboardOpen: boolean
+  /** Workspaces shown side by side (two or more), empty for one; activeWorkspaceId is the focused column. */
+  columns: string[]
+  /** Relative column widths (flex-grow) by workspace id; 1 when unset. */
+  columnWidths: Record<string, number>
+  /** Workspaces open in a window of their own (lib/workspace-window), kept out of this window's view. */
+  poppedOut: string[]
 }
 
 export type SessionTransition = { session: Session; from: SessionStatus; to: SessionStatus }
@@ -155,6 +161,8 @@ type SavedLayout = Pick<
   | 'rightSidebar'
   | 'rememberedHosts'
   | 'sidebarView'
+  | 'columns'
+  | 'columnWidths'
 >
 
 function readLayout(): Partial<SavedLayout> {
@@ -178,14 +186,17 @@ let state: StoreState = {
   sidebarView: saved.sidebarView ?? { groupBy: 'project', sortBy: 'created' },
   rememberedHosts: saved.rememberedHosts ?? [],
   unread: {},
-  dashboardOpen: false
+  dashboardOpen: false,
+  columns: saved.columns ?? [],
+  columnWidths: saved.columnWidths ?? {},
+  poppedOut: []
 }
 const listeners = new Set<() => void>()
 let batchDepth = 0
 let batchDirty = false
 
 function set(next: StoreState): void {
-  state = next
+  state = placeInColumns(next, state)
   if (batchDepth > 0) {
     batchDirty = true
     return
@@ -220,7 +231,9 @@ function publish(next: StoreState): void {
       editorTabs: next.editorTabs,
       rightSidebar: next.rightSidebar,
       rememberedHosts: next.rememberedHosts,
-      sidebarView: next.sidebarView
+      sidebarView: next.sidebarView,
+      columns: next.columns,
+      columnWidths: next.columnWidths
     }
     localStorage.setItem(LAYOUT_KEY, JSON.stringify(layout))
   } catch {
@@ -285,12 +298,17 @@ export function setHarnessState(hostId: HostId, harness: HarnessState): void {
   const label = harness.host.id === hostId ? harness.host.label : hostLabel(hostId)
   const hosts = { ...state.hosts, [hostId]: { ...state.hosts[hostId]!, label, harness } }
   const known = new Set(Object.values(hosts).flatMap((h) => h.harness?.workspaces.map((w) => w.id) ?? []))
-  const activeWorkspaceId =
-    state.activeWorkspaceId && known.has(state.activeWorkspaceId) ? state.activeWorkspaceId : null
+  // Until every host has listed its workspaces, an unknown one may belong to a host still connecting
+  // (a WSL workspace at startup); once all have, it was deleted.
+  const allListed = Object.values(hosts).every((h) => h.harness || h.connection.kind === 'offline')
+  const keep = (id: string) => known.has(id) || !allListed
+  const activeWorkspaceId = state.activeWorkspaceId && keep(state.activeWorkspaceId) ? state.activeWorkspaceId : null
+  const kept = state.columns.filter(keep)
+  const columns = kept.length > 1 ? kept : []
   // Tabs of a deleted workspace go with it; their daemon sessions are left idle.
   const sessions = state.sessions.filter((s) => s.hostId !== hostId || known.has(s.workspaceId))
-  const editorTabs = state.editorTabs.filter((t) => known.has(t.workspaceId))
-  set({ ...state, hosts, activeWorkspaceId, sessions, editorTabs })
+  const editorTabs = state.editorTabs.filter((t) => keep(t.workspaceId))
+  set({ ...state, hosts, activeWorkspaceId, sessions, editorTabs, columns })
 }
 
 /** Every project, tagged with the host whose daemon owns it. */
@@ -320,8 +338,66 @@ export function isFloating(workspaceId: string): boolean {
   return floatingWorkspaceId() === workspaceId
 }
 
+let focusPoppedOut: ((workspaceId: string) => void) | null = null
+
+/** lib/workspace-window: selecting a workspace that has its own window brings that window forward. */
+export function onPoppedOutSelect(handler: (workspaceId: string) => void): void {
+  focusPoppedOut = handler
+}
+
 export function selectWorkspace(workspaceId: string): void {
+  if (state.poppedOut.includes(workspaceId) && focusPoppedOut) return focusPoppedOut(workspaceId)
   set({ ...state, activeWorkspaceId: workspaceId })
+}
+
+/**
+ * With columns showing, a newly active workspace takes over the focused column (as an editor group
+ * in VS Code) unless it already has a column of its own.
+ */
+function placeInColumns(next: StoreState, prev: StoreState): StoreState {
+  const active = next.activeWorkspaceId
+  if (next.columns.length === 0 || !active || next.columns.includes(active)) return next
+  const at = prev.activeWorkspaceId ? next.columns.indexOf(prev.activeWorkspaceId) : -1
+  const columns = [...next.columns]
+  columns[at === -1 ? columns.length - 1 : at] = active
+  return { ...next, columns }
+}
+
+/** Shows `workspaceId` in a column of its own at `index` (default: last), or focuses its column. */
+export function openInColumn(workspaceId: string, index?: number): void {
+  if (state.poppedOut.includes(workspaceId)) return selectWorkspace(workspaceId)
+  const current =
+    state.columns.length > 0 ? state.columns : state.activeWorkspaceId ? [state.activeWorkspaceId] : []
+  const columns = current.filter((id) => id !== workspaceId)
+  columns.splice(Math.min(index ?? columns.length, columns.length), 0, workspaceId)
+  set({ ...state, columns: columns.length > 1 ? columns : [], activeWorkspaceId: workspaceId, dashboardOpen: false })
+}
+
+export function closeColumn(workspaceId: string): void {
+  const at = state.columns.indexOf(workspaceId)
+  if (at === -1) return
+  const columns = state.columns.filter((id) => id !== workspaceId)
+  const active =
+    state.activeWorkspaceId === workspaceId ? (columns[Math.max(0, at - 1)] ?? null) : state.activeWorkspaceId
+  set({ ...state, columns: columns.length > 1 ? columns : [], activeWorkspaceId: active })
+}
+
+export function setColumnWidths(widths: Record<string, number>): void {
+  set({ ...state, columnWidths: { ...state.columnWidths, ...widths } })
+}
+
+/** Takes a workspace out of this window's view while another window shows it. */
+export function setPoppedOut(workspaceId: string, popped: boolean): void {
+  const poppedOut = popped
+    ? [...state.poppedOut.filter((id) => id !== workspaceId), workspaceId]
+    : state.poppedOut.filter((id) => id !== workspaceId)
+  if (!popped) return set({ ...state, poppedOut })
+  const columns = state.columns.filter((id) => id !== workspaceId)
+  const active =
+    state.activeWorkspaceId === workspaceId
+      ? (columns[Math.max(0, state.columns.indexOf(workspaceId) - 1)] ?? null)
+      : state.activeWorkspaceId
+  set({ ...state, poppedOut, columns: columns.length > 1 ? columns : [], activeWorkspaceId: active })
 }
 
 /** No workspace selected: the main view shows the quick start (components/QuickStart). */

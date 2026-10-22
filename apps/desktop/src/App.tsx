@@ -3,7 +3,6 @@ import { connectAllHosts } from '@/daemon-connection'
 import { useStore } from '@/session-store'
 import { useAppOverlays } from '@/stores/app-overlay-store'
 import { Sidebar } from '@/components/Sidebar'
-import { WorkspaceTabs } from '@/components/WorkspaceTabs'
 import { FloatingWorkspace } from '@/components/FloatingWorkspace'
 import { PointerDragLayer } from '@/components/PointerDragLayer'
 import { Toaster } from '@/components/ui/sonner'
@@ -22,7 +21,8 @@ import { CommandPalette } from '@/components/CommandPalette'
 import { StatusBar } from '@/components/status-bar/StatusBar'
 import { WorkspaceBoard } from '@/components/sidebar/WorkspaceBoard'
 import { TasksPage } from '@/components/tasks/TasksPage'
-import { QuickStart } from '@/components/QuickStart'
+import { WorkspaceMain } from '@/components/WorkspaceColumns'
+import { installWorkspaceWindows } from '@/lib/workspace-window'
 import { useTasks } from '@/stores/tasks-store'
 import { useSidebarStore } from '@/stores/sidebar-store'
 import { installAgentNotifications } from '@/agent-notifications'
@@ -63,9 +63,11 @@ export default function App() {
     connectAllHosts()
     const stopPicks = listenForDashboardPicks()
     const stopKeys = installKeybindingDispatcher()
+    const stopWindows = installWorkspaceWindows()
     return () => {
       stopPicks()
       stopKeys()
+      stopWindows()
     }
   }, [])
 
@@ -81,14 +83,8 @@ export default function App() {
               <WorkspaceBoard />
             ) : tasksOpen ? (
               <TasksPage />
-            ) : activeWorkspaceId ? (
-              <WorkspaceTabs
-                key={activeWorkspaceId}
-                workspaceId={activeWorkspaceId}
-                emptyHint="No tabs yet. Use + in the tab bar to start Claude in this workspace."
-              />
             ) : (
-              <QuickStart />
+              <WorkspaceMain />
             )}
           </main>
           {activeWorkspaceId && !dashboardOpen && !boardOpen && !tasksOpen && <RightSidebar workspaceId={activeWorkspaceId} />}

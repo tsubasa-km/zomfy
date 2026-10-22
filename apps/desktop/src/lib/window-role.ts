@@ -1,5 +1,10 @@
-/** Which window this webview is: the app, or the agent dashboard popped out into its own window. */
-export type WindowRole = 'main' | 'dashboard'
+/** Which window this webview is: the app, the agent dashboard or one workspace popped out into its own window. */
+export type WindowRole = 'main' | 'dashboard' | 'workspace'
 
-export const WINDOW_ROLE: WindowRole =
-  new URLSearchParams(window.location.search).get('window') === 'dashboard' ? 'dashboard' : 'main'
+const params = new URLSearchParams(window.location.search)
+const requested = params.get('window')
+
+export const WINDOW_ROLE: WindowRole = requested === 'dashboard' || requested === 'workspace' ? requested : 'main'
+
+/** The workspace a workspace window shows. */
+export const WINDOW_WORKSPACE_ID: string | null = WINDOW_ROLE === 'workspace' ? params.get('workspace') : null

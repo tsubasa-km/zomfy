@@ -74,6 +74,13 @@ function readSaved(): Pick<TabLayoutState, 'layouts' | 'meta'> {
 let state: TabLayoutState = { ...readSaved(), closed: {} }
 const listeners = new Set<() => void>()
 
+// A popped-out workspace window edits layouts too; each window takes the other's saves as they land.
+window.addEventListener('storage', (event) => {
+  if (event.key !== STORAGE_KEY) return
+  state = { ...readSaved(), closed: state.closed }
+  for (const listener of listeners) listener()
+})
+
 function commit(next: TabLayoutState): void {
   state = next
   for (const listener of listeners) listener()

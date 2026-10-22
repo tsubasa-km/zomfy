@@ -182,7 +182,7 @@ async function openConnection(hostId: HostId): Promise<void> {
     .client({ name: "acp-harness-desktop" })
     .onRequest("session/request_permission", (ctx) =>
       // The dashboard pop-out cannot show an approval card; the daemon asks the main window instead.
-      WINDOW_ROLE === "main" ? requestPermission(ctx.params) : Promise.reject(new Error("This window does not answer approvals")),
+      WINDOW_ROLE !== "dashboard" ? requestPermission(ctx.params) : Promise.reject(new Error("This window does not answer approvals")),
     )
     // A manager agent on this host reaching sessions on any host; this window carries the call.
     .onRequest(

@@ -1,6 +1,8 @@
 import { invoke } from '@tauri-apps/api/core'
 import {
+  AppWindow,
   Code2,
+  Columns2,
   Copy,
   ExternalLink,
   FolderInput,
@@ -28,7 +30,9 @@ import {
   type WorkspaceStatusId
 } from '@acp-harness/protocol'
 import { cancelTurn, closeTerminal, harnessRequest, isSshHost } from '@/daemon-connection'
-import { getState, markSeen, type HostId } from '@/session-store'
+import { getState, markSeen, openInColumn, type HostId } from '@/session-store'
+import { WINDOW_ROLE } from '@/lib/window-role'
+import { canPopOutWorkspace, popOutWorkspace } from '@/lib/workspace-window'
 import {
   DropdownMenuItem,
   DropdownMenuLabel,
@@ -117,6 +121,20 @@ export function WorkspaceMenuItems({
         <Pencil className="size-3.5" />
         Update
       </DropdownMenuItem>
+      {WINDOW_ROLE === 'main' && (
+        <>
+          <DropdownMenuItem data-workspace-action="open-column" onSelect={() => openInColumn(workspace.id)}>
+            <Columns2 className="size-3.5" />
+            Open in New Column
+          </DropdownMenuItem>
+          {canPopOutWorkspace() && (
+            <DropdownMenuItem data-workspace-action="open-window" onSelect={() => void popOutWorkspace(workspace.id)}>
+              <AppWindow className="size-3.5" />
+              Open in New Window
+            </DropdownMenuItem>
+          )}
+        </>
+      )}
       <DropdownMenuSub>
         <DropdownMenuSubTrigger data-workspace-action="status">
           <WorkspaceStatusIcon status={workspace.status} />

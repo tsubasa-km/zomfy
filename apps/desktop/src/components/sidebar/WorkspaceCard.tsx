@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { GitBranch, MoreHorizontal, Pin } from 'lucide-react'
+import { AppWindow, GitBranch, MoreHorizontal, Pin } from 'lucide-react'
 import type { Workspace } from '@acp-harness/protocol'
 import { getState, selectWorkspace, workspaceStatus, useStore, type HostId, type Session } from '@/session-store'
 import {
@@ -73,6 +73,7 @@ export function WorkspaceCard({
   const dropMark = useSidebarStore((s) => (s.dropTarget?.id === workspace.id ? s.dropTarget.position : null))
   const unread = !!workspace.unread || sessionUnread
   const title = workspaceLabel(workspace)
+  const poppedOut = useStore((s) => s.poppedOut.includes(workspace.id))
   const show = (p: CardProperty) => props.includes(p)
   const dropRef = useSidebarDropTarget(workspace.id, drop?.accept ?? null, (item, position) => drop?.onDrop(item, position))
 
@@ -127,6 +128,7 @@ export function WorkspaceCard({
           <StatusIndicator status={CARD_STATUS[workspaceStatus(sessions)]} />
           <div className={cn('min-w-0 truncate text-[13px] leading-5', unread && 'font-semibold')}>{title}</div>
           {workspace.pinned && <Pin className="size-3 shrink-0 fill-amber-400 text-amber-400" aria-label="Pinned" />}
+          {poppedOut && <AppWindow className="size-3 shrink-0 text-muted-foreground" aria-label="Open in its own window" />}
           {unread && <span className="size-1.5 shrink-0 rounded-full bg-agent-question" aria-label="Unread" />}
         </div>
         <div className="flex shrink-0 items-center gap-1">

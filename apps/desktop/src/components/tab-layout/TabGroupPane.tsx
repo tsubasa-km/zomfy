@@ -103,7 +103,7 @@ export function TabGroupPane({
         trailing={trailing}
       />
       <div data-tab-group-body-id={groupId} className="relative flex min-h-0 min-w-0 flex-1 flex-col">
-        {active ? <TabBody tab={active} /> : <div className="m-auto text-sm text-muted-foreground">{emptyHint}</div>}
+        {active ? <TabBody tab={active} /> : <div className="m-auto px-4 text-center text-sm text-muted-foreground">{emptyHint}</div>}
       </div>
       {zone && (
         <div aria-hidden data-tab-drop-zone={zone} className="tab-drop-overlay" style={OVERLAY_RECT[zone]}>

@@ -311,7 +311,7 @@ export function NativeChatComposer({
               className="px-2 py-1 text-sm text-chat-foreground-strong"
             />
             <div className="flex flex-wrap items-center gap-2 pt-0.5">
-              <div className="flex w-full items-center justify-between gap-2 text-chat-foreground-faint">
+              <div className="flex w-full flex-wrap items-center justify-between gap-x-2 gap-y-1 text-chat-foreground-faint">
                 <div className="flex min-w-0 items-center gap-0.5">
                   <NativeChatAttachMenu
                     session={session}
