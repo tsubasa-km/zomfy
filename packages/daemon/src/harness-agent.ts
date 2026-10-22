@@ -187,7 +187,6 @@ export function createHarnessAgent(
     // A Stop (not a newer prompt taking over, nor the chat closing) leaves a row that offers Continue.
     const interrupted = async (): Promise<acp.PromptResponse> => {
       if (pendingTurns.get(session.id) !== abort || !sessions.get(session.id)) return { stopReason: "cancelled" };
-      sessions.update(session.id, { status: "idle", turnStartedAt: null, claudeSessionId: session.claudeSessionId });
       const stopped: TurnEndMeta = { reason: "interrupted" };
       await emit(session.id, {
         sessionUpdate: "notice",
@@ -195,6 +194,7 @@ export function createHarnessAgent(
         title: "Stopped",
         _meta: { [TURN_RECOVERY_META.turnEnd]: stopped },
       }).catch(() => undefined);
+      sessions.update(session.id, { status: "idle", turnStartedAt: null, claudeSessionId: session.claudeSessionId });
       autoResume.turnEnded(session.id, stopped);
       return { stopReason: "cancelled" };
     };

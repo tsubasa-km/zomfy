@@ -102,7 +102,9 @@ describe('recoveryPrompt', () => {
   })
   test('a partly answered prompt is continued', () => {
     const reply: acp.SessionUpdate = { sessionUpdate: 'agent_message_chunk', content: { type: 'text', text: 'Working on' } }
-    expect(recoveryPrompt([user('fix the bug'), reply])).toEqual([{ type: 'text', text: CONTINUE_PROMPT }])
+    const [block] = recoveryPrompt([user('fix the bug'), reply])
+    expect(block?.type === 'text' && block.text.startsWith(CONTINUE_PROMPT)).toBe(true)
+    expect(block?.type === 'text' && block.text.includes('Working on')).toBe(true)
   })
   test('an empty chat has nothing to resume', () => {
     expect(() => recoveryPrompt([])).toThrow()
