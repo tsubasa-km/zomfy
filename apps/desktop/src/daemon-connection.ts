@@ -10,6 +10,8 @@ import {
   type AutomationSnapshot,
   SETTINGS_NOTIFICATIONS,
   TODO_NOTIFICATIONS,
+  PROJECT_LINK_NOTIFICATIONS,
+  type ProjectLink,
   TURN_RECOVERY_NOTIFICATIONS,
   type ChatAgentId,
   type CreateTerminalParams,
@@ -52,6 +54,7 @@ import {
 } from "./session-store";
 import { applyHostSettings } from "./stores/host-settings-store";
 import { setTodos } from "./stores/inbox-store";
+import { setProjectLinks } from "./stores/project-links-store";
 import { runManagerTool } from "./manager/manager-tool-runner";
 import { applyAutomationSnapshot } from "./stores/automation-store";
 import { notifyAutoResumed } from "./agent-notifications";
@@ -191,6 +194,13 @@ async function openConnection(hostId: HostId): Promise<void> {
       (ctx) => runManagerTool(ctx.params),
     )
     .onNotification(
+      PROJECT_LINK_NOTIFICATIONS.projectLinksChanged,
+      (raw: unknown) => raw as ProjectLink[],
+      (ctx) => {
+        if (hostId === LOCAL_HOST) setProjectLinks(ctx.params);
+      },
+    )
+    .onNotification(
       TODO_NOTIFICATIONS.todosChanged,
       (raw: unknown) => raw as TodoItem[],
       (ctx) => {
@@ -283,6 +293,10 @@ async function openConnection(hostId: HostId): Promise<void> {
     if (hostId !== LOCAL_HOST) rememberHost(hostId, true);
     // The person's todos live on this computer's daemon; an older daemon has none.
     if (hostId === LOCAL_HOST) void opened.agent.request<TodoItem[]>(HARNESS_METHODS.todosList, {}).then(setTodos, () => undefined);
+    // Linked projects live on this computer's daemon too; an older daemon has none.
+    if (hostId === LOCAL_HOST) {
+      void opened.agent.request<ProjectLink[]>(HARNESS_METHODS.projectLinksList, {}).then(setProjectLinks, () => undefined);
+    }
     reconnectAttempts.delete(hostId);
   } catch (error) {
     opened.close();

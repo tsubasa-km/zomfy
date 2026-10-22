@@ -15,9 +15,20 @@ import { log } from "../log.ts";
 
 type UserChunk = Extract<acp.SessionUpdate, { sessionUpdate: "user_message_chunk" }>;
 
+const ACTIVITY_HEADER = "[Project activity since your last turn]";
+
 export function registerSessionHandlers({ handle, sessions, pendingTurns, acpAgents, workspaceRoot, moveSession }: HandlerContext): void {
   handle(HARNESS_METHODS.sessionsList, async () => sessions.list());
   handle(HARNESS_METHODS.sessionMove, (p) => moveSession(p));
+  handle(HARNESS_METHODS.sessionAddContext, async (p) => {
+    const session = sessions.get(p.sessionId);
+    if (!session) throw new Error(`Unknown session ${p.sessionId}`);
+    const line = `- ${p.text.replace(/\s+/g, " ").slice(0, 2000)}`;
+    // Kept bounded: a lead away for a long time gets the latest activity, not an unbounded log.
+    const lines = [...(session.seedContext?.split("\n").filter((l) => l.startsWith("- ")) ?? []), line].slice(-40);
+    sessions.update(session.id, { seedContext: [ACTIVITY_HEADER, ...lines].join("\n") });
+    return {};
+  });
   handle(HARNESS_METHODS.sessionCreate, async (p) => {
     if (p.agent !== undefined && !isChatAgentId(p.agent)) throw new Error(`Unknown agent ${String(p.agent)}`);
     const record = sessions.create({
@@ -25,6 +36,7 @@ export function registerSessionHandlers({ handle, sessions, pendingTurns, acpAge
       cwd: workspaceRoot(p.workspaceId),
       ...(p.agent && p.agent !== "claude" ? { agent: p.agent } : {}),
       ...(p.role === "manager" ? { role: p.role, title: "Manager" } : {}),
+      ...(p.role === "lead" ? { role: p.role, title: "Lead" } : {}),
     });
     // Started now, as Orca opens a chat's session on create, so its model and mode pickers fill in.
     acpAgents.for(record)?.ensureStarted().catch((error) => log(`starting ${p.agent} failed: ${String(error)}`));

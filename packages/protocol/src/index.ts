@@ -10,6 +10,7 @@ import { GIT_METHODS, type GitRequests } from './git'
 import { HOSTING_METHODS, type HostingRequests } from './hosting'
 import { PLUGIN_METHODS, type PluginRequests } from './plugins'
 import { PORT_METHODS, type PortRequests } from './ports'
+import { PROJECT_LINK_METHODS, type ProjectLinkRequests } from './project-links'
 import { QUICK_OPEN_METHODS, type QuickOpenRequests } from './quick-open'
 import { SESSION_METHODS, type SessionRequests } from './sessions'
 import { SESSION_NOTE_METHODS, type SessionNoteRequests } from './session-notes'
@@ -32,6 +33,7 @@ export * from './hosting'
 export * from './manager'
 export * from './plugins'
 export * from './ports'
+export * from './project-links'
 export * from './quick-open'
 export * from './sessions'
 export * from './session-notes'
@@ -64,7 +66,8 @@ export const HARNESS_METHODS = {
   ...SKILL_METHODS,
   ...PLUGIN_METHODS,
   ...VOICE_METHODS,
-  ...TURN_RECOVERY_METHODS
+  ...TURN_RECOVERY_METHODS,
+  ...PROJECT_LINK_METHODS
 } as const
 
 export const HARNESS_NOTIFICATIONS = {
@@ -93,6 +96,7 @@ export interface HarnessRequests
     SkillRequests,
     PluginRequests,
     VoiceRequests,
-    TurnRecoveryRequests {}
+    TurnRecoveryRequests,
+    ProjectLinkRequests {}
 
 export type HarnessMethod = keyof HarnessRequests

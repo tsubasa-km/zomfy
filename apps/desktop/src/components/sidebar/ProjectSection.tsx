@@ -1,4 +1,5 @@
-import { ChevronRight, FolderGit2, FolderOpen, MoreHorizontal, Plus } from 'lucide-react'
+import { Fragment } from 'react'
+import { ChevronRight, FolderGit2, FolderOpen, FolderPlus, MoreHorizontal, Plus, Settings2, Unlink } from 'lucide-react'
 import { HARNESS_METHODS, type ProjectGroup, type Workspace } from '@acp-harness/protocol'
 import { harnessRequest } from '@/daemon-connection'
 import { setSidebarView, useStore, type HostId, type HostedProject, type Session } from '@/session-store'
@@ -14,9 +15,18 @@ import {
   type WorkspaceNode
 } from '@/components/sidebar/workspace-visibility'
 import { Button } from '@/components/ui/button'
-import { DropdownMenu, DropdownMenuContent, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger
+} from '@/components/ui/dropdown-menu'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { cn } from '@/lib/utils'
+import { openAddProjectDialog } from '@/lib/project-dialogs'
+import { unlinkProject } from '@/stores/project-links-store'
 
 /** Dialogs and flows the sidebar root owns; sections only ask for them. */
 export interface SidebarActions {
@@ -46,7 +56,9 @@ export function ProjectSection({
   activeWorkspaceId,
   actions,
   onProjectDrop,
-  hostBadge
+  hostBadge,
+  copies = [],
+  badgeFor
 }: {
   project: HostedProject
   groups: ProjectGroup[]
@@ -55,8 +67,12 @@ export function ProjectSection({
   activeWorkspaceId: string | null
   actions: SidebarActions
   onProjectDrop: (item: DragItem, position: 'before' | 'after') => void
-  /** Where the project lives when that is not this computer ("WSL", an SSH host). */
+  /** Where the project lives when that is not the default host ("WSL", an SSH host). */
   hostBadge?: string
+  /** The same repository added on other hosts, listed as one project; `workspaces` holds theirs too. */
+  copies?: HostedProject[]
+  /** A host's short name for cards of a merged project (null for the default host). */
+  badgeFor?: (hostId: HostId) => string | null
 }) {
   const view = useStore((s) => s.sidebarView)
   const collapsed = useSidebarStore((s) => s.collapsedProjects.includes(project.id))
@@ -70,7 +86,13 @@ export function ProjectSection({
   const tree = buildWorkspaceTree(sortWorkspaces(workspaces, view, sessions))
 
   /** Reorder among the target's siblings, or nest under the target (Orca's lineage drop). */
-  function dropOnWorkspace(item: DragItem, target: Workspace, siblings: Workspace[], position: 'before' | 'after' | 'inside') {
+  function dropOnWorkspace(
+    item: DragItem,
+    target: Workspace,
+    siblings: Workspace[],
+    position: 'before' | 'after' | 'inside',
+    hostId: HostId
+  ) {
     if (position === 'inside') {
       void updateWorkspace(item.id, { parentWorkspaceId: target.id })
       return
@@ -81,35 +103,38 @@ export function ProjectSection({
     }
     const order = reorderIds(siblings.map((w) => w.id), item.id, target.id, position)
     if (!order) return
-    void harnessRequest(HARNESS_METHODS.workspacesReorder, { workspaceIds: order }, project.hostId)
+    void harnessRequest(HARNESS_METHODS.workspacesReorder, { workspaceIds: order }, hostId)
     if (view.sortBy !== 'manual') setSidebarView({ sortBy: 'manual' })
   }
 
   const renderNodes = (nodes: WorkspaceNode[], depth: number) =>
     nodes.map((node) => {
       const w = node.workspace
-      const siblings = nodes.map((n) => n.workspace)
+      // A merged project's workspace belongs to the copy on its own host; moves stay within that copy.
+      const owner = copies.find((c) => c.id === w.projectId) ?? project
+      const siblings = nodes.map((n) => n.workspace).filter((s) => s.projectId === owner.id)
       return (
         <div key={w.id} data-workspace-node={w.id}>
           <WorkspaceCard
             workspace={w}
-            hostId={project.hostId}
+            hostId={owner.hostId}
+            hostBadge={copies.length > 0 ? (badgeFor?.(owner.hostId) ?? undefined) : undefined}
             sessions={sessions.filter((s) => s.workspaceId === w.id)}
             active={w.id === activeWorkspaceId}
             depth={depth}
             drop={{
               accept: (item) =>
                 item.kind === 'workspace' &&
-                item.hostId === project.hostId &&
-                item.projectId === project.id &&
+                item.hostId === owner.hostId &&
+                item.projectId === owner.id &&
                 item.id !== w.id &&
                 !isDescendant(workspaces, w.id, item.id) &&
-                (project.kind === 'git' ? 'order-or-nest' : 'order'),
-              onDrop: (item, position) => dropOnWorkspace(item, w, siblings, position)
+                (owner.kind === 'git' ? 'order-or-nest' : 'order'),
+              onDrop: (item, position) => dropOnWorkspace(item, w, siblings, position, owner.hostId)
             }}
             onUpdate={() => actions.update(w)}
             onDelete={() => actions.remove(w)}
-            onNewChild={project.kind === 'git' && w.branch ? () => actions.newWorkspace(project, w) : undefined}
+            onNewChild={owner.kind === 'git' && w.branch ? () => actions.newWorkspace(owner, w) : undefined}
           />
           {node.children.length > 0 && renderNodes(node.children, depth + 1)}
         </div>
@@ -187,6 +212,36 @@ export function ProjectSection({
                 onCleanUp={project.kind === 'git' ? () => actions.cleanUp(project) : undefined}
                 onRemove={() => actions.removeProject(project)}
               />
+              <DropdownMenuSeparator />
+              <DropdownMenuItem
+                data-project-action="add-workspace-elsewhere"
+                onSelect={() =>
+                  openAddProjectDialog({ linkTo: { hostId: project.hostId, projectId: project.id, name: label } })
+                }
+              >
+                <FolderPlus className="size-3.5" />
+                Add Workspace on Another Host…
+              </DropdownMenuItem>
+              {copies.map((copy) => (
+                <Fragment key={copy.id}>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuLabel className="px-2 py-1 text-[11px] font-medium text-muted-foreground">
+                    {projectLabel(copy)} on {badgeFor?.(copy.hostId) ?? copy.hostId}
+                  </DropdownMenuLabel>
+                  <DropdownMenuItem onSelect={() => actions.newWorkspace(copy)}>
+                    <Plus className="size-3.5" />
+                    New Workspace There…
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onSelect={() => actions.projectSettings(copy)}>
+                    <Settings2 className="size-3.5" />
+                    Project Settings…
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onSelect={() => void unlinkProject({ hostId: copy.hostId, projectId: copy.id })}>
+                    <Unlink className="size-3.5" />
+                    Detach from {label}
+                  </DropdownMenuItem>
+                </Fragment>
+              ))}
             </DropdownMenuContent>
           </DropdownMenu>
         </div>

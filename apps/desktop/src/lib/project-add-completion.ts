@@ -6,7 +6,8 @@ import { closeSettings } from '@/stores/app-overlay-store'
 import { setBoardOpen } from '@/stores/sidebar-store'
 import { setTasks } from '@/stores/tasks-store'
 import { defaultChatAgent } from '@/lib/default-chat-agent'
-import { confirmNonGitFolder } from '@/lib/project-dialogs'
+import { addTarget, confirmNonGitFolder } from '@/lib/project-dialogs'
+import { linkProjects } from '@/stores/project-links-store'
 
 // Orca's repo-add-actions + finishProjectAddWithDefaultCheckout: toast, then land in the project's
 // own checkout; a new folder project also starts a chat with the default agent.
@@ -14,10 +15,15 @@ import { confirmNonGitFolder } from '@/lib/project-dialogs'
 /** What the caller runs on its host; the result is compared with the projects known before. */
 export async function completeProjectAdd(hostId: HostId, add: () => Promise<Project>): Promise<Project> {
   const known = new Set(allProjects().filter((p) => p.hostId === hostId).map((p) => p.id))
+  const target = addTarget()
   const project = await add()
   const alreadyAdded = known.has(project.id)
   const name = project.displayName || project.name
-  if (alreadyAdded) toast.info('Project already added', { description: name })
+  if (target) {
+    // "Add Workspace on Another Host": the folder joins that project instead of standing alone.
+    await linkProjects({ hostId: target.hostId, projectId: target.projectId }, { hostId, projectId: project.id })
+    toast.success(`Added to ${target.name}`, { description: `${name} on ${getState().hosts[hostId]?.label ?? hostId}` })
+  } else if (alreadyAdded) toast.info('Project already added', { description: name })
   else toast.success(project.kind === 'git' ? 'Project added' : 'Folder added', { description: name })
 
   // The state broadcast may trail the reply; the primary workspace must be known to select it.
@@ -31,7 +37,7 @@ export async function completeProjectAdd(hostId: HostId, add: () => Promise<Proj
     setBoardOpen(false)
     setTasks({ open: false })
     closeSettings()
-    if (!alreadyAdded && project.kind === 'folder') {
+    if (!alreadyAdded && !target && project.kind === 'folder') {
       void createSession(primary.id, defaultChatAgent(), { hostId }).catch(() => undefined)
     }
   }

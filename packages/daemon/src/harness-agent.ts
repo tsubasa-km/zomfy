@@ -4,6 +4,7 @@ import {
   MANAGER_MCP_SERVER_NAME,
   MANAGER_SYSTEM_PROMPT,
   QUICK_CHAT_SYSTEM_PROMPT,
+  LEAD_SYSTEM_PROMPT,
   TURN_RECOVERY_META,
   TURN_RECOVERY_NOTIFICATIONS,
   chatAgentLabel,
@@ -36,6 +37,7 @@ import { registerSessionHandlers } from "./handlers/session-handlers.ts";
 import { registerSessionNoteHandlers } from "./handlers/session-note-handlers.ts";
 import { registerChatAttachmentHandlers } from "./handlers/chat-attachment-handlers.ts";
 import { registerSettingsHandlers } from "./handlers/settings-handlers.ts";
+import { registerProjectLinkHandlers } from "./handlers/project-link-handlers.ts";
 import { registerSideChatHandlers } from "./handlers/side-chat-handlers.ts";
 import { registerTerminalHandlers } from "./handlers/terminal-handlers.ts";
 import { registerWorkspaceHandlers } from "./handlers/workspace-handlers.ts";
@@ -228,11 +230,13 @@ export function createHarnessAgent(
         env: (await chatAgentLaunch("claude")).env,
         askPermission,
         // A quick chat sees its harness tools up front, so it can move itself into a project.
-        mcpServers: managerMcp.claudeServers(session.id, session.role === "manager" || quickChat),
+        mcpServers: managerMcp.claudeServers(session.id, session.role === "manager" || session.role === "lead" || quickChat),
         allowedTools: autoAllowedManagerTools(session.role, MANAGER_MCP_SERVER_NAME),
         ...(session.role === "manager"
           ? { appendSystemPrompt: MANAGER_SYSTEM_PROMPT }
-          : quickChat
+          : session.role === "lead"
+            ? { appendSystemPrompt: LEAD_SYSTEM_PROMPT }
+            : quickChat
             ? { appendSystemPrompt: QUICK_CHAT_SYSTEM_PROMPT }
             : {}),
         onTurnEnd: (turnEnd) => (outcome.end = turnEnd),
@@ -390,6 +394,7 @@ export function createHarnessAgent(
     registerPluginHandlers,
     registerVoiceHandlers,
     registerTurnRecoveryHandlers,
+    registerProjectLinkHandlers,
   ]) {
     register(ctx);
   }

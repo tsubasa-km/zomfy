@@ -18,6 +18,7 @@ interface StartAction {
 
 export function AddRepoStartStep({
   firstProject,
+  linkTo,
   hostSelector,
   typedPath,
   busy,
@@ -28,6 +29,8 @@ export function AddRepoStartStep({
   onImportOrca
 }: {
   firstProject: boolean
+  /** The project the folder joins (Add Workspace on Another Host). */
+  linkTo?: string
   hostSelector: ReactNode
   /** The host has no folder picker (SSH): Browse becomes a typed host path. */
   typedPath: boolean
@@ -72,8 +75,12 @@ export function AddRepoStartStep({
   return (
     <>
       <DialogHeader>
-        <DialogTitle>Add a project</DialogTitle>
-        {firstProject ? <DialogDescription>Add a project to get started with Zomfy.</DialogDescription> : null}
+        <DialogTitle>{linkTo ? `Add a workspace to ${linkTo}` : 'Add a project'}</DialogTitle>
+        {linkTo ? (
+          <DialogDescription>A folder or repository on any host; it lists under {linkTo} with its host's name.</DialogDescription>
+        ) : firstProject ? (
+          <DialogDescription>Add a project to get started with Zomfy.</DialogDescription>
+        ) : null}
       </DialogHeader>
 
       <div

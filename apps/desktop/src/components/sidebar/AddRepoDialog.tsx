@@ -183,6 +183,7 @@ export function AddRepoDialog() {
           {step === 'start' ? (
             <AddRepoStartStep
               firstProject={projectCount === 0}
+              linkTo={request?.linkTo?.name}
               hostSelector={
                 <AddRepoHostSelector
                   hostId={hostId}

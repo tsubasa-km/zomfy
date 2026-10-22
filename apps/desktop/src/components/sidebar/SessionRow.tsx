@@ -1,3 +1,4 @@
+import { Crown } from 'lucide-react'
 import { allWorkspaces, selectSession, useStore, type Session } from '@/session-store'
 import { AgentStateDot } from '@/components/AgentStateDot'
 import { TuiAgentIcon } from '@/components/terminal/TuiAgentIcon'
@@ -19,7 +20,11 @@ export function SessionRow({ session, showWorkspace }: { session: Session; showW
         selectSession(session.id)
       }}
     >
-      <TuiAgentIcon agent={sessionAgent(session)} size={11} />
+      {session.role === 'lead' ? (
+        <Crown className="size-[11px] shrink-0 text-amber-500" aria-label="Project lead" />
+      ) : (
+        <TuiAgentIcon agent={sessionAgent(session)} size={11} />
+      )}
       <span className="min-w-0 flex-1 truncate">
         {showWorkspace ? `${workspaceName} · ` : ''}
         {session.title}

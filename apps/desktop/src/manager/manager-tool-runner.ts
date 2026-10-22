@@ -24,6 +24,8 @@ import {
   type ThreadItem
 } from '@/session-store'
 import { addTodo, getInbox } from '@/stores/inbox-store'
+import { linkOf } from '@/stores/project-links-store'
+import { leadOf } from '@/lib/project-lead'
 
 // Runs the manager agent's tool calls in this window, which is linked to every host. Status is
 // the hosts' (broadcast into the session store); this file only reads it and presents it, and a
@@ -119,7 +121,11 @@ function listWorkspaces(hostId?: string): unknown {
         name: p.displayName ?? p.name,
         kind: p.kind,
         path: p.path,
-        workspaces: workspaces.filter((w) => w.projectId === p.id).map(describe)
+        // The same project on other hosts (Add Workspace on Another Host); its workspaces are this project's too.
+        linkedWith: (linkOf({ hostId: p.hostId, projectId: p.id })?.members ?? [])
+          .filter((m) => m.hostId !== p.hostId || m.projectId !== p.id),
+        leadSessionId: leadOf(p.hostId, p.id)?.id ?? null,
+        workspaces: workspaces.filter((w) => w.projectId === p.id && w.hostId === p.hostId).map(describe)
       })),
     floatingWorkspace: workspaces.filter((w) => w.id === floating).map(describe)[0] ?? null
   }

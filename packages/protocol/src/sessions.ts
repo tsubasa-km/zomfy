@@ -101,7 +101,8 @@ export const SESSION_METHODS = {
   sessionResume: '_harness/sessions/resume',
   sessionMentionFiles: '_harness/sessions/mentionFiles',
   sessionSetAgentOption: '_harness/sessions/setAgentOption',
-  sessionMove: '_harness/sessions/move'
+  sessionMove: '_harness/sessions/move',
+  sessionAddContext: '_harness/sessions/addContext'
 } as const
 
 /** Moves a Claude chat into another workspace on the same host; exactly one target. */
@@ -148,4 +149,6 @@ export interface SessionRequests {
     result: SessionInfo
   }
   [SESSION_METHODS.sessionMove]: { params: MoveSessionParams; result: MoveSessionResult }
+  /** Queues a line the session's next turn starts with, unseen in its transcript (a lead's project activity). */
+  [SESSION_METHODS.sessionAddContext]: { params: { sessionId: string; text: string }; result: Record<string, never> }
 }

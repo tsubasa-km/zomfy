@@ -10,6 +10,8 @@ export type AddProjectStep = 'start' | 'clone' | 'create'
 export interface AddProjectRequest {
   hostId?: HostId
   step: AddProjectStep
+  /** Adds the folder to this project as a workspace on another host, instead of as a project of its own. */
+  linkTo?: { hostId: HostId; projectId: string; name: string }
   /** Reopening with the same options still resets the dialog. */
   nonce: number
 }
@@ -28,8 +30,20 @@ export const useAddProjectRequest = () => addProjectRequests.use((r) => r)
 export const useNonGitFolderRequest = () => nonGitFolderRequests.use((r) => r)
 export const useOrcaImportOpen = () => orcaImportOpen.use((open) => open)
 
-export function openAddProjectDialog(opts: { hostId?: HostId; step?: AddProjectStep } = {}): void {
-  addProjectRequests.set({ ...(opts.hostId ? { hostId: opts.hostId } : {}), step: opts.step ?? 'start', nonce: ++nonce })
+export function openAddProjectDialog(
+  opts: { hostId?: HostId; step?: AddProjectStep; linkTo?: AddProjectRequest['linkTo'] } = {}
+): void {
+  addProjectRequests.set({
+    ...(opts.hostId ? { hostId: opts.hostId } : {}),
+    ...(opts.linkTo ? { linkTo: opts.linkTo } : {}),
+    step: opts.step ?? 'start',
+    nonce: ++nonce
+  })
+}
+
+/** The project the open Add dialog files its folder under, if any (read when the add completes). */
+export function addTarget(): AddProjectRequest['linkTo'] | null {
+  return addProjectRequests.get()?.linkTo ?? null
 }
 
 export function closeAddProjectDialog(): void {

@@ -1,6 +1,7 @@
+import { useEffect } from 'react'
 import type React from 'react'
 import { MessageSquare } from 'lucide-react'
-import { HARNESS_METHODS, type HarnessState, type ProjectGroup, type Workspace } from '@acp-harness/protocol'
+import { HARNESS_METHODS, type HarnessState, type ProjectGroup, type ProjectLink, type Workspace } from '@acp-harness/protocol'
 import { harnessRequest } from '@/daemon-connection'
 import { findWorkspace, setSidebarView, useStore, type HostEntry, type HostedProject, type HostId } from '@/session-store'
 import { useSidebarStore, type SidebarFilters } from '@/stores/sidebar-store'
@@ -21,6 +22,8 @@ import {
 import { sortedHosts } from '@/components/settings/HostsPane'
 import { hostSnapshot } from '@/lib/host-snapshots'
 import { cn } from '@/lib/utils'
+import { useProjectLinks } from '@/stores/project-links-store'
+import { ensureProjectLeads } from '@/lib/project-lead'
 import { defaultHostId } from '@/lib/default-host'
 import { useSetting } from '@/stores/settings-store'
 
@@ -57,12 +60,39 @@ interface Source {
   stale: boolean
 }
 
-/** Short host names for project badges; the default host's projects, most of them, carry none. */
-function hostBadges(hosts: HostEntry[], defaultHost: HostId): Record<HostId, string | null> {
+/** Short host names: "WSL" (the distro when there are several), the SSH alias, "Windows". */
+function shortHostNames(hosts: HostEntry[]): Record<HostId, string> {
   const wslCount = hosts.filter((h) => h.id.startsWith('wsl:')).length
   const short = (h: HostEntry) =>
     h.id.startsWith('wsl:') ? (wslCount > 1 ? h.id.slice(4) : 'WSL') : h.id.startsWith('ssh:') ? h.id.slice(4) : h.label
-  return Object.fromEntries(hosts.map((h) => [h.id, h.id === defaultHost ? null : short(h)]))
+  return Object.fromEntries(hosts.map((h) => [h.id, short(h)]))
+}
+
+interface LinkedEntry {
+  /** The link's main member present here (its first), or the project itself when unlinked. */
+  primary: HostedProject
+  copies: HostedProject[]
+}
+
+/** Projects in display order, each link folded into the place of its first member listed. */
+function linkedEntries(projects: HostedProject[], links: ProjectLink[]): LinkedEntry[] {
+  const key = (hostId: HostId, projectId: string) => `${hostId}:${projectId}`
+  const byKey = new Map(projects.map((p) => [key(p.hostId, p.id), p]))
+  const linkOfKey = new Map(links.flatMap((l) => l.members.map((m) => [key(m.hostId, m.projectId), l] as const)))
+  const done = new Set<string>()
+  const entries: LinkedEntry[] = []
+  for (const project of projects) {
+    const link = linkOfKey.get(key(project.hostId, project.id))
+    if (!link) {
+      entries.push({ primary: project, copies: [] })
+      continue
+    }
+    if (done.has(link.id)) continue
+    done.add(link.id)
+    const present = link.members.flatMap((m) => byKey.get(key(m.hostId, m.projectId)) ?? [])
+    entries.push({ primary: present[0]!, copies: present.slice(1) })
+  }
+  return entries
 }
 
 export function ProjectList({ actions }: { actions: SidebarActions }) {
@@ -81,7 +111,11 @@ export function ProjectList({ actions }: { actions: SidebarActions }) {
     return harness ? [{ host, harness, stale: !live }] : []
   })
   useSetting('defaultHost')
-  const badges = hostBadges(ordered, defaultHostId())
+  const defaultHost = defaultHostId()
+  const names = shortHostNames(ordered)
+  // The default host's projects, most of them, carry no badge.
+  const badges: Record<HostId, string | null> = Object.fromEntries(ordered.map((h) => [h.id, h.id === defaultHost ? null : names[h.id]!]))
+  const links = useProjectLinks()
   const stale = new Set(sources.filter((s) => s.stale).map((s) => s.host.id))
   const offline = new Set(sources.filter((s) => s.host.connection.kind === 'offline').map((s) => s.host.id))
 
@@ -101,6 +135,9 @@ export function ProjectList({ actions }: { actions: SidebarActions }) {
     ? []
     : sources.flatMap((s) => s.harness.workspaces.filter((w) => w.scratch).map((w) => ({ ...w, hostId: s.host.id })))
   const groups = sources.flatMap((s) => sortGroups(s.harness.projectGroups ?? []).map((group) => ({ group, hostId: s.host.id })))
+  // A project linked across hosts lists once, under its main member.
+  const entries = linkedEntries(projects, links)
+  useEffect(() => ensureProjectLeads(), [hosts, links, sessions])
 
   // Filters hide projects left with nothing to show (Orca's empty-project rows), but never when unfiltered.
   const projectVisible = (projectId: string) =>
@@ -117,23 +154,31 @@ export function ProjectList({ actions }: { actions: SidebarActions }) {
     if (order) void harnessRequest(HARNESS_METHODS.projectsReorder, { projectIds: order }, project.hostId)
   }
 
-  const renderProject = (project: HostedProject) =>
-    projectVisible(project.id) ? (
-      <div key={project.id} className={cn(stale.has(project.hostId) && 'opacity-60')} data-host-stale={stale.has(project.hostId) || undefined}>
+  const badgeText = (hostId: HostId) => (badges[hostId] ? `${badges[hostId]}${offline.has(hostId) ? ' · offline' : ''}` : null)
+
+  const renderProject = ({ primary: project, copies }: LinkedEntry) => {
+    const members = [project, ...copies]
+    if (!members.some((m) => projectVisible(m.id))) return null
+    const allStale = members.every((m) => stale.has(m.hostId))
+    // "+DGX": the project also has workspaces there.
+    const hostBadge = [badgeText(project.hostId), ...copies.map((c) => `+${names[c.hostId] ?? c.hostId}`)].filter(Boolean).join(' ')
+    return (
+      <div key={project.id} className={cn(allStale && 'opacity-60')} data-host-stale={allStale || undefined}>
         <ProjectSection
           project={project}
+          copies={copies}
+          badgeFor={(hostId) => names[hostId] ?? hostId}
           groups={groups.filter((g) => g.hostId === project.hostId).map((g) => g.group)}
-          workspaces={visible.filter((w) => w.hostId === project.hostId && w.projectId === project.id)}
+          workspaces={visible.filter((w) => members.some((m) => m.hostId === w.hostId && m.id === w.projectId))}
           sessions={sessions}
           activeWorkspaceId={activeWorkspaceId}
           actions={actions}
           onProjectDrop={projectDrop(project)}
-          hostBadge={
-            badges[project.hostId] ? `${badges[project.hostId]}${offline.has(project.hostId) ? ' · offline' : ''}` : undefined
-          }
+          hostBadge={hostBadge || undefined}
         />
       </div>
-    ) : null
+    )
+  }
 
   const loading = ordered.some((h) => h.connection.kind === 'connecting' && !h.harness && !hostSnapshot(h.id))
 
@@ -163,8 +208,8 @@ export function ProjectList({ actions }: { actions: SidebarActions }) {
       {view.groupBy === 'project' ? (
         <>
           {groups.map(({ group, hostId }) => {
-            const members = projects.filter((p) => p.hostId === hostId && p.groupId === group.id)
-            if (filtering && !members.some((p) => projectVisible(p.id))) return null
+            const members = entries.filter((e) => e.primary.hostId === hostId && e.primary.groupId === group.id)
+            if (filtering && !members.some((e) => [e.primary, ...e.copies].some((p) => projectVisible(p.id)))) return null
             return (
               <ProjectGroupSection
                 key={`${hostId}:${group.id}`}
@@ -180,8 +225,8 @@ export function ProjectList({ actions }: { actions: SidebarActions }) {
               </ProjectGroupSection>
             )
           })}
-          {projects
-            .filter((p) => !p.groupId || !groups.some((g) => g.hostId === p.hostId && g.group.id === p.groupId))
+          {entries
+            .filter(({ primary: p }) => !p.groupId || !groups.some((g) => g.hostId === p.hostId && g.group.id === p.groupId))
             .map(renderProject)}
         </>
       ) : (
