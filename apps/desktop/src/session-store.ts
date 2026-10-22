@@ -12,6 +12,7 @@ import type {
   Workspace
 } from '@acp-harness/protocol'
 import { WINDOW_ROLE } from '@/lib/window-role'
+import { forgetHostSnapshot, saveHostSnapshot } from '@/lib/host-snapshots'
 
 export type { SessionStatus }
 
@@ -278,6 +279,7 @@ export function forgetHost(id: HostId): void {
   if (id === LOCAL_HOST) return
   const { [id]: gone, ...hosts } = state.hosts
   if (!gone) return
+  forgetHostSnapshot(id)
   const workspaceIds = new Set(gone.harness?.workspaces.map((w) => w.id) ?? [])
   set({
     ...state,
@@ -297,6 +299,7 @@ export function setHarnessState(hostId: HostId, harness: HarnessState): void {
   // An SSH daemon cannot tell it is remote and calls itself "This computer"; the client knows better.
   const label = harness.host.id === hostId ? harness.host.label : hostLabel(hostId)
   const hosts = { ...state.hosts, [hostId]: { ...state.hosts[hostId]!, label, harness } }
+  saveHostSnapshot(hostId, harness)
   const known = new Set(Object.values(hosts).flatMap((h) => h.harness?.workspaces.map((w) => w.id) ?? []))
   // Until every host has listed its workspaces, an unknown one may belong to a host still connecting
   // (a WSL workspace at startup); once all have, it was deleted.

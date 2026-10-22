@@ -1,14 +1,14 @@
 import { useMemo, useState } from 'react'
 import { HARNESS_METHODS, type Workspace } from '@acp-harness/protocol'
 import { harnessRequest } from '@/daemon-connection'
-import { LOCAL_HOST, useStore, type HostEntry, type HostedProject } from '@/session-store'
+import { useStore, type HostedProject } from '@/session-store'
 import { useSidebarStore } from '@/stores/sidebar-store'
 import { setInboxOpen } from '@/stores/inbox-store'
 import { DeleteWorkspaceDialog, UpdateWorkspaceDialog } from '@/components/workspace-dialogs'
 import { SidebarHeader } from '@/components/sidebar/SidebarHeader'
 import { SidebarSearch } from '@/components/sidebar/SidebarSearch'
 import { SessionRow } from '@/components/sidebar/SessionRow'
-import { HostSection, hasActiveFilters } from '@/components/sidebar/HostSection'
+import { ProjectList, hasActiveFilters } from '@/components/sidebar/ProjectList'
 import type { SidebarActions } from '@/components/sidebar/ProjectSection'
 import { BulkActionBar } from '@/components/sidebar/BulkActionBar'
 import { NewWorkspaceDialog } from '@/components/sidebar/NewWorkspaceDialog'
@@ -25,12 +25,6 @@ import { projectLabel, workspaceMatches } from '@/components/sidebar/workspace-v
 // Markup and classes follow Orca's sidebar (sidebar/index.tsx, SidebarHeader, WorktreeList); the
 // sections, cards and dialogs live in components/sidebar/.
 
-function orderHosts(hosts: Record<string, HostEntry>): HostEntry[] {
-  return Object.values(hosts).sort((a, b) =>
-    a.id === LOCAL_HOST ? -1 : b.id === LOCAL_HOST ? 1 : a.label.localeCompare(b.label)
-  )
-}
-
 export function Sidebar() {
   const hosts = useStore((s) => s.hosts)
   const sessions = useStore((s) => s.sessions)
@@ -45,7 +39,6 @@ export function Sidebar() {
   useWorkspaceSummaries()
   useCardReviewSummaries()
 
-  const orderedHosts = orderHosts(hosts)
   const waiting = sessions.filter((s) => s.status === 'needs-you')
 
   // "n / total" for the search field, over every host's project workspaces.
@@ -113,14 +106,7 @@ export function Sidebar() {
             ))}
           </section>
         )}
-        {orderedHosts.map((host) => (
-          <HostSection
-            key={host.id}
-            host={host}
-            showHeader={orderedHosts.length > 1 || host.connection.kind !== 'connected'}
-            actions={actions}
-          />
-        ))}
+        <ProjectList actions={actions} />
         {hasActiveFilters(filters) && counts.matched === 0 && counts.total > 0 && (
           <p className="px-3 pt-3 text-center text-xs text-muted-foreground" data-no-matches>
             No workspaces match the filters.

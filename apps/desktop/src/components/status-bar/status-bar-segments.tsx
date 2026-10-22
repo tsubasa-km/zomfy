@@ -19,7 +19,7 @@ import { zoomPercent } from '@/lib/ui-zoom'
 import { AgentQuestionIcon } from '@/components/AgentQuestionIcon'
 import { AgentWorkingSpinner } from '@/components/AgentWorkingSpinner'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
-import { hostConnectionLabel, hostDotClass, sortedHosts } from '@/components/settings/HostsPane'
+import { HostsMenu } from './HostsMenu'
 import { cn } from '@/lib/utils'
 import { registerStatusBarItem } from './status-bar-registry'
 
@@ -55,34 +55,6 @@ export function Segment({
         {tooltip}
       </TooltipContent>
     </Tooltip>
-  )
-}
-
-function HostsSegment() {
-  const hosts = useStore((s) => s.hosts)
-  const list = sortedHosts(hosts)
-  if (list.length === 0) return null
-  return (
-    <Segment
-      label="Hosts"
-      onClick={() => openSettings('hosts')}
-      tooltip={
-        <div className="space-y-0.5">
-          {list.map((host) => (
-            <div key={host.id}>
-              {host.label}: {hostConnectionLabel(host)}
-            </div>
-          ))}
-        </div>
-      }
-    >
-      {list.map((host) => (
-        <span key={host.id} className="inline-flex items-center gap-1" data-status-host={host.id}>
-          <span className={cn('inline-block size-2 rounded-full', hostDotClass(host))} />
-          <span className="max-w-40 truncate">{host.label}</span>
-        </span>
-      ))}
-    </Segment>
   )
 }
 
@@ -196,7 +168,7 @@ function SettingsSegment() {
   )
 }
 
-registerStatusBarItem({ id: 'hosts', label: 'Hosts', side: 'left', order: 0, render: () => <HostsSegment /> })
+registerStatusBarItem({ id: 'hosts', label: 'Hosts', side: 'left', order: 0, render: () => <HostsMenu /> })
 registerStatusBarItem({ id: 'branch', label: 'Branch', side: 'left', order: 10, render: () => <BranchSegment /> })
 registerStatusBarItem({ id: 'agents', label: 'Agent activity', side: 'left', order: 20, render: () => <AgentsSegment /> })
 registerStatusBarItem({ id: 'zoom', label: 'UI zoom', side: 'right', order: 80, render: () => <ZoomSegment /> })

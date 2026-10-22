@@ -45,7 +45,8 @@ export function ProjectSection({
   sessions,
   activeWorkspaceId,
   actions,
-  onProjectDrop
+  onProjectDrop,
+  hostBadge
 }: {
   project: HostedProject
   groups: ProjectGroup[]
@@ -54,6 +55,8 @@ export function ProjectSection({
   activeWorkspaceId: string | null
   actions: SidebarActions
   onProjectDrop: (item: DragItem, position: 'before' | 'after') => void
+  /** Where the project lives when that is not this computer ("WSL", an SSH host). */
+  hostBadge?: string
 }) {
   const view = useStore((s) => s.sidebarView)
   const collapsed = useSidebarStore((s) => s.collapsedProjects.includes(project.id))
@@ -137,6 +140,15 @@ export function ProjectSection({
         )}
         <div className="min-w-0 truncate pl-0.5 text-[13px] leading-none font-semibold">{label}</div>
         <span className="text-[11px] text-muted-foreground tabular-nums">{workspaces.length}</span>
+        {hostBadge && (
+          <span
+            className="shrink-0 rounded border border-worktree-sidebar-border px-1 text-[10px] leading-4 text-muted-foreground"
+            data-project-host={project.hostId}
+            title={project.path}
+          >
+            {hostBadge}
+          </span>
+        )}
         <div
           className="ml-auto flex items-center opacity-0 group-hover/project:opacity-100 has-[[data-state=open]]:opacity-100"
           onClick={(e) => e.stopPropagation()}

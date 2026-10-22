@@ -3,12 +3,13 @@ import { ArrowUp, FolderPlus, GitBranch } from 'lucide-react'
 import { toast } from 'sonner'
 import { HARNESS_METHODS, isChatAgentId } from '@acp-harness/protocol'
 import { createSession, harnessRequest } from '@/daemon-connection'
-import { LOCAL_HOST, selectWorkspace, useStore, type HostId } from '@/session-store'
+import { selectWorkspace, useStore, type HostId } from '@/session-store'
 import { submitPrompt } from '@/chat-actions'
 import { useSetting } from '@/stores/settings-store'
 import { isSubmitShortcut, SUBMIT_SHORTCUT_LABEL } from '@/lib/terminal-shortcuts'
 import { openAddProjectDialog } from '@/lib/project-dialogs'
 import { sortedHosts } from '@/components/settings/HostsPane'
+import { defaultHostId } from '@/lib/default-host'
 import { Button } from '@/components/ui/button'
 import { Textarea } from '@/components/ui/textarea'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
@@ -19,12 +20,13 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 export function QuickStart() {
   const hosts = useStore((s) => s.hosts)
   const connected = sortedHosts(hosts).filter((h) => h.connection.kind === 'connected')
-  const [hostId, setHostId] = useState<HostId>(LOCAL_HOST)
+  const [hostId, setHostId] = useState<HostId | null>(null)
   const [draft, setDraft] = useState('')
   const [busy, setBusy] = useState(false)
   const sendKey = useSetting('chatSendKey')
   const defaultAgent = useSetting('defaultChatAgent')
-  const target = connected.some((h) => h.id === hostId) ? hostId : (connected[0]?.id ?? LOCAL_HOST)
+  useSetting('defaultHost')
+  const target = hostId && connected.some((h) => h.id === hostId) ? hostId : defaultHostId()
 
   async function start() {
     const text = draft.trim()

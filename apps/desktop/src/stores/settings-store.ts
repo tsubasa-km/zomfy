@@ -54,6 +54,8 @@ export interface AppSettings {
   floatingWorkspaceTriggerLocation: FloatingWorkspaceTriggerLocation
   /** Agent new chats start with (Orca's defaultTuiAgent); 'claude' unless onboarding or settings pick another. */
   defaultChatAgent: string
+  /** Host new chats and projects start on: 'auto' (where most projects are) or a host id. */
+  defaultHost: string
   /** First-run flow finished or skipped; settings can reopen it. */
   onboardingDone: boolean
   /** Windows: closing the window hides it to the tray instead of quitting (Orca's minimizeToTrayOnClose). */
@@ -103,6 +105,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
   floatingWorkspaceEnabled: true,
   floatingWorkspaceTriggerLocation: 'floating-button',
   defaultChatAgent: 'claude',
+  defaultHost: 'auto',
   onboardingDone: false,
   minimizeToTrayOnClose: false,
   voiceDictationEnabled: false,

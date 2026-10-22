@@ -6,6 +6,7 @@ import { toast } from 'sonner'
 import { HARNESS_METHODS, type ProjectCreationDefaults } from '@acp-harness/protocol'
 import { harnessRequest, hostForPath, isSshHost } from '@/daemon-connection'
 import { LOCAL_HOST, findWorkspace, getState, useStore, type HostId } from '@/session-store'
+import { defaultHostId } from '@/lib/default-host'
 import { closeAddProjectDialog, setOrcaImportOpen, useAddProjectRequest } from '@/lib/project-dialogs'
 import { addPickedProject, completeProjectAdd } from '@/lib/project-add-completion'
 import { Dialog, DialogContent } from '@/components/ui/dialog'
@@ -26,7 +27,7 @@ function initialHost(requested: HostId | undefined): HostId {
   if (requested) return requested
   const { hosts, activeWorkspaceId } = getState()
   const active = findWorkspace(activeWorkspaceId ?? '')?.hostId
-  return active && hosts[active]?.connection.kind === 'connected' ? active : LOCAL_HOST
+  return active && hosts[active]?.connection.kind === 'connected' ? active : defaultHostId()
 }
 
 const canPickOn = (hostId: HostId) => isTauri() && !isSshHost(hostId)

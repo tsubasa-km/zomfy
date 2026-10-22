@@ -48,7 +48,7 @@ export function workspaceMatches(workspace: Workspace, filters: SidebarFilters, 
 }
 
 /** Pinned first (Orca's pin), then the project's own checkout, then the chosen order. */
-export function sortWorkspaces(list: Workspace[], view: SidebarView, sessions: Session[]): Workspace[] {
+export function sortWorkspaces<T extends Workspace>(list: T[], view: SidebarView, sessions: Session[]): T[] {
   const lastActivity = (w: Workspace) =>
     Math.max(w.createdAt, ...sessions.filter((s) => s.workspaceId === w.id).map((s) => s.turnStartedAt ?? s.createdAt))
   return [...list].sort((a, b) => {

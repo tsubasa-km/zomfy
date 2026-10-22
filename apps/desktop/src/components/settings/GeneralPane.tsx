@@ -1,10 +1,34 @@
 import { useState } from 'react'
 import { RotateCcw, Sparkles } from 'lucide-react'
 import { setSidebarView, useStore, type SidebarView } from '@/session-store'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { sortedHosts } from './HostsPane'
 import { resetAllSettings, setSetting, useSetting } from '@/stores/settings-store'
 import { setOnboardingOpen } from '@/stores/app-overlay-store'
 import { Button } from '@/components/ui/button'
 import { SettingsRow, SettingsSegmentedControl, SettingsSubsectionHeader, SettingsSwitchRow } from './settings-form-controls'
+
+/** Where New chat and Add a project start; 'auto' follows the host with most of the projects. */
+function DefaultHostSelect() {
+  const value = useSetting('defaultHost')
+  const hosts = sortedHosts(useStore((s) => s.hosts))
+  return (
+    <Select value={value} onValueChange={(v) => setSetting('defaultHost', v)}>
+      <SelectTrigger className="h-8 w-56" aria-label="Default host">
+        <SelectValue />
+      </SelectTrigger>
+      <SelectContent>
+        <SelectItem value="auto">Automatic (where most projects are)</SelectItem>
+        {hosts.map((h) => (
+          <SelectItem key={h.id} value={h.id}>
+            {h.label}
+          </SelectItem>
+        ))}
+        {value !== 'auto' && !hosts.some((h) => h.id === value) && <SelectItem value={value}>{value}</SelectItem>}
+      </SelectContent>
+    </Select>
+  )
+}
 
 export function GeneralPane() {
   const view = useStore((s) => s.sidebarView)
@@ -17,6 +41,12 @@ export function GeneralPane() {
       <div className="space-y-2 not-has-[[data-setting-row]]:hidden">
         <SettingsSubsectionHeader title="Workspaces" description="How the sidebar lists workspaces; the sidebar's own options menu changes the same values." />
         <div className="divide-y divide-border/40">
+          <SettingsRow
+            label="Default host"
+            description="Where New chat and Add a project start when you do not pick a host."
+            keywords={['host', 'wsl', 'ssh', 'default', 'machine']}
+            control={<DefaultHostSelect />}
+          />
           <SettingsRow
             label="Group workspaces by"
             keywords={['sidebar', 'project', 'status']}
