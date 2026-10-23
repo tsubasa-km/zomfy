@@ -25,7 +25,7 @@ export type WorkflowCanvasNode = Node<
   WorkflowNodeKind
 >
 
-const ICONS: Record<WorkflowNodeKind, LucideIcon> = {
+export const STEP_ICONS: Record<WorkflowNodeKind, LucideIcon> = {
   start: Play,
   agent: Bot,
   review: ShieldCheck,
@@ -36,7 +36,7 @@ const ICONS: Record<WorkflowNodeKind, LucideIcon> = {
 }
 
 /** Accent per kind, from the theme's own tokens. */
-const ACCENT: Record<WorkflowNodeKind, string> = {
+export const STEP_ACCENTS: Record<WorkflowNodeKind, string> = {
   start: 'text-foreground',
   agent: 'text-primary',
   review: 'text-status-success',
@@ -81,7 +81,7 @@ function detail(node: WorkflowNode): string {
 }
 
 function StepNode({ data, selected, type }: NodeProps<WorkflowCanvasNode>) {
-  const Icon = ICONS[type]
+  const Icon = STEP_ICONS[type]
   const { node, issue, run, loop } = data
   const parallel = node.config.parallel && node.config.parallel.count > 1 ? node.config.parallel : null
   const helpers = node.config.runBy === 'lead' ? 0 : (node.config.maxAgents ?? 0)
@@ -122,7 +122,7 @@ function StepNode({ data, selected, type }: NodeProps<WorkflowCanvasNode>) {
               {PHASE_LETTERS[phase]}
             </span>
           )}
-          <Icon className={cn('size-4 shrink-0', ACCENT[type])} />
+          <Icon className={cn('size-4 shrink-0', STEP_ACCENTS[type])} />
           <div className="min-w-0 flex-1 truncate text-[13px] font-medium">{node.label}</div>
           {parallel && (
             <span

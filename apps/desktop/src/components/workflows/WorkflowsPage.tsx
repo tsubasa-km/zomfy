@@ -36,7 +36,7 @@ import {
 } from '@/components/ui/dropdown-menu'
 import { openWorkflows, type WorkflowsPageTarget } from '@/stores/workflows-store'
 import { cn } from '@/lib/utils'
-import { WORKFLOW_NODE_TYPES, type WorkflowCanvasNode } from './workflow-nodes'
+import { STEP_ACCENTS, STEP_ICONS, WORKFLOW_NODE_TYPES, type WorkflowCanvasNode } from './workflow-nodes'
 import type { CycleCanvasNode } from './workflow-cycles'
 import { GRID, snapRect, type SnapGuide } from './workflow-snap'
 import { SnapGuides } from './workflow-snap-guides'
@@ -557,12 +557,15 @@ function WorkflowCanvas({
           <LoopViewPanel cycles={cycles} />
           <Panel position="top-left">
             <div className="flex flex-wrap gap-1 rounded-lg border border-border bg-card p-1 shadow-xs" data-workflow-palette>
-              {NODE_KINDS.map((k) => (
-                <Button key={k.kind} variant="ghost" size="sm" className="h-7" title={k.hint} onClick={() => addStep(k.kind)}>
-                  <Plus className="size-3.5" />
-                  {k.label}
-                </Button>
-              ))}
+              {NODE_KINDS.map((k) => {
+                const Icon = STEP_ICONS[k.kind]
+                return (
+                  <Button key={k.kind} variant="ghost" size="sm" className="h-7" title={`Add: ${k.hint}`} onClick={() => addStep(k.kind)}>
+                    <Icon className={STEP_ACCENTS[k.kind]} />
+                    {k.label}
+                  </Button>
+                )
+              })}
             </div>
           </Panel>
         </ReactFlow>

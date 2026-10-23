@@ -3,6 +3,7 @@ import { Check } from 'lucide-react'
 import type { WorkflowNodeKind, WorkflowOutcome } from '@acp-harness/protocol'
 import { cn } from '@/lib/utils'
 import { NODE_KINDS, outcomeLabel } from './workflow-model'
+import { STEP_ACCENTS, STEP_ICONS } from './workflow-nodes'
 
 // Shown where a dragged edge was let go: which outcome takes the run along it, and, when it was let
 // go on empty canvas, which step to add there.
@@ -81,18 +82,22 @@ export function WorkflowConnectMenu({
           <>
             <div className="mt-2 border-t border-border px-1 pt-2 pb-1 text-[11px] text-muted-foreground">Add a step here</div>
             <div className="grid grid-cols-2 gap-1">
-              {NODE_KINDS.map((k) => (
-                <button
-                  key={k.kind}
-                  type="button"
-                  title={k.hint}
-                  data-workflow-add-kind={k.kind}
-                  className="rounded border border-border px-2 py-1 text-left text-xs hover:bg-accent"
-                  onClick={() => onPick(outcome, k.kind)}
-                >
-                  {k.label}
-                </button>
-              ))}
+              {NODE_KINDS.map((k) => {
+                const Icon = STEP_ICONS[k.kind]
+                return (
+                  <button
+                    key={k.kind}
+                    type="button"
+                    title={k.hint}
+                    data-workflow-add-kind={k.kind}
+                    className="flex items-center gap-1.5 rounded border border-border px-2 py-1 text-left text-xs hover:bg-accent"
+                    onClick={() => onPick(outcome, k.kind)}
+                  >
+                    <Icon className={cn('size-3.5 shrink-0', STEP_ACCENTS[k.kind])} />
+                    {k.label}
+                  </button>
+                )
+              })}
             </div>
           </>
         )}
