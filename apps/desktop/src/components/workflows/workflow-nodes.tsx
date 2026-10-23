@@ -3,6 +3,7 @@ import { Handle, Position, type Node, type NodeProps } from '@xyflow/react'
 import { Bot, CircleCheckBig, Flag, Play, Puzzle, ShieldCheck, SquareTerminal, RefreshCw, UserRound, Users, type LucideIcon } from 'lucide-react'
 import { chatAgentLabel, type WorkflowNode, type WorkflowNodeKind } from '@acp-harness/protocol'
 import { cn } from '@/lib/utils'
+import { TuiAgentIcon } from '@/components/terminal/TuiAgentIcon'
 import { CycleNode, PHASE_CLASSES, PHASE_LETTERS, phaseOf } from './workflow-cycles'
 
 // One card per step: its kind's icon and colour, the label, and the line that matters for that kind
@@ -47,13 +48,14 @@ const ACCENT: Record<WorkflowNodeKind, string> = {
 
 const JOIN_LABELS = { all: 'all', majority: 'majority', any: 'any one', first: 'first done' } as const
 
-function detail(node: WorkflowNode): string {
+/** The agent a step's sessions run on (the Lead's steps run in its Claude chat); null for steps that are not sessions. */
+function stepAgent(node: WorkflowNode): string | null {
   const c = node.config
-  const agent = c.runBy !== 'lead' && c.agent && c.agent !== 'claude' ? `${chatAgentLabel(c.agent)} · ` : ''
-  return agent + kindDetail(node)
+  if (node.kind !== 'agent' && node.kind !== 'review' && !(node.kind === 'custom' && c.runner !== 'command')) return null
+  return c.runBy === 'lead' ? 'claude' : (c.agent ?? 'claude')
 }
 
-function kindDetail(node: WorkflowNode): string {
+function detail(node: WorkflowNode): string {
   const c = node.config
   switch (node.kind) {
     case 'agent':
@@ -83,6 +85,7 @@ function StepNode({ data, selected, type }: NodeProps<WorkflowCanvasNode>) {
   const { node, issue, run, loop } = data
   const parallel = node.config.parallel && node.config.parallel.count > 1 ? node.config.parallel : null
   const helpers = node.config.runBy === 'lead' ? 0 : (node.config.maxAgents ?? 0)
+  const agent = stepAgent(node)
   const phase = phaseOf(node)
   return (
     <div className="relative" data-workflow-node={node.kind}>
@@ -146,6 +149,15 @@ function StepNode({ data, selected, type }: NodeProps<WorkflowCanvasNode>) {
             />
           )}
           {type === 'end' && node.config.result !== 'failed' && <CircleCheckBig className="size-3.5 shrink-0 text-status-success" />}
+          {agent && (
+            <span
+              className="flex shrink-0 items-center"
+              title={node.config.runBy === 'lead' ? "Run by the project's Lead (Claude)" : `Runs on ${chatAgentLabel(agent)}`}
+              data-workflow-node-agent={agent}
+            >
+              <TuiAgentIcon agent={agent} size={14} />
+            </span>
+          )}
         </div>
         {loop && (
           <div className="mt-1 flex items-center gap-1 truncate pl-6 text-[11px] font-medium text-primary" data-workflow-loop-badge>
