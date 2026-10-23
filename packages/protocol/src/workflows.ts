@@ -92,17 +92,29 @@ export interface WorkflowNodeConfig {
 /** The step's part in its cycle's Plan-Do-Check-Act; absent means the kind's usual one. */
 export type WorkflowPhase = 'plan' | 'do' | 'check' | 'act'
 
+/** What the person set for the cycle that comes back to `entryId` (its name, its round limit). */
+export interface WorkflowCycleSettings {
+  entryId: string
+  label?: string
+  maxRounds?: number
+}
+
 /**
- * A cycle drawn around steps (a PDCA loop): cycles nest, so a dev ⇄ review cycle sits inside the
- * Lead's plan ⇄ check cycle. Coming back to a cycle's first step from inside it starts a new round.
+ * A cycle (a PDCA loop), found from the graph rather than drawn: every edge back to an earlier step
+ * makes one, holding the steps from where it comes back to where it leaves. Edges back to the same
+ * step share one cycle, and cycles nest: dev ⇄ review inside the Lead's plan ⇄ check.
  */
 export interface WorkflowCycle {
+  /** The step it comes back to; also the cycle's id. */
   id: string
   label: string
   /** The cycle it sits in. */
   parentId?: string
   /** Rounds before the run stops and asks the person. */
-  maxRounds?: number
+  maxRounds: number
+  nodeIds: string[]
+  /** The edges that come back to its first step. */
+  backEdgeIds: string[]
 }
 
 export interface WorkflowNode {
@@ -113,8 +125,6 @@ export interface WorkflowNode {
   x: number
   y: number
   config: WorkflowNodeConfig
-  /** The innermost cycle the step is in. */
-  cycleId?: string
   phase?: WorkflowPhase
 }
 
@@ -133,31 +143,88 @@ export interface Workflow {
   description?: string
   nodes: WorkflowNode[]
   edges: WorkflowEdge[]
-  /** Absent in workflows saved before cycles. */
-  cycles?: WorkflowCycle[]
+  /** Names and round limits for the cycles the graph makes. */
+  cycleSettings?: WorkflowCycleSettings[]
   updatedAt: number
 }
 
-/** The cycles a step sits in, innermost first. */
-export function cyclesOf(workflow: Pick<Workflow, 'cycles'>, node: Pick<WorkflowNode, 'cycleId'>): WorkflowCycle[] {
-  const byId = new Map((workflow.cycles ?? []).map((c) => [c.id, c]))
-  const chain: WorkflowCycle[] = []
-  for (let c = node.cycleId ? byId.get(node.cycleId) : undefined; c && !chain.includes(c); c = c.parentId ? byId.get(c.parentId) : undefined) {
-    chain.push(c)
+export const DEFAULT_CYCLE_ROUNDS = 3
+
+type CycleSource = Pick<Workflow, 'nodes' | 'edges' | 'cycleSettings'>
+
+const derived = new WeakMap<object, WorkflowCycle[]>()
+
+/** The workflow's cycles, outermost first. */
+export function workflowCycles(workflow: CycleSource): WorkflowCycle[] {
+  const known = derived.get(workflow)
+  if (known) return known
+  const byId = new Map(workflow.nodes.map((n) => [n.id, n]))
+  const edges = workflow.edges.filter((e) => byId.has(e.from) && byId.has(e.to))
+
+  // An edge back to an earlier step: one to a step still being explored, walking from Start.
+  const back: typeof edges = []
+  const state = new Map<string, 'open' | 'done'>()
+  const walk = (id: string) => {
+    state.set(id, 'open')
+    for (const e of edges.filter((x) => x.from === id)) {
+      if (state.get(e.to) === 'open') back.push(e)
+      else if (!state.has(e.to)) walk(e.to)
+    }
+    state.set(id, 'done')
   }
-  return chain
+  const roots = [...workflow.nodes.filter((n) => n.kind === 'start'), ...workflow.nodes.filter((n) => n.kind !== 'start')]
+  for (const n of roots) if (!state.has(n.id)) walk(n.id)
+
+  // A loop holds the step it comes back to and every step that reaches the leaving one without
+  // passing it; loops back to the same step merge.
+  const bodies = new Map<string, { nodes: Set<string>; edges: string[] }>()
+  for (const e of back) {
+    const body = bodies.get(e.to) ?? { nodes: new Set([e.to]), edges: [] }
+    body.edges.push(e.id)
+    const stack = [e.from]
+    while (stack.length > 0) {
+      const id = stack.pop()!
+      if (body.nodes.has(id)) continue
+      body.nodes.add(id)
+      for (const x of edges) if (x.to === id) stack.push(x.from)
+    }
+    bodies.set(e.to, body)
+  }
+
+  const cycles: WorkflowCycle[] = []
+  for (const [entryId, body] of bodies) {
+    // Asking someone and coming back with the answer is a detour, not a round.
+    if (body.nodes.size > 1 && [...body.nodes].every((id) => id === entryId || byId.get(id)!.kind === 'human')) continue
+    const settings = workflow.cycleSettings?.find((c) => c.entryId === entryId)
+    const entry = byId.get(entryId)!
+    const leaving = body.edges.map((id) => byId.get(edges.find((e) => e.id === id)!.from)!).sort((a, b) => b.x - a.x)[0]
+    cycles.push({
+      id: entryId,
+      label: settings?.label?.trim() || (leaving && leaving.id !== entryId ? `${entry.label} ⇄ ${leaving.label}` : entry.label),
+      maxRounds: settings?.maxRounds ?? DEFAULT_CYCLE_ROUNDS,
+      nodeIds: workflow.nodes.filter((n) => body.nodes.has(n.id)).map((n) => n.id),
+      backEdgeIds: body.edges
+    })
+  }
+  // The parent is the smallest other cycle holding all of this one's steps.
+  for (const cycle of cycles) {
+    const holds = (o: WorkflowCycle) =>
+      o !== cycle &&
+      cycle.nodeIds.every((id) => o.nodeIds.includes(id)) &&
+      (o.nodeIds.length > cycle.nodeIds.length || cycles.indexOf(o) < cycles.indexOf(cycle))
+    const parent = cycles.filter(holds).sort((a, b) => a.nodeIds.length - b.nodeIds.length)[0]
+    if (parent) cycle.parentId = parent.id
+  }
+  cycles.sort((a, b) => b.nodeIds.length - a.nodeIds.length)
+  derived.set(workflow, cycles)
+  return cycles
 }
 
-/** A cycle's first step: the one its loop comes back to, entered from outside the cycle. */
-export function cycleEntry(workflow: Pick<Workflow, 'nodes' | 'edges' | 'cycles'>, cycleId: string): WorkflowNode | null {
-  const inside = (id: string) => {
-    const node = workflow.nodes.find((n) => n.id === id)
-    return !!node && cyclesOf(workflow, node).some((c) => c.id === cycleId)
-  }
-  const entries = workflow.nodes.filter(
-    (n) => inside(n.id) && workflow.edges.some((e) => e.to === n.id && !inside(e.from))
-  )
-  return entries.sort((a, b) => a.x - b.x)[0] ?? null
+/** The cycles a step sits in, innermost first. */
+export function cyclesOf(workflow: CycleSource, nodeId: string): WorkflowCycle[] {
+  return workflowCycles(workflow)
+    .filter((c) => c.nodeIds.includes(nodeId))
+    .sort((a, b) => a.nodeIds.length - b.nodeIds.length)
 }
 
 const BUILTIN_OUTCOMES: Record<Exclude<WorkflowNodeKind, 'custom'>, BuiltinWorkflowOutcome[]> = {

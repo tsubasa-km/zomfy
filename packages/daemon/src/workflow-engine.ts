@@ -1,5 +1,4 @@
 import {
-  cycleEntry,
   cyclesOf,
   WORKFLOW_META,
   WORKFLOW_NOTIFICATIONS,
@@ -252,9 +251,8 @@ export class WorkflowEngine {
         // Coming back to a cycle's first step from inside it starts the cycle's next round.
         const target = this.node(run, edge.to);
         let stopped = false;
-        for (const cycle of cyclesOf(run.workflow, target)) {
-          if (!cycle.maxRounds || cycleEntry(run.workflow, cycle.id)?.id !== target.id) continue;
-          if (!cyclesOf(run.workflow, node).some((c) => c.id === cycle.id)) continue;
+        for (const cycle of cyclesOf(run.workflow, target.id)) {
+          if (cycle.id !== target.id || !cycle.nodeIds.includes(node.id)) continue;
           const key = `cycle:${cycle.id}`;
           run.rounds[key] = (run.rounds[key] ?? 0) + 1;
           if (run.rounds[key]! >= cycle.maxRounds) {

@@ -15,7 +15,7 @@ import { ChevronDown, History, Plus, Save, Trash2, Workflow as WorkflowIcon, X }
 import { toast } from 'sonner'
 import {
   HARNESS_METHODS,
-  cyclesOf,
+  workflowCycles,
   workflowOutcomes,
   type Workflow,
   type WorkflowNode,
@@ -37,7 +37,7 @@ import {
 import { openWorkflows, type WorkflowsPageTarget } from '@/stores/workflows-store'
 import { cn } from '@/lib/utils'
 import { WORKFLOW_NODE_TYPES, type WorkflowCanvasNode } from './workflow-nodes'
-import { makeCycle, ungroupCycle, type CycleCanvasNode } from './workflow-cycles'
+import type { CycleCanvasNode } from './workflow-cycles'
 import { canvasLayout } from './workflow-canvas-layout'
 import { WORKFLOW_EDGE_TYPES } from './workflow-route-edge'
 import { WorkflowInspector } from './WorkflowInspector'
@@ -293,8 +293,8 @@ function WorkflowCanvas({
   const pickedNodes = selection && 'nodes' in selection ? selection.nodes : []
   const selectedNode = pickedNodes.length === 1 ? (workflow.nodes.find((n) => n.id === pickedNodes[0]) ?? null) : null
   const selectedEdge = selection && 'edge' in selection ? (workflow.edges.find((e) => e.id === selection.edge) ?? null) : null
-  const selectedCycle =
-    selection && 'cycle' in selection ? ((workflow.cycles ?? []).find((c) => c.id === selection.cycle) ?? null) : null
+  const cycles = workflowCycles(workflow)
+  const selectedCycle = selection && 'cycle' in selection ? (cycles.find((c) => c.id === selection.cycle) ?? null) : null
 
   const issueOf = (nodeId: string): 'error' | 'warning' | null => {
     const mine = issues.filter((i) => i.nodeId === nodeId)
@@ -302,7 +302,7 @@ function WorkflowCanvas({
   }
 
   const { boxes, routes } = canvasLayout(workflow, sizes)
-  const cycleNodes: CycleCanvasNode[] = (workflow.cycles ?? []).flatMap((cycle) => {
+  const cycleNodes: CycleCanvasNode[] = cycles.flatMap((cycle) => {
     const box = boxes.get(cycle.id)
     if (!box) return []
     return [
@@ -316,7 +316,8 @@ function WorkflowCanvas({
         zIndex: -100 + box.depth,
         data: { cycle, depth: box.depth, round: null },
         selected: selectedCycle?.id === cycle.id,
-        connectable: false
+        connectable: false,
+        deletable: false
       }
     ]
   })
@@ -355,19 +356,19 @@ function WorkflowCanvas({
         if (cycleId) {
           // Dragging a frame moves every step inside it, inner cycles included.
           const box = boxes.get(cycleId)
+          const inside = cycles.find((c) => c.id === cycleId)?.nodeIds ?? []
           if (!box) continue
           const dx = Math.round(x - box.x)
           const dy = Math.round(y - box.y)
           next = {
             ...next,
-            nodes: next.nodes.map((n) => (cyclesOf(next, n).some((c) => c.id === cycleId) ? { ...n, x: n.x + dx, y: n.y + dy } : n))
+            nodes: next.nodes.map((n) => (inside.includes(n.id) ? { ...n, x: n.x + dx, y: n.y + dy } : n))
           }
         } else {
           next = { ...next, nodes: next.nodes.map((n) => (n.id === change.id ? { ...n, x: Math.round(x), y: Math.round(y) } : n)) }
         }
       } else if (change.type === 'remove') {
-        if (cycleId) next = ungroupCycle(next, cycleId)
-        else removed.add(change.id)
+        if (!cycleId) removed.add(change.id)
       } else if (change.type === 'select') {
         selectionChanged = true
         if (cycleId) pickedCycle = change.selected ? cycleId : pickedCycle === cycleId ? null : pickedCycle
@@ -498,18 +499,10 @@ function WorkflowCanvas({
           edge={selectedEdge}
           cycle={selectedCycle}
           multi={pickedNodes.length}
-          onCycle={(id, patch) =>
-            onChange({ ...workflow, cycles: (workflow.cycles ?? []).map((c) => (c.id === id ? { ...c, ...patch } : c)) })
-          }
-          onUngroup={(id) => {
-            onChange(ungroupCycle(workflow, id))
-            setSelection(null)
-          }}
-          onMakeCycle={(label) => {
-            const next = makeCycle(workflow, pickedNodes, label)
-            onChange(next)
-            const made = next.cycles?.at(-1)
-            setSelection(made ? { cycle: made.id } : null)
+          onCycle={(id, patch) => {
+            const settings = workflow.cycleSettings ?? []
+            const own = settings.find((c) => c.entryId === id) ?? { entryId: id }
+            onChange({ ...workflow, cycleSettings: [...settings.filter((c) => c !== own), { ...own, ...patch }] })
           }}
           issues={issues}
           onWorkflow={(patch) => onChange({ ...workflow, ...patch })}

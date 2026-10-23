@@ -1,5 +1,5 @@
 import {
-  cycleEntry,
+  workflowCycles,
   workflowOutcomes,
   type BuiltinWorkflowOutcome,
   type Workflow,
@@ -145,8 +145,6 @@ export function reviewLoopTemplate(projectId: string): Workflow {
  * cycle); inside, the developer and reviewer loop until the change is approved.
  */
 export function leadCycleTemplate(projectId: string): Workflow {
-  const outer = { id: crypto.randomUUID(), label: 'Lead: plan ⇄ check', maxRounds: 2 }
-  const inner = { id: crypto.randomUUID(), label: 'Develop ⇄ review', maxRounds: 3, parentId: outer.id }
   const node = (
     kind: WorkflowNodeKind,
     label: string,
@@ -170,24 +168,22 @@ export function leadCycleTemplate(projectId: string): Workflow {
       prompt:
         'Turn the task into a plan the developer can follow: scope, files, acceptance criteria. On a later round, fold in what your check found. Hand the plan on in your summary.'
     },
-    { cycleId: outer.id, phase: 'plan' }
+    { phase: 'plan' }
   )
   const dev = node(
     'agent',
     'Developer',
     600,
     180,
-    { prompt: "Implement the Lead's plan in this worktree. Commit when done. Address every review finding you are given." },
-    { cycleId: inner.id }
+    { prompt: "Implement the Lead's plan in this worktree. Commit when done. Address every review finding you are given." }
   )
-  const tests = node('check', 'Run tests', 880, 180, { command: '' }, { cycleId: inner.id })
+  const tests = node('check', 'Run tests', 880, 180, { command: '' })
   const review = node(
     'review',
     'Reviewer',
     1160,
     180,
-    { prompt: "Review the change against the Lead's plan for correctness. Do not edit files.", tools: { readOnly: true } },
-    { cycleId: inner.id }
+    { prompt: "Review the change against the Lead's plan for correctness. Do not edit files.", tools: { readOnly: true } }
   )
   const check = node(
     'review',
@@ -200,10 +196,9 @@ export function leadCycleTemplate(projectId: string): Workflow {
       maxRounds: 2,
       prompt:
         "Check the result against the person's intent and your plan. Approve when it is what they asked for; choose changes to plan another round, saying what to change."
-    },
-    { cycleId: outer.id }
+    }
   )
-  const ask = node('human', 'Ask the person', 1480, 20, { askLeadFirst: false, question: '' }, { cycleId: outer.id })
+  const ask = node('human', 'Ask the person', 1480, 20, { askLeadFirst: false, question: '' })
   const done = node('end', 'Done', 1800, 180)
   const edge = (from: WorkflowNode, to: WorkflowNode, outcome: WorkflowOutcome) => ({
     id: crypto.randomUUID(),
@@ -230,7 +225,10 @@ export function leadCycleTemplate(projectId: string): Workflow {
       edge(check, ask, 'ask'),
       edge(ask, check, 'answered')
     ],
-    cycles: [outer, inner],
+    cycleSettings: [
+      { entryId: plan.id, label: 'Lead: plan ⇄ check', maxRounds: 2 },
+      { entryId: dev.id, label: 'Develop ⇄ review', maxRounds: 3 }
+    ],
     updatedAt: Date.now()
   }
 }
@@ -321,8 +319,8 @@ export function validateWorkflow(workflow: Workflow): WorkflowIssue[] {
 /** A step on a cycle that never passes a step with a round limit, or null. */
 function unboundedCycle(workflow: Workflow): string | null {
   // A cycle's round limit bounds the loops through its first step too.
-  const cycleEntries = (workflow.cycles ?? []).filter((c) => c.maxRounds).flatMap((c) => cycleEntry(workflow, c.id)?.id ?? [])
-  const reviews = new Set([...workflow.nodes.filter((n) => n.kind === 'review' || n.kind === 'check').map((n) => n.id), ...cycleEntries])
+  const cycleEntries = workflowCycles(workflow).map((c) => c.id)
+  const reviews = new Set([...workflow.nodes.filter((n) => n.kind === 'review' || n.kind === 'check' || n.kind === 'human').map((n) => n.id), ...cycleEntries])
   const next = new Map<string, string[]>()
   for (const edge of workflow.edges) {
     if (reviews.has(edge.from) || reviews.has(edge.to)) continue

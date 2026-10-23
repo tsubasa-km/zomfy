@@ -1,11 +1,12 @@
 import { memo } from 'react'
 import type { Node, NodeProps } from '@xyflow/react'
 import { RefreshCw } from 'lucide-react'
-import { cyclesOf, type Workflow, type WorkflowCycle, type WorkflowNode, type WorkflowPhase } from '@acp-harness/protocol'
+import type { WorkflowCycle, WorkflowNode, WorkflowPhase } from '@acp-harness/protocol'
 import { cn } from '@/lib/utils'
 
 // Cycles (PDCA loops) drawn as frames around their steps (boxes from workflow-canvas-layout), so
-// nesting reads at a glance: the dev ⇄ review cycle inside the Lead's cycle.
+// nesting reads at a glance: the dev ⇄ review cycle inside the Lead's cycle. The graph makes them:
+// each edge back to an earlier step frames the steps it repeats.
 
 export type CycleCanvasNode = Node<{ cycle: WorkflowCycle; depth: number; round: string | null }, 'cycle'>
 
@@ -36,48 +37,6 @@ export const PHASE_CLASSES: Record<WorkflowPhase, string> = {
   act: 'bg-status-warning/15 text-status-warning'
 }
 
-/** Makes a cycle around `stepIds`, inside the innermost cycle they all share. */
-export function makeCycle(workflow: Workflow, stepIds: string[], label: string): Workflow {
-  const steps = workflow.nodes.filter((n) => stepIds.includes(n.id))
-  if (steps.length === 0) return workflow
-  const chains = steps.map((n) => cyclesOf(workflow, n))
-  const shared = chains[0]!.find((c) => chains.every((chain) => chain.some((x) => x.id === c.id)))
-  const cycle: WorkflowCycle = { id: crypto.randomUUID(), label, maxRounds: 3, ...(shared ? { parentId: shared.id } : {}) }
-  const reparent = new Set<string>()
-  const nodes = workflow.nodes.map((n) => {
-    if (!stepIds.includes(n.id)) return n
-    // A step deeper than the shared cycle brings its whole sub-cycle along instead of leaving it.
-    const chain = cyclesOf(workflow, n)
-    const below = shared ? chain[chain.findIndex((c) => c.id === shared.id) - 1] : chain.at(-1)
-    if (below) {
-      reparent.add(below.id)
-      return n
-    }
-    return { ...n, cycleId: cycle.id }
-  })
-  const cycles = (workflow.cycles ?? []).map((c) => (reparent.has(c.id) ? { ...c, parentId: cycle.id } : c))
-  return { ...workflow, nodes, cycles: [...cycles, cycle] }
-}
-
-/** Removes a cycle; its steps and inner cycles move up to the cycle around it. */
-export function ungroupCycle(workflow: Workflow, cycleId: string): Workflow {
-  const cycle = (workflow.cycles ?? []).find((c) => c.id === cycleId)
-  if (!cycle) return workflow
-  const nodes = workflow.nodes.map((n) => {
-    if (n.cycleId !== cycleId) return n
-    const { cycleId: _, ...rest } = n
-    return cycle.parentId ? { ...rest, cycleId: cycle.parentId } : rest
-  })
-  const cycles = (workflow.cycles ?? [])
-    .filter((c) => c.id !== cycleId)
-    .map((c) => {
-      if (c.parentId !== cycleId) return c
-      const { parentId: _, ...rest } = c
-      return cycle.parentId ? { ...rest, parentId: cycle.parentId } : rest
-    })
-  return { ...workflow, nodes, cycles }
-}
-
 function CycleFrame({ data, selected, width, height }: NodeProps<CycleCanvasNode>) {
   const { cycle, round } = data
   return (
@@ -93,7 +52,7 @@ function CycleFrame({ data, selected, width, height }: NodeProps<CycleCanvasNode
         <RefreshCw className="size-3" />
         <span className="truncate">{cycle.label || 'Cycle'}</span>
         <span className="font-normal text-muted-foreground">
-          {round ?? (cycle.maxRounds ? `up to ${cycle.maxRounds} rounds` : 'no round limit')}
+          {round ?? `up to ${cycle.maxRounds} rounds`}
         </span>
       </div>
     </div>

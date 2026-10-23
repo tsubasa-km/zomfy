@@ -2,7 +2,7 @@ import { useEffect, useRef, useState, useSyncExternalStore } from 'react'
 import { Background, Controls, ReactFlow, useReactFlow, type NodeChange } from '@xyflow/react'
 import { ArrowLeft, CircleStop, MessageSquare, Send } from 'lucide-react'
 import { toast } from 'sonner'
-import { HARNESS_METHODS, cyclesOf, type WorkflowRun, type WorkflowRunStep } from '@acp-harness/protocol'
+import { HARNESS_METHODS, workflowCycles, type WorkflowRun, type WorkflowRunStep } from '@acp-harness/protocol'
 import { harnessRequest } from '@/daemon-connection'
 import { selectSession } from '@/session-store'
 import { openWorkflows } from '@/stores/workflows-store'
@@ -108,10 +108,10 @@ export function WorkflowRunView({ run, onBack }: { run: HostedWorkflowRun; onBac
   const { boxes, routes } = canvasLayout(run.workflow, sizes)
   const edges = canvasEdges(run.workflow, routes, null, takenEdges(run))
   const visited = new Set(run.steps.map((s) => s.nodeId))
-  const cycleNodes: CycleCanvasNode[] = (run.workflow.cycles ?? []).flatMap((cycle) => {
+  const cycleNodes: CycleCanvasNode[] = workflowCycles(run.workflow).flatMap((cycle) => {
     const box = boxes.get(cycle.id)
     if (!box) return []
-    const entered = run.workflow.nodes.some((n) => visited.has(n.id) && cyclesOf(run.workflow, n).some((c) => c.id === cycle.id))
+    const entered = cycle.nodeIds.some((id) => visited.has(id))
     const round = (run.rounds[`cycle:${cycle.id}`] ?? 0) + 1
     return [
       {
@@ -126,7 +126,7 @@ export function WorkflowRunView({ run, onBack }: { run: HostedWorkflowRun; onBac
         data: {
           cycle,
           depth: box.depth,
-          round: entered ? `round ${round}${cycle.maxRounds ? ` of ${cycle.maxRounds}` : ''}` : 'not reached'
+          round: entered ? `round ${round} of ${cycle.maxRounds}` : 'not reached'
         }
       }
     ]

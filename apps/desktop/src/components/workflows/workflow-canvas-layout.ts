@@ -1,4 +1,4 @@
-import { cyclesOf, type Workflow, type WorkflowCycle, type WorkflowEdge, type WorkflowNode } from '@acp-harness/protocol'
+import { cyclesOf, workflowCycles, type Workflow, type WorkflowCycle, type WorkflowEdge, type WorkflowNode } from '@acp-harness/protocol'
 
 // Where the canvas draws cycle frames and edge routes. Edges are routed orthogonally: forward ones
 // leave right and enter left; ones back to an earlier step run underneath in their own lane, inner
@@ -42,7 +42,7 @@ export function canvasLayout(
   workflow: Workflow,
   sizes: Record<string, { width: number; height: number }>
 ): { boxes: Map<string, CycleBox>; routes: Map<string, EdgeRoute> } {
-  const cycles = workflow.cycles ?? []
+  const cycles = workflowCycles(workflow)
   const byId = new Map(workflow.nodes.map((n) => [n.id, n]))
   const rectOf = (node: WorkflowNode): Rect => {
     const size = sizes[node.id] ?? CARD
@@ -60,8 +60,8 @@ export function canvasLayout(
 
   // The innermost cycle holding both ends owns a back edge's lane.
   const homeOf = (e: WorkflowEdge): string | null => {
-    const to = cyclesOf(workflow, byId.get(e.to)!)
-    return cyclesOf(workflow, byId.get(e.from)!).find((c) => to.some((x) => x.id === c.id))?.id ?? null
+    const to = cyclesOf(workflow, e.to)
+    return cyclesOf(workflow, e.from).find((c) => to.some((x) => x.id === c.id))?.id ?? null
   }
   const depthOf = (cycle: WorkflowCycle): number => {
     let depth = 0
@@ -79,7 +79,9 @@ export function canvasLayout(
   const lanes = new Map<string, number>()
   for (const group of groups) {
     const gid = group?.id ?? null
-    const content: Rect[] = workflow.nodes.filter((n) => (n.cycleId ?? null) === gid).map((n) => rects.get(n.id)!)
+    const content: Rect[] = workflow.nodes
+      .filter((n) => (cyclesOf(workflow, n.id)[0]?.id ?? null) === gid)
+      .map((n) => rects.get(n.id)!)
     for (const child of cycles.filter((c) => (c.parentId ?? null) === gid)) {
       const box = boxes.get(child.id)
       if (box) content.push({ x: box.x, y: box.y, r: box.x + box.width, b: box.y + box.height })

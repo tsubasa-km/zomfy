@@ -1,5 +1,5 @@
-import { useState, type ReactNode } from 'react'
-import { RefreshCw, Trash2, Ungroup } from 'lucide-react'
+import type { ReactNode } from 'react'
+import { Trash2 } from 'lucide-react'
 import {
   workflowOutcomes,
   type Workflow,
@@ -115,22 +115,6 @@ function ParallelFields({
   )
 }
 
-function MakeCyclePanel({ count, onMake }: { count: number; onMake: (label: string) => void }) {
-  const [label, setLabel] = useState('Cycle')
-  return (
-    <div className="space-y-4" data-workflow-inspector="multi">
-      <p className="text-xs text-muted-foreground">{count} steps selected.</p>
-      <Field label="Cycle name" hint="Draws a Plan-Do-Check-Act loop around them; cycles they are in stay around it.">
-        <Input value={label} onChange={(e) => setLabel(e.target.value)} className="h-8" />
-      </Field>
-      <Button size="sm" onClick={() => onMake(label.trim() || 'Cycle')}>
-        <RefreshCw className="size-3.5" />
-        Make a cycle
-      </Button>
-    </div>
-  )
-}
-
 export function WorkflowInspector({
   hostId,
   workflow,
@@ -139,8 +123,6 @@ export function WorkflowInspector({
   cycle,
   multi,
   onCycle,
-  onUngroup,
-  onMakeCycle,
   issues,
   onWorkflow,
   onNode,
@@ -153,11 +135,9 @@ export function WorkflowInspector({
   node: WorkflowNode | null
   edge: WorkflowEdge | null
   cycle: WorkflowCycle | null
-  /** Steps selected together (Shift+click or drag a box), which can become a cycle. */
+  /** Steps selected together (Shift+click or drag a box). */
   multi: number
-  onCycle: (id: string, patch: Partial<Pick<WorkflowCycle, 'label' | 'maxRounds'>>) => void
-  onUngroup: (id: string) => void
-  onMakeCycle: (label: string) => void
+  onCycle: (id: string, patch: { label?: string; maxRounds?: number }) => void
   issues: WorkflowIssue[]
   onWorkflow: (patch: Partial<Pick<Workflow, 'name' | 'description'>>) => void
   onNode: (id: string, patch: Partial<Omit<WorkflowNode, 'config'>> & { config?: Partial<WorkflowNodeConfig> }) => void
@@ -166,37 +146,51 @@ export function WorkflowInspector({
   onSelectIssue: (issue: WorkflowIssue) => void
 }) {
   if (cycle) {
+    const label = (id: string) => workflow.nodes.find((n) => n.id === id)?.label ?? '?'
+    const backs = workflow.edges.filter((e) => cycle.backEdgeIds.includes(e.id))
     return (
       <div className="space-y-4" data-workflow-inspector="cycle">
-        <Field label="Cycle name" hint="A Plan-Do-Check-Act loop around its steps; cycles can sit inside cycles.">
+        <div className="space-y-1 text-xs text-muted-foreground" data-workflow-cycle-source>
+          <p>
+            The arrow{backs.length > 1 ? 's' : ''} back to “{label(cycle.id)}” make{backs.length > 1 ? '' : 's'} this cycle; it frames
+            the {cycle.nodeIds.length} steps a round repeats.
+          </p>
+          <ul className="list-disc pl-4">
+            {backs.map((e) => (
+              <li key={e.id}>
+                {label(e.from)} → {label(e.to)} ({outcomeLabel(e.outcome)})
+              </li>
+            ))}
+          </ul>
+        </div>
+        <Field label="Cycle name">
           <Input value={cycle.label} onChange={(e) => onCycle(cycle.id, { label: e.target.value })} className="h-8" />
         </Field>
-        <Field label="Round limit" hint="Coming back to the cycle's first step from inside it starts a round; past the limit the run asks you.">
+        <Field label="Round limit" hint="Each time the run comes back to the cycle's first step is a round; past the limit the run asks you.">
           <Input
             type="number"
             min={1}
             max={20}
-            value={cycle.maxRounds ?? ''}
-            onChange={(e) => onCycle(cycle.id, { maxRounds: e.target.value === '' ? undefined : Math.max(1, Number(e.target.value)) })}
+            value={cycle.maxRounds}
+            onChange={(e) => onCycle(cycle.id, { maxRounds: Math.max(1, Number(e.target.value) || 1) })}
             className="h-8 w-24"
           />
         </Field>
-        <Button variant="outline" size="sm" onClick={() => onUngroup(cycle.id)}>
-          <Ungroup className="size-3.5" />
-          Ungroup
-        </Button>
       </div>
     )
   }
 
   if (multi > 1) {
-    return <MakeCyclePanel count={multi} onMake={onMakeCycle} />
+    return (
+      <p className="text-xs text-muted-foreground" data-workflow-inspector="multi">
+        {multi} steps selected. Drag one to move them together; Delete removes them.
+      </p>
+    )
   }
 
   if (node) {
     const c = node.config
     const set = (config: Partial<WorkflowNodeConfig>) => onNode(node.id, { config })
-    const cycles = workflow.cycles ?? []
     return (
       <div className="space-y-4" data-workflow-inspector="node">
         <Field label="Step name">
@@ -215,30 +209,20 @@ export function WorkflowInspector({
             />
           </Field>
         )}
-        <div className="grid grid-cols-2 gap-2">
-          <Field label="Cycle">
-            <Choice
-              label="Cycle"
-              value={node.cycleId ?? 'none'}
-              onChange={(id) => onNode(node.id, { cycleId: id === 'none' ? undefined : id })}
-              options={[{ value: 'none', label: 'None' }, ...cycles.map((cy) => ({ value: cy.id, label: cy.label || 'Cycle' }))]}
-            />
-          </Field>
-          <Field label="Phase">
-            <Choice
-              label="Phase"
-              value={node.phase ?? 'auto'}
-              onChange={(phase) => onNode(node.id, { phase: phase === 'auto' ? undefined : phase })}
-              options={[
-                { value: 'auto', label: 'Auto' },
-                { value: 'plan', label: 'P · Plan' },
-                { value: 'do', label: 'D · Do' },
-                { value: 'check', label: 'C · Check' },
-                { value: 'act', label: 'A · Act' }
-              ]}
-            />
-          </Field>
-        </div>
+        <Field label="Phase" hint="The step's part in its cycle's Plan-Do-Check-Act.">
+          <Choice
+            label="Phase"
+            value={node.phase ?? 'auto'}
+            onChange={(phase) => onNode(node.id, { phase: phase === 'auto' ? undefined : phase })}
+            options={[
+              { value: 'auto', label: 'Auto' },
+              { value: 'plan', label: 'P · Plan' },
+              { value: 'do', label: 'D · Do' },
+              { value: 'check', label: 'C · Check' },
+              { value: 'act', label: 'A · Act' }
+            ]}
+          />
+        </Field>
         {node.kind === 'custom' && (
           <Field label="Done by">
             <Choice
