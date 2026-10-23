@@ -38,6 +38,8 @@ import { openWorkflows, type WorkflowsPageTarget } from '@/stores/workflows-stor
 import { cn } from '@/lib/utils'
 import { WORKFLOW_NODE_TYPES, type WorkflowCanvasNode } from './workflow-nodes'
 import type { CycleCanvasNode } from './workflow-cycles'
+import { GRID, snapRect, type SnapGuide } from './workflow-snap'
+import { SnapGuides } from './workflow-snap-guides'
 import { canvasLayout } from './workflow-canvas-layout'
 import { WORKFLOW_EDGE_TYPES } from './workflow-route-edge'
 import { WorkflowInspector } from './WorkflowInspector'
@@ -290,6 +292,20 @@ function WorkflowCanvas({
   }, [measured, flow])
   const canvasRef = useRef<HTMLDivElement>(null)
   const [selection, setSelection] = useState<Selection>(null)
+  const [guides, setGuides] = useState<SnapGuide[]>([])
+  // Holding Alt places a dragged step freely.
+  const snapOff = useRef(false)
+  useEffect(() => {
+    const track = (e: KeyboardEvent) => {
+      snapOff.current = e.altKey
+    }
+    window.addEventListener('keydown', track)
+    window.addEventListener('keyup', track)
+    return () => {
+      window.removeEventListener('keydown', track)
+      window.removeEventListener('keyup', track)
+    }
+  }, [])
   const pickedNodes = selection && 'nodes' in selection ? selection.nodes : []
   const selectedNode = pickedNodes.length === 1 ? (workflow.nodes.find((n) => n.id === pickedNodes[0]) ?? null) : null
   const selectedEdge = selection && 'edge' in selection ? (workflow.edges.find((e) => e.id === selection.edge) ?? null) : null
@@ -347,6 +363,19 @@ function WorkflowCanvas({
     const picked = new Set(pickedNodes)
     let pickedCycle: string | null = selectedCycle?.id ?? null
     let selectionChanged = false
+    // Steps dragged together move by the snap of the first one, so they keep their spacing.
+    const moving = changes.flatMap((c) => (c.type === 'position' && c.position && !c.id.startsWith(CYCLE_PREFIX) ? [c] : []))
+    let shift = { x: 0, y: 0 }
+    const lead = moving[0]
+    if (lead?.position && !snapOff.current) {
+      const movingIds = new Set(moving.map((c) => c.id))
+      const rectOf = (id: string, x: number, y: number) => ({ x, y, ...(sizes[id] ?? { width: 208, height: 60 }) })
+      const others = workflow.nodes.filter((n) => !movingIds.has(n.id)).map((n) => rectOf(n.id, n.x, n.y))
+      const snapped = snapRect(rectOf(lead.id, lead.position.x, lead.position.y), others)
+      shift = { x: snapped.x - lead.position.x, y: snapped.y - lead.position.y }
+      setGuides(lead.dragging ? snapped.guides : [])
+    }
+    if (changes.some((c) => c.type === 'position' && !c.dragging)) setGuides([])
     for (const change of changes) {
       const cycleId = 'id' in change && change.id.startsWith(CYCLE_PREFIX) ? change.id.slice(CYCLE_PREFIX.length) : null
       if (change.type === 'dimensions' && change.dimensions) {
@@ -358,14 +387,16 @@ function WorkflowCanvas({
           const box = boxes.get(cycleId)
           const inside = cycles.find((c) => c.id === cycleId)?.nodeIds ?? []
           if (!box) continue
-          const dx = Math.round(x - box.x)
-          const dy = Math.round(y - box.y)
+          const snap = (d: number) => (snapOff.current ? Math.round(d) : Math.round(d / GRID) * GRID)
+          const dx = snap(x - box.x)
+          const dy = snap(y - box.y)
           next = {
             ...next,
             nodes: next.nodes.map((n) => (inside.includes(n.id) ? { ...n, x: n.x + dx, y: n.y + dy } : n))
           }
         } else {
-          next = { ...next, nodes: next.nodes.map((n) => (n.id === change.id ? { ...n, x: Math.round(x), y: Math.round(y) } : n)) }
+          const at = { x: Math.round(x + shift.x), y: Math.round(y + shift.y) }
+          next = { ...next, nodes: next.nodes.map((n) => (n.id === change.id ? { ...n, ...at } : n)) }
         }
       } else if (change.type === 'remove') {
         if (!cycleId) removed.add(change.id)
@@ -466,8 +497,9 @@ function WorkflowCanvas({
           colorMode={dark ? 'dark' : 'light'}
           proOptions={{ hideAttribution: true }}
         >
-          <Background gap={20} size={1} />
+          <Background gap={GRID} size={1} />
           <Controls showInteractive={false} />
+          <SnapGuides guides={guides} />
           <Panel position="top-left">
             <div className="flex flex-wrap gap-1 rounded-lg border border-border bg-card p-1 shadow-xs" data-workflow-palette>
               {NODE_KINDS.map((k) => (
