@@ -21,6 +21,7 @@ import { resolveClaudeExecutable } from "./claude-executable.ts";
 import { CHAT_ATTACHMENT_DIR, deferAttachmentMentions } from "./chat-attachment-files.ts";
 import { detectUsageLimit } from "./usage-limit.ts";
 import { log } from "./log.ts";
+import { pathGuardHooks, type PathGuard } from "./step-path-guard.ts";
 
 export interface ClaudeSessionState {
   cwd: string;
@@ -74,6 +75,8 @@ export interface StepOptions {
   outputFormat?: Options["outputFormat"];
   /** Folders outside the session's own it may read without asking (the run's worktree, for the Lead). */
   additionalDirectories?: string[];
+  /** Data the step may not use, or may only read; refused before each tool call. */
+  guards?: PathGuard[];
 }
 
 // The CLI sends its prompt suggestion after the result; past this the process is let go without one.
@@ -157,6 +160,7 @@ export async function runClaudeTurn(input: TurnInput): Promise<acp.StopReason> {
       ...(input.step?.skills ? { skills: input.step.skills } : {}),
       ...(input.step?.strictMcpConfig ? { strictMcpConfig: true } : {}),
       ...(input.step?.outputFormat ? { outputFormat: input.step.outputFormat } : {}),
+      ...(input.step?.guards?.length ? { hooks: pathGuardHooks(input.step.guards) } : {}),
       ...(input.appendSystemPrompt
         ? { systemPrompt: { type: "preset" as const, preset: "claude_code" as const, append: input.appendSystemPrompt } }
         : {}),

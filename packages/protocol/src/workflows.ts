@@ -4,6 +4,7 @@
 // Saved per project on the host whose daemon owns the project.
 
 import type { ChatAgentId } from './chat-agents'
+import type { WorkflowDataLink, WorkflowDataSource } from './workflow-access'
 
 export type WorkflowNodeKind = 'start' | 'agent' | 'review' | 'check' | 'human' | 'end' | 'custom'
 
@@ -99,6 +100,10 @@ export interface WorkflowNodeConfig {
    * helper agents at once (spawn_agents). Absent: it spawns none.
    */
   maxAgents?: number
+  /** Agent and review steps: an agent defined on the host (WorkflowAgentProfile) runs it, with that agent's settings. */
+  profileId?: string
+  /** Its agent's model runs on the person's own machines; filled in from the agent when a run starts. */
+  local?: boolean
 }
 
 /** The step's part in its cycle's Plan-Do-Check-Act; absent means the kind's usual one. */
@@ -159,6 +164,9 @@ export interface Workflow {
   cycleSettings?: WorkflowCycleSettings[]
   /** Start without asking even though a loop has no limit. */
   skipLoopConfirm?: boolean
+  /** Files and folders its steps may be given; a step sees only those linked to it. */
+  data?: WorkflowDataSource[]
+  dataLinks?: WorkflowDataLink[]
   updatedAt: number
 }
 

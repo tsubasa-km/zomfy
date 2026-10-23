@@ -12,6 +12,7 @@ import { PLUGIN_METHODS, type PluginRequests } from './plugins'
 import { PORT_METHODS, type PortRequests } from './ports'
 import { PROJECT_LINK_METHODS, type ProjectLinkRequests } from './project-links'
 import { WORKFLOW_METHODS, type WorkflowRequests } from './workflows'
+import { WORKFLOW_AGENT_METHODS, type WorkflowAgentRequests } from './workflow-access'
 import { QUICK_OPEN_METHODS, type QuickOpenRequests } from './quick-open'
 import { SESSION_METHODS, type SessionRequests } from './sessions'
 import { SESSION_NOTE_METHODS, type SessionNoteRequests } from './session-notes'
@@ -48,6 +49,7 @@ export * from './turn-recovery'
 export * from './voice'
 export * from './workspaces'
 export * from './workflows'
+export * from './workflow-access'
 
 export const HARNESS_METHODS = {
   ...WORKSPACE_METHODS,
@@ -70,7 +72,8 @@ export const HARNESS_METHODS = {
   ...VOICE_METHODS,
   ...TURN_RECOVERY_METHODS,
   ...PROJECT_LINK_METHODS,
-  ...WORKFLOW_METHODS
+  ...WORKFLOW_METHODS,
+  ...WORKFLOW_AGENT_METHODS
 } as const
 
 export const HARNESS_NOTIFICATIONS = {
@@ -101,6 +104,7 @@ export interface HarnessRequests
     VoiceRequests,
     TurnRecoveryRequests,
     ProjectLinkRequests,
-    WorkflowRequests {}
+    WorkflowRequests,
+    WorkflowAgentRequests {}
 
 export type HarnessMethod = keyof HarnessRequests

@@ -1,5 +1,10 @@
 import {
   cyclesOf,
+  isAbsolutePath,
+  localOnlySteps,
+  resolveWorkflowAgents,
+  runsLocally,
+  workflowAccessIssues,
   WORKFLOW_META,
   WORKFLOW_NOTIFICATIONS,
   workflowOutcomes,
@@ -7,6 +12,8 @@ import {
   type Workflow,
   type ChatAgentId,
   type WorkflowCycle,
+  type WorkflowDataLink,
+  type WorkflowDataSource,
   type WorkflowNode,
   type WorkflowOutcome,
   type WorkflowRun,
@@ -20,6 +27,10 @@ import { noteActivity } from "./session-activity.ts";
 import { consultLead } from "./lead-consult.ts";
 import type { WorkflowRunStore } from "./workflow-run-store.ts";
 import type { WorkflowStore } from "./workflow-store.ts";
+import type { WorkflowAgentStore } from "./workflow-agent-store.ts";
+import type { PathGuard } from "./step-path-guard.ts";
+import { stat } from "node:fs/promises";
+import { dirname } from "node:path";
 import { sanitizeWorkspaceName } from "./worktree-naming.ts";
 import { log } from "./log.ts";
 
@@ -95,6 +106,7 @@ export class WorkflowEngine {
     private readonly deps: Deps,
     private readonly runs: WorkflowRunStore,
     private readonly workflows: WorkflowStore,
+    private readonly agents: WorkflowAgentStore,
   ) {
     deps.serveTool("spawn_agents", (caller, _tool, args) => this.spawnAgents(caller, args), (id) => this.spawners.has(id));
   }
@@ -119,8 +131,13 @@ export class WorkflowEngine {
   }
 
   async start(projectId: string, workflowId: string, task: string, originSessionId?: string): Promise<WorkflowRun> {
-    const workflow = (await this.workflows.list(projectId)).find((w) => w.id === workflowId);
-    if (!workflow) throw new Error("Save the workflow before running it");
+    const saved = (await this.workflows.list(projectId)).find((w) => w.id === workflowId);
+    if (!saved) throw new Error("Save the workflow before running it");
+    // The run keeps each step's agent as it is now, so editing an agent later does not change it.
+    const profiles = await this.agents.list();
+    const broken = workflowAccessIssues(saved, profiles).find((i) => i.level === "error");
+    if (broken) throw new Error(broken.message);
+    const workflow = resolveWorkflowAgents(saved, profiles);
     const start = workflow.nodes.find((n) => n.kind === "start");
     if (!start) throw new Error("The workflow has no Start step");
     const first = workflow.edges.find((e) => e.from === start.id && e.outcome === "next");
@@ -237,7 +254,8 @@ export class WorkflowEngine {
         }
         if (node.kind === "human") {
           const question = this.questionFor(run, node);
-          const lead = node.config.askLeadFirst ? await this.leadOf(run) : null;
+          // What a local-only step found goes to the person, not the Lead.
+          const lead = node.config.askLeadFirst && !this.lastHeldBack(run) ? await this.leadOf(run) : null;
           if (lead) {
             // The Lead answers first; only what is the person's call reaches them.
             const step = this.beginStep(run, node, `${node.label} (Lead)`);
@@ -258,7 +276,7 @@ export class WorkflowEngine {
             await this.wait(run, reply.escalate, "human");
             return;
           }
-          await this.wait(run, question, "human");
+          await this.wait(run, question, "human", undefined, this.lastHeldBack(run));
           return;
         }
         const step = this.beginStep(run, node, node.label);
@@ -283,7 +301,7 @@ export class WorkflowEngine {
         const edge = run.workflow.edges.find((e) => e.from === node.id && e.outcome === result.outcome);
         if (!edge) {
           // A question with nowhere to go comes to the person.
-          if (result.outcome === "ask") await this.wait(run, result.summary || `"${node.label}" has a question.`, "ask");
+          if (result.outcome === "ask") await this.wait(run, result.summary || `"${node.label}" has a question.`, "ask", undefined, this.heldBack(run, node.id));
           else await this.finish(run, "failed", `"${node.label}" ended in "${result.outcome}", which leads nowhere`);
           return;
         }
@@ -320,6 +338,10 @@ export class WorkflowEngine {
     const prompt = this.prompt(run, node, outcomes);
     const maxAgents = node.config.runBy === "lead" ? 0 : Math.max(0, Math.min(16, node.config.maxAgents ?? 0));
     const step = stepOptions(node.config.tools, outcomes, maxAgents > 0);
+    const guards = this.guardsFor(run, node);
+    if (guards.length > 0) step.guards = guards;
+    const dataDirs = await this.dataDirs(run, node);
+    if (dataDirs.length > 0) step.additionalDirectories = dataDirs;
     const turn = async (sessionId: string, index: number): Promise<TurnResult> => {
       live.sessions.add(sessionId);
       try {
@@ -342,7 +364,7 @@ export class WorkflowEngine {
       if (live.stopped) throw new RunStopped();
       // The Lead works from its own checkout; the run's worktree is where the change is.
       const runPath = this.deps.workspaces.workspacePath(run.workspaceId);
-      if (runPath) step.additionalDirectories = [runPath];
+      if (runPath) step.additionalDirectories = [runPath, ...dataDirs];
       const { index: _, ...result } = await turn(lead, 0);
       return { ...result, sessionIds: [lead] };
     }
@@ -442,11 +464,12 @@ export class WorkflowEngine {
       }
       run.escalated = { ...run.escalated, [current.id]: why };
       const target = this.node(run, parent.id);
+      const last = runsLocally(target) || !this.heldBack(run, step.nodeId) ? step.summary.slice(0, 1500) : withheld(step.label);
       run.escalation = {
         nodeId: parent.id,
         text: [
           `The loop "${current.label}" could not finish: ${why}.`,
-          `Its last result ("${step.label}"): ${step.summary.slice(0, 1500)}`,
+          `Its last result ("${step.label}"): ${last}`,
           "Rethink it so the loop can finish: split or narrow the work, give concrete direction, or change what counts as done (say so plainly).",
         ].join("\n"),
       };
@@ -570,7 +593,21 @@ export class WorkflowEngine {
       "Task of this run:",
       run.task,
     ];
-    if (handoff) lines.push("", `Handoff from "${handoff.label}" (${handoff.outcome ?? "no outcome"}):`, handoff.summary);
+    if (handoff) {
+      const summary = runsLocally(node) || !this.heldBack(run, handoff.nodeId) ? handoff.summary : withheld(handoff.label);
+      lines.push("", `Handoff from "${handoff.label}" (${handoff.outcome ?? "no outcome"}):`, summary);
+    }
+    const data = this.dataOf(run, node);
+    if (data.length > 0) {
+      lines.push(
+        "",
+        "Data for this step (other files and folders the workflow lists are not yours to open):",
+        ...data.map(
+          ({ source, link }) =>
+            `- ${source.name}: ${source.path} (${link.write ? "you may change it" : "read only"})${source.note?.trim() ? `. ${source.note.trim()}` : ""}${source.localOnly ? ". Local only: do not copy it into the workspace, commits or messages to others" : ""}`,
+        ),
+      );
+    }
     if (node.config.prompt?.trim()) lines.push("", "Your instructions:", fill(node.config.prompt.trim()));
     if (fields.length > 0) lines.push("", "Settings:", ...fields.map((f) => `- ${f.label || f.key} (${f.key}): ${String(f.value)}`));
     const rounds = run.rounds[node.id];
@@ -595,9 +632,13 @@ export class WorkflowEngine {
     } else {
       lines.push("", `When you are done, give your result as the structured output: ${resultFields}.`);
     }
-    lines.push(
-      "Need a decision or context mid-task? Call the harness tool ask_lead: the project's Lead answers (or passes it to the person), and you carry on with the answer.",
-    );
+    if (this.heldBack(run, node.id)) {
+      lines.push(`This step works with local-only data, which the project's Lead may not see: do not call ask_lead. If you cannot go on, choose the "ask" outcome; the person answers.`);
+    } else {
+      lines.push(
+        "Need a decision or context mid-task? Call the harness tool ask_lead: the project's Lead answers (or passes it to the person), and you carry on with the answer.",
+      );
+    }
     const maxAgents = node.config.maxAgents ?? 0;
     if (maxAgents > 0 && node.config.runBy !== "lead") {
       lines.push(
@@ -697,6 +738,44 @@ export class WorkflowEngine {
     return path;
   }
 
+  // ── Data ───────────────────────────────────────────────────────────────
+
+  /** The data sources linked to the step. */
+  private dataOf(run: WorkflowRun, node: WorkflowNode): { source: WorkflowDataSource; link: WorkflowDataLink }[] {
+    const sources = run.workflow.data ?? [];
+    return (run.workflow.dataLinks ?? []).flatMap((link) => {
+      const source = link.nodeId === node.id ? sources.find((d) => d.id === link.dataId) : undefined;
+      return source ? [{ source, link }] : [];
+    });
+  }
+
+  /** Every other source is out of bounds; one it may only read is not to be changed. */
+  private guardsFor(run: WorkflowRun, node: WorkflowNode): PathGuard[] {
+    const mine = this.dataOf(run, node);
+    return (run.workflow.data ?? []).flatMap((source): PathGuard[] => {
+      const link = mine.find((m) => m.source.id === source.id)?.link;
+      if (link?.write || !source.path.trim()) return [];
+      return [{ path: source.path.trim(), name: source.name, allow: link ? "read" : "none" }];
+    });
+  }
+
+  /** Folders outside the workspace the step's data lives in, so reading them needs no approval. */
+  private async dataDirs(run: WorkflowRun, node: WorkflowNode): Promise<string[]> {
+    const paths = this.dataOf(run, node).map((d) => d.source.path.trim()).filter(isAbsolutePath);
+    return Promise.all(paths.map(async (path) => ((await stat(path).catch(() => null))?.isFile() ? dirname(path) : path)));
+  }
+
+  /** The step may hold what was learned from local-only data. */
+  private heldBack(run: WorkflowRun, nodeId: string): boolean {
+    return localOnlySteps(run.workflow).has(nodeId);
+  }
+
+  /** The latest result handed on came from a step that may hold local-only data. */
+  private lastHeldBack(run: WorkflowRun): boolean {
+    const last = run.steps.filter((s) => s.endedAt !== null && s.summary.trim()).at(-1);
+    return !!last && this.heldBack(run, last.nodeId);
+  }
+
   // ── Bookkeeping ────────────────────────────────────────────────────────
 
   private node(run: WorkflowRun, id: string): WorkflowNode {
@@ -741,11 +820,12 @@ export class WorkflowEngine {
     return this.deps.sessions.all().find((s) => s.role === "lead" && s.workspaceId !== null && ids.has(s.workspaceId))?.id ?? null;
   }
 
-  private async wait(run: WorkflowRun, question: string, reason: "human" | "ask" | "limit", limitKey?: string): Promise<void> {
+  /** `secret`: the question holds local-only work, so the Lead only hears that the run waits. */
+  private async wait(run: WorkflowRun, question: string, reason: "human" | "ask" | "limit", limitKey?: string, secret = false): Promise<void> {
     run.status = "waiting";
     run.waiting = { question, reason, ...(limitKey ? { limitKey } : {}) };
     await this.save(run);
-    this.tellLead(run, `Workflow "${run.workflow.name}" (run ${run.id}) is waiting for the person: ${question}`);
+    this.tellLead(run, `Workflow "${run.workflow.name}" (run ${run.id}) is waiting for the person: ${secret ? "(the question is withheld: it holds local-only data)" : question}`);
   }
 
   private async finish(run: WorkflowRun, status: "done" | "failed" | "stopped", why?: string): Promise<WorkflowRun> {
@@ -757,8 +837,8 @@ export class WorkflowEngine {
       if (last && !last.error && status === "failed") last.error = why;
     }
     await this.save(run);
-    const last = run.steps.filter((s) => s.summary).at(-1);
-    const later = run.followUps ?? [];
+    const last = run.steps.filter((s) => s.summary && !this.heldBack(run, s.nodeId)).at(-1);
+    const later = (run.followUps ?? []).filter((f) => !this.heldBack(run, f.nodeId));
     this.tellLead(
       run,
       `Workflow "${run.workflow.name}" (run ${run.id}) ${status === "done" ? "finished" : status}${why ? `: ${why}` : ""}.${last ? ` Last step "${last.label}": ${last.summary.slice(0, 400)}` : ""}${later.length > 0 ? `\nLeft for later (${later.length}):\n${later.map((f) => `- ${f.label}: ${f.text}`).join("\n").slice(0, 1500)}` : ""}`,
@@ -780,6 +860,8 @@ export class WorkflowEngine {
       .catch(() => undefined);
   }
 }
+
+const withheld = (label: string) => `(withheld: "${label}" worked with local-only data, which this step may not see)`;
 
 /** The structured result every session step must give. */
 function verdictSchema(outcomes: WorkflowOutcome[]): Record<string, unknown> {
