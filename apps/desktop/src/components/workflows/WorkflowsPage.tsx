@@ -11,7 +11,7 @@ import {
   type NodeChange
 } from '@xyflow/react'
 import '@xyflow/react/dist/style.css'
-import { ChevronDown, History, Play, Plus, Save, Trash2, Workflow as WorkflowIcon, X } from 'lucide-react'
+import { ChevronDown, History, Plus, Save, Trash2, Workflow as WorkflowIcon, X } from 'lucide-react'
 import { toast } from 'sonner'
 import {
   HARNESS_METHODS,
@@ -40,9 +40,7 @@ import { WorkflowInspector } from './WorkflowInspector'
 import { WorkflowConnectMenu, type PendingConnection } from './WorkflowConnectMenu'
 import { canvasEdges } from './workflow-canvas-edges'
 import { WorkflowRunView } from './WorkflowRunView'
-import { loadWorkflowRuns, upsertWorkflowRun, useWorkflowRun, useWorkflowRuns } from '@/stores/workflow-runs-store'
-import { Textarea } from '@/components/ui/textarea'
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
+import { loadWorkflowRuns, useWorkflowRun, useWorkflowRuns } from '@/stores/workflow-runs-store'
 import {
   NODE_KINDS,
   blankWorkflow,
@@ -69,8 +67,7 @@ export function WorkflowsPage({ target }: { target: WorkflowsPageTarget }) {
   const [draft, setDraft] = useState<Workflow | null>(null)
   const [dirty, setDirty] = useState(false)
   const [busy, setBusy] = useState(false)
-  const [viewRunId, setViewRunId] = useState<string | null>(null)
-  const [runDialog, setRunDialog] = useState(false)
+  const [viewRunId, setViewRunId] = useState<string | null>(target.runId ?? null)
   const runs = useWorkflowRuns(target.hostId, target.projectId)
   const viewRun = useWorkflowRun(viewRunId)
 
@@ -143,7 +140,6 @@ export function WorkflowsPage({ target }: { target: WorkflowsPageTarget }) {
 
   const issues = useMemo(() => (draft ? validateWorkflow(draft) : []), [draft])
   const errors = issues.filter((i) => i.level === 'error').length
-  const runnable = !!draft && !dirty && errors === 0 && !!saved?.some((w) => w.id === draft.id)
   const draftRuns = runs.filter((r) => r.workflowId === draft?.id)
 
   return (
@@ -214,17 +210,6 @@ export function WorkflowsPage({ target }: { target: WorkflowsPageTarget }) {
               </DropdownMenuContent>
             </DropdownMenu>
           )}
-          <Button
-            variant="outline"
-            size="sm"
-            className="h-7"
-            disabled={!runnable}
-            title={runnable ? 'Run this workflow on a task' : 'Save the workflow without problems to run it'}
-            onClick={() => setRunDialog(true)}
-          >
-            <Play className="size-3.5" />
-            Run…
-          </Button>
           <Button variant="ghost" size="sm" className="h-7" onClick={() => void remove()} disabled={!draft} aria-label="Delete workflow">
             <Trash2 className="size-3.5" />
           </Button>
@@ -264,81 +249,7 @@ export function WorkflowsPage({ target }: { target: WorkflowsPageTarget }) {
       ) : (
         <div className="m-auto text-sm text-muted-foreground">Loading workflows…</div>
       )}
-      {draft && (
-        <RunDialog
-          open={runDialog}
-          workflowName={draft.name}
-          onClose={() => setRunDialog(false)}
-          onStart={async (task) => {
-            const run = await harnessRequest(
-              HARNESS_METHODS.workflowRunStart,
-              { projectId: target.projectId, workflowId: draft.id, task },
-              target.hostId
-            )
-            upsertWorkflowRun(target.hostId, run)
-            setViewRunId(run.id)
-            setRunDialog(false)
-          }}
-        />
-      )}
     </div>
-  )
-}
-
-function RunDialog({
-  open,
-  workflowName,
-  onClose,
-  onStart
-}: {
-  open: boolean
-  workflowName: string
-  onClose: () => void
-  onStart: (task: string) => Promise<void>
-}) {
-  const [task, setTask] = useState('')
-  const [busy, setBusy] = useState(false)
-  const start = async () => {
-    if (!task.trim() || busy) return
-    setBusy(true)
-    try {
-      await onStart(task.trim())
-      setTask('')
-    } catch (error) {
-      toast.error('The run did not start', { description: error instanceof Error ? error.message : String(error) })
-    } finally {
-      setBusy(false)
-    }
-  }
-  return (
-    <Dialog open={open} onOpenChange={(next) => !next && onClose()}>
-      <DialogContent className="sm:max-w-lg">
-        <DialogHeader>
-          <DialogTitle>Run “{workflowName}”</DialogTitle>
-          <DialogDescription>The task every step works on. Steps run in a worktree made for this run.</DialogDescription>
-        </DialogHeader>
-        <Textarea
-          autoFocus
-          value={task}
-          onChange={(e) => setTask(e.target.value)}
-          onKeyDown={(e) => {
-            if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) void start()
-          }}
-          placeholder="What should the run do?"
-          className="min-h-28 text-sm"
-          data-workflow-run-task
-        />
-        <DialogFooter>
-          <Button variant="outline" onClick={onClose}>
-            Cancel
-          </Button>
-          <Button onClick={() => void start()} disabled={!task.trim() || busy}>
-            <Play className="size-3.5" />
-            Start
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
   )
 }
 

@@ -1,6 +1,8 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { Copy, CornerDownLeft, GitFork, MessagesSquare, Quote, Search, TextSelect } from 'lucide-react'
 import { markSeen, openEditorTab, useStore, type Session, type ThreadItem } from '@/session-store'
+import { projectOfSession } from '@/lib/project-lead'
+import { linkOf } from '@/stores/project-links-store'
 import { runCommandInline } from '@/lib/terminal-command-run'
 import { NativeChatCommandRunContext } from '@/components/native-chat/NativeChatRunCommandButton'
 import {
@@ -76,6 +78,14 @@ export function ThreadView({ session, onSendToMain }: { session: Session; onSend
   const model = useMemo(() => buildTranscript(session.items, running, session.cwd), [session.items, running, session.cwd])
   // The latest turn ended short and nothing came after: its row offers Continue or Retry.
   const turnEnd = running ? null : latestTurnEnd(session.items)
+  // Runs this chat starts live with the project's main member (workflows are saved there).
+  const project = projectOfSession(session)
+  const main = project ? (linkOf({ hostId: project.hostId, projectId: project.id })?.members[0] ?? null) : null
+  const workflowHome = {
+    hostId: main?.hostId ?? session.hostId,
+    projectId: main?.projectId ?? project?.id ?? null,
+    projectName: project ? (project.displayName ?? project.name) : ''
+  }
   const recoveryRow = turnEnd ? model.rows.findLastIndex((row) => row.kind === 'notice' && row.turnEnd !== undefined) : -1
   const limitResetsAt = turnEnd?.reason === 'usage-limit' ? turnEnd.resetsAt : null
   const showLimitBanner = !running && (turnEnd?.reason === 'usage-limit' || Boolean(session.autoResume))
@@ -178,6 +188,7 @@ export function ThreadView({ session, onSendToMain }: { session: Session; onSend
                           ...(index === recoveryRow ? { onRecover: (kind) => void resumeTurn(session.id, kind) } : {}),
                           ...(forkReason ? { forkUnavailable: forkReason } : {}),
                           cwd: session.cwd,
+                          workflows: workflowHome,
                           onRevealFile: (path) =>
                             openEditorTab({ workspaceId: session.workspaceId, kind: 'file', path, staged: false })
                         }}

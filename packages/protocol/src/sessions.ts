@@ -102,8 +102,12 @@ export const SESSION_METHODS = {
   sessionMentionFiles: '_harness/sessions/mentionFiles',
   sessionSetAgentOption: '_harness/sessions/setAgentOption',
   sessionMove: '_harness/sessions/move',
-  sessionAddContext: '_harness/sessions/addContext'
+  sessionAddContext: '_harness/sessions/addContext',
+  sessionConsultLead: '_harness/sessions/consultLead'
 } as const
+
+/** What a project's Lead made of a question from one of the project's sessions. */
+export type LeadConsultResult = { answer: string } | { escalate: string }
 
 /** Moves a Claude chat into another workspace on the same host; exactly one target. */
 export interface MoveSessionParams {
@@ -151,4 +155,9 @@ export interface SessionRequests {
   [SESSION_METHODS.sessionMove]: { params: MoveSessionParams; result: MoveSessionResult }
   /** Queues a line the session's next turn starts with, unseen in its transcript (a lead's project activity). */
   [SESSION_METHODS.sessionAddContext]: { params: { sessionId: string; text: string }; result: Record<string, never> }
+  /** Runs a Lead turn on a session's question, once the Lead is free: an answer, or the question to put to the person. */
+  [SESSION_METHODS.sessionConsultLead]: {
+    params: { leadSessionId: string; from: string; question: string }
+    result: LeadConsultResult
+  }
 }

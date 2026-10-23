@@ -1,5 +1,5 @@
 import type * as acp from '@agentclientprotocol/sdk'
-import {
+import { WORKFLOW_META,
   CHAT_META,
   TURN_RECOVERY_META,
   type ContextUsageMeta,
@@ -78,7 +78,14 @@ export function applyChatUpdate({ sessionId, update }: acp.SessionNotification):
       break
     case 'notice': {
       const turnEnd = turnEndMeta(update._meta)
-      pushItem(sessionId, { kind: 'notice', text: update.title, severity: update.severity, ...(turnEnd ? { turnEnd } : {}) })
+      const runId = update._meta?.[WORKFLOW_META.run]
+      pushItem(sessionId, {
+        kind: 'notice',
+        text: update.title,
+        severity: update.severity,
+        ...(turnEnd ? { turnEnd } : {}),
+        ...(typeof runId === 'string' ? { runId } : {})
+      })
       break
     }
     case 'compaction_update':

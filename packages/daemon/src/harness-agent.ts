@@ -233,7 +233,11 @@ export function createHarnessAgent(
         env: (await chatAgentLaunch("claude")).env,
         askPermission,
         // A quick chat sees its harness tools up front, so it can move itself into a project.
-        mcpServers: managerMcp.claudeServers(session.id, session.role === "manager" || session.role === "lead" || quickChat),
+        // Workflow steps see them up front too, for ask_lead.
+        mcpServers: managerMcp.claudeServers(
+          session.id,
+          session.role === "manager" || session.role === "lead" || quickChat || stepTurns.has(session.id),
+        ),
         allowedTools: autoAllowedManagerTools(session.role, MANAGER_MCP_SERVER_NAME),
         ...(session.role === "manager"
           ? { appendSystemPrompt: MANAGER_SYSTEM_PROMPT }
@@ -366,6 +370,7 @@ export function createHarnessAgent(
     autoResume,
     acpAgents,
     broadcast,
+    emit,
     async runTurn(sessionId, text) {
       const { stopReason } = await prompt({ sessionId, prompt: [{ type: "text", text }] }, askAnyClient, null);
       return stopReason;

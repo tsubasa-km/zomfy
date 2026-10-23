@@ -1,4 +1,5 @@
 import {
+  WORKFLOW_META,
   WORKFLOW_NOTIFICATIONS,
   workflowOutcomes,
   type Workflow,
@@ -12,6 +13,7 @@ import {
 import type { StepOptions } from "./claude-turn.ts";
 import type { HandlerContext } from "./handlers/handler-context.ts";
 import { noteActivity } from "./session-activity.ts";
+import { consultLead } from "./lead-consult.ts";
 import type { WorkflowRunStore } from "./workflow-run-store.ts";
 import type { WorkflowStore } from "./workflow-store.ts";
 import { sanitizeWorkspaceName } from "./worktree-naming.ts";
@@ -22,7 +24,7 @@ import { log } from "./log.ts";
 // outcome is taken. Checks are commands (exit code), "Ask the person" waits for an answer, and
 // limited outcomes (a review's "changes", a check's "fail") count rounds and stop at the limit.
 
-type Deps = Pick<HandlerContext, "workspaces" | "sessions" | "pendingTurns" | "broadcast" | "runStepTurn">;
+type Deps = Pick<HandlerContext, "workspaces" | "sessions" | "pendingTurns" | "broadcast" | "runStepTurn" | "emit">;
 
 /** Outcomes counted against a step's round limit. */
 const LIMITED: WorkflowOutcome[] = ["changes", "fail"];
@@ -40,6 +42,8 @@ class RunStopped extends Error {}
 export class WorkflowEngine {
   /** Runs this daemon is driving now, so Stop can reach their turns. */
   private readonly live = new Map<string, { stopped: boolean; sessions: Set<string> }>();
+  /** A step's session waiting mid-turn on the person (ask_lead escalated), by run id. */
+  private readonly asking = new Map<string, (answer: string) => void>();
 
   constructor(
     private readonly deps: Deps,
@@ -66,7 +70,7 @@ export class WorkflowEngine {
     return (await this.runs.all()).filter((r) => r.projectId === projectId);
   }
 
-  async start(projectId: string, workflowId: string, task: string): Promise<WorkflowRun> {
+  async start(projectId: string, workflowId: string, task: string, originSessionId?: string): Promise<WorkflowRun> {
     const workflow = (await this.workflows.list(projectId)).find((w) => w.id === workflowId);
     if (!workflow) throw new Error("Save the workflow before running it");
     const start = workflow.nodes.find((n) => n.kind === "start");
@@ -94,13 +98,45 @@ export class WorkflowEngine {
       endedAt: null,
     };
     await this.save(run);
+    if (originSessionId && this.deps.sessions.get(originSessionId)) {
+      // The chat it started from draws the run as a live card.
+      await this.deps
+        .emit(originSessionId, {
+          sessionUpdate: "notice",
+          severity: "info",
+          title: `Workflow "${workflow.name}" started`,
+          _meta: { [WORKFLOW_META.run]: run.id },
+        })
+        .catch(() => undefined);
+    }
     this.tellLead(run, `Workflow "${workflow.name}" started on: ${run.task.slice(0, 300)} (run ${run.id}, in ${workspace.path}).`);
     void this.drive(run);
     return run;
   }
 
+  /** A step's session asks the person mid-turn; the run waits until they answer. Null: no run has that session. */
+  async askPerson(sessionId: string, question: string): Promise<string | null> {
+    const runId = [...this.live.entries()].find(([, live]) => live.sessions.has(sessionId))?.[0];
+    const run = runId ? await this.runs.get(runId) : null;
+    if (!run || run.status !== "running") return null;
+    const answer = new Promise<string>((resolve) => this.asking.set(run.id, resolve));
+    await this.wait(run, question, "ask");
+    return answer;
+  }
+
   async answer(runId: string, text: string): Promise<WorkflowRun> {
     const run = await this.runs.get(runId);
+    const asking = this.asking.get(runId);
+    if (run && asking && run.status === "waiting") {
+      // The question came from inside a step: the answer goes back to that session's tool call.
+      this.asking.delete(runId);
+      run.status = "running";
+      run.waiting = null;
+      await this.save(run);
+      this.tellLead(run, `The person answered a question in run ${run.id}: ${text.slice(0, 400)}`);
+      asking(text.trim());
+      return run;
+    }
     if (!run || run.status !== "waiting" || !run.waiting || !run.currentNodeId) throw new Error("That run is not waiting for an answer");
     const node = this.node(run, run.currentNodeId);
     const reason = run.waiting.reason;
@@ -149,7 +185,29 @@ export class WorkflowEngine {
           return;
         }
         if (node.kind === "human") {
-          await this.wait(run, node.config.question?.trim() || `"${node.label}" needs your decision.`, "human");
+          const question = this.questionFor(run, node);
+          const lead = node.config.askLeadFirst ? await this.leadOf(run) : null;
+          if (lead) {
+            // The Lead answers first; only what is the person's call reaches them.
+            const step = this.beginStep(run, node, `${node.label} (Lead)`);
+            await this.save(run);
+            const reply = await consultLead(this.deps, lead, `the workflow "${run.workflow.name}" (run ${run.id})`, question);
+            if ("answer" in reply) {
+              this.endStep(step, "answered", `Question: ${question}\nLead's answer: ${reply.answer}`);
+              const edge = run.workflow.edges.find((e) => e.from === node.id && e.outcome === "answered");
+              if (!edge) {
+                await this.finish(run, "failed", `"${node.label}" has no "Answered" edge`);
+                return;
+              }
+              run.currentNodeId = edge.to;
+              await this.save(run);
+              continue;
+            }
+            this.endStep(step, null, `The Lead passed it to you: ${reply.escalate}`);
+            await this.wait(run, reply.escalate, "human");
+            return;
+          }
+          await this.wait(run, question, "human");
           return;
         }
         const step = this.beginStep(run, node, node.label);
@@ -280,7 +338,10 @@ export class WorkflowEngine {
       "",
       `When you are done, give your result as the structured output: "outcome" is one of ${outcomes.map((o) => `"${o}"`).join(", ")}, and "summary" is what the next step needs (what you did or found, concretely).`,
     );
-    if (outcomes.includes("ask")) lines.push(`Choose "ask" only when you cannot go on without a decision; put the question in "summary".`);
+    lines.push(
+      "Need a decision or context mid-task? Call the harness tool ask_lead: the project's Lead answers (or passes it to the person), and you carry on with the answer.",
+    );
+    if (outcomes.includes("ask")) lines.push(`Choose the "ask" outcome only when you cannot go on at all; put the question in "summary".`);
     if (node.kind === "review") lines.push(`Choose "approve" when it is ready; "changes" with every finding the developer must address.`);
     return lines.join("\n");
   }
@@ -403,6 +464,20 @@ export class WorkflowEngine {
     if (error) step.error = error;
   }
 
+  /** An Ask step's question, with what the step before it handed on when the step has none of its own. */
+  private questionFor(run: WorkflowRun, node: WorkflowNode): string {
+    const last = run.steps.filter((s) => s.endedAt !== null && s.summary.trim()).at(-1);
+    const own = node.config.question?.trim();
+    if (own && last) return `${own}\n\nFrom "${last.label}": ${last.summary}`;
+    return own || (last ? `From "${last.label}": ${last.summary}` : `"${node.label}" needs your decision.`);
+  }
+
+  private async leadOf(run: WorkflowRun): Promise<string | null> {
+    const state = await this.deps.workspaces.snapshot();
+    const ids = new Set(state.workspaces.filter((w) => w.projectId === run.projectId).map((w) => w.id));
+    return this.deps.sessions.all().find((s) => s.role === "lead" && s.workspaceId !== null && ids.has(s.workspaceId))?.id ?? null;
+  }
+
   private async wait(run: WorkflowRun, question: string, reason: "human" | "ask" | "limit"): Promise<void> {
     run.status = "waiting";
     run.waiting = { question, reason };
@@ -434,12 +509,11 @@ export class WorkflowEngine {
 
   /** The project's Lead hears about its runs, as it hears about the person's prompts. */
   private tellLead(run: WorkflowRun, text: string): void {
-    void (async () => {
-      const state = await this.deps.workspaces.snapshot();
-      const ids = new Set(state.workspaces.filter((w) => w.projectId === run.projectId).map((w) => w.id));
-      const lead = this.deps.sessions.all().find((s) => s.role === "lead" && s.workspaceId !== null && ids.has(s.workspaceId));
-      if (lead) noteActivity(this.deps.sessions, lead.id, text);
-    })().catch(() => undefined);
+    void this.leadOf(run)
+      .then((lead) => {
+        if (lead) noteActivity(this.deps.sessions, lead, text);
+      })
+      .catch(() => undefined);
   }
 }
 

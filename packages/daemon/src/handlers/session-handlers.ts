@@ -12,13 +12,16 @@ import {
 import { liveClaudeQueries } from "../live-claude-queries.ts";
 import { mentionFiles } from "../mention-files.ts";
 import { noteActivity } from "../session-activity.ts";
+import { consultLead } from "../lead-consult.ts";
 import { log } from "../log.ts";
 
 type UserChunk = Extract<acp.SessionUpdate, { sessionUpdate: "user_message_chunk" }>;
 
-export function registerSessionHandlers({ handle, sessions, pendingTurns, acpAgents, workspaceRoot, moveSession }: HandlerContext): void {
+export function registerSessionHandlers(ctx: HandlerContext): void {
+  const { handle, sessions, pendingTurns, acpAgents, workspaceRoot, moveSession } = ctx;
   handle(HARNESS_METHODS.sessionsList, async () => sessions.list());
   handle(HARNESS_METHODS.sessionMove, (p) => moveSession(p));
+  handle(HARNESS_METHODS.sessionConsultLead, (p) => consultLead(ctx, p.leadSessionId, p.from, p.question));
   handle(HARNESS_METHODS.sessionAddContext, async (p) => {
     noteActivity(sessions, p.sessionId, p.text);
     return {};

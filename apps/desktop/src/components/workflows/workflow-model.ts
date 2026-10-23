@@ -76,7 +76,7 @@ function defaultConfig(kind: WorkflowNodeKind): WorkflowNode['config'] {
     case 'check':
       return { command: '', maxRounds: 3 }
     case 'human':
-      return { question: '' }
+      return { question: '', askLeadFirst: true }
     case 'end':
       return { result: 'done' }
     case 'custom':

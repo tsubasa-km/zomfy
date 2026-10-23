@@ -55,7 +55,7 @@ function detail(node: WorkflowNode): string {
     case 'check':
       return `${c.command?.trim() ? c.command : 'No command yet'} · up to ${c.maxRounds ?? '?'} tries`
     case 'human':
-      return c.question?.trim() ? c.question : 'Asks the person'
+      return `${c.askLeadFirst ? 'Lead first, then you' : 'Asks you'}${c.question?.trim() ? ` · ${c.question}` : ''}`
     case 'end':
       return c.result === 'failed' ? 'Ends as failed' : 'Ends as done'
     case 'custom': {

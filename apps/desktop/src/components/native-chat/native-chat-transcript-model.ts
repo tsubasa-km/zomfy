@@ -23,7 +23,7 @@ export type TranscriptRowModel =
   | { kind: 'tools'; tools: ToolNode[] }
   | { kind: 'tasks'; list: NativeChatTaskList; previous: NativeChatTaskList | null; fromBoard?: boolean }
   | { kind: 'decision'; title: string; chosen: string }
-  | { kind: 'notice'; text: string; severity?: string; turnEnd?: TurnEndMeta }
+  | { kind: 'notice'; text: string; severity?: string; turnEnd?: TurnEndMeta; runId?: string }
   | { kind: 'compaction'; status: string }
   | { kind: 'turn-diff'; diff: TurnDiff }
 
@@ -115,7 +115,8 @@ export function buildTranscript(items: ThreadItem[], turnRunning: boolean, cwd: 
           kind: 'notice',
           text: item.text,
           ...(item.severity ? { severity: item.severity } : {}),
-          ...(item.turnEnd ? { turnEnd: item.turnEnd } : {})
+          ...(item.turnEnd ? { turnEnd: item.turnEnd } : {}),
+          ...(item.runId ? { runId: item.runId } : {})
         })
         break
       case 'compaction':

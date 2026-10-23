@@ -7,6 +7,8 @@ export interface WorkflowsPageTarget {
   hostId: HostId
   projectId: string
   projectName: string
+  /** Opens straight on this run's view. */
+  runId?: string
 }
 
 const store = createExternalStore<WorkflowsPageTarget | null>(null)

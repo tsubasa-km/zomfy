@@ -83,6 +83,8 @@ export interface WorkflowNodeConfig {
   outcomes?: string[]
   /** Agent, review and custom agent steps. */
   tools?: WorkflowToolPolicy
+  /** Human steps: the project's Lead answers first and passes on only what is the person's call. */
+  askLeadFirst?: boolean
 }
 
 export interface WorkflowNode {
@@ -178,7 +180,13 @@ export const WORKFLOW_METHODS = {
   workflowRunStart: '_harness/workflowRuns/start',
   workflowRunsList: '_harness/workflowRuns/list',
   workflowRunAnswer: '_harness/workflowRuns/answer',
-  workflowRunStop: '_harness/workflowRuns/stop'
+  workflowRunStop: '_harness/workflowRuns/stop',
+  workflowRunAskPerson: '_harness/workflowRuns/askPerson'
+} as const
+
+/** On a chat transcript's notice: the workflow run that chat started, drawn as a live card. */
+export const WORKFLOW_META = {
+  run: 'harness/workflowRun'
 } as const
 
 export const WORKFLOW_NOTIFICATIONS = {
@@ -191,9 +199,15 @@ export interface WorkflowRequests {
   [WORKFLOW_METHODS.workflowSave]: { params: { workflow: Workflow }; result: Workflow[] }
   [WORKFLOW_METHODS.workflowRemove]: { params: { projectId: string; workflowId: string }; result: Workflow[] }
   /** Starts the saved workflow on a task; agent steps run in a worktree made for the run (git projects). */
-  [WORKFLOW_METHODS.workflowRunStart]: { params: { projectId: string; workflowId: string; task: string }; result: WorkflowRun }
+  /** `originSessionId`: the chat it was started from, which shows the run as a card. */
+  [WORKFLOW_METHODS.workflowRunStart]: {
+    params: { projectId: string; workflowId: string; task: string; originSessionId?: string }
+    result: WorkflowRun
+  }
   [WORKFLOW_METHODS.workflowRunsList]: { params: { projectId: string }; result: WorkflowRun[] }
   /** The person's answer to a waiting run; "stop" in a limit stop ends it instead. */
   [WORKFLOW_METHODS.workflowRunAnswer]: { params: { runId: string; text: string }; result: WorkflowRun }
   [WORKFLOW_METHODS.workflowRunStop]: { params: { runId: string }; result: WorkflowRun }
+  /** A run's session puts a question to the person mid-step; resolves with their answer (null: the session is in no run). */
+  [WORKFLOW_METHODS.workflowRunAskPerson]: { params: { sessionId: string; question: string }; result: { answer: string | null } }
 }

@@ -13,7 +13,8 @@ export function registerWorkflowHandlers(ctx: HandlerContext): void {
   handle(HARNESS_METHODS.workflowsList, (p) => workflows.list(p.projectId));
   handle(HARNESS_METHODS.workflowSave, (p) => workflows.save({ ...p.workflow, updatedAt: Date.now() }));
   handle(HARNESS_METHODS.workflowRemove, (p) => workflows.remove(p.projectId, p.workflowId));
-  handle(HARNESS_METHODS.workflowRunStart, (p) => engine.start(p.projectId, p.workflowId, p.task));
+  handle(HARNESS_METHODS.workflowRunStart, (p) => engine.start(p.projectId, p.workflowId, p.task, p.originSessionId));
+  handle(HARNESS_METHODS.workflowRunAskPerson, async (p) => ({ answer: await engine.askPerson(p.sessionId, p.question) }));
   handle(HARNESS_METHODS.workflowRunsList, (p) => engine.list(p.projectId));
   handle(HARNESS_METHODS.workflowRunAnswer, (p) => engine.answer(p.runId, p.text));
   handle(HARNESS_METHODS.workflowRunStop, (p) => engine.stop(p.runId));

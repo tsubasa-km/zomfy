@@ -28,6 +28,8 @@ export interface HandlerContext {
   acpAgents: AcpAgentSessions;
   /** Notifies every connected client. */
   broadcast(method: string, params: unknown): void;
+  /** Records an update in a session's transcript and sends it to every client. */
+  emit(sessionId: string, update: acp.SessionUpdate): Promise<void>;
   /** Runs one turn no client asked for (automations); permission asks go to an open window. */
   runTurn(sessionId: string, text: string): Promise<acp.StopReason>;
   /** The workspace's directory on this host; throws for unknown ids. */

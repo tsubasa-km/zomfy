@@ -15,6 +15,7 @@ import {
   NativeChatRetryButton
 } from './NativeChatTurnRecovery'
 import { NATIVE_CHAT_QUOTE_SOURCE_PROPS } from './NativeChatSelectionQuote'
+import { NativeChatWorkflowRunCard } from './NativeChatWorkflowRunCard'
 import { isSubagentTool, shortenPaths, type TranscriptRowModel } from './native-chat-transcript-model'
 
 // Rows follow Orca's NativeChatUserMessageRow, NativeChatAssistantMessageRow,
@@ -36,6 +37,8 @@ export type TranscriptRowActions = {
   onRecover?: (kind: 'continue' | 'retry') => void
   /** The workspace folder, dropped from the paths rows show. */
   cwd: string
+  /** Where this chat's workflow runs live: its host and (main) project. */
+  workflows: { hostId: string; projectId: string | null; projectName: string }
 }
 
 export function NativeChatTranscriptRow({
@@ -144,6 +147,7 @@ export function NativeChatTranscriptRow({
       )
     }
     case 'notice': {
+      if (row.runId) return <NativeChatWorkflowRunCard runId={row.runId} {...actions.workflows} />
       const { onRecover } = actions
       // A usage limit's actions live in the banner above the composer.
       const recovery =

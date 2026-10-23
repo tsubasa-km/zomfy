@@ -34,6 +34,13 @@ import { loadChatMemo, setChatMemoOpen, useChatMemo } from '@/stores/chat-memo-s
 import { NativeChatMemoButton, NativeChatMemoPanel } from './NativeChatMemoPanel'
 import { NativeChatAttachMenu } from './NativeChatAttachMenu'
 import { attachChat, attachTerminal, mentionFile } from '@/lib/chat-attachments'
+import { NativeChatWorkflowPicker, type WorkflowHome } from './NativeChatWorkflowPicker'
+import { toast } from 'sonner'
+import { HARNESS_METHODS } from '@acp-harness/protocol'
+import { harnessRequest } from '@/daemon-connection'
+import { projectOfSession } from '@/lib/project-lead'
+import { linkOf } from '@/stores/project-links-store'
+import { upsertWorkflowRun } from '@/stores/workflow-runs-store'
 import { getState } from '@/session-store'
 
 // Layout and classes follow Orca's NativeChatComposer, NativeChatComposerField and
@@ -79,6 +86,15 @@ export function NativeChatComposer({
   const [dismissedAt, setDismissedAt] = useState<string | null>(null)
   const [dragging, setDragging] = useState(false)
   const sendKey = useSetting('chatSendKey')
+  const [workflow, setWorkflow] = useState<{ id: string; name: string } | null>(null)
+  // Workflows are saved with the project's main member, which may be on another host.
+  const chatProject = projectOfSession(session)
+  const mainMember = chatProject ? (linkOf({ hostId: chatProject.hostId, projectId: chatProject.id })?.members[0] ?? null) : null
+  const workflowHome: WorkflowHome = {
+    hostId: mainMember?.hostId ?? session.hostId,
+    projectId: mainMember?.projectId ?? chatProject?.id ?? null,
+    projectName: chatProject ? (chatProject.displayName ?? chatProject.name) : ''
+  }
   // Memos belong to main chats; a side chat's notes would be the main chat's.
   const memos = useSetting('chatMemosEnabled') && !session.sideOf
   const memoOpen = useChatMemo(session.id)?.open === true
@@ -167,6 +183,29 @@ export function NativeChatComposer({
 
   function submit() {
     if (!draft.trim() && draftImages.length === 0) return
+    if (workflow && workflowHome.projectId) {
+      // The message is the run's task; the harness runs the workflow, not this chat.
+      const task = draft.trim()
+      if (!task) return
+      const projectId = workflowHome.projectId
+      void harnessRequest(
+        HARNESS_METHODS.workflowRunStart,
+        {
+          projectId,
+          workflowId: workflow.id,
+          task,
+          ...(session.hostId === workflowHome.hostId ? { originSessionId: session.id } : {})
+        },
+        workflowHome.hostId
+      ).then(
+        (run) => upsertWorkflowRun(workflowHome.hostId, run),
+        (error: unknown) => toast.error('The workflow did not start', { description: error instanceof Error ? error.message : String(error) })
+      )
+      setWorkflow(null)
+      patchChatSession(session.id, { draft: '', draftImages: [] })
+      setCaret(0)
+      return
+    }
     submitPrompt(session.id, draft.trim(), draftImages)
     patchChatSession(session.id, { draft: '', draftImages: [] })
     setCaret(0)
@@ -283,7 +322,9 @@ export function NativeChatComposer({
             <MarkdownEditor
               ref={editorRef}
               value={draft}
-              placeholder={working ? 'Queue a follow-up' : (suggestion ?? 'Message the agent')}
+              placeholder={
+                workflow ? `The task for "${workflow.name}"` : working ? 'Queue a follow-up' : (suggestion ?? 'Message the agent')
+              }
               contentAttributes={{
                 'aria-label': 'Message the agent',
                 'aria-multiline': 'true',
@@ -343,6 +384,7 @@ export function NativeChatComposer({
                       onSelect={(permissionMode) => void setSessionOptions(session.id, { permissionMode })}
                     />
                   ) : null}
+                  <NativeChatWorkflowPicker home={workflowHome} picked={workflow} onPick={setWorkflow} />
                 </div>
                 <div className="ml-auto flex items-center gap-1.5">
                   {external ? (

@@ -25,7 +25,8 @@ import {
 } from '@/session-store'
 import { addTodo, getInbox } from '@/stores/inbox-store'
 import { linkOf } from '@/stores/project-links-store'
-import { leadOf } from '@/lib/project-lead'
+import { leadOf, projectOfSession } from '@/lib/project-lead'
+import { upsertWorkflowRun } from '@/stores/workflow-runs-store'
 
 // Runs the manager agent's tool calls in this window, which is linked to every host. Status is
 // the hosts' (broadcast into the session store); this file only reads it and presents it, and a
@@ -72,6 +73,97 @@ function dispatch({ tool, args, callerSessionId }: ManagerCallParams): Promise<u
       return forward(reqString(args, 'text'), optString(args, 'sessionId'), optString(args, 'workspaceId'), callerSessionId)
     case 'list_todos':
       return getInbox().todos.filter((t) => args.includeDone === true || !t.done)
+    case 'ask_lead':
+      return askLead(callerSessionId, reqString(args, 'question'))
+    case 'list_workflows':
+      return listWorkflows(callerSessionId)
+    case 'run_workflow':
+      return runWorkflow(callerSessionId, reqString(args, 'workflowId'), reqString(args, 'task'))
+    case 'get_workflow_run':
+      return getWorkflowRun(callerSessionId, reqString(args, 'runId'))
+  }
+}
+
+/** The caller's project as workflows know it: the main member when the project spans hosts. */
+function workflowProject(callerSessionId: string): { hostId: HostId; projectId: string } {
+  const session = requireSession(callerSessionId)
+  const project = projectOfSession(session)
+  if (!project) throw new ToolError('This chat is not in a project, so it has no workflows.')
+  const main = linkOf({ hostId: project.hostId, projectId: project.id })?.members[0]
+  return main ?? { hostId: project.hostId, projectId: project.id }
+}
+
+/** The Lead answers first; what is the person's call goes to them through the run that asked. */
+async function askLead(callerSessionId: string, question: string): Promise<unknown> {
+  const session = requireSession(callerSessionId)
+  const project = projectOfSession(session)
+  const lead = project ? leadOf(project.hostId, project.id) : null
+  let forPerson = question
+  if (lead && lead.id !== session.id) {
+    const reply = await harnessRequest(
+      HARNESS_METHODS.sessionConsultLead,
+      { leadSessionId: lead.id, from: `"${session.title}" (session ${session.id})`, question },
+      lead.hostId
+    )
+    if ('answer' in reply) return { answeredBy: 'lead', answer: reply.answer }
+    forPerson = reply.escalate
+  }
+  const person = await harnessRequest(HARNESS_METHODS.workflowRunAskPerson, { sessionId: session.id, question: forPerson }, session.hostId)
+  if (person.answer !== null) return { answeredBy: 'person', answer: person.answer }
+  return {
+    answeredBy: null,
+    question: forPerson,
+    next: lead
+      ? "The Lead says this is the person's call; ask them in your reply."
+      : 'This project has no Lead; ask the person in your reply.'
+  }
+}
+
+async function listWorkflows(callerSessionId: string): Promise<unknown> {
+  const { hostId, projectId } = workflowProject(callerSessionId)
+  const [workflows, runs] = await Promise.all([
+    harnessRequest(HARNESS_METHODS.workflowsList, { projectId }, hostId),
+    harnessRequest(HARNESS_METHODS.workflowRunsList, { projectId }, hostId)
+  ])
+  return {
+    workflows: workflows.map((w) => ({
+      workflowId: w.id,
+      name: w.name,
+      description: w.description ?? '',
+      steps: w.nodes.filter((n) => n.kind !== 'start').map((n) => `${n.label} (${n.kind})`)
+    })),
+    recentRuns: runs
+      .sort((a, b) => b.createdAt - a.createdAt)
+      .slice(0, 10)
+      .map((r) => ({ runId: r.id, workflow: r.workflow.name, status: r.status, task: r.task.slice(0, 200) }))
+  }
+}
+
+async function runWorkflow(callerSessionId: string, workflowId: string, task: string): Promise<unknown> {
+  const { hostId, projectId } = workflowProject(callerSessionId)
+  const caller = requireSession(callerSessionId)
+  const run = await harnessRequest(
+    HARNESS_METHODS.workflowRunStart,
+    // The card goes in the caller's chat when that chat lives on the run's host.
+    { projectId, workflowId, task, ...(caller.hostId === hostId ? { originSessionId: caller.id } : {}) },
+    hostId
+  )
+  upsertWorkflowRun(hostId, run)
+  return { runId: run.id, workflow: run.workflow.name, status: run.status, workspace: run.workspaceId }
+}
+
+async function getWorkflowRun(callerSessionId: string, runId: string): Promise<unknown> {
+  const { hostId, projectId } = workflowProject(callerSessionId)
+  const run = (await harnessRequest(HARNESS_METHODS.workflowRunsList, { projectId }, hostId)).find((r) => r.id === runId)
+  if (!run) throw new ToolError(`No run ${runId} in this project; list_workflows shows recent runs.`)
+  const current = run.workflow.nodes.find((n) => n.id === run.currentNodeId)
+  return {
+    runId: run.id,
+    workflow: run.workflow.name,
+    status: run.status,
+    currentStep: current?.label ?? null,
+    waitingFor: run.waiting?.question ?? null,
+    steps: run.steps.map((s) => ({ step: s.label, outcome: s.outcome, summary: s.summary.slice(0, 1500), error: s.error ?? null }))
   }
 }
 

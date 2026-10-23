@@ -13,6 +13,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
+import { Switch } from '@/components/ui/switch'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { outcomeLabel, type WorkflowIssue } from './workflow-model'
 import { CustomStepEditor } from './WorkflowCustomStepEditor'
@@ -240,7 +241,16 @@ export function WorkflowInspector({
           </Field>
         )}
         {node.kind === 'human' && (
-          <Field label="Question" hint="Shown in your inbox; your answer goes back to the step that asked.">
+          <div className="flex items-start justify-between gap-3" data-workflow-ask-lead>
+            <div className="space-y-0.5">
+              <div className="text-xs font-medium">Ask the Lead first</div>
+              <p className="text-[11px] text-muted-foreground">The project's Lead answers; only what is your call comes to you.</p>
+            </div>
+            <Switch checked={c.askLeadFirst === true} onCheckedChange={(on) => set({ askLeadFirst: on || undefined })} aria-label="Ask the Lead first" />
+          </div>
+        )}
+        {node.kind === 'human' && (
+          <Field label="Question" hint="Shown in the run; your answer goes back to the step that asked.">
             <Textarea value={c.question ?? ''} onChange={(e) => set({ question: e.target.value })} className="min-h-20 text-xs" />
           </Field>
         )}

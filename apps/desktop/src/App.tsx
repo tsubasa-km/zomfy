@@ -84,7 +84,10 @@ export default function App() {
           <Sidebar />
           <main className="flex min-w-0 flex-1">
             {workflowsPage ? (
-              <WorkflowsPage key={`${workflowsPage.hostId}:${workflowsPage.projectId}`} target={workflowsPage} />
+              <WorkflowsPage
+                key={`${workflowsPage.hostId}:${workflowsPage.projectId}:${workflowsPage.runId ?? ''}`}
+                target={workflowsPage}
+              />
             ) : dashboardOpen ? (
               <AgentDashboard />
             ) : boardOpen ? (

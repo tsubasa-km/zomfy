@@ -22,7 +22,7 @@ export type ThreadItem =
   | { kind: 'user'; text: string; messageId?: string; images?: ChatImage[]; resumed?: TurnResumeKind }
   | { kind: 'agent'; text: string }
   | { kind: 'thought'; text: string }
-  | { kind: 'notice'; text: string; severity?: string; turnEnd?: TurnEndMeta }
+  | { kind: 'notice'; text: string; severity?: string; turnEnd?: TurnEndMeta; runId?: string }
   | { kind: 'compaction'; id: string; status: string }
   | {
       kind: 'tool'

@@ -217,6 +217,45 @@ export const MANAGER_TOOLS = [
     description: "The person's own todo list and items agents forwarded to them.",
     inputSchema: { type: 'object', properties: { includeDone: { type: 'boolean' } } },
     readOnly: true
+  },
+  {
+    name: 'ask_lead',
+    description:
+      "Asks this project's Lead a question and waits for the answer; keep working with it afterwards. Use it when you need a decision or context you cannot find yourself (e.g. during a workflow step). When the Lead cannot decide, the question goes on to the person and their answer comes back here. Blocks until answered.",
+    inputSchema: {
+      type: 'object',
+      properties: { question: str('The question, with the context the Lead needs to answer it.') },
+      required: ['question']
+    },
+    readOnly: false,
+    selfOnly: true
+  },
+  {
+    name: 'list_workflows',
+    description: "This project's saved workflows (graphs of agent steps the harness runs) and their recent runs.",
+    inputSchema: { type: 'object', properties: {} },
+    readOnly: true
+  },
+  {
+    name: 'run_workflow',
+    description:
+      "Starts one of this project's workflows on a task; the harness runs its steps (developer, tests, review…) and routes between them. The run shows as a card in this chat; you hear when it waits or ends. Prefer it over hand-made sessions when a workflow fits the task.",
+    inputSchema: {
+      type: 'object',
+      properties: {
+        workflowId: str('From list_workflows.'),
+        task: str('The task every step works on: goal, scope, constraints, how to verify.')
+      },
+      required: ['workflowId', 'task']
+    },
+    readOnly: false,
+    managerAllowed: true
+  },
+  {
+    name: 'get_workflow_run',
+    description: 'A workflow run: status, the step it is on, each step with its outcome and summary, and what it waits for.',
+    inputSchema: { type: 'object', properties: { runId: str('From run_workflow or list_workflows.') }, required: ['runId'] },
+    readOnly: true
   }
 ] as const satisfies readonly ManagerToolDefinition[]
 
@@ -247,5 +286,7 @@ How to work:
 - Do small, quick things yourself. Hand larger or parallel work to a session: create_session in a fitting workspace (create_workspace when it needs its own branch), with a self-contained prompt (goal, files or area, constraints, how to verify), then wait_for_session and check the result with read_session before reporting.
 - Handle setup the person should not have to think about: which workspace or host, new worktrees, moving a chat (move_chat).
 - A block starting "[Project activity since your last turn]" lists what the person told other sessions directly and how sessions ended. Treat it as context, not as a new request.
+- When one of this project's workflows fits the task (list_workflows), start it with run_workflow instead of hand-made sessions; the harness runs its steps.
+- Sessions may ask you questions mid-task. Answer from what you know of the project and the person's intent; send it on to the person only when it is truly their call.
 - Ask the person only for decisions that are theirs; forward_to_person when they are away.
 - Report briefly: what was done, where, the evidence, and anything still waiting.`
