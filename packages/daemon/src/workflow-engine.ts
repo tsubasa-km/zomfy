@@ -5,6 +5,7 @@ import {
   workflowOutcomes,
   type ManagerCallResult,
   type Workflow,
+  type WorkflowCycle,
   type WorkflowNode,
   type WorkflowOutcome,
   type WorkflowRun,
@@ -24,7 +25,9 @@ import { log } from "./log.ts";
 // Runs a workflow graph: the engine, not a model, picks each next step. Agent steps are chat
 // sessions whose turn must end in a structured {outcome, summary}; the edge labelled with that
 // outcome is taken. Checks are commands (exit code), "Ask the person" waits for an answer, and
-// limited outcomes (a review's "changes", a check's "fail") count rounds and stop at the limit.
+// limited outcomes (a review's "changes", a check's "fail") count rounds. A loop that cannot finish (its
+// limit reached, or stuck on the same failure) is never just dropped: it is handed up to the loop around
+// it to rethink, and only the outermost loop asks the person.
 
 type Deps = Pick<HandlerContext, "workspaces" | "sessions" | "pendingTurns" | "broadcast" | "runStepTurn" | "emit" | "serveTool">;
 
@@ -33,11 +36,20 @@ const LIMITED: WorkflowOutcome[] = ["changes", "fail"];
 const CHECK_TIMEOUT_MS = 30 * 60_000;
 const OUTPUT_TAIL = 4000;
 
-interface StepResult {
+interface Verdict {
   outcome: WorkflowOutcome;
   summary: string;
+  /** Reviews: non-blocking findings for later. */
+  followUps?: string[];
+  /** Reviews: a blocking finding from last round is still not fixed. */
+  repeated?: boolean;
+}
+
+interface StepResult extends Verdict {
   sessionIds: string[];
 }
+
+type TurnResult = Verdict & { index: number };
 
 class RunStopped extends Error {}
 
@@ -188,6 +200,8 @@ export class WorkflowEngine {
       run.currentNodeId = edge.to;
     } else if (reason === "limit") {
       run.rounds[limitKey ?? node.id] = 0;
+      // The person's direction is a fresh start for every loop that was handed up.
+      run.escalated = {};
     }
     // "ask": the step that asked runs again, with the answer as its handoff.
     run.status = "running";
@@ -260,6 +274,10 @@ export class WorkflowEngine {
         if (live.stopped) return;
         step.sessionIds = result.sessionIds;
         this.endStep(step, result.outcome, result.summary);
+        if (run.escalation?.nodeId === node.id) run.escalation = null;
+        if (result.followUps?.length) {
+          run.followUps = [...(run.followUps ?? []), ...result.followUps.map((text) => ({ nodeId: node.id, label: node.label, text }))];
+        }
 
         const edge = run.workflow.edges.find((e) => e.from === node.id && e.outcome === result.outcome);
         if (!edge) {
@@ -269,38 +287,20 @@ export class WorkflowEngine {
           return;
         }
         run.currentNodeId = edge.to;
-        const limit = node.config.maxRounds;
-        if (limit && LIMITED.includes(result.outcome)) {
-          run.rounds[node.id] = (run.rounds[node.id] ?? 0) + 1;
-          if (run.rounds[node.id]! > limit) {
-            await this.wait(
-              run,
-              `"${node.label}" reached its limit of ${limit} round${limit > 1 ? "s" : ""}. Answer to go on (your note goes along), or "stop".`,
-              "limit",
-              node.id,
-            );
+        // Leaving a loop means it finished: a later stall there starts afresh.
+        for (const cycle of cyclesOf(run.workflow, node.id)) {
+          if (!cycle.nodeIds.includes(edge.to) && run.escalated?.[cycle.id]) delete run.escalated[cycle.id];
+        }
+        const stall = this.stall(run, node, step, result) ?? this.nextRound(run, node, edge.to);
+        if (stall) {
+          const loop = stall.loop ?? null;
+          if (!loop) {
+            // Not inside a loop at all: nothing to hand it up to.
+            await this.wait(run, `${stall.reason}. Answer to go on (your note goes along).`, "limit", node.id);
             return;
           }
+          if (await this.handUp(run, loop, stall.reason, step)) return;
         }
-        // Coming back to a cycle's first step from inside it starts the cycle's next round.
-        const target = this.node(run, edge.to);
-        let stopped = false;
-        for (const cycle of cyclesOf(run.workflow, target.id)) {
-          if (cycle.id !== target.id || !cycle.nodeIds.includes(node.id)) continue;
-          const key = `cycle:${cycle.id}`;
-          run.rounds[key] = (run.rounds[key] ?? 0) + 1;
-          if (run.rounds[key]! >= cycle.maxRounds) {
-            await this.wait(
-              run,
-              `The cycle "${cycle.label}" used all ${cycle.maxRounds} rounds. Answer to run another (your note goes along), or "stop".`,
-              "limit",
-              key,
-            );
-            stopped = true;
-            break;
-          }
-        }
-        if (stopped) return;
         await this.save(run);
       }
     } catch (error) {
@@ -319,7 +319,7 @@ export class WorkflowEngine {
     const prompt = this.prompt(run, node, outcomes);
     const maxAgents = node.config.runBy === "lead" ? 0 : Math.max(0, Math.min(16, node.config.maxAgents ?? 0));
     const step = stepOptions(node.config.tools, outcomes, maxAgents > 0);
-    const turn = async (sessionId: string, index: number): Promise<{ outcome: WorkflowOutcome; summary: string; index: number }> => {
+    const turn = async (sessionId: string, index: number): Promise<TurnResult> => {
       live.sessions.add(sessionId);
       try {
         const result = await this.deps.runStepTurn(sessionId, prompt, step);
@@ -342,8 +342,8 @@ export class WorkflowEngine {
       // The Lead works from its own checkout; the run's worktree is where the change is.
       const runPath = this.deps.workspaces.workspacePath(run.workspaceId);
       if (runPath) step.additionalDirectories = [runPath];
-      const result = await turn(lead, 0);
-      return { outcome: result.outcome, summary: result.summary, sessionIds: [lead] };
+      const { index: _, ...result } = await turn(lead, 0);
+      return { ...result, sessionIds: [lead] };
     }
 
     const count = Math.max(1, Math.min(8, node.config.parallel?.count ?? 1));
@@ -378,12 +378,97 @@ export class WorkflowEngine {
     }
   }
 
+  /** A limited outcome past the step's limit, or the same failure twice in a row. */
+  private stall(run: WorkflowRun, node: WorkflowNode, step: WorkflowRunStep, result: StepResult): { loop?: WorkflowCycle; reason: string } | null {
+    if (!LIMITED.includes(result.outcome)) return null;
+    const loop = cyclesOf(run.workflow, node.id)[0];
+    const limit = node.config.maxRounds;
+    if (limit) {
+      run.rounds[node.id] = (run.rounds[node.id] ?? 0) + 1;
+      if (run.rounds[node.id]! > limit) return { loop, reason: `"${node.label}" sent it back ${limit} time${limit > 1 ? "s" : ""}` };
+    }
+    if (result.repeated) return { loop, reason: `"${node.label}" found the same blocking problem again` };
+    const before = run.steps.filter((s) => s.nodeId === node.id && s !== step && s.endedAt !== null && s.outcome).at(-1);
+    if (before && before.outcome === result.outcome && before.summary === step.summary && node.kind !== "review") {
+      return { loop, reason: `"${node.label}" failed the same way twice in a row` };
+    }
+    return null;
+  }
+
+  /** Coming back to a loop's first step from inside it is the loop's next round; past its limit it stalls. */
+  private nextRound(run: WorkflowRun, node: WorkflowNode, to: string): { loop: WorkflowCycle; reason: string } | null {
+    for (const cycle of cyclesOf(run.workflow, to)) {
+      if (cycle.id !== to || !cycle.nodeIds.includes(node.id)) continue;
+      const key = `cycle:${cycle.id}`;
+      run.rounds[key] = (run.rounds[key] ?? 0) + 1;
+      if (cycle.maxRounds && run.rounds[key]! >= cycle.maxRounds) {
+        return { loop: cycle, reason: `"${cycle.label}" used its ${cycle.maxRounds} round${cycle.maxRounds > 1 ? "s" : ""}` };
+      }
+    }
+    return null;
+  }
+
+  /**
+   * A loop that cannot finish goes to the loop around it: that loop's first step runs next, told why,
+   * and the stalled loop starts its count afresh. A loop handed up once that stalls again before
+   * finishing goes higher still; the outermost asks the person. True when the run now waits.
+   */
+  private async handUp(run: WorkflowRun, loop: WorkflowCycle, reason: string, step: WorkflowRunStep): Promise<boolean> {
+    const cycles = cyclesOf(run.workflow, loop.id);
+    let current = loop;
+    let why = reason;
+    for (;;) {
+      run.rounds[`cycle:${current.id}`] = 0;
+      for (const id of current.nodeIds) delete run.rounds[id];
+      const parent = current.parentId ? cycles.find((c) => c.id === current.parentId) : undefined;
+      const entry = this.node(run, current.id);
+      if (!parent) {
+        step.summary = `${step.summary}\n\n↑ Handed to you: ${why}.`.trim();
+        run.currentNodeId = current.id;
+        await this.wait(
+          run,
+          `The loop "${current.label}" cannot finish on its own: ${why}. Say how it should go on; your note goes to "${entry.label}", where the loop starts again.`,
+          "limit",
+          `cycle:${current.id}`,
+        );
+        return true;
+      }
+      if (run.escalated?.[current.id]) {
+        why = `"${current.label}" stalled again after it was rethought (${why})`;
+        current = parent;
+        continue;
+      }
+      run.escalated = { ...run.escalated, [current.id]: why };
+      const target = this.node(run, parent.id);
+      run.escalation = {
+        nodeId: parent.id,
+        text: [
+          `The loop "${current.label}" could not finish: ${why}.`,
+          `Its last result ("${step.label}"): ${step.summary.slice(0, 1500)}`,
+          "Rethink it so the loop can finish: split or narrow the work, give concrete direction, or change what counts as done (say so plainly).",
+        ].join("\n"),
+      };
+      step.summary = `${step.summary}\n\n↑ Handed up to "${target.label}": ${why}.`.trim();
+      run.currentNodeId = parent.id;
+      // Going back to the outer loop's first step is a round of that loop.
+      const key = `cycle:${parent.id}`;
+      run.rounds[key] = (run.rounds[key] ?? 0) + 1;
+      if (parent.maxRounds && run.rounds[key]! >= parent.maxRounds) {
+        why = `"${parent.label}" used its ${parent.maxRounds} rounds`;
+        current = parent;
+        continue;
+      }
+      this.tellLead(run, `Workflow "${run.workflow.name}" (run ${run.id}): the loop "${current.label}" was handed up to "${target.label}": ${why}.`);
+      return false;
+    }
+  }
+
   private async runSessions(
     run: WorkflowRun,
     node: WorkflowNode,
     sessionIds: string[],
     workspaces: Workspace[],
-    turn: (sessionId: string, index: number) => Promise<{ outcome: WorkflowOutcome; summary: string; index: number }>,
+    turn: (sessionId: string, index: number) => Promise<TurnResult>,
     count: number,
     join: "all" | "majority" | "any" | "first",
     helpers: string[],
@@ -394,7 +479,8 @@ export class WorkflowEngine {
       // The winner's worktree carries the run on.
       const ws = workspaces[winner.index];
       if (ws && node.config.workspace !== "main") run.workspaceId = ws.id;
-      return { outcome: winner.outcome, summary: winner.summary, sessionIds: [...sessionIds, ...helpers] };
+      const { index: _, ...verdict } = winner;
+      return { ...verdict, sessionIds: [...sessionIds, ...helpers] };
     }
     const results = await Promise.all(sessionIds.map((id, i) => turn(id, i)));
     const summary =
@@ -403,7 +489,14 @@ export class WorkflowEngine {
         : results
             .map((r) => `${node.label} ${r.index + 1} (${r.outcome}, in ${workspaces[r.index]?.path ?? "?"}): ${r.summary}`)
             .join("\n\n");
-    return { outcome: combine(node, results.map((r) => r.outcome), join), summary, sessionIds: [...sessionIds, ...helpers] };
+    const followUps = results.flatMap((r) => r.followUps ?? []);
+    return {
+      outcome: combine(node, results.map((r) => r.outcome), join),
+      summary,
+      sessionIds: [...sessionIds, ...helpers],
+      ...(followUps.length > 0 ? { followUps } : {}),
+      ...(results.some((r) => r.repeated) ? { repeated: true } : {}),
+    };
   }
 
   /** spawn_agents: helpers on parts of a step, in the step's folder, at most the step's cap at once. */
@@ -479,6 +572,18 @@ export class WorkflowEngine {
     if (fields.length > 0) lines.push("", "Settings:", ...fields.map((f) => `- ${f.label || f.key} (${f.key}): ${String(f.value)}`));
     const rounds = run.rounds[node.id];
     if (rounds) lines.push("", `This is round ${rounds + 1} of this step.`);
+    if (run.escalation?.nodeId === node.id) lines.push("", "Handed up to you:", run.escalation.text);
+    const earlier = run.steps.filter((s) => s.nodeId === node.id && s.endedAt !== null && s.outcome);
+    if (node.kind === "review" && earlier.length > 0) {
+      // Later rounds converge: only what blocks sends it back; the rest waits for the end.
+      lines.push(
+        "",
+        `This is review round ${earlier.length + 1}. Choose "changes" only for blocking findings: wrong behaviour, a missing requirement, failing checks. Put anything else in "followUps"; the person gets those when the run ends.`,
+        "Your findings last round:",
+        earlier.at(-1)!.summary.slice(0, 2000),
+        `Set "repeated" to true when a blocking finding you raise now is one of those and is still not fixed.`,
+      );
+    }
     lines.push(
       "",
       `When you are done, give your result as the structured output: "outcome" is one of ${outcomes.map((o) => `"${o}"`).join(", ")}, and "summary" is what the next step needs (what you did or found, concretely).`,
@@ -646,9 +751,10 @@ export class WorkflowEngine {
     }
     await this.save(run);
     const last = run.steps.filter((s) => s.summary).at(-1);
+    const later = run.followUps ?? [];
     this.tellLead(
       run,
-      `Workflow "${run.workflow.name}" (run ${run.id}) ${status === "done" ? "finished" : status}${why ? `: ${why}` : ""}.${last ? ` Last step "${last.label}": ${last.summary.slice(0, 400)}` : ""}`,
+      `Workflow "${run.workflow.name}" (run ${run.id}) ${status === "done" ? "finished" : status}${why ? `: ${why}` : ""}.${last ? ` Last step "${last.label}": ${last.summary.slice(0, 400)}` : ""}${later.length > 0 ? `\nLeft for later (${later.length}):\n${later.map((f) => `- ${f.label}: ${f.text}`).join("\n").slice(0, 1500)}` : ""}`,
     );
     return run;
   }
@@ -670,23 +776,37 @@ export class WorkflowEngine {
 
 /** The structured result every session step must give. */
 function verdictSchema(outcomes: WorkflowOutcome[]): Record<string, unknown> {
+  // Steps that can send work back also report what can wait and whether they are going round in circles.
+  const review = outcomes.includes("changes")
+    ? {
+        followUps: { type: "array", items: { type: "string" }, description: "Non-blocking findings for later." },
+        repeated: { type: "boolean", description: "A blocking finding from last round is still not fixed." },
+      }
+    : {};
   return {
     type: "object",
     properties: {
       outcome: { type: "string", enum: outcomes },
       summary: { type: "string" },
+      ...review,
     },
     required: ["outcome", "summary"],
     additionalProperties: false,
   };
 }
 
-function parseVerdict(value: unknown, outcomes: WorkflowOutcome[]): { outcome: WorkflowOutcome; summary: string } | null {
+function parseVerdict(value: unknown, outcomes: WorkflowOutcome[]): Verdict | null {
   if (!value || typeof value !== "object") return null;
   const outcome = "outcome" in value ? value.outcome : undefined;
   const summary = "summary" in value ? value.summary : undefined;
   if (typeof outcome !== "string" || !outcomes.includes(outcome)) return null;
-  return { outcome, summary: typeof summary === "string" ? summary : "" };
+  const followUps = "followUps" in value && Array.isArray(value.followUps) ? value.followUps.filter((f): f is string => typeof f === "string" && !!f.trim()) : [];
+  return {
+    outcome,
+    summary: typeof summary === "string" ? summary : "",
+    ...(followUps.length > 0 ? { followUps } : {}),
+    ...("repeated" in value && value.repeated === true ? { repeated: true } : {}),
+  };
 }
 
 /** Without a usable verdict a step goes the plain way on (or fails a review, which must decide). */

@@ -1,6 +1,7 @@
 import type { ReactNode } from 'react'
 import { Trash2 } from 'lucide-react'
 import {
+  unboundedLoops,
   workflowOutcomes,
   type Workflow,
   type WorkflowEdge,
@@ -158,13 +159,14 @@ export function WorkflowInspector({
   multi: number
   onCycle: (id: string, patch: { label?: string; maxRounds?: number }) => void
   issues: WorkflowIssue[]
-  onWorkflow: (patch: Partial<Pick<Workflow, 'name' | 'description'>>) => void
+  onWorkflow: (patch: Partial<Pick<Workflow, 'name' | 'description' | 'skipLoopConfirm'>>) => void
   onNode: (id: string, patch: Partial<Omit<WorkflowNode, 'config'>> & { config?: Partial<WorkflowNodeConfig> }) => void
   onEdge: (id: string, outcome: WorkflowOutcome) => void
   onDelete: () => void
   onSelectIssue: (issue: WorkflowIssue) => void
 }) {
   const label = (id: string) => workflow.nodes.find((n) => n.id === id)?.label ?? '?'
+  const unbounded = unboundedLoops(workflow)
   const backs = cycle ? workflow.edges.filter((e) => cycle.backEdgeIds.includes(e.id)) : []
   // The loop a step starts or an arrow closes, under that step's or arrow's own fields.
   const loopPanel = cycle && (
@@ -185,14 +187,18 @@ export function WorkflowInspector({
       <Field label="Cycle name">
         <Input value={cycle.label} onChange={(e) => onCycle(cycle.id, { label: e.target.value })} className="h-8" />
       </Field>
-      <Field label="Round limit" hint="Each time the run comes back to the cycle's first step is a round; past the limit the run asks you.">
+      <Field
+        label="Round limit"
+        hint="Each return to the loop's first step is a round. Past the limit the loop is handed up to the loop around it to rethink (the outermost asks you). Empty: no limit."
+      >
         <Input
           type="number"
           min={1}
-          max={20}
-          value={cycle.maxRounds}
-          onChange={(e) => onCycle(cycle.id, { maxRounds: Math.max(1, Number(e.target.value) || 1) })}
-          className="h-8 w-24"
+          max={50}
+          placeholder="No limit"
+          value={cycle.maxRounds ?? ''}
+          onChange={(e) => onCycle(cycle.id, { maxRounds: e.target.value === '' ? undefined : Math.max(1, Number(e.target.value) || 1) })}
+          className="h-8 w-28"
         />
       </Field>
     </div>
@@ -302,11 +308,12 @@ export function WorkflowInspector({
           </>
         )}
         {node.kind === 'review' && (
-          <Field label="Round limit" hint="After this many sends-back the run stops and asks you.">
+          <Field label="Round limit" hint="After this many sends-back the loop is handed up to rethink. Empty: no limit.">
             <Input
               type="number"
               min={1}
-              max={20}
+              max={50}
+              placeholder="No limit"
               value={c.maxRounds ?? ''}
               onChange={(e) => set({ maxRounds: e.target.value === '' ? undefined : Math.max(1, Number(e.target.value)) })}
               className="h-8 w-24"
@@ -314,11 +321,12 @@ export function WorkflowInspector({
           </Field>
         )}
         {node.kind === 'check' && (
-          <Field label="Failure limit" hint="After this many failures the run stops and asks you.">
+          <Field label="Failure limit" hint="After this many failures the loop is handed up to rethink. Empty: no limit.">
             <Input
               type="number"
               min={1}
-              max={20}
+              max={50}
+              placeholder="No limit"
               value={c.maxRounds ?? ''}
               onChange={(e) => set({ maxRounds: e.target.value === '' ? undefined : Math.max(1, Number(e.target.value)) })}
               className="h-8 w-24"
@@ -418,6 +426,21 @@ export function WorkflowInspector({
       <Field label="Description">
         <Textarea value={workflow.description ?? ''} onChange={(e) => onWorkflow({ description: e.target.value })} className="min-h-16 text-xs" />
       </Field>
+      {unbounded.length > 0 && (
+        <div className="space-y-2" data-workflow-unbounded>
+          <p className="text-xs text-muted-foreground">No round limit: {unbounded.map((c) => c.label).join(', ')}.</p>
+          <div className="flex items-center justify-between gap-3">
+            <Label htmlFor="workflow-loop-confirm" className="text-xs font-normal">
+              Ask before each run starts
+            </Label>
+            <Switch
+              id="workflow-loop-confirm"
+              checked={!workflow.skipLoopConfirm}
+              onCheckedChange={(ask) => onWorkflow({ skipLoopConfirm: ask ? undefined : true })}
+            />
+          </div>
+        </div>
+      )}
       <div className="space-y-1.5">
         <Label className="text-xs">Checks</Label>
         {issues.length === 0 ? (

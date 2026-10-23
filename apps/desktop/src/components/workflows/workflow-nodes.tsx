@@ -55,9 +55,9 @@ function detail(node: WorkflowNode): string {
         ? 'The Lead'
         : [c.role, c.workspace === 'run-worktree' ? 'own worktree' : 'main workspace'].filter(Boolean).join(' · ')
     case 'review':
-      return `${c.runBy === 'lead' ? 'The Lead' : (c.role ?? 'Reviewer')} · up to ${c.maxRounds ?? '?'} rounds`
+      return `${c.runBy === 'lead' ? 'The Lead' : (c.role ?? 'Reviewer')}${c.maxRounds ? ` · up to ${c.maxRounds} rounds` : ''}`
     case 'check':
-      return `${c.command?.trim() ? c.command : 'No command yet'} · up to ${c.maxRounds ?? '?'} tries`
+      return `${c.command?.trim() ? c.command : 'No command yet'}${c.maxRounds ? ` · up to ${c.maxRounds} tries` : ''}`
     case 'human':
       return `${c.askLeadFirst ? 'Lead first, then you' : 'Asks you'}${c.question?.trim() ? ` · ${c.question}` : ''}`
     case 'end':

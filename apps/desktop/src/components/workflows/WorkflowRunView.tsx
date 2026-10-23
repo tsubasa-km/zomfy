@@ -101,7 +101,7 @@ export function WorkflowRunView({ run, onBack }: { run: HostedWorkflowRun; onBac
   const visited = new Set(run.steps.map((s) => s.nodeId))
   const roundOf = (cycle: WorkflowCycle) =>
     cycle.nodeIds.some((id) => visited.has(id))
-      ? `round ${(run.rounds[`cycle:${cycle.id}`] ?? 0) + 1} of ${cycle.maxRounds}`
+      ? `round ${(run.rounds[`cycle:${cycle.id}`] ?? 0) + 1}${cycle.maxRounds ? ` of ${cycle.maxRounds}` : ''}`
       : 'not reached'
   const decor = loopDecor(loopView, cycles, roundOf)
   const nodes: WorkflowCanvasNode[] = run.workflow.nodes.map((node) => ({
@@ -182,6 +182,7 @@ function RunPanel({ run, focusNode, onBack }: { run: HostedWorkflowRun; focusNod
     return () => clearInterval(timer)
   }, [live])
   const steps = focusNode ? run.steps.filter((s) => s.nodeId === focusNode) : run.steps
+  const followUps = run.followUps ?? []
 
   const act = async (method: typeof HARNESS_METHODS.workflowRunAnswer | typeof HARNESS_METHODS.workflowRunStop, text?: string) => {
     setBusy(true)
@@ -222,13 +223,13 @@ function RunPanel({ run, focusNode, onBack }: { run: HostedWorkflowRun; focusNod
       {run.status === 'waiting' && run.waiting && (
         <div className="space-y-2 border-b border-border bg-agent-question/5 p-4" data-run-waiting={run.waiting.reason}>
           <div className="text-xs font-medium text-agent-question-text">
-            {run.waiting.reason === 'limit' ? 'Round limit reached' : run.waiting.reason === 'ask' ? 'A step has a question' : 'Your turn'}
+            {run.waiting.reason === 'limit' ? 'A loop needs your direction' : run.waiting.reason === 'ask' ? 'A step has a question' : 'Your turn'}
           </div>
           <p className="text-xs whitespace-pre-wrap">{run.waiting.question}</p>
           <Textarea
             value={answer}
             onChange={(e) => setAnswer(e.target.value)}
-            placeholder={run.waiting.reason === 'limit' ? 'A note for the next round, or "stop"' : 'Your answer'}
+            placeholder={run.waiting.reason === 'limit' ? 'How the loop should go on' : 'Your answer'}
             className="min-h-20 text-xs"
             onKeyDown={(e) => {
               if (e.key === 'Enter' && (e.ctrlKey || e.metaKey) && answer.trim()) void act(HARNESS_METHODS.workflowRunAnswer, answer)
@@ -280,6 +281,18 @@ function RunPanel({ run, focusNode, onBack }: { run: HostedWorkflowRun; focusNod
             )}
           </div>
         ))}
+        {!focusNode && followUps.length > 0 && (
+          <div className="space-y-1 rounded-md border border-dashed border-border p-2" data-run-follow-ups>
+            <div className="text-xs font-medium">Left for later ({followUps.length})</div>
+            <ul className="list-disc space-y-0.5 pl-4 text-[11px] text-muted-foreground">
+              {followUps.map((f, i) => (
+                <li key={i}>
+                  <span className="text-foreground">{f.label}:</span> {f.text}
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
       </div>
     </aside>
   )

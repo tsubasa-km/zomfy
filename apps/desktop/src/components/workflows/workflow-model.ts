@@ -1,5 +1,4 @@
 import {
-  workflowCycles,
   workflowOutcomes,
   type BuiltinWorkflowOutcome,
   type Workflow,
@@ -73,9 +72,9 @@ function defaultConfig(kind: WorkflowNodeKind): WorkflowNode['config'] {
     case 'agent':
       return { role: 'Developer', session: 'keep', workspace: 'run-worktree' }
     case 'review':
-      return { role: 'Reviewer', maxRounds: 3 }
+      return { role: 'Reviewer' }
     case 'check':
-      return { command: '', maxRounds: 3 }
+      return { command: '' }
     case 'human':
       return { question: '', askLeadFirst: true }
     case 'end':
@@ -193,7 +192,6 @@ export function leadCycleTemplate(projectId: string): Workflow {
     {
       runBy: 'lead',
       role: 'Lead',
-      maxRounds: 2,
       prompt:
         "Check the result against the person's intent and your plan. Approve when it is what they asked for; choose changes to plan another round, saying what to change."
     }
@@ -226,8 +224,8 @@ export function leadCycleTemplate(projectId: string): Workflow {
       edge(ask, check, 'answered')
     ],
     cycleSettings: [
-      { entryId: plan.id, label: 'Lead: plan ⇄ check', maxRounds: 2 },
-      { entryId: dev.id, label: 'Develop ⇄ review', maxRounds: 3 }
+      { entryId: plan.id, label: 'Lead: plan ⇄ check' },
+      { entryId: dev.id, label: 'Develop ⇄ review' }
     ],
     updatedAt: Date.now()
   }
@@ -272,9 +270,6 @@ export function validateWorkflow(workflow: Workflow): WorkflowIssue[] {
     if ((node.kind === 'check' || (node.kind === 'custom' && node.config.runner === 'command')) && !node.config.command?.trim()) {
       issues.push({ level: 'error', nodeId: node.id, message: `"${node.label}" has no command.` })
     }
-    if ((node.kind === 'review' || node.kind === 'check') && !(node.config.maxRounds && node.config.maxRounds > 0)) {
-      issues.push({ level: 'error', nodeId: node.id, message: `"${node.label}" needs a round limit.` })
-    }
     const keys = (node.config.fields ?? []).map((f) => f.key.trim())
     if (keys.some((k) => !/^[A-Za-z_][\w-]*$/.test(k))) {
       issues.push({ level: 'error', nodeId: node.id, message: `"${node.label}" has a field without a valid key (letters, digits, _ or -).` })
@@ -304,43 +299,5 @@ export function validateWorkflow(workflow: Workflow): WorkflowIssue[] {
     }
   }
 
-  // A loop must pass through a Review or Check, whose limit bounds it.
-  const unbounded = unboundedCycle(workflow)
-  if (unbounded) {
-    issues.push({
-      level: 'error',
-      nodeId: unbounded,
-      message: 'A loop must go through a Review or Check step, or start a cycle with a round limit.'
-    })
-  }
   return issues
-}
-
-/** A step on a cycle that never passes a step with a round limit, or null. */
-function unboundedCycle(workflow: Workflow): string | null {
-  // A cycle's round limit bounds the loops through its first step too.
-  const cycleEntries = workflowCycles(workflow).map((c) => c.id)
-  const reviews = new Set([...workflow.nodes.filter((n) => n.kind === 'review' || n.kind === 'check' || n.kind === 'human').map((n) => n.id), ...cycleEntries])
-  const next = new Map<string, string[]>()
-  for (const edge of workflow.edges) {
-    if (reviews.has(edge.from) || reviews.has(edge.to)) continue
-    next.set(edge.from, [...(next.get(edge.from) ?? []), edge.to])
-  }
-  const state = new Map<string, 'visiting' | 'done'>()
-  const visit = (id: string): string | null => {
-    if (state.get(id) === 'visiting') return id
-    if (state.get(id) === 'done') return null
-    state.set(id, 'visiting')
-    for (const to of next.get(id) ?? []) {
-      const found = visit(to)
-      if (found) return found
-    }
-    state.set(id, 'done')
-    return null
-  }
-  for (const node of workflow.nodes) {
-    const found = visit(node.id)
-    if (found) return found
-  }
-  return null
 }

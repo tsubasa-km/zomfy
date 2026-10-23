@@ -6,6 +6,7 @@ import { Sidebar } from '@/components/Sidebar'
 import { FloatingWorkspace } from '@/components/FloatingWorkspace'
 import { PointerDragLayer } from '@/components/PointerDragLayer'
 import { Toaster } from '@/components/ui/sonner'
+import { WorkflowStartConfirmDialog } from '@/components/workflows/WorkflowStartConfirm'
 import { RightSidebar } from '@/components/right-sidebar/RightSidebar'
 import { AgentDashboard } from '@/components/AgentDashboard'
 import { SettingsPage } from '@/components/settings/SettingsPage'
@@ -120,6 +121,7 @@ export default function App() {
       </div>
       <FloatingWorkspace />
       <Toaster />
+      <WorkflowStartConfirmDialog />
       <InboxPanel />
       <QuickOpen />
       <CommandPalette />

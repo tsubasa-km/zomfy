@@ -42,6 +42,7 @@ import { GRID, snapRect, type SnapGuide } from './workflow-snap'
 import { SnapGuides } from './workflow-snap-guides'
 import { LoopViewPanel, loopDecor, useLoopView } from './workflow-loop-view'
 import { canvasLayout } from './workflow-canvas-layout'
+import { WORKFLOW_TEMPLATES } from './workflow-samples'
 import { WORKFLOW_EDGE_TYPES } from './workflow-route-edge'
 import { WorkflowInspector } from './WorkflowInspector'
 import { WorkflowConnectMenu, type PendingConnection } from './WorkflowConnectMenu'
@@ -51,7 +52,6 @@ import { loadWorkflowRuns, useWorkflowRun, useWorkflowRuns } from '@/stores/work
 import {
   NODE_KINDS,
   blankWorkflow,
-  leadCycleTemplate,
   newNode,
   nextOutcome,
   reviewLoopTemplate,
@@ -181,18 +181,14 @@ export function WorkflowsPage({ target }: { target: WorkflowsPageTarget }) {
               </DropdownMenuItem>
             ))}
             {saved && saved.length > 0 && <DropdownMenuSeparator />}
-            <DropdownMenuItem onSelect={() => startNew(reviewLoopTemplate)}>
-              <Plus className="size-3.5" />
-              New from “Develop and review”
-            </DropdownMenuItem>
-            <DropdownMenuItem onSelect={() => startNew(leadCycleTemplate)}>
-              <Plus className="size-3.5" />
-              New from “Lead-led development” (nested PDCA)
-            </DropdownMenuItem>
-            <DropdownMenuItem onSelect={() => startNew(blankWorkflow)}>
-              <Plus className="size-3.5" />
-              New blank workflow
-            </DropdownMenuItem>
+            <DropdownMenuLabel className="text-xs text-muted-foreground">New from a template</DropdownMenuLabel>
+            {WORKFLOW_TEMPLATES.map((t) => (
+              <DropdownMenuItem key={t.name} onSelect={() => startNew(t.make)} data-workflow-template={t.name}>
+                <Plus className="size-3.5" />
+                <span className="min-w-0 flex-1 truncate">{t.name}</span>
+                <span className="text-[11px] text-muted-foreground">{t.hint}</span>
+              </DropdownMenuItem>
+            ))}
           </DropdownMenuContent>
         </DropdownMenu>
         <div className="ml-auto flex items-center gap-2">

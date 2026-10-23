@@ -27,6 +27,7 @@ import { addTodo, getInbox } from '@/stores/inbox-store'
 import { linkOf } from '@/stores/project-links-store'
 import { leadOf, projectOfSession } from '@/lib/project-lead'
 import { upsertWorkflowRun } from '@/stores/workflow-runs-store'
+import { confirmWorkflowStart } from '@/components/workflows/WorkflowStartConfirm'
 
 // Runs the manager agent's tool calls in this window, which is linked to every host. Status is
 // the hosts' (broadcast into the session store); this file only reads it and presents it, and a
@@ -142,6 +143,9 @@ async function listWorkflows(callerSessionId: string): Promise<unknown> {
 async function runWorkflow(callerSessionId: string, workflowId: string, task: string): Promise<unknown> {
   const { hostId, projectId } = workflowProject(callerSessionId)
   const caller = requireSession(callerSessionId)
+  if (!(await confirmWorkflowStart(hostId, projectId, workflowId, task, 'lead'))) {
+    throw new ToolError('The person did not start it: its loops have no round limit and they declined. Ask them, or pick another way.')
+  }
   const run = await harnessRequest(
     HARNESS_METHODS.workflowRunStart,
     // The card goes in the caller's chat when that chat lives on the run's host.

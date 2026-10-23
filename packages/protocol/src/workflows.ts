@@ -65,7 +65,10 @@ export interface WorkflowNodeConfig {
   session?: 'keep' | 'fresh'
   /** Where the step runs: the project's main workspace, or a new worktree made for the run. */
   workspace?: 'main' | 'run-worktree'
-  /** Review steps: rounds of "changes", check steps: failures, before the run stops and asks the person. */
+  /**
+   * Review steps: rounds of "changes", check steps: failures, before the loop is handed up to the
+   * loop around it (or the person) to rethink. Absent: no limit.
+   */
   maxRounds?: number
   /** Check (and command custom) steps: a shell command whose exit code is the outcome (0 = pass). */
   command?: string
@@ -115,8 +118,8 @@ export interface WorkflowCycle {
   label: string
   /** The cycle it sits in. */
   parentId?: string
-  /** Rounds before the run stops and asks the person. */
-  maxRounds: number
+  /** Rounds before the loop is handed up to the loop around it (or the person) to rethink; absent: no limit. */
+  maxRounds?: number
   nodeIds: string[]
   /** The edges that come back to its first step. */
   backEdgeIds: string[]
@@ -150,10 +153,10 @@ export interface Workflow {
   edges: WorkflowEdge[]
   /** Names and round limits for the cycles the graph makes. */
   cycleSettings?: WorkflowCycleSettings[]
+  /** Start without asking even though a loop has no limit. */
+  skipLoopConfirm?: boolean
   updatedAt: number
 }
-
-export const DEFAULT_CYCLE_ROUNDS = 3
 
 type CycleSource = Pick<Workflow, 'nodes' | 'edges' | 'cycleSettings'>
 
@@ -206,7 +209,7 @@ export function workflowCycles(workflow: CycleSource): WorkflowCycle[] {
     cycles.push({
       id: entryId,
       label: settings?.label?.trim() || (leaving && leaving.id !== entryId ? `${entry.label} ⇄ ${leaving.label}` : entry.label),
-      maxRounds: settings?.maxRounds ?? DEFAULT_CYCLE_ROUNDS,
+      ...(settings?.maxRounds ? { maxRounds: settings.maxRounds } : {}),
       nodeIds: workflow.nodes.filter((n) => body.nodes.has(n.id)).map((n) => n.id),
       backEdgeIds: body.edges
     })
@@ -223,6 +226,16 @@ export function workflowCycles(workflow: CycleSource): WorkflowCycle[] {
   cycles.sort((a, b) => b.nodeIds.length - a.nodeIds.length)
   derived.set(workflow, cycles)
   return cycles
+}
+
+/** Loops nothing caps: no round limit of their own, and some way back whose step has none either. They may run on and on. */
+export function unboundedLoops(workflow: CycleSource): WorkflowCycle[] {
+  const byId = new Map(workflow.nodes.map((n) => [n.id, n]))
+  const limited = (edgeId: string) => {
+    const edge = workflow.edges.find((e) => e.id === edgeId)
+    return !!edge && !!byId.get(edge.from)?.config.maxRounds
+  }
+  return workflowCycles(workflow).filter((c) => !c.maxRounds && !c.backEdgeIds.every(limited))
 }
 
 /** The cycles a step sits in, innermost first. */
@@ -286,6 +299,12 @@ export interface WorkflowRun {
   steps: WorkflowRunStep[]
   /** Set while the run waits for the person: what they are asked. */
   waiting?: { question: string; reason: 'human' | 'ask' | 'limit'; /** The round count a limit stop resets. */ limitKey?: string } | null
+  /** A loop that could not finish, handed up to this step to rethink; told to it once, then cleared. */
+  escalation?: { nodeId: string; text: string } | null
+  /** Non-blocking findings reviewers left for later, handed to the person when the run ends. */
+  followUps?: { nodeId: string; label: string; text: string }[]
+  /** What each loop was stuck on when it was last handed up, by cycle id: the same again goes higher. */
+  escalated?: Record<string, string>
   createdAt: number
   endedAt: number | null
 }

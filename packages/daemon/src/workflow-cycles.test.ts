@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test'
-import { cyclesOf, workflowCycles, type Workflow, type WorkflowNodeKind, type WorkflowOutcome } from '@acp-harness/protocol'
+import { cyclesOf, unboundedLoops, workflowCycles, type Workflow, type WorkflowNodeKind, type WorkflowOutcome } from '@acp-harness/protocol'
 
 // Cycles come from the graph: each edge back to an earlier step frames the steps a round repeats.
 
@@ -65,12 +65,21 @@ describe('workflowCycles', () => {
     expect(workflowCycles(leadLed).some((c) => c.id === 'check')).toBe(false)
   })
 
-  test('settings name a cycle and set its limit; others get the default', () => {
+  test('settings name a cycle and set its limit; others have none', () => {
     const named = { ...leadLed, cycleSettings: [{ entryId: 'dev', label: 'Develop ⇄ review', maxRounds: 5 }] }
     const [outer, inner] = workflowCycles(named)
     expect(inner!.label).toBe('Develop ⇄ review')
     expect(inner!.maxRounds).toBe(5)
-    expect(outer!.maxRounds).toBe(3)
+    expect(outer!.maxRounds).toBeUndefined()
+  })
+
+  test('a loop is unbounded unless it has a limit or every way back does', () => {
+    expect(unboundedLoops(leadLed).map((c) => c.id)).toEqual(['plan', 'dev'])
+    const cap = (ids: string[]) => ({ ...leadLed, nodes: leadLed.nodes.map((n) => (ids.includes(n.id) ? { ...n, config: { maxRounds: 3 } } : n)) })
+    // Failing tests still loop back without a limit.
+    expect(unboundedLoops(cap(['review'])).map((c) => c.id)).toEqual(['plan', 'dev'])
+    expect(unboundedLoops(cap(['review', 'tests'])).map((c) => c.id)).toEqual(['plan'])
+    expect(unboundedLoops({ ...leadLed, cycleSettings: [{ entryId: 'plan', maxRounds: 2 }] }).map((c) => c.id)).toEqual(['dev'])
   })
 
   test('a step that loops to itself is its own cycle', () => {

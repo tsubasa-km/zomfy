@@ -66,7 +66,7 @@ function CycleFrame({ data, selected, width, height }: NodeProps<CycleCanvasNode
         <RefreshCw className="size-3" />
         <span className="truncate">{cycle.label || 'Cycle'}</span>
         <span className="font-normal text-muted-foreground">
-          {round ?? `up to ${cycle.maxRounds} rounds`}
+          {round ?? (cycle.maxRounds ? `up to ${cycle.maxRounds} rounds` : 'no round limit')}
         </span>
       </div>
     </div>

@@ -48,6 +48,8 @@ export function setLoopView(view: LoopView): void {
 export const LOOP_TINTS = ['bg-primary/[0.07]', 'bg-status-success/[0.09]', 'bg-status-warning/[0.09]', 'bg-agent-question/[0.09]']
 const LOOP_SWATCHES = ['bg-primary/50', 'bg-status-success/60', 'bg-status-warning/60', 'bg-agent-question/60']
 
+const limitText = (c: WorkflowCycle) => (c.maxRounds ? `≤${c.maxRounds}` : '∞')
+
 export interface LoopDecor {
   /** Frames or tinted areas behind the loops' steps. */
   areas: 'frames' | 'tint' | null
@@ -59,11 +61,11 @@ export interface LoopDecor {
 
 /** `rounds`: how far each loop is (a run's view), or its limit when absent (the editor). */
 export function loopDecor(view: LoopView, cycles: WorkflowCycle[], rounds?: (cycle: WorkflowCycle) => string | null): LoopDecor {
-  const roundText = (c: WorkflowCycle) => (rounds ? rounds(c) : null) ?? `≤${c.maxRounds}`
+  const roundText = (c: WorkflowCycle) => (rounds ? rounds(c) : null) ?? limitText(c)
   const edges = new Map<string, string>()
   const nodes = new Map<string, string>()
   if (view === 'arrows') for (const c of cycles) for (const id of c.backEdgeIds) edges.set(id, `↻ ${roundText(c)}`)
-  if (view === 'badge') for (const c of cycles) nodes.set(c.id, `${c.label} · ${rounds ? (rounds(c) ?? 'not reached') : `up to ${c.maxRounds} rounds`}`)
+  if (view === 'badge') for (const c of cycles) nodes.set(c.id, `${c.label} · ${rounds ? (rounds(c) ?? 'not reached') : c.maxRounds ? `up to ${c.maxRounds} rounds` : 'no round limit'}`)
   return { areas: view === 'frames' || view === 'tint' ? view : null, edges, nodes }
 }
 
@@ -96,7 +98,7 @@ export function LoopViewPanel({ cycles, rounds }: { cycles: WorkflowCycle[]; rou
               <li key={c.id} className="flex items-center gap-1.5 text-[11px]">
                 <span className={cn('size-2.5 shrink-0 rounded-sm', LOOP_SWATCHES[i % LOOP_SWATCHES.length])} />
                 <span className="min-w-0 flex-1 truncate">{c.label}</span>
-                <span className="shrink-0 text-muted-foreground tabular-nums">{rounds?.(c) ?? `≤${c.maxRounds}`}</span>
+                <span className="shrink-0 text-muted-foreground tabular-nums">{rounds?.(c) ?? limitText(c)}</span>
               </li>
             ))}
           </ul>

@@ -41,6 +41,7 @@ import { harnessRequest } from '@/daemon-connection'
 import { projectOfSession } from '@/lib/project-lead'
 import { linkOf } from '@/stores/project-links-store'
 import { upsertWorkflowRun } from '@/stores/workflow-runs-store'
+import { confirmWorkflowStart } from '@/components/workflows/WorkflowStartConfirm'
 import { getState } from '@/session-store'
 
 // Layout and classes follow Orca's NativeChatComposer, NativeChatComposerField and
@@ -188,22 +189,25 @@ export function NativeChatComposer({
       const task = draft.trim()
       if (!task) return
       const projectId = workflowHome.projectId
-      void harnessRequest(
-        HARNESS_METHODS.workflowRunStart,
-        {
-          projectId,
-          workflowId: workflow.id,
-          task,
-          ...(session.hostId === workflowHome.hostId ? { originSessionId: session.id } : {})
-        },
-        workflowHome.hostId
-      ).then(
-        (run) => upsertWorkflowRun(workflowHome.hostId, run),
-        (error: unknown) => toast.error('The workflow did not start', { description: error instanceof Error ? error.message : String(error) })
-      )
-      setWorkflow(null)
-      patchChatSession(session.id, { draft: '', draftImages: [] })
-      setCaret(0)
+      const hostId = workflowHome.hostId
+      const workflowId = workflow.id
+      // The draft stays until the run starts, so a declined start loses nothing.
+      void confirmWorkflowStart(hostId, projectId, workflowId, task, 'you')
+        .then(async (start) => {
+          if (!start) return
+          const run = await harnessRequest(
+            HARNESS_METHODS.workflowRunStart,
+            { projectId, workflowId, task, ...(session.hostId === hostId ? { originSessionId: session.id } : {}) },
+            hostId
+          )
+          upsertWorkflowRun(hostId, run)
+          setWorkflow(null)
+          patchChatSession(session.id, { draft: '', draftImages: [] })
+          setCaret(0)
+        })
+        .catch((error: unknown) =>
+          toast.error('The workflow did not start', { description: error instanceof Error ? error.message : String(error) })
+        )
       return
     }
     submitPrompt(session.id, draft.trim(), draftImages)

@@ -8,6 +8,7 @@ import { WorkspaceTabs } from '@/components/WorkspaceTabs'
 import { RightSidebar } from '@/components/right-sidebar/RightSidebar'
 import { PointerDragLayer } from '@/components/PointerDragLayer'
 import { Toaster } from '@/components/ui/sonner'
+import { WorkflowStartConfirmDialog } from '@/components/workflows/WorkflowStartConfirm'
 import { Button } from '@/components/ui/button'
 import { TooltipProvider } from '@/components/ui/tooltip'
 import { installKeybindingDispatcher } from '@/keybindings/keybinding-registry'
@@ -89,6 +90,7 @@ export default function WorkspaceWindow() {
       </div>
       <PointerDragLayer />
       <Toaster />
+      <WorkflowStartConfirmDialog />
     </TooltipProvider>
   )
 }
