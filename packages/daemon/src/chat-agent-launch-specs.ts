@@ -35,7 +35,7 @@ const SPECS: AcpLaunchSpec[] = [
   {
     agent: 'codex',
     command: 'codex-acp',
-    adapter: { cli: 'codex', hint: 'Codex chats need Zed’s ACP adapter: npm install -g @zed-industries/codex-acp' },
+    adapter: { cli: 'codex', hint: 'Codex chats need the ACP adapter: npm install -g @agentclientprotocol/codex-acp' },
     launches: [{ args: [] }],
     env: {},
     accountVariable: 'CODEX_HOME'
