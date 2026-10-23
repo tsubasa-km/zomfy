@@ -146,7 +146,7 @@ export function WorkflowRunView({ run, onBack }: { run: HostedWorkflowRun; onBac
 
   return (
     <div className="flex min-h-0 flex-1">
-      <div className="relative min-w-0 flex-1" data-workflow-run-canvas>
+      <div className="relative min-w-0 flex-1 [&_.react-flow\_\_node]:!cursor-default [&_.react-flow\_\_nodesselection-rect]:!cursor-default [&_.react-flow\_\_pane]:!cursor-default [&_.react-flow\_\_node.dragging]:!cursor-grabbing [&_.react-flow\_\_pane.dragging]:!cursor-grabbing" data-workflow-run-canvas>
         <ReactFlow
           nodes={[...cycleNodes, ...nodes]}
           edges={edges}

@@ -481,7 +481,7 @@ function WorkflowCanvas({
 
   return (
     <div className="flex min-h-0 flex-1">
-      <div ref={canvasRef} className="relative min-w-0 flex-1" data-workflow-canvas>
+      <div ref={canvasRef} className="relative min-w-0 flex-1 [&_.react-flow\_\_node]:!cursor-default [&_.react-flow\_\_nodesselection-rect]:!cursor-default [&_.react-flow\_\_pane]:!cursor-default [&_.react-flow\_\_node.dragging]:!cursor-grabbing [&_.react-flow\_\_pane.dragging]:!cursor-grabbing" data-workflow-canvas>
         <ReactFlow
           nodes={nodes}
           edges={edges}
