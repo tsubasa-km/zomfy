@@ -35,6 +35,7 @@ export class SessionRegistry {
   private readonly records = new Map<string, SessionRecord>()
   private readonly listeners = new Set<(sessions: SessionInfo[]) => void>()
   private saveQueue: Promise<void> = Promise.resolve()
+  private readonly transcriptWrites = new Map<string, Promise<void>>()
 
   async load(): Promise<void> {
     try {
@@ -144,18 +145,39 @@ export class SessionRegistry {
     }
   }
 
-  async record(id: string, update: acp.SessionUpdate): Promise<void> {
-    await mkdir(SESSIONS_DIR, { recursive: true })
-    await appendFile(transcriptPath(id), `${JSON.stringify(update)}\n`)
+  /**
+   * Writes to one transcript in the order they were asked for. An external agent's updates arrive
+   * without waiting for each other; unqueued, their appends could land out of order.
+   */
+  private write(id: string, job: () => Promise<void>): Promise<void> {
+    const done = (this.transcriptWrites.get(id) ?? Promise.resolve()).then(job)
+    const tail = done.catch(() => undefined)
+    this.transcriptWrites.set(id, tail)
+    void tail.then(() => {
+      if (this.transcriptWrites.get(id) === tail) this.transcriptWrites.delete(id)
+    })
+    return done
+  }
+
+  record(id: string, update: acp.SessionUpdate): Promise<void> {
+    const line = `${JSON.stringify(update)}\n`
+    return this.write(id, async () => {
+      await mkdir(SESSIONS_DIR, { recursive: true })
+      await appendFile(transcriptPath(id), line)
+    })
   }
 
   /** Rewrites the whole transcript (rewind, fork, a conversation resumed from disk). */
-  async replaceTranscript(id: string, updates: acp.SessionUpdate[]): Promise<void> {
-    await mkdir(SESSIONS_DIR, { recursive: true })
-    await writeFile(transcriptPath(id), updates.map((u) => `${JSON.stringify(u)}\n`).join(''))
+  replaceTranscript(id: string, updates: acp.SessionUpdate[]): Promise<void> {
+    const text = updates.map((u) => `${JSON.stringify(u)}\n`).join('')
+    return this.write(id, async () => {
+      await mkdir(SESSIONS_DIR, { recursive: true })
+      await writeFile(transcriptPath(id), text)
+    })
   }
 
   async transcript(id: string): Promise<acp.SessionUpdate[]> {
+    await this.transcriptWrites.get(id)
     try {
       const text = await readFile(transcriptPath(id), 'utf8')
       return text

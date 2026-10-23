@@ -349,7 +349,13 @@ export class WorkflowEngine {
         if (live.stopped) throw new RunStopped();
         // Another message in that chat (the person writing to the Lead mid-step) cuts the turn short.
         if (result.stopReason === "cancelled") throw new Error("The step's turn was cut short by another message in its chat");
-        const parsed = parseVerdict(result.structured, outcomes) ?? parseVerdict(verdictInText(result.text), outcomes);
+        let parsed = parseVerdict(result.structured, outcomes) ?? parseVerdict(verdictInText(result.text), outcomes);
+        if (!parsed && stepAgent(node)) {
+          // Another agent that forgot the closing JSON is asked for it once, rather than guessed.
+          const again = await this.deps.runStepTurn(sessionId, verdictReminder(outcomes), step);
+          if (live.stopped) throw new RunStopped();
+          parsed = parseVerdict(verdictInText(again.text), outcomes);
+        }
         return { ...(parsed ?? { outcome: fallbackOutcome(outcomes), summary: result.text }), index };
       } finally {
         live.sessions.delete(sessionId);
@@ -918,6 +924,10 @@ export function verdictInText(text: string): unknown {
     }
   }
   return null;
+}
+
+function verdictReminder(outcomes: WorkflowOutcome[]): string {
+  return `Your reply did not end with the result. Reply with only one JSON object: {"outcome": one of ${outcomes.map((o) => `"${o}"`).join(", ")}, "summary": what the next step needs}.`;
 }
 
 /** Without a usable verdict a step goes the plain way on (or fails a review, which must decide). */

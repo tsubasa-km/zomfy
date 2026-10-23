@@ -1,4 +1,5 @@
-import { mkdir, readFile, rename, writeFile } from 'node:fs/promises'
+import { mkdir, readFile, writeFile } from 'node:fs/promises'
+import { replaceFile } from './replace-file.ts'
 import { dirname, join } from 'node:path'
 import type { Workflow } from '@acp-harness/protocol'
 import { HARNESS_HOME } from './harness-home.ts'
@@ -40,7 +41,7 @@ export class WorkflowStore {
     await mkdir(dirname(FILE), { recursive: true })
     const temp = `${FILE}.tmp`
     await writeFile(temp, JSON.stringify(all, null, 2))
-    await rename(temp, FILE)
+    await replaceFile(temp, FILE)
     return list
   }
 }
