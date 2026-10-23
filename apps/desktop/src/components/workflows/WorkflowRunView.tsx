@@ -12,7 +12,9 @@ import { Textarea } from '@/components/ui/textarea'
 import { cn } from '@/lib/utils'
 import { WORKFLOW_NODE_TYPES, type StepRunState, type WorkflowCanvasNode } from './workflow-nodes'
 import { canvasEdges } from './workflow-canvas-edges'
-import { cycleBoxes, type CycleCanvasNode } from './workflow-cycles'
+import { type CycleCanvasNode } from './workflow-cycles'
+import { canvasLayout } from './workflow-canvas-layout'
+import { WORKFLOW_EDGE_TYPES } from './workflow-route-edge'
 import { outcomeLabel } from './workflow-model'
 
 // A run of a workflow: the graph as it was when the run started, with where the run is now, how
@@ -103,8 +105,8 @@ export function WorkflowRunView({ run, onBack }: { run: HostedWorkflowRun; onBac
     connectable: false,
     ...(sizes[node.id] ? { measured: sizes[node.id] } : {})
   }))
-  const edges = canvasEdges(run.workflow, null, takenEdges(run))
-  const boxes = cycleBoxes(run.workflow, sizes)
+  const { boxes, routes } = canvasLayout(run.workflow, sizes)
+  const edges = canvasEdges(run.workflow, routes, null, takenEdges(run))
   const visited = new Set(run.steps.map((s) => s.nodeId))
   const cycleNodes: CycleCanvasNode[] = (run.workflow.cycles ?? []).flatMap((cycle) => {
     const box = boxes.get(cycle.id)
@@ -147,6 +149,7 @@ export function WorkflowRunView({ run, onBack }: { run: HostedWorkflowRun; onBac
           nodes={[...cycleNodes, ...nodes]}
           edges={edges}
           nodeTypes={WORKFLOW_NODE_TYPES}
+          edgeTypes={WORKFLOW_EDGE_TYPES}
           onNodesChange={onNodesChange}
           onPaneClick={() => setFocusNode(null)}
           nodesDraggable={false}

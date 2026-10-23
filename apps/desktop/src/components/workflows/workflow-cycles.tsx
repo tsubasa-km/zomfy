@@ -4,66 +4,10 @@ import { RefreshCw } from 'lucide-react'
 import { cyclesOf, type Workflow, type WorkflowCycle, type WorkflowNode, type WorkflowPhase } from '@acp-harness/protocol'
 import { cn } from '@/lib/utils'
 
-// Cycles (PDCA loops) drawn as frames around their steps. A frame's box follows its steps (and the
-// frames inside it), so nesting reads at a glance: the dev ⇄ review cycle inside the Lead's cycle.
-
-const CARD = { width: 208, height: 60 }
-const PAD = 18
-const TITLE = 26
-
-export interface CycleBox {
-  x: number
-  y: number
-  width: number
-  height: number
-  depth: number
-}
+// Cycles (PDCA loops) drawn as frames around their steps (boxes from workflow-canvas-layout), so
+// nesting reads at a glance: the dev ⇄ review cycle inside the Lead's cycle.
 
 export type CycleCanvasNode = Node<{ cycle: WorkflowCycle; depth: number; round: string | null }, 'cycle'>
-
-/** Each cycle's frame on the canvas, from its steps' positions and measured sizes. */
-export function cycleBoxes(workflow: Workflow, sizes: Record<string, { width: number; height: number }>): Map<string, CycleBox> {
-  const cycles = workflow.cycles ?? []
-  const boxes = new Map<string, CycleBox>()
-  const depthOf = (cycle: WorkflowCycle): number => {
-    let depth = 0
-    for (let c = cycle; c.parentId; depth++) {
-      const parent = cycles.find((p) => p.id === c.parentId)
-      if (!parent || depth > cycles.length) break
-      c = parent
-    }
-    return depth
-  }
-  const box = (cycle: WorkflowCycle, seen: Set<string>): CycleBox | null => {
-    const known = boxes.get(cycle.id)
-    if (known) return known
-    if (seen.has(cycle.id)) return null
-    seen.add(cycle.id)
-    const rects: { x: number; y: number; r: number; b: number }[] = []
-    for (const node of workflow.nodes.filter((n) => n.cycleId === cycle.id)) {
-      const size = sizes[node.id] ?? CARD
-      rects.push({ x: node.x, y: node.y, r: node.x + size.width, b: node.y + size.height })
-    }
-    for (const child of cycles.filter((c) => c.parentId === cycle.id)) {
-      const inner = box(child, seen)
-      if (inner) rects.push({ x: inner.x, y: inner.y, r: inner.x + inner.width, b: inner.y + inner.height })
-    }
-    if (rects.length === 0) return null
-    const x = Math.min(...rects.map((r) => r.x)) - PAD
-    const y = Math.min(...rects.map((r) => r.y)) - PAD - TITLE
-    const result = {
-      x,
-      y,
-      width: Math.max(...rects.map((r) => r.r)) + PAD - x,
-      height: Math.max(...rects.map((r) => r.b)) + PAD - y,
-      depth: depthOf(cycle)
-    }
-    boxes.set(cycle.id, result)
-    return result
-  }
-  for (const cycle of cycles) box(cycle, new Set())
-  return boxes
-}
 
 /** The phase a step plays when none is set: Start plans, work does, reviews and checks check. */
 export function phaseOf(node: WorkflowNode): WorkflowPhase | null {

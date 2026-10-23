@@ -6,7 +6,8 @@ import { cn } from '@/lib/utils'
 import { CycleNode, PHASE_CLASSES, PHASE_LETTERS, phaseOf } from './workflow-cycles'
 
 // One card per step: its kind's icon and colour, the label, and the line that matters for that kind
-// (the role, the command, the round limit). Inputs enter on the left, outcomes leave on the right.
+// (the role, the command, the round limit). Edges are routed by workflow-canvas-layout; the handles
+// on the left and right are where new edges are dragged from and to.
 // A step run by several sessions at once draws as a stack with its count.
 
 /** How a run went through the step, in a run's view. */
@@ -101,13 +102,6 @@ function StepNode({ data, selected, type }: NodeProps<WorkflowCanvasNode>) {
         )}
       >
         {type !== 'start' && <Handle id="in" type="target" position={Position.Left} className="!size-2.5 !border-border !bg-background" />}
-        {/* Edges back to an earlier step leave and arrive underneath, clear of the forward ones. */}
-        {type !== 'start' && (
-          <Handle id="back-in" type="target" position={Position.Bottom} className="!size-1.5 !border-0 !bg-transparent" isConnectable={false} />
-        )}
-        {type !== 'end' && (
-          <Handle id="back-out" type="source" position={Position.Bottom} className="!size-1.5 !border-0 !bg-transparent" isConnectable={false} />
-        )}
         <div className="flex items-center gap-2">
           {phase && (
             <span

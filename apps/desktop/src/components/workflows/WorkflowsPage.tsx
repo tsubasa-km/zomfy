@@ -37,7 +37,9 @@ import {
 import { openWorkflows, type WorkflowsPageTarget } from '@/stores/workflows-store'
 import { cn } from '@/lib/utils'
 import { WORKFLOW_NODE_TYPES, type WorkflowCanvasNode } from './workflow-nodes'
-import { cycleBoxes, makeCycle, ungroupCycle, type CycleCanvasNode } from './workflow-cycles'
+import { makeCycle, ungroupCycle, type CycleCanvasNode } from './workflow-cycles'
+import { canvasLayout } from './workflow-canvas-layout'
+import { WORKFLOW_EDGE_TYPES } from './workflow-route-edge'
 import { WorkflowInspector } from './WorkflowInspector'
 import { WorkflowConnectMenu, type PendingConnection } from './WorkflowConnectMenu'
 import { canvasEdges } from './workflow-canvas-edges'
@@ -299,7 +301,7 @@ function WorkflowCanvas({
     return mine.some((i) => i.level === 'error') ? 'error' : mine.length > 0 ? 'warning' : null
   }
 
-  const boxes = cycleBoxes(workflow, sizes)
+  const { boxes, routes } = canvasLayout(workflow, sizes)
   const cycleNodes: CycleCanvasNode[] = (workflow.cycles ?? []).flatMap((cycle) => {
     const box = boxes.get(cycle.id)
     if (!box) return []
@@ -329,7 +331,7 @@ function WorkflowCanvas({
   }))
   const nodes: (WorkflowCanvasNode | CycleCanvasNode)[] = [...cycleNodes, ...stepNodes]
 
-  const edges = canvasEdges(workflow, selectedEdge?.id ?? null)
+  const edges = canvasEdges(workflow, routes, selectedEdge?.id ?? null)
 
   const removeNodes = (ids: Set<string>) => {
     const kept = workflow.nodes.filter((n) => !ids.has(n.id) || n.kind === 'start')
@@ -453,6 +455,7 @@ function WorkflowCanvas({
           nodes={nodes}
           edges={edges}
           nodeTypes={WORKFLOW_NODE_TYPES}
+          edgeTypes={WORKFLOW_EDGE_TYPES}
           onNodesChange={onNodesChange}
           onEdgesChange={onEdgesChange}
           onConnectEnd={onConnectEnd}

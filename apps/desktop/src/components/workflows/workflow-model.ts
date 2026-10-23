@@ -203,7 +203,7 @@ export function leadCycleTemplate(projectId: string): Workflow {
     },
     { cycleId: outer.id }
   )
-  const ask = node('human', 'Ask the person', 1480, 400, { askLeadFirst: false, question: '' }, { cycleId: outer.id })
+  const ask = node('human', 'Ask the person', 1480, 20, { askLeadFirst: false, question: '' }, { cycleId: outer.id })
   const done = node('end', 'Done', 1800, 180)
   const edge = (from: WorkflowNode, to: WorkflowNode, outcome: WorkflowOutcome) => ({
     id: crypto.randomUUID(),
