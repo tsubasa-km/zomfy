@@ -1,10 +1,11 @@
 import { memo } from 'react'
 import { Handle, Position, type Node, type NodeProps } from '@xyflow/react'
-import { Bot, CircleCheckBig, Flag, Play, Puzzle, ShieldCheck, SquareTerminal, RefreshCw, UserRound, Users, type LucideIcon } from 'lucide-react'
+import { Bot, CircleCheckBig, Flag, HardDrive, Lock, Play, Puzzle, ShieldCheck, SquareTerminal, RefreshCw, UserRound, Users, type LucideIcon } from 'lucide-react'
 import { chatAgentLabel, type WorkflowNode, type WorkflowNodeKind } from '@acp-harness/protocol'
 import { cn } from '@/lib/utils'
 import { TuiAgentIcon } from '@/components/terminal/TuiAgentIcon'
 import { CycleNode, PHASE_CLASSES, PHASE_LETTERS, phaseOf } from './workflow-cycles'
+import { DataNode } from './workflow-data-canvas'
 
 // One card per step: its kind's icon and colour, the label, and the line that matters for that kind
 // (the role, the command, the round limit). Edges are routed by workflow-canvas-layout; the handles
@@ -21,7 +22,15 @@ export interface StepRunState {
 }
 
 export type WorkflowCanvasNode = Node<
-  { node: WorkflowNode; issue: 'error' | 'warning' | null; run?: StepRunState; loop?: string },
+  {
+    /** With its agent's settings filled in, as it runs. */
+    node: WorkflowNode
+    issue: 'error' | 'warning' | null
+    run?: StepRunState
+    loop?: string
+    /** It may hold what was learned from local-only data. */
+    held?: boolean
+  },
   WorkflowNodeKind
 >
 
@@ -82,7 +91,7 @@ function detail(node: WorkflowNode): string {
 
 function StepNode({ data, selected, type }: NodeProps<WorkflowCanvasNode>) {
   const Icon = STEP_ICONS[type]
-  const { node, issue, run, loop } = data
+  const { node, issue, run, loop, held } = data
   const parallel = node.config.parallel && node.config.parallel.count > 1 ? node.config.parallel : null
   const helpers = node.config.runBy === 'lead' ? 0 : (node.config.maxAgents ?? 0)
   const agent = stepAgent(node)
@@ -112,6 +121,8 @@ function StepNode({ data, selected, type }: NodeProps<WorkflowCanvasNode>) {
         )}
       >
         {type !== 'start' && <Handle id="in" type="target" position={Position.Left} className="!size-2.5 !border-border !bg-background" />}
+        {/* Where data lines arrive; a data card is dropped on the step itself. */}
+        <Handle id="data-in" type="target" position={Position.Top} isConnectable={false} className="!size-1 !min-h-0 !min-w-0 !border-0 !bg-transparent" />
         <div className="flex items-center gap-2">
           {phase && (
             <span
@@ -149,6 +160,16 @@ function StepNode({ data, selected, type }: NodeProps<WorkflowCanvasNode>) {
             />
           )}
           {type === 'end' && node.config.result !== 'failed' && <CircleCheckBig className="size-3.5 shrink-0 text-status-success" />}
+          {held && (
+            <span className="flex shrink-0 items-center" title="Works with local-only data; its results stay with local agents and you" data-workflow-held>
+              <Lock className="size-3 text-status-warning" />
+            </span>
+          )}
+          {node.config.local && node.config.runBy !== 'lead' && (
+            <span className="flex shrink-0 items-center" title="Its agent runs on a local model" data-workflow-local>
+              <HardDrive className="size-3 text-muted-foreground" />
+            </span>
+          )}
           {agent && (
             <span
               className="flex shrink-0 items-center"
@@ -188,6 +209,7 @@ const Step = memo(StepNode)
 
 export const WORKFLOW_NODE_TYPES = {
   cycle: CycleNode,
+  data: DataNode,
   start: Step,
   agent: Step,
   review: Step,

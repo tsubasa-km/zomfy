@@ -2,7 +2,7 @@ import { useEffect, useRef, useState, useSyncExternalStore } from 'react'
 import { Background, Controls, ReactFlow, useReactFlow, type NodeChange } from '@xyflow/react'
 import { ArrowLeft, CircleStop, MessageSquare, Send } from 'lucide-react'
 import { toast } from 'sonner'
-import { HARNESS_METHODS, workflowCycles, type WorkflowCycle, type WorkflowRun, type WorkflowRunStep } from '@acp-harness/protocol'
+import { HARNESS_METHODS, localOnlySteps, workflowCycles, type WorkflowCycle, type WorkflowRun, type WorkflowRunStep } from '@acp-harness/protocol'
 import { harnessRequest } from '@/daemon-connection'
 import { selectSession } from '@/session-store'
 import { openWorkflows } from '@/stores/workflows-store'
@@ -12,6 +12,7 @@ import { Textarea } from '@/components/ui/textarea'
 import { cn } from '@/lib/utils'
 import { WORKFLOW_NODE_TYPES, type StepRunState, type WorkflowCanvasNode } from './workflow-nodes'
 import { canvasEdges } from './workflow-canvas-edges'
+import { dataCanvasEdges, dataCanvasNodes, type DataCanvasNode } from './workflow-data-canvas'
 import { type CycleCanvasNode } from './workflow-cycles'
 import { canvasLayout } from './workflow-canvas-layout'
 import { WORKFLOW_EDGE_TYPES } from './workflow-route-edge'
@@ -104,18 +105,20 @@ export function WorkflowRunView({ run, onBack }: { run: HostedWorkflowRun; onBac
       ? `round ${(run.rounds[`cycle:${cycle.id}`] ?? 0) + 1}${cycle.maxRounds ? ` of ${cycle.maxRounds}` : ''}`
       : 'not reached'
   const decor = loopDecor(loopView, cycles, roundOf)
+  const held = localOnlySteps(run.workflow)
+  const dataNodes = dataCanvasNodes(run.workflow, null, () => null, sizes).map((n) => ({ ...n, draggable: false, selectable: false }))
   const nodes: WorkflowCanvasNode[] = run.workflow.nodes.map((node) => ({
     id: node.id,
     type: node.kind,
     position: { x: node.x, y: node.y },
-    data: { node, issue: null, run: states.get(node.id), loop: decor.nodes.get(node.id) },
+    data: { node, issue: null, run: states.get(node.id), loop: decor.nodes.get(node.id), held: held.has(node.id) },
     selected: focusNode === node.id,
     draggable: false,
     connectable: false,
     ...(sizes[node.id] ? { measured: sizes[node.id] } : {})
   }))
   const { boxes, routes } = canvasLayout(run.workflow, sizes)
-  const edges = canvasEdges(run.workflow, routes, null, takenEdges(run), decor.edges)
+  const edges = [...canvasEdges(run.workflow, routes, null, takenEdges(run), decor.edges), ...dataCanvasEdges(run.workflow, null, true)]
   const cycleNodes: CycleCanvasNode[] = cycles.flatMap((cycle, tone) => {
     const box = boxes.get(cycle.id)
     if (!box || !decor.areas) return []
@@ -134,7 +137,7 @@ export function WorkflowRunView({ run, onBack }: { run: HostedWorkflowRun; onBac
     ]
   })
 
-  const onNodesChange = (changes: NodeChange<WorkflowCanvasNode | CycleCanvasNode>[]) => {
+  const onNodesChange = (changes: NodeChange<WorkflowCanvasNode | CycleCanvasNode | DataCanvasNode>[]) => {
     const now: Record<string, { width: number; height: number }> = {}
     for (const change of changes) {
       if ('id' in change && change.id.startsWith('cycle:')) continue
@@ -148,7 +151,7 @@ export function WorkflowRunView({ run, onBack }: { run: HostedWorkflowRun; onBac
     <div className="flex min-h-0 flex-1">
       <div className="relative min-w-0 flex-1 [&_.react-flow\_\_node]:!cursor-default [&_.react-flow\_\_nodesselection-rect]:!cursor-default [&_.react-flow\_\_pane]:!cursor-default [&_.react-flow\_\_node.dragging]:!cursor-grabbing [&_.react-flow\_\_pane.dragging]:!cursor-grabbing" data-workflow-run-canvas>
         <ReactFlow
-          nodes={[...cycleNodes, ...nodes]}
+          nodes={[...cycleNodes, ...dataNodes, ...nodes]}
           edges={edges}
           nodeTypes={WORKFLOW_NODE_TYPES}
           edgeTypes={WORKFLOW_EDGE_TYPES}

@@ -23,9 +23,9 @@ export function WorkflowStepAgentField({
   const choices: ChatAgentId[] = ['claude', ...ready, ...(current !== 'claude' && !ready.includes(current) ? [current] : [])]
   return (
     <div className="space-y-1.5" data-workflow-step-agent={current}>
-      <Label className="text-xs">Agent</Label>
+      <Label className="text-xs">Runs on</Label>
       <Select value={current} onValueChange={(v) => isChatAgentId(v) && onChange(v === 'claude' ? undefined : v)}>
-        <SelectTrigger size="sm" className="h-8 w-full text-xs" aria-label="Agent">
+        <SelectTrigger size="sm" className="h-8 w-full text-xs" aria-label="Runs on">
           <SelectValue />
         </SelectTrigger>
         <SelectContent position="popper">

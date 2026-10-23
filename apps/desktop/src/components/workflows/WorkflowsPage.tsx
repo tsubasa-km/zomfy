@@ -11,19 +11,26 @@ import {
   type NodeChange
 } from '@xyflow/react'
 import '@xyflow/react/dist/style.css'
-import { ChevronDown, History, Plus, Save, Trash2, Workflow as WorkflowIcon, X } from 'lucide-react'
+import { ChevronDown, Database, HardDrive, History, Plus, Save, Trash2, Workflow as WorkflowIcon, X } from 'lucide-react'
 import { toast } from 'sonner'
 import {
   HARNESS_METHODS,
+  localOnlySteps,
+  resolveWorkflowAgents,
   workflowCycles,
   workflowOutcomes,
   type Workflow,
+  type WorkflowAgentProfile,
+  type WorkflowDataLink,
+  type WorkflowDataSource,
   type WorkflowNode,
   type WorkflowNodeConfig,
   type WorkflowNodeKind,
   type WorkflowOutcome
 } from '@acp-harness/protocol'
 import { harnessRequest } from '@/daemon-connection'
+import { useWorkflowAgents } from '@/stores/workflow-agents-store'
+import { TuiAgentIcon } from '@/components/terminal/TuiAgentIcon'
 import type { HostId } from '@/session-store'
 import { Button } from '@/components/ui/button'
 import {
@@ -51,14 +58,20 @@ import { WorkflowInspector } from './WorkflowInspector'
 import { WorkflowConnectMenu, type PendingConnection } from './WorkflowConnectMenu'
 import { canvasEdges } from './workflow-canvas-edges'
 import { WorkflowRunView } from './WorkflowRunView'
+import { WorkflowAgentDialog, blankAgentProfile } from './WorkflowAgentDialog'
+import { DATA_PREFIX, LINK_PREFIX, dataCanvasEdges, dataCanvasNodes, type DataCanvasNode } from './workflow-data-canvas'
 import { loadWorkflowRuns, useWorkflowRun, useWorkflowRuns } from '@/stores/workflow-runs-store'
 import {
   NODE_KINDS,
   blankWorkflow,
+  newAgentStep,
+  newDataSource,
   newNode,
   nextOutcome,
   reviewLoopTemplate,
   validateWorkflow,
+  withoutData,
+  withoutSteps,
   type WorkflowIssue
 } from './workflow-model'
 
@@ -86,6 +99,7 @@ export function WorkflowsPage({ target }: { target: WorkflowsPageTarget }) {
   const [viewRunId, setViewRunId] = useState<string | null>(target.runId ?? null)
   const history = useRef(new EditHistory())
   const runs = useWorkflowRuns(target.hostId, target.projectId)
+  const agents = useWorkflowAgents(target.hostId)
   const viewRun = useWorkflowRun(viewRunId)
 
   useEffect(() => {
@@ -159,7 +173,7 @@ export function WorkflowsPage({ target }: { target: WorkflowsPageTarget }) {
     setDirty(list.length === 0)
   }
 
-  const issues = useMemo(() => (draft ? validateWorkflow(draft) : []), [draft])
+  const issues = useMemo(() => (draft ? validateWorkflow(draft, agents) : []), [draft, agents])
   const errors = issues.filter((i) => i.level === 'error').length
   const draftRuns = runs.filter((r) => r.workflowId === draft?.id)
 
@@ -260,6 +274,7 @@ export function WorkflowsPage({ target }: { target: WorkflowsPageTarget }) {
           <WorkflowCanvas
             hostId={target.hostId}
             workflow={draft}
+            agents={agents}
             issues={issues}
             onChange={(next) => {
               history.current.record(draft)
@@ -281,19 +296,21 @@ export function WorkflowsPage({ target }: { target: WorkflowsPageTarget }) {
   )
 }
 
-type Selection = { nodes: string[] } | { edge: string } | { cycle: string } | null
+type Selection = { nodes: string[] } | { edge: string } | { cycle: string } | { data: string } | { link: string } | null
 
 const CYCLE_PREFIX = 'cycle:'
 
 function WorkflowCanvas({
   hostId,
   workflow,
+  agents,
   issues,
   onChange,
   onHistory
 }: {
   hostId: HostId
   workflow: Workflow
+  agents: WorkflowAgentProfile[]
   issues: WorkflowIssue[]
   onChange: (workflow: Workflow) => void
   onHistory: (step: 'undo' | 'redo') => void
@@ -331,11 +348,21 @@ function WorkflowCanvas({
   const selectedEdge = selection && 'edge' in selection ? (workflow.edges.find((e) => e.id === selection.edge) ?? null) : null
   const cycles = workflowCycles(workflow)
   const selectedCycle = selection && 'cycle' in selection ? (cycles.find((c) => c.id === selection.cycle) ?? null) : null
+  const selectedData = selection && 'data' in selection ? (workflow.data?.find((d) => d.id === selection.data) ?? null) : null
+  const selectedLink = selection && 'link' in selection ? (workflow.dataLinks?.find((l) => l.id === selection.link) ?? null) : null
+  const [agentDialog, setAgentDialog] = useState<{ profile: WorkflowAgentProfile; isNew: boolean; forNode?: string; place?: boolean } | null>(null)
 
   const issueOf = (nodeId: string): 'error' | 'warning' | null => {
     const mine = issues.filter((i) => i.nodeId === nodeId)
     return mine.some((i) => i.level === 'error') ? 'error' : mine.length > 0 ? 'warning' : null
   }
+  const dataIssueOf = (dataId: string): 'error' | 'warning' | null => {
+    const mine = issues.filter((i) => i.dataId === dataId && !i.nodeId)
+    return mine.some((i) => i.level === 'error') ? 'error' : mine.length > 0 ? 'warning' : null
+  }
+  // Cards show each step as it runs: with its agent's settings, and whether it holds local-only data.
+  const resolved = resolveWorkflowAgents(workflow, agents)
+  const held = localOnlySteps(resolved)
 
   const { boxes, routes } = canvasLayout(workflow, sizes)
   const decor = loopDecor(loopView, cycles)
@@ -362,20 +389,22 @@ function WorkflowCanvas({
     id: node.id,
     type: node.kind,
     position: { x: node.x, y: node.y },
-    data: { node, issue: issueOf(node.id), loop: decor.nodes.get(node.id) },
+    data: {
+      node: resolved.nodes.find((n) => n.id === node.id) ?? node,
+      issue: issueOf(node.id),
+      loop: decor.nodes.get(node.id),
+      held: held.has(node.id)
+    },
     selected: pickedNodes.includes(node.id),
     deletable: node.kind !== 'start',
     ...(sizes[node.id] ? { measured: sizes[node.id] } : {})
   }))
-  const nodes: (WorkflowCanvasNode | CycleCanvasNode)[] = [...cycleNodes, ...stepNodes]
+  const dataNodes = dataCanvasNodes(workflow, selectedData?.id ?? null, dataIssueOf, sizes)
+  const nodes: (WorkflowCanvasNode | CycleCanvasNode | DataCanvasNode)[] = [...cycleNodes, ...dataNodes, ...stepNodes]
 
-  const edges = canvasEdges(workflow, routes, selectedEdge?.id ?? null, undefined, decor.edges)
+  const edges = [...canvasEdges(workflow, routes, selectedEdge?.id ?? null, undefined, decor.edges), ...dataCanvasEdges(workflow, selectedLink?.id ?? null)]
 
-  const removeNodes = (ids: Set<string>) => {
-    const kept = workflow.nodes.filter((n) => !ids.has(n.id) || n.kind === 'start')
-    const keptIds = new Set(kept.map((n) => n.id))
-    onChange({ ...workflow, nodes: kept, edges: workflow.edges.filter((e) => keptIds.has(e.from) && keptIds.has(e.to)) })
-  }
+  const removeNodes = (ids: Set<string>) => onChange(withoutSteps(workflow, ids))
 
   // Undo, redo, copy, cut, paste, duplicate and select all, unless a text field has the keys.
   const shortcut = useRef<(e: KeyboardEvent) => void>(() => undefined)
@@ -410,9 +439,11 @@ function WorkflowCanvas({
     return () => window.removeEventListener('keydown', onKey)
   }, [])
 
-  const onNodesChange = (changes: NodeChange<WorkflowCanvasNode | CycleCanvasNode>[]) => {
+  const onNodesChange = (changes: NodeChange<WorkflowCanvasNode | CycleCanvasNode | DataCanvasNode>[]) => {
     let next = workflow
     const removed = new Set<string>()
+    const removedData = new Set<string>()
+    let pickedData: string | null = selectedData?.id ?? null
     const measuredNow: Record<string, { width: number; height: number }> = {}
     const picked = new Set(pickedNodes)
     let pickedCycle: string | null = selectedCycle?.id ?? null
@@ -432,6 +463,18 @@ function WorkflowCanvas({
     if (changes.some((c) => c.type === 'position' && !c.dragging)) setGuides([])
     for (const change of changes) {
       const cycleId = 'id' in change && change.id.startsWith(CYCLE_PREFIX) ? change.id.slice(CYCLE_PREFIX.length) : null
+      const dataId = 'id' in change && change.id.startsWith(DATA_PREFIX) ? change.id.slice(DATA_PREFIX.length) : null
+      if (dataId && change.type !== 'dimensions') {
+        if (change.type === 'position' && change.position) {
+          const at = { x: Math.round(change.position.x + shift.x), y: Math.round(change.position.y + shift.y) }
+          next = { ...next, data: (next.data ?? []).map((d) => (d.id === dataId ? { ...d, ...at } : d)) }
+        } else if (change.type === 'remove') removedData.add(dataId)
+        else if (change.type === 'select') {
+          selectionChanged = true
+          pickedData = change.selected ? dataId : pickedData === dataId ? null : pickedData
+        }
+        continue
+      }
       if (change.type === 'dimensions' && change.dimensions) {
         if (!cycleId) measuredNow[change.id] = change.dimensions
       } else if (change.type === 'position' && change.position) {
@@ -463,21 +506,28 @@ function WorkflowCanvas({
     }
     if (Object.keys(measuredNow).length > 0) setSizes((all) => ({ ...all, ...measuredNow }))
     if (selectionChanged) {
-      setSelection(picked.size > 0 ? { nodes: [...picked] } : pickedCycle ? { cycle: pickedCycle } : null)
+      setSelection(
+        picked.size > 0 ? { nodes: [...picked] } : pickedData ? { data: pickedData } : pickedCycle ? { cycle: pickedCycle } : null
+      )
     }
-    if (removed.size > 0) {
-      const kept = next.nodes.filter((n) => !removed.has(n.id) || n.kind === 'start')
-      const keptIds = new Set(kept.map((n) => n.id))
-      onChange({ ...next, nodes: kept, edges: next.edges.filter((e) => keptIds.has(e.from) && keptIds.has(e.to)) })
+    if (removed.size > 0 || removedData.size > 0) {
+      onChange(withoutData(withoutSteps(next, removed), removedData))
       setSelection(null)
     } else if (next !== workflow) onChange(next)
   }
 
   const onEdgesChange = (changes: EdgeChange[]) => {
     const removed = new Set(changes.flatMap((c) => (c.type === 'remove' ? [c.id] : [])))
-    for (const change of changes) if (change.type === 'select' && change.selected) setSelection({ edge: change.id })
+    for (const change of changes) {
+      if (change.type !== 'select' || !change.selected) continue
+      setSelection(change.id.startsWith(LINK_PREFIX) ? { link: change.id.slice(LINK_PREFIX.length) } : { edge: change.id })
+    }
     if (removed.size > 0) {
-      onChange({ ...workflow, edges: workflow.edges.filter((e) => !removed.has(e.id)) })
+      onChange({
+        ...workflow,
+        edges: workflow.edges.filter((e) => !removed.has(e.id)),
+        ...(workflow.dataLinks ? { dataLinks: workflow.dataLinks.filter((l) => !removed.has(`${LINK_PREFIX}${l.id}`)) } : {})
+      })
       setSelection(null)
     }
   }
@@ -493,6 +543,21 @@ function WorkflowCanvas({
     if (!point) return
     // A drop on a card's body counts as a drop on the card, not just on its handle.
     const under = document.elementFromPoint(point.clientX, point.clientY)?.closest<HTMLElement>('.react-flow__node')
+    if (from.startsWith(DATA_PREFIX)) {
+      // A data card dropped on a step gives that step access.
+      const dataId = from.slice(DATA_PREFIX.length)
+      const step = workflow.nodes.find((n) => n.id === under?.dataset.id)
+      if (!step) return
+      const existing = workflow.dataLinks?.find((l) => l.dataId === dataId && l.nodeId === step.id)
+      if (existing) {
+        setSelection({ link: existing.id })
+        return
+      }
+      const link: WorkflowDataLink = { id: crypto.randomUUID(), dataId, nodeId: step.id }
+      onChange({ ...workflow, dataLinks: [...(workflow.dataLinks ?? []), link] })
+      setSelection({ link: link.id })
+      return
+    }
     const to = (state.isValid ? state.toNode?.id : null) ?? under?.dataset.id ?? null
     if (to === from) return
     setPending({ from, to, x: point.clientX - rect.left, y: point.clientY - rect.top })
@@ -517,16 +582,44 @@ function WorkflowCanvas({
   }
   const pendingFrom = pending ? workflow.nodes.find((n) => n.id === pending.from) : undefined
 
-  const addStep = (kind: WorkflowNodeKind) => {
+  /** Where a new card goes: the middle of the view, moved down (data: up) until it covers no other card. */
+  const freeSpot = (up = false) => {
     const rect = canvasRef.current?.getBoundingClientRect()
     const center = rect
       ? flow.screenToFlowPosition({ x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 })
       : { x: 0, y: 0 }
-    // Offset by the step count so steps added in a row do not stack exactly.
-    const node = newNode(kind, Math.round(center.x - 104 + workflow.nodes.length * 12), Math.round(center.y - 30))
+    const cards = [
+      ...workflow.nodes.map((n) => ({ x: n.x, y: n.y, size: sizes[n.id] })),
+      ...(workflow.data ?? []).map((d) => ({ x: d.x, y: d.y, size: sizes[`${DATA_PREFIX}${d.id}`] })),
+      // Loop frames hold their arrows' lanes too.
+      ...[...boxes.values()].map((b) => ({ x: b.x, y: b.y, size: { width: b.width, height: b.height } }))
+    ]
+    const covers = (x: number, y: number) =>
+      cards.some((c) => x < c.x + (c.size?.width ?? 208) + GRID && x + 208 + GRID > c.x && y < c.y + (c.size?.height ?? 60) + GRID && y + 60 + GRID > c.y)
+    const x = Math.round((center.x - 104) / GRID) * GRID
+    let y = Math.round((center.y - 30) / GRID) * GRID
+    for (let i = 0; i < 60 && covers(x, y); i++) y += up ? -GRID * 2 : GRID * 2
+    return { x, y }
+  }
+
+  const addStep = (kind: WorkflowNodeKind, profile?: WorkflowAgentProfile) => {
+    const at = freeSpot()
+    const node = profile ? newAgentStep(profile, at.x, at.y) : newNode(kind, at.x, at.y)
     onChange({ ...workflow, nodes: [...workflow.nodes, node] })
     setSelection({ nodes: [node.id] })
   }
+
+  const addData = () => {
+    const at = freeSpot(true)
+    const source = newDataSource(at.x, at.y)
+    onChange({ ...workflow, data: [...(workflow.data ?? []), source] })
+    setSelection({ data: source.id })
+  }
+
+  const patchData = (id: string, patch: Partial<WorkflowDataSource>) =>
+    onChange({ ...workflow, data: (workflow.data ?? []).map((d) => (d.id === id ? { ...d, ...patch } : d)) })
+  const patchLink = (id: string, patch: Partial<WorkflowDataLink>) =>
+    onChange({ ...workflow, dataLinks: (workflow.dataLinks ?? []).map((l) => (l.id === id ? { ...l, ...patch } : l)) })
 
   const patchNode = (id: string, patch: Partial<Omit<WorkflowNode, 'config'>> & { config?: Partial<WorkflowNodeConfig> }) =>
     onChange({
@@ -557,7 +650,53 @@ function WorkflowCanvas({
           <LoopViewPanel cycles={cycles} />
           <Panel position="top-left">
             <div className="flex flex-wrap gap-1 rounded-lg border border-border bg-card p-1 shadow-xs" data-workflow-palette>
-              {NODE_KINDS.map((k) => {
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="ghost" size="sm" className="h-7" title="Add: an agent does the work or reviews it" data-workflow-add-agent>
+                    {(() => {
+                      const Icon = STEP_ICONS.agent
+                      return <Icon className={STEP_ACCENTS.agent} />
+                    })()}
+                    Agent
+                    <ChevronDown className="size-3 text-muted-foreground" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="start" className="w-64">
+                  {(['agent', 'review'] as const).map((kind) => {
+                    const Icon = STEP_ICONS[kind]
+                    return (
+                      <DropdownMenuItem key={kind} onSelect={() => addStep(kind)} data-workflow-add-kind={kind}>
+                        <Icon className={STEP_ACCENTS[kind]} />
+                        <span className="flex-1">{kind === 'agent' ? 'Developer' : 'Reviewer'}</span>
+                        <span className="text-[11px] text-muted-foreground">{kind === 'agent' ? 'does the work' : 'approves or sends back'}</span>
+                      </DropdownMenuItem>
+                    )
+                  })}
+                  {agents.length > 0 && (
+                    <>
+                      <DropdownMenuSeparator />
+                      <DropdownMenuLabel className="text-xs text-muted-foreground">Your agents</DropdownMenuLabel>
+                      {agents.map((a) => (
+                        <DropdownMenuItem key={a.id} onSelect={() => addStep(a.kind, a)} data-workflow-add-profile={a.name}>
+                          <TuiAgentIcon agent={a.agent ?? 'claude'} size={14} />
+                          <span className="min-w-0 flex-1 truncate">{a.name}</span>
+                          {a.local && <HardDrive className="size-3 text-muted-foreground" aria-label="Local model" />}
+                          <span className="text-[11px] text-muted-foreground">{a.kind === 'review' ? 'reviews' : 'works'}</span>
+                        </DropdownMenuItem>
+                      ))}
+                    </>
+                  )}
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem
+                    onSelect={() => setAgentDialog({ profile: blankAgentProfile('agent'), isNew: true, place: true })}
+                    data-workflow-new-agent
+                  >
+                    <Plus className="size-3.5" />
+                    New agent…
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+              {NODE_KINDS.filter((k) => k.kind !== 'agent' && k.kind !== 'review').map((k) => {
                 const Icon = STEP_ICONS[k.kind]
                 return (
                   <Button key={k.kind} variant="ghost" size="sm" className="h-7" title={`Add: ${k.hint}`} onClick={() => addStep(k.kind)}>
@@ -566,6 +705,10 @@ function WorkflowCanvas({
                   </Button>
                 )
               })}
+              <Button variant="ghost" size="sm" className="h-7" title="Add: a file or folder steps may be given" onClick={addData} data-workflow-add-data>
+                <Database className="text-muted-foreground" />
+                Data
+              </Button>
             </div>
           </Panel>
         </ReactFlow>
@@ -585,8 +728,24 @@ function WorkflowCanvas({
         <WorkflowInspector
           hostId={hostId}
           workflow={workflow}
+          agents={agents}
           node={selectedNode}
           edge={selectedEdge}
+          data={selectedData}
+          link={selectedLink}
+          onData={patchData}
+          onLink={patchLink}
+          onAgentDialog={(profile, forNode) =>
+            setAgentDialog(
+              profile
+                ? { profile, isNew: false }
+                : {
+                    profile: blankAgentProfile(workflow.nodes.find((n) => n.id === forNode)?.kind === 'review' ? 'review' : 'agent'),
+                    isNew: true,
+                    ...(forNode ? { forNode } : {})
+                  }
+            )
+          }
           cycle={
             selectedCycle ??
             (selectedEdge && cycles.find((c) => c.backEdgeIds.includes(selectedEdge.id))) ??
@@ -606,14 +765,31 @@ function WorkflowCanvas({
           onDelete={() => {
             if (selectedNode) removeNodes(new Set([selectedNode.id]))
             else if (selectedEdge) onChange({ ...workflow, edges: workflow.edges.filter((e) => e.id !== selectedEdge.id) })
+            else if (selectedData) onChange(withoutData(workflow, new Set([selectedData.id])))
+            else if (selectedLink) onChange({ ...workflow, dataLinks: (workflow.dataLinks ?? []).filter((l) => l.id !== selectedLink.id) })
             setSelection(null)
           }}
           onSelectIssue={(issue) => {
             if (issue.nodeId) setSelection({ nodes: [issue.nodeId] })
             else if (issue.edgeId) setSelection({ edge: issue.edgeId })
+            else if (issue.dataId) setSelection({ data: issue.dataId })
           }}
         />
       </aside>
+      {agentDialog && (
+        <WorkflowAgentDialog
+          hostId={hostId}
+          initial={agentDialog.profile}
+          isNew={agentDialog.isNew}
+          usedBy={workflow.nodes.filter((n) => n.config.profileId === agentDialog.profile.id).length}
+          onClose={() => setAgentDialog(null)}
+          onSaved={(profile) => {
+            if (agentDialog.place) addStep(profile.kind, profile)
+            else if (agentDialog.forNode) patchNode(agentDialog.forNode, { config: { profileId: profile.id } })
+            setAgentDialog(null)
+          }}
+        />
+      )}
     </div>
   )
 }

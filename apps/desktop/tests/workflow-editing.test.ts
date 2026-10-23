@@ -2,7 +2,7 @@ import { describe, expect, test } from 'bun:test'
 import type { Workflow } from '@acp-harness/protocol'
 import { EditHistory } from '../src/components/workflows/workflow-edit-history.ts'
 import { pasteSnippet, snippetOf } from '../src/components/workflows/workflow-clipboard.ts'
-import { reviewLoopTemplate } from '../src/components/workflows/workflow-model.ts'
+import { newAgentStep, reviewLoopTemplate, withoutData, withoutSteps } from '../src/components/workflows/workflow-model.ts'
 
 const named = (w: Workflow, name: string): Workflow => ({ ...w, name })
 
@@ -52,5 +52,32 @@ describe('copying steps', () => {
     expect([copy.x - dev.x, copy.y - dev.y]).toEqual([40, 40])
     const added = workflow.edges.slice(w.edges.length)
     expect(added.every((e) => ids.includes(e.from) && ids.includes(e.to))).toBe(true)
+  })
+})
+
+describe('agents and data in the editor', () => {
+  test('a step from a defined agent is named after it and uses it', () => {
+    const step = newAgentStep({ id: 'a1', name: 'Local developer', kind: 'agent', local: true, updatedAt: 0 }, 0, 0)
+    expect(step.kind).toBe('agent')
+    expect(step.label).toBe('Local developer')
+    expect(step.config.profileId).toBe('a1')
+    expect(step.config.role).toBeUndefined()
+  })
+
+  test('deleting a step or a data source takes its data links along', () => {
+    const w = reviewLoopTemplate('p')
+    const dev = w.nodes.find((n) => n.label === 'Developer')!
+    const review = w.nodes.find((n) => n.label === 'Reviewer')!
+    const withData: Workflow = {
+      ...w,
+      data: [{ id: 'd', name: 'Specs', path: 'docs', x: 0, y: 0 }],
+      dataLinks: [
+        { id: 'l1', dataId: 'd', nodeId: dev.id },
+        { id: 'l2', dataId: 'd', nodeId: review.id }
+      ]
+    }
+    expect(withoutSteps(withData, new Set([dev.id])).dataLinks?.map((l) => l.id)).toEqual(['l2'])
+    const noData = withoutData(withData, new Set(['d']))
+    expect([noData.data, noData.dataLinks]).toEqual([[], []])
   })
 })

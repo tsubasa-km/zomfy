@@ -1,7 +1,10 @@
 import {
+  workflowAccessIssues,
   workflowOutcomes,
   type BuiltinWorkflowOutcome,
   type Workflow,
+  type WorkflowAgentProfile,
+  type WorkflowDataSource,
   type WorkflowNode,
   type WorkflowNodeKind,
   type WorkflowOutcome
@@ -88,6 +91,38 @@ function defaultConfig(kind: WorkflowNodeKind): WorkflowNode['config'] {
 
 export function newNode(kind: WorkflowNodeKind, x: number, y: number): WorkflowNode {
   return { id: crypto.randomUUID(), kind, label: DEFAULT_LABELS[kind], x, y, config: defaultConfig(kind) }
+}
+
+/** A step run by an agent defined on the host. */
+export function newAgentStep(profile: WorkflowAgentProfile, x: number, y: number): WorkflowNode {
+  const base = newNode(profile.kind, x, y)
+  const { role: _, ...config } = base.config
+  return { ...base, label: profile.name, config: { ...config, profileId: profile.id } }
+}
+
+export function newDataSource(x: number, y: number): WorkflowDataSource {
+  return { id: crypto.randomUUID(), name: 'Data', path: '', x, y }
+}
+
+/** Without these steps (Start stays), their edges and their data links. */
+export function withoutSteps(workflow: Workflow, ids: Set<string>): Workflow {
+  const nodes = workflow.nodes.filter((n) => !ids.has(n.id) || n.kind === 'start')
+  const kept = new Set(nodes.map((n) => n.id))
+  return {
+    ...workflow,
+    nodes,
+    edges: workflow.edges.filter((e) => kept.has(e.from) && kept.has(e.to)),
+    ...(workflow.dataLinks ? { dataLinks: workflow.dataLinks.filter((l) => kept.has(l.nodeId)) } : {})
+  }
+}
+
+/** Without these data sources and their links. */
+export function withoutData(workflow: Workflow, ids: Set<string>): Workflow {
+  return {
+    ...workflow,
+    data: (workflow.data ?? []).filter((d) => !ids.has(d.id)),
+    dataLinks: (workflow.dataLinks ?? []).filter((l) => !ids.has(l.dataId))
+  }
 }
 
 /** The outcome a new edge from `node` gets: the first of its kind's outcomes not yet drawn. */
@@ -241,11 +276,12 @@ export interface WorkflowIssue {
   message: string
   nodeId?: string
   edgeId?: string
+  dataId?: string
 }
 
 /** What keeps the harness from running the graph (errors) or looks unintended (warnings). */
-export function validateWorkflow(workflow: Workflow): WorkflowIssue[] {
-  const issues: WorkflowIssue[] = []
+export function validateWorkflow(workflow: Workflow, agents: WorkflowAgentProfile[] = []): WorkflowIssue[] {
+  const issues: WorkflowIssue[] = [...workflowAccessIssues(workflow, agents)]
   const byId = new Map(workflow.nodes.map((n) => [n.id, n]))
   const starts = workflow.nodes.filter((n) => n.kind === 'start')
   if (starts.length !== 1) issues.push({ level: 'error', message: 'A workflow needs exactly one Start.' })

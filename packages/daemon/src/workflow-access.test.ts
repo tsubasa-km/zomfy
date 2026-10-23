@@ -114,6 +114,7 @@ describe('path guard', () => {
     expect(guardedUse(none, 'Read', { file_path: `${outside}/a.csv` }, cwd)).toContain('Customer data')
     expect(guardedUse(none, 'Grep', { pattern: 'x', path: outside }, cwd)).not.toBeNull()
     expect(guardedUse(none, 'Bash', { command: `cat ${outside.replace(/\\/g, '/')}/a.csv` }, cwd)).not.toBeNull()
+    expect(guardedUse(none, 'PowerShell', { command: `Get-Content -LiteralPath "${outside}\\a.csv"` }, cwd)).not.toBeNull()
     expect(guardedUse(none, 'Read', { file_path: 'src/a.ts' }, cwd)).toBeNull()
     expect(guardedUse(none, 'Grep', { pattern: 'x' }, cwd)).toBeNull()
   })

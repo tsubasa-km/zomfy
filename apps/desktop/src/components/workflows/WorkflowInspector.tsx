@@ -1,9 +1,13 @@
 import type { ReactNode } from 'react'
 import { Trash2 } from 'lucide-react'
 import {
+  resolveStep,
   unboundedLoops,
   workflowOutcomes,
   type Workflow,
+  type WorkflowAgentProfile,
+  type WorkflowDataLink,
+  type WorkflowDataSource,
   type WorkflowEdge,
   type WorkflowCycle,
   type WorkflowNode,
@@ -21,6 +25,8 @@ import { outcomeLabel, type WorkflowIssue } from './workflow-model'
 import { CustomStepEditor } from './WorkflowCustomStepEditor'
 import { WorkflowToolsEditor } from './WorkflowToolsEditor'
 import { WorkflowStepAgentField } from './WorkflowStepAgentField'
+import { WorkflowStepProfileField } from './WorkflowStepProfileField'
+import { WorkflowDataLinkPanel, WorkflowDataPanel } from './WorkflowDataInspector'
 import type { HostId } from '@/session-store'
 
 // The side panel: the selected step's or edge's settings, else the workflow's own name and its issues.
@@ -139,8 +145,14 @@ function ParallelFields({
 export function WorkflowInspector({
   hostId,
   workflow,
+  agents,
   node,
   edge,
+  data,
+  link,
+  onData,
+  onLink,
+  onAgentDialog,
   cycle,
   multi,
   onCycle,
@@ -153,8 +165,15 @@ export function WorkflowInspector({
 }: {
   hostId: HostId
   workflow: Workflow
+  agents: WorkflowAgentProfile[]
   node: WorkflowNode | null
   edge: WorkflowEdge | null
+  data: WorkflowDataSource | null
+  link: WorkflowDataLink | null
+  onData: (id: string, patch: Partial<WorkflowDataSource>) => void
+  onLink: (id: string, patch: Partial<WorkflowDataLink>) => void
+  /** Opens the agent editor: an agent to edit, or null for a new one (given to `forNode` once made). */
+  onAgentDialog: (profile: WorkflowAgentProfile | null, forNode?: string) => void
   cycle: WorkflowCycle | null
   /** Steps selected together (Shift+click or drag a box). */
   multi: number
@@ -214,6 +233,9 @@ export function WorkflowInspector({
       panel
     )
 
+  if (data) return <WorkflowDataPanel workflow={workflow} source={data} onChange={(patch) => onData(data.id, patch)} onDelete={onDelete} />
+  if (link) return <WorkflowDataLinkPanel workflow={workflow} link={link} onChange={(patch) => onLink(link.id, patch)} onDelete={onDelete} />
+
   if (loopPanel && !node && !edge) return loopPanel
 
   if (multi > 1) {
@@ -227,6 +249,11 @@ export function WorkflowInspector({
   if (node) {
     const c = node.config
     const set = (config: Partial<WorkflowNodeConfig>) => onNode(node.id, { config })
+    const usesProfile = !!c.profileId && c.runBy !== 'lead'
+    const linked = (workflow.dataLinks ?? []).flatMap((l) => {
+      const source = l.nodeId === node.id ? workflow.data?.find((d) => d.id === l.dataId) : undefined
+      return source ? [{ link: l, source }] : []
+    })
     return withLoop(
       <div className="space-y-4" data-workflow-inspector="node">
         <Field label="Step name">
@@ -245,9 +272,26 @@ export function WorkflowInspector({
             />
           </Field>
         )}
-        {(node.kind === 'agent' || node.kind === 'review' || (node.kind === 'custom' && c.runner !== 'command')) && c.runBy !== 'lead' && (
-          <WorkflowStepAgentField hostId={hostId} agent={c.agent} onChange={(agent) => set({ agent })} />
+        {(node.kind === 'agent' || node.kind === 'review') && c.runBy !== 'lead' && (
+          <WorkflowStepProfileField
+            node={node}
+            agents={agents}
+            onNew={() => onAgentDialog(null, node.id)}
+            onEdit={(profile) => onAgentDialog(profile)}
+            onPick={(profile) => {
+              if (profile) {
+                set({ profileId: profile.id })
+                return
+              }
+              // Back to its own settings: it keeps what the agent gave it, now editable here.
+              const { profileId: _, local: __, ...own } = resolveStep(node, agents).config
+              onNode(node.id, { config: { ...own, profileId: undefined, local: undefined } })
+            }}
+          />
         )}
+        {(node.kind === 'agent' || node.kind === 'review' || (node.kind === 'custom' && c.runner !== 'command')) &&
+          c.runBy !== 'lead' &&
+          !usesProfile && <WorkflowStepAgentField hostId={hostId} agent={c.agent} onChange={(agent) => set({ agent })} />}
         <Field label="Phase" hint="The step's part in its cycle's Plan-Do-Check-Act.">
           <Choice
             label="Phase"
@@ -277,10 +321,15 @@ export function WorkflowInspector({
         )}
         {(node.kind === 'agent' || node.kind === 'review' || (node.kind === 'custom' && c.runner !== 'command')) && (
           <>
-            <Field label="Role" hint="Who the session acts as; it opens its prompt.">
-              <Input value={c.role ?? ''} onChange={(e) => set({ role: e.target.value })} className="h-8" />
-            </Field>
-            <Field label="Instructions" hint="Added to the run's task and the previous step's handoff.">
+            {!usesProfile && (
+              <Field label="Role" hint="Who the session acts as; it opens its prompt.">
+                <Input value={c.role ?? ''} onChange={(e) => set({ role: e.target.value })} className="h-8" />
+              </Field>
+            )}
+            <Field
+              label={usesProfile ? 'Instructions for this step' : 'Instructions'}
+              hint={usesProfile ? "Added after the agent's own instructions." : "Added to the run's task and the previous step's handoff."}
+            >
               <Textarea value={c.prompt ?? ''} onChange={(e) => set({ prompt: e.target.value })} className="min-h-28 text-xs" />
             </Field>
           </>
@@ -340,7 +389,7 @@ export function WorkflowInspector({
         {(node.kind === 'agent' || node.kind === 'review' || (node.kind === 'custom' && c.runner !== 'command')) && (
           <>
             <ParallelFields kind={node.kind} config={c} onChange={set} />
-            <WorkflowToolsEditor hostId={hostId} tools={c.tools} onChange={(tools) => set({ tools })} />
+            {!usesProfile && <WorkflowToolsEditor hostId={hostId} tools={c.tools} onChange={(tools) => set({ tools })} />}
           </>
         )}
         {node.kind === 'custom' && c.runner === 'command' && (
@@ -384,6 +433,22 @@ export function WorkflowInspector({
                 { value: 'failed', label: 'Failed' }
               ]}
             />
+          </Field>
+        )}
+        {node.kind !== 'start' && node.kind !== 'end' && node.kind !== 'human' && (
+          <Field label="Data" hint="Drag from a data card onto this step to give it access; it may use nothing else the workflow lists.">
+            {linked.length === 0 ? (
+              <p className="text-[11px] text-muted-foreground">None.</p>
+            ) : (
+              <ul className="space-y-0.5 text-xs" data-workflow-step-data>
+                {linked.map(({ link: l, source }) => (
+                  <li key={l.id}>
+                    {source.name}
+                    {source.localOnly ? ' (local only)' : ''} <span className="text-muted-foreground">· {l.write ? 'reads and writes' : 'reads'}</span>
+                  </li>
+                ))}
+              </ul>
+            )}
           </Field>
         )}
         {node.kind !== 'start' && (

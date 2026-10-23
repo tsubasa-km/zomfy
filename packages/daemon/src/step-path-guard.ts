@@ -41,8 +41,10 @@ export function guardedUse(guards: PathGuard[], tool: string, input: unknown, cw
   for (const guard of guards) {
     const root = norm(guard.path, cwd);
     const refuse = `Zomfy: this workflow step is not allowed to ${guard.allow === "read" ? "change" : "use"} "${guard.name}" (${guard.path}).`;
-    if (tool === "Bash" && guard.allow === "none") {
-      const command = String(fields.command ?? "").replace(/\\/g, "/");
+    // Any shell (Bash, PowerShell on Windows) takes a command line.
+    if (typeof fields.command === "string" && !FILE_TOOLS[tool]) {
+      if (guard.allow !== "none") continue;
+      const command = fields.command.replace(/\\/g, "/");
       const text = process.platform === "win32" ? command.toLowerCase() : command;
       const plain = guard.path.trim().replace(/\\/g, "/").replace(/^\.\//, "").replace(/\/+$/, "");
       const given = process.platform === "win32" ? plain.toLowerCase() : plain;
