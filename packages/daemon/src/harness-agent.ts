@@ -12,6 +12,7 @@ import {
   type HarnessRequests,
   type TurnEndMeta,
   type TurnResumeKind,
+  type ManagerToolName,
 } from "@acp-harness/protocol";
 import { runClaudeTurn, type StepOptions } from "./claude-turn.ts";
 import { TurnAutoResume } from "./turn-auto-resume.ts";
@@ -47,7 +48,7 @@ import { registerTodoHandlers } from "./handlers/todo-handlers.ts";
 import { registerSkillHandlers } from "./handlers/skill-handlers.ts";
 import { registerPluginHandlers } from "./handlers/plugin-handlers.ts";
 import { registerVoiceHandlers } from "./handlers/voice-handlers.ts";
-import { managerMcp } from "./manager-mcp-server.ts";
+import { managerMcp, type ManagerRoute } from "./manager-mcp-server.ts";
 import { ManagerRouting, autoAllowedManagerTools } from "./manager-routing.ts";
 import { log } from "./log.ts";
 import { compactTranscript } from "./transcript-compaction.ts";
@@ -61,7 +62,10 @@ export function createHarnessAgent(
   const clients = new Set<acp.AgentContext>();
   const pendingTurns = new Map<string, AbortController>();
   const managerRouting = new ManagerRouting();
-  managerMcp.setRoute(managerRouting.route);
+  /** Tools the daemon serves itself (a workflow step's spawn_agents); the rest go to a window. */
+  const localTools = new Map<ManagerToolName, { route: ManagerRoute; offeredTo: (sessionId: string) => boolean }>();
+  managerMcp.setRoute((caller, tool, args) => (localTools.get(tool)?.route ?? managerRouting.route)(caller, tool, args));
+  managerMcp.setStepToolOffers((sessionId, tool) => localTools.get(tool)?.offeredTo(sessionId) ?? false);
   let knownSessionIds = new Set<string>();
   sessions.onChange((list) => {
     const ids = new Set(list.map((s) => s.id));
@@ -376,6 +380,7 @@ export function createHarnessAgent(
       return stopReason;
     },
     moveSession: (params) => mover.move(params),
+    serveTool: (tool, route, offeredTo) => localTools.set(tool, { route, offeredTo }),
     async runStepTurn(sessionId, text, step) {
       let result: { text: string; structured: unknown } = { text: "", structured: undefined };
       stepTurns.set(sessionId, { step, onResult: (r) => (result = r) });

@@ -33,6 +33,7 @@ interface JsonRpcMessage {
 class ManagerMcpServer {
   private baseUrl: string | null = null;
   private route: ManagerRoute | null = null;
+  private offers: (sessionId: string, tool: ManagerToolName) => boolean = () => false;
   private readonly tokens = new Map<string, string>();
   private readonly tokenBySession = new Map<string, string>();
 
@@ -43,6 +44,15 @@ class ManagerMcpServer {
 
   setRoute(route: ManagerRoute): void {
     this.route = route;
+  }
+
+  /** Which session sees which step-only tool (a step's agent that may spawn helpers). */
+  setStepToolOffers(offers: (sessionId: string, tool: ManagerToolName) => boolean): void {
+    this.offers = offers;
+  }
+
+  private offered(sessionId: string) {
+    return MANAGER_TOOLS.filter((t) => !("stepOnly" in t && t.stepOnly) || this.offers(sessionId, t.name));
   }
 
   /** Where a session's agent reaches the tools, with its own token; null when not served. */
@@ -147,7 +157,7 @@ class ManagerMcpServer {
         return rpcResult(id, {});
       case "tools/list":
         return rpcResult(id, {
-          tools: MANAGER_TOOLS.map((t) => ({
+          tools: this.offered(sessionId).map((t) => ({
             name: t.name,
             description: t.description,
             inputSchema: t.inputSchema,
@@ -164,7 +174,7 @@ class ManagerMcpServer {
   private async callTool(sessionId: string, params: Record<string, unknown>): Promise<object> {
     const name = String(params.name ?? "");
     const args = (typeof params.arguments === "object" && params.arguments !== null ? params.arguments : {}) as Record<string, unknown>;
-    if (!isManagerToolName(name)) return toolText(`Unknown tool ${name}`, true);
+    if (!isManagerToolName(name) || !this.offered(sessionId).some((t) => t.name === name)) return toolText(`Unknown tool ${name}`, true);
     if (!this.route) return toolText("Manager tools are not available on this daemon.", true);
     try {
       const { result, isError } = await this.route(sessionId, name, args);

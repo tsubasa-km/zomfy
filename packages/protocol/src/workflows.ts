@@ -87,6 +87,11 @@ export interface WorkflowNodeConfig {
   askLeadFirst?: boolean
   /** Agent, review and custom agent steps: a new session, or the project's Lead chat itself (planning, final checks). */
   runBy?: 'session' | 'lead'
+  /**
+   * Agent, review and custom agent steps: the step's agent may split its work and run up to this many
+   * helper agents at once (spawn_agents). Absent: it spawns none.
+   */
+  maxAgents?: number
 }
 
 /** The step's part in its cycle's Plan-Do-Check-Act; absent means the kind's usual one. */

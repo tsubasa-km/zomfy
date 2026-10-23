@@ -40,6 +40,7 @@ import { WORKFLOW_NODE_TYPES, type WorkflowCanvasNode } from './workflow-nodes'
 import type { CycleCanvasNode } from './workflow-cycles'
 import { GRID, snapRect, type SnapGuide } from './workflow-snap'
 import { SnapGuides } from './workflow-snap-guides'
+import { LoopViewPanel, loopDecor, useLoopView } from './workflow-loop-view'
 import { canvasLayout } from './workflow-canvas-layout'
 import { WORKFLOW_EDGE_TYPES } from './workflow-route-edge'
 import { WorkflowInspector } from './WorkflowInspector'
@@ -293,6 +294,7 @@ function WorkflowCanvas({
   const canvasRef = useRef<HTMLDivElement>(null)
   const [selection, setSelection] = useState<Selection>(null)
   const [guides, setGuides] = useState<SnapGuide[]>([])
+  const loopView = useLoopView()
   // Holding Alt places a dragged step freely.
   const snapOff = useRef(false)
   useEffect(() => {
@@ -318,9 +320,10 @@ function WorkflowCanvas({
   }
 
   const { boxes, routes } = canvasLayout(workflow, sizes)
-  const cycleNodes: CycleCanvasNode[] = cycles.flatMap((cycle) => {
+  const decor = loopDecor(loopView, cycles)
+  const cycleNodes: CycleCanvasNode[] = cycles.flatMap((cycle, tone) => {
     const box = boxes.get(cycle.id)
-    if (!box) return []
+    if (!box || !decor.areas) return []
     return [
       {
         id: `${CYCLE_PREFIX}${cycle.id}`,
@@ -330,7 +333,7 @@ function WorkflowCanvas({
         height: box.height,
         // Outer frames behind inner ones, all behind the steps.
         zIndex: -100 + box.depth,
-        data: { cycle, depth: box.depth, round: null },
+        data: { cycle, depth: box.depth, round: null, variant: decor.areas, tone },
         selected: selectedCycle?.id === cycle.id,
         connectable: false,
         deletable: false
@@ -341,14 +344,14 @@ function WorkflowCanvas({
     id: node.id,
     type: node.kind,
     position: { x: node.x, y: node.y },
-    data: { node, issue: issueOf(node.id) },
+    data: { node, issue: issueOf(node.id), loop: decor.nodes.get(node.id) },
     selected: pickedNodes.includes(node.id),
     deletable: node.kind !== 'start',
     ...(sizes[node.id] ? { measured: sizes[node.id] } : {})
   }))
   const nodes: (WorkflowCanvasNode | CycleCanvasNode)[] = [...cycleNodes, ...stepNodes]
 
-  const edges = canvasEdges(workflow, routes, selectedEdge?.id ?? null)
+  const edges = canvasEdges(workflow, routes, selectedEdge?.id ?? null, undefined, decor.edges)
 
   const removeNodes = (ids: Set<string>) => {
     const kept = workflow.nodes.filter((n) => !ids.has(n.id) || n.kind === 'start')
@@ -500,6 +503,7 @@ function WorkflowCanvas({
           <Background gap={GRID} size={1} />
           <Controls showInteractive={false} />
           <SnapGuides guides={guides} />
+          <LoopViewPanel cycles={cycles} />
           <Panel position="top-left">
             <div className="flex flex-wrap gap-1 rounded-lg border border-border bg-card p-1 shadow-xs" data-workflow-palette>
               {NODE_KINDS.map((k) => (
@@ -529,7 +533,12 @@ function WorkflowCanvas({
           workflow={workflow}
           node={selectedNode}
           edge={selectedEdge}
-          cycle={selectedCycle}
+          cycle={
+            selectedCycle ??
+            (selectedEdge && cycles.find((c) => c.backEdgeIds.includes(selectedEdge.id))) ??
+            (selectedNode && cycles.find((c) => c.id === selectedNode.id)) ??
+            null
+          }
           multi={pickedNodes.length}
           onCycle={(id, patch) => {
             const settings = workflow.cycleSettings ?? []

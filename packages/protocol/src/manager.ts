@@ -52,6 +52,8 @@ export interface ManagerToolDefinition {
   managerAllowed?: boolean
   /** Changes only where the calling chat runs: auto-allowed in every chat. */
   selfOnly?: boolean
+  /** Offered only to a workflow step's session, and served by the daemon running the step. */
+  stepOnly?: boolean
 }
 
 const str = (description: string) => ({ type: 'string', description })
@@ -229,6 +231,29 @@ export const MANAGER_TOOLS = [
     },
     readOnly: false,
     selfOnly: true
+  },
+  {
+    name: 'spawn_agents',
+    description:
+      "Runs helper agents on parts of your workflow step and waits for their reports. The step caps how many run at once; the rest queue. They work in your folder at the same time, so give each a self-contained part (goal, files it owns, how to check it) that does not overlap the others'. They do not commit: integrate, verify and commit yourself.",
+    inputSchema: {
+      type: 'object',
+      properties: {
+        tasks: {
+          type: 'array',
+          description: 'One entry per helper agent.',
+          items: {
+            type: 'object',
+            properties: { title: str('A few words naming the part.'), task: str('The part, self-contained.') },
+            required: ['task']
+          }
+        }
+      },
+      required: ['tasks']
+    },
+    readOnly: false,
+    selfOnly: true,
+    stepOnly: true
   },
   {
     name: 'list_workflows',

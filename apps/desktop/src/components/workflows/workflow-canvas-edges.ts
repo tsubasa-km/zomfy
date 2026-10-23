@@ -17,12 +17,16 @@ const OUTCOME_COLORS: Partial<Record<WorkflowOutcome, string>> = {
 
 export type RoutedEdge = Edge<{ route?: EdgeRoute }, 'route'>
 
-/** `taken`: edges a run went along, drawn heavier; the rest fade while a run is shown. */
+/**
+ * `taken`: edges a run went along, drawn heavier; the rest fade while a run is shown. `loops`: text
+ * an arrow going back carries when the canvas shows loops on their arrows.
+ */
 export function canvasEdges(
   workflow: Workflow,
   routes: Map<string, EdgeRoute>,
   selectedId: string | null,
-  taken?: Set<string>
+  taken?: Set<string>,
+  loops?: Map<string, string>
 ): RoutedEdge[] {
   return workflow.edges.map((edge) => {
     // A custom step's own outcomes take the accent colour.
@@ -30,6 +34,7 @@ export function canvasEdges(
     const selected = selectedId === edge.id
     const faded = taken !== undefined && !taken.has(edge.id)
     const route = routes.get(edge.id)
+    const loop = loops?.get(edge.id)
     return {
       id: edge.id,
       source: edge.from,
@@ -38,10 +43,15 @@ export function canvasEdges(
       targetHandle: 'in',
       type: 'route',
       data: route ? { route } : {},
-      label: outcomeLabel(edge.outcome),
+      label: loop ? `${outcomeLabel(edge.outcome)} ${loop}` : outcomeLabel(edge.outcome),
       selected,
       markerEnd: { type: MarkerType.ArrowClosed, color, width: 16, height: 16 },
-      style: { stroke: color, strokeWidth: selected || (taken && !faded) ? 2.5 : 1.5, opacity: faded ? 0.35 : 1 },
+      style: {
+        stroke: color,
+        strokeWidth: selected || (taken && !faded) ? 2.5 : 1.5,
+        opacity: faded ? 0.35 : 1,
+        ...(loop ? { strokeDasharray: '6 3' } : {})
+      },
       labelStyle: { fontSize: 11, fill: color, fontWeight: 500, opacity: faded ? 0.5 : 1 },
       labelBgStyle: { fill: 'var(--background)' },
       labelBgPadding: [4, 2],

@@ -111,6 +111,25 @@ function ParallelFields({
           <Choice label="Decided by" value={join} onChange={(value) => onChange({ parallel: { count, join: value } })} options={joins} />
         </Field>
       )}
+      {config.runBy !== 'lead' && (
+        <Field
+          label="Helper agents at once"
+          hint="The step's agent may split its work and spawn helpers in its folder; the harness runs at most this many at once and queues the rest. 0: no helpers."
+        >
+          <Input
+            type="number"
+            min={0}
+            max={16}
+            value={config.maxAgents ?? 0}
+            data-workflow-max-agents
+            onChange={(e) => {
+              const next = Math.min(16, Math.max(0, Number(e.target.value) || 0))
+              onChange({ maxAgents: next > 0 ? next : undefined })
+            }}
+            className="h-8 w-24"
+          />
+        </Field>
+      )}
     </div>
   )
 }
@@ -145,40 +164,50 @@ export function WorkflowInspector({
   onDelete: () => void
   onSelectIssue: (issue: WorkflowIssue) => void
 }) {
-  if (cycle) {
-    const label = (id: string) => workflow.nodes.find((n) => n.id === id)?.label ?? '?'
-    const backs = workflow.edges.filter((e) => cycle.backEdgeIds.includes(e.id))
-    return (
-      <div className="space-y-4" data-workflow-inspector="cycle">
-        <div className="space-y-1 text-xs text-muted-foreground" data-workflow-cycle-source>
-          <p>
-            The arrow{backs.length > 1 ? 's' : ''} back to “{label(cycle.id)}” make{backs.length > 1 ? '' : 's'} this cycle; it frames
-            the {cycle.nodeIds.length} steps a round repeats.
-          </p>
-          <ul className="list-disc pl-4">
-            {backs.map((e) => (
-              <li key={e.id}>
-                {label(e.from)} → {label(e.to)} ({outcomeLabel(e.outcome)})
-              </li>
-            ))}
-          </ul>
-        </div>
-        <Field label="Cycle name">
-          <Input value={cycle.label} onChange={(e) => onCycle(cycle.id, { label: e.target.value })} className="h-8" />
-        </Field>
-        <Field label="Round limit" hint="Each time the run comes back to the cycle's first step is a round; past the limit the run asks you.">
-          <Input
-            type="number"
-            min={1}
-            max={20}
-            value={cycle.maxRounds}
-            onChange={(e) => onCycle(cycle.id, { maxRounds: Math.max(1, Number(e.target.value) || 1) })}
-            className="h-8 w-24"
-          />
-        </Field>
+  const label = (id: string) => workflow.nodes.find((n) => n.id === id)?.label ?? '?'
+  const backs = cycle ? workflow.edges.filter((e) => cycle.backEdgeIds.includes(e.id)) : []
+  // The loop a step starts or an arrow closes, under that step's or arrow's own fields.
+  const loopPanel = cycle && (
+    <div className="space-y-4" data-workflow-inspector="cycle">
+      <div className="space-y-1 text-xs text-muted-foreground" data-workflow-cycle-source>
+        <p>
+          The arrow{backs.length > 1 ? 's' : ''} back to “{label(cycle.id)}” make{backs.length > 1 ? '' : 's'} this cycle; it frames
+          the {cycle.nodeIds.length} steps a round repeats.
+        </p>
+        <ul className="list-disc pl-4">
+          {backs.map((e) => (
+            <li key={e.id}>
+              {label(e.from)} → {label(e.to)} ({outcomeLabel(e.outcome)})
+            </li>
+          ))}
+        </ul>
       </div>
+      <Field label="Cycle name">
+        <Input value={cycle.label} onChange={(e) => onCycle(cycle.id, { label: e.target.value })} className="h-8" />
+      </Field>
+      <Field label="Round limit" hint="Each time the run comes back to the cycle's first step is a round; past the limit the run asks you.">
+        <Input
+          type="number"
+          min={1}
+          max={20}
+          value={cycle.maxRounds}
+          onChange={(e) => onCycle(cycle.id, { maxRounds: Math.max(1, Number(e.target.value) || 1) })}
+          className="h-8 w-24"
+        />
+      </Field>
+    </div>
+  )
+  const withLoop = (panel: ReactNode) =>
+    loopPanel ? (
+      <div className="space-y-6">
+        {panel}
+        <div className="border-t border-border pt-4">{loopPanel}</div>
+      </div>
+    ) : (
+      panel
     )
-  }
+
+  if (loopPanel && !node && !edge) return loopPanel
 
   if (multi > 1) {
     return (
@@ -191,7 +220,7 @@ export function WorkflowInspector({
   if (node) {
     const c = node.config
     const set = (config: Partial<WorkflowNodeConfig>) => onNode(node.id, { config })
-    return (
+    return withLoop(
       <div className="space-y-4" data-workflow-inspector="node">
         <Field label="Step name">
           <Input value={node.label} onChange={(e) => onNode(node.id, { label: e.target.value })} className="h-8" />
@@ -359,7 +388,7 @@ export function WorkflowInspector({
     const from = workflow.nodes.find((n) => n.id === edge.from)
     const to = workflow.nodes.find((n) => n.id === edge.to)
     const options = from ? workflowOutcomes(from) : []
-    return (
+    return withLoop(
       <div className="space-y-4" data-workflow-inspector="edge">
         <p className="text-xs text-muted-foreground">
           From <span className="font-medium text-foreground">{from?.label}</span> to{' '}

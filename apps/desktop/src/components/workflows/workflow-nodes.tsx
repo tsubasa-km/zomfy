@@ -1,6 +1,6 @@
 import { memo } from 'react'
 import { Handle, Position, type Node, type NodeProps } from '@xyflow/react'
-import { Bot, CircleCheckBig, Flag, Play, Puzzle, ShieldCheck, SquareTerminal, UserRound, type LucideIcon } from 'lucide-react'
+import { Bot, CircleCheckBig, Flag, Play, Puzzle, ShieldCheck, SquareTerminal, RefreshCw, UserRound, Users, type LucideIcon } from 'lucide-react'
 import type { WorkflowNode, WorkflowNodeKind } from '@acp-harness/protocol'
 import { cn } from '@/lib/utils'
 import { CycleNode, PHASE_CLASSES, PHASE_LETTERS, phaseOf } from './workflow-cycles'
@@ -20,7 +20,7 @@ export interface StepRunState {
 }
 
 export type WorkflowCanvasNode = Node<
-  { node: WorkflowNode; issue: 'error' | 'warning' | null; run?: StepRunState },
+  { node: WorkflowNode; issue: 'error' | 'warning' | null; run?: StepRunState; loop?: string },
   WorkflowNodeKind
 >
 
@@ -74,8 +74,9 @@ function detail(node: WorkflowNode): string {
 
 function StepNode({ data, selected, type }: NodeProps<WorkflowCanvasNode>) {
   const Icon = ICONS[type]
-  const { node, issue, run } = data
+  const { node, issue, run, loop } = data
   const parallel = node.config.parallel && node.config.parallel.count > 1 ? node.config.parallel : null
+  const helpers = node.config.runBy === 'lead' ? 0 : (node.config.maxAgents ?? 0)
   const phase = phaseOf(node)
   return (
     <div className="relative" data-workflow-node={node.kind}>
@@ -123,6 +124,15 @@ function StepNode({ data, selected, type }: NodeProps<WorkflowCanvasNode>) {
               ×{parallel.count}
             </span>
           )}
+          {helpers > 0 && (
+            <span
+              className="flex shrink-0 items-center gap-0.5 rounded bg-accent px-1 text-[10px] font-medium text-accent-foreground tabular-nums"
+              title={`Its agent may spawn up to ${helpers} helper agent${helpers > 1 ? 's' : ''} at once`}
+              data-workflow-max-agents={helpers}
+            >
+              <Users className="size-2.5" />≤{helpers}
+            </span>
+          )}
           {issue && (
             <span
               aria-label={issue === 'error' ? 'Has problems' : 'Has warnings'}
@@ -131,6 +141,12 @@ function StepNode({ data, selected, type }: NodeProps<WorkflowCanvasNode>) {
           )}
           {type === 'end' && node.config.result !== 'failed' && <CircleCheckBig className="size-3.5 shrink-0 text-status-success" />}
         </div>
+        {loop && (
+          <div className="mt-1 flex items-center gap-1 truncate pl-6 text-[11px] font-medium text-primary" data-workflow-loop-badge>
+            <RefreshCw className="size-3 shrink-0" />
+            <span className="truncate">{loop}</span>
+          </div>
+        )}
         <div className="mt-0.5 truncate pl-6 text-[11px] text-muted-foreground">
           {detail(node)}
           {parallel ? ` · ${JOIN_LABELS[parallel.join]}` : ''}

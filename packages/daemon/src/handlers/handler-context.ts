@@ -1,11 +1,19 @@
 import type * as acp from "@agentclientprotocol/sdk";
-import type { HarnessMethod, HarnessRequests, MoveSessionParams, MoveSessionResult, TurnResumeKind } from "@acp-harness/protocol";
+import type {
+  HarnessMethod,
+  HarnessRequests,
+  ManagerToolName,
+  MoveSessionParams,
+  MoveSessionResult,
+  TurnResumeKind,
+} from "@acp-harness/protocol";
 import type { TurnAutoResume } from "../turn-auto-resume.ts";
 import type { StepOptions } from "../claude-turn.ts";
 import type { AcpAgentSessions } from "../acp-agent-sessions.ts";
 import type { SessionRegistry } from "../session-registry.ts";
 import type { TerminalManager } from "../terminal-manager.ts";
 import type { WorkspaceManager } from "../workspace-manager.ts";
+import type { ManagerRoute } from "../manager-mcp-server.ts";
 
 export type Handle = <M extends HarnessMethod>(
   method: M,
@@ -42,4 +50,6 @@ export interface HandlerContext {
   ): Promise<{ stopReason: acp.StopReason; text: string; structured: unknown }>;
   /** Moves a chat to another workspace, or when its running turn ends. */
   moveSession(params: MoveSessionParams): Promise<MoveSessionResult>;
+  /** Serves a step-only harness tool here instead of routing it to a window, to the sessions it is offered to. */
+  serveTool(tool: ManagerToolName, route: ManagerRoute, offeredTo: (sessionId: string) => boolean): void;
 }

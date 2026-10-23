@@ -3,6 +3,7 @@ import {
   WORKFLOW_META,
   WORKFLOW_NOTIFICATIONS,
   workflowOutcomes,
+  type ManagerCallResult,
   type Workflow,
   type WorkflowNode,
   type WorkflowOutcome,
@@ -25,7 +26,7 @@ import { log } from "./log.ts";
 // outcome is taken. Checks are commands (exit code), "Ask the person" waits for an answer, and
 // limited outcomes (a review's "changes", a check's "fail") count rounds and stop at the limit.
 
-type Deps = Pick<HandlerContext, "workspaces" | "sessions" | "pendingTurns" | "broadcast" | "runStepTurn" | "emit">;
+type Deps = Pick<HandlerContext, "workspaces" | "sessions" | "pendingTurns" | "broadcast" | "runStepTurn" | "emit" | "serveTool">;
 
 /** Outcomes counted against a step's round limit. */
 const LIMITED: WorkflowOutcome[] = ["changes", "fail"];
@@ -40,17 +41,50 @@ interface StepResult {
 
 class RunStopped extends Error {}
 
+/** A step session that may spawn helpers, sharing its step's cap with the step's other sessions. */
+interface Spawner {
+  run: WorkflowRun;
+  node: WorkflowNode;
+  live: { stopped: boolean; sessions: Set<string> };
+  workspace: Workspace;
+  step: StepOptions;
+  slots: Slots;
+  helpers: string[];
+}
+
+/** At most `max` jobs at once; the rest wait their turn. */
+class Slots {
+  private running = 0;
+  private readonly waiting: (() => void)[] = [];
+  constructor(private readonly max: number) {}
+
+  async run<T>(job: () => Promise<T>): Promise<T> {
+    if (this.running >= this.max) await new Promise<void>((resolve) => this.waiting.push(resolve));
+    this.running++;
+    try {
+      return await job();
+    } finally {
+      this.running--;
+      this.waiting.shift()?.();
+    }
+  }
+}
+
 export class WorkflowEngine {
   /** Runs this daemon is driving now, so Stop can reach their turns. */
   private readonly live = new Map<string, { stopped: boolean; sessions: Set<string> }>();
   /** A step's session waiting mid-turn on the person (ask_lead escalated), by run id. */
   private readonly asking = new Map<string, (answer: string) => void>();
+  /** Step sessions that may spawn helpers now, by session id. */
+  private readonly spawners = new Map<string, Spawner>();
 
   constructor(
     private readonly deps: Deps,
     private readonly runs: WorkflowRunStore,
     private readonly workflows: WorkflowStore,
-  ) {}
+  ) {
+    deps.serveTool("spawn_agents", (caller, _tool, args) => this.spawnAgents(caller, args), (id) => this.spawners.has(id));
+  }
 
   /** A run left running by a previous daemon cannot pick its turn back up; a waiting one can. */
   async recover(): Promise<void> {
@@ -283,7 +317,8 @@ export class WorkflowEngine {
     }
     const outcomes = workflowOutcomes(node);
     const prompt = this.prompt(run, node, outcomes);
-    const step = stepOptions(node.config.tools, outcomes);
+    const maxAgents = node.config.runBy === "lead" ? 0 : Math.max(0, Math.min(16, node.config.maxAgents ?? 0));
+    const step = stepOptions(node.config.tools, outcomes, maxAgents > 0);
     const turn = async (sessionId: string, index: number): Promise<{ outcome: WorkflowOutcome; summary: string; index: number }> => {
       live.sessions.add(sessionId);
       try {
@@ -330,13 +365,36 @@ export class WorkflowEngine {
     });
     if (keep) run.sessionsByNode[node.id] = sessionIds;
     await this.save(run);
+    const helpers: string[] = [];
+    if (maxAgents > 0) {
+      const { outputFormat: _, ...helperStep } = step;
+      const slots = new Slots(maxAgents);
+      sessionIds.forEach((id, i) => this.spawners.set(id, { run, node, live, workspace: workspaces[i]!, step: helperStep, slots, helpers }));
+    }
+    try {
+      return await this.runSessions(run, node, sessionIds, workspaces, turn, count, join, helpers);
+    } finally {
+      for (const id of sessionIds) this.spawners.delete(id);
+    }
+  }
+
+  private async runSessions(
+    run: WorkflowRun,
+    node: WorkflowNode,
+    sessionIds: string[],
+    workspaces: Workspace[],
+    turn: (sessionId: string, index: number) => Promise<{ outcome: WorkflowOutcome; summary: string; index: number }>,
+    count: number,
+    join: "all" | "majority" | "any" | "first",
+    helpers: string[],
+  ): Promise<StepResult> {
     if (count > 1 && join === "first") {
       const winner = await Promise.any(sessionIds.map((id, i) => turn(id, i)));
       for (const [i, id] of sessionIds.entries()) if (i !== winner.index) this.deps.pendingTurns.get(id)?.abort();
       // The winner's worktree carries the run on.
       const ws = workspaces[winner.index];
       if (ws && node.config.workspace !== "main") run.workspaceId = ws.id;
-      return { outcome: winner.outcome, summary: winner.summary, sessionIds };
+      return { outcome: winner.outcome, summary: winner.summary, sessionIds: [...sessionIds, ...helpers] };
     }
     const results = await Promise.all(sessionIds.map((id, i) => turn(id, i)));
     const summary =
@@ -345,7 +403,58 @@ export class WorkflowEngine {
         : results
             .map((r) => `${node.label} ${r.index + 1} (${r.outcome}, in ${workspaces[r.index]?.path ?? "?"}): ${r.summary}`)
             .join("\n\n");
-    return { outcome: combine(node, results.map((r) => r.outcome), join), summary, sessionIds };
+    return { outcome: combine(node, results.map((r) => r.outcome), join), summary, sessionIds: [...sessionIds, ...helpers] };
+  }
+
+  /** spawn_agents: helpers on parts of a step, in the step's folder, at most the step's cap at once. */
+  private async spawnAgents(caller: string, args: Record<string, unknown>): Promise<ManagerCallResult> {
+    const spawner = this.spawners.get(caller);
+    if (!spawner) return { result: "Only a workflow step that allows helper agents can spawn them.", isError: true };
+    const tasks = (Array.isArray(args.tasks) ? args.tasks : []).flatMap((t: unknown) => {
+      const entry = typeof t === "string" ? { task: t } : typeof t === "object" && t !== null ? (t as Record<string, unknown>) : {};
+      const task = typeof entry.task === "string" ? entry.task.trim() : "";
+      const title = typeof entry.title === "string" && entry.title.trim() ? entry.title.trim() : task.slice(0, 40);
+      return task ? [{ task, title }] : [];
+    });
+    if (tasks.length === 0) return { result: "Give at least one task.", isError: true };
+    const reports = await Promise.all(tasks.map((t) => spawner.slots.run(() => this.runHelper(spawner, t))));
+    return { result: reports.map((r, i) => `## ${i + 1}. ${tasks[i]!.title}\n${r}`).join("\n\n") };
+  }
+
+  private async runHelper(spawner: Spawner, part: { task: string; title: string }): Promise<string> {
+    const { run, node, live, workspace } = spawner;
+    if (live.stopped) return "Not run: the workflow was stopped.";
+    const record = this.deps.sessions.create({
+      workspaceId: workspace.id,
+      cwd: workspace.path,
+      title: `${node.label} · helper: ${part.title}`,
+      options: { model: null, effort: null, permissionMode: node.kind === "review" ? "default" : "acceptEdits" },
+    });
+    spawner.helpers.push(record.id);
+    run.steps.at(-1)?.sessionIds.push(record.id);
+    await this.save(run);
+    const text = [
+      `You are a helper agent in the workflow "${run.workflow.name}", step "${node.label}", run by Zomfy.`,
+      "Other helpers work in this same folder at the same time, each on its own part. Change only what your part needs, and do not commit; the step's agent integrates and commits.",
+      "",
+      "Task of the run:",
+      run.task,
+      "",
+      `Your part (${part.title}):`,
+      part.task,
+      "",
+      "Finish with a short report: what you changed (files), how you checked it, and anything left open.",
+    ].join("\n");
+    live.sessions.add(record.id);
+    try {
+      const result = await this.deps.runStepTurn(record.id, text, spawner.step);
+      if (live.stopped) return "Stopped with the workflow.";
+      return result.text.trim() || `Ended (${result.stopReason}) without a report.`;
+    } catch (error) {
+      return `Failed: ${error instanceof Error ? error.message : String(error)}`;
+    } finally {
+      live.sessions.delete(record.id);
+    }
   }
 
   private prompt(run: WorkflowRun, node: WorkflowNode, outcomes: WorkflowOutcome[]): string {
@@ -377,6 +486,12 @@ export class WorkflowEngine {
     lines.push(
       "Need a decision or context mid-task? Call the harness tool ask_lead: the project's Lead answers (or passes it to the person), and you carry on with the answer.",
     );
+    const maxAgents = node.config.maxAgents ?? 0;
+    if (maxAgents > 0 && node.config.runBy !== "lead") {
+      lines.push(
+        `You may split the work: the harness tool spawn_agents runs helper agents on parts you describe, up to ${maxAgents} at once, and returns their reports. Use it when parts are independent; integrate, verify and commit their work yourself.`,
+      );
+    }
     if (outcomes.includes("ask")) lines.push(`Choose the "ask" outcome only when you cannot go on at all; put the question in "summary".`);
     if (node.kind === "review") lines.push(`Choose "approve" when it is ready; "changes" with every finding the developer must address.`);
     return lines.join("\n");
@@ -604,8 +719,11 @@ function withShellTwins(rules: string[]): string[] {
 
 const PLAYWRIGHT_MCP = { type: "stdio" as const, command: "npx", args: ["-y", "@playwright/mcp@latest", "--headless"] };
 
+/** Claude's own subagent tool; a step that spawns through the harness (and its cap) goes without it. */
+const BUILTIN_SUBAGENT_TOOLS = ["Agent", "Task"];
+
 /** A step's tool policy as the options its turn runs with. */
-function stepOptions(tools: WorkflowToolPolicy | undefined, outcomes: WorkflowOutcome[]): StepOptions {
+function stepOptions(tools: WorkflowToolPolicy | undefined, outcomes: WorkflowOutcome[], spawns = false): StepOptions {
   const mcpServers: NonNullable<StepOptions["mcpServers"]> = {};
   const allowed: string[] = [];
   for (const server of tools?.mcp ?? []) {
@@ -618,7 +736,11 @@ function stepOptions(tools: WorkflowToolPolicy | undefined, outcomes: WorkflowOu
       mcpServers[name] = { type: "stdio", command: server.command.trim(), args: server.args ?? [] };
     }
   }
-  const deny = withShellTwins([...(tools?.deny ?? []), ...(tools?.readOnly ? ["Edit", "Write", "NotebookEdit", "MultiEdit"] : [])]);
+  const deny = withShellTwins([
+    ...(tools?.deny ?? []),
+    ...(tools?.readOnly ? ["Edit", "Write", "NotebookEdit", "MultiEdit"] : []),
+    ...(spawns ? BUILTIN_SUBAGENT_TOOLS : []),
+  ]);
   const allow = withShellTwins([...allowed, ...(tools?.allow ?? [])]);
   return {
     ...(Object.keys(mcpServers).length > 0 ? { mcpServers } : {}),

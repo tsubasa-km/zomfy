@@ -2,7 +2,7 @@ import { useEffect, useRef, useState, useSyncExternalStore } from 'react'
 import { Background, Controls, ReactFlow, useReactFlow, type NodeChange } from '@xyflow/react'
 import { ArrowLeft, CircleStop, MessageSquare, Send } from 'lucide-react'
 import { toast } from 'sonner'
-import { HARNESS_METHODS, workflowCycles, type WorkflowRun, type WorkflowRunStep } from '@acp-harness/protocol'
+import { HARNESS_METHODS, workflowCycles, type WorkflowCycle, type WorkflowRun, type WorkflowRunStep } from '@acp-harness/protocol'
 import { harnessRequest } from '@/daemon-connection'
 import { selectSession } from '@/session-store'
 import { openWorkflows } from '@/stores/workflows-store'
@@ -15,6 +15,7 @@ import { canvasEdges } from './workflow-canvas-edges'
 import { type CycleCanvasNode } from './workflow-cycles'
 import { canvasLayout } from './workflow-canvas-layout'
 import { WORKFLOW_EDGE_TYPES } from './workflow-route-edge'
+import { LoopViewPanel, loopDecor, useLoopView } from './workflow-loop-view'
 import { outcomeLabel } from './workflow-model'
 
 // A run of a workflow: the graph as it was when the run started, with where the run is now, how
@@ -86,6 +87,7 @@ export function WorkflowRunView({ run, onBack }: { run: HostedWorkflowRun; onBac
   const flow = useReactFlow()
   const [focusNode, setFocusNode] = useState<string | null>(null)
   const [sizes, setSizes] = useState<Record<string, { width: number; height: number }>>({})
+  const loopView = useLoopView()
   const fitted = useRef(false)
   const measured = run.workflow.nodes.length > 0 && run.workflow.nodes.every((n) => sizes[n.id])
   useEffect(() => {
@@ -95,24 +97,28 @@ export function WorkflowRunView({ run, onBack }: { run: HostedWorkflowRun; onBac
   }, [measured, flow])
 
   const states = stepStates(run)
+  const cycles = workflowCycles(run.workflow)
+  const visited = new Set(run.steps.map((s) => s.nodeId))
+  const roundOf = (cycle: WorkflowCycle) =>
+    cycle.nodeIds.some((id) => visited.has(id))
+      ? `round ${(run.rounds[`cycle:${cycle.id}`] ?? 0) + 1} of ${cycle.maxRounds}`
+      : 'not reached'
+  const decor = loopDecor(loopView, cycles, roundOf)
   const nodes: WorkflowCanvasNode[] = run.workflow.nodes.map((node) => ({
     id: node.id,
     type: node.kind,
     position: { x: node.x, y: node.y },
-    data: { node, issue: null, run: states.get(node.id) },
+    data: { node, issue: null, run: states.get(node.id), loop: decor.nodes.get(node.id) },
     selected: focusNode === node.id,
     draggable: false,
     connectable: false,
     ...(sizes[node.id] ? { measured: sizes[node.id] } : {})
   }))
   const { boxes, routes } = canvasLayout(run.workflow, sizes)
-  const edges = canvasEdges(run.workflow, routes, null, takenEdges(run))
-  const visited = new Set(run.steps.map((s) => s.nodeId))
-  const cycleNodes: CycleCanvasNode[] = workflowCycles(run.workflow).flatMap((cycle) => {
+  const edges = canvasEdges(run.workflow, routes, null, takenEdges(run), decor.edges)
+  const cycleNodes: CycleCanvasNode[] = cycles.flatMap((cycle, tone) => {
     const box = boxes.get(cycle.id)
-    if (!box) return []
-    const entered = cycle.nodeIds.some((id) => visited.has(id))
-    const round = (run.rounds[`cycle:${cycle.id}`] ?? 0) + 1
+    if (!box || !decor.areas) return []
     return [
       {
         id: `cycle:${cycle.id}`,
@@ -123,11 +129,7 @@ export function WorkflowRunView({ run, onBack }: { run: HostedWorkflowRun; onBac
         zIndex: -100 + box.depth,
         draggable: false,
         selectable: false,
-        data: {
-          cycle,
-          depth: box.depth,
-          round: entered ? `round ${round} of ${cycle.maxRounds}` : 'not reached'
-        }
+        data: { cycle, depth: box.depth, round: roundOf(cycle), variant: decor.areas, tone }
       }
     ]
   })
@@ -160,6 +162,7 @@ export function WorkflowRunView({ run, onBack }: { run: HostedWorkflowRun; onBac
         >
           <Background gap={20} size={1} />
           <Controls showInteractive={false} />
+          <LoopViewPanel cycles={cycles} rounds={roundOf} />
         </ReactFlow>
       </div>
       <RunPanel run={run} focusNode={focusNode} onBack={onBack} />

@@ -3,12 +3,16 @@ import type { Node, NodeProps } from '@xyflow/react'
 import { RefreshCw } from 'lucide-react'
 import type { WorkflowCycle, WorkflowNode, WorkflowPhase } from '@acp-harness/protocol'
 import { cn } from '@/lib/utils'
+import { LOOP_TINTS } from './workflow-loop-view'
 
 // Cycles (PDCA loops) drawn as frames around their steps (boxes from workflow-canvas-layout), so
 // nesting reads at a glance: the dev ⇄ review cycle inside the Lead's cycle. The graph makes them:
 // each edge back to an earlier step frames the steps it repeats.
 
-export type CycleCanvasNode = Node<{ cycle: WorkflowCycle; depth: number; round: string | null }, 'cycle'>
+export type CycleCanvasNode = Node<
+  { cycle: WorkflowCycle; depth: number; round: string | null; variant: 'frames' | 'tint'; tone: number },
+  'cycle'
+>
 
 /** The phase a step plays when none is set: Start plans, work does, reviews and checks check. */
 export function phaseOf(node: WorkflowNode): WorkflowPhase | null {
@@ -39,6 +43,16 @@ export const PHASE_CLASSES: Record<WorkflowPhase, string> = {
 
 function CycleFrame({ data, selected, width, height }: NodeProps<CycleCanvasNode>) {
   const { cycle, round } = data
+  if (data.variant === 'tint') {
+    return (
+      <div
+        data-workflow-cycle={cycle.id}
+        title={cycle.label}
+        style={{ width, height }}
+        className={cn('rounded-xl', LOOP_TINTS[data.tone % LOOP_TINTS.length], selected && 'ring-2 ring-ring')}
+      />
+    )
+  }
   return (
     <div
       data-workflow-cycle={cycle.id}
