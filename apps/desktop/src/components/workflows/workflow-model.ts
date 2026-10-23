@@ -1,4 +1,5 @@
 import {
+  cycleEntry,
   workflowOutcomes,
   type BuiltinWorkflowOutcome,
   type Workflow,
@@ -139,6 +140,101 @@ export function reviewLoopTemplate(projectId: string): Workflow {
   }
 }
 
+/**
+ * Nested PDCA: the Lead plans and finally checks the result against the person's intent (its own
+ * cycle); inside, the developer and reviewer loop until the change is approved.
+ */
+export function leadCycleTemplate(projectId: string): Workflow {
+  const outer = { id: crypto.randomUUID(), label: 'Lead: plan ⇄ check', maxRounds: 2 }
+  const inner = { id: crypto.randomUUID(), label: 'Develop ⇄ review', maxRounds: 3, parentId: outer.id }
+  const node = (
+    kind: WorkflowNodeKind,
+    label: string,
+    x: number,
+    y: number,
+    config: WorkflowNode['config'] = {},
+    extra: Partial<WorkflowNode> = {}
+  ): WorkflowNode => {
+    const base = newNode(kind, x, y)
+    return { ...base, label, config: { ...base.config, ...config }, ...extra }
+  }
+  const start = node('start', 'Task from the person', 0, 180)
+  const plan = node(
+    'agent',
+    'Lead plans',
+    280,
+    180,
+    {
+      runBy: 'lead',
+      role: 'Lead',
+      prompt:
+        'Turn the task into a plan the developer can follow: scope, files, acceptance criteria. On a later round, fold in what your check found. Hand the plan on in your summary.'
+    },
+    { cycleId: outer.id, phase: 'plan' }
+  )
+  const dev = node(
+    'agent',
+    'Developer',
+    600,
+    180,
+    { prompt: "Implement the Lead's plan in this worktree. Commit when done. Address every review finding you are given." },
+    { cycleId: inner.id }
+  )
+  const tests = node('check', 'Run tests', 880, 180, { command: '' }, { cycleId: inner.id })
+  const review = node(
+    'review',
+    'Reviewer',
+    1160,
+    180,
+    { prompt: "Review the change against the Lead's plan for correctness. Do not edit files.", tools: { readOnly: true } },
+    { cycleId: inner.id }
+  )
+  const check = node(
+    'review',
+    'Lead checks the result',
+    1480,
+    180,
+    {
+      runBy: 'lead',
+      role: 'Lead',
+      maxRounds: 2,
+      prompt:
+        "Check the result against the person's intent and your plan. Approve when it is what they asked for; choose changes to plan another round, saying what to change."
+    },
+    { cycleId: outer.id }
+  )
+  const ask = node('human', 'Ask the person', 1480, 400, { askLeadFirst: false, question: '' }, { cycleId: outer.id })
+  const done = node('end', 'Done', 1800, 180)
+  const edge = (from: WorkflowNode, to: WorkflowNode, outcome: WorkflowOutcome) => ({
+    id: crypto.randomUUID(),
+    from: from.id,
+    to: to.id,
+    outcome
+  })
+  return {
+    id: crypto.randomUUID(),
+    projectId,
+    name: 'Lead-led development',
+    description: 'Nested PDCA: the Lead plans and checks the result; inside, develop ⇄ review until approved.',
+    nodes: [start, plan, dev, tests, review, check, ask, done],
+    edges: [
+      edge(start, plan, 'next'),
+      edge(plan, dev, 'next'),
+      edge(dev, tests, 'next'),
+      edge(tests, review, 'pass'),
+      edge(tests, dev, 'fail'),
+      edge(review, check, 'approve'),
+      edge(review, dev, 'changes'),
+      edge(check, done, 'approve'),
+      edge(check, plan, 'changes'),
+      edge(check, ask, 'ask'),
+      edge(ask, check, 'answered')
+    ],
+    cycles: [outer, inner],
+    updatedAt: Date.now()
+  }
+}
+
 export function blankWorkflow(projectId: string): Workflow {
   const start = { ...newNode('start', 0, 120), label: 'Lead hands off a task' }
   return { id: crypto.randomUUID(), projectId, name: 'New workflow', nodes: [start], edges: [], updatedAt: Date.now() }
@@ -213,14 +309,20 @@ export function validateWorkflow(workflow: Workflow): WorkflowIssue[] {
   // A loop must pass through a Review or Check, whose limit bounds it.
   const unbounded = unboundedCycle(workflow)
   if (unbounded) {
-    issues.push({ level: 'error', nodeId: unbounded, message: 'A loop must go through a Review or Check step, which limits its rounds.' })
+    issues.push({
+      level: 'error',
+      nodeId: unbounded,
+      message: 'A loop must go through a Review or Check step, or start a cycle with a round limit.'
+    })
   }
   return issues
 }
 
 /** A step on a cycle that never passes a step with a round limit, or null. */
 function unboundedCycle(workflow: Workflow): string | null {
-  const reviews = new Set(workflow.nodes.filter((n) => n.kind === 'review' || n.kind === 'check').map((n) => n.id))
+  // A cycle's round limit bounds the loops through its first step too.
+  const cycleEntries = (workflow.cycles ?? []).filter((c) => c.maxRounds).flatMap((c) => cycleEntry(workflow, c.id)?.id ?? [])
+  const reviews = new Set([...workflow.nodes.filter((n) => n.kind === 'review' || n.kind === 'check').map((n) => n.id), ...cycleEntries])
   const next = new Map<string, string[]>()
   for (const edge of workflow.edges) {
     if (reviews.has(edge.from) || reviews.has(edge.to)) continue

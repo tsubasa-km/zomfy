@@ -1,9 +1,10 @@
-import type React from 'react'
-import { Trash2 } from 'lucide-react'
+import { useState, type ReactNode } from 'react'
+import { RefreshCw, Trash2, Ungroup } from 'lucide-react'
 import {
   workflowOutcomes,
   type Workflow,
   type WorkflowEdge,
+  type WorkflowCycle,
   type WorkflowNode,
   type WorkflowNodeConfig,
   type WorkflowOutcome,
@@ -22,7 +23,7 @@ import type { HostId } from '@/session-store'
 
 // The side panel: the selected step's or edge's settings, else the workflow's own name and its issues.
 
-function Field({ label, hint, children }: { label: string; hint?: string; children: React.ReactNode }) {
+function Field({ label, hint, children }: { label: string; hint?: string; children: ReactNode }) {
   return (
     <div className="space-y-1.5">
       <Label className="text-xs">{label}</Label>
@@ -114,11 +115,32 @@ function ParallelFields({
   )
 }
 
+function MakeCyclePanel({ count, onMake }: { count: number; onMake: (label: string) => void }) {
+  const [label, setLabel] = useState('Cycle')
+  return (
+    <div className="space-y-4" data-workflow-inspector="multi">
+      <p className="text-xs text-muted-foreground">{count} steps selected.</p>
+      <Field label="Cycle name" hint="Draws a Plan-Do-Check-Act loop around them; cycles they are in stay around it.">
+        <Input value={label} onChange={(e) => setLabel(e.target.value)} className="h-8" />
+      </Field>
+      <Button size="sm" onClick={() => onMake(label.trim() || 'Cycle')}>
+        <RefreshCw className="size-3.5" />
+        Make a cycle
+      </Button>
+    </div>
+  )
+}
+
 export function WorkflowInspector({
   hostId,
   workflow,
   node,
   edge,
+  cycle,
+  multi,
+  onCycle,
+  onUngroup,
+  onMakeCycle,
   issues,
   onWorkflow,
   onNode,
@@ -130,6 +152,12 @@ export function WorkflowInspector({
   workflow: Workflow
   node: WorkflowNode | null
   edge: WorkflowEdge | null
+  cycle: WorkflowCycle | null
+  /** Steps selected together (Shift+click or drag a box), which can become a cycle. */
+  multi: number
+  onCycle: (id: string, patch: Partial<Pick<WorkflowCycle, 'label' | 'maxRounds'>>) => void
+  onUngroup: (id: string) => void
+  onMakeCycle: (label: string) => void
   issues: WorkflowIssue[]
   onWorkflow: (patch: Partial<Pick<Workflow, 'name' | 'description'>>) => void
   onNode: (id: string, patch: Partial<Omit<WorkflowNode, 'config'>> & { config?: Partial<WorkflowNodeConfig> }) => void
@@ -137,14 +165,80 @@ export function WorkflowInspector({
   onDelete: () => void
   onSelectIssue: (issue: WorkflowIssue) => void
 }) {
+  if (cycle) {
+    return (
+      <div className="space-y-4" data-workflow-inspector="cycle">
+        <Field label="Cycle name" hint="A Plan-Do-Check-Act loop around its steps; cycles can sit inside cycles.">
+          <Input value={cycle.label} onChange={(e) => onCycle(cycle.id, { label: e.target.value })} className="h-8" />
+        </Field>
+        <Field label="Round limit" hint="Coming back to the cycle's first step from inside it starts a round; past the limit the run asks you.">
+          <Input
+            type="number"
+            min={1}
+            max={20}
+            value={cycle.maxRounds ?? ''}
+            onChange={(e) => onCycle(cycle.id, { maxRounds: e.target.value === '' ? undefined : Math.max(1, Number(e.target.value)) })}
+            className="h-8 w-24"
+          />
+        </Field>
+        <Button variant="outline" size="sm" onClick={() => onUngroup(cycle.id)}>
+          <Ungroup className="size-3.5" />
+          Ungroup
+        </Button>
+      </div>
+    )
+  }
+
+  if (multi > 1) {
+    return <MakeCyclePanel count={multi} onMake={onMakeCycle} />
+  }
+
   if (node) {
     const c = node.config
     const set = (config: Partial<WorkflowNodeConfig>) => onNode(node.id, { config })
+    const cycles = workflow.cycles ?? []
     return (
       <div className="space-y-4" data-workflow-inspector="node">
         <Field label="Step name">
           <Input value={node.label} onChange={(e) => onNode(node.id, { label: e.target.value })} className="h-8" />
         </Field>
+        {(node.kind === 'agent' || node.kind === 'review' || (node.kind === 'custom' && c.runner !== 'command')) && (
+          <Field label="Run by" hint="The Lead plans or checks in its own chat, with what it knows of the project.">
+            <Choice
+              label="Run by"
+              value={c.runBy ?? 'session'}
+              onChange={(runBy) => set({ runBy: runBy === 'lead' ? 'lead' : undefined })}
+              options={[
+                { value: 'session', label: 'A session for this step' },
+                { value: 'lead', label: "The project's Lead" }
+              ]}
+            />
+          </Field>
+        )}
+        <div className="grid grid-cols-2 gap-2">
+          <Field label="Cycle">
+            <Choice
+              label="Cycle"
+              value={node.cycleId ?? 'none'}
+              onChange={(id) => onNode(node.id, { cycleId: id === 'none' ? undefined : id })}
+              options={[{ value: 'none', label: 'None' }, ...cycles.map((cy) => ({ value: cy.id, label: cy.label || 'Cycle' }))]}
+            />
+          </Field>
+          <Field label="Phase">
+            <Choice
+              label="Phase"
+              value={node.phase ?? 'auto'}
+              onChange={(phase) => onNode(node.id, { phase: phase === 'auto' ? undefined : phase })}
+              options={[
+                { value: 'auto', label: 'Auto' },
+                { value: 'plan', label: 'P · Plan' },
+                { value: 'do', label: 'D · Do' },
+                { value: 'check', label: 'C · Check' },
+                { value: 'act', label: 'A · Act' }
+              ]}
+            />
+          </Field>
+        </div>
         {node.kind === 'custom' && (
           <Field label="Done by">
             <Choice

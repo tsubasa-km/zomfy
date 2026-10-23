@@ -1,4 +1,6 @@
 import {
+  cycleEntry,
+  cyclesOf,
   WORKFLOW_META,
   WORKFLOW_NOTIFICATIONS,
   workflowOutcomes,
@@ -141,6 +143,7 @@ export class WorkflowEngine {
     const node = this.node(run, run.currentNodeId);
     const reason = run.waiting.reason;
     const question = run.waiting.question;
+    const limitKey = run.waiting.limitKey;
     run.waiting = null;
     if (reason === "limit" && /^\s*stop\s*$/i.test(text)) return this.finish(run, "stopped");
 
@@ -151,7 +154,7 @@ export class WorkflowEngine {
       if (!edge) return this.finish(run, "failed", `"${node.label}" has no "Answered" edge`);
       run.currentNodeId = edge.to;
     } else if (reason === "limit") {
-      run.rounds[node.id] = 0;
+      run.rounds[limitKey ?? node.id] = 0;
     }
     // "ask": the step that asked runs again, with the answer as its handoff.
     run.status = "running";
@@ -241,10 +244,31 @@ export class WorkflowEngine {
               run,
               `"${node.label}" reached its limit of ${limit} round${limit > 1 ? "s" : ""}. Answer to go on (your note goes along), or "stop".`,
               "limit",
+              node.id,
             );
             return;
           }
         }
+        // Coming back to a cycle's first step from inside it starts the cycle's next round.
+        const target = this.node(run, edge.to);
+        let stopped = false;
+        for (const cycle of cyclesOf(run.workflow, target)) {
+          if (!cycle.maxRounds || cycleEntry(run.workflow, cycle.id)?.id !== target.id) continue;
+          if (!cyclesOf(run.workflow, node).some((c) => c.id === cycle.id)) continue;
+          const key = `cycle:${cycle.id}`;
+          run.rounds[key] = (run.rounds[key] ?? 0) + 1;
+          if (run.rounds[key]! >= cycle.maxRounds) {
+            await this.wait(
+              run,
+              `The cycle "${cycle.label}" used all ${cycle.maxRounds} rounds. Answer to run another (your note goes along), or "stop".`,
+              "limit",
+              key,
+            );
+            stopped = true;
+            break;
+          }
+        }
+        if (stopped) return;
         await this.save(run);
       }
     } catch (error) {
@@ -259,6 +283,36 @@ export class WorkflowEngine {
     if (node.kind === "check" || (node.kind === "custom" && node.config.runner === "command")) {
       return this.runCommand(run, node);
     }
+    const outcomes = workflowOutcomes(node);
+    const prompt = this.prompt(run, node, outcomes);
+    const step = stepOptions(node.config.tools, outcomes);
+    const turn = async (sessionId: string, index: number): Promise<{ outcome: WorkflowOutcome; summary: string; index: number }> => {
+      live.sessions.add(sessionId);
+      try {
+        const result = await this.deps.runStepTurn(sessionId, prompt, step);
+        if (live.stopped) throw new RunStopped();
+        // Another message in that chat (the person writing to the Lead mid-step) cuts the turn short.
+        if (result.stopReason === "cancelled") throw new Error("The step's turn was cut short by another message in its chat");
+        const parsed = parseVerdict(result.structured, outcomes);
+        return { ...(parsed ?? { outcome: fallbackOutcome(outcomes), summary: result.text }), index };
+      } finally {
+        live.sessions.delete(sessionId);
+      }
+    };
+
+    if (node.config.runBy === "lead") {
+      // The Lead plans or checks in its own chat, after any turn it is already in.
+      const lead = await this.leadOf(run);
+      if (!lead) throw new Error(`"${node.label}" is run by the Lead, but the project has no Lead chat`);
+      while (this.deps.pendingTurns.has(lead) && !live.stopped) await Bun.sleep(2000);
+      if (live.stopped) throw new RunStopped();
+      // The Lead works from its own checkout; the run's worktree is where the change is.
+      const runPath = this.deps.workspaces.workspacePath(run.workspaceId);
+      if (runPath) step.additionalDirectories = [runPath];
+      const result = await turn(lead, 0);
+      return { outcome: result.outcome, summary: result.summary, sessionIds: [lead] };
+    }
+
     const count = Math.max(1, Math.min(8, node.config.parallel?.count ?? 1));
     const join = node.config.parallel?.join ?? "all";
     const workspaces = await this.stepWorkspaces(run, node, count);
@@ -278,22 +332,6 @@ export class WorkflowEngine {
     });
     if (keep) run.sessionsByNode[node.id] = sessionIds;
     await this.save(run);
-
-    const outcomes = workflowOutcomes(node);
-    const prompt = this.prompt(run, node, outcomes);
-    const step = stepOptions(node.config.tools, outcomes);
-    const turn = async (sessionId: string, index: number): Promise<{ outcome: WorkflowOutcome; summary: string; index: number }> => {
-      live.sessions.add(sessionId);
-      try {
-        const result = await this.deps.runStepTurn(sessionId, prompt, step);
-        if (live.stopped || result.stopReason === "cancelled") throw new RunStopped();
-        const parsed = parseVerdict(result.structured, outcomes);
-        return { ...(parsed ?? { outcome: fallbackOutcome(outcomes), summary: result.text }), index };
-      } finally {
-        live.sessions.delete(sessionId);
-      }
-    };
-
     if (count > 1 && join === "first") {
       const winner = await Promise.any(sessionIds.map((id, i) => turn(id, i)));
       for (const [i, id] of sessionIds.entries()) if (i !== winner.index) this.deps.pendingTurns.get(id)?.abort();
@@ -478,9 +516,9 @@ export class WorkflowEngine {
     return this.deps.sessions.all().find((s) => s.role === "lead" && s.workspaceId !== null && ids.has(s.workspaceId))?.id ?? null;
   }
 
-  private async wait(run: WorkflowRun, question: string, reason: "human" | "ask" | "limit"): Promise<void> {
+  private async wait(run: WorkflowRun, question: string, reason: "human" | "ask" | "limit", limitKey?: string): Promise<void> {
     run.status = "waiting";
-    run.waiting = { question, reason };
+    run.waiting = { question, reason, ...(limitKey ? { limitKey } : {}) };
     await this.save(run);
     this.tellLead(run, `Workflow "${run.workflow.name}" (run ${run.id}) is waiting for the person: ${question}`);
   }

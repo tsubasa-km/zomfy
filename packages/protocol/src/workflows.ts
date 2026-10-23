@@ -85,6 +85,24 @@ export interface WorkflowNodeConfig {
   tools?: WorkflowToolPolicy
   /** Human steps: the project's Lead answers first and passes on only what is the person's call. */
   askLeadFirst?: boolean
+  /** Agent, review and custom agent steps: a new session, or the project's Lead chat itself (planning, final checks). */
+  runBy?: 'session' | 'lead'
+}
+
+/** The step's part in its cycle's Plan-Do-Check-Act; absent means the kind's usual one. */
+export type WorkflowPhase = 'plan' | 'do' | 'check' | 'act'
+
+/**
+ * A cycle drawn around steps (a PDCA loop): cycles nest, so a dev ⇄ review cycle sits inside the
+ * Lead's plan ⇄ check cycle. Coming back to a cycle's first step from inside it starts a new round.
+ */
+export interface WorkflowCycle {
+  id: string
+  label: string
+  /** The cycle it sits in. */
+  parentId?: string
+  /** Rounds before the run stops and asks the person. */
+  maxRounds?: number
 }
 
 export interface WorkflowNode {
@@ -95,6 +113,9 @@ export interface WorkflowNode {
   x: number
   y: number
   config: WorkflowNodeConfig
+  /** The innermost cycle the step is in. */
+  cycleId?: string
+  phase?: WorkflowPhase
 }
 
 export interface WorkflowEdge {
@@ -112,7 +133,31 @@ export interface Workflow {
   description?: string
   nodes: WorkflowNode[]
   edges: WorkflowEdge[]
+  /** Absent in workflows saved before cycles. */
+  cycles?: WorkflowCycle[]
   updatedAt: number
+}
+
+/** The cycles a step sits in, innermost first. */
+export function cyclesOf(workflow: Pick<Workflow, 'cycles'>, node: Pick<WorkflowNode, 'cycleId'>): WorkflowCycle[] {
+  const byId = new Map((workflow.cycles ?? []).map((c) => [c.id, c]))
+  const chain: WorkflowCycle[] = []
+  for (let c = node.cycleId ? byId.get(node.cycleId) : undefined; c && !chain.includes(c); c = c.parentId ? byId.get(c.parentId) : undefined) {
+    chain.push(c)
+  }
+  return chain
+}
+
+/** A cycle's first step: the one its loop comes back to, entered from outside the cycle. */
+export function cycleEntry(workflow: Pick<Workflow, 'nodes' | 'edges' | 'cycles'>, cycleId: string): WorkflowNode | null {
+  const inside = (id: string) => {
+    const node = workflow.nodes.find((n) => n.id === id)
+    return !!node && cyclesOf(workflow, node).some((c) => c.id === cycleId)
+  }
+  const entries = workflow.nodes.filter(
+    (n) => inside(n.id) && workflow.edges.some((e) => e.to === n.id && !inside(e.from))
+  )
+  return entries.sort((a, b) => a.x - b.x)[0] ?? null
 }
 
 const BUILTIN_OUTCOMES: Record<Exclude<WorkflowNodeKind, 'custom'>, BuiltinWorkflowOutcome[]> = {
@@ -168,7 +213,7 @@ export interface WorkflowRun {
   sessionsByNode: Record<string, string[]>
   steps: WorkflowRunStep[]
   /** Set while the run waits for the person: what they are asked. */
-  waiting?: { question: string; reason: 'human' | 'ask' | 'limit' } | null
+  waiting?: { question: string; reason: 'human' | 'ask' | 'limit'; /** The round count a limit stop resets. */ limitKey?: string } | null
   createdAt: number
   endedAt: number | null
 }

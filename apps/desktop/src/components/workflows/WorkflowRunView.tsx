@@ -2,7 +2,7 @@ import { useEffect, useRef, useState, useSyncExternalStore } from 'react'
 import { Background, Controls, ReactFlow, useReactFlow, type NodeChange } from '@xyflow/react'
 import { ArrowLeft, CircleStop, MessageSquare, Send } from 'lucide-react'
 import { toast } from 'sonner'
-import { HARNESS_METHODS, type WorkflowRun, type WorkflowRunStep } from '@acp-harness/protocol'
+import { HARNESS_METHODS, cyclesOf, type WorkflowRun, type WorkflowRunStep } from '@acp-harness/protocol'
 import { harnessRequest } from '@/daemon-connection'
 import { selectSession } from '@/session-store'
 import { openWorkflows } from '@/stores/workflows-store'
@@ -12,6 +12,7 @@ import { Textarea } from '@/components/ui/textarea'
 import { cn } from '@/lib/utils'
 import { WORKFLOW_NODE_TYPES, type StepRunState, type WorkflowCanvasNode } from './workflow-nodes'
 import { canvasEdges } from './workflow-canvas-edges'
+import { cycleBoxes, type CycleCanvasNode } from './workflow-cycles'
 import { outcomeLabel } from './workflow-model'
 
 // A run of a workflow: the graph as it was when the run started, with where the run is now, how
@@ -103,10 +104,36 @@ export function WorkflowRunView({ run, onBack }: { run: HostedWorkflowRun; onBac
     ...(sizes[node.id] ? { measured: sizes[node.id] } : {})
   }))
   const edges = canvasEdges(run.workflow, null, takenEdges(run))
+  const boxes = cycleBoxes(run.workflow, sizes)
+  const visited = new Set(run.steps.map((s) => s.nodeId))
+  const cycleNodes: CycleCanvasNode[] = (run.workflow.cycles ?? []).flatMap((cycle) => {
+    const box = boxes.get(cycle.id)
+    if (!box) return []
+    const entered = run.workflow.nodes.some((n) => visited.has(n.id) && cyclesOf(run.workflow, n).some((c) => c.id === cycle.id))
+    const round = (run.rounds[`cycle:${cycle.id}`] ?? 0) + 1
+    return [
+      {
+        id: `cycle:${cycle.id}`,
+        type: 'cycle' as const,
+        position: { x: box.x, y: box.y },
+        width: box.width,
+        height: box.height,
+        zIndex: -100 + box.depth,
+        draggable: false,
+        selectable: false,
+        data: {
+          cycle,
+          depth: box.depth,
+          round: entered ? `round ${round}${cycle.maxRounds ? ` of ${cycle.maxRounds}` : ''}` : 'not reached'
+        }
+      }
+    ]
+  })
 
-  const onNodesChange = (changes: NodeChange<WorkflowCanvasNode>[]) => {
+  const onNodesChange = (changes: NodeChange<WorkflowCanvasNode | CycleCanvasNode>[]) => {
     const now: Record<string, { width: number; height: number }> = {}
     for (const change of changes) {
+      if ('id' in change && change.id.startsWith('cycle:')) continue
       if (change.type === 'dimensions' && change.dimensions) now[change.id] = change.dimensions
       else if (change.type === 'select') setFocusNode(change.selected ? change.id : null)
     }
@@ -117,7 +144,7 @@ export function WorkflowRunView({ run, onBack }: { run: HostedWorkflowRun; onBac
     <div className="flex min-h-0 flex-1">
       <div className="relative min-w-0 flex-1" data-workflow-run-canvas>
         <ReactFlow
-          nodes={nodes}
+          nodes={[...cycleNodes, ...nodes]}
           edges={edges}
           nodeTypes={WORKFLOW_NODE_TYPES}
           onNodesChange={onNodesChange}

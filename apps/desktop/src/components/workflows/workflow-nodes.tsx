@@ -3,6 +3,7 @@ import { Handle, Position, type Node, type NodeProps } from '@xyflow/react'
 import { Bot, CircleCheckBig, Flag, Play, Puzzle, ShieldCheck, SquareTerminal, UserRound, type LucideIcon } from 'lucide-react'
 import type { WorkflowNode, WorkflowNodeKind } from '@acp-harness/protocol'
 import { cn } from '@/lib/utils'
+import { CycleNode, PHASE_CLASSES, PHASE_LETTERS, phaseOf } from './workflow-cycles'
 
 // One card per step: its kind's icon and colour, the label, and the line that matters for that kind
 // (the role, the command, the round limit). Inputs enter on the left, outcomes leave on the right.
@@ -49,9 +50,11 @@ function detail(node: WorkflowNode): string {
   const c = node.config
   switch (node.kind) {
     case 'agent':
-      return [c.role, c.workspace === 'run-worktree' ? 'own worktree' : 'main workspace'].filter(Boolean).join(' · ')
+      return c.runBy === 'lead'
+        ? 'The Lead'
+        : [c.role, c.workspace === 'run-worktree' ? 'own worktree' : 'main workspace'].filter(Boolean).join(' · ')
     case 'review':
-      return `${c.role ?? 'Reviewer'} · up to ${c.maxRounds ?? '?'} rounds`
+      return `${c.runBy === 'lead' ? 'The Lead' : (c.role ?? 'Reviewer')} · up to ${c.maxRounds ?? '?'} rounds`
     case 'check':
       return `${c.command?.trim() ? c.command : 'No command yet'} · up to ${c.maxRounds ?? '?'} tries`
     case 'human':
@@ -72,6 +75,7 @@ function StepNode({ data, selected, type }: NodeProps<WorkflowCanvasNode>) {
   const Icon = ICONS[type]
   const { node, issue, run } = data
   const parallel = node.config.parallel && node.config.parallel.count > 1 ? node.config.parallel : null
+  const phase = phaseOf(node)
   return (
     <div className="relative" data-workflow-node={node.kind}>
       {/* The stack behind a parallel step, one sheet per extra session (up to two drawn). */}
@@ -105,6 +109,15 @@ function StepNode({ data, selected, type }: NodeProps<WorkflowCanvasNode>) {
           <Handle id="back-out" type="source" position={Position.Bottom} className="!size-1.5 !border-0 !bg-transparent" isConnectable={false} />
         )}
         <div className="flex items-center gap-2">
+          {phase && (
+            <span
+              className={cn('flex size-4 shrink-0 items-center justify-center rounded text-[10px] font-bold', PHASE_CLASSES[phase])}
+              title={`${phase[0]!.toUpperCase()}${phase.slice(1)} in its cycle`}
+              data-workflow-phase={phase}
+            >
+              {PHASE_LETTERS[phase]}
+            </span>
+          )}
           <Icon className={cn('size-4 shrink-0', ACCENT[type])} />
           <div className="min-w-0 flex-1 truncate text-[13px] font-medium">{node.label}</div>
           {parallel && (
@@ -146,6 +159,7 @@ function StepNode({ data, selected, type }: NodeProps<WorkflowCanvasNode>) {
 const Step = memo(StepNode)
 
 export const WORKFLOW_NODE_TYPES = {
+  cycle: CycleNode,
   start: Step,
   agent: Step,
   review: Step,

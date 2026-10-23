@@ -72,6 +72,8 @@ export interface StepOptions {
   allowedTools?: string[];
   disallowedTools?: string[];
   outputFormat?: Options["outputFormat"];
+  /** Folders outside the session's own it may read without asking (the run's worktree, for the Lead). */
+  additionalDirectories?: string[];
 }
 
 // The CLI sends its prompt suggestion after the result; past this the process is let go without one.
@@ -134,7 +136,7 @@ export async function runClaudeTurn(input: TurnInput): Promise<acp.StopReason> {
     options: {
       cwd: state.cwd,
       // Snapshots messages point at (terminal screens, other chats); reading them needs no approval.
-      additionalDirectories: [CHAT_ATTACHMENT_DIR],
+      additionalDirectories: [CHAT_ATTACHMENT_DIR, ...(input.step?.additionalDirectories ?? [])],
       resume: state.claudeSessionId ?? undefined,
       pathToClaudeCodeExecutable: await resolveClaudeExecutable(),
       settingSources: ["user", "project", "local"],
