@@ -43,6 +43,9 @@ import { SnapGuides } from './workflow-snap-guides'
 import { LoopViewPanel, loopDecor, useLoopView } from './workflow-loop-view'
 import { canvasLayout } from './workflow-canvas-layout'
 import { WORKFLOW_TEMPLATES } from './workflow-samples'
+import { EditHistory } from './workflow-edit-history'
+import { copySteps, pasteSnippet, pasteSteps, snippetOf } from './workflow-clipboard'
+import { isMac } from '@/lib/terminal-shortcuts'
 import { WORKFLOW_EDGE_TYPES } from './workflow-route-edge'
 import { WorkflowInspector } from './WorkflowInspector'
 import { WorkflowConnectMenu, type PendingConnection } from './WorkflowConnectMenu'
@@ -68,6 +71,11 @@ function subscribeDark(listener: () => void): () => void {
   return () => observer.disconnect()
 }
 
+/** A key press meant for a text field, which keeps its own undo and clipboard. */
+function typingIn(target: EventTarget | null): boolean {
+  return target instanceof HTMLElement && (target.isContentEditable || ['INPUT', 'TEXTAREA', 'SELECT'].includes(target.tagName))
+}
+
 const useDark = () => useSyncExternalStore(subscribeDark, () => document.documentElement.classList.contains('dark'))
 
 export function WorkflowsPage({ target }: { target: WorkflowsPageTarget }) {
@@ -76,6 +84,7 @@ export function WorkflowsPage({ target }: { target: WorkflowsPageTarget }) {
   const [dirty, setDirty] = useState(false)
   const [busy, setBusy] = useState(false)
   const [viewRunId, setViewRunId] = useState<string | null>(target.runId ?? null)
+  const history = useRef(new EditHistory())
   const runs = useWorkflowRuns(target.hostId, target.projectId)
   const viewRun = useWorkflowRun(viewRunId)
 
@@ -91,6 +100,7 @@ export function WorkflowsPage({ target }: { target: WorkflowsPageTarget }) {
       .then((list) => {
         if (!live) return
         setSaved(list)
+        history.current.reset()
         // A project without workflows starts from the review loop, unsaved, as a starting point.
         setDraft(list[0] ?? reviewLoopTemplate(target.projectId))
         setDirty(list.length === 0)
@@ -109,12 +119,14 @@ export function WorkflowsPage({ target }: { target: WorkflowsPageTarget }) {
 
   const pick = (workflow: Workflow) => {
     if (workflow.id === draft?.id || !confirmDiscard()) return
+    history.current.reset()
     setDraft(workflow)
     setDirty(false)
   }
 
   const startNew = (make: (projectId: string) => Workflow) => {
     if (!confirmDiscard()) return
+    history.current.reset()
     setDraft(make(target.projectId))
     setDirty(true)
   }
@@ -142,6 +154,7 @@ export function WorkflowsPage({ target }: { target: WorkflowsPageTarget }) {
       ? await harnessRequest(HARNESS_METHODS.workflowRemove, { projectId: target.projectId, workflowId: draft.id }, target.hostId)
       : (saved ?? [])
     setSaved(list)
+    history.current.reset()
     setDraft(list[0] ?? blankWorkflow(target.projectId))
     setDirty(list.length === 0)
   }
@@ -249,7 +262,14 @@ export function WorkflowsPage({ target }: { target: WorkflowsPageTarget }) {
             workflow={draft}
             issues={issues}
             onChange={(next) => {
+              history.current.record(draft)
               setDraft(next)
+              setDirty(true)
+            }}
+            onHistory={(step) => {
+              const restored = step === 'undo' ? history.current.undo(draft) : history.current.redo(draft)
+              if (!restored) return
+              setDraft(restored)
               setDirty(true)
             }}
           />
@@ -269,12 +289,14 @@ function WorkflowCanvas({
   hostId,
   workflow,
   issues,
-  onChange
+  onChange,
+  onHistory
 }: {
   hostId: HostId
   workflow: Workflow
   issues: WorkflowIssue[]
   onChange: (workflow: Workflow) => void
+  onHistory: (step: 'undo' | 'redo') => void
 }) {
   const dark = useDark()
   const flow = useReactFlow()
@@ -354,6 +376,39 @@ function WorkflowCanvas({
     const keptIds = new Set(kept.map((n) => n.id))
     onChange({ ...workflow, nodes: kept, edges: workflow.edges.filter((e) => keptIds.has(e.from) && keptIds.has(e.to)) })
   }
+
+  // Undo, redo, copy, cut, paste, duplicate and select all, unless a text field has the keys.
+  const shortcut = useRef<(e: KeyboardEvent) => void>(() => undefined)
+  shortcut.current = (e) => {
+    if (!(isMac ? e.metaKey : e.ctrlKey) || e.altKey || typingIn(e.target) || document.querySelector('[role="dialog"]')) return
+    const key = e.key.toLowerCase()
+    const paste = (result: { workflow: Workflow; ids: string[] } | null) => {
+      if (!result) return
+      onChange(result.workflow)
+      setSelection({ nodes: result.ids })
+    }
+    if (key === 'z' || key === 'y') onHistory(key === 'y' || e.shiftKey ? 'redo' : 'undo')
+    else if (key === 'c' || key === 'x') {
+      const snippet = snippetOf(workflow, pickedNodes)
+      if (!snippet) return
+      copySteps(snippet)
+      if (key === 'x') {
+        removeNodes(new Set(snippet.nodes.map((n) => n.id)))
+        setSelection(null)
+      }
+    } else if (key === 'v') paste(pasteSteps(workflow))
+    else if (key === 'd') {
+      const snippet = snippetOf(workflow, pickedNodes)
+      paste(snippet && pasteSnippet(workflow, snippet, 40))
+    } else if (key === 'a') setSelection({ nodes: workflow.nodes.map((n) => n.id) })
+    else return
+    e.preventDefault()
+  }
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => shortcut.current(e)
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [])
 
   const onNodesChange = (changes: NodeChange<WorkflowCanvasNode | CycleCanvasNode>[]) => {
     let next = workflow
