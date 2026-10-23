@@ -3,6 +3,8 @@
 // step, so loops such as develop → review → back to develop are the graph's, not a model's choice.
 // Saved per project on the host whose daemon owns the project.
 
+import type { ChatAgentId } from './chat-agents'
+
 export type WorkflowNodeKind = 'start' | 'agent' | 'review' | 'check' | 'human' | 'end' | 'custom'
 
 export type BuiltinWorkflowOutcome = 'next' | 'approve' | 'changes' | 'pass' | 'fail' | 'answered' | 'ask'
@@ -90,6 +92,8 @@ export interface WorkflowNodeConfig {
   askLeadFirst?: boolean
   /** Agent, review and custom agent steps: a new session, or the project's Lead chat itself (planning, final checks). */
   runBy?: 'session' | 'lead'
+  /** Agent, review and custom agent steps run by a session: which agent runs it; absent means Claude. */
+  agent?: ChatAgentId
   /**
    * Agent, review and custom agent steps: the step's agent may split its work and run up to this many
    * helper agents at once (spawn_agents). Absent: it spawns none.

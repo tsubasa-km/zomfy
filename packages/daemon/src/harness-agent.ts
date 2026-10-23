@@ -384,8 +384,13 @@ export function createHarnessAgent(
     async runStepTurn(sessionId, text, step) {
       let result: { text: string; structured: unknown } = { text: "", structured: undefined };
       stepTurns.set(sessionId, { step, onResult: (r) => (result = r) });
+      // Other agents have no result hook: their reply is what they said this turn.
+      const record = sessions.get(sessionId);
+      const external = !!record?.agent && record.agent !== "claude";
+      const before = external ? (await sessions.transcript(sessionId)).length : 0;
       try {
         const { stopReason } = await prompt({ sessionId, prompt: [{ type: "text", text }] }, askAnyClient, null);
+        if (external) result = { text: agentText((await sessions.transcript(sessionId)).slice(before)), structured: undefined };
         return { stopReason, ...result };
       } finally {
         stepTurns.delete(sessionId);
@@ -425,4 +430,11 @@ export function createHarnessAgent(
   }
 
   return app;
+}
+
+/** The agent's own words in a stretch of transcript, as one text. */
+function agentText(updates: acp.SessionUpdate[]): string {
+  return updates
+    .flatMap((u) => (u.sessionUpdate === "agent_message_chunk" && u.content.type === "text" ? [u.content.text] : []))
+    .join("");
 }

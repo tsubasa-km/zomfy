@@ -5,6 +5,7 @@ import {
   workflowOutcomes,
   type ManagerCallResult,
   type Workflow,
+  type ChatAgentId,
   type WorkflowCycle,
   type WorkflowNode,
   type WorkflowOutcome,
@@ -326,7 +327,7 @@ export class WorkflowEngine {
         if (live.stopped) throw new RunStopped();
         // Another message in that chat (the person writing to the Lead mid-step) cuts the turn short.
         if (result.stopReason === "cancelled") throw new Error("The step's turn was cut short by another message in its chat");
-        const parsed = parseVerdict(result.structured, outcomes);
+        const parsed = parseVerdict(result.structured, outcomes) ?? parseVerdict(verdictInText(result.text), outcomes);
         return { ...(parsed ?? { outcome: fallbackOutcome(outcomes), summary: result.text }), index };
       } finally {
         live.sessions.delete(sessionId);
@@ -353,11 +354,12 @@ export class WorkflowEngine {
     const kept = keep ? (run.sessionsByNode[node.id] ?? []) : [];
     const sessionIds = workspaces.map((ws, i) => {
       const existing = kept[i] && this.deps.sessions.get(kept[i]!);
-      if (existing && existing.workspaceId === ws.id) return existing.id;
+      if (existing && existing.workspaceId === ws.id && (existing.agent ?? "claude") === (stepAgent(node) ?? "claude")) return existing.id;
       const record = this.deps.sessions.create({
         workspaceId: ws.id,
         cwd: ws.path,
         title: `${node.label}${count > 1 ? ` ${i + 1}` : ""} · ${run.workflow.name}`,
+        ...(stepAgent(node) ? { agent: stepAgent(node) } : {}),
         // Agents edit their own worktree without asking each time; reviewers only read.
         options: { model: null, effort: null, permissionMode: node.kind === "review" ? "default" : "acceptEdits" },
       });
@@ -521,6 +523,7 @@ export class WorkflowEngine {
       workspaceId: workspace.id,
       cwd: workspace.path,
       title: `${node.label} · helper: ${part.title}`,
+      ...(stepAgent(node) ? { agent: stepAgent(node) } : {}),
       options: { model: null, effort: null, permissionMode: node.kind === "review" ? "default" : "acceptEdits" },
     });
     spawner.helpers.push(record.id);
@@ -584,10 +587,14 @@ export class WorkflowEngine {
         `Set "repeated" to true when a blocking finding you raise now is one of those and is still not fixed.`,
       );
     }
-    lines.push(
-      "",
-      `When you are done, give your result as the structured output: "outcome" is one of ${outcomes.map((o) => `"${o}"`).join(", ")}, and "summary" is what the next step needs (what you did or found, concretely).`,
-    );
+    const resultFields = `"outcome" is one of ${outcomes.map((o) => `"${o}"`).join(", ")}, and "summary" is what the next step needs (what you did or found, concretely)`;
+    if (stepAgent(node)) {
+      // Other agents have no structured output: the result is a JSON object closing their reply.
+      const extra = outcomes.includes("changes") ? ', optionally "followUps" (strings) and "repeated" (true/false)' : "";
+      lines.push("", `When you are done, end your reply with your result as one JSON object on its own lines: ${resultFields}${extra}.`);
+    } else {
+      lines.push("", `When you are done, give your result as the structured output: ${resultFields}.`);
+    }
     lines.push(
       "Need a decision or context mid-task? Call the harness tool ask_lead: the project's Lead answers (or passes it to the person), and you carry on with the answer.",
     );
@@ -807,6 +814,28 @@ function parseVerdict(value: unknown, outcomes: WorkflowOutcome[]): Verdict | nu
     ...(followUps.length > 0 ? { followUps } : {}),
     ...("repeated" in value && value.repeated === true ? { repeated: true } : {}),
   };
+}
+
+/** The agent a session step runs on when not Claude; the Lead's own steps are always its chat. */
+function stepAgent(node: WorkflowNode): ChatAgentId | undefined {
+  const agent = node.config.agent;
+  return node.config.runBy !== "lead" && agent && agent !== "claude" ? agent : undefined;
+}
+
+/** The last JSON object in an agent's reply that carries an "outcome", fenced or bare. */
+export function verdictInText(text: string): unknown {
+  const fenced = [...text.matchAll(/```(?:json)?\s*([\s\S]*?)```/g)].map((m) => m[1]!).reverse();
+  const end = text.lastIndexOf("}");
+  const bare = end < 0 ? [] : [...text.slice(0, end).matchAll(/\{/g)].map((m) => text.slice(m.index, end + 1)).reverse().slice(0, 40);
+  for (const candidate of [...fenced, ...bare]) {
+    try {
+      const value: unknown = JSON.parse(candidate.trim());
+      if (value && typeof value === "object" && "outcome" in value) return value;
+    } catch {
+      // Not this one.
+    }
+  }
+  return null;
 }
 
 /** Without a usable verdict a step goes the plain way on (or fails a review, which must decide). */

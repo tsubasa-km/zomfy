@@ -1,7 +1,7 @@
 import { memo } from 'react'
 import { Handle, Position, type Node, type NodeProps } from '@xyflow/react'
 import { Bot, CircleCheckBig, Flag, Play, Puzzle, ShieldCheck, SquareTerminal, RefreshCw, UserRound, Users, type LucideIcon } from 'lucide-react'
-import type { WorkflowNode, WorkflowNodeKind } from '@acp-harness/protocol'
+import { chatAgentLabel, type WorkflowNode, type WorkflowNodeKind } from '@acp-harness/protocol'
 import { cn } from '@/lib/utils'
 import { CycleNode, PHASE_CLASSES, PHASE_LETTERS, phaseOf } from './workflow-cycles'
 
@@ -48,6 +48,12 @@ const ACCENT: Record<WorkflowNodeKind, string> = {
 const JOIN_LABELS = { all: 'all', majority: 'majority', any: 'any one', first: 'first done' } as const
 
 function detail(node: WorkflowNode): string {
+  const c = node.config
+  const agent = c.runBy !== 'lead' && c.agent && c.agent !== 'claude' ? `${chatAgentLabel(c.agent)} · ` : ''
+  return agent + kindDetail(node)
+}
+
+function kindDetail(node: WorkflowNode): string {
   const c = node.config
   switch (node.kind) {
     case 'agent':

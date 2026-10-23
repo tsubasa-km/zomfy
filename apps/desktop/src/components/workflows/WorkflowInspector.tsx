@@ -20,6 +20,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { outcomeLabel, type WorkflowIssue } from './workflow-model'
 import { CustomStepEditor } from './WorkflowCustomStepEditor'
 import { WorkflowToolsEditor } from './WorkflowToolsEditor'
+import { WorkflowStepAgentField } from './WorkflowStepAgentField'
 import type { HostId } from '@/session-store'
 
 // The side panel: the selected step's or edge's settings, else the workflow's own name and its issues.
@@ -243,6 +244,9 @@ export function WorkflowInspector({
               ]}
             />
           </Field>
+        )}
+        {(node.kind === 'agent' || node.kind === 'review' || (node.kind === 'custom' && c.runner !== 'command')) && c.runBy !== 'lead' && (
+          <WorkflowStepAgentField hostId={hostId} agent={c.agent} onChange={(agent) => set({ agent })} />
         )}
         <Field label="Phase" hint="The step's part in its cycle's Plan-Do-Check-Act.">
           <Choice
