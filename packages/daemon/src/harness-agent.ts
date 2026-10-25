@@ -15,6 +15,7 @@ import {
   type ManagerToolName,
 } from "@acp-harness/protocol";
 import { runClaudeTurn, type StepOptions } from "./claude-turn.ts";
+import { hostPath } from "./tui-agent-detection.ts";
 import { TurnAutoResume } from "./turn-auto-resume.ts";
 import { recoveryPrompt } from "./turn-recovery.ts";
 import { detectUsageLimit } from "./usage-limit.ts";
@@ -387,6 +388,8 @@ export function createHarnessAgent(
       // Other agents have no result hook: their reply is what they said this turn.
       const record = sessions.get(sessionId);
       const external = !!record?.agent && record.agent !== "claude";
+      // The step's MCP servers (a browser, say) reach other agents too, as servers of their session.
+      if (external) acpAgents.setStepServers(sessionId, acpStdioServers(step.mcpServers, await hostPath()));
       const before = external ? (await sessions.transcript(sessionId)).length : 0;
       try {
         const { stopReason } = await prompt({ sessionId, prompt: [{ type: "text", text }] }, askAnyClient, null);
@@ -430,6 +433,20 @@ export function createHarnessAgent(
   }
 
   return app;
+}
+
+/**
+ * A step's stdio MCP servers in ACP's shape. On Windows anything but a program (npx is npx.cmd) only
+ * starts through cmd; `PATH` is the host's full one, which the daemon's own may lack.
+ */
+function acpStdioServers(servers: StepOptions["mcpServers"], PATH: string): acp.McpServer[] {
+  return Object.entries(servers ?? {}).flatMap(([name, server]): acp.McpServer[] => {
+    if (!("command" in server) || (server.type && server.type !== "stdio")) return [];
+    const args = server.args ?? [];
+    const env = Object.entries(server.env ?? {}).map(([key, value]) => ({ name: key, value }));
+    const program = process.platform === "win32" && /\.exe$/i.test(Bun.which(server.command, { PATH }) ?? server.command);
+    return [process.platform === "win32" && !program ? { name, command: "cmd.exe", args: ["/d", "/c", server.command, ...args], env } : { name, command: server.command, args, env }];
+  });
 }
 
 /** The agent's own words in a stretch of transcript, as one text. */

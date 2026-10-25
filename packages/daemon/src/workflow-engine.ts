@@ -666,8 +666,10 @@ export class WorkflowEngine {
     });
     if (!command.trim()) throw new Error("No command to run");
     const cwd = this.workspacePath(node.config.workspace === "main" ? await this.mainWorkspace(run.projectId) : run.workspaceId);
-    const argv = process.platform === "win32" ? ["cmd.exe", "/d", "/s", "/c", command] : ["bash", "-lc", command];
-    const proc = Bun.spawn(argv, { cwd, stdout: "pipe", stderr: "pipe", stdin: "ignore", windowsHide: true });
+    // cmd.exe reads its command line as typed: quoting it as an argument would mangle the command's own quotes.
+    const windows = process.platform === "win32";
+    const argv = windows ? ["cmd.exe", "/d", "/s", "/c", `"${command}"`] : ["bash", "-lc", command];
+    const proc = Bun.spawn(argv, { cwd, stdout: "pipe", stderr: "pipe", stdin: "ignore", windowsHide: true, windowsVerbatimArguments: windows });
     const timer = setTimeout(() => proc.kill(), CHECK_TIMEOUT_MS);
     const [stdout, stderr, code] = await Promise.all([
       new Response(proc.stdout).text(),

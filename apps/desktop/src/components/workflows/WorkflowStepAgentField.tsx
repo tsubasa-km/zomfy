@@ -41,7 +41,7 @@ export function WorkflowStepAgentField({
       <p className="text-[11px] text-muted-foreground">
         {current === 'claude'
           ? 'Other agents set up on this host (Settings › Agents) can run the step too.'
-          : 'The step ends its reply with a JSON verdict. Tools, skills and the browser below apply to Claude only.'}
+          : 'The step ends its reply with a JSON verdict. MCP servers and the browser below reach it too; tool rules, read-only and skills apply to Claude only.'}
       </p>
     </div>
   )

@@ -29,6 +29,8 @@ export interface AcpAgentSessionHooks {
   onAgentSessionId(id: string): void
   /** MCP servers to offer the agent's session (the manager tools), per what it supports. */
   mcpServers?(capabilities: acp.AgentCapabilities): acp.McpServer[]
+  /** Waited for once the session is open, before its first turn (slow MCP servers coming up). */
+  ready?(): Promise<void>
 }
 
 interface Running {
@@ -143,6 +145,7 @@ export class AcpAgentSession {
       })
       const capabilities = init.agentCapabilities ?? {}
       const { agentSessionId, setup } = await this.openSession(conn, capabilities)
+      await this.hooks.ready?.()
       const running: Running = { proc, conn, agentSessionId, capabilities }
       if (this.disposed) {
         this.running = running
