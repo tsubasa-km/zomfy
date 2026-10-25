@@ -10,6 +10,8 @@
     "core:window:allow-set-focus",
     "core:window:allow-set-title",
     "core:window:allow-close",
+    "core:window:allow-destroy",
+    "core:window:allow-hide",
     "dialog:allow-open",
     "notification:default",
     "opener:default"

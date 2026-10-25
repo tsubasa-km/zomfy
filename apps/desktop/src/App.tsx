@@ -38,6 +38,7 @@ import { TooltipProvider } from '@/components/ui/tooltip'
 import { installTheme } from '@/lib/theme'
 import { listenForDashboardPicks } from '@/lib/dashboard-window'
 import { installTraySync } from '@/lib/tray-sync'
+import { CloseGuardDialog, installCloseGuard } from '@/lib/close-guard'
 import { installUiZoom } from '@/lib/ui-zoom'
 import '@/assets/main.css'
 
@@ -50,6 +51,7 @@ installSkillsCommands()
 installChatCommands()
 installOnboardingCommands()
 installTraySync()
+installCloseGuard()
 
 export default function App() {
   const activeWorkspaceId = useStore((s) => s.activeWorkspaceId)
@@ -122,6 +124,7 @@ export default function App() {
       <FloatingWorkspace />
       <Toaster />
       <WorkflowStartConfirmDialog />
+      <CloseGuardDialog />
       <InboxPanel />
       <QuickOpen />
       <CommandPalette />

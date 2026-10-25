@@ -22,6 +22,10 @@ export async function loadWorkflowRuns(hostId: HostId, projectId: string): Promi
   })
 }
 
+export function getWorkflowRuns(): HostedWorkflowRun[] {
+  return Object.values(store.get())
+}
+
 /** A project's runs, newest first. */
 export function useWorkflowRuns(hostId: HostId, projectId: string): HostedWorkflowRun[] {
   const all = store.use((runs) => runs)
