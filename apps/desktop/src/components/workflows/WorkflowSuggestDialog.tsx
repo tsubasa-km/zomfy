@@ -37,6 +37,20 @@ function ChangeDetail({ workflow, change }: { workflow: Workflow; change: Workfl
       </p>
     )
   }
+  if (change.type === 'skills') {
+    return (
+      <p className="text-[11px] text-muted-foreground">
+        “{label(change.nodeId)}” no longer sees the skill {change.removed} ({change.skills.length} left)
+      </p>
+    )
+  }
+  if (change.type === 'denyMcp') {
+    return (
+      <p className="text-[11px] text-muted-foreground">
+        “{label(change.nodeId)}” goes without the MCP server {change.server}
+      </p>
+    )
+  }
   const edge = workflow.edges.find((e) => e.id === change.edgeId)
   return (
     <p className="text-[11px] text-muted-foreground">
