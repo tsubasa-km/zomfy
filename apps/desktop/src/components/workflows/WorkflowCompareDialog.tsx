@@ -44,7 +44,7 @@ export function WorkflowCompareDialog({
   const [picked, setPicked] = useState<string[]>(initial.filter((id) => workflows.some((w) => w.id === id)))
   const [trials, setTrials] = useState(2)
   const [parallel, setParallel] = useState(1)
-  const [autoApprove, setAutoApprove] = useState(true)
+  const [autoApprove, setAutoApprove] = useState(false)
   const [busy, setBusy] = useState(false)
   const [removals, setRemovals] = useState<string[]>([])
   const history = useWorkflowRuns(hostId, projectId)
@@ -111,8 +111,7 @@ export function WorkflowCompareDialog({
         <DialogHeader>
           <DialogTitle>Compare flows</DialogTitle>
           <DialogDescription>
-            The same task through each workflow, a few times each, every run in a worktree of its own. Their scorecards are set side by
-            side.
+            The same task through each workflow, a few times each, side by side. In a git project each run gets a worktree of its own.
           </DialogDescription>
         </DialogHeader>
         <div className="space-y-4">
@@ -176,7 +175,8 @@ export function WorkflowCompareDialog({
             <span className="space-y-0.5">
               <span className="block text-sm">Approve the steps' commands and edits automatically</span>
               <span className="block text-[11px] text-muted-foreground">
-                Otherwise each run waits for you at its first command. Every run works in a worktree of its own.
+                Otherwise each run waits for you at its first command. Refused for workflows that work in the main checkout or the Lead's
+                chat. A run that would wait for your answer ends instead.
               </span>
             </span>
           </label>

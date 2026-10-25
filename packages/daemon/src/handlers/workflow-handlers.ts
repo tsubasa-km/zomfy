@@ -35,4 +35,5 @@ export function registerWorkflowHandlers(ctx: HandlerContext): void {
   handle(HARNESS_METHODS.workflowExperimentStart, (p) => experiments.start(p));
   handle(HARNESS_METHODS.workflowExperimentsList, (p) => experiments.list(p.projectId));
   handle(HARNESS_METHODS.workflowExperimentStop, (p) => experiments.stop(p.id));
+  handle(HARNESS_METHODS.workflowExperimentRemove, (p) => experiments.remove(p.id, p.worktrees));
 }

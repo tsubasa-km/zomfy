@@ -1,9 +1,10 @@
 import { useState } from 'react'
-import { ArrowLeft, CircleStop } from 'lucide-react'
+import { ArrowLeft, CircleStop, Trash2 } from 'lucide-react'
 import { toast } from 'sonner'
 import { HARNESS_METHODS, workflowScorecard, type Workflow, type WorkflowScorecard } from '@acp-harness/protocol'
 import { harnessRequest } from '@/daemon-connection'
-import type { HostedWorkflowExperiment } from '@/stores/workflow-experiments-store'
+import { setProjectExperiments, type HostedWorkflowExperiment } from '@/stores/workflow-experiments-store'
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
 import { useWorkflowRuns, type HostedWorkflowRun } from '@/stores/workflow-runs-store'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
@@ -19,6 +20,7 @@ interface Row {
   name: string
   runs: HostedWorkflowRun[]
   cards: WorkflowScorecard[]
+  finished: number
   planned: number
 }
 
@@ -52,7 +54,9 @@ export function WorkflowExperimentView({
       armId: arm.id,
       name,
       runs,
-      cards: runs.filter((r) => r.status !== 'running' && r.status !== 'waiting').map((r) => workflowScorecard(r)),
+      // Averages are over runs that got the job done: a run that failed early is not cheap, it is unfinished.
+      cards: runs.filter((r) => r.status === 'done').map((r) => workflowScorecard(r)),
+      finished: runs.filter((r) => r.status !== 'running' && r.status !== 'waiting').length,
       planned: slots.length
     }
   })
@@ -64,6 +68,18 @@ export function WorkflowExperimentView({
       toast.error('Could not stop the comparison', { description: String(error) })
     )
     setBusy(false)
+  }
+
+  const remove = async (worktrees: boolean) => {
+    setBusy(true)
+    try {
+      const list = await harnessRequest(HARNESS_METHODS.workflowExperimentRemove, { id: experiment.id, worktrees }, experiment.hostId)
+      setProjectExperiments(experiment.hostId, experiment.projectId, list)
+      onBack()
+    } catch (error) {
+      toast.error('Could not delete the comparison', { description: String(error) })
+      setBusy(false)
+    }
   }
 
   const avg = (row: Row, pick: (c: WorkflowScorecard) => number, format: (n: number) => string) => {
@@ -86,6 +102,17 @@ export function WorkflowExperimentView({
             Stop
           </Button>
         )}
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button variant="ghost" size="sm" className="h-7" disabled={busy} aria-label="Delete comparison" data-workflow-experiment-delete>
+              <Trash2 className="size-3.5" />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" className="w-72">
+            <DropdownMenuItem onSelect={() => void remove(true)}>Delete it, and the worktrees and branches its runs made</DropdownMenuItem>
+            <DropdownMenuItem onSelect={() => void remove(false)}>Delete it, keep the worktrees</DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
       </div>
       <div className="space-y-4 p-4">
         <p className="line-clamp-3 text-xs whitespace-pre-wrap">{experiment.task}</p>
@@ -93,7 +120,9 @@ export function WorkflowExperimentView({
           <thead className="text-[11px] text-muted-foreground">
             <tr className="border-b border-border">
               <th className="px-2 py-1.5 text-left font-medium">Workflow</th>
-              <th className="px-2 py-1.5 text-right font-medium" title="Runs that ended done, of those finished (planned)">Done</th>
+              <th className="px-2 py-1.5 text-right font-medium" title="Runs that ended done, of those finished (planned). The other columns average the done runs.">
+                Done
+              </th>
               <th className="px-2 py-1.5 text-right font-medium">Time</th>
               <th className="px-2 py-1.5 text-right font-medium" title="Input and output tokens, where the agents report them">Tokens</th>
               <th className="px-2 py-1.5 text-right font-medium">Cost</th>
@@ -104,11 +133,11 @@ export function WorkflowExperimentView({
           </thead>
           <tbody>
             {rows.map((row) => {
-              const done = row.cards.filter((c) => c.status === 'done').length
+              const done = row.cards.length
               return (
                 <tr key={row.armId} className="border-b border-border/60" data-workflow-experiment-row={row.name}>
                   <td className="max-w-48 truncate px-2 py-1.5 font-medium">{row.name}</td>
-                  <Cell value={`${done}/${row.cards.length} (${row.planned})`} />
+                  <Cell value={`${done}/${row.finished} (${row.planned})`} />
                   <Cell value={avg(row, (c) => c.durationMs, formatDuration)} />
                   <Cell value={avg(row, (c) => c.usage.inputTokens + c.usage.outputTokens, (n) => formatTokens(Math.round(n)))} />
                   <Cell
@@ -124,7 +153,8 @@ export function WorkflowExperimentView({
           </tbody>
         </table>
         <p className="text-[11px] text-muted-foreground">
-          Averages over finished runs. With a handful of trials only large differences mean much; open the runs to see why they differ.
+          Averages over the runs that ended done. With a handful of trials only large differences mean much; open the runs to see why they
+          differ.
         </p>
         {failedToStart.length > 0 && (
           <ul className="space-y-0.5 text-xs text-destructive">

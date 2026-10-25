@@ -20,7 +20,7 @@ export class WorkflowExperiments {
   private readonly stopped = new Set<string>();
 
   constructor(
-    private readonly deps: Pick<HandlerContext, "broadcast">,
+    private readonly deps: Pick<HandlerContext, "broadcast" | "workspaces">,
     private readonly engine: WorkflowEngine,
   ) {}
 
@@ -58,6 +58,12 @@ export class WorkflowExperiments {
   }): Promise<WorkflowExperiment> {
     if (!params.task.trim()) throw new Error("Describe the task to compare the flows on");
     if (params.arms.length === 0) throw new Error("Pick at least one workflow");
+    if (params.autoApprove) {
+      for (const arm of params.arms) {
+        const problem = await this.engine.sharesPersonsWork(params.projectId, arm.workflowId);
+        if (problem) throw new Error(`"${arm.label}": ${problem}. Turn off automatic approval to compare it.`);
+      }
+    }
     const arms = params.arms.map((arm) => ({ ...arm, id: crypto.randomUUID() }));
     const trials = Math.max(1, Math.min(10, Math.round(params.trials)));
     const experiment: WorkflowExperiment = {
@@ -88,6 +94,31 @@ export class WorkflowExperiments {
     experiment.endedAt = Date.now();
     await this.save(experiment);
     return experiment;
+  }
+
+  async remove(id: string, worktrees: boolean): Promise<WorkflowExperiment[]> {
+    const experiment = (await this.load()).find((e) => e.id === id);
+    if (!experiment) throw new Error(`Unknown experiment ${id}`);
+    if (experiment.status === "running") await this.stop(id);
+    if (worktrees) {
+      const runs = await this.engine.list(experiment.projectId);
+      const state = await this.deps.workspaces.snapshot();
+      for (const slot of experiment.runs) {
+        const run = runs.find((r) => r.id === slot.runId);
+        if (!run) continue;
+        // The run's worktree, and those made off it for parallel sessions.
+        const made = state.workspaces.filter((w) => !w.isPrimary && (w.id === run.workspaceId || w.parentWorkspaceId === run.workspaceId));
+        for (const workspace of made) {
+          await this.deps.workspaces
+            .removeWorkspace({ workspaceId: workspace.id, deleteBranch: true, force: true })
+            .catch((error: unknown) => log(`removing ${workspace.path} failed: ${String(error)}`));
+        }
+      }
+    }
+    const next = (await this.load()).filter((e) => e.id !== id);
+    this.all = Promise.resolve(next);
+    await this.write(next);
+    return next.filter((e) => e.projectId === experiment.projectId);
   }
 
   private async drive(experiment: WorkflowExperiment): Promise<void> {
@@ -130,9 +161,13 @@ export class WorkflowExperiments {
     const next = [...others.filter((e) => !dropped.has(e.id)), experiment];
     this.all = Promise.resolve(next);
     this.deps.broadcast(WORKFLOW_EXPERIMENT_NOTIFICATIONS.workflowExperimentChanged, experiment);
+    await this.write(next);
+  }
+
+  private async write(list: WorkflowExperiment[]): Promise<void> {
     this.writing = this.writing.catch(() => undefined).then(async () => {
       await mkdir(dirname(FILE), { recursive: true });
-      await writeFile(`${FILE}.tmp`, JSON.stringify(next, null, 2));
+      await writeFile(`${FILE}.tmp`, JSON.stringify(list, null, 2));
       await replaceFile(`${FILE}.tmp`, FILE);
     });
     await this.writing;

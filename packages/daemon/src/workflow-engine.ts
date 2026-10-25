@@ -208,6 +208,8 @@ export class WorkflowEngine {
     const runId = [...this.live.entries()].find(([, live]) => live.sessions.has(sessionId))?.[0];
     const run = runId ? await this.runs.get(runId) : null;
     if (!run || run.status !== "running") return null;
+    // Nobody watches a comparison's run: it decides for itself rather than wait.
+    if (run.experimentId) return "No one is here to answer: this run is part of an unattended comparison. Decide yourself, and say in your result what you assumed.";
     const answer = new Promise<string>((resolve) => this.asking.set(run.id, resolve));
     await this.wait(run, question, "ask");
     return answer;
@@ -375,7 +377,8 @@ export class WorkflowEngine {
     if (dataDirs.length > 0) step.additionalDirectories = dataDirs;
     const turn = async (sessionId: string, index: number): Promise<TurnResult> => {
       live.sessions.add(sessionId);
-      if (run.autoApprove) this.deps.autoApprove.add(sessionId);
+      // The Lead's own chat is the person's: its asks are never answered for them.
+      if (run.autoApprove && node.config.runBy !== "lead") this.deps.autoApprove.add(sessionId);
       try {
         const result = await this.deps.runStepTurn(sessionId, prompt, step);
         this.tally(run, result);
@@ -924,6 +927,11 @@ export class WorkflowEngine {
 
   /** `secret`: the question holds local-only work, so the Lead only hears that the run waits. */
   private async wait(run: WorkflowRun, question: string, reason: "human" | "ask" | "limit", limitKey?: string, secret = false): Promise<void> {
+    if (run.experimentId) {
+      // A comparison's run that would wait for the person ends instead, saying why, so the comparison goes on.
+      await this.finish(run, "failed", `It would have waited for the person: ${secret ? "(a question about local-only work)" : question.slice(0, 300)}`);
+      return;
+    }
     run.status = "waiting";
     run.waiting = { question, reason, ...(limitKey ? { limitKey } : {}), ...(secret ? { secret: true } : {}) };
     await this.save(run);
@@ -956,6 +964,21 @@ export class WorkflowEngine {
       for (const resolve of this.endings.get(run.id) ?? []) resolve(run);
       this.endings.delete(run.id);
     }
+  }
+
+  /**
+   * Why the workflow's runs would not be isolated from the person's own work, so its asks must not be
+   * answered for them: it runs in the project's own checkout, or in the Lead's chat. Null when isolated.
+   */
+  async sharesPersonsWork(projectId: string, workflowId: string): Promise<string | null> {
+    const workflow = (await this.workflows.list(projectId)).find((w) => w.id === workflowId);
+    if (!workflow) return "it is not saved";
+    const project = (await this.deps.workspaces.snapshot()).projects.find((p) => p.id === projectId);
+    if (project?.kind !== "git") return "the project is a folder, so its runs work in the folder itself";
+    const lead = workflow.nodes.find((n) => n.config.runBy === "lead");
+    if (lead) return `"${lead.label}" runs in the Lead's own chat`;
+    const main = workflow.nodes.find((n) => n.kind !== "start" && n.kind !== "end" && n.kind !== "human" && n.config.workspace === "main");
+    return main ? `"${main.label}" runs in the project's main workspace` : null;
   }
 
   /** Resolves when the run is done, failed or stopped (a waiting run is not over). */

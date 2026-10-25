@@ -78,7 +78,8 @@ export function withoutContextItem(workflow: Workflow, without: WorkflowContextR
 export const WORKFLOW_EXPERIMENT_METHODS = {
   workflowExperimentStart: '_harness/workflowExperiments/start',
   workflowExperimentsList: '_harness/workflowExperiments/list',
-  workflowExperimentStop: '_harness/workflowExperiments/stop'
+  workflowExperimentStop: '_harness/workflowExperiments/stop',
+  workflowExperimentRemove: '_harness/workflowExperiments/remove'
 } as const
 
 export const WORKFLOW_EXPERIMENT_NOTIFICATIONS = {
@@ -100,4 +101,6 @@ export interface WorkflowExperimentRequests {
   [WORKFLOW_EXPERIMENT_METHODS.workflowExperimentsList]: { params: { projectId: string }; result: WorkflowExperiment[] }
   /** Stops its running runs and starts no more. */
   [WORKFLOW_EXPERIMENT_METHODS.workflowExperimentStop]: { params: { id: string }; result: WorkflowExperiment }
+  /** Deletes it (stopping it first), and with `worktrees` the worktrees and branches its runs made; returns the project's comparisons left. */
+  [WORKFLOW_EXPERIMENT_METHODS.workflowExperimentRemove]: { params: { id: string; worktrees: boolean }; result: WorkflowExperiment[] }
 }

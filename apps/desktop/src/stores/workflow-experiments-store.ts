@@ -22,6 +22,15 @@ export async function loadWorkflowExperiments(hostId: HostId, projectId: string)
   })
 }
 
+/** The project's comparisons as the host now has them (after one was deleted). */
+export function setProjectExperiments(hostId: HostId, projectId: string, list: WorkflowExperiment[]): void {
+  store.update((all) => {
+    const next = Object.fromEntries(Object.entries(all).filter(([, e]) => !(e.hostId === hostId && e.projectId === projectId)))
+    for (const experiment of list) next[experiment.id] = { ...experiment, hostId }
+    return next
+  })
+}
+
 /** A project's comparisons, newest first. */
 export function useWorkflowExperiments(hostId: HostId, projectId: string): HostedWorkflowExperiment[] {
   const all = store.use((experiments) => experiments)
