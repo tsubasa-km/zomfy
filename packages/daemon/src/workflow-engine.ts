@@ -945,6 +945,7 @@ export class WorkflowEngine {
     run.waiting = null;
     run.endedAt = Date.now();
     if (why) {
+      run.endReason = why;
       const last = run.steps.at(-1);
       if (last && !last.error && status === "failed") last.error = why;
     }

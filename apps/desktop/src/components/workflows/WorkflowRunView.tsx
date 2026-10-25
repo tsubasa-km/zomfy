@@ -221,6 +221,11 @@ function RunPanel({ run, focusNode, onBack }: { run: HostedWorkflowRun; focusNod
           )}
         </div>
         <p className="line-clamp-4 text-xs whitespace-pre-wrap text-foreground">{run.task}</p>
+        {run.endReason && (run.status === 'failed' || run.status === 'stopped') && (
+          <p className="text-xs text-destructive" data-run-end-reason>
+            {run.endReason}
+          </p>
+        )}
         <p className="text-[11px] text-muted-foreground">Started {new Date(run.createdAt).toLocaleString()}</p>
       </div>
       <div className="border-b border-border p-4">

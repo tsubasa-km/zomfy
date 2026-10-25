@@ -156,6 +156,21 @@ export function WorkflowExperimentView({
           Averages over the runs that ended done. With a handful of trials only large differences mean much; open the runs to see why they
           differ.
         </p>
+        {all.some((r) => r.status === 'failed' && r.endReason) && (
+          <ul className="space-y-0.5 text-xs text-muted-foreground" data-workflow-experiment-failures>
+            {rows.flatMap((row) =>
+              row.runs.flatMap((r, i) =>
+                r.status === 'failed' && r.endReason
+                  ? [
+                      <li key={r.id}>
+                        {row.name} #{i + 1}: {r.endReason}
+                      </li>
+                    ]
+                  : []
+              )
+            )}
+          </ul>
+        )}
         {failedToStart.length > 0 && (
           <ul className="space-y-0.5 text-xs text-destructive">
             {failedToStart.map((s) => (
@@ -180,6 +195,7 @@ export function WorkflowExperimentView({
                       run.status === 'done' ? 'border-status-success/50' : run.status === 'failed' ? 'border-destructive/50' : 'border-border'
                     )}
                     data-workflow-experiment-run={run.status}
+                    title={run.endReason}
                   >
                     #{i + 1} {run.status}
                   </button>

@@ -347,6 +347,8 @@ export interface WorkflowRun {
   followUps?: { nodeId: string; label: string; text: string }[]
   /** What each loop was stuck on when it was last handed up, by cycle id: the same again goes higher. */
   escalated?: Record<string, string>
+  /** Why it ended failed or stopped, when something said (a step's error, or a comparison's run that would have waited). */
+  endReason?: string
   /** Started by a comparison of flows (WorkflowExperiment); the Lead is not told of it. */
   experimentId?: string
   /** Its steps' permission asks are answered "allow" (a comparison's runs, each in a worktree of its own). */
