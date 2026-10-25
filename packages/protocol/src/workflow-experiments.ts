@@ -7,6 +7,7 @@ import type { Workflow } from './workflows'
 /** A skill or MCP server a run's steps go without. */
 export interface WorkflowContextRemoval {
   kind: 'skill' | 'mcp'
+  /** ALL_SKILLS takes every skill away. */
   name: string
   /**
    * Skills: each step's skills when it last ran with it, by node id. A step can only be shown a list
@@ -48,6 +49,8 @@ export interface WorkflowExperiment {
   endedAt: number | null
 }
 
+export const ALL_SKILLS = '*'
+
 /**
  * The workflow with the item taken from every agent step: an MCP server's tools denied, or a skill
  * left off the step's list of skills. A step with no list, and none recorded, keeps its skills.
@@ -60,6 +63,10 @@ export function withoutContextItem(workflow: Workflow, without: WorkflowContextR
       if (without.kind === 'mcp') {
         if (node.kind === 'start' || node.kind === 'end' || node.kind === 'human' || node.kind === 'check') return node
         return { ...node, config: { ...node.config, tools: { ...tools, deny: [...(tools.deny ?? []), `mcp__${without.name}`] } } }
+      }
+      if (without.name === ALL_SKILLS) {
+        if (node.kind === 'start' || node.kind === 'end' || node.kind === 'human' || node.kind === 'check') return node
+        return { ...node, config: { ...node.config, tools: { ...tools, skills: [] } } }
       }
       const skills = tools.skills ?? without.keep?.[node.id]
       if (!skills) return node

@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { ChevronRight } from 'lucide-react'
-import type { WorkflowContextLedgerRow, WorkflowScorecard } from '@acp-harness/protocol'
+import { MANAGER_MCP_SERVER_NAME, type WorkflowContextLedgerRow, type WorkflowScorecard } from '@acp-harness/protocol'
 import { cn } from '@/lib/utils'
 
 // A run's scorecard as a small grid: cost, work done twice, rounds, time. Each figure says in its
@@ -71,10 +71,14 @@ const KIND_LABELS: Record<WorkflowContextLedgerRow['kind'], string> = { skill: '
 /** Below this, an unused item is not worth flagging. */
 const NOTABLE_TOKENS = 300
 
+/** Loaded, unused and big enough to matter; Zomfy's own tools are there so steps can reach the Lead. */
+const idleRow = (r: WorkflowContextLedgerRow) =>
+  r.used === 0 && r.tokens >= NOTABLE_TOKENS && !(r.kind === 'mcp' && r.name === MANAGER_MCP_SERVER_NAME)
+
 /** What sat in Claude steps' context, and whether anything used it. */
 function ContextLedger({ rows }: { rows: WorkflowContextLedgerRow[] }) {
   const [open, setOpen] = useState(false)
-  const idle = rows.filter((r) => r.used === 0 && r.tokens >= NOTABLE_TOKENS)
+  const idle = rows.filter(idleRow)
   const total = rows.reduce((n, r) => n + r.tokens, 0)
   return (
     <div className="space-y-1" data-workflow-context-ledger>
@@ -95,7 +99,7 @@ function ContextLedger({ rows }: { rows: WorkflowContextLedgerRow[] }) {
           </thead>
           <tbody>
             {rows.map((r) => (
-              <tr key={`${r.kind}:${r.name}`} className={cn(r.used === 0 && r.tokens >= NOTABLE_TOKENS && 'text-status-warning')} data-context-item={r.kind}>
+              <tr key={`${r.kind}:${r.name}`} className={cn(idleRow(r) && 'text-status-warning')} data-context-item={r.kind}>
                 <td className="max-w-40 truncate py-0.5" title={r.name}>
                   <span className="text-muted-foreground">{KIND_LABELS[r.kind]}</span> {r.kind === 'memory' ? r.name.split(/[\\/]/).slice(-2).join('/') : r.name}
                 </td>

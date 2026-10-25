@@ -1,5 +1,6 @@
 import { query } from "@anthropic-ai/claude-agent-sdk";
 import {
+  MANAGER_MCP_SERVER_NAME,
   workflowCycles,
   workflowScorecard,
   type Workflow,
@@ -48,8 +49,9 @@ function describeRun(run: WorkflowRun, index: number): string {
     return `  · "${s.label}" (node ${s.nodeId}) → ${s.outcome ?? "no outcome"}${s.error ? ` ERROR: ${s.error}` : ""}\n    ${summary.replace(/\n/g, "\n    ")}`;
   });
   const later = (run.followUps ?? []).map((f) => `  left for later by "${f.label}": ${f.text}`);
+  // Zomfy's own tools are how steps reach the Lead, not a candidate to take away.
   const context = card.context
-    .filter((r) => r.kind !== "agent")
+    .filter((r) => r.kind !== "agent" && !(r.kind === "mcp" && r.name === MANAGER_MCP_SERVER_NAME))
     .map((r) => `  ${r.kind} ${r.name}: ${r.tokens} tokens in each turn of ${r.loadedIn} step(s), ${r.used === null ? "read, not called" : `used ${r.used} time(s)`}`);
   const held = [...new Set(run.steps.map((s) => s.nodeId))].flatMap((nodeId) => {
     const skills = run.steps.filter((s) => s.nodeId === nodeId).flatMap((s) => (s.context?.items ?? []).filter((i) => i.kind === "skill").map((i) => i.name));
@@ -140,7 +142,7 @@ function checkedChange(value: unknown, workflow: Workflow, runs: WorkflowRun[]):
   if (c.type === "continue" && edge && typeof c.on === "boolean") return { type: "continue", edgeId: edge.id, on: c.on };
   // A step using a defined agent takes its tools from the agent: the change would not hold.
   const ownTools = node && !node.config.profileId && node.kind !== "check" && node.kind !== "human";
-  if (c.type === "removeMcp" && ownTools && typeof c.server === "string" && c.server.trim()) {
+  if (c.type === "removeMcp" && ownTools && typeof c.server === "string" && c.server.trim() && c.server.trim() !== MANAGER_MCP_SERVER_NAME) {
     return { type: "denyMcp", nodeId: node.id, server: c.server.trim() };
   }
   if (c.type === "removeSkill" && ownTools && typeof c.skill === "string") {

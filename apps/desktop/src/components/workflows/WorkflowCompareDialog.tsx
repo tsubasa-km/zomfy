@@ -1,7 +1,9 @@
 import { useState } from 'react'
 import { toast } from 'sonner'
 import {
+  ALL_SKILLS,
   HARNESS_METHODS,
+  MANAGER_MCP_SERVER_NAME,
   workflowScorecard,
   type Workflow,
   type WorkflowContextRemoval,
@@ -55,12 +57,18 @@ export function WorkflowCompareDialog({
       const skills = (step.context?.items ?? []).filter((i) => i.kind === 'skill').map((i) => i.name)
       if (skills.length) keep[step.nodeId] = skills
     }
-    return workflowScorecard(last)
-      .context.filter((row) => row.kind === 'skill' || row.kind === 'mcp')
-      .map((row) => {
-        const without: WorkflowContextRemoval = row.kind === 'skill' ? { kind: 'skill', name: row.name, keep } : { kind: 'mcp', name: row.name }
-        return { key: `${workflowId}:${row.kind}:${row.name}`, workflowId, row, without }
-      })
+    // Zomfy's own tools (ask_lead…) are how steps reach the Lead; going without them is not a fair arm.
+    const rows = workflowScorecard(last).context.filter((row) => row.kind === 'skill' || (row.kind === 'mcp' && row.name !== MANAGER_MCP_SERVER_NAME))
+    const skills = rows.filter((row) => row.kind === 'skill')
+    // Each skill alone is small; all of them together is the arm most likely to show a difference.
+    const all =
+      skills.length > 1
+        ? [{ kind: 'skill' as const, name: ALL_SKILLS, tokens: skills.reduce((n, r) => n + r.tokens, 0), loadedIn: 0, used: skills.reduce((n, r) => n + (r.used ?? 0), 0) }]
+        : []
+    return [...all, ...rows].map((row) => {
+      const without: WorkflowContextRemoval = row.kind === 'skill' ? { kind: 'skill', name: row.name, keep } : { kind: 'mcp', name: row.name }
+      return { key: `${workflowId}:${row.kind}:${row.name}`, workflowId, row, without }
+    })
   })
   const chosen = candidates.filter((c) => removals.includes(c.key))
   const runs = (picked.length + chosen.length) * trials
@@ -78,7 +86,7 @@ export function WorkflowCompareDialog({
             ...picked.map((workflowId) => ({ workflowId, label: name(workflowId) })),
             ...chosen.map((c) => ({
               workflowId: c.workflowId,
-              label: `${name(c.workflowId)} − ${c.row.kind === 'mcp' ? 'MCP ' : ''}${c.row.name}`,
+              label: `${name(c.workflowId)} − ${c.row.name === ALL_SKILLS ? 'all skills' : `${c.row.kind === 'mcp' ? 'MCP ' : ''}${c.row.name}`}`,
               without: c.without
             }))
           ],
@@ -139,8 +147,7 @@ export function WorkflowCompareDialog({
                     />
                     <span className="min-w-0 flex-1 truncate">
                       {picked.length > 1 && <span className="text-muted-foreground">{name(c.workflowId)} · </span>}
-                      {c.row.kind === 'mcp' ? 'MCP ' : 'Skill '}
-                      {c.row.name}
+                      {c.row.name === ALL_SKILLS ? 'All skills' : `${c.row.kind === 'mcp' ? 'MCP' : 'Skill'} ${c.row.name}`}
                     </span>
                     <span className="shrink-0 text-[11px] text-muted-foreground tabular-nums">
                       {formatTokens(c.row.tokens)} · used {c.row.used ?? '—'}

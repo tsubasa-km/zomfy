@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test'
-import { applyWorkflowChange, withoutContextItem, workflowScorecard, type WorkflowRun, type WorkflowRunStep } from '@acp-harness/protocol'
+import { ALL_SKILLS, applyWorkflowChange, withoutContextItem, workflowScorecard, type WorkflowRun, type WorkflowRunStep } from '@acp-harness/protocol'
 
 // A run's scorecard: tokens summed over steps, files re-read after a handoff (unless changed in
 // between), commands re-run by a later step, and rounds.
@@ -121,6 +121,11 @@ describe('withoutContextItem', () => {
   test("takes a skill off each step's list, using the recorded list where a step has none", () => {
     const out = withoutContextItem(w, { kind: 'skill', name: 'pdf', keep: { dev: ['pdf', 'xlsx'] } })
     expect(out.nodes.map((n) => n.config.tools?.skills)).toEqual([['xlsx'], ['docx'], undefined])
+  })
+
+  test('can take every skill away at once', () => {
+    const out = withoutContextItem(w, { kind: 'skill', name: ALL_SKILLS })
+    expect(out.nodes.map((n) => n.config.tools?.skills)).toEqual([[], [], undefined])
   })
 
   test("denies an MCP server's tools to agent steps only", () => {
