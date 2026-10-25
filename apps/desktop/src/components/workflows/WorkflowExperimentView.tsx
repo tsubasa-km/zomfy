@@ -15,7 +15,7 @@ import { formatDuration, formatTokens } from './WorkflowRunScorecard'
 const mean = (values: number[]) => (values.length ? values.reduce((a, b) => a + b, 0) / values.length : null)
 
 interface Row {
-  workflowId: string
+  armId: string
   name: string
   runs: HostedWorkflowRun[]
   cards: WorkflowScorecard[]
@@ -43,14 +43,17 @@ export function WorkflowExperimentView({
 }) {
   const [busy, setBusy] = useState(false)
   const all = useWorkflowRuns(experiment.hostId, experiment.projectId).filter((r) => r.experimentId === experiment.id)
-  const rows: Row[] = experiment.workflowIds.map((workflowId) => {
-    const runs = all.filter((r) => r.workflowId === workflowId).sort((a, b) => a.createdAt - b.createdAt)
+  const rows: Row[] = experiment.arms.map((arm) => {
+    const slots = experiment.runs.filter((s) => s.armId === arm.id)
+    const runs = slots.flatMap((s) => all.filter((r) => r.id === s.runId)).sort((a, b) => a.createdAt - b.createdAt)
+    // Arms saved before labels carried the workflow's id.
+    const name = arm.label !== arm.workflowId ? arm.label : (workflows.find((w) => w.id === arm.workflowId)?.name ?? runs[0]?.workflow.name ?? 'Deleted workflow')
     return {
-      workflowId,
-      name: workflows.find((w) => w.id === workflowId)?.name ?? runs[0]?.workflow.name ?? 'Deleted workflow',
+      armId: arm.id,
+      name,
       runs,
       cards: runs.filter((r) => r.status !== 'running' && r.status !== 'waiting').map((r) => workflowScorecard(r)),
-      planned: experiment.runs.filter((s) => s.workflowId === workflowId).length
+      planned: slots.length
     }
   })
   const failedToStart = experiment.runs.filter((s) => s.error)
@@ -103,7 +106,7 @@ export function WorkflowExperimentView({
             {rows.map((row) => {
               const done = row.cards.filter((c) => c.status === 'done').length
               return (
-                <tr key={row.workflowId} className="border-b border-border/60" data-workflow-experiment-row={row.name}>
+                <tr key={row.armId} className="border-b border-border/60" data-workflow-experiment-row={row.name}>
                   <td className="max-w-48 truncate px-2 py-1.5 font-medium">{row.name}</td>
                   <Cell value={`${done}/${row.cards.length} (${row.planned})`} />
                   <Cell value={avg(row, (c) => c.durationMs, formatDuration)} />
@@ -126,15 +129,15 @@ export function WorkflowExperimentView({
         {failedToStart.length > 0 && (
           <ul className="space-y-0.5 text-xs text-destructive">
             {failedToStart.map((s) => (
-              <li key={`${s.workflowId}-${s.trial}`}>
-                {workflows.find((w) => w.id === s.workflowId)?.name ?? s.workflowId} #{s.trial}: {s.error}
+              <li key={`${s.armId}-${s.trial}`}>
+                {rows.find((r) => r.armId === s.armId)?.name ?? s.armId} #{s.trial}: {s.error}
               </li>
             ))}
           </ul>
         )}
         <div className="space-y-3">
           {rows.map((row) => (
-            <div key={row.workflowId} className="space-y-1">
+            <div key={row.armId} className="space-y-1">
               <div className="text-xs font-medium">{row.name}</div>
               <div className="flex flex-wrap gap-1.5">
                 {row.runs.map((run, i) => (

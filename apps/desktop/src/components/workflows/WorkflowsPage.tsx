@@ -279,7 +279,7 @@ export function WorkflowsPage({ target }: { target: WorkflowsPageTarget }) {
                   <DropdownMenuItem key={e.id} onSelect={() => setViewExperimentId(e.id)} data-workflow-experiment-item={e.status}>
                     <span className="w-14 shrink-0 text-[11px] text-muted-foreground">{e.status}</span>
                     <span className="min-w-0 flex-1 truncate">{e.task}</span>
-                    <span className="text-[11px] text-muted-foreground">{e.workflowIds.length} flows</span>
+                    <span className="text-[11px] text-muted-foreground">{e.arms.length} arms</span>
                   </DropdownMenuItem>
                 ))}
               </DropdownMenuContent>

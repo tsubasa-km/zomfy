@@ -1,8 +1,29 @@
-// Comparing flows: the same task run through several workflows, several times each, each run in a
-// worktree of its own, so their scorecards can be set side by side.
+// Comparing flows: the same task run through several arms, several times each, each run in a
+// worktree of its own, so their scorecards can be set side by side. An arm is a saved workflow, or a
+// saved workflow with one context item taken away (a skill, an MCP server), to see what it is worth.
+
+import type { Workflow } from './workflows'
+
+/** A skill or MCP server a run's steps go without. */
+export interface WorkflowContextRemoval {
+  kind: 'skill' | 'mcp'
+  name: string
+  /**
+   * Skills: each step's skills when it last ran with it, by node id. A step can only be shown a list
+   * of skills, so it is shown these minus the one taken away.
+   */
+  keep?: Record<string, string[]>
+}
+
+export interface WorkflowExperimentArm {
+  id: string
+  workflowId: string
+  label: string
+  without?: WorkflowContextRemoval
+}
 
 export interface WorkflowExperimentRun {
-  workflowId: string
+  armId: string
   /** 1-based. */
   trial: number
   /** Null until it starts. */
@@ -15,7 +36,7 @@ export interface WorkflowExperiment {
   id: string
   projectId: string
   task: string
-  workflowIds: string[]
+  arms: WorkflowExperimentArm[]
   trials: number
   /** Runs at once. */
   parallel: number
@@ -25,6 +46,26 @@ export interface WorkflowExperiment {
   status: 'running' | 'done' | 'stopped'
   createdAt: number
   endedAt: number | null
+}
+
+/**
+ * The workflow with the item taken from every agent step: an MCP server's tools denied, or a skill
+ * left off the step's list of skills. A step with no list, and none recorded, keeps its skills.
+ */
+export function withoutContextItem(workflow: Workflow, without: WorkflowContextRemoval): Workflow {
+  return {
+    ...workflow,
+    nodes: workflow.nodes.map((node) => {
+      const tools = node.config.tools ?? {}
+      if (without.kind === 'mcp') {
+        if (node.kind === 'start' || node.kind === 'end' || node.kind === 'human' || node.kind === 'check') return node
+        return { ...node, config: { ...node.config, tools: { ...tools, deny: [...(tools.deny ?? []), `mcp__${without.name}`] } } }
+      }
+      const skills = tools.skills ?? without.keep?.[node.id]
+      if (!skills) return node
+      return { ...node, config: { ...node.config, tools: { ...tools, skills: skills.filter((s) => s !== without.name) } } }
+    })
+  }
 }
 
 export const WORKFLOW_EXPERIMENT_METHODS = {
@@ -39,7 +80,14 @@ export const WORKFLOW_EXPERIMENT_NOTIFICATIONS = {
 
 export interface WorkflowExperimentRequests {
   [WORKFLOW_EXPERIMENT_METHODS.workflowExperimentStart]: {
-    params: { projectId: string; task: string; workflowIds: string[]; trials: number; parallel: number; autoApprove: boolean }
+    params: {
+      projectId: string
+      task: string
+      arms: { workflowId: string; label: string; without?: WorkflowContextRemoval }[]
+      trials: number
+      parallel: number
+      autoApprove: boolean
+    }
     result: WorkflowExperiment
   }
   [WORKFLOW_EXPERIMENT_METHODS.workflowExperimentsList]: { params: { projectId: string }; result: WorkflowExperiment[] }

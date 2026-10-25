@@ -4,6 +4,7 @@ import {
   localOnlySteps,
   resolveWorkflowAgents,
   runsLocally,
+  withoutContextItem,
   workflowAccessIssues,
   WORKFLOW_META,
   WORKFLOW_NOTIFICATIONS,
@@ -11,6 +12,7 @@ import {
   type ManagerCallResult,
   type Workflow,
   type ChatAgentId,
+  type WorkflowContextRemoval,
   type WorkflowCycle,
   type WorkflowDataLink,
   type WorkflowDataSource,
@@ -143,7 +145,7 @@ export class WorkflowEngine {
     workflowId: string,
     task: string,
     originSessionId?: string,
-    options: { experimentId?: string; autoApprove?: boolean } = {},
+    options: { experimentId?: string; autoApprove?: boolean; without?: WorkflowContextRemoval } = {},
   ): Promise<WorkflowRun> {
     const saved = (await this.workflows.list(projectId)).find((w) => w.id === workflowId);
     if (!saved) throw new Error("Save the workflow before running it");
@@ -151,7 +153,9 @@ export class WorkflowEngine {
     const profiles = await this.agents.list();
     const broken = workflowAccessIssues(saved, profiles).find((i) => i.level === "error");
     if (broken) throw new Error(broken.message);
-    const workflow = resolveWorkflowAgents(saved, profiles);
+    const resolved = resolveWorkflowAgents(saved, profiles);
+    // Taken away after the agents are filled in, so a step's agent cannot bring it back.
+    const workflow = options.without ? withoutContextItem(resolved, options.without) : resolved;
     const start = workflow.nodes.find((n) => n.kind === "start");
     if (!start) throw new Error("The workflow has no Start step");
     const first = workflow.edges.find((e) => e.from === start.id && e.outcome === "next");
@@ -177,6 +181,7 @@ export class WorkflowEngine {
       endedAt: null,
       ...(options.experimentId ? { experimentId: options.experimentId } : {}),
       ...(options.autoApprove ? { autoApprove: true } : {}),
+      ...(options.without ? { without: options.without } : {}),
     };
     await this.save(run);
     if (originSessionId && this.deps.sessions.get(originSessionId)) {

@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test'
-import { applyWorkflowChange, workflowScorecard, type WorkflowRun, type WorkflowRunStep } from '@acp-harness/protocol'
+import { applyWorkflowChange, withoutContextItem, workflowScorecard, type WorkflowRun, type WorkflowRunStep } from '@acp-harness/protocol'
 
 // A run's scorecard: tokens summed over steps, files re-read after a handoff (unless changed in
 // between), commands re-run by a later step, and rounds.
@@ -101,5 +101,30 @@ describe('context ledger', () => {
       ['memory', 'C:/repo/CLAUDE.md', 1200, 1, null],
       ['skill', 'pdf', 45, 2, 1]
     ])
+  })
+})
+
+describe('withoutContextItem', () => {
+  const w: WorkflowRun['workflow'] = {
+    id: 'w',
+    projectId: 'p',
+    name: 'w',
+    nodes: [
+      { id: 'dev', kind: 'agent', label: 'Developer', x: 0, y: 0, config: {} },
+      { id: 'review', kind: 'review', label: 'Reviewer', x: 0, y: 0, config: { tools: { skills: ['pdf', 'docx'] } } },
+      { id: 'tests', kind: 'check', label: 'Tests', x: 0, y: 0, config: { command: 'bun test' } }
+    ],
+    edges: [],
+    updatedAt: 0
+  }
+
+  test("takes a skill off each step's list, using the recorded list where a step has none", () => {
+    const out = withoutContextItem(w, { kind: 'skill', name: 'pdf', keep: { dev: ['pdf', 'xlsx'] } })
+    expect(out.nodes.map((n) => n.config.tools?.skills)).toEqual([['xlsx'], ['docx'], undefined])
+  })
+
+  test("denies an MCP server's tools to agent steps only", () => {
+    const out = withoutContextItem(w, { kind: 'mcp', name: 'playwright' })
+    expect(out.nodes.map((n) => n.config.tools?.deny)).toEqual([['mcp__playwright'], ['mcp__playwright'], undefined])
   })
 })

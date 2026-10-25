@@ -6,6 +6,7 @@
 import type { ChatAgentId } from './chat-agents'
 import type { WorkflowDataLink, WorkflowDataSource } from './workflow-access'
 import type { WorkflowStepContext, WorkflowStepUsage } from './workflow-scorecard'
+import type { WorkflowContextRemoval } from './workflow-experiments'
 
 export type WorkflowNodeKind = 'start' | 'agent' | 'review' | 'check' | 'human' | 'end' | 'custom'
 
@@ -339,6 +340,8 @@ export interface WorkflowRun {
   experimentId?: string
   /** Its steps' permission asks are answered "allow" (a comparison's runs, each in a worktree of its own). */
   autoApprove?: boolean
+  /** A comparison arm's: the skill or MCP server its steps went without. */
+  without?: WorkflowContextRemoval
   /** Taken along a "continue" arrow: the chat the next step goes on in. */
   handover?: { nodeId: string; sessionIds: string[] } | null
   createdAt: number

@@ -1,6 +1,6 @@
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
-import { WORKFLOW_EXPERIMENT_NOTIFICATIONS, type WorkflowExperiment } from "@acp-harness/protocol";
+import { WORKFLOW_EXPERIMENT_NOTIFICATIONS, type WorkflowContextRemoval, type WorkflowExperiment } from "@acp-harness/protocol";
 import type { HandlerContext } from "./handlers/handler-context.ts";
 import { HARNESS_HOME } from "./harness-home.ts";
 import { replaceFile } from "./replace-file.ts";
@@ -28,7 +28,7 @@ export class WorkflowExperiments {
     this.all ??= readFile(FILE, "utf8")
       .then((text) => {
         const parsed: unknown = JSON.parse(text);
-        return Array.isArray(parsed) ? (parsed as WorkflowExperiment[]) : [];
+        return Array.isArray(parsed) ? (parsed as (WorkflowExperiment & { workflowIds?: string[] })[]).map(withArms) : [];
       })
       .catch(() => []);
     return this.all;
@@ -48,20 +48,27 @@ export class WorkflowExperiments {
     return (await this.load()).filter((e) => e.projectId === projectId);
   }
 
-  async start(params: { projectId: string; task: string; workflowIds: string[]; trials: number; parallel: number; autoApprove: boolean }): Promise<WorkflowExperiment> {
+  async start(params: {
+    projectId: string;
+    task: string;
+    arms: { workflowId: string; label: string; without?: WorkflowContextRemoval }[];
+    trials: number;
+    parallel: number;
+    autoApprove: boolean;
+  }): Promise<WorkflowExperiment> {
     if (!params.task.trim()) throw new Error("Describe the task to compare the flows on");
-    const workflowIds = [...new Set(params.workflowIds)];
-    if (workflowIds.length === 0) throw new Error("Pick at least one workflow");
+    if (params.arms.length === 0) throw new Error("Pick at least one workflow");
+    const arms = params.arms.map((arm) => ({ ...arm, id: crypto.randomUUID() }));
     const trials = Math.max(1, Math.min(10, Math.round(params.trials)));
     const experiment: WorkflowExperiment = {
       id: crypto.randomUUID(),
       projectId: params.projectId,
       task: params.task.trim(),
-      workflowIds,
+      arms,
       trials,
       parallel: Math.max(1, Math.min(4, Math.round(params.parallel))),
       autoApprove: params.autoApprove,
-      runs: Array.from({ length: trials }, (_, t) => workflowIds.map((workflowId) => ({ workflowId, trial: t + 1, runId: null }))).flat(),
+      runs: Array.from({ length: trials }, (_, t) => arms.map((arm) => ({ armId: arm.id, trial: t + 1, runId: null }))).flat(),
       status: "running",
       createdAt: Date.now(),
       endedAt: null,
@@ -89,10 +96,13 @@ export class WorkflowExperiments {
       while (!this.stopped.has(experiment.id)) {
         const slot = experiment.runs[next++];
         if (!slot) return;
+        const arm = experiment.arms.find((a) => a.id === slot.armId);
         try {
-          const run = await this.engine.start(experiment.projectId, slot.workflowId, experiment.task, undefined, {
+          if (!arm) throw new Error("The arm is gone");
+          const run = await this.engine.start(experiment.projectId, arm.workflowId, experiment.task, undefined, {
             experimentId: experiment.id,
             autoApprove: experiment.autoApprove,
+            ...(arm.without ? { without: arm.without } : {}),
           });
           slot.runId = run.id;
           await this.save(experiment);
@@ -127,4 +137,15 @@ export class WorkflowExperiments {
     });
     await this.writing;
   }
+}
+
+/** An experiment saved before arms: one arm per workflow, its runs keyed by the workflow. */
+function withArms(experiment: WorkflowExperiment & { workflowIds?: string[] }): WorkflowExperiment {
+  if (experiment.arms) return experiment;
+  const { workflowIds = [], ...rest } = experiment;
+  return {
+    ...rest,
+    arms: workflowIds.map((workflowId) => ({ id: workflowId, workflowId, label: workflowId })),
+    runs: rest.runs.map((r) => ({ ...r, armId: r.armId ?? (r as { workflowId?: string }).workflowId ?? "" })),
+  };
 }
