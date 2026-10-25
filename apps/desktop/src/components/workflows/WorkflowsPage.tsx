@@ -144,6 +144,9 @@ export function WorkflowsPage({ target }: { target: WorkflowsPageTarget }) {
   const pick = (workflow: Workflow) => {
     if (workflow.id === draft?.id || !confirmDiscard()) return
     history.current.reset()
+    // Picking a workflow shows it in the editor, not the comparison or run in front of it.
+    setViewExperimentId(null)
+    setViewRunId(null)
     setDraft(workflow)
     setDirty(false)
   }
