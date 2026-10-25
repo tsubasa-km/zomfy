@@ -1,4 +1,5 @@
-import { isAbsolute, resolve } from "node:path";
+import { homedir } from "node:os";
+import { isAbsolute, join, resolve } from "node:path";
 import type { HookCallbackMatcher } from "@anthropic-ai/claude-agent-sdk";
 
 // Keeps a workflow step's Claude session away from data it is not linked to (and from changing data
@@ -28,8 +29,14 @@ const CHANGING = new Set(["Write", "Edit", "MultiEdit", "NotebookEdit"]);
 /** Tools that look through a whole folder: blocked when the folder holds a guarded path. */
 const SEARCHING = new Set(["Glob", "Grep", "LS"]);
 
+/** `~/x` as the home folder's x; anything else as given. */
+export function expandHome(path: string): string {
+  return /^~(?=$|[\\/])/.test(path) ? join(homedir(), path.slice(1)) : path;
+}
+
 function norm(path: string, cwd: string): string {
-  const full = (isAbsolute(path) ? path : resolve(cwd, path)).replace(/\\/g, "/").replace(/\/+$/, "");
+  const home = expandHome(path);
+  const full = (isAbsolute(home) ? home : resolve(cwd, home)).replace(/\\/g, "/").replace(/\/+$/, "");
   return process.platform === "win32" ? full.toLowerCase() : full;
 }
 

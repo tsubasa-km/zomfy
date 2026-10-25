@@ -108,7 +108,7 @@ export function WorkflowDataLinkPanel({
       <div className="flex items-start justify-between gap-3">
         <div className="space-y-0.5">
           <div className="text-xs font-medium">May change it</div>
-          <p className="text-[11px] text-muted-foreground">Off: read only (Claude steps are refused edits to it).</p>
+          <p className="text-[11px] text-muted-foreground">Off: read only. Claude steps are refused edits through their file tools; a shell command can still change it.</p>
         </div>
         <Switch checked={link.write === true} onCheckedChange={(on) => onChange({ write: on || undefined })} aria-label="May change it" />
       </div>

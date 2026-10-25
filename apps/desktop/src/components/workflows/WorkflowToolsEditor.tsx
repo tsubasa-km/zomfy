@@ -49,10 +49,13 @@ function useHostSkills(hostId: HostId, wanted: boolean): DiscoveredSkill[] | nul
 export function WorkflowToolsEditor({
   hostId,
   tools,
+  claude = true,
   onChange
 }: {
   hostId: HostId
   tools: WorkflowToolPolicy | undefined
+  /** Other agents get only the MCP servers (the browser among them); the rest is Claude's. */
+  claude?: boolean
   onChange: (tools: WorkflowToolPolicy) => void
 }) {
   const policy = tools ?? {}
@@ -73,12 +76,14 @@ export function WorkflowToolsEditor({
         checked={hasBrowser}
         onChange={(on) => set({ mcp: on ? [...mcp, PLAYWRIGHT] : mcp.filter((s) => s.preset !== 'playwright') })}
       />
-      <ToggleRow
-        label="Read only"
-        hint="No Edit, Write or NotebookEdit, whatever the instructions say."
-        checked={policy.readOnly === true}
-        onChange={(on) => set({ readOnly: on || undefined })}
-      />
+      {claude && (
+        <ToggleRow
+          label="Read only"
+          hint="No Edit, Write or NotebookEdit, whatever the instructions say."
+          checked={policy.readOnly === true}
+          onChange={(on) => set({ readOnly: on || undefined })}
+        />
+      )}
 
       <div className="space-y-1.5">
         <div className="flex items-center justify-between">
@@ -122,7 +127,7 @@ export function WorkflowToolsEditor({
             </Button>
           </div>
         ))}
-        {mcp.length > 0 && (
+        {claude && mcp.length > 0 && (
           <ToggleRow
             label="Only these servers"
             hint="Leave out the MCP servers from the host's Claude settings."
@@ -132,53 +137,57 @@ export function WorkflowToolsEditor({
         )}
       </div>
 
-      <div className="space-y-1.5">
-        <ToggleRow
-          label="Limit skills"
-          hint="Only the checked skills are listed and callable (their files stay readable)."
-          checked={limitSkills}
-          onChange={(on) => set({ skills: on ? [] : undefined })}
-        />
-        {limitSkills && (
-          <div className="max-h-40 space-y-1 overflow-y-auto rounded border border-border p-1.5" data-workflow-skills>
-            {skills === null && <p className="text-[11px] text-muted-foreground">Reading the host's skills…</p>}
-            {skills?.length === 0 && <p className="text-[11px] text-muted-foreground">No skills found on this host.</p>}
-            {[...new Map((skills ?? []).map((s) => [s.name, s])).values()].map((skill) => (
-              <label key={skill.name} className="flex items-start gap-2 text-xs" title={skill.description ?? undefined}>
-                <Checkbox
-                  checked={policy.skills?.includes(skill.name) ?? false}
-                  onCheckedChange={(on) =>
-                    set({
-                      skills: on === true ? [...(policy.skills ?? []), skill.name] : (policy.skills ?? []).filter((n) => n !== skill.name)
-                    })
-                  }
-                  className="mt-0.5"
-                />
-                <span className="min-w-0 truncate">{skill.name}</span>
-              </label>
-            ))}
-          </div>
-        )}
-      </div>
+      {claude && (
+        <div className="space-y-1.5">
+          <ToggleRow
+            label="Limit skills"
+            hint="Only the checked skills are listed and callable (their files stay readable)."
+            checked={limitSkills}
+            onChange={(on) => set({ skills: on ? [] : undefined })}
+          />
+          {limitSkills && (
+            <div className="max-h-40 space-y-1 overflow-y-auto rounded border border-border p-1.5" data-workflow-skills>
+              {skills === null && <p className="text-[11px] text-muted-foreground">Reading the host's skills…</p>}
+              {skills?.length === 0 && <p className="text-[11px] text-muted-foreground">No skills found on this host.</p>}
+              {[...new Map((skills ?? []).map((s) => [s.name, s])).values()].map((skill) => (
+                <label key={skill.name} className="flex items-start gap-2 text-xs" title={skill.description ?? undefined}>
+                  <Checkbox
+                    checked={policy.skills?.includes(skill.name) ?? false}
+                    onCheckedChange={(on) =>
+                      set({
+                        skills: on === true ? [...(policy.skills ?? []), skill.name] : (policy.skills ?? []).filter((n) => n !== skill.name)
+                      })
+                    }
+                    className="mt-0.5"
+                  />
+                  <span className="min-w-0 truncate">{skill.name}</span>
+                </label>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
 
-      <div className="space-y-1.5">
-        <div className="text-xs font-medium">Allow without asking</div>
-        <Input
-          value={(policy.allow ?? []).join(', ')}
-          placeholder="Bash(bun test:*), mcp__server"
-          onChange={(e) => set({ allow: list(e.target.value) })}
-          className="h-7 font-mono text-xs"
-          aria-label="Allowed tools"
-        />
-        <div className="text-xs font-medium">Never allow</div>
-        <Input
-          value={(policy.deny ?? []).join(', ')}
-          placeholder="WebFetch, Bash(git push:*)"
-          onChange={(e) => set({ deny: list(e.target.value) })}
-          className="h-7 font-mono text-xs"
-          aria-label="Denied tools"
-        />
-      </div>
+      {claude && (
+        <div className="space-y-1.5">
+          <div className="text-xs font-medium">Allow without asking</div>
+          <Input
+            value={(policy.allow ?? []).join(', ')}
+            placeholder="Bash(bun test:*), mcp__server"
+            onChange={(e) => set({ allow: list(e.target.value) })}
+            className="h-7 font-mono text-xs"
+            aria-label="Allowed tools"
+          />
+          <div className="text-xs font-medium">Never allow</div>
+          <Input
+            value={(policy.deny ?? []).join(', ')}
+            placeholder="WebFetch, Bash(git push:*)"
+            onChange={(e) => set({ deny: list(e.target.value) })}
+            className="h-7 font-mono text-xs"
+            aria-label="Denied tools"
+          />
+        </div>
+      )}
     </div>
   )
 }

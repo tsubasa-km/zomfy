@@ -1,6 +1,7 @@
 import { query } from "@anthropic-ai/claude-agent-sdk";
 import {
   MANAGER_MCP_SERVER_NAME,
+  localOnlySteps,
   workflowCycles,
   workflowScorecard,
   type Workflow,
@@ -42,13 +43,16 @@ function describe(workflow: Workflow): string {
 
 function describeRun(run: WorkflowRun, index: number): string {
   const card = workflowScorecard(run);
+  // What local-only steps learned goes to no cloud model, this one included.
+  const withheld = localOnlySteps(run.workflow);
   const head = `Run ${index + 1} (${run.status}): task: ${run.task.slice(0, 400)}`;
   const figures = `scorecard: ${card.steps} steps, ${Math.round(card.durationMs / 1000)}s, tokens in ${card.usage.inputTokens} out ${card.usage.outputTokens}, sent back ${card.sentBack}, checks failed ${card.checksFailed}, files re-read after a handoff ${card.rereadAfterHandoff}/${card.reads}, commands re-run ${card.rerunCommands}/${card.commands}, waited on the person ${card.personWaits}`;
   const steps = run.steps.map((s) => {
-    const summary = s.summary.length > SUMMARY_CHARS ? `${s.summary.slice(0, SUMMARY_CHARS)}…` : s.summary;
+    const text = withheld.has(s.nodeId) ? "(withheld: it worked with local-only data)" : s.summary;
+    const summary = text.length > SUMMARY_CHARS ? `${text.slice(0, SUMMARY_CHARS)}…` : text;
     return `  · "${s.label}" (node ${s.nodeId}) → ${s.outcome ?? "no outcome"}${s.error ? ` ERROR: ${s.error}` : ""}\n    ${summary.replace(/\n/g, "\n    ")}`;
   });
-  const later = (run.followUps ?? []).map((f) => `  left for later by "${f.label}": ${f.text}`);
+  const later = (run.followUps ?? []).filter((f) => !withheld.has(f.nodeId)).map((f) => `  left for later by "${f.label}": ${f.text}`);
   // Zomfy's own tools are how steps reach the Lead, not a candidate to take away.
   const context = card.context
     .filter((r) => r.kind !== "agent" && !(r.kind === "mcp" && r.name === MANAGER_MCP_SERVER_NAME))

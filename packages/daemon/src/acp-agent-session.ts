@@ -90,6 +90,19 @@ export class AcpAgentSession {
     }
   }
 
+  /** Puts the session on `model`, and fails when the agent offers no such model. */
+  async useModel(model: string): Promise<void> {
+    await this.ensureStarted()
+    const option = this.state.options.find((o) => o.id === CHAT_AGENT_OPTION_IDS.model || o.category === 'model')
+    if (!option) throw new Error(`${chatAgentLabel(this.agent)} does not let Zomfy choose its model, so it cannot be held to ${model}`)
+    if (!option.choices.some((c) => c.value === model)) {
+      throw new Error(`${chatAgentLabel(this.agent)} has no model "${model}" (it offers: ${option.choices.map((c) => c.value).join(', ')})`)
+    }
+    if (option.currentValue !== model) await this.setOption(option.id, model)
+    const now = this.state.options.find((o) => o.id === option.id)?.currentValue
+    if (now !== model) throw new Error(`${chatAgentLabel(this.agent)} stayed on ${now ?? 'another model'} instead of ${model}`)
+  }
+
   async setOption(optionId: string, value: string): Promise<void> {
     const { conn, agentSessionId: sessionId } = await this.ensureStarted()
     if (optionId === CHAT_AGENT_OPTION_IDS.mode) {

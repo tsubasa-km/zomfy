@@ -16,6 +16,11 @@ export interface WorkflowAgentProfile {
   agent?: ChatAgentId
   /** Its model runs on the person's own machines (a local LLM), so it may see local-only data. */
   local?: boolean
+  /**
+   * The model it runs, as the agent names it. Zomfy sets it when a session starts and refuses to go
+   * on if the agent will not take it; a local agent must name one, or "local" would be only a claim.
+   */
+  model?: string
   role?: string
   /** Its standing instructions; a step's own come after them. */
   prompt?: string
@@ -78,10 +83,12 @@ export function resolveStep(node: WorkflowNode, profiles: WorkflowAgentProfile[]
   const config = { ...node.config, role: profile.role?.trim() || profile.name }
   delete config.agent
   delete config.local
+  delete config.model
   delete config.tools
   if (prompt) config.prompt = prompt
   if (profile.agent && profile.agent !== 'claude') config.agent = profile.agent
   if (profile.local) config.local = true
+  if (profile.model?.trim()) config.model = profile.model.trim()
   if (profile.tools) config.tools = profile.tools
   if (config.maxAgents === undefined && profile.maxAgents) config.maxAgents = profile.maxAgents
   return { ...node, config }
@@ -97,8 +104,8 @@ const tainted = new WeakMap<object, Set<string>>()
 
 /**
  * Steps that may hold what was learned from local-only data: the steps linked to it, and the local
- * steps handed their work. The person (an Ask step) decides what goes further; a command is handed
- * nothing, so neither carries it on. Expects agents resolved.
+ * steps after them (sessions handed their work, and commands, whose output may show it). The
+ * person (an Ask step) decides what goes further. Expects agents resolved.
  */
 export function localOnlySteps(workflow: Pick<Workflow, 'nodes' | 'edges' | 'data' | 'dataLinks'>): Set<string> {
   const known = tainted.get(workflow)
@@ -110,7 +117,7 @@ export function localOnlySteps(workflow: Pick<Workflow, 'nodes' | 'edges' | 'dat
   for (let id = queue.shift(); id !== undefined; id = queue.shift()) {
     for (const edge of workflow.edges) {
       const to = edge.from === id ? byId.get(edge.to) : undefined
-      if (!to || holds.has(to.id) || !isSessionStep(to) || !runsLocally(to)) continue
+      if (!to || holds.has(to.id) || !runsLocally(to)) continue
       holds.add(to.id)
       queue.push(to.id)
     }
@@ -127,8 +134,17 @@ function agentName(node: WorkflowNode): string {
 export function workflowAccessIssues(workflow: Workflow, profiles: WorkflowAgentProfile[]): WorkflowAccessIssue[] {
   const issues: WorkflowAccessIssue[] = []
   for (const node of workflow.nodes) {
-    if (node.config.profileId && !profiles.some((p) => p.id === node.config.profileId)) {
+    const profile = node.config.profileId ? profiles.find((p) => p.id === node.config.profileId) : undefined
+    if (node.config.profileId && !profile) {
       issues.push({ level: 'error', nodeId: node.id, message: `"${node.label}" uses an agent that no longer exists.` })
+    } else if (profile?.local && (profile.agent ?? 'claude') === 'claude') {
+      issues.push({ level: 'error', nodeId: node.id, message: `"${profile.name}" is marked local, but Claude runs in the cloud.` })
+    } else if (profile?.local && !profile.model?.trim()) {
+      issues.push({
+        level: 'error',
+        nodeId: node.id,
+        message: `"${profile.name}" is marked local but names no model, so Zomfy cannot hold it to a local one. Set its model.`
+      })
     }
   }
   const resolved = resolveWorkflowAgents(workflow, profiles)
@@ -164,6 +180,15 @@ export function workflowAccessIssues(workflow: Workflow, profiles: WorkflowAgent
     const from = byId.get(edge.from)
     const to = byId.get(edge.to)
     if (!from || !to || !holds.has(from.id) || !isSessionStep(to) || runsLocally(to)) continue
+    if (isCommandStep(from)) {
+      // Its output is withheld from the cloud agent, but the files the local steps changed are not.
+      issues.push({
+        level: 'warning',
+        edgeId: edge.id,
+        message: `"${to.label}" (${agentName(to)}) comes after local-only work: "${from.label}"'s output is withheld from it, but it can read the files the local steps changed.`
+      })
+      continue
+    }
     issues.push({
       level: 'error',
       edgeId: edge.id,

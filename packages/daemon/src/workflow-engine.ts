@@ -32,7 +32,7 @@ import { consultLead } from "./lead-consult.ts";
 import type { WorkflowRunStore } from "./workflow-run-store.ts";
 import type { WorkflowStore } from "./workflow-store.ts";
 import type { WorkflowAgentStore } from "./workflow-agent-store.ts";
-import type { PathGuard } from "./step-path-guard.ts";
+import { expandHome, type PathGuard } from "./step-path-guard.ts";
 import { stat } from "node:fs/promises";
 import { dirname } from "node:path";
 import { sanitizeWorkspaceName } from "./worktree-naming.ts";
@@ -45,7 +45,10 @@ import { log } from "./log.ts";
 // limit reached, or stuck on the same failure) is never just dropped: it is handed up to the loop around
 // it to rethink, and only the outermost loop asks the person.
 
-type Deps = Pick<HandlerContext, "workspaces" | "sessions" | "pendingTurns" | "broadcast" | "runStepTurn" | "emit" | "serveTool" | "autoApprove">;
+type Deps = Pick<
+  HandlerContext,
+  "workspaces" | "sessions" | "pendingTurns" | "broadcast" | "runStepTurn" | "emit" | "serveTool" | "autoApprove" | "acpAgents"
+>;
 
 /** Outcomes counted against a step's round limit. */
 const LIMITED: WorkflowOutcome[] = ["changes", "fail"];
@@ -228,11 +231,13 @@ export class WorkflowEngine {
     const reason = run.waiting.reason;
     const question = run.waiting.question;
     const limitKey = run.waiting.limitKey;
+    const secret = run.waiting.secret === true;
     run.waiting = null;
     if (reason === "limit" && /^\s*stop\s*$/i.test(text)) return this.finish(run, "stopped");
 
     const step = this.beginStep(run, node, reason === "human" ? node.label : "Your answer");
-    this.endStep(step, reason === "human" ? "answered" : "next", `Question: ${question}\nAnswer: ${text.trim()}`);
+    // A question that showed local-only work stays with the person; only the answer goes on.
+    this.endStep(step, reason === "human" ? "answered" : "next", secret ? `Answer: ${text.trim()}` : `Question: ${question}\nAnswer: ${text.trim()}`);
     if (reason === "human") {
       const edge = run.workflow.edges.find((e) => e.from === node.id && e.outcome === "answered");
       if (!edge) return this.finish(run, "failed", `"${node.label}" has no "Answered" edge`);
@@ -417,10 +422,23 @@ export class WorkflowEngine {
         title: `${node.label}${count > 1 ? ` ${i + 1}` : ""} · ${run.workflow.name}`,
         ...(stepAgent(node) ? { agent: stepAgent(node) } : {}),
         // Agents edit their own worktree without asking each time; reviewers only read.
-        options: { model: null, effort: null, permissionMode: node.kind === "review" ? "default" : "acceptEdits" },
+        options: {
+          model: !stepAgent(node) && node.config.model ? node.config.model : null,
+          effort: null,
+          permissionMode: node.kind === "review" ? "default" : "acceptEdits",
+        },
       });
       return record.id;
     });
+    // Other agents are put on the step's model before they start, and the step fails if they will not take it.
+    const model = stepAgent(node) ? node.config.model : undefined;
+    if (model) {
+      for (const id of sessionIds) {
+        const record = this.deps.sessions.get(id);
+        const agent = record ? this.deps.acpAgents.for(record) : null;
+        if (agent) await agent.useModel(model);
+      }
+    }
     if (keep) run.sessionsByNode[node.id] = sessionIds;
     await this.save(run);
     const helpers: string[] = [];
@@ -815,7 +833,7 @@ export class WorkflowEngine {
 
   /** Folders outside the workspace the step's data lives in, so reading them needs no approval. */
   private async dataDirs(run: WorkflowRun, node: WorkflowNode): Promise<string[]> {
-    const paths = this.dataOf(run, node).map((d) => d.source.path.trim()).filter(isAbsolutePath);
+    const paths = this.dataOf(run, node).map((d) => d.source.path.trim()).filter(isAbsolutePath).map(expandHome);
     return Promise.all(paths.map(async (path) => ((await stat(path).catch(() => null))?.isFile() ? dirname(path) : path)));
   }
 
@@ -907,7 +925,7 @@ export class WorkflowEngine {
   /** `secret`: the question holds local-only work, so the Lead only hears that the run waits. */
   private async wait(run: WorkflowRun, question: string, reason: "human" | "ask" | "limit", limitKey?: string, secret = false): Promise<void> {
     run.status = "waiting";
-    run.waiting = { question, reason, ...(limitKey ? { limitKey } : {}) };
+    run.waiting = { question, reason, ...(limitKey ? { limitKey } : {}), ...(secret ? { secret: true } : {}) };
     await this.save(run);
     this.tellLead(run, `Workflow "${run.workflow.name}" (run ${run.id}) is waiting for the person: ${secret ? "(the question is withheld: it holds local-only data)" : question}`);
   }

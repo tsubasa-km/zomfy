@@ -388,7 +388,14 @@ export function WorkflowInspector({
         {(node.kind === 'agent' || node.kind === 'review' || (node.kind === 'custom' && c.runner !== 'command')) && (
           <>
             <ParallelFields kind={node.kind} config={c} onChange={set} />
-            {!usesProfile && <WorkflowToolsEditor hostId={hostId} tools={c.tools} onChange={(tools) => set({ tools })} />}
+            {!usesProfile && (
+              <WorkflowToolsEditor
+                hostId={hostId}
+                tools={c.tools}
+                claude={c.runBy === 'lead' || (c.agent ?? 'claude') === 'claude'}
+                onChange={(tools) => set({ tools })}
+              />
+            )}
           </>
         )}
         {node.kind === 'custom' && c.runner === 'command' && (

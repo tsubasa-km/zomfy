@@ -8,12 +8,22 @@ import {
   type WorkflowNodeKind,
   type WorkflowOutcome
 } from '@acp-harness/protocol'
+import { homedir } from 'node:os'
 import { guardedUse, type PathGuard } from './step-path-guard.ts'
 
 // Agents defined once and used by steps; data only the linked steps see; local-only data that stays
 // with local agents and the person.
 
-const localDev: WorkflowAgentProfile = { id: 'local', name: 'Local dev', kind: 'agent', agent: 'opencode', local: true, prompt: 'Use the house style.', updatedAt: 0 }
+const localDev: WorkflowAgentProfile = {
+  id: 'local',
+  name: 'Local dev',
+  kind: 'agent',
+  agent: 'opencode',
+  local: true,
+  model: 'company-llm/coder',
+  prompt: 'Use the house style.',
+  updatedAt: 0
+}
 const cloudDev: WorkflowAgentProfile = { id: 'cloud', name: 'Cloud dev', kind: 'agent', agent: 'codex', updatedAt: 0 }
 
 function graph(steps: [string, WorkflowNodeKind, string?][], edges: [string, string, WorkflowOutcome][], extra: Partial<Workflow> = {}): Workflow {
@@ -35,7 +45,20 @@ describe('agents', () => {
     const w = graph([['dev', 'agent', 'local']], [])
     w.nodes[0]!.config.prompt = 'Fix the bug.'
     const dev = resolveWorkflowAgents(w, [localDev]).nodes[0]!
-    expect(dev.config).toMatchObject({ agent: 'opencode', local: true, role: 'Local dev', prompt: 'Use the house style.\n\nFix the bug.' })
+    expect(dev.config).toMatchObject({
+      agent: 'opencode',
+      local: true,
+      model: 'company-llm/coder',
+      role: 'Local dev',
+      prompt: 'Use the house style.\n\nFix the bug.'
+    })
+  })
+
+  test('a local agent must name its model, and Claude cannot be one', () => {
+    const noModel = { ...localDev, model: undefined }
+    expect(workflowAccessIssues(graph([['dev', 'agent', 'local']], []), [noModel]).map((i) => i.level)).toEqual(['error'])
+    const claude = { ...localDev, agent: 'claude' as const }
+    expect(workflowAccessIssues(graph([['dev', 'agent', 'local']], []), [claude])[0]?.message).toContain('cloud')
   })
 
   test('a step whose agent is gone cannot run', () => {
@@ -76,6 +99,28 @@ describe('local-only data', () => {
     const w = flow('local', 'local')
     expect(workflowAccessIssues(w, [localDev]).filter((i) => i.level === 'error')).toEqual([])
     expect([...localOnlySteps(resolveWorkflowAgents(w, [localDev]))].sort()).toEqual(['dev', 'review'])
+  })
+
+  test('a check after local work only warns: its output is withheld, the files are not', () => {
+    const w = graph(
+      [
+        ['start', 'start'],
+        ['dev', 'agent', 'local'],
+        ['tests', 'check'],
+        ['review', 'review'],
+        ['done', 'end']
+      ],
+      [
+        ['start', 'dev', 'next'],
+        ['dev', 'tests', 'next'],
+        ['tests', 'review', 'pass'],
+        ['review', 'done', 'approve']
+      ],
+      { data: [secrets], dataLinks: [{ id: 'l', dataId: 'd', nodeId: 'dev' }] }
+    )
+    const issues = workflowAccessIssues(w, [localDev])
+    expect(issues.map((i) => [i.level, i.edgeId])).toEqual([['warning', 'tests>review']])
+    expect(localOnlySteps(resolveWorkflowAgents(w, [localDev])).has('tests')).toBe(true)
   })
 
   test('the person in between decides what goes on', () => {
@@ -124,6 +169,11 @@ describe('path guard', () => {
     expect(guardedUse(inside, 'Grep', { pattern: 'x' }, cwd)).toContain('Search a folder')
     expect(guardedUse(inside, 'Grep', { pattern: 'x', path: 'src' }, cwd)).toBeNull()
     expect(guardedUse(inside, 'Bash', { command: 'type data\\customers\\a.csv' }, cwd)).not.toBeNull()
+  })
+
+  test('a path under the home folder is guarded wherever it is written', () => {
+    const home: PathGuard[] = [{ path: '~/secret-data', name: 'Secret', allow: 'none' }]
+    expect(guardedUse(home, 'Read', { file_path: `${homedir()}/secret-data/a.txt` }, cwd)).not.toBeNull()
   })
 
   test('read-only data can be read but not changed', () => {

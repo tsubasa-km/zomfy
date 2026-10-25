@@ -106,6 +106,8 @@ export interface WorkflowNodeConfig {
   profileId?: string
   /** Its agent's model runs on the person's own machines; filled in from the agent when a run starts. */
   local?: boolean
+  /** The model its sessions run; filled in from the agent when a run starts. */
+  model?: string
 }
 
 /** The step's part in its cycle's Plan-Do-Check-Act; absent means the kind's usual one. */
@@ -329,7 +331,14 @@ export interface WorkflowRun {
   sessionsByNode: Record<string, string[]>
   steps: WorkflowRunStep[]
   /** Set while the run waits for the person: what they are asked. */
-  waiting?: { question: string; reason: 'human' | 'ask' | 'limit'; /** The round count a limit stop resets. */ limitKey?: string } | null
+  waiting?: {
+    question: string
+    reason: 'human' | 'ask' | 'limit'
+    /** The round count a limit stop resets. */
+    limitKey?: string
+    /** The question holds local-only work: the answer goes on without it. */
+    secret?: boolean
+  } | null
   /** A loop that could not finish, handed up to this step to rethink; told to it once, then cleared. */
   escalation?: { nodeId: string; text: string } | null
   /** Non-blocking findings reviewers left for later, handed to the person when the run ends. */

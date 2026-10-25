@@ -45,7 +45,16 @@ export function WorkflowAgentDialog({
   const save = async () => {
     setBusy(true)
     try {
-      const saved = { ...agent, name, role: agent.role?.trim() || undefined, prompt: agent.prompt?.trim() || undefined }
+      const claude = (agent.agent ?? 'claude') === 'claude'
+      const saved = {
+        ...agent,
+        name,
+        role: agent.role?.trim() || undefined,
+        prompt: agent.prompt?.trim() || undefined,
+        // Claude runs in the cloud, and its model is the chat's.
+        local: claude ? undefined : agent.local,
+        model: claude ? undefined : agent.model?.trim() || undefined
+      }
       await saveWorkflowAgent(hostId, saved)
       onSaved(saved)
     } catch (error) {
@@ -107,8 +116,31 @@ export function WorkflowAgentDialog({
                 Its model runs on your own machines (for example OpenCode on the in-house LLM), so it may see data marked local only.
               </p>
             </div>
-            <Switch checked={agent.local === true} onCheckedChange={(on) => set({ local: on || undefined })} aria-label="Runs on a local model" />
+            <Switch
+              checked={agent.local === true}
+              disabled={(agent.agent ?? 'claude') === 'claude'}
+              onCheckedChange={(on) => set({ local: on || undefined })}
+              aria-label="Runs on a local model"
+            />
           </div>
+          {(agent.agent ?? 'claude') !== 'claude' && (
+            <div className="space-y-1.5">
+              <Label className="text-xs" htmlFor="workflow-agent-model">
+                Model
+              </Label>
+              <Input
+                id="workflow-agent-model"
+                value={agent.model ?? ''}
+                placeholder={agent.local ? 'Required: the local model, as the agent names it' : 'The agent’s default'}
+                onChange={(e) => set({ model: e.target.value || undefined })}
+                className="h-8 font-mono text-xs"
+              />
+              <p className="text-[11px] text-muted-foreground">
+                Set on each session it starts; the step fails if the agent offers no such model. A local agent needs one, so “local” is
+                checked, not just claimed.
+              </p>
+            </div>
+          )}
           <div className="space-y-1.5">
             <Label className="text-xs">Role</Label>
             <Input value={agent.role ?? ''} placeholder={name || 'Developer'} onChange={(e) => set({ role: e.target.value })} className="h-8" />
@@ -133,7 +165,12 @@ export function WorkflowAgentDialog({
               className="h-8 w-24"
             />
           </div>
-          <WorkflowToolsEditor hostId={hostId} tools={agent.tools} onChange={(tools) => set({ tools })} />
+          <WorkflowToolsEditor
+            hostId={hostId}
+            tools={agent.tools}
+            claude={(agent.agent ?? 'claude') === 'claude'}
+            onChange={(tools) => set({ tools })}
+          />
         </div>
         <DialogFooter className="sm:justify-between">
           {!isNew ? (
@@ -148,7 +185,7 @@ export function WorkflowAgentDialog({
             <Button variant="outline" onClick={onClose}>
               Cancel
             </Button>
-            <Button onClick={() => void save()} disabled={!name || busy} data-workflow-agent-save>
+            <Button onClick={() => void save()} disabled={!name || busy || (agent.local === true && !agent.model?.trim())} data-workflow-agent-save>
               {isNew ? 'Create' : 'Save'}
             </Button>
           </div>
