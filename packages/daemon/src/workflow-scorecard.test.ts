@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test'
-import { workflowScorecard, type WorkflowRun, type WorkflowRunStep } from '@acp-harness/protocol'
+import { applyWorkflowChange, workflowScorecard, type WorkflowRun, type WorkflowRunStep } from '@acp-harness/protocol'
 
 // A run's scorecard: tokens summed over steps, files re-read after a handoff (unless changed in
 // between), commands re-run by a later step, and rounds.
@@ -51,5 +51,26 @@ describe('workflowScorecard', () => {
     expect([card.commands, card.rerunCommands]).toEqual([3, 1])
     expect(card.sentBack).toBe(1)
     expect(card.durationMs).toBe(100)
+  })
+})
+
+describe('applyWorkflowChange', () => {
+  const base: WorkflowRun['workflow'] = {
+    id: 'w',
+    projectId: 'p',
+    name: 'w',
+    nodes: [{ id: 'review', kind: 'review', label: 'Reviewer', x: 0, y: 0, config: { prompt: 'old', maxRounds: 3 } }],
+    edges: [{ id: 'e', from: 'review', to: 'dev', outcome: 'changes' }],
+    updatedAt: 0
+  }
+
+  test('rewrites instructions, clears a limit, and marks an arrow to continue the chat', () => {
+    let w = applyWorkflowChange(base, { type: 'prompt', nodeId: 'review', prompt: 'new' })
+    w = applyWorkflowChange(w, { type: 'maxRounds', nodeId: 'review', maxRounds: null })
+    w = applyWorkflowChange(w, { type: 'continue', edgeId: 'e', on: true })
+    expect(w.nodes[0]!.config).toEqual({ prompt: 'new' })
+    expect(w.edges[0]!.session).toBe('continue')
+    expect(applyWorkflowChange(w, { type: 'continue', edgeId: 'e', on: false }).edges[0]).toEqual({ id: 'e', from: 'review', to: 'dev', outcome: 'changes' })
+    expect(base.nodes[0]!.config.prompt).toBe('old')
   })
 })

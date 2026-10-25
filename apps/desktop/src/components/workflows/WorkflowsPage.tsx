@@ -11,7 +11,7 @@ import {
   type NodeChange
 } from '@xyflow/react'
 import '@xyflow/react/dist/style.css'
-import { ChevronDown, Copy, Database, FlaskConical, HardDrive, History, Plus, Save, Trash2, Workflow as WorkflowIcon, X } from 'lucide-react'
+import { ChevronDown, Copy, Database, FlaskConical, HardDrive, History, Plus, Save, Sparkles, Trash2, Workflow as WorkflowIcon, X } from 'lucide-react'
 import { toast } from 'sonner'
 import {
   HARNESS_METHODS,
@@ -59,6 +59,7 @@ import { WorkflowConnectMenu, type PendingConnection } from './WorkflowConnectMe
 import { canvasEdges } from './workflow-canvas-edges'
 import { WorkflowRunView } from './WorkflowRunView'
 import { WorkflowCompareDialog } from './WorkflowCompareDialog'
+import { WorkflowSuggestDialog } from './WorkflowSuggestDialog'
 import { WorkflowExperimentView } from './WorkflowExperimentView'
 import { loadWorkflowExperiments, useWorkflowExperiment, useWorkflowExperiments } from '@/stores/workflow-experiments-store'
 import { WorkflowAgentDialog, blankAgentProfile } from './WorkflowAgentDialog'
@@ -107,6 +108,7 @@ export function WorkflowsPage({ target }: { target: WorkflowsPageTarget }) {
   const [viewExperimentId, setViewExperimentId] = useState<string | null>(null)
   const viewExperiment = useWorkflowExperiment(viewExperimentId)
   const [comparing, setComparing] = useState(false)
+  const [suggesting, setSuggesting] = useState(false)
   const viewRun = useWorkflowRun(viewRunId)
 
   useEffect(() => {
@@ -245,6 +247,18 @@ export function WorkflowsPage({ target }: { target: WorkflowsPageTarget }) {
               {errors > 0 ? `${errors} problem${errors > 1 ? 's' : ''}` : 'Ready to run'}
             </span>
           )}
+          <Button
+            variant="ghost"
+            size="sm"
+            className="h-7 gap-1"
+            title="Changes Claude proposes from this workflow's last runs"
+            onClick={() => setSuggesting(true)}
+            disabled={!draft || !saved?.some((w) => w.id === draft.id) || !runs.some((r) => r.workflowId === draft.id && r.status !== 'running')}
+            data-workflow-suggest
+          >
+            <Sparkles className="size-3.5" />
+            Suggest
+          </Button>
           <Button variant="ghost" size="sm" className="h-7 gap-1" onClick={() => setComparing(true)} disabled={!saved?.length} data-workflow-compare>
             <FlaskConical className="size-3.5" />
             Compare
@@ -342,6 +356,20 @@ export function WorkflowsPage({ target }: { target: WorkflowsPageTarget }) {
         </ReactFlowProvider>
       ) : (
         <div className="m-auto text-sm text-muted-foreground">Loading workflows…</div>
+      )}
+      {suggesting && draft && saved?.some((w) => w.id === draft.id) && (
+        <WorkflowSuggestDialog
+          hostId={target.hostId}
+          workflow={saved.find((w) => w.id === draft.id)!}
+          onClose={() => setSuggesting(false)}
+          onApply={(next, asVariant) => {
+            setSuggesting(false)
+            if (!confirmDiscard()) return
+            history.current.reset()
+            setDraft(asVariant ? { ...next, id: crypto.randomUUID(), name: `${next.name} (variant)`, updatedAt: Date.now() } : next)
+            setDirty(true)
+          }}
+        />
       )}
       {comparing && (
         <WorkflowCompareDialog

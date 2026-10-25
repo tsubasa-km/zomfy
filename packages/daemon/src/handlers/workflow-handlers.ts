@@ -4,6 +4,7 @@ import { WorkflowRunStore } from "../workflow-run-store.ts";
 import { WorkflowStore } from "../workflow-store.ts";
 import { WorkflowAgentStore } from "../workflow-agent-store.ts";
 import { WorkflowExperiments } from "../workflow-experiments.ts";
+import { suggestWorkflowChanges } from "../workflow-suggestions.ts";
 import type { HandlerContext } from "./handler-context.ts";
 
 const workflows = new WorkflowStore();
@@ -26,6 +27,11 @@ export function registerWorkflowHandlers(ctx: HandlerContext): void {
   handle(HARNESS_METHODS.workflowRunsList, (p) => engine.list(p.projectId));
   handle(HARNESS_METHODS.workflowRunAnswer, (p) => engine.answer(p.runId, p.text));
   handle(HARNESS_METHODS.workflowRunStop, (p) => engine.stop(p.runId));
+  handle(HARNESS_METHODS.workflowSuggest, async (p) => {
+    const workflow = (await workflows.list(p.projectId)).find((w) => w.id === p.workflowId);
+    if (!workflow) throw new Error("Save the workflow first");
+    return suggestWorkflowChanges(workflow, await engine.list(p.projectId));
+  });
   handle(HARNESS_METHODS.workflowExperimentStart, (p) => experiments.start(p));
   handle(HARNESS_METHODS.workflowExperimentsList, (p) => experiments.list(p.projectId));
   handle(HARNESS_METHODS.workflowExperimentStop, (p) => experiments.stop(p.id));

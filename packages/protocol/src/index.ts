@@ -14,6 +14,7 @@ import { PROJECT_LINK_METHODS, type ProjectLinkRequests } from './project-links'
 import { WORKFLOW_METHODS, type WorkflowRequests } from './workflows'
 import { WORKFLOW_AGENT_METHODS, type WorkflowAgentRequests } from './workflow-access'
 import { WORKFLOW_EXPERIMENT_METHODS, type WorkflowExperimentRequests } from './workflow-experiments'
+import { WORKFLOW_SUGGESTION_METHODS, type WorkflowSuggestionRequests } from './workflow-suggestions'
 import { QUICK_OPEN_METHODS, type QuickOpenRequests } from './quick-open'
 import { SESSION_METHODS, type SessionRequests } from './sessions'
 import { SESSION_NOTE_METHODS, type SessionNoteRequests } from './session-notes'
@@ -53,6 +54,7 @@ export * from './workflows'
 export * from './workflow-access'
 export * from './workflow-scorecard'
 export * from './workflow-experiments'
+export * from './workflow-suggestions'
 
 export const HARNESS_METHODS = {
   ...WORKSPACE_METHODS,
@@ -77,7 +79,8 @@ export const HARNESS_METHODS = {
   ...PROJECT_LINK_METHODS,
   ...WORKFLOW_METHODS,
   ...WORKFLOW_AGENT_METHODS,
-  ...WORKFLOW_EXPERIMENT_METHODS
+  ...WORKFLOW_EXPERIMENT_METHODS,
+  ...WORKFLOW_SUGGESTION_METHODS
 } as const
 
 export const HARNESS_NOTIFICATIONS = {
@@ -110,6 +113,7 @@ export interface HarnessRequests
     ProjectLinkRequests,
     WorkflowRequests,
     WorkflowAgentRequests,
-    WorkflowExperimentRequests {}
+    WorkflowExperimentRequests,
+    WorkflowSuggestionRequests {}
 
 export type HarnessMethod = keyof HarnessRequests
