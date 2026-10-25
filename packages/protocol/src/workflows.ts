@@ -5,7 +5,7 @@
 
 import type { ChatAgentId } from './chat-agents'
 import type { WorkflowDataLink, WorkflowDataSource } from './workflow-access'
-import type { WorkflowStepUsage } from './workflow-scorecard'
+import type { WorkflowStepContext, WorkflowStepUsage } from './workflow-scorecard'
 
 export type WorkflowNodeKind = 'start' | 'agent' | 'review' | 'check' | 'human' | 'end' | 'custom'
 
@@ -302,6 +302,12 @@ export interface WorkflowRunStep {
   reads?: string[]
   edits?: string[]
   commands?: string[]
+  /** Claude steps: what its context held at the end of its last turn. */
+  context?: WorkflowStepContext
+  /** Skills it invoked, MCP servers whose tools it called, subagent types it launched (one entry per call). */
+  skillsUsed?: string[]
+  mcpUsed?: string[]
+  agentsUsed?: string[]
 }
 
 export interface WorkflowRun {

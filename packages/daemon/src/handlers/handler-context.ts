@@ -6,6 +6,7 @@ import type {
   MoveSessionParams,
   MoveSessionResult,
   TurnResumeKind,
+  WorkflowStepContext,
   WorkflowStepUsage,
 } from "@acp-harness/protocol";
 import type { TurnAutoResume } from "../turn-auto-resume.ts";
@@ -21,6 +22,10 @@ export interface StepToolUse {
   reads: string[];
   edits: string[];
   commands: string[];
+  /** One entry per call: skills invoked, MCP servers whose tools were called, subagent types launched. */
+  skills: string[];
+  mcp: string[];
+  agents: string[];
 }
 
 export type Handle = <M extends HarnessMethod>(
@@ -57,7 +62,14 @@ export interface HandlerContext {
     sessionId: string,
     text: string,
     step: StepOptions,
-  ): Promise<{ stopReason: acp.StopReason; text: string; structured: unknown; usage?: WorkflowStepUsage; tools: StepToolUse }>;
+  ): Promise<{
+    stopReason: acp.StopReason;
+    text: string;
+    structured: unknown;
+    usage?: WorkflowStepUsage;
+    context?: WorkflowStepContext;
+    tools: StepToolUse;
+  }>;
   /** Moves a chat to another workspace, or when its running turn ends. */
   moveSession(params: MoveSessionParams): Promise<MoveSessionResult>;
   /** Serves a step-only harness tool here instead of routing it to a window, to the sessions it is offered to. */

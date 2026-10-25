@@ -18,6 +18,7 @@ import {
   type WorkflowOutcome,
   type WorkflowRun,
   type WorkflowRunStep,
+  type WorkflowStepContext,
   type WorkflowStepUsage,
   type WorkflowToolPolicy,
   type Workspace,
@@ -827,9 +828,10 @@ export class WorkflowEngine {
   // ── Bookkeeping ────────────────────────────────────────────────────────
 
   /** Adds a turn's tokens, files and commands to the step running now (the run's last), for its scorecard. */
-  private tally(run: WorkflowRun, turn: { usage?: WorkflowStepUsage; tools: StepToolUse }): void {
+  private tally(run: WorkflowRun, turn: { usage?: WorkflowStepUsage; context?: WorkflowStepContext; tools: StepToolUse }): void {
     const step = run.steps.at(-1);
     if (!step) return;
+    if (turn.context) step.context = turn.context;
     if (turn.usage) {
       const had = step.usage ?? { inputTokens: 0, outputTokens: 0, cacheReadTokens: 0 };
       const cost = had.costUsd !== undefined || turn.usage.costUsd !== undefined ? (had.costUsd ?? 0) + (turn.usage.costUsd ?? 0) : undefined;
@@ -847,6 +849,12 @@ export class WorkflowEngine {
     if (reads) step.reads = reads;
     if (edits) step.edits = edits;
     if (commands) step.commands = commands;
+    const skillsUsed = add(step.skillsUsed, turn.tools.skills);
+    const mcpUsed = add(step.mcpUsed, turn.tools.mcp);
+    const agentsUsed = add(step.agentsUsed, turn.tools.agents);
+    if (skillsUsed) step.skillsUsed = skillsUsed;
+    if (mcpUsed) step.mcpUsed = mcpUsed;
+    if (agentsUsed) step.agentsUsed = agentsUsed;
   }
 
   private node(run: WorkflowRun, id: string): WorkflowNode {

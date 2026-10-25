@@ -6,6 +6,7 @@ import {
   type Options,
   type PermissionMode,
   type Query,
+  type SDKControlGetContextUsageResponse,
   type SDKMessage,
   type SDKUserMessage,
 } from "@anthropic-ai/claude-agent-sdk";
@@ -16,6 +17,7 @@ import {
   type ContextUsageMeta,
   type SessionOptions,
   type TurnEndMeta,
+  type WorkflowStepContext,
   type WorkflowStepUsage,
 } from "@acp-harness/protocol";
 import { resolveClaudeExecutable } from "./claude-executable.ts";
@@ -64,7 +66,7 @@ interface TurnInput {
   /** A workflow step's tool policy and the shape its result must take. */
   step?: StepOptions;
   /** The turn's final text and, with step.outputFormat, its structured result. */
-  onResult?: (result: { text: string; structured: unknown; usage: WorkflowStepUsage }) => void;
+  onResult?: (result: { text: string; structured: unknown; usage: WorkflowStepUsage; context?: WorkflowStepContext }) => void;
 }
 
 export interface StepOptions {
@@ -109,6 +111,8 @@ interface TurnProgress {
   /** Usage-limit signals; read only if the turn fails. */
   assistantError: string | null;
   rejected: { resetsAt?: number } | null;
+  /** What the context held at the turn's end, for a workflow step's ledger. */
+  context?: WorkflowStepContext;
 }
 
 export async function runClaudeTurn(input: TurnInput): Promise<acp.StopReason> {
@@ -208,6 +212,7 @@ export async function runClaudeTurn(input: TurnInput): Promise<acp.StopReason> {
                 cacheReadTokens: message.usage.cache_read_input_tokens ?? 0,
                 costUsd: message.total_cost_usd,
               },
+              ...(progress.context ? { context: progress.context } : {}),
             });
           }
           lingering.set(acpSessionId, lingeringTurn);
@@ -400,6 +405,7 @@ async function reportContextUsage(
     new Promise<null>((resolve) => setTimeout(() => resolve(null), 3000)),
   ]);
   if (exact && exact.maxTokens > 0) {
+    progress.context = stepContext(exact);
     const meta: ContextUsageMeta = {
       estimated: false,
       categories: exact.categories
@@ -425,6 +431,24 @@ async function reportContextUsage(
     cost,
     _meta: { [CHAT_META.contextUsage]: meta },
   });
+}
+
+/** The context breakdown as a workflow step records it: the window's rows, and each skill, MCP server, memory file and subagent. */
+function stepContext(usage: SDKControlGetContextUsageResponse): WorkflowStepContext {
+  const mcp = new Map<string, number>();
+  // Deferred tool schemas are out of the window until searched for.
+  for (const tool of usage.mcpTools) if (tool.isLoaded !== false) mcp.set(tool.serverName, (mcp.get(tool.serverName) ?? 0) + tool.tokens);
+  return {
+    categories: usage.categories.filter((c) => c.kind === "used" && c.tokens > 0).map((c) => ({ id: c.id ?? c.name, name: c.name, tokens: c.tokens })),
+    items: [
+      ...(usage.skills?.skillFrontmatter ?? []).map((s) => ({ kind: "skill" as const, name: s.name, tokens: s.tokens })),
+      ...[...mcp].map(([name, tokens]) => ({ kind: "mcp" as const, name, tokens })),
+      ...usage.memoryFiles.map((m) => ({ kind: "memory" as const, name: m.path, tokens: m.tokens })),
+      ...usage.agents.map((a) => ({ kind: "agent" as const, name: a.agentType, tokens: a.tokens })),
+    ],
+    totalTokens: usage.totalTokens,
+    maxTokens: usage.maxTokens,
+  };
 }
 
 function permissionBridge(

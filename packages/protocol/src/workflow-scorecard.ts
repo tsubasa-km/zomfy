@@ -12,6 +12,31 @@ export interface WorkflowStepUsage {
   costUsd?: number
 }
 
+/** Something that sits in a session's context whether or not it is used. */
+export interface WorkflowContextItem {
+  kind: 'skill' | 'mcp' | 'memory' | 'agent'
+  /** A skill's or subagent's name, an MCP server's, a memory file's path. */
+  name: string
+  tokens: number
+}
+
+/** What a Claude step's context held at the end of its last turn, as Claude counts it. */
+export interface WorkflowStepContext {
+  /** Rows of the context window (system prompt, tools, MCP tools, skills, memory files, messages…). */
+  categories: { id: string; name: string; tokens: number }[]
+  items: WorkflowContextItem[]
+  totalTokens: number
+  maxTokens: number
+}
+
+/** One context item over a run: what it cost each turn it was loaded, and whether anything used it. */
+export interface WorkflowContextLedgerRow extends WorkflowContextItem {
+  /** Steps whose context held it. */
+  loadedIn: number
+  /** Calls that used it (skill invocations, MCP tool calls, subagent launches); null for memory files, which are read, not called. */
+  used: number | null
+}
+
 export interface WorkflowScorecard {
   status: WorkflowRun['status']
   steps: number
@@ -35,6 +60,8 @@ export interface WorkflowScorecard {
   /** Handoff summaries passed between steps: how many and their average length in characters. */
   handoffs: number
   handoffChars: number
+  /** Skills, MCP servers, memory files and subagents in Claude steps' context, biggest first. */
+  context: WorkflowContextLedgerRow[]
 }
 
 const norm = (path: string) => path.replace(/\\/g, '/').replace(/^\.\//, '').toLowerCase()
@@ -85,6 +112,27 @@ export function workflowScorecard(run: WorkflowRun): WorkflowScorecard {
     }
   })
   if (costed) usage.costUsd = cost
+  const ledger = new Map<string, WorkflowContextLedgerRow>()
+  for (const step of steps) {
+    for (const item of step.context?.items ?? []) {
+      const key = `${item.kind}:${item.name}`
+      const row = ledger.get(key) ?? { ...item, loadedIn: 0, used: item.kind === 'memory' ? null : 0 }
+      row.tokens = Math.max(row.tokens, item.tokens)
+      row.loadedIn++
+      ledger.set(key, row)
+    }
+  }
+  const calls: [WorkflowContextItem['kind'], string[] | undefined][] = steps.flatMap((s) => [
+    ['skill', s.skillsUsed],
+    ['mcp', s.mcpUsed],
+    ['agent', s.agentsUsed]
+  ])
+  for (const [kind, names] of calls) {
+    for (const name of names ?? []) {
+      const row = ledger.get(`${kind}:${name}`)
+      if (row && row.used !== null) row.used++
+    }
+  }
   const ended = steps.filter((s) => s.endedAt !== null)
   const handed = ended.filter((s) => s.summary.trim() && s.sessionIds.length > 0)
   const first = steps[0]?.startedAt ?? run.createdAt
@@ -104,6 +152,7 @@ export function workflowScorecard(run: WorkflowRun): WorkflowScorecard {
     checksFailed: steps.filter((s) => s.outcome === 'fail').length,
     personWaits: steps.filter((s) => s.outcome === 'answered').length + (run.status === 'waiting' ? 1 : 0),
     handoffs: handed.length,
-    handoffChars: handed.length ? Math.round(handed.reduce((n, s) => n + s.summary.length, 0) / handed.length) : 0
+    handoffChars: handed.length ? Math.round(handed.reduce((n, s) => n + s.summary.length, 0) / handed.length) : 0,
+    context: [...ledger.values()].sort((a, b) => b.tokens - a.tokens)
   }
 }

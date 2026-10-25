@@ -1,4 +1,6 @@
-import type { WorkflowScorecard } from '@acp-harness/protocol'
+import { useState } from 'react'
+import { ChevronRight } from 'lucide-react'
+import type { WorkflowContextLedgerRow, WorkflowScorecard } from '@acp-harness/protocol'
 import { cn } from '@/lib/utils'
 
 // A run's scorecard as a small grid: cost, work done twice, rounds, time. Each figure says in its
@@ -59,6 +61,52 @@ export function WorkflowRunScorecard({ card }: { card: WorkflowScorecard }) {
         />
         <Figure label="Waited on you" value={String(card.personWaits)} hint="Times the run stopped for the person." />
       </div>
+      {card.context.length > 0 && <ContextLedger rows={card.context} />}
+    </div>
+  )
+}
+
+const KIND_LABELS: Record<WorkflowContextLedgerRow['kind'], string> = { skill: 'Skill', mcp: 'MCP', memory: 'Memory', agent: 'Agent' }
+
+/** Below this, an unused item is not worth flagging. */
+const NOTABLE_TOKENS = 300
+
+/** What sat in Claude steps' context, and whether anything used it. */
+function ContextLedger({ rows }: { rows: WorkflowContextLedgerRow[] }) {
+  const [open, setOpen] = useState(false)
+  const idle = rows.filter((r) => r.used === 0 && r.tokens >= NOTABLE_TOKENS)
+  const total = rows.reduce((n, r) => n + r.tokens, 0)
+  return (
+    <div className="space-y-1" data-workflow-context-ledger>
+      <button type="button" className="flex w-full items-center gap-1 text-left text-[11px] text-muted-foreground hover:text-foreground" onClick={() => setOpen((o) => !o)}>
+        <ChevronRight className={cn('size-3 transition-transform', open && 'rotate-90')} />
+        Context: {rows.length} items, {formatTokens(total)} tokens a turn
+        {idle.length > 0 && <span className="text-status-warning"> · {idle.length} loaded but unused</span>}
+      </button>
+      {open && (
+        <table className="w-full text-[11px]">
+          <thead className="text-muted-foreground">
+            <tr>
+              <th className="py-0.5 text-left font-normal">Item</th>
+              <th className="py-0.5 text-right font-normal" title="Tokens it takes in the context of each turn">Tokens</th>
+              <th className="py-0.5 text-right font-normal" title="Steps whose context held it">Steps</th>
+              <th className="py-0.5 text-right font-normal" title="Calls that used it">Used</th>
+            </tr>
+          </thead>
+          <tbody>
+            {rows.map((r) => (
+              <tr key={`${r.kind}:${r.name}`} className={cn(r.used === 0 && r.tokens >= NOTABLE_TOKENS && 'text-status-warning')} data-context-item={r.kind}>
+                <td className="max-w-40 truncate py-0.5" title={r.name}>
+                  <span className="text-muted-foreground">{KIND_LABELS[r.kind]}</span> {r.kind === 'memory' ? r.name.split(/[\\/]/).slice(-2).join('/') : r.name}
+                </td>
+                <td className="py-0.5 text-right tabular-nums">{formatTokens(r.tokens)}</td>
+                <td className="py-0.5 text-right tabular-nums">{r.loadedIn}</td>
+                <td className="py-0.5 text-right tabular-nums">{r.used === null ? '—' : r.used}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      )}
     </div>
   )
 }

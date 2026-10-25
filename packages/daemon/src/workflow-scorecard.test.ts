@@ -74,3 +74,32 @@ describe('applyWorkflowChange', () => {
     expect(base.nodes[0]!.config.prompt).toBe('old')
   })
 })
+
+describe('context ledger', () => {
+  test('keeps each item once with its largest size, and counts calls that used it', () => {
+    const context = (items: { kind: 'skill' | 'mcp' | 'memory' | 'agent'; name: string; tokens: number }[]) => ({ categories: [], items, totalTokens: 0, maxTokens: 0 })
+    const card = workflowScorecard(
+      run([
+        step('dev', {
+          context: context([
+            { kind: 'skill', name: 'pdf', tokens: 40 },
+            { kind: 'mcp', name: 'playwright', tokens: 9000 },
+            { kind: 'memory', name: 'C:/repo/CLAUDE.md', tokens: 1200 }
+          ]),
+          skillsUsed: ['pdf']
+        }),
+        step('review', {
+          context: context([
+            { kind: 'skill', name: 'pdf', tokens: 45 },
+            { kind: 'mcp', name: 'playwright', tokens: 9000 }
+          ])
+        })
+      ])
+    )
+    expect(card.context.map((r) => [r.kind, r.name, r.tokens, r.loadedIn, r.used])).toEqual([
+      ['mcp', 'playwright', 9000, 2, 0],
+      ['memory', 'C:/repo/CLAUDE.md', 1200, 1, null],
+      ['skill', 'pdf', 45, 2, 1]
+    ])
+  })
+})
