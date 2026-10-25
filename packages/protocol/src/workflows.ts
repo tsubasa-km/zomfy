@@ -150,6 +150,11 @@ export interface WorkflowEdge {
   from: string
   to: string
   outcome: WorkflowOutcome
+  /**
+   * continue: the next step goes on in the chat the step before it ran in (same agent, one session),
+   * so nothing is lost to a summary. Absent: a session of its own, handed the summary.
+   */
+  session?: 'continue'
 }
 
 export interface Workflow {
@@ -317,6 +322,8 @@ export interface WorkflowRun {
   followUps?: { nodeId: string; label: string; text: string }[]
   /** What each loop was stuck on when it was last handed up, by cycle id: the same again goes higher. */
   escalated?: Record<string, string>
+  /** Taken along a "continue" arrow: the chat the next step goes on in. */
+  handover?: { nodeId: string; sessionIds: string[] } | null
   createdAt: number
   endedAt: number | null
 }

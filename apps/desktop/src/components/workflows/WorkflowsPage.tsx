@@ -761,7 +761,7 @@ function WorkflowCanvas({
           issues={issues}
           onWorkflow={(patch) => onChange({ ...workflow, ...patch })}
           onNode={patchNode}
-          onEdge={(id, outcome) => onChange({ ...workflow, edges: workflow.edges.map((e) => (e.id === id ? { ...e, outcome } : e)) })}
+          onEdge={(id, patch) => onChange({ ...workflow, edges: workflow.edges.map((e) => (e.id === id ? { ...e, ...patch } : e)) })}
           onDelete={() => {
             if (selectedNode) removeNodes(new Set([selectedNode.id]))
             else if (selectedEdge) onChange({ ...workflow, edges: workflow.edges.filter((e) => e.id !== selectedEdge.id) })

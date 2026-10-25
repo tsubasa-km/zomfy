@@ -2,7 +2,7 @@ import { describe, expect, test } from 'bun:test'
 import type { Workflow } from '@acp-harness/protocol'
 import { EditHistory } from '../src/components/workflows/workflow-edit-history.ts'
 import { pasteSnippet, snippetOf } from '../src/components/workflows/workflow-clipboard.ts'
-import { newAgentStep, reviewLoopTemplate, withoutData, withoutSteps } from '../src/components/workflows/workflow-model.ts'
+import { newAgentStep, reviewLoopTemplate, validateWorkflow, withoutData, withoutSteps } from '../src/components/workflows/workflow-model.ts'
 
 const named = (w: Workflow, name: string): Workflow => ({ ...w, name })
 
@@ -79,5 +79,29 @@ describe('agents and data in the editor', () => {
     expect(withoutSteps(withData, new Set([dev.id])).dataLinks?.map((l) => l.id)).toEqual(['l2'])
     const noData = withoutData(withData, new Set(['d']))
     expect([noData.data, noData.dataLinks]).toEqual([[], []])
+  })
+})
+
+describe('arrows that continue the chat', () => {
+  const withContinue = (w: Workflow, from: string, to: string): Workflow => ({
+    ...w,
+    edges: w.edges.map((e) => {
+      const a = w.nodes.find((n) => n.id === e.from)?.label
+      const b = w.nodes.find((n) => n.id === e.to)?.label
+      return a === from && b === to ? { ...e, session: 'continue' as const } : e
+    })
+  })
+
+  test('join two agent steps on the same agent', () => {
+    const w = withContinue(reviewLoopTemplate('p'), 'Reviewer', 'Developer')
+    expect(validateWorkflow(w).filter((i) => i.message.includes('continues the chat'))).toEqual([])
+  })
+
+  test('not into a check step, nor between different agents', () => {
+    const toCheck = withContinue(reviewLoopTemplate('p'), 'Developer', 'Run tests')
+    expect(validateWorkflow(toCheck).some((i) => i.message.includes('continues the chat'))).toBe(true)
+    const mixed = withContinue(reviewLoopTemplate('p'), 'Reviewer', 'Developer')
+    mixed.nodes = mixed.nodes.map((n) => (n.label === 'Reviewer' ? { ...n, config: { ...n.config, agent: 'codex' as const } } : n))
+    expect(validateWorkflow(mixed).some((i) => i.message.includes('same agent'))).toBe(true)
   })
 })

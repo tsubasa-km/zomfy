@@ -59,6 +59,8 @@ interface Verdict {
 
 interface StepResult extends Verdict {
   sessionIds: string[];
+  /** The step's own chats, without the helpers it spawned. */
+  ownSessionIds: string[];
 }
 
 type TurnResult = Verdict & { index: number };
@@ -306,6 +308,7 @@ export class WorkflowEngine {
           return;
         }
         run.currentNodeId = edge.to;
+        run.handover = edge.session === "continue" ? { nodeId: node.id, sessionIds: result.ownSessionIds } : null;
         // Leaving a loop means it finished: a later stall there starts afresh.
         for (const cycle of cyclesOf(run.workflow, node.id)) {
           if (!cycle.nodeIds.includes(edge.to) && run.escalated?.[cycle.id]) delete run.escalated[cycle.id];
@@ -335,7 +338,11 @@ export class WorkflowEngine {
       return this.runCommand(run, node);
     }
     const outcomes = workflowOutcomes(node);
-    const prompt = this.prompt(run, node, outcomes);
+    const count = Math.max(1, Math.min(8, node.config.parallel?.count ?? 1));
+    // Along a "continue" arrow the step goes on in the chat the step before it ran in.
+    const carried = await this.carried(run, node, count);
+    run.handover = null;
+    const prompt = this.prompt(run, node, outcomes, !!carried);
     const maxAgents = node.config.runBy === "lead" ? 0 : Math.max(0, Math.min(16, node.config.maxAgents ?? 0));
     const step = stepOptions(node.config.tools, outcomes, maxAgents > 0);
     const guards = this.guardsFor(run, node);
@@ -372,14 +379,13 @@ export class WorkflowEngine {
       const runPath = this.deps.workspaces.workspacePath(run.workspaceId);
       if (runPath) step.additionalDirectories = [runPath, ...dataDirs];
       const { index: _, ...result } = await turn(lead, 0);
-      return { ...result, sessionIds: [lead] };
+      return { ...result, sessionIds: [lead], ownSessionIds: [lead] };
     }
 
-    const count = Math.max(1, Math.min(8, node.config.parallel?.count ?? 1));
     const join = node.config.parallel?.join ?? "all";
-    const workspaces = await this.stepWorkspaces(run, node, count);
+    const workspaces = carried ? [carried.workspace] : await this.stepWorkspaces(run, node, count);
     const keep = node.kind === "agent" ? (node.config.session ?? "keep") === "keep" : false;
-    const kept = keep ? (run.sessionsByNode[node.id] ?? []) : [];
+    const kept = carried ? [carried.sessionId] : keep ? (run.sessionsByNode[node.id] ?? []) : [];
     const sessionIds = workspaces.map((ws, i) => {
       const existing = kept[i] && this.deps.sessions.get(kept[i]!);
       if (existing && existing.workspaceId === ws.id && (existing.agent ?? "claude") === (stepAgent(node) ?? "claude")) return existing.id;
@@ -511,7 +517,7 @@ export class WorkflowEngine {
       const ws = workspaces[winner.index];
       if (ws && node.config.workspace !== "main") run.workspaceId = ws.id;
       const { index: _, ...verdict } = winner;
-      return { ...verdict, sessionIds: [...sessionIds, ...helpers] };
+      return { ...verdict, sessionIds: [...sessionIds, ...helpers], ownSessionIds: sessionIds };
     }
     const results = await Promise.all(sessionIds.map((id, i) => turn(id, i)));
     const summary =
@@ -525,6 +531,7 @@ export class WorkflowEngine {
       outcome: combine(node, results.map((r) => r.outcome), join),
       summary,
       sessionIds: [...sessionIds, ...helpers],
+      ownSessionIds: sessionIds,
       ...(followUps.length > 0 ? { followUps } : {}),
       ...(results.some((r) => r.repeated) ? { repeated: true } : {}),
     };
@@ -582,7 +589,17 @@ export class WorkflowEngine {
     }
   }
 
-  private prompt(run: WorkflowRun, node: WorkflowNode, outcomes: WorkflowOutcome[]): string {
+  /** The chat a "continue" arrow carries into this step: one session, on the agent this step runs on. */
+  private async carried(run: WorkflowRun, node: WorkflowNode, count: number): Promise<{ sessionId: string; workspace: Workspace } | null> {
+    const id = run.handover?.sessionIds.length === 1 ? run.handover.sessionIds[0] : undefined;
+    const session = id ? this.deps.sessions.get(id) : undefined;
+    if (!session || count > 1 || node.config.runBy === "lead") return null;
+    if ((session.agent ?? "claude") !== (stepAgent(node) ?? "claude")) return null;
+    const workspace = (await this.deps.workspaces.snapshot()).workspaces.find((w) => w.id === session.workspaceId);
+    return workspace ? { sessionId: session.id, workspace } : null;
+  }
+
+  private prompt(run: WorkflowRun, node: WorkflowNode, outcomes: WorkflowOutcome[], continued = false): string {
     const handoff = run.steps
       .slice(0, -1)
       .reverse()
@@ -593,13 +610,18 @@ export class WorkflowEngine {
         const field = fields.find((f) => f.key === key);
         return field ? String(field.value) : all;
       });
-    const lines = [
-      `You are the ${node.config.role?.trim() || node.label} in the workflow "${run.workflow.name}", step "${node.label}", run by Zomfy.`,
-      "",
-      "Task of this run:",
-      run.task,
-    ];
-    if (handoff) {
+    const lines = continued
+      ? [
+          // The chat already holds the task and what was done; only the new step is news.
+          `Next step in the workflow "${run.workflow.name}": "${node.label}". You are now the ${node.config.role?.trim() || node.label}; carry on from where this conversation is.`,
+        ]
+      : [
+          `You are the ${node.config.role?.trim() || node.label} in the workflow "${run.workflow.name}", step "${node.label}", run by Zomfy.`,
+          "",
+          "Task of this run:",
+          run.task,
+        ];
+    if (handoff && !continued) {
       const summary = runsLocally(node) || !this.heldBack(run, handoff.nodeId) ? handoff.summary : withheld(handoff.label);
       lines.push("", `Handoff from "${handoff.label}" (${handoff.outcome ?? "no outcome"}):`, summary);
     }
@@ -684,9 +706,9 @@ export class WorkflowEngine {
       const last = output.split("\n").at(-1)?.trim() ?? "";
       const outcome = own.find((o) => o === last);
       if (!outcome) throw new Error(`The command's last line "${last}" is none of ${own.join(", ")}`);
-      return { outcome, summary: `$ ${command} (exit ${code})\n${tail}`, sessionIds: [] };
+      return { outcome, summary: `$ ${command} (exit ${code})\n${tail}`, sessionIds: [], ownSessionIds: [] };
     }
-    return { outcome: code === 0 ? "pass" : "fail", summary: `$ ${command} (exit ${code})\n${tail}`, sessionIds: [] };
+    return { outcome: code === 0 ? "pass" : "fail", summary: `$ ${command} (exit ${code})\n${tail}`, sessionIds: [], ownSessionIds: [] };
   }
 
   // ── Workspaces ─────────────────────────────────────────────────────────

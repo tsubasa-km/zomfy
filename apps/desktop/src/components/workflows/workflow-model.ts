@@ -1,4 +1,6 @@
 import {
+  isSessionStep,
+  resolveWorkflowAgents,
   workflowAccessIssues,
   workflowOutcomes,
   type BuiltinWorkflowOutcome,
@@ -314,6 +316,24 @@ export function validateWorkflow(workflow: Workflow, agents: WorkflowAgentProfil
     }
     if (node.kind === 'human' && !node.config.question?.trim()) {
       issues.push({ level: 'warning', nodeId: node.id, message: `"${node.label}" has no question; the step's reason is shown instead.` })
+    }
+  }
+
+  // An arrow that continues the chat joins two single-session steps on the same agent.
+  const resolved = resolveWorkflowAgents(workflow, agents)
+  for (const edge of workflow.edges.filter((e) => e.session === 'continue')) {
+    const from = resolved.nodes.find((n) => n.id === edge.from)
+    const to = resolved.nodes.find((n) => n.id === edge.to)
+    if (!from || !to) continue
+    const single = (n: WorkflowNode) => isSessionStep(n) && n.config.runBy !== 'lead' && (n.config.parallel?.count ?? 1) <= 1
+    if (!single(from) || !single(to)) {
+      issues.push({
+        level: 'error',
+        edgeId: edge.id,
+        message: `"${from.label}" → "${to.label}" continues the chat, so both must be agent steps run by one session each (not the Lead, not parallel).`
+      })
+    } else if ((from.config.agent ?? 'claude') !== (to.config.agent ?? 'claude')) {
+      issues.push({ level: 'error', edgeId: edge.id, message: `"${from.label}" → "${to.label}" continues the chat, so both steps must run on the same agent.` })
     }
   }
 

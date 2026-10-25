@@ -12,7 +12,6 @@ import {
   type WorkflowCycle,
   type WorkflowNode,
   type WorkflowNodeConfig,
-  type WorkflowOutcome,
   type WorkflowParallel
 } from '@acp-harness/protocol'
 import { Button } from '@/components/ui/button'
@@ -181,7 +180,7 @@ export function WorkflowInspector({
   issues: WorkflowIssue[]
   onWorkflow: (patch: Partial<Pick<Workflow, 'name' | 'description' | 'skipLoopConfirm'>>) => void
   onNode: (id: string, patch: Partial<Omit<WorkflowNode, 'config'>> & { config?: Partial<WorkflowNodeConfig> }) => void
-  onEdge: (id: string, outcome: WorkflowOutcome) => void
+  onEdge: (id: string, patch: Partial<Pick<WorkflowEdge, 'outcome' | 'session'>>) => void
   onDelete: () => void
   onSelectIssue: (issue: WorkflowIssue) => void
 }) {
@@ -475,10 +474,24 @@ export function WorkflowInspector({
           <Choice
             label="Outcome"
             value={edge.outcome}
-            onChange={(outcome) => onEdge(edge.id, outcome)}
+            onChange={(outcome) => onEdge(edge.id, { outcome })}
             options={options.map((o) => ({ value: o, label: outcomeLabel(o) }))}
           />
         </Field>
+        <div className="flex items-start justify-between gap-3" data-workflow-edge-continue>
+          <div className="space-y-0.5">
+            <div className="text-xs font-medium">Continue in the same chat</div>
+            <p className="text-[11px] text-muted-foreground">
+              The next step goes on in this step's chat instead of starting fresh with a summary: nothing is lost in a handoff, but
+              the context keeps growing. Both steps need the same agent and one session each.
+            </p>
+          </div>
+          <Switch
+            checked={edge.session === 'continue'}
+            onCheckedChange={(on) => onEdge(edge.id, { session: on ? 'continue' : undefined })}
+            aria-label="Continue in the same chat"
+          />
+        </div>
         <Button variant="outline" size="sm" onClick={onDelete}>
           <Trash2 className="size-3.5" />
           Delete edge

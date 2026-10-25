@@ -43,12 +43,13 @@ export function canvasEdges(
       targetHandle: 'in',
       type: 'route',
       data: route ? { route } : {},
-      label: loop ? `${outcomeLabel(edge.outcome)} ${loop}` : outcomeLabel(edge.outcome),
+      // A chat that carries on is marked on the arrow, as a loop is.
+      label: `${outcomeLabel(edge.outcome)}${edge.session === 'continue' ? ' · same chat' : ''}${loop ? ` ${loop}` : ''}`,
       selected,
       markerEnd: { type: MarkerType.ArrowClosed, color, width: 16, height: 16 },
       style: {
         stroke: color,
-        strokeWidth: selected || (taken && !faded) ? 2.5 : 1.5,
+        strokeWidth: selected || (taken && !faded) || edge.session === 'continue' ? 2.5 : 1.5,
         opacity: faded ? 0.35 : 1,
         ...(loop ? { strokeDasharray: '6 3' } : {})
       },
