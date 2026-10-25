@@ -42,6 +42,7 @@ import {
   batchUpdates,
   forgetHost,
   getState,
+  hostLabel,
   markLoaded,
   mergeSessions,
   rememberHost,
@@ -330,7 +331,7 @@ async function requireConnection(hostId: HostId): Promise<acp.ClientConnection> 
   // A WSL daemon that was still starting fails the first attempt; one retry covers that window.
   if (!connections.has(hostId)) await connectHost(hostId);
   const conn = connections.get(hostId);
-  if (!conn) throw new Error(`Not connected to ${hostId}`);
+  if (!conn) throw new Error(`Not connected to ${hostLabel(hostId)}`);
   return conn;
 }
 
@@ -494,13 +495,26 @@ import.meta.hot?.dispose(() => {
   connections.clear();
 });
 
-export async function sendPrompt(sessionId: string, text: string, images: ChatImage[] = []): Promise<void> {
+/** False when the host could not be reached, so nothing was sent; the caller gives the text back. */
+export async function sendPrompt(sessionId: string, text: string, images: ChatImage[] = []): Promise<boolean> {
   const session = getState().sessions.find((s) => s.id === sessionId);
-  if (!session) return;
+  if (!session) return false;
+  const before = session.status;
   // The daemon echoes the prompt back as a user_message_chunk and owns the status from here.
   updateSession(sessionId, (s) => ({ ...s, status: "working", turnStartedAt: Date.now() }));
+  let conn: acp.ClientConnection;
   try {
-    const conn = await requireConnection(session.hostId);
+    conn = await requireConnection(session.hostId);
+  } catch (error) {
+    updateSession(sessionId, (s) => ({
+      ...s,
+      status: before,
+      turnStartedAt: null,
+      items: [...s.items, { kind: "notice", text: `${describeError(error)}: not sent. Your message is back in the box.`, severity: "error" }],
+    }));
+    return false;
+  }
+  try {
     // A Stop is recorded by the daemon (a "Stopped" row that offers Continue).
     await conn.agent.request(acp.methods.agent.session.prompt, {
       sessionId,
@@ -520,6 +534,7 @@ export async function sendPrompt(sessionId: string, text: string, images: ChatIm
       };
     });
   }
+  return true;
 }
 
 export function cancelTurn(sessionId: string): void {

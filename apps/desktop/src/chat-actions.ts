@@ -39,7 +39,19 @@ export function submitPrompt(sessionId: string, text: string, images: ChatImage[
   }
   patchChatSession(sessionId, { queuePaused: false })
   relayPromptToLead(sessionId, text)
-  void sendPrompt(sessionId, text, images)
+  void sendPrompt(sessionId, text, images).then((sent) => {
+    if (!sent) giveBack(sessionId, text, images)
+  })
+}
+
+/** What could not be sent goes back into the composer, ahead of anything typed since. */
+function giveBack(sessionId: string, text: string, images: ChatImage[]): void {
+  patchChatSession(sessionId, (c) => ({
+    draft: c.draft.trim() ? `${text}
+
+${c.draft}` : text,
+    draftImages: [...images, ...c.draftImages]
+  }))
 }
 
 /** Stop pauses the queue, so what was typed for this turn doesn't run into the next. */
@@ -53,7 +65,9 @@ export function steerQueued(sessionId: string, messageId: string): void {
   const message = chatSession(sessionId).queue.find((m) => m.id === messageId)
   if (!message) return
   removeQueued(sessionId, messageId)
-  void sendPrompt(sessionId, message.text, message.images)
+  void sendPrompt(sessionId, message.text, message.images).then((sent) => {
+    if (!sent) patchChatSession(sessionId, (c) => ({ queue: [message, ...c.queue], queuePaused: true }))
+  })
 }
 
 export function removeQueued(sessionId: string, messageId: string): void {
@@ -74,7 +88,10 @@ function sendNextQueued(sessionId: string): void {
   const [next] = chatSession(sessionId).queue
   if (!next) return
   removeQueued(sessionId, next.id)
-  void sendPrompt(sessionId, next.text, next.images)
+  void sendPrompt(sessionId, next.text, next.images).then((sent) => {
+    // Unreached: it goes back to the head of the queue, which waits until it is resumed.
+    if (!sent) patchChatSession(sessionId, (c) => ({ queue: [next, ...c.queue], queuePaused: true }))
+  })
 }
 
 onSessionTransition(({ session: s, to }) => {

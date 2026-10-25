@@ -42,7 +42,7 @@ import { projectOfSession } from '@/lib/project-lead'
 import { linkOf } from '@/stores/project-links-store'
 import { upsertWorkflowRun } from '@/stores/workflow-runs-store'
 import { confirmWorkflowStart } from '@/components/workflows/WorkflowStartConfirm'
-import { getState } from '@/session-store'
+import { getState, hostLabel, useStore } from '@/session-store'
 
 // Layout and classes follow Orca's NativeChatComposer, NativeChatComposerField and
 // NativeChatComposerActions.
@@ -76,6 +76,8 @@ export function NativeChatComposer({
   const catalog = useChatStore((s) => s.catalogs[session.workspaceId])
   const files = useChatStore((s) => s.mentionFiles[session.workspaceId])
   const working = isWorking(session)
+  // Sending or stopping needs the host; while it reconnects the person can still write.
+  const offline = useStore((s) => s.hosts[session.hostId]?.connection.kind !== 'connected')
   // Other agents bring their own commands and options over ACP; the workspace catalog is Claude's.
   const external = isExternalAgentSession(session)
   const agentState = session.agentState
@@ -183,7 +185,7 @@ export function NativeChatComposer({
   }
 
   function submit() {
-    if (!draft.trim() && draftImages.length === 0) return
+    if (offline || (!draft.trim() && draftImages.length === 0)) return
     if (workflow && workflowHome.projectId) {
       // The message is the run's task; the harness runs the workflow, not this chat.
       const task = draft.trim()
@@ -278,6 +280,11 @@ export function NativeChatComposer({
           {autocomplete ? (
             <NativeChatAutocompleteMenu autocomplete={autocomplete} activeIndex={selected} listboxId={listboxId} onChoose={choose} />
           ) : null}
+          {offline ? (
+            <p className="mb-1.5 px-1 text-xs text-muted-foreground" data-composer-offline>
+              Reconnecting to {hostLabel(session.hostId)}… You can keep writing; sending waits until it is back.
+            </p>
+          ) : null}
           <div
             ref={composerBox}
             data-native-chat-composer
@@ -327,7 +334,13 @@ export function NativeChatComposer({
               ref={editorRef}
               value={draft}
               placeholder={
-                workflow ? `The task for "${workflow.name}"` : working ? 'Queue a follow-up' : (suggestion ?? 'Message the agent')
+                offline
+                  ? `Reconnecting to ${hostLabel(session.hostId)}… sending waits until it is back`
+                  : workflow
+                    ? `The task for "${workflow.name}"`
+                    : working
+                      ? 'Queue a follow-up'
+                      : (suggestion ?? 'Message the agent')
               }
               contentAttributes={{
                 'aria-label': 'Message the agent',
@@ -431,7 +444,7 @@ export function NativeChatComposer({
                             if (working) stopTurn(session.id)
                             else submit()
                           }}
-                          disabled={!working && !canSend}
+                          disabled={offline || (!working && !canSend)}
                           variant={working ? 'secondary' : 'default'}
                           size="icon"
                           className="size-8 rounded-full"
@@ -441,7 +454,11 @@ export function NativeChatComposer({
                       </span>
                     </TooltipTrigger>
                     <TooltipContent side="top" sideOffset={4} data-native-chat-send-hint>
-                      {working ? 'Stop the agent' : `Send (${SEND_LABEL[sendKey]})`}
+                      {offline
+                        ? `Reconnecting to ${hostLabel(session.hostId)}…`
+                        : working
+                          ? 'Stop the agent'
+                          : `Send (${SEND_LABEL[sendKey]})`}
                     </TooltipContent>
                   </Tooltip>
                 </div>

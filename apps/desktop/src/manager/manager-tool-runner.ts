@@ -34,7 +34,7 @@ import { confirmWorkflowStart } from '@/components/workflows/WorkflowStartConfir
 // host out of contact reads as `unverifiable`, never as finished or dead.
 
 /** Turns a manager started here, so wait_for_session waits for that turn rather than a stale idle. */
-const managerTurns = new Map<string, Promise<void>>()
+const managerTurns = new Map<string, Promise<boolean>>()
 
 class ToolError extends Error {}
 
