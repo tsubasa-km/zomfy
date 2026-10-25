@@ -368,6 +368,8 @@ export class WorkflowEngine {
     // Along a "continue" arrow the step goes on in the chat the step before it ran in.
     const carried = await this.carried(run, node, count);
     run.handover = null;
+    const current = run.steps.at(-1);
+    if (carried && current) current.continued = true;
     const prompt = this.prompt(run, node, outcomes, !!carried);
     const maxAgents = node.config.runBy === "lead" ? 0 : Math.max(0, Math.min(16, node.config.maxAgents ?? 0));
     const step = stepOptions(node.config.tools, outcomes, maxAgents > 0);

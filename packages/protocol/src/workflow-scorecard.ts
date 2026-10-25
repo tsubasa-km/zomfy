@@ -47,7 +47,11 @@ export interface WorkflowScorecard {
   reads: number
   /** Reads of a file a step had already read, with no edit to it in between. */
   repeatedReads: number
-  /** Reads of a file an earlier step had already read, with no edit in between: what a handoff did not carry. */
+  /**
+   * Reads of a file an earlier step had already read, with no edit in between: what a handoff did not
+   * carry. A step that went on in the previous step's chat was handed nothing, so its re-reads of that
+   * step's files count as repeat reads.
+   */
   rereadAfterHandoff: number
   commands: number
   /** Commands an earlier step had already run, run again by a later one (often the same tests). */
@@ -57,7 +61,7 @@ export interface WorkflowScorecard {
   checksFailed: number
   /** Times the run waited on the person. */
   personWaits: number
-  /** Handoff summaries passed between steps: how many and their average length in characters. */
+  /** Summaries handed to a step starting a session of its own: how many and their average length in characters. */
   handoffs: number
   handoffChars: number
   /** Skills, MCP servers, memory files and subagents in Claude steps' context, biggest first. */
@@ -97,7 +101,7 @@ export function workflowScorecard(run: WorkflowRun): WorkflowScorecard {
       const before = lastRead.get(path)
       const edited = lastEdit.get(path)
       if (before !== undefined && (edited === undefined || edited < before)) {
-        if (before === index) repeatedReads++
+        if (before === index || (step.continued && before === index - 1)) repeatedReads++
         else rereadAfterHandoff++
       }
       lastRead.set(path, index)
@@ -134,7 +138,8 @@ export function workflowScorecard(run: WorkflowRun): WorkflowScorecard {
     }
   }
   const ended = steps.filter((s) => s.endedAt !== null)
-  const handed = ended.filter((s) => s.summary.trim() && s.sessionIds.length > 0)
+  // A summary counts as a handoff only where the next step started afresh with it.
+  const handed = steps.filter((s, i) => s.endedAt !== null && s.summary.trim() && s.sessionIds.length > 0 && steps[i + 1] && !steps[i + 1]!.continued)
   const first = steps[0]?.startedAt ?? run.createdAt
   const last = run.endedAt ?? Math.max(first, ...ended.map((s) => s.endedAt ?? first))
   return {

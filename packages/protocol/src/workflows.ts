@@ -299,6 +299,8 @@ export interface WorkflowRunStep {
   /** The chat sessions that ran it, on the run's host. */
   sessionIds: string[]
   error?: string
+  /** It went on in the previous step's chat (a "continue" arrow), handed no summary. */
+  continued?: boolean
   /** What its turns used, helpers included; absent when its agent does not report it. */
   usage?: WorkflowStepUsage
   /** Files its sessions read and edited, and commands they ran, in order (for the scorecard). */

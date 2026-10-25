@@ -75,6 +75,19 @@ describe('applyWorkflowChange', () => {
   })
 })
 
+describe('steps that went on in the same chat', () => {
+  test('are handed no summary, and re-reading the previous step\'s files is a repeat, not a lost handoff', () => {
+    const card = workflowScorecard(
+      run([
+        step('dev', { reads: ['src/a.ts'] }),
+        step('review', { reads: ['src/a.ts'], continued: true }),
+        step('dev', { reads: ['src/a.ts'], sessionIds: ['s2'] })
+      ])
+    )
+    expect([card.handoffs, card.repeatedReads, card.rereadAfterHandoff]).toEqual([1, 1, 1])
+  })
+})
+
 describe('context ledger', () => {
   test('keeps each item once with its largest size, and counts calls that used it', () => {
     const context = (items: { kind: 'skill' | 'mcp' | 'memory' | 'agent'; name: string; tokens: number }[]) => ({ categories: [], items, totalTokens: 0, maxTokens: 0 })
