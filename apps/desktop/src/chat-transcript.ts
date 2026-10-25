@@ -51,7 +51,8 @@ export function applyChatUpdate({ sessionId, update }: acp.SessionNotification):
           size: update.size,
           costUsd: update.cost?.currency === 'USD' ? update.cost.amount : null,
           estimated: meta?.estimated ?? true,
-          categories: meta?.categories ?? []
+          categories: meta?.categories ?? [],
+          items: meta?.items ?? []
         }
       })
       break
@@ -162,11 +163,24 @@ function contextUsageMeta(meta: Record<string, unknown> | null | undefined): Con
   if (typeof value !== 'object' || value === null || !('estimated' in value) || !('categories' in value)) return null
   const { estimated, categories } = value
   if (typeof estimated !== 'boolean' || !Array.isArray(categories)) return null
+  const items = 'items' in value && Array.isArray(value.items) ? value.items : []
   return {
     estimated,
     categories: categories.flatMap((c: unknown) =>
       typeof c === 'object' && c !== null && 'name' in c && 'tokens' in c && typeof c.name === 'string' && typeof c.tokens === 'number'
         ? [{ name: c.name, tokens: c.tokens }]
+        : []
+    ),
+    items: items.flatMap((i: unknown) =>
+      typeof i === 'object' &&
+      i !== null &&
+      'kind' in i &&
+      'name' in i &&
+      'tokens' in i &&
+      (i.kind === 'skill' || i.kind === 'mcp' || i.kind === 'memory' || i.kind === 'agent') &&
+      typeof i.name === 'string' &&
+      typeof i.tokens === 'number'
+        ? [{ kind: i.kind, name: i.name, tokens: i.tokens }]
         : []
     )
   }

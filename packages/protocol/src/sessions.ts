@@ -87,6 +87,8 @@ export const CHAT_META = {
 export interface ContextUsageMeta {
   estimated: boolean
   categories: { name: string; tokens: number }[]
+  /** Claude: each skill, MCP server, memory file and subagent in the context (absent from older daemons). */
+  items?: { kind: 'skill' | 'mcp' | 'memory' | 'agent'; name: string; tokens: number }[]
 }
 
 export const SESSION_METHODS = {

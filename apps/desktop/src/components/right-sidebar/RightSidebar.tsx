@@ -1,4 +1,4 @@
-import { Files, GitCompare, ListChecks, MessagesSquare, PanelRightClose, Plug, Search } from 'lucide-react'
+import { Bot, Files, GitCompare, ListChecks, MessagesSquare, PanelRightClose, Plug, Search } from 'lucide-react'
 import { allWorkspaces, setRightSidebar, useStore } from '@/session-store'
 import { useShortcutLabel } from '@/keybindings/keybinding-registry'
 import { useGitStatus } from '@/hooks/use-git-status'
@@ -10,6 +10,7 @@ import { PortsPanel } from './PortsPanel'
 import { ChecksPanel } from './checks/ChecksPanel'
 import { useCardReview, useWorkspaceReview } from '@/stores/hosting-store'
 import { SideChatPanel } from './SideChatPanel'
+import { AgentPanel } from './AgentPanel'
 import { PluginPanel } from './PluginPanel'
 import { useActivePluginPanels } from '@/plugins/plugin-registry'
 import { resolvePluginPanelIcon } from '@/plugins/plugin-panel-icons'
@@ -63,6 +64,7 @@ export function RightSidebar({ workspaceId }: { workspaceId: string }) {
           label={sideChatLabel}
           onClick={() => setRightSidebar({ open: true, tab: 'side-chat' })}
         />
+        <ActivityButton icon={Bot} label="Agent" onClick={() => setRightSidebar({ open: true, tab: 'agent' })} />
         {pluginPanels.map((panel) => (
           <ActivityButton
             key={panel.tab}
@@ -122,6 +124,7 @@ export function RightSidebar({ workspaceId }: { workspaceId: string }) {
           active={tab === 'side-chat'}
           onClick={() => setRightSidebar({ tab: 'side-chat' })}
         />
+        <ActivityButton top icon={Bot} label="Agent" active={tab === 'agent'} onClick={() => setRightSidebar({ tab: 'agent' })} />
         {pluginPanels.map((panel) => (
           <ActivityButton
             key={panel.tab}
@@ -144,6 +147,8 @@ export function RightSidebar({ workspaceId }: { workspaceId: string }) {
         <ChecksPanel key={workspaceId} workspaceId={workspaceId} />
       ) : tab === 'side-chat' ? (
         <SideChatPanel key={workspaceId} workspaceId={workspaceId} />
+      ) : tab === 'agent' ? (
+        <AgentPanel key={workspaceId} workspaceId={workspaceId} />
       ) : tab === 'ports' ? (
         <PortsPanel key={workspaceId} workspaceId={workspaceId} />
       ) : activePluginPanel ? (

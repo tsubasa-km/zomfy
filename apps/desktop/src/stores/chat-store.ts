@@ -9,6 +9,8 @@ export interface ContextUsage {
   costUsd: number | null
   estimated: boolean
   categories: { name: string; tokens: number }[]
+  /** Claude: each skill, MCP server, memory file and subagent in the context. */
+  items: { kind: 'skill' | 'mcp' | 'memory' | 'agent'; name: string; tokens: number }[]
 }
 
 /** A message typed while a turn ran; sent when the agent is free (Orca's follow-up queue). */

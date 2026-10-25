@@ -115,6 +115,7 @@ export type RightSidebarTab =
   | 'checks'
   | 'ports'
   | 'side-chat'
+  | 'agent'
   | `plugin:${string}`
 
 export interface StoreState {

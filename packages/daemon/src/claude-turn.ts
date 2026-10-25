@@ -411,6 +411,7 @@ async function reportContextUsage(
       categories: exact.categories
         .filter((c) => c.kind === "used" && c.tokens > 0)
         .map((c) => ({ name: c.name, tokens: c.tokens })),
+      items: progress.context.items,
     };
     await update({
       sessionUpdate: "usage_update",
