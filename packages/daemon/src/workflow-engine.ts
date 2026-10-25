@@ -42,7 +42,7 @@ import { log } from "./log.ts";
 // limit reached, or stuck on the same failure) is never just dropped: it is handed up to the loop around
 // it to rethink, and only the outermost loop asks the person.
 
-type Deps = Pick<HandlerContext, "workspaces" | "sessions" | "pendingTurns" | "broadcast" | "runStepTurn" | "emit" | "serveTool">;
+type Deps = Pick<HandlerContext, "workspaces" | "sessions" | "pendingTurns" | "broadcast" | "runStepTurn" | "emit" | "serveTool" | "autoApprove">;
 
 /** Outcomes counted against a step's round limit. */
 const LIMITED: WorkflowOutcome[] = ["changes", "fail"];
@@ -106,6 +106,8 @@ export class WorkflowEngine {
   private readonly asking = new Map<string, (answer: string) => void>();
   /** Step sessions that may spawn helpers now, by session id. */
   private readonly spawners = new Map<string, Spawner>();
+  /** Waiting for a run to end, by run id. */
+  private readonly endings = new Map<string, ((run: WorkflowRun) => void)[]>();
 
   constructor(
     private readonly deps: Deps,
@@ -135,7 +137,13 @@ export class WorkflowEngine {
     return (await this.runs.all()).filter((r) => r.projectId === projectId);
   }
 
-  async start(projectId: string, workflowId: string, task: string, originSessionId?: string): Promise<WorkflowRun> {
+  async start(
+    projectId: string,
+    workflowId: string,
+    task: string,
+    originSessionId?: string,
+    options: { experimentId?: string; autoApprove?: boolean } = {},
+  ): Promise<WorkflowRun> {
     const saved = (await this.workflows.list(projectId)).find((w) => w.id === workflowId);
     if (!saved) throw new Error("Save the workflow before running it");
     // The run keeps each step's agent as it is now, so editing an agent later does not change it.
@@ -166,6 +174,8 @@ export class WorkflowEngine {
       waiting: null,
       createdAt: Date.now(),
       endedAt: null,
+      ...(options.experimentId ? { experimentId: options.experimentId } : {}),
+      ...(options.autoApprove ? { autoApprove: true } : {}),
     };
     await this.save(run);
     if (originSessionId && this.deps.sessions.get(originSessionId)) {
@@ -354,6 +364,7 @@ export class WorkflowEngine {
     if (dataDirs.length > 0) step.additionalDirectories = dataDirs;
     const turn = async (sessionId: string, index: number): Promise<TurnResult> => {
       live.sessions.add(sessionId);
+      if (run.autoApprove) this.deps.autoApprove.add(sessionId);
       try {
         const result = await this.deps.runStepTurn(sessionId, prompt, step);
         this.tally(run, result);
@@ -583,6 +594,7 @@ export class WorkflowEngine {
       "Finish with a short report: what you changed (files), how you checked it, and anything left open.",
     ].join("\n");
     live.sessions.add(record.id);
+    if (run.autoApprove) this.deps.autoApprove.add(record.id);
     try {
       const result = await this.deps.runStepTurn(record.id, text, spawner.step);
       this.tally(run, result);
@@ -908,10 +920,25 @@ export class WorkflowEngine {
   private async save(run: WorkflowRun): Promise<void> {
     await this.runs.save(run);
     this.deps.broadcast(WORKFLOW_NOTIFICATIONS.workflowRunChanged, run);
+    if (run.status === "done" || run.status === "failed" || run.status === "stopped") {
+      for (const step of run.steps) for (const id of step.sessionIds) this.deps.autoApprove.delete(id);
+      for (const resolve of this.endings.get(run.id) ?? []) resolve(run);
+      this.endings.delete(run.id);
+    }
+  }
+
+  /** Resolves when the run is done, failed or stopped (a waiting run is not over). */
+  async ended(runId: string): Promise<WorkflowRun> {
+    const run = await this.runs.get(runId);
+    if (!run) throw new Error(`Unknown run ${runId}`);
+    if (run.status === "done" || run.status === "failed" || run.status === "stopped") return run;
+    return new Promise((resolve) => this.endings.set(runId, [...(this.endings.get(runId) ?? []), resolve]));
   }
 
   /** The project's Lead hears about its runs, as it hears about the person's prompts. */
   private tellLead(run: WorkflowRun, text: string): void {
+    // A comparison's runs would only fill the Lead's chat.
+    if (run.experimentId) return;
     void this.leadOf(run)
       .then((lead) => {
         if (lead) noteActivity(this.deps.sessions, lead, text);

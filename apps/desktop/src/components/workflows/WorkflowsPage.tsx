@@ -11,7 +11,7 @@ import {
   type NodeChange
 } from '@xyflow/react'
 import '@xyflow/react/dist/style.css'
-import { ChevronDown, Database, HardDrive, History, Plus, Save, Trash2, Workflow as WorkflowIcon, X } from 'lucide-react'
+import { ChevronDown, Copy, Database, FlaskConical, HardDrive, History, Plus, Save, Trash2, Workflow as WorkflowIcon, X } from 'lucide-react'
 import { toast } from 'sonner'
 import {
   HARNESS_METHODS,
@@ -58,6 +58,9 @@ import { WorkflowInspector } from './WorkflowInspector'
 import { WorkflowConnectMenu, type PendingConnection } from './WorkflowConnectMenu'
 import { canvasEdges } from './workflow-canvas-edges'
 import { WorkflowRunView } from './WorkflowRunView'
+import { WorkflowCompareDialog } from './WorkflowCompareDialog'
+import { WorkflowExperimentView } from './WorkflowExperimentView'
+import { loadWorkflowExperiments, useWorkflowExperiment, useWorkflowExperiments } from '@/stores/workflow-experiments-store'
 import { WorkflowAgentDialog, blankAgentProfile } from './WorkflowAgentDialog'
 import { DATA_PREFIX, LINK_PREFIX, dataCanvasEdges, dataCanvasNodes, type DataCanvasNode } from './workflow-data-canvas'
 import { loadWorkflowRuns, useWorkflowRun, useWorkflowRuns } from '@/stores/workflow-runs-store'
@@ -100,10 +103,15 @@ export function WorkflowsPage({ target }: { target: WorkflowsPageTarget }) {
   const history = useRef(new EditHistory())
   const runs = useWorkflowRuns(target.hostId, target.projectId)
   const agents = useWorkflowAgents(target.hostId)
+  const experiments = useWorkflowExperiments(target.hostId, target.projectId)
+  const [viewExperimentId, setViewExperimentId] = useState<string | null>(null)
+  const viewExperiment = useWorkflowExperiment(viewExperimentId)
+  const [comparing, setComparing] = useState(false)
   const viewRun = useWorkflowRun(viewRunId)
 
   useEffect(() => {
     void loadWorkflowRuns(target.hostId, target.projectId).catch(() => undefined)
+    void loadWorkflowExperiments(target.hostId, target.projectId).catch(() => undefined)
   }, [target.hostId, target.projectId])
 
   useEffect(() => {
@@ -136,6 +144,14 @@ export function WorkflowsPage({ target }: { target: WorkflowsPageTarget }) {
     history.current.reset()
     setDraft(workflow)
     setDirty(false)
+  }
+
+  /** A copy to change one thing in, for comparing against the original. */
+  const duplicate = () => {
+    if (!draft || !confirmDiscard()) return
+    history.current.reset()
+    setDraft({ ...structuredClone(draft), id: crypto.randomUUID(), name: `${draft.name} (variant)`, updatedAt: Date.now() })
+    setDirty(true)
   }
 
   const startNew = (make: (projectId: string) => Workflow) => {
@@ -208,6 +224,11 @@ export function WorkflowsPage({ target }: { target: WorkflowsPageTarget }) {
               </DropdownMenuItem>
             ))}
             {saved && saved.length > 0 && <DropdownMenuSeparator />}
+            <DropdownMenuItem onSelect={duplicate} disabled={!draft} data-workflow-duplicate>
+              <Copy className="size-3.5" />
+              Duplicate as a variant
+            </DropdownMenuItem>
+            <DropdownMenuSeparator />
             <DropdownMenuLabel className="text-xs text-muted-foreground">New from a template</DropdownMenuLabel>
             {WORKFLOW_TEMPLATES.map((t) => (
               <DropdownMenuItem key={t.name} onSelect={() => startNew(t.make)} data-workflow-template={t.name}>
@@ -223,6 +244,29 @@ export function WorkflowsPage({ target }: { target: WorkflowsPageTarget }) {
             <span className={cn('text-xs', errors > 0 ? 'text-destructive' : 'text-status-success')} data-workflow-status>
               {errors > 0 ? `${errors} problem${errors > 1 ? 's' : ''}` : 'Ready to run'}
             </span>
+          )}
+          <Button variant="ghost" size="sm" className="h-7 gap-1" onClick={() => setComparing(true)} disabled={!saved?.length} data-workflow-compare>
+            <FlaskConical className="size-3.5" />
+            Compare
+          </Button>
+          {experiments.length > 0 && (
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="ghost" size="sm" className="h-7 gap-1" data-workflow-experiments>
+                  Results
+                  <ChevronDown className="size-3" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-80">
+                {experiments.map((e) => (
+                  <DropdownMenuItem key={e.id} onSelect={() => setViewExperimentId(e.id)} data-workflow-experiment-item={e.status}>
+                    <span className="w-14 shrink-0 text-[11px] text-muted-foreground">{e.status}</span>
+                    <span className="min-w-0 flex-1 truncate">{e.task}</span>
+                    <span className="text-[11px] text-muted-foreground">{e.workflowIds.length} flows</span>
+                  </DropdownMenuItem>
+                ))}
+              </DropdownMenuContent>
+            </DropdownMenu>
           )}
           {draftRuns.length > 0 && (
             <DropdownMenu>
@@ -269,6 +313,13 @@ export function WorkflowsPage({ target }: { target: WorkflowsPageTarget }) {
         <ReactFlowProvider key={viewRun.id}>
           <WorkflowRunView run={viewRun} onBack={() => setViewRunId(null)} />
         </ReactFlowProvider>
+      ) : viewExperiment ? (
+        <WorkflowExperimentView
+          experiment={viewExperiment}
+          workflows={saved ?? []}
+          onOpenRun={setViewRunId}
+          onBack={() => setViewExperimentId(null)}
+        />
       ) : draft ? (
         <ReactFlowProvider key={draft.id}>
           <WorkflowCanvas
@@ -291,6 +342,20 @@ export function WorkflowsPage({ target }: { target: WorkflowsPageTarget }) {
         </ReactFlowProvider>
       ) : (
         <div className="m-auto text-sm text-muted-foreground">Loading workflows…</div>
+      )}
+      {comparing && (
+        <WorkflowCompareDialog
+          hostId={target.hostId}
+          projectId={target.projectId}
+          workflows={saved ?? []}
+          initial={draft ? [draft.id] : []}
+          onClose={() => setComparing(false)}
+          onStarted={(experiment) => {
+            setComparing(false)
+            setViewRunId(null)
+            setViewExperimentId(experiment.id)
+          }}
+        />
       )}
     </div>
   )

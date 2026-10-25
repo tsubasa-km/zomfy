@@ -11,7 +11,9 @@ import {
   SETTINGS_NOTIFICATIONS,
   TODO_NOTIFICATIONS,
   PROJECT_LINK_NOTIFICATIONS,
+  WORKFLOW_EXPERIMENT_NOTIFICATIONS,
   WORKFLOW_NOTIFICATIONS,
+  type WorkflowExperiment,
   type WorkflowRun,
   type ProjectLink,
   TURN_RECOVERY_NOTIFICATIONS,
@@ -58,6 +60,7 @@ import { applyHostSettings } from "./stores/host-settings-store";
 import { setTodos } from "./stores/inbox-store";
 import { setProjectLinks } from "./stores/project-links-store";
 import { upsertWorkflowRun } from "./stores/workflow-runs-store";
+import { upsertWorkflowExperiment } from "./stores/workflow-experiments-store";
 import { runManagerTool } from "./manager/manager-tool-runner";
 import { applyAutomationSnapshot } from "./stores/automation-store";
 import { notifyAutoResumed } from "./agent-notifications";
@@ -200,6 +203,11 @@ async function openConnection(hostId: HostId): Promise<void> {
       WORKFLOW_NOTIFICATIONS.workflowRunChanged,
       (raw: unknown) => raw as WorkflowRun,
       (ctx) => upsertWorkflowRun(hostId, ctx.params),
+    )
+    .onNotification(
+      WORKFLOW_EXPERIMENT_NOTIFICATIONS.workflowExperimentChanged,
+      (raw: unknown) => raw as WorkflowExperiment,
+      (ctx) => upsertWorkflowExperiment(hostId, ctx.params),
     )
     .onNotification(
       PROJECT_LINK_NOTIFICATIONS.projectLinksChanged,

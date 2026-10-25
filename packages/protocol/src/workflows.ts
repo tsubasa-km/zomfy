@@ -329,6 +329,10 @@ export interface WorkflowRun {
   followUps?: { nodeId: string; label: string; text: string }[]
   /** What each loop was stuck on when it was last handed up, by cycle id: the same again goes higher. */
   escalated?: Record<string, string>
+  /** Started by a comparison of flows (WorkflowExperiment); the Lead is not told of it. */
+  experimentId?: string
+  /** Its steps' permission asks are answered "allow" (a comparison's runs, each in a worktree of its own). */
+  autoApprove?: boolean
   /** Taken along a "continue" arrow: the chat the next step goes on in. */
   handover?: { nodeId: string; sessionIds: string[] } | null
   createdAt: number

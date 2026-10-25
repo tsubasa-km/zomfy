@@ -131,7 +131,12 @@ export function createHarnessAgent(
   type Ask =(request: acp.RequestPermissionRequest) => Promise<acp.RequestPermissionResponse>;
 
   /** For turns no client started (automations): the newest window that answers permission asks. */
+  const autoApprove = new Set<string>();
   const askAnyClient: Ask = async (request) => {
+    if (autoApprove.has(request.sessionId)) {
+      const allow = request.options.find((o) => o.kind === "allow_once") ?? request.options.find((o) => o.kind === "allow_always");
+      if (allow) return { outcome: { outcome: "selected", optionId: allow.optionId } };
+    }
     for (const client of [...clients].reverse()) {
       try {
         return await client.request(acp.methods.client.session.requestPermission, request);
@@ -383,6 +388,7 @@ export function createHarnessAgent(
     },
     moveSession: (params) => mover.move(params),
     serveTool: (tool, route, offeredTo) => localTools.set(tool, { route, offeredTo }),
+    autoApprove,
     async runStepTurn(sessionId, text, step) {
       let result: { text: string; structured: unknown; usage?: WorkflowStepUsage } = { text: "", structured: undefined };
       stepTurns.set(sessionId, { step, onResult: (r) => (result = r) });

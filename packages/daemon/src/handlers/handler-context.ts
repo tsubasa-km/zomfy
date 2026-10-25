@@ -50,6 +50,8 @@ export interface HandlerContext {
   runTurn(sessionId: string, text: string): Promise<acp.StopReason>;
   /** The workspace's directory on this host; throws for unknown ids. */
   workspaceRoot(workspaceId: string): string;
+  /** Sessions whose permission asks are answered "allow" without a window (a comparison's runs). */
+  autoApprove: Set<string>;
   /** One workflow step's turn: the step's tools for this turn only, and its final text and structured result. */
   runStepTurn(
     sessionId: string,
