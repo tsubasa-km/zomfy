@@ -37,20 +37,6 @@ function ChangeDetail({ workflow, change }: { workflow: Workflow; change: Workfl
       </p>
     )
   }
-  if (change.type === 'skills') {
-    return (
-      <p className="text-[11px] text-muted-foreground">
-        “{label(change.nodeId)}” no longer sees the skill {change.removed} ({change.skills.length} left)
-      </p>
-    )
-  }
-  if (change.type === 'denyMcp') {
-    return (
-      <p className="text-[11px] text-muted-foreground">
-        “{label(change.nodeId)}” goes without the MCP server {change.server}
-      </p>
-    )
-  }
   const edge = workflow.edges.find((e) => e.id === change.edgeId)
   return (
     <p className="text-[11px] text-muted-foreground">
@@ -69,7 +55,8 @@ export function WorkflowSuggestDialog({
   hostId: HostId
   /** The saved workflow the runs were of. */
   workflow: Workflow
-  onApply: (next: Workflow, asVariant: boolean) => void
+  /** here: into the open workflow; variant: as a new unsaved one; compare: saved as a variant and compared with this one. */
+  onApply: (next: Workflow, how: 'here' | 'variant' | 'compare') => void
   onClose: () => void
 }) {
   const [result, setResult] = useState<WorkflowSuggestions | null>(null)
@@ -90,10 +77,10 @@ export function WorkflowSuggestDialog({
     }
   }, [hostId, workflow.id, workflow.projectId])
 
-  const apply = (asVariant: boolean) => {
+  const apply = (how: 'here' | 'variant' | 'compare') => {
     if (!result) return
     const next = result.suggestions.filter((s) => picked.includes(s.id)).reduce((w, s) => applyWorkflowChange(w, s.change), workflow)
-    onApply(next, asVariant)
+    onApply(next, how)
   }
 
   return (
@@ -102,7 +89,7 @@ export function WorkflowSuggestDialog({
         <DialogHeader>
           <DialogTitle>Suggested changes</DialogTitle>
           <DialogDescription>
-            From the last runs of “{workflow.name}”. Apply them as a variant and compare it with the original before keeping them.
+            From the last runs of “{workflow.name}”. “Compare as a variant” saves them as a copy and opens a comparison with the original.
           </DialogDescription>
         </DialogHeader>
         {!result && !error && (
@@ -143,11 +130,14 @@ export function WorkflowSuggestDialog({
           </Button>
           {result && result.suggestions.length > 0 && (
             <>
-              <Button variant="outline" disabled={picked.length === 0} onClick={() => apply(false)}>
+              <Button variant="outline" disabled={picked.length === 0} onClick={() => apply('here')}>
                 Apply here
               </Button>
-              <Button disabled={picked.length === 0} onClick={() => apply(true)} data-workflow-suggest-variant>
+              <Button variant="outline" disabled={picked.length === 0} onClick={() => apply('variant')} data-workflow-suggest-variant>
                 Apply as a variant
+              </Button>
+              <Button disabled={picked.length === 0} onClick={() => apply('compare')} data-workflow-suggest-compare>
+                Compare as a variant
               </Button>
             </>
           )}

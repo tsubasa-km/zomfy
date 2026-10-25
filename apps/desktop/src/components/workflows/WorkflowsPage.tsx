@@ -11,7 +11,7 @@ import {
   type NodeChange
 } from '@xyflow/react'
 import '@xyflow/react/dist/style.css'
-import { ChevronDown, Copy, Database, FlaskConical, HardDrive, History, Plus, Save, Sparkles, Trash2, Workflow as WorkflowIcon, X } from 'lucide-react'
+import { ChevronDown, Copy, Database, FlaskConical, HardDrive, History, Pencil, Plus, Save, Sparkles, Trash2, Workflow as WorkflowIcon, X } from 'lucide-react'
 import { toast } from 'sonner'
 import {
   HARNESS_METHODS,
@@ -63,6 +63,7 @@ import { WorkflowSuggestDialog } from './WorkflowSuggestDialog'
 import { WorkflowExperimentView } from './WorkflowExperimentView'
 import { loadWorkflowExperiments, useWorkflowExperiment, useWorkflowExperiments } from '@/stores/workflow-experiments-store'
 import { WorkflowAgentDialog, blankAgentProfile } from './WorkflowAgentDialog'
+import { WorkflowAgentsDialog } from './WorkflowAgentsDialog'
 import { DATA_PREFIX, LINK_PREFIX, dataCanvasEdges, dataCanvasNodes, type DataCanvasNode } from './workflow-data-canvas'
 import { loadWorkflowRuns, useWorkflowRun, useWorkflowRuns } from '@/stores/workflow-runs-store'
 import {
@@ -107,7 +108,8 @@ export function WorkflowsPage({ target }: { target: WorkflowsPageTarget }) {
   const experiments = useWorkflowExperiments(target.hostId, target.projectId)
   const [viewExperimentId, setViewExperimentId] = useState<string | null>(null)
   const viewExperiment = useWorkflowExperiment(viewExperimentId)
-  const [comparing, setComparing] = useState(false)
+  /** The workflows a new comparison starts with picked; null while no comparison is being set up. */
+  const [compareWith, setCompareWith] = useState<string[] | null>(null)
   const [suggesting, setSuggesting] = useState(false)
   const viewRun = useWorkflowRun(viewRunId)
 
@@ -157,6 +159,32 @@ export function WorkflowsPage({ target }: { target: WorkflowsPageTarget }) {
     history.current.reset()
     setDraft({ ...structuredClone(draft), id: crypto.randomUUID(), name: `${draft.name} (variant)`, updatedAt: Date.now() })
     setDirty(true)
+  }
+
+  /** Suggested changes: into the open workflow, as an unsaved variant, or saved as a variant and compared with the original. */
+  const applySuggestions = async (next: Workflow, how: 'here' | 'variant' | 'compare') => {
+    setSuggesting(false)
+    if (!confirmDiscard()) return
+    history.current.reset()
+    if (how === 'here') {
+      setDraft(next)
+      setDirty(true)
+      return
+    }
+    const variant = { ...next, id: crypto.randomUUID(), name: `${next.name} (variant)`, updatedAt: Date.now() }
+    setDraft(variant)
+    if (how === 'variant') {
+      setDirty(true)
+      return
+    }
+    try {
+      setSaved(await harnessRequest(HARNESS_METHODS.workflowSave, { workflow: variant }, target.hostId))
+      setDirty(false)
+      setCompareWith([next.id, variant.id])
+    } catch (error) {
+      setDirty(true)
+      toast.error('Could not save the variant', { description: String(error) })
+    }
   }
 
   const startNew = (make: (projectId: string) => Workflow) => {
@@ -262,45 +290,43 @@ export function WorkflowsPage({ target }: { target: WorkflowsPageTarget }) {
             <Sparkles className="size-3.5" />
             Suggest
           </Button>
-          <Button variant="ghost" size="sm" className="h-7 gap-1" onClick={() => setComparing(true)} disabled={!saved?.length} data-workflow-compare>
+          <Button
+            variant="ghost"
+            size="sm"
+            className="h-7 gap-1"
+            onClick={() => setCompareWith(draft ? [draft.id] : [])}
+            disabled={!saved?.length}
+            data-workflow-compare
+          >
             <FlaskConical className="size-3.5" />
             Compare
           </Button>
-          {experiments.length > 0 && (
+          {(draftRuns.length > 0 || experiments.length > 0) && (
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button variant="ghost" size="sm" className="h-7 gap-1" data-workflow-experiments>
-                  Results
-                  <ChevronDown className="size-3" />
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-80">
-                {experiments.map((e) => (
-                  <DropdownMenuItem key={e.id} onSelect={() => setViewExperimentId(e.id)} data-workflow-experiment-item={e.status}>
-                    <span className="w-14 shrink-0 text-[11px] text-muted-foreground">{e.status}</span>
-                    <span className="min-w-0 flex-1 truncate">{e.task}</span>
-                    <span className="text-[11px] text-muted-foreground">{e.arms.length} arms</span>
-                  </DropdownMenuItem>
-                ))}
-              </DropdownMenuContent>
-            </DropdownMenu>
-          )}
-          {draftRuns.length > 0 && (
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button variant="ghost" size="sm" className="h-7 gap-1" data-workflow-runs>
+                <Button variant="ghost" size="sm" className="h-7 gap-1" data-workflow-history>
                   <History className="size-3.5" />
-                  Runs
+                  History
                   {draftRuns.some((r) => r.status === 'waiting') && (
                     <span className="size-1.5 rounded-full bg-agent-question" aria-label="A run is waiting for you" />
                   )}
                 </Button>
               </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-80">
+              <DropdownMenuContent align="end" className="max-h-[70vh] w-80 overflow-y-auto">
+                {draftRuns.length > 0 && <DropdownMenuLabel className="text-xs text-muted-foreground">Runs of this workflow</DropdownMenuLabel>}
                 {draftRuns.map((r) => (
                   <DropdownMenuItem key={r.id} onSelect={() => setViewRunId(r.id)} data-workflow-run-item={r.status}>
                     <span className="w-16 shrink-0 text-[11px] text-muted-foreground">{r.status}</span>
                     <span className="min-w-0 flex-1 truncate">{r.task}</span>
+                  </DropdownMenuItem>
+                ))}
+                {draftRuns.length > 0 && experiments.length > 0 && <DropdownMenuSeparator />}
+                {experiments.length > 0 && <DropdownMenuLabel className="text-xs text-muted-foreground">Comparisons</DropdownMenuLabel>}
+                {experiments.map((e) => (
+                  <DropdownMenuItem key={e.id} onSelect={() => setViewExperimentId(e.id)} data-workflow-experiment-item={e.status}>
+                    <span className="w-16 shrink-0 text-[11px] text-muted-foreground">{e.status}</span>
+                    <span className="min-w-0 flex-1 truncate">{e.task}</span>
+                    <span className="text-[11px] text-muted-foreground">{e.arms.length} workflows</span>
                   </DropdownMenuItem>
                 ))}
               </DropdownMenuContent>
@@ -365,24 +391,18 @@ export function WorkflowsPage({ target }: { target: WorkflowsPageTarget }) {
           hostId={target.hostId}
           workflow={saved.find((w) => w.id === draft.id)!}
           onClose={() => setSuggesting(false)}
-          onApply={(next, asVariant) => {
-            setSuggesting(false)
-            if (!confirmDiscard()) return
-            history.current.reset()
-            setDraft(asVariant ? { ...next, id: crypto.randomUUID(), name: `${next.name} (variant)`, updatedAt: Date.now() } : next)
-            setDirty(true)
-          }}
+          onApply={(next, how) => void applySuggestions(next, how)}
         />
       )}
-      {comparing && (
+      {compareWith && (
         <WorkflowCompareDialog
           hostId={target.hostId}
           projectId={target.projectId}
           workflows={saved ?? []}
-          initial={draft ? [draft.id] : []}
-          onClose={() => setComparing(false)}
+          initial={compareWith}
+          onClose={() => setCompareWith(null)}
           onStarted={(experiment) => {
-            setComparing(false)
+            setCompareWith(null)
             setViewRunId(null)
             setViewExperimentId(experiment.id)
           }}
@@ -447,6 +467,7 @@ function WorkflowCanvas({
   const selectedData = selection && 'data' in selection ? (workflow.data?.find((d) => d.id === selection.data) ?? null) : null
   const selectedLink = selection && 'link' in selection ? (workflow.dataLinks?.find((l) => l.id === selection.link) ?? null) : null
   const [agentDialog, setAgentDialog] = useState<{ profile: WorkflowAgentProfile; isNew: boolean; forNode?: string; place?: boolean } | null>(null)
+  const [agentList, setAgentList] = useState(false)
 
   const issueOf = (nodeId: string): 'error' | 'warning' | null => {
     const mine = issues.filter((i) => i.nodeId === nodeId)
@@ -744,7 +765,7 @@ function WorkflowCanvas({
           <Controls showInteractive={false} />
           <SnapGuides guides={guides} />
           <LoopViewPanel cycles={cycles} />
-          <Panel position="top-left">
+          <Panel position="top-left" className="max-w-[calc(100%-16rem)]">
             <div className="flex flex-wrap gap-1 rounded-lg border border-border bg-card p-1 shadow-xs" data-workflow-palette>
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
@@ -790,6 +811,12 @@ function WorkflowCanvas({
                     <Plus className="size-3.5" />
                     New agent…
                   </DropdownMenuItem>
+                  {agents.length > 0 && (
+                    <DropdownMenuItem onSelect={() => setAgentList(true)} data-workflow-manage-agents>
+                      <Pencil className="size-3.5" />
+                      Manage agents…
+                    </DropdownMenuItem>
+                  )}
                 </DropdownMenuContent>
               </DropdownMenu>
               {NODE_KINDS.filter((k) => k.kind !== 'agent' && k.kind !== 'review').map((k) => {
@@ -820,7 +847,7 @@ function WorkflowCanvas({
           />
         )}
       </div>
-      <aside className="w-80 shrink-0 overflow-y-auto border-l border-border p-4">
+      <aside className="w-80 shrink-0 overflow-y-auto border-l border-border p-4 pb-16">
         <WorkflowInspector
           hostId={hostId}
           workflow={workflow}
@@ -872,6 +899,14 @@ function WorkflowCanvas({
           }}
         />
       </aside>
+      {agentList && !agentDialog && (
+        <WorkflowAgentsDialog
+          agents={agents}
+          onClose={() => setAgentList(false)}
+          onEdit={(profile) => setAgentDialog({ profile, isNew: false })}
+          onNew={() => setAgentDialog({ profile: blankAgentProfile('agent'), isNew: true })}
+        />
+      )}
       {agentDialog && (
         <WorkflowAgentDialog
           hostId={hostId}

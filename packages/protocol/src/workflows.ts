@@ -351,7 +351,7 @@ export interface WorkflowRun {
   experimentId?: string
   /** Its steps' permission asks are answered "allow" (a comparison's runs, each in a worktree of its own). */
   autoApprove?: boolean
-  /** A comparison arm's: the skill or MCP server its steps went without. */
+  /** A comparison arm's: what its steps went without. */
   without?: WorkflowContextRemoval
   /** Taken along a "continue" arrow: the chat the next step goes on in. */
   handover?: { nodeId: string; sessionIds: string[] } | null

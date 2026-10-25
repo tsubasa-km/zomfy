@@ -1,20 +1,11 @@
 // Comparing flows: the same task run through several arms, several times each, each run in a
 // worktree of its own, so their scorecards can be set side by side. An arm is a saved workflow, or a
-// saved workflow with one context item taken away (a skill, an MCP server), to see what it is worth.
+// saved workflow whose agent steps go without skills, to see what the skills in every turn are worth.
 
 import type { Workflow } from './workflows'
 
-/** A skill or MCP server a run's steps go without. */
-export interface WorkflowContextRemoval {
-  kind: 'skill' | 'mcp'
-  /** ALL_SKILLS takes every skill away. */
-  name: string
-  /**
-   * Skills: each step's skills when it last ran with it, by node id. A step can only be shown a list
-   * of skills, so it is shown these minus the one taken away.
-   */
-  keep?: Record<string, string[]>
-}
+/** What an arm's steps go without: their skills (one alone is a few hundred tokens, too little to measure). */
+export type WorkflowContextRemoval = 'skills'
 
 export interface WorkflowExperimentArm {
   id: string
@@ -49,29 +40,15 @@ export interface WorkflowExperiment {
   endedAt: number | null
 }
 
-export const ALL_SKILLS = '*'
-
-/**
- * The workflow with the item taken from every agent step: an MCP server's tools denied, or a skill
- * left off the step's list of skills. A step with no list, and none recorded, keeps its skills.
- */
-export function withoutContextItem(workflow: Workflow, without: WorkflowContextRemoval): Workflow {
+/** The workflow with every agent step shown no skills. */
+export function withoutSkills(workflow: Workflow): Workflow {
   return {
     ...workflow,
-    nodes: workflow.nodes.map((node) => {
-      const tools = node.config.tools ?? {}
-      if (without.kind === 'mcp') {
-        if (node.kind === 'start' || node.kind === 'end' || node.kind === 'human' || node.kind === 'check') return node
-        return { ...node, config: { ...node.config, tools: { ...tools, deny: [...(tools.deny ?? []), `mcp__${without.name}`] } } }
-      }
-      if (without.name === ALL_SKILLS) {
-        if (node.kind === 'start' || node.kind === 'end' || node.kind === 'human' || node.kind === 'check') return node
-        return { ...node, config: { ...node.config, tools: { ...tools, skills: [] } } }
-      }
-      const skills = tools.skills ?? without.keep?.[node.id]
-      if (!skills) return node
-      return { ...node, config: { ...node.config, tools: { ...tools, skills: skills.filter((s) => s !== without.name) } } }
-    })
+    nodes: workflow.nodes.map((node) =>
+      node.kind === 'start' || node.kind === 'end' || node.kind === 'human' || node.kind === 'check'
+        ? node
+        : { ...node, config: { ...node.config, tools: { ...node.config.tools, skills: [] } } }
+    )
   }
 }
 

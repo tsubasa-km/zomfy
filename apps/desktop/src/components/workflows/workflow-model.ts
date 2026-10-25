@@ -334,6 +334,23 @@ export function validateWorkflow(workflow: Workflow, agents: WorkflowAgentProfil
       })
     } else if ((from.config.agent ?? 'claude') !== (to.config.agent ?? 'claude')) {
       issues.push({ level: 'error', edgeId: edge.id, message: `"${from.label}" → "${to.label}" continues the chat, so both steps must run on the same agent.` })
+    } else {
+      if (to.kind === 'review') {
+        issues.push({
+          level: 'warning',
+          edgeId: edge.id,
+          message: `"${to.label}" reviews in the chat that did the work, so it is not an independent review.`
+        })
+      }
+      // Other agents load MCP servers when their chat opens; a chat carried on keeps the first step's.
+      const servers = (n: WorkflowNode) => JSON.stringify((n.config.tools?.mcp ?? []).map((m) => m.preset ?? `${m.name}:${m.command ?? ''}`).sort())
+      if ((from.config.agent ?? 'claude') !== 'claude' && servers(from) !== servers(to)) {
+        issues.push({
+          level: 'warning',
+          edgeId: edge.id,
+          message: `"${to.label}" keeps the MCP servers "${from.label}" started with: ${to.config.agent} cannot change them in a chat it carries on.`
+        })
+      }
     }
   }
 

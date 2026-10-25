@@ -4,7 +4,7 @@ import {
   localOnlySteps,
   resolveWorkflowAgents,
   runsLocally,
-  withoutContextItem,
+  withoutSkills,
   workflowAccessIssues,
   WORKFLOW_META,
   WORKFLOW_NOTIFICATIONS,
@@ -158,7 +158,7 @@ export class WorkflowEngine {
     if (broken) throw new Error(broken.message);
     const resolved = resolveWorkflowAgents(saved, profiles);
     // Taken away after the agents are filled in, so a step's agent cannot bring it back.
-    const workflow = options.without ? withoutContextItem(resolved, options.without) : resolved;
+    const workflow = options.without === "skills" ? withoutSkills(resolved) : resolved;
     const start = workflow.nodes.find((n) => n.kind === "start");
     if (!start) throw new Error("The workflow has no Start step");
     const first = workflow.edges.find((e) => e.from === start.id && e.outcome === "next");

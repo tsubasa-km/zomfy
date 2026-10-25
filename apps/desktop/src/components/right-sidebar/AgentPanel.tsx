@@ -95,7 +95,8 @@ export function AgentPanel({ workspaceId }: { workspaceId: string }) {
     openWorkflows({ hostId: r.hostId, projectId: r.projectId, projectName, runId: r.id })
 
   return (
-    <div className="min-h-0 flex-1 overflow-y-auto text-xs" data-agent-panel>
+    // Room at the bottom for the window's floating layout button.
+    <div className="min-h-0 flex-1 overflow-y-auto pb-14 text-xs" data-agent-panel>
       <div className="flex items-center gap-2 border-b border-border px-3 py-2.5">
         <TuiAgentIcon agent={agent} size={16} />
         <div className="min-w-0 flex-1">
@@ -130,7 +131,7 @@ export function AgentPanel({ workspaceId }: { workspaceId: string }) {
 
       {projectId && (
         <Section
-          title={run ? 'Workflow run' : 'Recent workflow runs'}
+          title="Workflow run"
           aside={
             <Button
               variant="ghost"
@@ -144,29 +145,8 @@ export function AgentPanel({ workspaceId }: { workspaceId: string }) {
         >
           {run ? (
             <RunSummary run={run} sessionId={session.id} onOpen={() => openRun(run)} />
-          ) : runs.length === 0 ? (
-            <p className="text-muted-foreground">No runs in this project yet.</p>
           ) : (
-            <ul className="space-y-1.5">
-              {runs.slice(0, 4).map((r) => {
-                const card = workflowScorecard(r)
-                return (
-                  <li key={r.id}>
-                    <button type="button" className="w-full rounded px-1 py-0.5 text-left hover:bg-accent" onClick={() => openRun(r)}>
-                      <div className="flex items-center gap-2">
-                        <span className="min-w-0 flex-1 truncate">{r.workflow.name}</span>
-                        <span className="text-[11px] text-muted-foreground">{r.status}</span>
-                      </div>
-                      <div className="truncate text-[11px] text-muted-foreground">
-                        {formatDuration(card.durationMs)} · {formatTokens(card.usage.inputTokens + card.usage.outputTokens)} tokens
-                        {card.usage.costUsd !== undefined ? ` · $${card.usage.costUsd.toFixed(2)}` : ''}
-                        {card.sentBack + card.checksFailed > 0 ? ` · ${card.sentBack + card.checksFailed} rounds` : ''}
-                      </div>
-                    </button>
-                  </li>
-                )
-              })}
-            </ul>
+            <p className="text-muted-foreground">This chat is not a step of a workflow run. The project's runs are under Workflows.</p>
           )}
         </Section>
       )}

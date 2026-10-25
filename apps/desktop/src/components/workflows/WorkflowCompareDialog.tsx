@@ -1,14 +1,6 @@
 import { useState } from 'react'
 import { toast } from 'sonner'
-import {
-  ALL_SKILLS,
-  HARNESS_METHODS,
-  MANAGER_MCP_SERVER_NAME,
-  workflowScorecard,
-  type Workflow,
-  type WorkflowContextRemoval,
-  type WorkflowExperiment
-} from '@acp-harness/protocol'
+import { HARNESS_METHODS, workflowScorecard, type Workflow, type WorkflowExperiment } from '@acp-harness/protocol'
 import { useWorkflowRuns } from '@/stores/workflow-runs-store'
 import { formatTokens } from './WorkflowRunScorecard'
 import { harnessRequest } from '@/daemon-connection'
@@ -46,31 +38,15 @@ export function WorkflowCompareDialog({
   const [parallel, setParallel] = useState(1)
   const [autoApprove, setAutoApprove] = useState(false)
   const [busy, setBusy] = useState(false)
-  const [removals, setRemovals] = useState<string[]>([])
+  const [withoutSkills, setWithoutSkills] = useState<string[]>([])
   const history = useWorkflowRuns(hostId, projectId)
-  // What each picked workflow's latest finished run had in context: what a "without" arm can take away.
-  const candidates = picked.flatMap((workflowId) => {
-    const last = history.find((r) => r.workflowId === workflowId && r.status !== 'running' && r.status !== 'waiting' && !r.without)
-    if (!last) return []
-    const keep: Record<string, string[]> = {}
-    for (const step of last.steps) {
-      const skills = (step.context?.items ?? []).filter((i) => i.kind === 'skill').map((i) => i.name)
-      if (skills.length) keep[step.nodeId] = skills
-    }
-    // Zomfy's own tools (ask_lead…) are how steps reach the Lead; going without them is not a fair arm.
-    const rows = workflowScorecard(last).context.filter((row) => row.kind === 'skill' || (row.kind === 'mcp' && row.name !== MANAGER_MCP_SERVER_NAME))
-    const skills = rows.filter((row) => row.kind === 'skill')
-    // Each skill alone is small; all of them together is the arm most likely to show a difference.
-    const all =
-      skills.length > 1
-        ? [{ kind: 'skill' as const, name: ALL_SKILLS, tokens: skills.reduce((n, r) => n + r.tokens, 0), loadedIn: 0, used: skills.reduce((n, r) => n + (r.used ?? 0), 0) }]
-        : []
-    return [...all, ...rows].map((row) => {
-      const without: WorkflowContextRemoval = row.kind === 'skill' ? { kind: 'skill', name: row.name, keep } : { kind: 'mcp', name: row.name }
-      return { key: `${workflowId}:${row.kind}:${row.name}`, workflowId, row, without }
-    })
-  })
-  const chosen = candidates.filter((c) => removals.includes(c.key))
+  // The skills each picked workflow's last run carried in every Claude turn: what a "without skills" arm saves.
+  const skillTokens = (workflowId: string) => {
+    const last = history.find((r) => r.workflowId === workflowId && r.status === 'done' && !r.without)
+    const skills = last ? workflowScorecard(last).context.filter((row) => row.kind === 'skill') : []
+    return skills.length ? { tokens: skills.reduce((n, r) => n + r.tokens, 0), used: skills.reduce((n, r) => n + (r.used ?? 0), 0) } : null
+  }
+  const chosen = picked.filter((id) => withoutSkills.includes(id))
   const runs = (picked.length + chosen.length) * trials
   const name = (id: string) => workflows.find((w) => w.id === id)?.name ?? id
 
@@ -84,11 +60,7 @@ export function WorkflowCompareDialog({
           task,
           arms: [
             ...picked.map((workflowId) => ({ workflowId, label: name(workflowId) })),
-            ...chosen.map((c) => ({
-              workflowId: c.workflowId,
-              label: `${name(c.workflowId)} − ${c.row.name === ALL_SKILLS ? 'all skills' : `${c.row.kind === 'mcp' ? 'MCP ' : ''}${c.row.name}`}`,
-              without: c.without
-            }))
+            ...chosen.map((workflowId) => ({ workflowId, label: `${name(workflowId)} without skills`, without: 'skills' as const }))
           ],
           trials,
           parallel,
@@ -109,7 +81,7 @@ export function WorkflowCompareDialog({
     <Dialog open onOpenChange={(open) => !open && onClose()}>
       <DialogContent className="max-h-[85vh] overflow-y-auto sm:max-w-lg" data-workflow-compare-dialog>
         <DialogHeader>
-          <DialogTitle>Compare flows</DialogTitle>
+          <DialogTitle>Compare workflows</DialogTitle>
           <DialogDescription>
             The same task through each workflow, a few times each, side by side. In a git project each run gets a worktree of its own.
           </DialogDescription>
@@ -122,44 +94,34 @@ export function WorkflowCompareDialog({
           <div className="space-y-1.5">
             <Label className="text-xs">Workflows</Label>
             <div className="space-y-1">
-              {workflows.map((w) => (
-                <label key={w.id} className="flex items-center gap-2 text-sm">
-                  <Checkbox
-                    checked={picked.includes(w.id)}
-                    onCheckedChange={(on) => setPicked((all) => (on === true ? [...all, w.id] : all.filter((id) => id !== w.id)))}
-                  />
-                  <span className="truncate">{w.name}</span>
-                </label>
-              ))}
+              {workflows.map((w) => {
+                const skills = picked.includes(w.id) ? skillTokens(w.id) : null
+                return (
+                  <div key={w.id} className="space-y-0.5">
+                    <label className="flex items-center gap-2 text-sm">
+                      <Checkbox
+                        checked={picked.includes(w.id)}
+                        onCheckedChange={(on) => setPicked((all) => (on === true ? [...all, w.id] : all.filter((id) => id !== w.id)))}
+                      />
+                      <span className="truncate">{w.name}</span>
+                    </label>
+                    {skills && (
+                      <label className="flex items-center gap-2 pl-6 text-xs text-muted-foreground" data-workflow-compare-without>
+                        <Checkbox
+                          checked={withoutSkills.includes(w.id)}
+                          onCheckedChange={(on) => setWithoutSkills((all) => (on === true ? [...all, w.id] : all.filter((id) => id !== w.id)))}
+                        />
+                        Also without skills ({formatTokens(skills.tokens)} tokens a turn, used {skills.used}× in its last run)
+                      </label>
+                    )}
+                  </div>
+                )
+              })}
             </div>
-            <p className="text-[11px] text-muted-foreground">Only saved workflows run. Make a variant with Duplicate, then change one thing in it.</p>
+            <p className="text-[11px] text-muted-foreground">
+              Only saved workflows run. Make a variant with “Duplicate as a variant”, or apply a suggestion as one, and change one thing.
+            </p>
           </div>
-          {candidates.length > 0 && (
-            <div className="space-y-1.5" data-workflow-compare-without>
-              <Label className="text-xs">Also try without…</Label>
-              <div className="max-h-40 space-y-1 overflow-y-auto">
-                {candidates.map((c) => (
-                  <label key={c.key} className="flex items-center gap-2 text-xs">
-                    <Checkbox
-                      checked={removals.includes(c.key)}
-                      onCheckedChange={(on) => setRemovals((all) => (on === true ? [...all, c.key] : all.filter((k) => k !== c.key)))}
-                    />
-                    <span className="min-w-0 flex-1 truncate">
-                      {picked.length > 1 && <span className="text-muted-foreground">{name(c.workflowId)} · </span>}
-                      {c.row.name === ALL_SKILLS ? 'All skills' : `${c.row.kind === 'mcp' ? 'MCP' : 'Skill'} ${c.row.name}`}
-                    </span>
-                    <span className="shrink-0 text-[11px] text-muted-foreground tabular-nums">
-                      {formatTokens(c.row.tokens)} · used {c.row.used ?? '—'}
-                    </span>
-                  </label>
-                ))}
-              </div>
-              <p className="text-[11px] text-muted-foreground">
-                Each adds an arm where every step goes without that item (from the workflow's last run). If it does as well with less,
-                it is not earning its place.
-              </p>
-            </div>
-          )}
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1.5">
               <Label className="text-xs">Trials each</Label>

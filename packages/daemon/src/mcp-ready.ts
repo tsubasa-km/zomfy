@@ -29,7 +29,16 @@ function answered(server: Extract<acp.McpServer, { command: string }>): Promise<
     return false
   })()
   const timeout = Bun.sleep(LIMIT_MS).then(() => false)
-  return Promise.race([reply, timeout]).finally(() => proc.kill())
+  return Promise.race([reply, timeout]).finally(() => killTree(proc))
+}
+
+/** On Windows the server runs under cmd and npx; killing cmd alone would leave them running. */
+function killTree(proc: Bun.Subprocess): void {
+  if (process.platform !== 'win32') {
+    proc.kill()
+    return
+  }
+  Bun.spawn(['taskkill', '/pid', String(proc.pid), '/t', '/f'], { stdout: 'ignore', stderr: 'ignore', windowsHide: true })
 }
 
 /** Resolves once each stdio server answers (or after the limit), plus a margin for the agent's copy. */

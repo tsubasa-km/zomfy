@@ -1,6 +1,5 @@
 import { query } from "@anthropic-ai/claude-agent-sdk";
 import {
-  MANAGER_MCP_SERVER_NAME,
   localOnlySteps,
   workflowCycles,
   workflowScorecard,
@@ -53,27 +52,17 @@ function describeRun(run: WorkflowRun, index: number): string {
     return `  · "${s.label}" (node ${s.nodeId}) → ${s.outcome ?? "no outcome"}${s.error ? ` ERROR: ${s.error}` : ""}\n    ${summary.replace(/\n/g, "\n    ")}`;
   });
   const later = (run.followUps ?? []).filter((f) => !withheld.has(f.nodeId)).map((f) => `  left for later by "${f.label}": ${f.text}`);
-  // Zomfy's own tools are how steps reach the Lead, not a candidate to take away.
-  const context = card.context
-    .filter((r) => r.kind !== "agent" && !(r.kind === "mcp" && r.name === MANAGER_MCP_SERVER_NAME))
-    .map((r) => `  ${r.kind} ${r.name}: ${r.tokens} tokens in each turn of ${r.loadedIn} step(s), ${r.used === null ? "read, not called" : `used ${r.used} time(s)`}`);
-  const held = [...new Set(run.steps.map((s) => s.nodeId))].flatMap((nodeId) => {
-    const skills = run.steps.filter((s) => s.nodeId === nodeId).flatMap((s) => (s.context?.items ?? []).filter((i) => i.kind === "skill").map((i) => i.name));
-    return skills.length ? [`  node ${nodeId} had skills: ${[...new Set(skills)].join(", ")}`] : [];
-  });
-  return [head, figures, ...steps, ...later, ...(context.length ? ["  context of its Claude steps:", ...context, ...held] : [])].join("\n");
+  return [head, figures, ...steps, ...later].join("\n");
 }
 
 const INSTRUCTIONS = `You improve an agent workflow from the evidence of its runs. The harness walks the graph: each step is an agent session (or a command, or the person) that ends in an outcome, and the arrow with that outcome picks the next step. Steps hand on a written summary unless an arrow continues the same chat.
 
-Propose at most 4 changes, only where the runs show a concrete problem: work sent back for something an earlier step knew, the same failure repeated, files re-read or commands re-run after a handoff, a loop going round without progress, a step whose instructions it ignored, or a skill or MCP server that takes many tokens in every turn yet no run used. Prefer removing friction over adding steps: a sharper instruction, an arrow that continues the chat where a handoff lost what mattered, a tighter or looser round limit, a context item taken away. Do not invent problems the runs do not show; with too little evidence, propose nothing and say what to run next. Taking away something a run used is a regression: never propose it.
+Propose at most 4 changes, only where the runs show a concrete problem: work sent back for something an earlier step knew, the same failure repeated, files re-read or commands re-run after a handoff, a loop going round without progress, a step whose instructions it ignored. Prefer removing friction over adding steps: a sharper instruction, an arrow that continues the chat where a handoff lost what mattered, a tighter or looser round limit. Do not invent problems the runs do not show; with too little evidence, propose nothing and say what to run next.
 
 Each change is exactly one of:
 - {"type":"prompt","nodeId":"…","prompt":"the step's full new instructions"} (rewrite, keeping what works)
 - {"type":"maxRounds","nodeId":"…","maxRounds": number or null} (review or check steps only; null means no limit)
 - {"type":"continue","edgeId":"…","on": true or false} (only between two agent steps run by one session on the same agent)
-- {"type":"removeSkill","nodeId":"…","skill":"…"} (a skill the step had and no run used)
-- {"type":"removeMcp","nodeId":"…","server":"…"} (an MCP server whose tools no run called)
 
 Answer with one JSON object and nothing else:
 {"assessment":"two or three sentences on how the flow does and where it loses time or information","suggestions":[{"title":"short","reason":"what in which runs shows it","change":{…}}]}`;
@@ -103,7 +92,7 @@ export async function suggestWorkflowChanges(workflow: Workflow, runs: WorkflowR
     if (message.subtype !== "success") throw new Error(`Claude could not suggest changes (${message.subtype}).`);
     text = message.result;
   }
-  const parsed = parseSuggestions(lastJson(text), workflow, finished);
+  const parsed = parseSuggestions(lastJson(text), workflow);
   return { ...parsed, runIds: finished.map((r) => r.id) };
 }
 
@@ -118,13 +107,13 @@ function lastJson(text: string): unknown {
   }
 }
 
-function parseSuggestions(value: unknown, workflow: Workflow, runs: WorkflowRun[]): Omit<WorkflowSuggestions, "runIds"> {
+function parseSuggestions(value: unknown, workflow: Workflow): Omit<WorkflowSuggestions, "runIds"> {
   const record = value && typeof value === "object" ? (value as Record<string, unknown>) : {};
   const assessment = typeof record.assessment === "string" ? record.assessment : "";
   const list = Array.isArray(record.suggestions) ? record.suggestions : [];
   const suggestions = list.flatMap((item: unknown): WorkflowSuggestion[] => {
     const s = item && typeof item === "object" ? (item as Record<string, unknown>) : {};
-    const change = checkedChange(s.change, workflow, runs);
+    const change = checkedChange(s.change, workflow);
     if (!change || typeof s.title !== "string") return [];
     return [{ id: crypto.randomUUID(), title: s.title, reason: typeof s.reason === "string" ? s.reason : "", change }];
   });
@@ -132,7 +121,7 @@ function parseSuggestions(value: unknown, workflow: Workflow, runs: WorkflowRun[
   return { assessment, suggestions };
 }
 
-function checkedChange(value: unknown, workflow: Workflow, runs: WorkflowRun[]): WorkflowChange | null {
+function checkedChange(value: unknown, workflow: Workflow): WorkflowChange | null {
   const c = value && typeof value === "object" ? (value as Record<string, unknown>) : {};
   const node = typeof c.nodeId === "string" ? workflow.nodes.find((n) => n.id === c.nodeId) : undefined;
   if (c.type === "prompt" && node && typeof c.prompt === "string" && c.prompt.trim()) {
@@ -144,19 +133,5 @@ function checkedChange(value: unknown, workflow: Workflow, runs: WorkflowRun[]):
   }
   const edge = typeof c.edgeId === "string" ? workflow.edges.find((e) => e.id === c.edgeId) : undefined;
   if (c.type === "continue" && edge && typeof c.on === "boolean") return { type: "continue", edgeId: edge.id, on: c.on };
-  // A step using a defined agent takes its tools from the agent: the change would not hold.
-  const ownTools = node && !node.config.profileId && node.kind !== "check" && node.kind !== "human";
-  if (c.type === "removeMcp" && ownTools && typeof c.server === "string" && c.server.trim() && c.server.trim() !== MANAGER_MCP_SERVER_NAME) {
-    return { type: "denyMcp", nodeId: node.id, server: c.server.trim() };
-  }
-  if (c.type === "removeSkill" && ownTools && typeof c.skill === "string") {
-    // A step is shown a list of skills: the one it has, else the ones its last run recorded.
-    const recorded = runs
-      .flatMap((r) => r.steps.filter((s) => s.nodeId === node.id).map((s) => s.context?.items ?? []))
-      .find((items) => items.some((i) => i.kind === "skill"));
-    const had = node.config.tools?.skills ?? recorded?.filter((i) => i.kind === "skill").map((i) => i.name);
-    if (!had?.includes(c.skill)) return null;
-    return { type: "skills", nodeId: node.id, skills: had.filter((s) => s !== c.skill), removed: c.skill };
-  }
   return null;
 }

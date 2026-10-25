@@ -203,14 +203,14 @@ function RunPanel({ run, focusNode, onBack }: { run: HostedWorkflowRun; focusNod
   }
 
   return (
-    <aside className="flex w-96 shrink-0 flex-col border-l border-border" data-workflow-run-panel>
+    <aside className="flex w-96 shrink-0 flex-col border-l border-border pb-12" data-workflow-run-panel>
       <div className="space-y-2 border-b border-border p-4">
         <div className="flex items-center gap-2">
           <Button variant="ghost" size="sm" className="-ml-2 h-7" onClick={onBack}>
             <ArrowLeft className="size-3.5" />
             Editor
           </Button>
-          <span className={cn('ml-auto text-xs font-medium', STATUS_CLASSES[run.status])} data-run-status={run.status}>
+          <span className={cn('ml-auto rounded-full bg-muted px-2 py-0.5 text-[11px] font-medium', STATUS_CLASSES[run.status])} data-run-status={run.status}>
             {STATUS_LABELS[run.status]}
           </span>
           {live && (
