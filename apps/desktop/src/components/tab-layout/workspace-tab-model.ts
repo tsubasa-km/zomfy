@@ -1,6 +1,6 @@
 import { useMemo } from 'react'
 import type { TerminalInfo } from '@acp-harness/protocol'
-import { closeSession, closeTerminal, createTerminal } from '@/daemon-connection'
+import { closeTerminal, createTerminal } from '@/daemon-connection'
 import {
   allWorkspaces,
   closeEditorTab,
@@ -25,12 +25,15 @@ import {
   forgetTabMeta,
   getTabLayoutState,
   groupOfTab,
+  hideChats,
   layoutFor,
   placeTab,
   popClosedTab,
   pushClosedTab,
   removeTabsFromLayout,
   setTabMeta,
+  showChat,
+  useTabLayout,
   type ReopenSpec,
   type TabMeta
 } from '@/stores/tab-layout-store'
@@ -51,11 +54,12 @@ export function useWorkspaceTabs(workspaceId: string): WorkspaceTab[] {
   const browserTabs = useBrowserTabs()
   // A split terminal tab is its leader terminal; the other panes are not tabs of their own.
   const panes = useTerminalPaneState()
+  const hidden = useTabLayout((s) => s.hidden)
   return useMemo(
     () =>
       [
         ...sessions
-          .filter((s) => s.workspaceId === workspaceId && !s.sideOf)
+          .filter((s) => s.workspaceId === workspaceId && !s.sideOf && !hidden[s.id])
           .map((session) => ({ kind: 'chat' as const, id: session.id, createdAt: session.createdAt, session })),
         ...terminals
           // Inline terminals live under a chat code block until opened as a tab.
@@ -68,7 +72,7 @@ export function useWorkspaceTabs(workspaceId: string): WorkspaceTab[] {
           .filter((t) => t.workspaceId === workspaceId)
           .map((browser) => ({ kind: 'browser' as const, id: browser.id, createdAt: browser.createdAt, browser }))
       ].sort((a, b) => a.createdAt - b.createdAt),
-    [sessions, terminals, editorTabs, browserTabs, workspaceId, panes]
+    [sessions, terminals, editorTabs, browserTabs, workspaceId, panes, hidden]
   )
 }
 
@@ -135,8 +139,7 @@ function reopenSpec(tab: WorkspaceTab, meta: TabMeta | undefined): ReopenSpec | 
     case 'browser':
       return { kind: 'browser', url: currentUrl(tab.browser) }
     case 'chat':
-      // Closing a chat ends its daemon session; Orca's reopen never relaunches an agent either.
-      return null
+      return { kind: 'chat', sessionId: tab.id }
   }
 }
 
@@ -159,13 +162,14 @@ export function closeWorkspaceTabs(workspaceId: string, tabs: WorkspaceTab[]): b
 
   const ids = tabs.map((t) => t.id)
   const next = removeTabsFromLayout(workspaceId, ids)
+  // A chat's tab goes but the chat stays, running or not; deleting it is the sidebar's, with a confirm.
+  hideChats(tabs.filter((t) => t.kind === 'chat').map((t) => t.id))
   for (const tab of tabs) {
-    if (tab.kind === 'chat') closeSession(tab.id)
-    else if (tab.kind === 'terminal') for (const id of tabPaneTerminalIds(tab.id)) closeTerminal(id)
+    if (tab.kind === 'terminal') for (const id of tabPaneTerminalIds(tab.id)) closeTerminal(id)
     else if (tab.kind === 'editor') closeEditorTab(tab.id)
   }
   removeBrowserTabs(tabs.filter((t) => t.kind === 'browser').map((t) => t.id))
-  forgetTabMeta(ids)
+  forgetTabMeta(tabs.filter((t) => t.kind !== 'chat').map((t) => t.id))
   forgetPanes(ids)
   // Session close picks its own fallback; the focused group's MRU choice wins, as in Orca.
   if (next) selectTab(workspaceId, next)
@@ -188,6 +192,10 @@ export async function reopenClosedTab(workspaceId: string): Promise<void> {
     )
     if (!opened) return
     id = opened.id
+  } else if (spec.kind === 'chat') {
+    if (!getState().sessions.some((s) => s.id === spec.sessionId)) return
+    showChat(spec.sessionId)
+    id = spec.sessionId
   } else {
     id = addBrowserTab(workspaceId, spec.url).id
   }

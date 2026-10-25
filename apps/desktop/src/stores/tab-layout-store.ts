@@ -44,6 +44,7 @@ export type ReopenSpec =
   | { kind: 'terminal'; shellId?: string; customTitle?: string }
   | { kind: 'editor'; editor: { kind: 'file' | 'diff'; path: string; staged: boolean } }
   | { kind: 'browser'; url: string }
+  | { kind: 'chat'; sessionId: string }
 
 export interface ClosedTab {
   groupId: string
@@ -54,6 +55,8 @@ export interface ClosedTab {
 interface TabLayoutState {
   layouts: Record<string, WorkspaceLayout>
   meta: Record<string, TabMeta>
+  /** Chats whose tab was closed: the chat is kept (sidebar, Ctrl+Shift+T) but shows no tab. */
+  hidden: Record<string, true>
   /** Most recent first; in memory only, as in Orca. */
   closed: Record<string, ClosedTab[]>
 }
@@ -62,12 +65,12 @@ const STORAGE_KEY = 'acp-harness.tab-layout.v1'
 const MAX_CLOSED = 20
 const MAX_RECENT = 30
 
-function readSaved(): Pick<TabLayoutState, 'layouts' | 'meta'> {
+function readSaved(): Pick<TabLayoutState, 'layouts' | 'meta' | 'hidden'> {
   try {
     const raw = JSON.parse(localStorage.getItem(STORAGE_KEY) ?? '{}')
-    return { layouts: raw.layouts ?? {}, meta: raw.meta ?? {} }
+    return { layouts: raw.layouts ?? {}, meta: raw.meta ?? {}, hidden: raw.hidden ?? {} }
   } catch {
-    return { layouts: {}, meta: {} }
+    return { layouts: {}, meta: {}, hidden: {} }
   }
 }
 
@@ -85,7 +88,7 @@ function commit(next: TabLayoutState): void {
   state = next
   for (const listener of listeners) listener()
   try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify({ layouts: next.layouts, meta: next.meta }))
+    localStorage.setItem(STORAGE_KEY, JSON.stringify({ layouts: next.layouts, meta: next.meta, hidden: next.hidden }))
   } catch {
     // Storage can be unavailable; the layout then starts fresh next time.
   }
@@ -358,6 +361,18 @@ export function forgetTabMeta(ids: string[]): void {
   const meta = { ...state.meta }
   for (const id of ids) delete meta[id]
   commit({ ...state, meta })
+}
+
+export function hideChats(ids: string[]): void {
+  if (ids.length === 0) return
+  commit({ ...state, hidden: { ...state.hidden, ...Object.fromEntries(ids.map((id) => [id, true as const])) } })
+}
+
+/** Gives a closed chat its tab back; a no-op for one that has it. */
+export function showChat(id: string): void {
+  if (!state.hidden[id]) return
+  const { [id]: _shown, ...hidden } = state.hidden
+  commit({ ...state, hidden })
 }
 
 export function pushClosedTab(workspaceId: string, entry: ClosedTab): void {

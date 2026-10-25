@@ -12,6 +12,7 @@ import type {
   Workspace
 } from '@acp-harness/protocol'
 import { WINDOW_ROLE } from '@/lib/window-role'
+import { showChat } from '@/stores/tab-layout-store'
 import { forgetHostSnapshot, saveHostSnapshot } from '@/lib/host-snapshots'
 
 export type { SessionStatus }
@@ -619,6 +620,7 @@ export function selectTab(workspaceId: string, tabId: string): void {
 }
 
 function focusTab(workspaceId: string, tabId: string): void {
+  showChat(tabId)
   const activeSessionByWorkspace = { ...state.activeSessionByWorkspace, [workspaceId]: tabId }
   set(
     isFloating(workspaceId)
