@@ -16,6 +16,7 @@ import {
   type ContextUsageMeta,
   type SessionOptions,
   type TurnEndMeta,
+  type WorkflowStepUsage,
 } from "@acp-harness/protocol";
 import { resolveClaudeExecutable } from "./claude-executable.ts";
 import { CHAT_ATTACHMENT_DIR, deferAttachmentMentions } from "./chat-attachment-files.ts";
@@ -63,7 +64,7 @@ interface TurnInput {
   /** A workflow step's tool policy and the shape its result must take. */
   step?: StepOptions;
   /** The turn's final text and, with step.outputFormat, its structured result. */
-  onResult?: (result: { text: string; structured: unknown }) => void;
+  onResult?: (result: { text: string; structured: unknown; usage: WorkflowStepUsage }) => void;
 }
 
 export interface StepOptions {
@@ -198,7 +199,16 @@ export async function runClaudeTurn(input: TurnInput): Promise<acp.StopReason> {
         if (message.type === "result") {
           stopReason = await finishTurn(message, stream, progress, update, input.onTurnEnd);
           if (message.subtype === "success") {
-            input.onResult?.({ text: message.result, structured: message.structured_output });
+            input.onResult?.({
+              text: message.result,
+              structured: message.structured_output,
+              usage: {
+                inputTokens: message.usage.input_tokens + (message.usage.cache_creation_input_tokens ?? 0),
+                outputTokens: message.usage.output_tokens,
+                cacheReadTokens: message.usage.cache_read_input_tokens ?? 0,
+                costUsd: message.total_cost_usd,
+              },
+            });
           }
           lingering.set(acpSessionId, lingeringTurn);
           finish(stopReason);

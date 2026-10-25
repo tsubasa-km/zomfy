@@ -50,6 +50,7 @@ export * from './voice'
 export * from './workspaces'
 export * from './workflows'
 export * from './workflow-access'
+export * from './workflow-scorecard'
 
 export const HARNESS_METHODS = {
   ...WORKSPACE_METHODS,

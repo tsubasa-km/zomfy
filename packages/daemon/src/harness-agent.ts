@@ -14,6 +14,7 @@ import {
   type TurnResumeKind,
   type ManagerToolName,
 } from "@acp-harness/protocol";
+import type { WorkflowStepUsage } from "@acp-harness/protocol";
 import { runClaudeTurn, type StepOptions } from "./claude-turn.ts";
 import { hostPath } from "./tui-agent-detection.ts";
 import { TurnAutoResume } from "./turn-auto-resume.ts";
@@ -27,7 +28,7 @@ import { liveClaudeQueries } from "./live-claude-queries.ts";
 import type { SessionRegistry } from "./session-registry.ts";
 import { SessionMover } from "./session-move.ts";
 import type { TerminalManager } from "./terminal-manager.ts";
-import type { HandlerContext } from "./handlers/handler-context.ts";
+import type { StepToolUse, HandlerContext } from "./handlers/handler-context.ts";
 import { registerAutomationHandlers } from "./handlers/automation-handlers.ts";
 import { registerChatAgentHandlers } from "./handlers/chat-agent-handlers.ts";
 import { registerFileHandlers } from "./handlers/file-handlers.ts";
@@ -97,7 +98,7 @@ export function createHarnessAgent(
   const acpAgents = new AcpAgentSessions(sessions, emit);
   const mover = new SessionMover({ workspaces, sessions, pendingTurns, emit });
   /** Workflow step turns: their tool policy and result shape, picked up when the turn starts. */
-  const stepTurns = new Map<string, { step: StepOptions; onResult: (r: { text: string; structured: unknown }) => void }>();
+  const stepTurns = new Map<string, { step: StepOptions; onResult: (r: { text: string; structured: unknown; usage: WorkflowStepUsage }) => void }>();
 
   /**
    * Starts a recovery turn and returns once it is running; it goes on without any window, and
@@ -383,18 +384,26 @@ export function createHarnessAgent(
     moveSession: (params) => mover.move(params),
     serveTool: (tool, route, offeredTo) => localTools.set(tool, { route, offeredTo }),
     async runStepTurn(sessionId, text, step) {
-      let result: { text: string; structured: unknown } = { text: "", structured: undefined };
+      let result: { text: string; structured: unknown; usage?: WorkflowStepUsage } = { text: "", structured: undefined };
       stepTurns.set(sessionId, { step, onResult: (r) => (result = r) });
       // Other agents have no result hook: their reply is what they said this turn.
       const record = sessions.get(sessionId);
       const external = !!record?.agent && record.agent !== "claude";
       // The step's MCP servers (a browser, say) reach other agents too, as servers of their session.
       if (external) acpAgents.setStepServers(sessionId, acpStdioServers(step.mcpServers, await hostPath()));
-      const before = external ? (await sessions.transcript(sessionId)).length : 0;
+      const before = (await sessions.transcript(sessionId)).length;
       try {
         const { stopReason } = await prompt({ sessionId, prompt: [{ type: "text", text }] }, askAnyClient, null);
-        if (external) result = { text: agentText((await sessions.transcript(sessionId)).slice(before)), structured: undefined };
-        return { stopReason, ...result };
+        const turn = (await sessions.transcript(sessionId)).slice(before);
+        if (external) {
+          const used = record ? acpAgents.for(record)?.lastUsage : null;
+          result = {
+            text: agentText(turn),
+            structured: undefined,
+            ...(used ? { usage: used } : {}),
+          };
+        }
+        return { stopReason, ...result, tools: stepToolUse(turn) };
       } finally {
         stepTurns.delete(sessionId);
       }
@@ -447,6 +456,23 @@ function acpStdioServers(servers: StepOptions["mcpServers"], PATH: string): acp.
     const program = process.platform === "win32" && /\.exe$/i.test(Bun.which(server.command, { PATH }) ?? server.command);
     return [process.platform === "win32" && !program ? { name, command: "cmd.exe", args: ["/d", "/c", server.command, ...args], env } : { name, command: server.command, args, env }];
   });
+}
+
+/** Files a stretch of transcript read and edited, and the commands it ran. */
+function stepToolUse(updates: acp.SessionUpdate[]): StepToolUse {
+  const use: StepToolUse = { reads: [], edits: [], commands: [] };
+  for (const update of updates) {
+    if (update.sessionUpdate !== "tool_call") continue;
+    const input = update.rawInput && typeof update.rawInput === "object" ? (update.rawInput as Record<string, unknown>) : {};
+    const paths = [...(update.locations ?? []).map((l) => l.path), input.file_path, input.notebook_path].filter(
+      (p): p is string => typeof p === "string" && !!p,
+    );
+    const command = typeof input.command === "string" ? input.command : Array.isArray(input.command) ? input.command.join(" ") : "";
+    if (update.kind === "read") use.reads.push(...new Set(paths));
+    else if (update.kind === "edit") use.edits.push(...new Set(paths));
+    else if (update.kind === "execute" && command) use.commands.push(command);
+  }
+  return use;
 }
 
 /** The agent's own words in a stretch of transcript, as one text. */

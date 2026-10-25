@@ -2,7 +2,7 @@ import { useEffect, useRef, useState, useSyncExternalStore } from 'react'
 import { Background, Controls, ReactFlow, useReactFlow, type NodeChange } from '@xyflow/react'
 import { ArrowLeft, CircleStop, MessageSquare, Send } from 'lucide-react'
 import { toast } from 'sonner'
-import { HARNESS_METHODS, localOnlySteps, workflowCycles, type WorkflowCycle, type WorkflowRun, type WorkflowRunStep } from '@acp-harness/protocol'
+import { HARNESS_METHODS, localOnlySteps, workflowCycles, workflowScorecard, type WorkflowCycle, type WorkflowRun, type WorkflowRunStep } from '@acp-harness/protocol'
 import { harnessRequest } from '@/daemon-connection'
 import { selectSession } from '@/session-store'
 import { openWorkflows } from '@/stores/workflows-store'
@@ -12,6 +12,7 @@ import { Textarea } from '@/components/ui/textarea'
 import { cn } from '@/lib/utils'
 import { WORKFLOW_NODE_TYPES, type StepRunState, type WorkflowCanvasNode } from './workflow-nodes'
 import { canvasEdges } from './workflow-canvas-edges'
+import { WorkflowRunScorecard } from './WorkflowRunScorecard'
 import { dataCanvasEdges, dataCanvasNodes, type DataCanvasNode } from './workflow-data-canvas'
 import { type CycleCanvasNode } from './workflow-cycles'
 import { canvasLayout } from './workflow-canvas-layout'
@@ -221,6 +222,9 @@ function RunPanel({ run, focusNode, onBack }: { run: HostedWorkflowRun; focusNod
         </div>
         <p className="line-clamp-4 text-xs whitespace-pre-wrap text-foreground">{run.task}</p>
         <p className="text-[11px] text-muted-foreground">Started {new Date(run.createdAt).toLocaleString()}</p>
+      </div>
+      <div className="border-b border-border p-4">
+        <WorkflowRunScorecard card={workflowScorecard(run)} />
       </div>
 
       {run.status === 'waiting' && run.waiting && (

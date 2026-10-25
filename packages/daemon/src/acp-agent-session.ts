@@ -4,7 +4,8 @@ import {
   chatAgentLabel,
   type ChatAgentId,
   type ChatAgentOption,
-  type ChatAgentSessionState
+  type ChatAgentSessionState,
+  type WorkflowStepUsage
 } from '@acp-harness/protocol'
 import { resolveChatAgent } from './chat-agent-launch-specs.ts'
 import { hostPath } from './tui-agent-detection.ts'
@@ -66,6 +67,9 @@ export class AcpAgentSession {
     return this.starting
   }
 
+  /** What the last turn used, when the agent reports it. */
+  lastUsage: WorkflowStepUsage | null = null
+
   async prompt(blocks: acp.ContentBlock[], abort: AbortController, ask: AskPermission): Promise<acp.StopReason> {
     const running = await this.ensureStarted()
     this.clearIdle()
@@ -73,11 +77,12 @@ export class AcpAgentSession {
     const cancel = () => void running.conn.agent.notify(acp.methods.agent.session.cancel, { sessionId: running.agentSessionId })
     abort.signal.addEventListener('abort', cancel)
     try {
-      const { stopReason } = await running.conn.agent.request(acp.methods.agent.session.prompt, {
+      const response = await running.conn.agent.request(acp.methods.agent.session.prompt, {
         sessionId: running.agentSessionId,
         prompt: await this.promptFor(blocks, running.capabilities.promptCapabilities)
       })
-      return stopReason
+      this.lastUsage = reportedUsage(response)
+      return response.stopReason
     } finally {
       abort.signal.removeEventListener('abort', cancel)
       this.ask = null
@@ -367,6 +372,15 @@ function stdinWriter(sink: Bun.FileSink): WritableStream<Uint8Array> {
       await sink.end()
     }
   })
+}
+
+/** Token usage an agent may put on its prompt answer (ACP's unstable `usage`), read defensively. */
+function reportedUsage(response: object): WorkflowStepUsage | null {
+  const usage: unknown = 'usage' in response ? response.usage : null
+  if (!usage || typeof usage !== 'object') return null
+  const count = (key: string) => (key in usage && typeof (usage as Record<string, unknown>)[key] === 'number' ? Number((usage as Record<string, unknown>)[key]) : 0)
+  if (!('inputTokens' in usage)) return null
+  return { inputTokens: count('inputTokens'), outputTokens: count('outputTokens'), cacheReadTokens: count('cachedReadTokens') }
 }
 
 async function pipeStderr(stream: ReadableStream<Uint8Array>, agent: string): Promise<void> {

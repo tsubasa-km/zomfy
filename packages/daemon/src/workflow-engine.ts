@@ -18,11 +18,12 @@ import {
   type WorkflowOutcome,
   type WorkflowRun,
   type WorkflowRunStep,
+  type WorkflowStepUsage,
   type WorkflowToolPolicy,
   type Workspace,
 } from "@acp-harness/protocol";
 import type { StepOptions } from "./claude-turn.ts";
-import type { HandlerContext } from "./handlers/handler-context.ts";
+import type { HandlerContext, StepToolUse } from "./handlers/handler-context.ts";
 import { noteActivity } from "./session-activity.ts";
 import { consultLead } from "./lead-consult.ts";
 import type { WorkflowRunStore } from "./workflow-run-store.ts";
@@ -47,6 +48,8 @@ type Deps = Pick<HandlerContext, "workspaces" | "sessions" | "pendingTurns" | "b
 const LIMITED: WorkflowOutcome[] = ["changes", "fail"];
 const CHECK_TIMEOUT_MS = 30 * 60_000;
 const OUTPUT_TAIL = 4000;
+/** Files and commands kept per step for its scorecard. */
+const TOOL_LOG_CAP = 400;
 
 interface Verdict {
   outcome: WorkflowOutcome;
@@ -353,6 +356,7 @@ export class WorkflowEngine {
       live.sessions.add(sessionId);
       try {
         const result = await this.deps.runStepTurn(sessionId, prompt, step);
+        this.tally(run, result);
         if (live.stopped) throw new RunStopped();
         // Another message in that chat (the person writing to the Lead mid-step) cuts the turn short.
         if (result.stopReason === "cancelled") throw new Error("The step's turn was cut short by another message in its chat");
@@ -360,6 +364,7 @@ export class WorkflowEngine {
         if (!parsed && stepAgent(node)) {
           // Another agent that forgot the closing JSON is asked for it once, rather than guessed.
           const again = await this.deps.runStepTurn(sessionId, verdictReminder(outcomes), step);
+          this.tally(run, again);
           if (live.stopped) throw new RunStopped();
           parsed = parseVerdict(verdictInText(again.text), outcomes);
         }
@@ -580,6 +585,7 @@ export class WorkflowEngine {
     live.sessions.add(record.id);
     try {
       const result = await this.deps.runStepTurn(record.id, text, spawner.step);
+      this.tally(run, result);
       if (live.stopped) return "Stopped with the workflow.";
       return result.text.trim() || `Ended (${result.stopReason}) without a report.`;
     } catch (error) {
@@ -807,6 +813,29 @@ export class WorkflowEngine {
   }
 
   // ── Bookkeeping ────────────────────────────────────────────────────────
+
+  /** Adds a turn's tokens, files and commands to the step running now (the run's last), for its scorecard. */
+  private tally(run: WorkflowRun, turn: { usage?: WorkflowStepUsage; tools: StepToolUse }): void {
+    const step = run.steps.at(-1);
+    if (!step) return;
+    if (turn.usage) {
+      const had = step.usage ?? { inputTokens: 0, outputTokens: 0, cacheReadTokens: 0 };
+      const cost = had.costUsd !== undefined || turn.usage.costUsd !== undefined ? (had.costUsd ?? 0) + (turn.usage.costUsd ?? 0) : undefined;
+      step.usage = {
+        inputTokens: had.inputTokens + turn.usage.inputTokens,
+        outputTokens: had.outputTokens + turn.usage.outputTokens,
+        cacheReadTokens: had.cacheReadTokens + turn.usage.cacheReadTokens,
+        ...(cost !== undefined ? { costUsd: cost } : {}),
+      };
+    }
+    const add = (had: string[] | undefined, more: string[]) => (more.length ? [...(had ?? []), ...more].slice(-TOOL_LOG_CAP) : had);
+    const reads = add(step.reads, turn.tools.reads);
+    const edits = add(step.edits, turn.tools.edits);
+    const commands = add(step.commands, turn.tools.commands);
+    if (reads) step.reads = reads;
+    if (edits) step.edits = edits;
+    if (commands) step.commands = commands;
+  }
 
   private node(run: WorkflowRun, id: string): WorkflowNode {
     const node = run.workflow.nodes.find((n) => n.id === id);

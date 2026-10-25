@@ -5,6 +5,7 @@
 
 import type { ChatAgentId } from './chat-agents'
 import type { WorkflowDataLink, WorkflowDataSource } from './workflow-access'
+import type { WorkflowStepUsage } from './workflow-scorecard'
 
 export type WorkflowNodeKind = 'start' | 'agent' | 'review' | 'check' | 'human' | 'end' | 'custom'
 
@@ -295,6 +296,12 @@ export interface WorkflowRunStep {
   /** The chat sessions that ran it, on the run's host. */
   sessionIds: string[]
   error?: string
+  /** What its turns used, helpers included; absent when its agent does not report it. */
+  usage?: WorkflowStepUsage
+  /** Files its sessions read and edited, and commands they ran, in order (for the scorecard). */
+  reads?: string[]
+  edits?: string[]
+  commands?: string[]
 }
 
 export interface WorkflowRun {
