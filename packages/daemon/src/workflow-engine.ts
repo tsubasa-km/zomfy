@@ -37,6 +37,7 @@ import { stat } from "node:fs/promises";
 import { dirname } from "node:path";
 import { sanitizeWorkspaceName } from "./worktree-naming.ts";
 import { log } from "./log.ts";
+import { git, GitError } from "./git-cli.ts";
 
 // Runs a workflow graph: the engine, not a model, picks each next step. Agent steps are chat
 // sessions whose turn must end in a structured {outcome, summary}; the edge labelled with that
@@ -265,6 +266,35 @@ export class WorkflowEngine {
       for (const sessionId of live.sessions) this.deps.pendingTurns.get(sessionId)?.abort();
     }
     if (run.status === "running" || run.status === "waiting") return this.finish(run, "stopped");
+    return run;
+  }
+
+  /** Brings a done run's work home: its branch merged into the main checkout, or why it could not be. */
+  async merge(runId: string): Promise<WorkflowRun> {
+    const run = await this.runs.get(runId);
+    if (!run) throw new Error(`Unknown run ${runId}`);
+    if (run.status !== "done") throw new Error("Only a finished run can be merged");
+    if (run.mergedInto) return run;
+    const state = await this.deps.workspaces.snapshot();
+    const from = state.workspaces.find((w) => w.id === run.workspaceId);
+    const into = state.workspaces.find((w) => w.projectId === run.projectId && w.isPrimary);
+    if (!from?.branch || !into || from.id === into.id) throw new Error("This run worked in the main checkout; there is nothing to merge");
+    if (!into.branch) throw new Error("The main checkout is not on a branch");
+    const ahead = Number(await git(into.path, ["rev-list", "--count", `${into.branch}..${from.branch}`]));
+    if (ahead === 0) throw new Error(`${from.branch} has no commits that ${into.branch} lacks`);
+    try {
+      await git(into.path, ["merge", "--no-ff", "--no-edit", from.branch], { timeoutMs: 120_000 });
+    } catch (error) {
+      const conflicted = await git(into.path, ["rev-parse", "-q", "--verify", "MERGE_HEAD"], { quiet: true }).then(() => true, () => false);
+      if (conflicted) {
+        await git(into.path, ["merge", "--abort"], { quiet: true }).catch(() => undefined);
+        throw new Error(`${from.branch} conflicts with ${into.branch}; nothing was changed. Ask an agent to merge it and resolve the conflicts.`);
+      }
+      const detail = error instanceof GitError ? error.stderr.trim() : String(error);
+      throw new Error(`git refused the merge (nothing was changed): ${detail}`);
+    }
+    run.mergedInto = into.branch;
+    await this.save(run);
     return run;
   }
 

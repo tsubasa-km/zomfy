@@ -10,6 +10,7 @@ import { Button } from '@/components/ui/button'
 import { Textarea } from '@/components/ui/textarea'
 import { cn } from '@/lib/utils'
 import { outcomeLabel } from '@/components/workflows/workflow-model'
+import { WorkflowRunMerge } from '@/components/workflows/WorkflowRunMerge'
 
 // A workflow run started from this chat, live: where it is, each step's outcome, and the person's
 // part (an answer, Stop) right here; the full graph opens in the Workflows page.
@@ -89,6 +90,7 @@ export function NativeChatWorkflowRunCard({
           <li className="rounded border border-primary px-1.5 py-0.5 text-primary">{current.label} · …</li>
         )}
       </ol>
+      <WorkflowRunMerge run={run} />
       {run.status === 'waiting' && run.waiting && (
         <div className="space-y-1.5 rounded-md border border-agent-question/40 p-2">
           <p className="text-xs whitespace-pre-wrap">{run.waiting.question}</p>

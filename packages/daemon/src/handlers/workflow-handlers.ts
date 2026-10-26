@@ -27,6 +27,7 @@ export function registerWorkflowHandlers(ctx: HandlerContext): void {
   handle(HARNESS_METHODS.workflowRunsList, (p) => engine.list(p.projectId));
   handle(HARNESS_METHODS.workflowRunAnswer, (p) => engine.answer(p.runId, p.text));
   handle(HARNESS_METHODS.workflowRunStop, (p) => engine.stop(p.runId));
+  handle(HARNESS_METHODS.workflowRunMerge, (p) => engine.merge(p.runId));
   handle(HARNESS_METHODS.workflowSuggest, async (p) => {
     const workflow = (await workflows.list(p.projectId)).find((w) => w.id === p.workflowId);
     if (!workflow) throw new Error("Save the workflow first");

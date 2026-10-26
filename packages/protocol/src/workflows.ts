@@ -349,6 +349,8 @@ export interface WorkflowRun {
   escalated?: Record<string, string>
   /** Why it ended failed or stopped, when something said (a step's error, or a comparison's run that would have waited). */
   endReason?: string
+  /** Set once the run's branch was merged into the project's main checkout, naming that branch. */
+  mergedInto?: string
   /** Started by a comparison of flows (WorkflowExperiment); the Lead is not told of it. */
   experimentId?: string
   /** Its steps' permission asks are answered "allow" (a comparison's runs, each in a worktree of its own). */
@@ -369,6 +371,7 @@ export const WORKFLOW_METHODS = {
   workflowRunsList: '_harness/workflowRuns/list',
   workflowRunAnswer: '_harness/workflowRuns/answer',
   workflowRunStop: '_harness/workflowRuns/stop',
+  workflowRunMerge: '_harness/workflowRuns/merge',
   workflowRunAskPerson: '_harness/workflowRuns/askPerson'
 } as const
 
@@ -396,6 +399,8 @@ export interface WorkflowRequests {
   /** The person's answer to a waiting run; "stop" in a limit stop ends it instead. */
   [WORKFLOW_METHODS.workflowRunAnswer]: { params: { runId: string; text: string }; result: WorkflowRun }
   [WORKFLOW_METHODS.workflowRunStop]: { params: { runId: string }; result: WorkflowRun }
+  /** Merges a finished run's worktree branch into the project's main checkout (a merge commit). */
+  [WORKFLOW_METHODS.workflowRunMerge]: { params: { runId: string }; result: WorkflowRun }
   /** A run's session puts a question to the person mid-step; resolves with their answer (null: the session is in no run). */
   [WORKFLOW_METHODS.workflowRunAskPerson]: { params: { sessionId: string; question: string }; result: { answer: string | null } }
 }

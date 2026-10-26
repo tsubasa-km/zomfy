@@ -12,6 +12,7 @@ import { Textarea } from '@/components/ui/textarea'
 import { cn } from '@/lib/utils'
 import { WORKFLOW_NODE_TYPES, type StepRunState, type WorkflowCanvasNode } from './workflow-nodes'
 import { canvasEdges } from './workflow-canvas-edges'
+import { WorkflowRunMerge } from './WorkflowRunMerge'
 import { WorkflowRunScorecard } from './WorkflowRunScorecard'
 import { dataCanvasEdges, dataCanvasNodes, type DataCanvasNode } from './workflow-data-canvas'
 import { type CycleCanvasNode } from './workflow-cycles'
@@ -234,6 +235,7 @@ function RunPanel({ run, focusNode, onBack }: { run: HostedWorkflowRun; focusNod
           )}
         </div>
         <p className="line-clamp-4 text-xs whitespace-pre-wrap text-foreground">{run.task}</p>
+        <WorkflowRunMerge run={run} />
         {run.endReason && (run.status === 'failed' || run.status === 'stopped') && (
           <p className="text-xs text-destructive" data-run-end-reason>
             {run.endReason}
