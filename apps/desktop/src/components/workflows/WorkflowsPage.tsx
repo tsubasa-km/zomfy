@@ -11,7 +11,7 @@ import {
   type NodeChange
 } from '@xyflow/react'
 import '@xyflow/react/dist/style.css'
-import { ChevronDown, Copy, Database, FlaskConical, HardDrive, History, Pencil, Plus, Save, Sparkles, Trash2, Workflow as WorkflowIcon, X } from 'lucide-react'
+import { ChevronDown, Copy, Database, FlaskConical, HardDrive, History, Pencil, Play, Plus, Save, Sparkles, Trash2, Workflow as WorkflowIcon, X } from 'lucide-react'
 import { toast } from 'sonner'
 import {
   HARNESS_METHODS,
@@ -65,7 +65,10 @@ import { loadWorkflowExperiments, useWorkflowExperiment, useWorkflowExperiments 
 import { WorkflowAgentDialog, blankAgentProfile } from './WorkflowAgentDialog'
 import { WorkflowAgentsDialog } from './WorkflowAgentsDialog'
 import { DATA_PREFIX, LINK_PREFIX, dataCanvasEdges, dataCanvasNodes, type DataCanvasNode } from './workflow-data-canvas'
-import { loadWorkflowRuns, useWorkflowRun, useWorkflowRuns } from '@/stores/workflow-runs-store'
+import { loadWorkflowRuns, upsertWorkflowRun, useWorkflowRun, useWorkflowRuns } from '@/stores/workflow-runs-store'
+import { WorkflowRunDialog } from './WorkflowRunDialog'
+import { confirmWorkflowStart } from './WorkflowStartConfirm'
+import { leadOf } from '@/lib/project-lead'
 import {
   NODE_KINDS,
   blankWorkflow,
@@ -111,6 +114,7 @@ export function WorkflowsPage({ target }: { target: WorkflowsPageTarget }) {
   /** The workflows a new comparison starts with picked; null while no comparison is being set up. */
   const [compareWith, setCompareWith] = useState<string[] | null>(null)
   const [suggesting, setSuggesting] = useState(false)
+  const [runAsking, setRunAsking] = useState(false)
   const viewRun = useWorkflowRun(viewRunId)
 
   useEffect(() => {
@@ -208,6 +212,30 @@ export function WorkflowsPage({ target }: { target: WorkflowsPageTarget }) {
       setBusy(false)
     }
   }, [draft, busy, target.hostId])
+
+  /** Saves first when needed, asks what the start asks, then shows the new run. */
+  const runNow = async (task: string): Promise<boolean> => {
+    if (!draft) return false
+    try {
+      if (dirty) {
+        setSaved(await harnessRequest(HARNESS_METHODS.workflowSave, { workflow: draft }, target.hostId))
+        setDirty(false)
+      }
+      if (!(await confirmWorkflowStart(target.hostId, target.projectId, draft.id, task, 'you'))) return false
+      const lead = leadOf(target.hostId, target.projectId)
+      const run = await harnessRequest(
+        HARNESS_METHODS.workflowRunStart,
+        { projectId: target.projectId, workflowId: draft.id, task, ...(lead && lead.hostId === target.hostId ? { originSessionId: lead.id } : {}) },
+        target.hostId
+      )
+      upsertWorkflowRun(target.hostId, run)
+      setViewRunId(run.id)
+      return true
+    } catch (error) {
+      toast.error('The workflow did not start', { description: error instanceof Error ? error.message : String(error) })
+      return false
+    }
+  }
 
   const remove = async () => {
     if (!draft) return
@@ -335,9 +363,20 @@ export function WorkflowsPage({ target }: { target: WorkflowsPageTarget }) {
           <Button variant="ghost" size="sm" className="h-7" onClick={() => void remove()} disabled={!draft} aria-label="Delete workflow">
             <Trash2 className="size-3.5" />
           </Button>
-          <Button size="sm" className="h-7" onClick={() => void save()} disabled={!draft || !dirty || busy}>
+          <Button variant="outline" size="sm" className="h-7" onClick={() => void save()} disabled={!draft || !dirty || busy}>
             <Save className="size-3.5" />
             Save
+          </Button>
+          <Button
+            size="sm"
+            className="h-7"
+            onClick={() => setRunAsking(true)}
+            disabled={!draft || errors > 0 || busy}
+            title={errors > 0 ? 'Fix the problems first' : 'Start a run of this workflow'}
+            data-workflow-run
+          >
+            <Play className="size-3.5" />
+            Run
           </Button>
           <Button
             variant="ghost"
@@ -352,6 +391,9 @@ export function WorkflowsPage({ target }: { target: WorkflowsPageTarget }) {
           </Button>
         </div>
       </div>
+      {runAsking && draft && (
+        <WorkflowRunDialog name={draft.name} unsaved={dirty} onStart={runNow} onClose={() => setRunAsking(false)} />
+      )}
       {viewRun ? (
         <ReactFlowProvider key={viewRun.id}>
           <WorkflowRunView run={viewRun} onBack={() => setViewRunId(null)} />

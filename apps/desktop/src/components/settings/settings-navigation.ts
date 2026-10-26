@@ -21,7 +21,7 @@ export interface SettingsNavSection {
 export const SETTINGS_NAV_GROUPS = [
   { id: 'capabilities', title: 'AI Capabilities' },
   { id: 'setup', title: 'Set Up' },
-  { id: 'workflows', title: 'Workflows' },
+  { id: 'workflows', title: 'Terminal' },
   { id: 'interface', title: 'Interface' },
   { id: 'remote', title: 'Remote Hosts' }
 ] as const

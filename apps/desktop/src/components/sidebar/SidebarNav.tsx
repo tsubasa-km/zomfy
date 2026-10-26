@@ -1,12 +1,13 @@
 import { memo, type ReactNode } from 'react'
-import { BookOpen, CalendarClock, Github, Gitlab, LayoutDashboard, List, Search, SquarePen, type LucideIcon } from 'lucide-react'
+import { BookOpen, CalendarClock, Github, Gitlab, LayoutDashboard, List, Search, SquarePen, Workflow, type LucideIcon } from 'lucide-react'
 import type { HostingProviderId } from '@acp-harness/protocol'
 import { allProjects, getState, setDashboardOpen, showQuickStart, useStore } from '@/session-store'
 import { setBoardOpen, useSidebarStore } from '@/stores/sidebar-store'
 import { setAutomationsPageOpen, useAutomationState } from '@/stores/automation-store'
 import { setCommandPalette, setSkillsPageOpen, useAppOverlays } from '@/stores/app-overlay-store'
 import { getTasks, setTasks, useTasks } from '@/stores/tasks-store'
-import { openWorkflows } from '@/stores/workflows-store'
+import { openWorkflows, useWorkflowsPage } from '@/stores/workflows-store'
+import { openWorkflowsHere } from '@/lib/workflows-entry'
 import { setSetting, useSetting, type SettingKey } from '@/stores/settings-store'
 import { useShortcutKeys } from '@/keybindings/keybinding-registry'
 import { ShortcutKeyCombo } from '@/components/ShortcutKeyCombo'
@@ -202,6 +203,8 @@ export const SidebarNav = memo(function SidebarNav() {
   const showSkills = useSetting('showSkillsButton')
   const showAutomations = useSetting('showAutomationsButton')
   const showDashboard = useSetting('showAgentDashboardButton')
+  const showWorkflows = useSetting('showWorkflowsButton')
+  const workflowsOpen = useWorkflowsPage() !== null
   const skillsOpen = useAppOverlays((s) => s.skills)
   const automationsOpen = useAutomationState((s) => s.pageOpen)
   const dashboardOpen = useStore((s) => s.dashboardOpen)
@@ -237,6 +240,16 @@ export const SidebarNav = memo(function SidebarNav() {
           active={skillsOpen}
           onClick={() => setSkillsPageOpen(!skillsOpen)}
           hideSetting="showSkillsButton"
+        />
+      ) : null}
+      {showWorkflows ? (
+        <NavRow
+          icon={Workflow}
+          label="Workflows"
+          data="workflows"
+          active={workflowsOpen}
+          onClick={() => (workflowsOpen ? openWorkflows(null) : openWorkflowsHere())}
+          hideSetting="showWorkflowsButton"
         />
       ) : null}
       {showAutomations ? (

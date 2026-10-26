@@ -141,7 +141,8 @@ export function workflowScorecard(run: WorkflowRun): WorkflowScorecard {
   // A summary counts as a handoff only where the next step started afresh with it.
   const handed = steps.filter((s, i) => s.endedAt !== null && s.summary.trim() && s.sessionIds.length > 0 && steps[i + 1] && !steps[i + 1]!.continued)
   const first = steps[0]?.startedAt ?? run.createdAt
-  const last = run.endedAt ?? Math.max(first, ...ended.map((s) => s.endedAt ?? first))
+  const live = run.status === 'running' || run.status === 'waiting'
+  const last = run.endedAt ?? (live ? Date.now() : Math.max(first, ...ended.map((s) => s.endedAt ?? first)))
   return {
     status: run.status,
     steps: steps.length,

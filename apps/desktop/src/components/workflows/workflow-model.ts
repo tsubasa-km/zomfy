@@ -160,7 +160,7 @@ export function reviewLoopTemplate(projectId: string): Workflow {
     id: crypto.randomUUID(),
     projectId,
     name: 'Develop and review',
-    description: 'A developer implements, tests run, a reviewer approves or sends it back (at most 3 rounds).',
+    description: 'A developer implements, tests run, a reviewer approves or sends it back.',
     nodes: [start, dev, tests, review, done, ask],
     edges: [
       edge(start, dev, 'next'),

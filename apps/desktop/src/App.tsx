@@ -39,6 +39,7 @@ import { installTheme } from '@/lib/theme'
 import { listenForDashboardPicks } from '@/lib/dashboard-window'
 import { installTraySync } from '@/lib/tray-sync'
 import { CloseGuardDialog, installCloseGuard } from '@/lib/close-guard'
+import { installWorkflowsCommands } from '@/lib/workflows-entry'
 import { installUiZoom } from '@/lib/ui-zoom'
 import '@/assets/main.css'
 
@@ -52,6 +53,7 @@ installChatCommands()
 installOnboardingCommands()
 installTraySync()
 installCloseGuard()
+installWorkflowsCommands()
 
 export default function App() {
   const activeWorkspaceId = useStore((s) => s.activeWorkspaceId)

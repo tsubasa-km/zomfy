@@ -1,10 +1,10 @@
-import { useEffect, useRef, useState, useSyncExternalStore } from 'react'
+import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react'
 import { Background, Controls, ReactFlow, useReactFlow, type NodeChange } from '@xyflow/react'
 import { ArrowLeft, CircleStop, MessageSquare, Send } from 'lucide-react'
 import { toast } from 'sonner'
 import { HARNESS_METHODS, localOnlySteps, workflowCycles, workflowScorecard, type WorkflowCycle, type WorkflowRun, type WorkflowRunStep } from '@acp-harness/protocol'
 import { harnessRequest } from '@/daemon-connection'
-import { selectSession } from '@/session-store'
+import { selectSession, useStore } from '@/session-store'
 import { openWorkflows } from '@/stores/workflows-store'
 import type { HostedWorkflowRun } from '@/stores/workflow-runs-store'
 import { Button } from '@/components/ui/button'
@@ -47,7 +47,18 @@ function subscribeDark(listener: () => void): () => void {
 
 const useDark = () => useSyncExternalStore(subscribeDark, () => document.documentElement.classList.contains('dark'))
 
-function stepStates(run: WorkflowRun): Map<string, StepRunState> {
+/** Steps whose chat is waiting on an approval: the run looks busy but stands still until the person answers. */
+function useAskingSteps(run: WorkflowRun): Set<string> {
+  const asking = useStore((s) =>
+    run.steps
+      .filter((step) => step.endedAt === null && step.sessionIds.some((id) => s.sessions.find((x) => x.id === id)?.status === 'needs-you'))
+      .map((step) => step.id)
+      .join(',')
+  )
+  return useMemo(() => new Set(asking ? asking.split(',') : []), [asking])
+}
+
+function stepStates(run: WorkflowRun, asking: Set<string>): Map<string, StepRunState> {
   const states = new Map<string, StepRunState>()
   for (const node of run.workflow.nodes) {
     const steps = run.steps.filter((s) => s.nodeId === node.id)
@@ -55,10 +66,11 @@ function stepStates(run: WorkflowRun): Map<string, StepRunState> {
     const last = done.at(-1)
     const here = run.currentNodeId === node.id
     const open = steps.some((s) => s.endedAt === null)
+    const needsYou = steps.some((s) => asking.has(s.id))
     // An End is reached, not run: it has no step of its own.
     const reached = node.kind === 'end' && here && (run.status === 'done' || run.status === 'failed')
     states.set(node.id, {
-      now: here && run.status === 'waiting' ? 'waiting' : here && run.status === 'running' && open ? 'running' : null,
+      now: (here && run.status === 'waiting') || needsYou ? 'waiting' : here && run.status === 'running' && open ? 'running' : null,
       visits: reached ? 1 : done.length,
       lastOutcome: reached ? 'Reached' : last?.outcome ? outcomeLabel(last.outcome) : null,
       failed: !!last?.error
@@ -98,7 +110,7 @@ export function WorkflowRunView({ run, onBack }: { run: HostedWorkflowRun; onBac
     void flow.fitView({ padding: 0.2, maxZoom: 1 })
   }, [measured, flow])
 
-  const states = stepStates(run)
+  const states = stepStates(run, useAskingSteps(run))
   const cycles = workflowCycles(run.workflow)
   const visited = new Set(run.steps.map((s) => s.nodeId))
   const roundOf = (cycle: WorkflowCycle) =>
@@ -186,6 +198,7 @@ function RunPanel({ run, focusNode, onBack }: { run: HostedWorkflowRun; focusNod
     return () => clearInterval(timer)
   }, [live])
   const steps = focusNode ? run.steps.filter((s) => s.nodeId === focusNode) : run.steps
+  const asking = useAskingSteps(run)
   const followUps = run.followUps ?? []
 
   const act = async (method: typeof HARNESS_METHODS.workflowRunAnswer | typeof HARNESS_METHODS.workflowRunStop, text?: string) => {
@@ -262,7 +275,12 @@ function RunPanel({ run, focusNode, onBack }: { run: HostedWorkflowRun; focusNod
             <div className="flex items-center gap-2 text-xs">
               <span className="min-w-0 flex-1 truncate font-medium">{step.label}</span>
               {step.outcome && <span className="rounded bg-accent px-1 text-[10px] text-accent-foreground">{outcomeLabel(step.outcome)}</span>}
-              {step.endedAt === null && !step.error && <span className="text-[10px] text-primary">running</span>}
+              {step.endedAt === null && !step.error && asking.has(step.id) && (
+                <span className="text-[10px] font-medium text-status-warning" data-step-needs-you>
+                  waiting for your approval
+                </span>
+              )}
+              {step.endedAt === null && !step.error && !asking.has(step.id) && <span className="text-[10px] text-primary">running</span>}
               <span className="text-[10px] text-muted-foreground tabular-nums">{duration(step)}</span>
             </div>
             {step.error && <p className="text-[11px] text-destructive">{step.error}</p>}

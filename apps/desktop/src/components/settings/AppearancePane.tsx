@@ -49,6 +49,7 @@ function SidebarSection() {
   const automations = useSetting('showAutomationsButton')
   const skills = useSetting('showSkillsButton')
   const dashboard = useSetting('showAgentDashboardButton')
+  const workflows = useSetting('showWorkflowsButton')
   const checklist = useSetting('setupGuideSidebarDismissed')
   return (
     <div className="space-y-2 not-has-[[data-setting-row]]:hidden">
@@ -61,6 +62,12 @@ function SidebarSection() {
           onChange={(v) => setSetting('showNewChatButton', v)}
         />
         <SettingsSwitchRow label="Show Tasks Button" keywords={['tasks', 'sidebar', 'button', 'issues']} checked={tasks} onChange={(v) => setSetting('showTasksButton', v)} />
+        <SettingsSwitchRow
+          label="Show Workflows Button"
+          keywords={['workflows', 'workflow', 'sidebar', 'button']}
+          checked={workflows}
+          onChange={(v) => setSetting('showWorkflowsButton', v)}
+        />
         <SettingsSwitchRow
           label="Show Automations Button"
           keywords={['automations', 'automation', 'schedule', 'sidebar']}

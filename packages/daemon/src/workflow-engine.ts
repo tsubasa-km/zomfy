@@ -437,6 +437,12 @@ export class WorkflowEngine {
     });
     // A chat carried into a step that holds local-only data holds it from now on too.
     if (this.heldBack(run, node.id)) for (const id of sessionIds) this.deps.sessions.update(id, { localOnly: true });
+    // Known from the start, so the run view can open a working step's chat and see it waiting on the person.
+    const open = run.steps.at(-1);
+    if (open && open.nodeId === node.id && open.endedAt === null) {
+      open.sessionIds = [...sessionIds];
+      await this.save(run);
+    }
     // Other agents are put on the step's model before they start, and the step fails if they will not take it.
     const model = stepAgent(node) ? node.config.model : undefined;
     if (model) {

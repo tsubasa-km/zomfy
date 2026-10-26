@@ -47,6 +47,7 @@ export interface AppSettings {
   showNewChatButton: boolean
   showAutomationsButton: boolean
   showAgentDashboardButton: boolean
+  showWorkflowsButton: boolean
   /** The onboarding checklist row was hidden from the sidebar. */
   setupGuideSidebarDismissed: boolean
   /** Orca's floatingTerminalEnabled. */
@@ -101,6 +102,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
   showNewChatButton: true,
   showAutomationsButton: true,
   showAgentDashboardButton: true,
+  showWorkflowsButton: true,
   setupGuideSidebarDismissed: false,
   floatingWorkspaceEnabled: true,
   floatingWorkspaceTriggerLocation: 'floating-button',
