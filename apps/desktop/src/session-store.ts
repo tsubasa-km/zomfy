@@ -254,6 +254,24 @@ export function useStore<T>(select: (s: StoreState) => T): T {
   )
 }
 
+/** Resolves once `test` holds for the store, or false after `ms`. */
+export function whenState(test: (s: StoreState) => boolean, ms: number): Promise<boolean> {
+  if (test(state)) return Promise.resolve(true)
+  return new Promise((resolve) => {
+    const listener = () => {
+      if (!test(state)) return
+      done(true)
+    }
+    const timer = setTimeout(() => done(false), ms)
+    const done = (ok: boolean) => {
+      clearTimeout(timer)
+      listeners.delete(listener)
+      resolve(ok)
+    }
+    listeners.add(listener)
+  })
+}
+
 export function getState(): StoreState {
   return state
 }

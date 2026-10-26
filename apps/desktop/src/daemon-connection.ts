@@ -42,9 +42,11 @@ import {
   batchUpdates,
   forgetHost,
   getState,
+  whenState,
   hostLabel,
   markLoaded,
   mergeSessions,
+  onSessionTransition,
   rememberHost,
   removeSession,
   selectTerminal,
@@ -76,7 +78,17 @@ interface DaemonInfo {
 
 const connections = new Map<HostId, acp.ClientConnection>();
 const connecting = new Map<HostId, Promise<void>>();
-const pendingPermissions = new Map<string, (optionId: string | null) => void>();
+/** Approvals this window was asked, by request id; settled when answered or when the ask is gone. */
+const pendingPermissions = new Map<string, { sessionId: string; hostId: HostId; settle: (optionId: string | null) => void }>();
+
+/** The daemon no longer waits on these (the turn ended, or the link carrying them closed). */
+function expirePermissions(match: (entry: { sessionId: string; hostId: HostId }) => boolean): void {
+  for (const entry of [...pendingPermissions.values()]) if (match(entry)) entry.settle(null);
+}
+
+onSessionTransition(({ session, to }) => {
+  if (to === "idle" || to === "error") expirePermissions((e) => e.sessionId === session.id);
+});
 const loading = new Map<string, Promise<void>>();
 // Updates of a transcript being replayed, applied together once the load request returns.
 const replayBuffers = new Map<string, acp.SessionNotification[]>();
@@ -170,6 +182,7 @@ export function disconnectHost(hostId: HostId): void {
   // Removed first so its close handler does not mark the host offline again.
   connections.delete(hostId);
   conn?.close();
+  expirePermissions((e) => e.hostId === hostId);
   if (isSshHost(hostId) && isTauri()) void invoke("disconnect_ssh_host", { target: hostId.slice(4) }).catch(() => undefined);
   forgetHost(hostId);
 }
@@ -192,7 +205,7 @@ async function openConnection(hostId: HostId): Promise<void> {
     .client({ name: "acp-harness-desktop" })
     .onRequest("session/request_permission", (ctx) =>
       // The dashboard pop-out cannot show an approval card; the daemon asks the main window instead.
-      WINDOW_ROLE !== "dashboard" ? requestPermission(ctx.params) : Promise.reject(new Error("This window does not answer approvals")),
+      WINDOW_ROLE !== "dashboard" ? requestPermission(hostId, ctx.params) : Promise.reject(new Error("This window does not answer approvals")),
     )
     // A manager agent on this host reaching sessions on any host; this window carries the call.
     .onRequest(
@@ -275,6 +288,8 @@ async function openConnection(hostId: HostId): Promise<void> {
     // A stale connection closing late must not tear down its replacement.
     if (connections.get(hostId) !== opened) return;
     connections.delete(hostId);
+    // Asks that came over this link died with it; the daemon asks again once a window is back.
+    expirePermissions((e) => e.hostId === hostId);
     upsertHost(hostId, {
       connection: {
         kind: "offline",
@@ -545,14 +560,17 @@ export function cancelTurn(sessionId: string): void {
 
 /** False when the request is not held by this window (another window ran the turn). */
 export function answerPermission(requestId: string, optionId: string | null): boolean {
-  const resolve = pendingPermissions.get(requestId);
-  resolve?.(optionId);
-  return resolve !== undefined;
+  const entry = pendingPermissions.get(requestId);
+  entry?.settle(optionId);
+  return entry !== undefined;
 }
 
-function requestPermission(
+async function requestPermission(
+  hostId: HostId,
   params: acp.RequestPermissionRequest,
 ): Promise<acp.RequestPermissionResponse> {
+  // A window that just (re)connected may be asked before its session list has arrived.
+  await whenState((s) => s.sessions.some((x) => x.id === params.sessionId), 30_000);
   const requestId = crypto.randomUUID();
   updateSession(params.sessionId, (s) => ({
     ...s,
@@ -570,8 +588,8 @@ function requestPermission(
     ],
   }));
   return new Promise((resolve) => {
-    pendingPermissions.set(requestId, (optionId) => {
-      pendingPermissions.delete(requestId);
+    pendingPermissions.set(requestId, { sessionId: params.sessionId, hostId, settle: (optionId) => {
+      if (!pendingPermissions.delete(requestId)) return;
       updateSession(params.sessionId, (s) => ({
         ...s,
         items: s.items.map((item) =>
@@ -583,6 +601,6 @@ function requestPermission(
       resolve({
         outcome: optionId ? { outcome: "selected", optionId } : { outcome: "cancelled" },
       });
-    });
+    } });
   });
 }

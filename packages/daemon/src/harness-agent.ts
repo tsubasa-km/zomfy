@@ -134,6 +134,31 @@ export function createHarnessAgent(
 
   type Ask =(request: acp.RequestPermissionRequest) => Promise<acp.RequestPermissionResponse>;
 
+  const ASK_WAIT_MS = 5 * 60_000;
+  const clientClosed = new Map<acp.AgentContext, Promise<void>>();
+  /** A window's answer; fails when that window goes away, which an unanswered request alone never does. */
+  function askClient(client: acp.AgentContext, request: acp.RequestPermissionRequest): Promise<acp.RequestPermissionResponse> {
+    const gone = (clientClosed.get(client) ?? Promise.resolve()).then(() => {
+      throw new Error("The window closed before answering");
+    });
+    return Promise.race([client.request(acp.methods.client.session.requestPermission, request), gone]);
+  }
+  const clientWaiters: (() => void)[] = [];
+  /** True when a window connects within `ms`. */
+  function clientConnects(ms: number): Promise<boolean> {
+    return new Promise((resolve) => {
+      const wake = () => {
+        clearTimeout(timer);
+        resolve(true);
+      };
+      const timer = setTimeout(() => {
+        clientWaiters.splice(clientWaiters.indexOf(wake), 1);
+        resolve(false);
+      }, ms);
+      clientWaiters.push(wake);
+    });
+  }
+
   /** For turns no client started (automations): the newest window that answers permission asks. */
   const autoApprove = new Set<string>();
   const askAnyClient: Ask = async (request) => {
@@ -141,12 +166,20 @@ export function createHarnessAgent(
       const allow = request.options.find((o) => o.kind === "allow_once") ?? request.options.find((o) => o.kind === "allow_always");
       if (allow) return { outcome: { outcome: "selected", optionId: allow.optionId } };
     }
-    for (const client of [...clients].reverse()) {
-      try {
-        return await client.request(acp.methods.client.session.requestPermission, request);
-      } catch {
-        // A window that does not answer asks (the dashboard pop-out); try the next.
+    const tried = new Set<acp.AgentContext>();
+    // A window that drops (sleep, a network blip) usually comes back: wait a while for one before denying.
+    for (const deadline = Date.now() + ASK_WAIT_MS; ; ) {
+      for (const client of [...clients].reverse()) {
+        if (tried.has(client)) continue;
+        tried.add(client);
+        try {
+          return await askClient(client, request);
+        } catch {
+          // A window that does not answer asks (the dashboard pop-out), or one that closed; try the next.
+        }
       }
+      const left = deadline - Date.now();
+      if (left <= 0 || !(await clientConnects(left)) || pendingTurns.get(request.sessionId)?.signal.aborted) break;
     }
     await emit(request.sessionId, {
       sessionUpdate: "notice",
@@ -299,8 +332,11 @@ export function createHarnessAgent(
     .agent({ name: "acp-harness" })
     .onConnect((connection) => {
       clients.add(connection.client);
+      clientClosed.set(connection.client, connection.closed.then(() => undefined, () => undefined));
+      for (const wake of clientWaiters.splice(0)) wake();
       void connection.closed.finally(() => {
         clients.delete(connection.client);
+        clientClosed.delete(connection.client);
         managerRouting.forgetClient(connection.client);
       });
     })
@@ -336,7 +372,8 @@ export function createHarnessAgent(
     .onRequest("session/prompt", (ctx) =>
       prompt(
         ctx.params,
-        (request) => ctx.client.request(acp.methods.client.session.requestPermission, request),
+        // When the window that started the turn is gone, any window (or the next to connect) answers.
+        (request) => askClient(ctx.client, request).catch(() => askAnyClient(request)),
         ctx.client,
       ),
     )
