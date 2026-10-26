@@ -1,12 +1,11 @@
 import { useState } from 'react'
-import { ChevronRight, GitFork, ShieldQuestion, Undo2 } from 'lucide-react'
+import { ChevronRight, GitFork, Undo2 } from 'lucide-react'
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { cn } from '@/lib/utils'
 import { NativeChatMarkdown } from './NativeChatMarkdown'
 import { NativeChatCopyButton } from './NativeChatCopyButton'
-import { NativeChatToolLine } from './NativeChatToolLine'
-import { NativeChatSubagentRun } from './NativeChatSubagentRun'
+import { NativeChatDecisionLine, NativeChatToolGroup } from './NativeChatToolGroup'
 import { NativeChatTaskList } from './NativeChatTaskList'
 import { NativeChatTurnDiffRollup } from './NativeChatTurnDiffRollup'
 import {
@@ -16,7 +15,7 @@ import {
 } from './NativeChatTurnRecovery'
 import { NATIVE_CHAT_QUOTE_SOURCE_PROPS } from './NativeChatSelectionQuote'
 import { NativeChatWorkflowRunCard } from './NativeChatWorkflowRunCard'
-import { isSubagentTool, shortenPaths, type TranscriptRowModel } from './native-chat-transcript-model'
+import { type TranscriptRowModel } from './native-chat-transcript-model'
 
 // Rows follow Orca's NativeChatUserMessageRow, NativeChatAssistantMessageRow,
 // NativeChatReasoningRow, NativeChatToolRun and NativeChatNoticeRow.
@@ -112,30 +111,13 @@ export function NativeChatTranscriptRow({
     case 'thought':
       return <ReasoningRow markdown={row.text} rowKey={rowKey} />
     case 'tools':
-      return (
-        <div className="flex flex-col">
-          {row.tools.map((node) =>
-            isSubagentTool(node.tool) ? (
-              <NativeChatSubagentRun key={node.tool.id} node={node} rowKey={rowKey} cwd={actions.cwd} />
-            ) : (
-              <NativeChatToolLine key={node.tool.id} tool={node.tool} cwd={actions.cwd} />
-            )
-          )}
-        </div>
-      )
+      return <NativeChatToolGroup tools={row.tools} rowKey={rowKey} cwd={actions.cwd} />
     case 'tasks':
       return <NativeChatTaskList list={row.list} previous={row.previous} />
     case 'turn-diff':
       return <NativeChatTurnDiffRollup diff={row.diff} onReveal={actions.onRevealFile} />
     case 'decision':
-      return (
-        <div className="flex items-center gap-1.5 text-xs text-chat-foreground-faint">
-          <ShieldQuestion className="size-3.5" aria-hidden />
-          <span className="truncate">
-            {row.chosen === 'reject' || row.chosen === 'cancelled' ? 'Rejected' : 'Allowed'}: {shortenPaths(row.title, actions.cwd)}
-          </span>
-        </div>
-      )
+      return <NativeChatDecisionLine title={row.title} chosen={row.chosen} cwd={actions.cwd} />
     case 'compaction': {
       const label = row.status === 'completed' ? 'Context compacted' : row.status === 'in_progress' ? 'Compacting context…' : 'Compaction failed'
       return (

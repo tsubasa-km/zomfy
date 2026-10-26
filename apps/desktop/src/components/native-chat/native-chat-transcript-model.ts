@@ -11,7 +11,8 @@ export type ToolItem = Extract<ThreadItem, { kind: 'tool' }>
 export type UserItem = Extract<ThreadItem, { kind: 'user' }>
 
 /** A top-level tool call; a Task call carries the calls its subagent made. */
-export type ToolNode = { tool: ToolItem; children: ToolItem[] }
+/** `decision` is the approval asked for this call, when there was one. */
+export type ToolNode = { tool: ToolItem; children: ToolItem[]; decision?: { title: string; chosen: string } }
 
 export type TurnDiffFile = { path: string; added: number; removed: number; edits: NativeChatDiffLine[][] }
 export type TurnDiff = { files: TurnDiffFile[]; added: number; removed: number }
@@ -99,16 +100,23 @@ export function buildTranscript(items: ThreadItem[], turnRunning: boolean, cwd: 
         else rows.push({ kind: 'tools', tools: [node] })
         break
       }
-      case 'permission':
-        if (item.chosen) rows.push({ kind: 'decision', title: item.title, chosen: item.chosen })
+      case 'permission': {
+        if (!item.chosen) break
+        // The answer belongs to the call that asked, so it stays inside that run of tools.
+        const last = rows.at(-1)
+        const node = last?.kind === 'tools' ? last.tools.at(-1) : undefined
+        if (node && !node.decision) node.decision = { title: item.title, chosen: item.chosen }
+        else rows.push({ kind: 'decision', title: item.title, chosen: item.chosen })
         break
+      }
       case 'user':
         closeTurn()
         rows.push({ kind: 'user', item })
         break
       case 'agent':
       case 'thought':
-        rows.push({ kind: item.kind, text: item.text })
+        // An empty reply between two calls would split one run of tools into several.
+        if (item.text.trim()) rows.push({ kind: item.kind, text: item.text })
         break
       case 'notice':
         rows.push({

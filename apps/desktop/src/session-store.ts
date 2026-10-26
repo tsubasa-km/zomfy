@@ -13,6 +13,7 @@ import type {
 } from '@acp-harness/protocol'
 import { WINDOW_ROLE } from '@/lib/window-role'
 import { showChat } from '@/stores/tab-layout-store'
+import { openWorkflows } from '@/stores/workflows-store'
 import { forgetHostSnapshot, saveHostSnapshot } from '@/lib/host-snapshots'
 
 export type { SessionStatus }
@@ -639,6 +640,8 @@ export function selectTab(workspaceId: string, tabId: string): void {
 
 function focusTab(workspaceId: string, tabId: string): void {
   showChat(tabId)
+  // A chat or terminal picked anywhere (sidebar, inbox, a card) must not stay hidden behind the Workflows page.
+  openWorkflows(null)
   const activeSessionByWorkspace = { ...state.activeSessionByWorkspace, [workspaceId]: tabId }
   set(
     isFloating(workspaceId)
