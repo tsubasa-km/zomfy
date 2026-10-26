@@ -3,6 +3,7 @@ import { dirname, join } from 'node:path'
 import { CHAT_AGENT_IDS, chatAgentLabel, type ChatAgentId, type ChatAgentInfo } from '@acp-harness/protocol'
 import { chatAgentLaunch } from './chat-agent-launch-settings.ts'
 import { hostPath } from './tui-agent-detection.ts'
+import { resolveClaudeExecutable } from './claude-executable.ts'
 import { log } from './log.ts'
 
 // How each external agent serves ACP, as data (Orca's acp-launch-specs.ts). An argument list with
@@ -68,7 +69,14 @@ export type ResolvedChatAgent =
 /** How this host starts the agent's ACP server right now (custom command, PATH, probes). */
 export async function resolveChatAgent(agent: ChatAgentId): Promise<ResolvedChatAgent> {
   const launch = await chatAgentLaunch(agent)
-  if (agent === 'claude') return { status: 'ready', argv: [], env: launch.env, display: 'Claude Agent SDK' }
+  if (agent === 'claude') {
+    const cli = await resolveClaudeExecutable()
+    // Without the CLI the SDK's bundled copy runs, which has no login unless an API key is set.
+    if (!cli && !process.env.ANTHROPIC_API_KEY && !launch.env.ANTHROPIC_API_KEY) {
+      return { status: 'missing', detail: '`claude` (Claude Code) is not on this host’s PATH: install it and run `claude` once to sign in' }
+    }
+    return { status: 'ready', argv: [], env: launch.env, display: cli ?? 'Claude Agent SDK' }
+  }
   const spec = SPECS.find((s) => s.agent === agent)
   if (!spec) return { status: 'unsupported', detail: `${chatAgentLabel(agent)} has no chat mode yet` }
   const PATH = await hostPath()

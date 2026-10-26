@@ -47,9 +47,7 @@ export function submitPrompt(sessionId: string, text: string, images: ChatImage[
 /** What could not be sent goes back into the composer, ahead of anything typed since. */
 function giveBack(sessionId: string, text: string, images: ChatImage[]): void {
   patchChatSession(sessionId, (c) => ({
-    draft: c.draft.trim() ? `${text}
-
-${c.draft}` : text,
+    draft: c.draft.trim() ? `${text}\n\n${c.draft}` : text,
     draftImages: [...images, ...c.draftImages]
   }))
 }

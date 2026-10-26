@@ -20,7 +20,7 @@ import {
   type WorkflowStepContext,
   type WorkflowStepUsage,
 } from "@acp-harness/protocol";
-import { resolveClaudeExecutable } from "./claude-executable.ts";
+import { explainClaudeFailure, resolveClaudeExecutable } from "./claude-executable.ts";
 import { CHAT_ATTACHMENT_DIR, deferAttachmentMentions } from "./chat-attachment-files.ts";
 import { detectUsageLimit } from "./usage-limit.ts";
 import { log } from "./log.ts";
@@ -364,7 +364,8 @@ async function finishTurn(
     const limit = detectUsageLimit({ text: errorText, assistantError: progress.assistantError, rejected: progress.rejected });
     const end: TurnEndMeta = limit ? { reason: "usage-limit", resetsAt: limit.resetsAt } : { reason: "error" };
     onTurnEnd?.(end);
-    await update({ sessionUpdate: "notice", severity: "error", title, _meta: { [TURN_RECOVERY_META.turnEnd]: end } });
+    await update({ sessionUpdate: "notice", severity: "error", title: explainClaudeFailure(`${title}
+${errorText}`) ?? title, _meta: { [TURN_RECOVERY_META.turnEnd]: end } });
   };
   if (message.subtype === "success") {
     // Local commands (/context, /cost…) answer only in the result.

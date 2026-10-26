@@ -2,16 +2,30 @@ import type { ClaudeCliStatus, ClaudeCliUpdateResult } from "@acp-harness/protoc
 // The SDK's exports map hides its package.json; Bun inlines this at build time.
 import sdkPackage from "../node_modules/@anthropic-ai/claude-agent-sdk/package.json" with { type: "json" };
 import { loadHostSettings } from "./host-settings.ts";
+import { hostPath } from "./tui-agent-detection.ts";
 
 // Why: the user's installed CLI carries their login and settings; the SDK's bundled copy would not.
-const detected = process.env.HARNESS_CLAUDE_PATH ?? Bun.which("claude") ?? undefined;
+// Found on the host's full PATH (saved and login-shell entries), like every other agent.
+async function detected(): Promise<string | undefined> {
+  return process.env.HARNESS_CLAUDE_PATH ?? Bun.which("claude", { PATH: await hostPath() }) ?? undefined;
+}
 
 /** The Claude Code release the bundled Agent SDK was built against. */
 const EXPECTED_CLI_VERSION: string = sdkPackage.claudeCodeVersion;
 
 /** The Claude CLI path from Settings wins over the one found on PATH. */
 export async function resolveClaudeExecutable(): Promise<string | undefined> {
-  return (await loadHostSettings()).claudeExecutablePath || detected;
+  return (await loadHostSettings()).claudeExecutablePath || (await detected());
+}
+
+const SIGNED_OUT = /not logged in|please run \/login|invalid api key|oauth token (has )?expired|authentication_error|401 unauthorized/i;
+const NOT_INSTALLED = /ENOENT|executable not found|spawn .*claude/i;
+
+/** A Claude failure the person can fix, said as what to do; null for everything else. */
+export function explainClaudeFailure(text: string): string | null {
+  if (SIGNED_OUT.test(text)) return "Claude Code is not signed in on this host. Run `claude` in a terminal there and sign in, then Retry.";
+  if (NOT_INSTALLED.test(text)) return "Claude Code was not found on this host. Install it (npm i -g @anthropic-ai/claude-code), run `claude` once to sign in, then Retry.";
+  return null;
 }
 
 async function runCli(path: string, args: string[], timeoutMs: number): Promise<{ code: number; output: string }> {

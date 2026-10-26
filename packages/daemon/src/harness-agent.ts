@@ -21,6 +21,7 @@ import { hostPath } from "./tui-agent-detection.ts";
 import { TurnAutoResume } from "./turn-auto-resume.ts";
 import { recoveryPrompt } from "./turn-recovery.ts";
 import { detectUsageLimit } from "./usage-limit.ts";
+import { explainClaudeFailure } from "./claude-executable.ts";
 import { registerTurnRecoveryHandlers } from "./handlers/turn-recovery-handlers.ts";
 import { AcpAgentSessions } from "./acp-agent-sessions.ts";
 import { chatAgentLaunch } from "./chat-agent-launch-settings.ts";
@@ -311,8 +312,9 @@ export function createHarnessAgent(
       if (abort.signal.aborted) return await interrupted();
       log(`turn failed: ${error instanceof Error ? error.stack : String(error)}`);
       // The failure stays in the transcript, not just this reply, and can offer Retry or Resume.
-      const title = error instanceof Error ? error.message : String(error);
-      const limit = external ? undefined : detectUsageLimit({ text: title });
+      const raw = error instanceof Error ? error.message : String(error);
+      const title = (external ? null : explainClaudeFailure(raw)) ?? raw;
+      const limit = external ? undefined : detectUsageLimit({ text: raw });
       const failed: TurnEndMeta = limit ? { reason: "usage-limit", resetsAt: limit.resetsAt } : { reason: "error" };
       await emit(session.id, {
         sessionUpdate: "notice",
