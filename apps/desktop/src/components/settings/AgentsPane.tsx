@@ -10,6 +10,7 @@ import { sortedHosts } from './HostsPane'
 import { ChatAgentLaunchSettings } from './ChatAgentLaunchSettings'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
+import { MODES as PERMISSION_MODES, permissionModeLabel } from '@/components/native-chat/NativeChatPermissionModePicker'
 import {
   claudeCliWarning,
   loadClaudeCliStatus,
@@ -101,6 +102,24 @@ function DefaultAgentSelect() {
   )
 }
 
+function DefaultPermissionSelect() {
+  const value = useSetting('defaultPermissionMode')
+  return (
+    <Select value={value} onValueChange={(v) => setSetting('defaultPermissionMode', PERMISSION_MODES.find((m) => m === v) ?? 'auto')}>
+      <SelectTrigger className="h-8 w-48" aria-label="Default permissions" data-default-permission-mode>
+        <SelectValue />
+      </SelectTrigger>
+      <SelectContent>
+        {PERMISSION_MODES.map((mode) => (
+          <SelectItem key={mode} value={mode}>
+            {permissionModeLabel(mode)}
+          </SelectItem>
+        ))}
+      </SelectContent>
+    </Select>
+  )
+}
+
 export function AgentsPane() {
   const hosts = useStore((s) => s.hosts)
   return (
@@ -108,6 +127,12 @@ export function AgentsPane() {
       <div className="space-y-2 not-has-[[data-setting-row]]:hidden">
         <SettingsSubsectionHeader title="Default agent" description="New workspaces start a chat with this agent; the + menu starts any of them." />
         <SettingsRow label="Default agent" keywords={['claude', 'agent']} control={<DefaultAgentSelect />} />
+        <SettingsRow
+          label="Default permissions"
+          description="The mode new Claude chats start in; each chat can still change it."
+          keywords={['permission', 'auto', 'approval', 'mode']}
+          control={<DefaultPermissionSelect />}
+        />
       </div>
       <div className="space-y-2 not-has-[[data-setting-row]]:hidden">
         <SettingsSubsectionHeader title="Claude Code" description="Each host's daemon runs its own CLI with that host's login and settings." />

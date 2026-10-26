@@ -382,8 +382,9 @@ export function NativeChatComposer({
               className="px-2 py-1 text-sm text-chat-foreground-strong"
             />
             <div className="flex flex-wrap items-center gap-2 pt-0.5">
-              <div className="flex w-full flex-wrap items-center justify-between gap-x-2 gap-y-1 text-chat-foreground-faint">
-                <div className="flex min-w-0 items-center gap-0.5">
+              {/* One line at any width: the mode and model names shorten instead of wrapping. */}
+              <div className="flex w-full min-w-0 items-center justify-between gap-x-2 text-chat-foreground-faint">
+                <div className="flex min-w-0 shrink items-center gap-0.5">
                   <NativeChatAttachMenu
                     session={session}
                     onPickImages={() => fileInput.current?.click()}
@@ -417,7 +418,7 @@ export function NativeChatComposer({
                   ) : null}
                   <NativeChatWorkflowPicker home={workflowHome} picked={workflow} onPick={setWorkflow} />
                 </div>
-                <div className="ml-auto flex items-center gap-1.5">
+                <div className="ml-auto flex min-w-0 shrink items-center gap-1.5">
                   {external ? (
                     slots.model ? (
                       <NativeChatAgentModelPicker model={slots.model} effort={slots.effort} onChange={changeAgentOption} />

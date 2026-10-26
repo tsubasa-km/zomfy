@@ -133,7 +133,8 @@ export interface SessionRequests {
   [SESSION_METHODS.sessionsList]: { params: Record<string, never>; result: SessionInfo[] }
   /** `agent` defaults to Claude. */
   [SESSION_METHODS.sessionCreate]: {
-    params: { workspaceId: string; agent?: ChatAgentId; role?: SessionRole }
+    /** `permissionMode`: the mode a Claude chat starts in (older daemons start in 'default'). */
+    params: { workspaceId: string; agent?: ChatAgentId; role?: SessionRole; permissionMode?: ChatPermissionMode }
     result: SessionInfo
   }
   [SESSION_METHODS.sessionClose]: { params: { sessionId: string }; result: Record<string, never> }

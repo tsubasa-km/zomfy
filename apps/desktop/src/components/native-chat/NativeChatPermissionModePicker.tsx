@@ -21,7 +21,11 @@ const MODE_COPY: Record<ChatPermissionMode, { label: string; description: string
 }
 
 /** Picker order: least to most access. */
-const MODES: readonly ChatPermissionMode[] = ['plan', 'default', 'acceptEdits', 'auto', 'bypassPermissions']
+export const MODES: readonly ChatPermissionMode[] = ['plan', 'default', 'acceptEdits', 'auto', 'bypassPermissions']
+
+export function permissionModeLabel(mode: ChatPermissionMode): string {
+  return MODE_COPY[mode].label
+}
 
 /** Icon and name; Full access reads in the warning colour wherever it is shown. */
 function ModeName({ mode, truncate }: { mode: ChatPermissionMode; truncate?: boolean }) {

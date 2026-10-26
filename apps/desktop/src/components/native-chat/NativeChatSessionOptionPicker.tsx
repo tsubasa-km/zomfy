@@ -56,7 +56,7 @@ export function NativeChatSessionOptionPicker({
           size="xs"
           data-native-chat-model-picker
           aria-label={`Model ${modelLabel}${effort ? `, Effort ${EFFORT_LABEL[effort]}` : ''}`}
-          className="max-w-64"
+          className="max-w-64 min-w-0 shrink"
           onKeyDown={(event) => {
             // A popover trigger opens on Enter and Space only; a menu also takes ArrowDown.
             if (event.key === 'ArrowDown') {

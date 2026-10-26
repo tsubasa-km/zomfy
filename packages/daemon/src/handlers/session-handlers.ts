@@ -1,7 +1,9 @@
 import type * as acp from "@agentclientprotocol/sdk";
 import { HARNESS_METHODS, isChatAgentId } from "@acp-harness/protocol";
 import type { HandlerContext } from "./handler-context.ts";
-import { publicInfo, type SessionRecord } from "../session-registry.ts";
+import { DEFAULT_SESSION_OPTIONS, publicInfo, type SessionRecord } from "../session-registry.ts";
+
+const PERMISSION_MODES = new Set<string>(["default", "acceptEdits", "plan", "auto", "bypassPermissions"]);
 import { chatCatalog } from "../claude-catalog.ts";
 import {
   conversationBefore,
@@ -34,6 +36,9 @@ export function registerSessionHandlers(ctx: HandlerContext): void {
       ...(p.agent && p.agent !== "claude" ? { agent: p.agent } : {}),
       ...(p.role === "manager" ? { role: p.role, title: "Manager" } : {}),
       ...(p.role === "lead" ? { role: p.role, title: "Lead" } : {}),
+      ...((!p.agent || p.agent === "claude") && p.permissionMode && PERMISSION_MODES.has(p.permissionMode)
+        ? { options: { ...DEFAULT_SESSION_OPTIONS, permissionMode: p.permissionMode } }
+        : {}),
     });
     // Started now, as Orca opens a chat's session on create, so its model and mode pickers fill in.
     acpAgents.for(record)?.ensureStarted().catch((error) => log(`starting ${p.agent} failed: ${String(error)}`));

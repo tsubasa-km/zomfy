@@ -60,6 +60,7 @@ import {
   type HostId,
 } from "./session-store";
 import { applyHostSettings } from "./stores/host-settings-store";
+import { getSetting } from "./stores/settings-store";
 import { setTodos } from "./stores/inbox-store";
 import { setProjectLinks } from "./stores/project-links-store";
 import { upsertWorkflowRun } from "./stores/workflow-runs-store";
@@ -405,6 +406,7 @@ export async function createSession(
     workspaceId,
     ...(agent && agent !== "claude" ? { agent } : {}),
     ...(extra.role ? { role: extra.role } : {}),
+    ...(!agent || agent === "claude" ? { permissionMode: getSetting("defaultPermissionMode") } : {}),
   };
   const info = await harnessRequest(HARNESS_METHODS.sessionCreate, params, hostId);
   addSession({ ...info, hostId, workspaceId, items: [], loaded: true }, extra.focus ?? true);
