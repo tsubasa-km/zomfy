@@ -16,7 +16,7 @@ const MODE_COPY: Record<ChatPermissionMode, { label: string; description: string
   plan: { label: 'Plan', description: 'Explores and plans; changes nothing until you approve the plan', icon: NotebookPen },
   default: { label: 'Ask for approval', description: "Asks before edits and commands your settings don't allow", icon: Hand },
   acceptEdits: { label: 'Accept edits', description: 'Approves file edits and file commands; asks for the rest', icon: FilePenLine },
-  auto: { label: 'Approve for me', description: 'Reviews approval requests for you', icon: ShieldCheck },
+  auto: { label: 'Auto', description: "Claude Code's auto mode: reviews approval requests for you", icon: ShieldCheck },
   bypassPermissions: { label: 'Full access', description: 'Never asks before edits or commands', icon: ShieldAlert }
 }
 

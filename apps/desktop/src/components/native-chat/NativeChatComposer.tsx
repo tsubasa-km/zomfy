@@ -42,7 +42,7 @@ import { projectOfSession } from '@/lib/project-lead'
 import { linkOf } from '@/stores/project-links-store'
 import { upsertWorkflowRun } from '@/stores/workflow-runs-store'
 import { confirmWorkflowStart } from '@/components/workflows/WorkflowStartConfirm'
-import { getState, hostLabel, useStore } from '@/session-store'
+import { allWorkspaces, getState, hostLabel, useStore } from '@/session-store'
 
 // Layout and classes follow Orca's NativeChatComposer, NativeChatComposerField and
 // NativeChatComposerActions.
@@ -74,6 +74,19 @@ export function NativeChatComposer({
 }) {
   const { draft, draftImages, usage } = useChatSession(session.id)
   const catalog = useChatStore((s) => s.catalogs[session.workspaceId])
+  // Models are the account's, not the folder's: when this folder's probe failed, another folder's list on the host serves.
+  const hostWorkspaces = useStore((s) => allWorkspaces(s).filter((w) => w.hostId === session.hostId).map((w) => w.id).join(','))
+  const fallbackModels = useChatStore(
+    (s) =>
+      hostWorkspaces
+        .split(',')
+        .map((id) => s.catalogs[id]?.value?.models)
+        .find((m) => m && m.length > 0) ??
+      Object.values(s.catalogs)
+        .map((c) => c.value?.models)
+        .find((m) => m && m.length > 0) ??
+      null
+  )
   const files = useChatStore((s) => s.mentionFiles[session.workspaceId])
   const working = isWorking(session)
   // Sending or stopping needs the host; while it reconnects the person can still write.
@@ -256,7 +269,7 @@ export function NativeChatComposer({
   }
 
   const options = session.options
-  const models = catalog?.value?.models ?? []
+  const models = catalog?.value?.models?.length ? catalog.value.models : (fallbackModels ?? [])
   const currentModel = models.find((m) => m.value === (options?.model ?? 'default'))
   const canSend = draft.trim().length > 0 || draftImages.length > 0
   const slots = agentOptionSlots(agentState?.options ?? [])
@@ -397,7 +410,8 @@ export function NativeChatComposer({
                   ) : options ? (
                     <NativeChatPermissionModePicker
                       current={options.permissionMode}
-                      autoAvailable={currentModel?.supportsAutoMode === true}
+                      // With no model list at all (its probe failed), Auto stays offered; Claude refuses it if the model cannot.
+                      autoAvailable={currentModel ? currentModel.supportsAutoMode === true : models.length === 0}
                       onSelect={(permissionMode) => void setSessionOptions(session.id, { permissionMode })}
                     />
                   ) : null}
