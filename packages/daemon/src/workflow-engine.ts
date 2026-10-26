@@ -435,6 +435,8 @@ export class WorkflowEngine {
       });
       return record.id;
     });
+    // A chat carried into a step that holds local-only data holds it from now on too.
+    if (this.heldBack(run, node.id)) for (const id of sessionIds) this.deps.sessions.update(id, { localOnly: true });
     // Other agents are put on the step's model before they start, and the step fails if they will not take it.
     const model = stepAgent(node) ? node.config.model : undefined;
     if (model) {
@@ -605,6 +607,7 @@ export class WorkflowEngine {
       cwd: workspace.path,
       title: `${node.label} · helper: ${part.title}`,
       ...(stepAgent(node) ? { agent: stepAgent(node) } : {}),
+      ...(this.heldBack(run, node.id) ? { localOnly: true } : {}),
       options: { model: null, effort: null, permissionMode: node.kind === "review" ? "default" : "acceptEdits" },
     });
     spawner.helpers.push(record.id);

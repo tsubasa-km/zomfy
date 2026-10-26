@@ -1,6 +1,7 @@
 import {
   HARNESS_METHODS,
   isChatAgentId,
+  localOnlySteps,
   type ManagedSessionStatus,
   type ManagerCallParams,
   type ManagerCallResult,
@@ -34,6 +35,7 @@ import { confirmWorkflowStart } from '@/components/workflows/WorkflowStartConfir
 // host out of contact reads as `unverifiable`, never as finished or dead.
 
 /** Turns a manager started here, so wait_for_session waits for that turn rather than a stale idle. */
+const WITHHELD = '(withheld: it holds local-only data, which may not leave for the cloud)'
 const managerTurns = new Map<string, Promise<boolean>>()
 
 class ToolError extends Error {}
@@ -100,7 +102,8 @@ async function askLead(callerSessionId: string, question: string): Promise<unkno
   const project = projectOfSession(session)
   const lead = project ? leadOf(project.hostId, project.id) : null
   let forPerson = question
-  if (lead && lead.id !== session.id) {
+  // A chat holding local-only data asks the person directly; the Lead runs on Claude.
+  if (lead && lead.id !== session.id && !session.localOnly) {
     const reply = await harnessRequest(
       HARNESS_METHODS.sessionConsultLead,
       { leadSessionId: lead.id, from: `"${session.title}" (session ${session.id})`, question },
@@ -161,13 +164,19 @@ async function getWorkflowRun(callerSessionId: string, runId: string): Promise<u
   const run = (await harnessRequest(HARNESS_METHODS.workflowRunsList, { projectId }, hostId)).find((r) => r.id === runId)
   if (!run) throw new ToolError(`No run ${runId} in this project; list_workflows shows recent runs.`)
   const current = run.workflow.nodes.find((n) => n.id === run.currentNodeId)
+  const held = localOnlySteps(run.workflow)
   return {
     runId: run.id,
     workflow: run.workflow.name,
     status: run.status,
     currentStep: current?.label ?? null,
-    waitingFor: run.waiting?.question ?? null,
-    steps: run.steps.map((s) => ({ step: s.label, outcome: s.outcome, summary: s.summary.slice(0, 1500), error: s.error ?? null }))
+    waitingFor: run.waiting?.secret ? WITHHELD : (run.waiting?.question ?? null),
+    steps: run.steps.map((s) => ({
+      step: s.label,
+      outcome: s.outcome,
+      summary: held.has(s.nodeId) ? WITHHELD : s.summary.slice(0, 1500),
+      error: held.has(s.nodeId) && s.error ? WITHHELD : (s.error ?? null)
+    }))
   }
 }
 
@@ -272,6 +281,7 @@ function requireReachable(session: Session): void {
 
 async function readSession(sessionId: string, limit: number): Promise<unknown> {
   const session = requireSession(sessionId)
+  if (session.localOnly) throw new ToolError(`That chat works with local-only data. ${WITHHELD}`)
   requireReachable(session)
   await ensureSessionLoaded(sessionId)
   const current = requireSession(sessionId)
@@ -431,7 +441,7 @@ async function waitForSessions(sessionIds: string[], timeoutSeconds: number, cal
         sessionId: id,
         title: current.title,
         status: status ?? 'working',
-        ...(lastReply?.kind === 'agent' ? { lastReply: clip(lastReply.text.trim(), 3000) } : {}),
+        ...(lastReply?.kind === 'agent' ? { lastReply: current.localOnly ? WITHHELD : clip(lastReply.text.trim(), 3000) } : {}),
         ...(approvals.length > 0 ? { waitingOn: approvals.map((a) => ({ requestId: a.requestId, title: a.title })) } : {})
       }
     })

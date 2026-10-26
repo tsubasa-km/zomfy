@@ -74,7 +74,8 @@ export function ensureProjectLeads(): void {
 
 function tellLead(about: Session, text: string): void {
   const project = projectOfSession(about)
-  if (!project || about.role === 'lead') return
+  // Local-only data may not reach the Lead, which runs on Claude.
+  if (!project || about.role === 'lead' || about.localOnly) return
   const lead = leadOf(project.hostId, project.id)
   if (!lead) return
   const where = allWorkspaces().find((w) => w.id === about.workspaceId)

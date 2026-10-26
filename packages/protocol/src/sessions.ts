@@ -40,6 +40,8 @@ export interface SessionInfo {
   autoResume?: AutoResumeState | null
   /** Claude's guess at the next prompt, offered as the composer's Tab completion; cleared by the next turn. */
   promptSuggestion?: string | null
+  /** A workflow step's chat that works with local-only data: never relayed to the Lead or read by its tools. */
+  localOnly?: boolean
 }
 
 export interface ChatModel {
