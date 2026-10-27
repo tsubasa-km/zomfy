@@ -1,5 +1,6 @@
 import type * as acp from '@agentclientprotocol/sdk'
 import { log } from './log.ts'
+import { killTree, trackChild } from './process-tree.ts'
 
 // An agent like Codex starts the MCP servers it is given while its first turn begins, and leaves out
 // any not answering yet; npx-started servers (Playwright) take seconds. Starting the same server here
@@ -14,8 +15,10 @@ function answered(server: Extract<acp.McpServer, { command: string }>): Promise<
     stdout: 'pipe',
     stderr: 'ignore',
     env: { ...process.env, ...Object.fromEntries(server.env.map((e) => [e.name, e.value])) },
-    windowsHide: true
+    windowsHide: true,
+    detached: process.platform !== 'win32'
   })
+  trackChild(proc)
   const init = { jsonrpc: '2.0', id: 1, method: 'initialize', params: { protocolVersion: '2025-06-18', capabilities: {}, clientInfo: { name: 'acp-harness', version: '0' } } }
   proc.stdin.write(`${JSON.stringify(init)}\n`)
   void proc.stdin.flush()
@@ -30,15 +33,6 @@ function answered(server: Extract<acp.McpServer, { command: string }>): Promise<
   })()
   const timeout = Bun.sleep(LIMIT_MS).then(() => false)
   return Promise.race([reply, timeout]).finally(() => killTree(proc))
-}
-
-/** On Windows the server runs under cmd and npx; killing cmd alone would leave them running. */
-function killTree(proc: Bun.Subprocess): void {
-  if (process.platform !== 'win32') {
-    proc.kill()
-    return
-  }
-  Bun.spawn(['taskkill', '/pid', String(proc.pid), '/t', '/f'], { stdout: 'ignore', stderr: 'ignore', windowsHide: true })
 }
 
 /** Resolves once each stdio server answers (or after the limit), plus a margin for the agent's copy. */

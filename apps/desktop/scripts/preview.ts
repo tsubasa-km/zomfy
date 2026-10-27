@@ -33,9 +33,10 @@ function killTree(pid: number): void {
   }
 }
 
+/** Ends a slot's processes, including the runner that started them (this script, left waiting). */
 async function stop(): Promise<void> {
   if (!existsSync(pidsPath)) return;
-  for (const pid of JSON.parse(await readFile(pidsPath, "utf8")) as number[]) killTree(pid);
+  for (const pid of JSON.parse(await readFile(pidsPath, "utf8")) as number[]) if (pid !== process.pid) killTree(pid);
   await writeFile(pidsPath, "[]");
 }
 
@@ -57,6 +58,8 @@ const remember = async (pid: number | undefined) => {
   if (pid) pids.push(pid);
   await writeFile(pidsPath, JSON.stringify(pids));
 };
+// The runner itself, so a later start or stop ends it rather than leaving one per restart.
+await remember(process.pid);
 
 const daemon = spawn("bun", ["src/main.ts", `--port=${ports.daemon}`, "--print-connection"], {
   cwd: daemonDir,
@@ -75,6 +78,8 @@ const connection = await new Promise<string>((resolve, reject) => {
   });
   daemon.on("exit", (code) => reject(new Error(`daemon exited (${code})`)));
 });
+// Once its daemon is gone (stopped, or killed by a restart of the slot), the runner has nothing to keep.
+daemon.on("exit", () => void stop().then(() => process.exit(0)));
 
 const vite = spawn("bun", ["x", "vite", "--port", String(ports.vite), "--strictPort"], {
   cwd: desktopDir,

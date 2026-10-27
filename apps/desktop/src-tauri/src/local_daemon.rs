@@ -45,7 +45,8 @@ fn stop(info: &str) {
         return;
     };
     #[cfg(windows)]
-    let _ = hidden("taskkill").args(["/PID", &pid.to_string(), "/F"]).status();
+    // /T: the agents, CLIs and MCP servers it started go with it instead of piling up.
+    let _ = hidden("taskkill").args(["/PID", &pid.to_string(), "/T", "/F"]).status();
     #[cfg(not(windows))]
     let _ = hidden("kill").args(["-TERM", &pid.to_string()]).status();
 }

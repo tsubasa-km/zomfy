@@ -1,4 +1,5 @@
 import * as acp from '@agentclientprotocol/sdk'
+import { killTree, trackChild } from './process-tree.ts'
 import {
   CHAT_AGENT_OPTION_IDS,
   chatAgentLabel,
@@ -140,8 +141,11 @@ export class AcpAgentSession {
       stdout: 'pipe',
       stderr: 'pipe',
       env: { ...process.env, PATH: await hostPath(), ...resolved.env },
-      windowsHide: true
+      windowsHide: true,
+      // Its own process group, so stopping it reaches the CLI and MCP servers it starts.
+      detached: process.platform !== 'win32'
     })
+    trackChild(proc)
     void pipeStderr(proc.stderr, this.agent)
     const conn = acp
       .client({ name: 'acp-harness' })
@@ -177,7 +181,7 @@ export class AcpAgentSession {
       this.armIdle()
       return running
     } catch (error) {
-      proc.kill()
+      killTree(proc)
       const message = error instanceof Error ? error.message : String(error)
       return this.fail(/auth/i.test(message) ? `${label} is not signed in on this host: ${message}` : message)
     }
@@ -317,7 +321,7 @@ export class AcpAgentSession {
     running.conn.close()
     // Closing stdin is how ACP servers (OpenCode 2.x's private child too) are asked to exit.
     void Promise.resolve(running.proc.stdin.end()).catch(() => undefined)
-    const timer = setTimeout(() => running.proc.kill(), 3_000)
+    const timer = setTimeout(() => killTree(running.proc), 3_000)
     void running.proc.exited.finally(() => clearTimeout(timer))
   }
 }

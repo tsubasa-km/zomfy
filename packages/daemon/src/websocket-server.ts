@@ -1,4 +1,5 @@
 import { PLUGIN_PANEL_PATH_PREFIX, pluginPanels } from "./plugin-panel-server.ts";
+import { killTrackedChildren } from "./process-tree.ts";
 import type * as acp from "@agentclientprotocol/sdk";
 import {
   AcpServer,
@@ -132,6 +133,8 @@ export async function serveWebSocket(
   }
 
   const shutdown = async () => {
+    // Agents and their MCP servers would outlive the daemon otherwise.
+    killTrackedChildren();
     await rm(DAEMON_INFO_PATH, { force: true });
     await acpServer.close();
     server.stop(true);
