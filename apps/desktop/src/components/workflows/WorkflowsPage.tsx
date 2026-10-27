@@ -68,7 +68,6 @@ import { DATA_PREFIX, LINK_PREFIX, dataCanvasEdges, dataCanvasNodes, type DataCa
 import { loadWorkflowRuns, upsertWorkflowRun, useWorkflowRun, useWorkflowRuns } from '@/stores/workflow-runs-store'
 import { WorkflowRunDialog } from './WorkflowRunDialog'
 import { confirmWorkflowStart } from './WorkflowStartConfirm'
-import { leadOf } from '@/lib/project-lead'
 import {
   NODE_KINDS,
   blankWorkflow,
@@ -222,10 +221,9 @@ export function WorkflowsPage({ target }: { target: WorkflowsPageTarget }) {
         setDirty(false)
       }
       if (!(await confirmWorkflowStart(target.hostId, target.projectId, draft.id, task, 'you'))) return false
-      const lead = leadOf(target.hostId, target.projectId)
       const run = await harnessRequest(
         HARNESS_METHODS.workflowRunStart,
-        { projectId: target.projectId, workflowId: draft.id, task, ...(lead && lead.hostId === target.hostId ? { originSessionId: lead.id } : {}) },
+        { projectId: target.projectId, workflowId: draft.id, task },
         target.hostId
       )
       upsertWorkflowRun(target.hostId, run)
@@ -252,6 +250,8 @@ export function WorkflowsPage({ target }: { target: WorkflowsPageTarget }) {
 
   const issues = useMemo(() => (draft ? validateWorkflow(draft, agents) : []), [draft, agents])
   const errors = issues.filter((i) => i.level === 'error').length
+  // Steps run in the starting chat need one; a run from this page has none.
+  const needsChat = !!draft?.nodes.some((n) => n.config.runBy === 'lead')
   const draftRuns = runs.filter((r) => r.workflowId === draft?.id)
 
   return (
@@ -371,8 +371,14 @@ export function WorkflowsPage({ target }: { target: WorkflowsPageTarget }) {
             size="sm"
             className="h-7"
             onClick={() => setRunAsking(true)}
-            disabled={!draft || errors > 0 || busy}
-            title={errors > 0 ? 'Fix the problems first' : 'Start a run of this workflow'}
+            disabled={!draft || errors > 0 || busy || needsChat}
+            title={
+              errors > 0
+                ? 'Fix the problems first'
+                : needsChat
+                  ? 'A step runs in the chat that starts the run: start it from a chat (the workflow button under the message box)'
+                  : 'Start a run of this workflow'
+            }
             data-workflow-run
           >
             <Play className="size-3.5" />

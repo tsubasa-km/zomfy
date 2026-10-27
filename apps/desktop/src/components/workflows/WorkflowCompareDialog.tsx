@@ -137,7 +137,7 @@ export function WorkflowCompareDialog({
             <span className="space-y-0.5">
               <span className="block text-sm">Approve the steps' commands and edits automatically</span>
               <span className="block text-[11px] text-muted-foreground">
-                Otherwise each run waits for you at its first command. Refused for workflows that work in the main checkout or the Lead's
+                Otherwise each run waits for you at its first command. Refused for workflows that work in the main checkout or the starting chat's
                 chat. A run that would wait for your answer ends instead.
               </span>
             </span>

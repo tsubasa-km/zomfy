@@ -76,7 +76,7 @@ export interface StepOptions {
   allowedTools?: string[];
   disallowedTools?: string[];
   outputFormat?: Options["outputFormat"];
-  /** Folders outside the session's own it may read without asking (the run's worktree, for the Lead). */
+  /** Folders outside the session's own it may read without asking (the run's worktree, for a step run in the starting chat). */
   additionalDirectories?: string[];
   /** Data the step may not use, or may only read; refused before each tool call. */
   guards?: PathGuard[];

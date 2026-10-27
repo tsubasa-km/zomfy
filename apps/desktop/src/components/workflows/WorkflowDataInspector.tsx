@@ -45,7 +45,7 @@ export function WorkflowDataPanel({
           </div>
           <p className="text-[11px] text-muted-foreground">
             Only agents on a local model may use it, and what they learn from it goes on only to local agents and you, never to a
-            cloud agent or the Lead.
+            cloud agent or the chat that started the run.
           </p>
         </div>
         <Switch checked={source.localOnly === true} onCheckedChange={(on) => onChange({ localOnly: on || undefined })} aria-label="Local only" />

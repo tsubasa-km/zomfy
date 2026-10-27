@@ -98,12 +98,12 @@ const threeReviewers = (projectId: string) =>
 const splitWork = (projectId: string) =>
   build(projectId, {
     name: 'Split the work',
-    description: 'The Lead plans; the developer splits the plan across up to three helper agents, integrates their work, then tests and review.',
+    description: 'Your chat plans; the developer splits the plan across up to three helper agents, integrates their work, then tests and review.',
     steps: {
       start: ['start', 'Task from the person', 0, 120],
       plan: [
         'agent',
-        'Lead plans',
+        'Plan (your chat)',
         280,
         120,
         { runBy: 'lead', role: 'Lead', prompt: 'Break the task into independent parts with the files each part owns, and how to check the whole.' }
@@ -138,7 +138,7 @@ export const WORKFLOW_TEMPLATES: WorkflowTemplate[] = [
   { name: 'Develop and review', hint: 'One loop', make: reviewLoopTemplate },
   { name: 'Test first', hint: 'A small loop', make: testFirst },
   { name: 'Three reviewers', hint: 'One loop, reviewers in parallel', make: threeReviewers },
-  { name: 'Lead-led development', hint: 'Nested loops', make: leadCycleTemplate },
+  { name: 'Plan, build, check', hint: 'Nested loops', make: leadCycleTemplate },
   { name: 'Split the work', hint: 'Helper agents', make: splitWork },
   { name: 'Blank', hint: 'Start only', make: blankWorkflow }
 ]

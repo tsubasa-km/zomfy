@@ -18,7 +18,7 @@ describe('workflow templates', () => {
       'Develop and review': 1,
       'Test first': 1,
       'Three reviewers': 1,
-      'Lead-led development': 2,
+      'Plan, build, check': 2,
       'Split the work': 1,
       Blank: 0
     })

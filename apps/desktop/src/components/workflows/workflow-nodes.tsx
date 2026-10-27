@@ -57,7 +57,7 @@ export const STEP_ACCENTS: Record<WorkflowNodeKind, string> = {
 
 const JOIN_LABELS = { all: 'all', majority: 'majority', any: 'any one', first: 'first done' } as const
 
-/** The agent a step's sessions run on (the Lead's steps run in its Claude chat); null for steps that are not sessions. */
+/** The agent a step's sessions run on (steps run in the starting chat are Claude); null for steps that are not sessions. */
 function stepAgent(node: WorkflowNode): string | null {
   const c = node.config
   if (node.kind !== 'agent' && node.kind !== 'review' && !(node.kind === 'custom' && c.runner !== 'command')) return null
@@ -69,14 +69,14 @@ function detail(node: WorkflowNode): string {
   switch (node.kind) {
     case 'agent':
       return c.runBy === 'lead'
-        ? 'The Lead'
+        ? 'Your chat'
         : [c.role, c.workspace === 'run-worktree' ? 'own worktree' : 'main workspace'].filter(Boolean).join(' · ')
     case 'review':
-      return `${c.runBy === 'lead' ? 'The Lead' : (c.role ?? 'Reviewer')}${c.maxRounds ? ` · up to ${c.maxRounds} rounds` : ''}`
+      return `${c.runBy === 'lead' ? 'Your chat' : (c.role ?? 'Reviewer')}${c.maxRounds ? ` · up to ${c.maxRounds} rounds` : ''}`
     case 'check':
       return `${c.command?.trim() ? c.command : 'No command yet'}${c.maxRounds ? ` · up to ${c.maxRounds} tries` : ''}`
     case 'human':
-      return `${c.askLeadFirst ? 'Lead first, then you' : 'Asks you'}${c.question?.trim() ? ` · ${c.question}` : ''}`
+      return `${c.askLeadFirst ? 'Your chat first, then you' : 'Asks you'}${c.question?.trim() ? ` · ${c.question}` : ''}`
     case 'end':
       return c.result === 'failed' ? 'Ends as failed' : 'Ends as done'
     case 'custom': {
@@ -173,7 +173,7 @@ function StepNode({ data, selected, type }: NodeProps<WorkflowCanvasNode>) {
           {agent && (
             <span
               className="flex shrink-0 items-center"
-              title={node.config.runBy === 'lead' ? "Run by the project's Lead (Claude)" : `Runs on ${chatAgentLabel(agent)}`}
+              title={node.config.runBy === 'lead' ? "Runs in the chat that started the run (Claude)" : `Runs on ${chatAgentLabel(agent)}`}
               data-workflow-node-agent={agent}
             >
               <TuiAgentIcon agent={agent} size={14} />

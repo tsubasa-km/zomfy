@@ -91,9 +91,9 @@ export interface WorkflowNodeConfig {
   outcomes?: string[]
   /** Agent, review and custom agent steps. */
   tools?: WorkflowToolPolicy
-  /** Human steps: the project's Lead answers first and passes on only what is the person's call. */
+  /** Human steps: the chat that started the run answers first and passes on only what is the person's call. */
   askLeadFirst?: boolean
-  /** Agent, review and custom agent steps: a new session, or the project's Lead chat itself (planning, final checks). */
+  /** Agent, review and custom agent steps: a new session, or ('lead', the stored name) the chat that started the run itself (planning, final checks). */
   runBy?: 'session' | 'lead'
   /** Agent, review and custom agent steps run by a session: which agent runs it; absent means Claude. */
   agent?: ChatAgentId
@@ -351,8 +351,10 @@ export interface WorkflowRun {
   endReason?: string
   /** Set once the run's branch was merged into the project's main checkout, naming that branch. */
   mergedInto?: string
-  /** Started by a comparison of flows (WorkflowExperiment); the Lead is not told of it. */
+  /** Started by a comparison of flows (WorkflowExperiment); no chat is told of it. */
   experimentId?: string
+  /** The chat the run was started from: it answers the run's questions and hears how it goes. */
+  originSessionId?: string
   /** Its steps' permission asks are answered "allow" (a comparison's runs, each in a worktree of its own). */
   autoApprove?: boolean
   /** A comparison arm's: what its steps went without. */

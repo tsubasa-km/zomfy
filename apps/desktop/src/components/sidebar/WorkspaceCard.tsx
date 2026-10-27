@@ -192,8 +192,7 @@ export function WorkspaceCard({
       )}
       {!compact && show('agents') && sessions.length > 0 && (
         <div className="mt-1 space-y-px">
-          {/* The project's Lead heads its workspace's chats. */}
-          {[...sessions.filter((s) => s.role === 'lead'), ...sessions.filter((s) => s.role !== 'lead')].map((s) => (
+          {sessions.map((s) => (
             <SessionRow key={s.id} session={s} />
           ))}
         </div>

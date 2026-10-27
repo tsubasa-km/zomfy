@@ -26,7 +26,7 @@ import {
 } from '@/session-store'
 import { addTodo, getInbox } from '@/stores/inbox-store'
 import { linkOf } from '@/stores/project-links-store'
-import { leadOf, projectOfSession } from '@/lib/project-lead'
+import { projectOfSession } from '@/lib/session-project'
 import { upsertWorkflowRun } from '@/stores/workflow-runs-store'
 import { confirmWorkflowStart } from '@/components/workflows/WorkflowStartConfirm'
 
@@ -49,6 +49,8 @@ export async function runManagerTool(params: ManagerCallParams): Promise<Manager
 }
 
 function dispatch({ tool, args, callerSessionId }: ManagerCallParams): Promise<unknown> | unknown {
+  // An older daemon (another host not yet upgraded) still names the ask tool ask_lead.
+  if ((tool as string) === 'ask_lead') return askRequester(callerSessionId, reqString(args, 'question'))
   switch (tool) {
     case 'list_hosts':
       return listHosts()
@@ -76,8 +78,8 @@ function dispatch({ tool, args, callerSessionId }: ManagerCallParams): Promise<u
       return forward(reqString(args, 'text'), optString(args, 'sessionId'), optString(args, 'workspaceId'), callerSessionId)
     case 'list_todos':
       return getInbox().todos.filter((t) => args.includeDone === true || !t.done)
-    case 'ask_lead':
-      return askLead(callerSessionId, reqString(args, 'question'))
+    case 'ask_requester':
+      return askRequester(callerSessionId, reqString(args, 'question'))
     case 'list_workflows':
       return listWorkflows(callerSessionId)
     case 'run_workflow':
@@ -96,20 +98,19 @@ function workflowProject(callerSessionId: string): { hostId: HostId; projectId: 
   return main ?? { hostId: project.hostId, projectId: project.id }
 }
 
-/** The Lead answers first; what is the person's call goes to them through the run that asked. */
-async function askLead(callerSessionId: string, question: string): Promise<unknown> {
+/** The chat that started the caller's run answers first; what is the person's call goes to them through that run. */
+async function askRequester(callerSessionId: string, question: string): Promise<unknown> {
   const session = requireSession(callerSessionId)
-  const project = projectOfSession(session)
-  const lead = project ? leadOf(project.hostId, project.id) : null
+  const requester = await requesterOf(session)
   let forPerson = question
-  // A chat holding local-only data asks the person directly; the Lead runs on Claude.
-  if (lead && lead.id !== session.id && !session.localOnly) {
+  // A chat holding local-only data asks the person directly: the starting chat runs on Claude.
+  if (requester && !session.localOnly) {
     const reply = await harnessRequest(
       HARNESS_METHODS.sessionConsultLead,
-      { leadSessionId: lead.id, from: `"${session.title}" (session ${session.id})`, question },
-      lead.hostId
+      { leadSessionId: requester.id, from: `"${session.title}" (session ${session.id})`, question },
+      requester.hostId
     )
-    if ('answer' in reply) return { answeredBy: 'lead', answer: reply.answer }
+    if ('answer' in reply) return { answeredBy: 'starting chat', answer: reply.answer }
     forPerson = reply.escalate
   }
   const person = await harnessRequest(HARNESS_METHODS.workflowRunAskPerson, { sessionId: session.id, question: forPerson }, session.hostId)
@@ -117,10 +118,18 @@ async function askLead(callerSessionId: string, question: string): Promise<unkno
   return {
     answeredBy: null,
     question: forPerson,
-    next: lead
-      ? "The Lead says this is the person's call; ask them in your reply."
-      : 'This project has no Lead; ask the person in your reply.'
+    next: 'This is the person\'s call; ask them in your reply.'
   }
+}
+
+/** The Claude chat that started the workflow run `session` is a step of, if it was started from one. */
+async function requesterOf(session: Session): Promise<Session | null> {
+  const project = projectOfSession(session)
+  if (!project) return null
+  const runs = await harnessRequest(HARNESS_METHODS.workflowRunsList, { projectId: project.id }, session.hostId).catch(() => [])
+  const run = runs.find((r) => (r.status === 'running' || r.status === 'waiting') && r.steps.some((s) => s.sessionIds.includes(session.id)))
+  const origin = run?.originSessionId ? getState().sessions.find((s) => s.id === run.originSessionId) : undefined
+  return origin && origin.id !== session.id && (origin.agent ?? 'claude') === 'claude' && !origin.localOnly ? origin : null
 }
 
 async function listWorkflows(callerSessionId: string): Promise<unknown> {
@@ -229,7 +238,6 @@ function listWorkspaces(hostId?: string): unknown {
         // The same project on other hosts (Add Workspace on Another Host); its workspaces are this project's too.
         linkedWith: (linkOf({ hostId: p.hostId, projectId: p.id })?.members ?? [])
           .filter((m) => m.hostId !== p.hostId || m.projectId !== p.id),
-        leadSessionId: leadOf(p.hostId, p.id)?.id ?? null,
         workspaces: workspaces.filter((w) => w.projectId === p.id && w.hostId === p.hostId).map(describe)
       })),
     floatingWorkspace: workspaces.filter((w) => w.id === floating).map(describe)[0] ?? null

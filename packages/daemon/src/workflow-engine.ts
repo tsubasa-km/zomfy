@@ -28,7 +28,7 @@ import {
 import type { StepOptions } from "./claude-turn.ts";
 import type { HandlerContext, StepToolUse } from "./handlers/handler-context.ts";
 import { noteActivity } from "./session-activity.ts";
-import { consultLead } from "./lead-consult.ts";
+import { consultRequester } from "./requester-consult.ts";
 import type { WorkflowRunStore } from "./workflow-run-store.ts";
 import type { WorkflowStore } from "./workflow-store.ts";
 import type { WorkflowAgentStore } from "./workflow-agent-store.ts";
@@ -109,7 +109,7 @@ class Slots {
 export class WorkflowEngine {
   /** Runs this daemon is driving now, so Stop can reach their turns. */
   private readonly live = new Map<string, { stopped: boolean; sessions: Set<string> }>();
-  /** A step's session waiting mid-turn on the person (ask_lead escalated), by run id. */
+  /** A step's session waiting mid-turn on the person (ask_requester escalated), by run id. */
   private readonly asking = new Map<string, (answer: string) => void>();
   /** Step sessions that may spawn helpers now, by session id. */
   private readonly spawners = new Map<string, Spawner>();
@@ -186,6 +186,7 @@ export class WorkflowEngine {
       ...(options.experimentId ? { experimentId: options.experimentId } : {}),
       ...(options.autoApprove ? { autoApprove: true } : {}),
       ...(options.without ? { without: options.without } : {}),
+      ...(originSessionId && this.deps.sessions.get(originSessionId) ? { originSessionId } : {}),
     };
     await this.save(run);
     if (originSessionId && this.deps.sessions.get(originSessionId)) {
@@ -199,7 +200,6 @@ export class WorkflowEngine {
         })
         .catch(() => undefined);
     }
-    this.tellLead(run, `Workflow "${workflow.name}" started on: ${run.task.slice(0, 300)} (run ${run.id}, in ${workspace.path}).`);
     void this.drive(run);
     return run;
   }
@@ -225,7 +225,7 @@ export class WorkflowEngine {
       run.status = "running";
       run.waiting = null;
       await this.save(run);
-      this.tellLead(run, `The person answered a question in run ${run.id}: ${text.slice(0, 400)}`);
+      this.tellRequester(run, `The person answered a question in run ${run.id}: ${text.slice(0, 400)}`);
       asking(text.trim());
       return run;
     }
@@ -312,15 +312,15 @@ export class WorkflowEngine {
         }
         if (node.kind === "human") {
           const question = this.questionFor(run, node);
-          // What a local-only step found goes to the person, not the Lead.
-          const lead = node.config.askLeadFirst && !this.lastHeldBack(run) ? await this.leadOf(run) : null;
-          if (lead) {
-            // The Lead answers first; only what is the person's call reaches them.
-            const step = this.beginStep(run, node, `${node.label} (Lead)`);
+          // What a local-only step found goes to the person, not to a chat on Claude.
+          const requester = node.config.askLeadFirst && !this.lastHeldBack(run) ? this.requesterOf(run) : null;
+          if (requester) {
+            // The chat that started the run answers first; only what is the person's call reaches them.
+            const step = this.beginStep(run, node, `${node.label} (starting chat)`);
             await this.save(run);
-            const reply = await consultLead(this.deps, lead, `the workflow "${run.workflow.name}" (run ${run.id})`, question);
+            const reply = await consultRequester(this.deps, requester, `the workflow "${run.workflow.name}" (run ${run.id})`, question);
             if ("answer" in reply) {
-              this.endStep(step, "answered", `Question: ${question}\nLead's answer: ${reply.answer}`);
+              this.endStep(step, "answered", `Question: ${question}\nAnswer from the starting chat: ${reply.answer}`);
               const edge = run.workflow.edges.find((e) => e.from === node.id && e.outcome === "answered");
               if (!edge) {
                 await this.finish(run, "failed", `"${node.label}" has no "Answered" edge`);
@@ -330,7 +330,7 @@ export class WorkflowEngine {
               await this.save(run);
               continue;
             }
-            this.endStep(step, null, `The Lead passed it to you: ${reply.escalate}`);
+            this.endStep(step, null, `The starting chat passed it to you: ${reply.escalate}`);
             await this.wait(run, reply.escalate, "human");
             return;
           }
@@ -409,13 +409,13 @@ export class WorkflowEngine {
     if (dataDirs.length > 0) step.additionalDirectories = dataDirs;
     const turn = async (sessionId: string, index: number): Promise<TurnResult> => {
       live.sessions.add(sessionId);
-      // The Lead's own chat is the person's: its asks are never answered for them.
+      // The starting chat is the person's: its asks are never answered for them.
       if (run.autoApprove && node.config.runBy !== "lead") this.deps.autoApprove.add(sessionId);
       try {
         const result = await this.deps.runStepTurn(sessionId, prompt, step);
         this.tally(run, result);
         if (live.stopped) throw new RunStopped();
-        // Another message in that chat (the person writing to the Lead mid-step) cuts the turn short.
+        // Another message in that chat (the person writing to it mid-step) cuts the turn short.
         if (result.stopReason === "cancelled") throw new Error("The step's turn was cut short by another message in its chat");
         let parsed = parseVerdict(result.structured, outcomes) ?? parseVerdict(verdictInText(result.text), outcomes);
         if (!parsed && stepAgent(node)) {
@@ -432,12 +432,12 @@ export class WorkflowEngine {
     };
 
     if (node.config.runBy === "lead") {
-      // The Lead plans or checks in its own chat, after any turn it is already in.
-      const lead = await this.leadOf(run);
-      if (!lead) throw new Error(`"${node.label}" is run by the Lead, but the project has no Lead chat`);
+      // The chat that started the run plans or checks itself, after any turn it is already in.
+      const lead = this.requesterOf(run);
+      if (!lead) throw new Error(`"${node.label}" runs in the chat that started the run, but this run was not started from a Claude chat`);
       while (this.deps.pendingTurns.has(lead) && !live.stopped) await Bun.sleep(2000);
       if (live.stopped) throw new RunStopped();
-      // The Lead works from its own checkout; the run's worktree is where the change is.
+      // That chat works from its own folder; the run's worktree is where the change is.
       const runPath = this.deps.workspaces.workspacePath(run.workspaceId);
       if (runPath) step.additionalDirectories = [runPath, ...dataDirs];
       const { index: _, ...result } = await turn(lead, 0);
@@ -578,7 +578,7 @@ export class WorkflowEngine {
         current = parent;
         continue;
       }
-      this.tellLead(run, `Workflow "${run.workflow.name}" (run ${run.id}): the loop "${current.label}" was handed up to "${target.label}": ${why}.`);
+      this.tellRequester(run, `Workflow "${run.workflow.name}" (run ${run.id}): the loop "${current.label}" was handed up to "${target.label}": ${why}.`);
       return false;
     }
   }
@@ -747,10 +747,10 @@ export class WorkflowEngine {
       lines.push("", `When you are done, give your result as the structured output: ${resultFields}.`);
     }
     if (this.heldBack(run, node.id)) {
-      lines.push(`This step works with local-only data, which the project's Lead may not see: do not call ask_lead. If you cannot go on, choose the "ask" outcome; the person answers.`);
+      lines.push(`This step works with local-only data, which may not reach a chat on Claude: do not call ask_requester. If you cannot go on, choose the "ask" outcome; the person answers.`);
     } else {
       lines.push(
-        "Need a decision or context mid-task? Call the harness tool ask_lead: the project's Lead answers (or passes it to the person), and you carry on with the answer.",
+        "Need a decision or context mid-task? Call the harness tool ask_requester: the chat that started this run answers (or passes it to the person), and you carry on with the answer.",
       );
     }
     const maxAgents = node.config.maxAgents ?? 0;
@@ -960,13 +960,13 @@ export class WorkflowEngine {
     return own || (last ? `From "${last.label}": ${last.summary}` : `"${node.label}" needs your decision.`);
   }
 
-  private async leadOf(run: WorkflowRun): Promise<string | null> {
-    const state = await this.deps.workspaces.snapshot();
-    const ids = new Set(state.workspaces.filter((w) => w.projectId === run.projectId).map((w) => w.id));
-    return this.deps.sessions.all().find((s) => s.role === "lead" && s.workspaceId !== null && ids.has(s.workspaceId))?.id ?? null;
+  /** The Claude chat the run was started from, which answers its questions and hears how it goes. */
+  private requesterOf(run: WorkflowRun): string | null {
+    const session = run.originSessionId ? this.deps.sessions.get(run.originSessionId) : undefined;
+    return session && (session.agent ?? "claude") === "claude" && !session.localOnly ? session.id : null;
   }
 
-  /** `secret`: the question holds local-only work, so the Lead only hears that the run waits. */
+  /** `secret`: the question holds local-only work, so the starting chat only hears that the run waits. */
   private async wait(run: WorkflowRun, question: string, reason: "human" | "ask" | "limit", limitKey?: string, secret = false): Promise<void> {
     if (run.experimentId) {
       // A comparison's run that would wait for the person ends instead, saying why, so the comparison goes on.
@@ -976,7 +976,7 @@ export class WorkflowEngine {
     run.status = "waiting";
     run.waiting = { question, reason, ...(limitKey ? { limitKey } : {}), ...(secret ? { secret: true } : {}) };
     await this.save(run);
-    this.tellLead(run, `Workflow "${run.workflow.name}" (run ${run.id}) is waiting for the person: ${secret ? "(the question is withheld: it holds local-only data)" : question}`);
+    this.tellRequester(run, `Workflow "${run.workflow.name}" (run ${run.id}) is waiting for the person: ${secret ? "(the question is withheld: it holds local-only data)" : question}`);
   }
 
   private async finish(run: WorkflowRun, status: "done" | "failed" | "stopped", why?: string): Promise<WorkflowRun> {
@@ -991,7 +991,7 @@ export class WorkflowEngine {
     await this.save(run);
     const last = run.steps.filter((s) => s.summary && !this.heldBack(run, s.nodeId)).at(-1);
     const later = (run.followUps ?? []).filter((f) => !this.heldBack(run, f.nodeId));
-    this.tellLead(
+    this.tellRequester(
       run,
       `Workflow "${run.workflow.name}" (run ${run.id}) ${status === "done" ? "finished" : status}${why ? `: ${why}` : ""}.${last ? ` Last step "${last.label}": ${last.summary.slice(0, 400)}` : ""}${later.length > 0 ? `\nLeft for later (${later.length}):\n${later.map((f) => `- ${f.label}: ${f.text}`).join("\n").slice(0, 1500)}` : ""}`,
     );
@@ -1010,7 +1010,7 @@ export class WorkflowEngine {
 
   /**
    * Why the workflow's runs would not be isolated from the person's own work, so its asks must not be
-   * answered for them: it runs in the project's own checkout, or in the Lead's chat. Null when isolated.
+   * answered for them: it runs in the project's own checkout, or in the chat that started it. Null when isolated.
    */
   async sharesPersonsWork(projectId: string, workflowId: string): Promise<string | null> {
     const workflow = (await this.workflows.list(projectId)).find((w) => w.id === workflowId);
@@ -1018,7 +1018,7 @@ export class WorkflowEngine {
     const project = (await this.deps.workspaces.snapshot()).projects.find((p) => p.id === projectId);
     if (project?.kind !== "git") return "the project is a folder, so its runs work in the folder itself";
     const lead = workflow.nodes.find((n) => n.config.runBy === "lead");
-    if (lead) return `"${lead.label}" runs in the Lead's own chat`;
+    if (lead) return `"${lead.label}" runs in the chat that started the run`;
     const main = workflow.nodes.find((n) => n.kind !== "start" && n.kind !== "end" && n.kind !== "human" && n.config.workspace === "main");
     return main ? `"${main.label}" runs in the project's main workspace` : null;
   }
@@ -1031,15 +1031,12 @@ export class WorkflowEngine {
     return new Promise((resolve) => this.endings.set(runId, [...(this.endings.get(runId) ?? []), resolve]));
   }
 
-  /** The project's Lead hears about its runs, as it hears about the person's prompts. */
-  private tellLead(run: WorkflowRun, text: string): void {
-    // A comparison's runs would only fill the Lead's chat.
+  /** The chat that started the run hears how it goes, on its next turn. */
+  private tellRequester(run: WorkflowRun, text: string): void {
+    // A comparison's runs would only fill that chat.
     if (run.experimentId) return;
-    void this.leadOf(run)
-      .then((lead) => {
-        if (lead) noteActivity(this.deps.sessions, lead, text);
-      })
-      .catch(() => undefined);
+    const requester = this.requesterOf(run);
+    if (requester) noteActivity(this.deps.sessions, requester, text);
   }
 }
 
@@ -1080,7 +1077,7 @@ function parseVerdict(value: unknown, outcomes: WorkflowOutcome[]): Verdict | nu
   };
 }
 
-/** The agent a session step runs on when not Claude; the Lead's own steps are always its chat. */
+/** The agent a session step runs on when not Claude; steps run in the starting chat are always Claude. */
 function stepAgent(node: WorkflowNode): ChatAgentId | undefined {
   const agent = node.config.agent;
   return node.config.runBy !== "lead" && agent && agent !== "claude" ? agent : undefined;

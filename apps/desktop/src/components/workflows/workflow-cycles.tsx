@@ -6,7 +6,7 @@ import { cn } from '@/lib/utils'
 import { LOOP_TINTS } from './workflow-loop-view'
 
 // Cycles (PDCA loops) drawn as frames around their steps (boxes from workflow-canvas-layout), so
-// nesting reads at a glance: the dev ⇄ review cycle inside the Lead's cycle. The graph makes them:
+// nesting reads at a glance: the dev ⇄ review cycle inside the plan ⇄ check cycle. The graph makes them:
 // each edge back to an earlier step frames the steps it repeats.
 
 export type CycleCanvasNode = Node<

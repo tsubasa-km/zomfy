@@ -26,7 +26,6 @@ import { WorkspaceMain } from '@/components/WorkspaceColumns'
 import { WorkflowsPage } from '@/components/workflows/WorkflowsPage'
 import { useWorkflowsPage } from '@/stores/workflows-store'
 import { installWorkspaceWindows } from '@/lib/workspace-window'
-import { installLeadActivity } from '@/lib/project-lead'
 import { useTasks } from '@/stores/tasks-store'
 import { useSidebarStore } from '@/stores/sidebar-store'
 import { installAgentNotifications } from '@/agent-notifications'
@@ -73,9 +72,7 @@ export default function App() {
     const stopPicks = listenForDashboardPicks()
     const stopKeys = installKeybindingDispatcher()
     const stopWindows = installWorkspaceWindows()
-    const stopLeads = installLeadActivity()
     return () => {
-      stopLeads()
       stopPicks()
       stopKeys()
       stopWindows()

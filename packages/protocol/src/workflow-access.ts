@@ -127,7 +127,7 @@ export function localOnlySteps(workflow: Pick<Workflow, 'nodes' | 'edges' | 'dat
 }
 
 function agentName(node: WorkflowNode): string {
-  return node.config.runBy === 'lead' ? "the Lead (Claude)" : chatAgentLabel(node.config.agent ?? 'claude')
+  return node.config.runBy === 'lead' ? 'the chat that started the run (Claude)' : chatAgentLabel(node.config.agent ?? 'claude')
 }
 
 /** What breaks the data rules; expects agents resolved (profiles that are gone are reported here too). */

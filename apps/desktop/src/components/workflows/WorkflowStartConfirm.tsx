@@ -10,7 +10,7 @@ import { Label } from '@/components/ui/label'
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 
 // Before a run of a workflow whose loops nothing caps, the person says it may go round as long as it
-// takes. Every start asks, whether from the composer or the Lead's run_workflow, unless the person
+// takes. Every start asks, whether from the composer or a chat's run_workflow, unless the person
 // ticked "don't ask again" for that workflow. A start also asks while the project's checkout has
 // uncommitted changes, which the run's fresh worktree will not have.
 
@@ -78,7 +78,7 @@ export function WorkflowStartConfirmDialog() {
         <DialogHeader>
           <DialogTitle>Start “{ask.workflow.name}”?</DialogTitle>
           <DialogDescription>
-            {ask.by === 'lead' ? 'The Lead wants to start it. ' : ''}
+            {ask.by === 'lead' ? 'A chat wants to start it. ' : ''}
             {ask.loops.length > 0
               ? 'These loops have no round limit, so the run keeps going round until they finish. A loop that gets stuck is handed up to rethink, but nothing caps how long that takes.'
               : 'The run works in a worktree of its own.'}

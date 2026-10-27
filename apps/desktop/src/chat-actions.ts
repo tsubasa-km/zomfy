@@ -10,7 +10,6 @@ import {
   type ChatImage,
   type Session
 } from '@/session-store'
-import { relayPromptToLead } from '@/lib/project-lead'
 import {
   chatSession,
   getChatState,
@@ -38,7 +37,6 @@ export function submitPrompt(sessionId: string, text: string, images: ChatImage[
     return
   }
   patchChatSession(sessionId, { queuePaused: false })
-  relayPromptToLead(sessionId, text)
   void sendPrompt(sessionId, text, images).then((sent) => {
     if (!sent) giveBack(sessionId, text, images)
   })

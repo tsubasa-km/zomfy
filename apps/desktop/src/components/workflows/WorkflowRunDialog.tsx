@@ -34,7 +34,7 @@ export function WorkflowRunDialog({
         <DialogHeader>
           <DialogTitle>Run “{name}”</DialogTitle>
           <DialogDescription>
-            Say what the run should do. Its card shows in the project's Lead chat, and you can follow it here.
+            Say what the run should do. You follow it here; its questions come to you in the Inbox.
             {unsaved ? ' Your changes are saved first.' : ''}
           </DialogDescription>
         </DialogHeader>

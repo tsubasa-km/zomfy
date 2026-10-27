@@ -1,4 +1,3 @@
-import { useEffect } from 'react'
 import type React from 'react'
 import { MessageSquare } from 'lucide-react'
 import { HARNESS_METHODS, type HarnessState, type ProjectGroup, type ProjectLink, type Workspace } from '@acp-harness/protocol'
@@ -23,7 +22,6 @@ import { sortedHosts } from '@/components/settings/HostsPane'
 import { hostSnapshot } from '@/lib/host-snapshots'
 import { cn } from '@/lib/utils'
 import { useProjectLinks } from '@/stores/project-links-store'
-import { ensureProjectLeads } from '@/lib/project-lead'
 import { defaultHostId } from '@/lib/default-host'
 import { useSetting } from '@/stores/settings-store'
 
@@ -137,7 +135,6 @@ export function ProjectList({ actions }: { actions: SidebarActions }) {
   const groups = sources.flatMap((s) => sortGroups(s.harness.projectGroups ?? []).map((group) => ({ group, hostId: s.host.id })))
   // A project linked across hosts lists once, under its main member.
   const entries = linkedEntries(projects, links)
-  useEffect(() => ensureProjectLeads(), [hosts, links, sessions])
 
   // Filters hide projects left with nothing to show (Orca's empty-project rows), but never when unfiltered.
   const projectVisible = (projectId: string) =>

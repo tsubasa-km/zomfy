@@ -1,7 +1,7 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { Copy, CornerDownLeft, GitFork, MessagesSquare, Quote, Search, TextSelect } from 'lucide-react'
 import { markSeen, openEditorTab, useStore, type Session, type ThreadItem } from '@/session-store'
-import { projectOfSession } from '@/lib/project-lead'
+import { projectOfSession } from '@/lib/session-project'
 import { linkOf } from '@/stores/project-links-store'
 import { runCommandInline } from '@/lib/terminal-command-run'
 import { NativeChatCommandRunContext } from '@/components/native-chat/NativeChatRunCommandButton'

@@ -259,14 +259,14 @@ export function WorkflowInspector({
           <Input value={node.label} onChange={(e) => onNode(node.id, { label: e.target.value })} className="h-8" />
         </Field>
         {(node.kind === 'agent' || node.kind === 'review' || (node.kind === 'custom' && c.runner !== 'command')) && (
-          <Field label="Run by" hint="The Lead plans or checks in its own chat, with what it knows of the project.">
+          <Field label="Run by" hint="Your chat (the one the run was started from) plans or checks itself, with what it knows from the conversation.">
             <Choice
               label="Run by"
               value={c.runBy ?? 'session'}
               onChange={(runBy) => set({ runBy: runBy === 'lead' ? 'lead' : undefined })}
               options={[
                 { value: 'session', label: 'A session for this step' },
-                { value: 'lead', label: "The project's Lead" }
+                { value: 'lead', label: 'Your chat' }
               ]}
             />
           </Field>
@@ -417,10 +417,10 @@ export function WorkflowInspector({
         {node.kind === 'human' && (
           <div className="flex items-start justify-between gap-3" data-workflow-ask-lead>
             <div className="space-y-0.5">
-              <div className="text-xs font-medium">Ask the Lead first</div>
-              <p className="text-[11px] text-muted-foreground">The project's Lead answers; only what is your call comes to you.</p>
+              <div className="text-xs font-medium">Ask your chat first</div>
+              <p className="text-[11px] text-muted-foreground">The chat that started the run answers; only what is your call comes to you.</p>
             </div>
-            <Switch checked={c.askLeadFirst === true} onCheckedChange={(on) => set({ askLeadFirst: on || undefined })} aria-label="Ask the Lead first" />
+            <Switch checked={c.askLeadFirst === true} onCheckedChange={(on) => set({ askLeadFirst: on || undefined })} aria-label="Ask your chat first" />
           </div>
         )}
         {node.kind === 'human' && (

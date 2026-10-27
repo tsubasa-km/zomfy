@@ -43,7 +43,7 @@ export function outcomeLabel(outcome: WorkflowOutcome): string {
   return isBuiltin(outcome) ? BUILTIN_LABELS[outcome] : outcome
 }
 
-/** Outcomes a step must have an edge for; "ask" is optional (questions go to the Lead without one). */
+/** Outcomes a step must have an edge for; "ask" is optional (questions go to the starting chat, or you, without one). */
 function requiredOutcomes(node: WorkflowNode): WorkflowOutcome[] {
   switch (node.kind) {
     case 'start':
@@ -140,7 +140,7 @@ export function reviewLoopTemplate(projectId: string): Workflow {
     const base = newNode(kind, x, y)
     return { ...base, label, config: { ...base.config, ...config } }
   }
-  const start = node('start', 'Lead hands off a task', 0, 120)
+  const start = node('start', 'A chat hands off a task', 0, 120)
   const dev = node('agent', 'Developer', 280, 120, {
     prompt: 'Implement the task in this worktree. Commit when done. Address every review finding you are given.'
   })
@@ -177,7 +177,7 @@ export function reviewLoopTemplate(projectId: string): Workflow {
 }
 
 /**
- * Nested PDCA: the Lead plans and finally checks the result against the person's intent (its own
+ * Nested PDCA: the chat that started the run plans and finally checks the result against the person's intent (its own
  * cycle); inside, the developer and reviewer loop until the change is approved.
  */
 export function leadCycleTemplate(projectId: string): Workflow {
@@ -195,12 +195,12 @@ export function leadCycleTemplate(projectId: string): Workflow {
   const start = node('start', 'Task from the person', 0, 180)
   const plan = node(
     'agent',
-    'Lead plans',
+    'Plan (your chat)',
     280,
     180,
     {
       runBy: 'lead',
-      role: 'Lead',
+      role: 'Planner',
       prompt:
         'Turn the task into a plan the developer can follow: scope, files, acceptance criteria. On a later round, fold in what your check found. Hand the plan on in your summary.'
     },
@@ -211,7 +211,7 @@ export function leadCycleTemplate(projectId: string): Workflow {
     'Developer',
     600,
     180,
-    { prompt: "Implement the Lead's plan in this worktree. Commit when done. Address every review finding you are given." }
+    { prompt: "Implement the plan in this worktree. Commit when done. Address every review finding you are given." }
   )
   const tests = node('check', 'Run tests', 880, 180, { command: '' })
   const review = node(
@@ -219,16 +219,16 @@ export function leadCycleTemplate(projectId: string): Workflow {
     'Reviewer',
     1160,
     180,
-    { prompt: "Review the change against the Lead's plan for correctness. Do not edit files.", tools: { readOnly: true } }
+    { prompt: "Review the change against the plan for correctness. Do not edit files.", tools: { readOnly: true } }
   )
   const check = node(
     'review',
-    'Lead checks the result',
+    'Check the result (your chat)',
     1480,
     180,
     {
       runBy: 'lead',
-      role: 'Lead',
+      role: 'Planner',
       prompt:
         "Check the result against the person's intent and your plan. Approve when it is what they asked for; choose changes to plan another round, saying what to change."
     }
@@ -244,8 +244,8 @@ export function leadCycleTemplate(projectId: string): Workflow {
   return {
     id: crypto.randomUUID(),
     projectId,
-    name: 'Lead-led development',
-    description: 'Nested PDCA: the Lead plans and checks the result; inside, develop ⇄ review until approved.',
+    name: 'Plan, build, check',
+    description: 'Nested PDCA: your chat plans and checks the result; inside, develop ⇄ review until approved.',
     nodes: [start, plan, dev, tests, review, check, ask, done],
     edges: [
       edge(start, plan, 'next'),
@@ -261,7 +261,7 @@ export function leadCycleTemplate(projectId: string): Workflow {
       edge(ask, check, 'answered')
     ],
     cycleSettings: [
-      { entryId: plan.id, label: 'Lead: plan ⇄ check' },
+      { entryId: plan.id, label: 'Your chat: plan ⇄ check' },
       { entryId: dev.id, label: 'Develop ⇄ review' }
     ],
     updatedAt: Date.now()
@@ -269,7 +269,7 @@ export function leadCycleTemplate(projectId: string): Workflow {
 }
 
 export function blankWorkflow(projectId: string): Workflow {
-  const start = { ...newNode('start', 0, 120), label: 'Lead hands off a task' }
+  const start = { ...newNode('start', 0, 120), label: 'A chat hands off a task' }
   return { id: crypto.randomUUID(), projectId, name: 'New workflow', nodes: [start], edges: [], updatedAt: Date.now() }
 }
 
@@ -330,7 +330,7 @@ export function validateWorkflow(workflow: Workflow, agents: WorkflowAgentProfil
       issues.push({
         level: 'error',
         edgeId: edge.id,
-        message: `"${from.label}" → "${to.label}" continues the chat, so both must be agent steps run by one session each (not the Lead, not parallel).`
+        message: `"${from.label}" → "${to.label}" continues the chat, so both must be agent steps run by one session each (not your chat, not parallel).`
       })
     } else if ((from.config.agent ?? 'claude') !== (to.config.agent ?? 'claude')) {
       issues.push({ level: 'error', edgeId: edge.id, message: `"${from.label}" → "${to.label}" continues the chat, so both steps must run on the same agent.` })

@@ -2,7 +2,6 @@ import { HARNESS_METHODS, type ProjectLink, type ProjectMemberRef } from '@acp-h
 import { harnessRequest } from '@/daemon-connection'
 import { LOCAL_HOST } from '@/session-store'
 import { createExternalStore } from './external-store'
-import { retireLeadsOf } from '@/lib/project-lead'
 
 // Which host projects form one project (protocol project-links.ts), kept on this computer's daemon.
 
@@ -32,8 +31,6 @@ export async function linkProjects(to: ProjectMemberRef, added: ProjectMemberRef
   const link = linkOf(to) ?? { id: crypto.randomUUID(), members: [to] }
   const members = [...link.members.filter((m) => !sameMember(m, added)), added]
   setProjectLinks(await harnessRequest(HARNESS_METHODS.projectLinkSave, { link: { ...link, members } }, LOCAL_HOST))
-  // One Lead per project: the main member's.
-  await retireLeadsOf(added.hostId, added.projectId)
 }
 
 /** Takes a host project out of its linked project; it lists on its own again. */

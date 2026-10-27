@@ -30,7 +30,7 @@ export interface ManagerRequests {
   [MANAGER_METHODS.managerCall]: { params: ManagerCallParams; result: ManagerCallResult }
 }
 
-/** 'manager': across every project; 'lead': one project's main agent, which runs the others there. */
+/** 'manager': across every project. 'lead' is kept only for chats older daemons made; it now means nothing. */
 export type SessionRole = 'manager' | 'lead'
 
 /** What a session reads as across hosts: `unverifiable` when its host is out of contact. */
@@ -221,12 +221,12 @@ export const MANAGER_TOOLS = [
     readOnly: true
   },
   {
-    name: 'ask_lead',
+    name: 'ask_requester',
     description:
-      "Asks this project's Lead a question and waits for the answer; keep working with it afterwards. Use it when you need a decision or context you cannot find yourself (e.g. during a workflow step). When the Lead cannot decide, the question goes on to the person and their answer comes back here. Blocks until answered.",
+      "In a workflow step: asks the chat that started this run a question and waits for the answer; keep working with it afterwards. Use it when you need a decision or context you cannot find yourself. When that chat cannot decide, or the run was not started from a chat, the question goes to the person and their answer comes back here. Blocks until answered.",
     inputSchema: {
       type: 'object',
-      properties: { question: str('The question, with the context the Lead needs to answer it.') },
+      properties: { question: str('The question, with the context needed to answer it.') },
       required: ['question']
     },
     readOnly: false,
@@ -303,15 +303,3 @@ How to work:
 
 /** Appended to Claude's system prompt in a quick chat, which starts in a throwaway folder. */
 export const QUICK_CHAT_SYSTEM_PROMPT = `This chat started as a quick chat in a scratch folder the person did not choose, so they need not think about folders. When the request concerns one of their projects or needs a real home (a new app, an existing repository), find it with \`${MANAGER_MCP_SERVER_NAME}\` list_workspaces and call move_chat before working on files, then end your turn; the conversation continues in the new folder by itself. Answer questions that need no project right here.`
-
-/** Appended to Claude's system prompt in a project's Lead chat. */
-export const LEAD_SYSTEM_PROMPT = `You are this project's lead: the person talks mainly to you, and you get the work done with the other agent sessions of this project, through the \`${MANAGER_MCP_SERVER_NAME}\` tools. The project may have workspaces on several hosts (this computer, WSL, SSH hosts); list_workspaces shows them, with linked copies of the project on other hosts.
-
-How to work:
-- Do small, quick things yourself. Hand larger or parallel work to a session: create_session in a fitting workspace (create_workspace when it needs its own branch), with a self-contained prompt (goal, files or area, constraints, how to verify), then wait_for_session and check the result with read_session before reporting.
-- Handle setup the person should not have to think about: which workspace or host, new worktrees, moving a chat (move_chat).
-- A block starting "[Project activity since your last turn]" lists what the person told other sessions directly and how sessions ended. Treat it as context, not as a new request.
-- When one of this project's workflows fits the task (list_workflows), start it with run_workflow instead of hand-made sessions; the harness runs its steps.
-- Sessions may ask you questions mid-task. Answer from what you know of the project and the person's intent; send it on to the person only when it is truly their call.
-- Ask the person only for decisions that are theirs; forward_to_person when they are away.
-- Report briefly: what was done, where, the evidence, and anything still waiting.`

@@ -1,4 +1,3 @@
-import { Crown } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { allWorkspaces, selectSession, useStore, type Session } from '@/session-store'
 import { AgentStateDot } from '@/components/AgentStateDot'
@@ -33,11 +32,7 @@ export function SessionRow({ session, showWorkspace }: { session: Session; showW
         selectSession(session.id)
       }}
     >
-      {session.role === 'lead' ? (
-        <Crown className="size-[11px] shrink-0 text-amber-500" aria-label="Project lead" />
-      ) : (
-        <TuiAgentIcon agent={sessionAgent(session)} size={11} />
-      )}
+      <TuiAgentIcon agent={sessionAgent(session)} size={11} />
       <span className="min-w-0 flex-1 truncate">
         {showWorkspace ? `${workspaceName} · ` : ''}
         {session.title}
@@ -47,16 +42,14 @@ export function SessionRow({ session, showWorkspace }: { session: Session; showW
       </ContextMenuTrigger>
       <ContextMenuContent>
         <ContextMenuItem onSelect={() => selectSession(session.id)}>Open</ContextMenuItem>
-        {session.role !== 'lead' && (
-          <ContextMenuItem
-            variant="destructive"
-            onSelect={() => {
-              if (window.confirm(`Delete "${session.title}"? Its conversation is removed for good.`)) closeSession(session.id)
-            }}
-          >
-            Delete chat…
-          </ContextMenuItem>
-        )}
+        <ContextMenuItem
+          variant="destructive"
+          onSelect={() => {
+            if (window.confirm(`Delete "${session.title}"? Its conversation is removed for good.`)) closeSession(session.id)
+          }}
+        >
+          Delete chat…
+        </ContextMenuItem>
       </ContextMenuContent>
     </ContextMenu>
   )

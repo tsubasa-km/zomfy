@@ -19,7 +19,7 @@ function graph(
   }
 }
 
-// The Lead-led template: plan → dev → tests → review → check → done, with ask ⇄ check.
+// The plan-build-check template: plan → dev → tests → review → check → done, with ask ⇄ check.
 const leadLed = graph(
   [
     ['start', 'start'],
@@ -47,7 +47,7 @@ const leadLed = graph(
 )
 
 describe('workflowCycles', () => {
-  test('nests dev ⇄ review inside the Lead cycle; loops back to one step merge', () => {
+  test('nests dev ⇄ review inside the plan ⇄ check cycle; loops back to one step merge', () => {
     const [outer, inner] = workflowCycles(leadLed)
     expect(workflowCycles(leadLed)).toHaveLength(2)
     expect(outer!.id).toBe('plan')

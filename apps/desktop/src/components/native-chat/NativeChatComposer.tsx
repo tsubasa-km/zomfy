@@ -38,7 +38,7 @@ import { NativeChatWorkflowPicker, type WorkflowHome } from './NativeChatWorkflo
 import { toast } from 'sonner'
 import { HARNESS_METHODS } from '@acp-harness/protocol'
 import { harnessRequest } from '@/daemon-connection'
-import { projectOfSession } from '@/lib/project-lead'
+import { projectOfSession } from '@/lib/session-project'
 import { linkOf } from '@/stores/project-links-store'
 import { upsertWorkflowRun } from '@/stores/workflow-runs-store'
 import { confirmWorkflowStart } from '@/components/workflows/WorkflowStartConfirm'

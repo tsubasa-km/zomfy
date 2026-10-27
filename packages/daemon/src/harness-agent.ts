@@ -5,7 +5,6 @@ import {
   MANAGER_MCP_SERVER_NAME,
   MANAGER_SYSTEM_PROMPT,
   QUICK_CHAT_SYSTEM_PROMPT,
-  LEAD_SYSTEM_PROMPT,
   TURN_RECOVERY_META,
   TURN_RECOVERY_NOTIFICATIONS,
   chatAgentLabel,
@@ -282,7 +281,7 @@ export function createHarnessAgent(
         env: (await chatAgentLaunch("claude")).env,
         askPermission,
         // A quick chat sees its harness tools up front, so it can move itself into a project.
-        // Workflow steps see them up front too, for ask_lead.
+        // Workflow steps see them up front too, for ask_requester.
         mcpServers: managerMcp.claudeServers(
           session.id,
           session.role === "manager" || session.role === "lead" || quickChat || stepTurns.has(session.id),
@@ -290,9 +289,7 @@ export function createHarnessAgent(
         allowedTools: autoAllowedManagerTools(session.role, MANAGER_MCP_SERVER_NAME),
         ...(session.role === "manager"
           ? { appendSystemPrompt: MANAGER_SYSTEM_PROMPT }
-          : session.role === "lead"
-            ? { appendSystemPrompt: LEAD_SYSTEM_PROMPT }
-            : quickChat
+          : quickChat
             ? { appendSystemPrompt: QUICK_CHAT_SYSTEM_PROMPT }
             : {}),
         onTurnEnd: (turnEnd) => (outcome.end = turnEnd),
