@@ -9,6 +9,11 @@ import { ChecksPanel } from '@/components/right-sidebar/checks/ChecksPanel'
 import { PortsPanel } from '@/components/right-sidebar/PortsPanel'
 import { SideChatPanel } from '@/components/right-sidebar/SideChatPanel'
 import { AgentPanel } from '@/components/right-sidebar/AgentPanel'
+import { PluginPanel } from '@/components/right-sidebar/PluginPanel'
+import { useActivePluginPanels } from '@/plugins/plugin-registry'
+import { resolvePluginPanelIcon } from '@/plugins/plugin-panel-icons'
+import { addBrowserTab } from '@/stores/browser-tab-store'
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
 import { BrowserTabView } from './BrowserTabView'
 import { newTerminalTab, tabTitle, useWorkspaceTabs, type WorkspaceTab } from './workspace-tab-model'
 import { useTabLayout } from '@/stores/tab-layout-store'
@@ -28,9 +33,7 @@ const PANELS = [
   { id: 'panel:agent', label: 'Agent', icon: Bot }
 ] as const
 
-type PanelId = (typeof PANELS)[number]['id']
-
-function PanelBody({ id, workspaceId }: { id: PanelId; workspaceId: string }) {
+function PanelBody({ id, workspaceId }: { id: string; workspaceId: string }) {
   const name = useStore((s) => allWorkspaces(s).find((w) => w.id === workspaceId)?.name ?? '')
   switch (id) {
     case 'panel:explorer':
@@ -47,6 +50,8 @@ function PanelBody({ id, workspaceId }: { id: PanelId; workspaceId: string }) {
       return <SideChatPanel workspaceId={workspaceId} />
     case 'panel:agent':
       return <AgentPanel workspaceId={workspaceId} />
+    default:
+      return null
   }
 }
 
@@ -83,7 +88,11 @@ export function ToolDrawer({ workspaceId, exclude }: { workspaceId: string; excl
     if (!shown && focused instanceof HTMLElement && rootRef.current?.contains(focused)) focused.blur()
   }, [shown])
 
-  const panel = PANELS.find((p) => p.id === activeId)
+  // Enabled plugins' panels follow the built-in ones, as in the right sidebar.
+  const plugins = useActivePluginPanels()
+  const pluginPanels = plugins.map((p) => ({ id: `plugin:${p.tab}`, label: `${p.title} · ${p.pluginName}`, icon: resolvePluginPanelIcon(p.icon) }))
+  const activePlugin = plugins.find((p) => `plugin:${p.tab}` === activeId)
+  const panel = [...PANELS, ...pluginPanels].find((p) => p.id === activeId)
   const activeTool = panel ? undefined : (tools.find((t) => t.id === activeId) ?? tools[0])
   const activePanel = panel?.id ?? (activeTool ? undefined : PANELS[0].id)
   const terminals = tools.filter((t) => t.kind === 'terminal').length
@@ -144,17 +153,32 @@ export function ToolDrawer({ workspaceId, exclude }: { workspaceId: string; excl
                 <span className="truncate">{tabTitle(t, meta[t.id])}</span>
               </button>
             ))}
-            <button
-              type="button"
-              title="New terminal"
-              onClick={() => void newTerminalTab(workspaceId, undefined, { select: false })}
-              className="flex size-6 shrink-0 items-center justify-center rounded-md text-muted-foreground hover:bg-accent/50 hover:text-foreground"
-            >
-              <Plus className="size-3.5" />
-            </button>
+  <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <button
+                  type="button"
+                  title="New terminal or browser"
+                  data-drawer-new
+                  className="flex size-6 shrink-0 items-center justify-center rounded-md text-muted-foreground hover:bg-accent/50 hover:text-foreground"
+                >
+                  <Plus className="size-3.5" />
+                </button>
+              </DropdownMenuTrigger>
+              {/* Opened here, they stay out of the pane's tab: the drawer brings them to the front. */}
+              <DropdownMenuContent align="start">
+                <DropdownMenuItem onSelect={() => void newTerminalTab(workspaceId, undefined, { select: false })}>
+                  <SquareTerminal className="size-3.5" />
+                  Terminal
+                </DropdownMenuItem>
+                <DropdownMenuItem onSelect={() => addBrowserTab(workspaceId)}>
+                  <Globe className="size-3.5" />
+                  Browser
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
           </div>
           <div className="ml-auto flex shrink-0 items-center gap-0.5 border-l border-border pl-1">
-            {PANELS.map(({ id, label, icon: Icon }) => (
+            {[...PANELS, ...pluginPanels].map(({ id, label, icon: Icon }) => (
               <button
                 key={id}
                 type="button"
@@ -192,7 +216,11 @@ export function ToolDrawer({ workspaceId, exclude }: { workspaceId: string; excl
           ))}
           {activePanel && (
             <div className="absolute inset-0 flex flex-col overflow-hidden bg-sidebar text-sidebar-foreground">
-              <PanelBody key={`${activePanel}:${workspaceId}`} id={activePanel} workspaceId={workspaceId} />
+              {activePlugin ? (
+                <PluginPanel key={`${activePlugin.tab}:${workspaceId}`} panel={activePlugin} workspaceId={workspaceId} />
+              ) : (
+                <PanelBody key={`${activePanel}:${workspaceId}`} id={activePanel} workspaceId={workspaceId} />
+              )}
             </div>
           )}
         </div>
