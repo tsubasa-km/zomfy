@@ -9,6 +9,7 @@ import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { cn } from '@/lib/utils'
 
 // Orca's repository settings pane: display name, default base branch, worktree location and the
@@ -24,6 +25,7 @@ export function ProjectSettingsDialog({ project, onClose }: { project: HostedPro
   const [worktreeRoot, setWorktreeRoot] = useState('')
   const [setup, setSetup] = useState('')
   const [archive, setArchive] = useState('')
+  const [finishWith, setFinishWith] = useState<'merge' | 'pull-request'>('merge')
   const [branches, setBranches] = useState<BranchList | null>(null)
   const [hooks, setHooks] = useState<ProjectHookInfo | null>(null)
   const [error, setError] = useState<string | null>(null)
@@ -34,6 +36,7 @@ export function ProjectSettingsDialog({ project, onClose }: { project: HostedPro
     setWorktreeRoot(project?.worktreeRoot ?? '')
     setSetup(project?.hooks?.setup ?? '')
     setArchive(project?.hooks?.archive ?? '')
+    setFinishWith(project?.finishWith ?? 'merge')
     setError(null)
     setBranches(null)
     setHooks(null)
@@ -57,7 +60,7 @@ export function ProjectSettingsDialog({ project, onClose }: { project: HostedPro
           projectId: project.id,
           patch: {
             displayName: displayName.trim() === project.name ? '' : displayName,
-            ...(project.kind === 'git' ? { defaultBaseRef: baseRef, worktreeRoot, hooks: { setup, archive } } : {})
+            ...(project.kind === 'git' ? { defaultBaseRef: baseRef, worktreeRoot, hooks: { setup, archive }, finishWith } : {})
           }
         },
         project.hostId
@@ -114,6 +117,20 @@ export function ProjectSettingsDialog({ project, onClose }: { project: HostedPro
                     </Button>
                   )}
                 </div>
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="project-finish-with" className={fieldLabel}>
+                  When a chat's work is done
+                </Label>
+                <Select value={finishWith} onValueChange={(v) => setFinishWith(v === 'pull-request' ? 'pull-request' : 'merge')}>
+                  <SelectTrigger id="project-finish-with" data-project-finish-with>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="merge">Merge into the main checkout, then remove the worktree</SelectItem>
+                    <SelectItem value="pull-request">Push and open a pull request, keep the worktree</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
               <div className="space-y-1.5">
                 <Label htmlFor="project-worktree-root" className={fieldLabel}>

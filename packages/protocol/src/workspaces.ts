@@ -24,6 +24,8 @@ export interface Project {
   groupId?: string
   /** Manual order (Orca's "Project order: Manual"); lower first. */
   sortOrder?: number
+  /** How a chat's finished worktree comes home (finish_worktree): merged into the main checkout (default) or as a pull request. */
+  finishWith?: 'merge' | 'pull-request'
 }
 
 /** Orca's project groups: a named folder of projects in the sidebar. */
@@ -36,7 +38,7 @@ export interface ProjectGroup {
 
 /** null (or '') clears a field; JSON drops undefined, so it cannot. */
 export type ProjectPatch = {
-  [K in 'displayName' | 'defaultBaseRef' | 'worktreeRoot' | 'hooks' | 'groupId']?: Project[K] | null
+  [K in 'displayName' | 'defaultBaseRef' | 'worktreeRoot' | 'hooks' | 'groupId' | 'finishWith']?: Project[K] | null
 }
 
 export interface Workspace {

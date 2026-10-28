@@ -40,7 +40,7 @@ function friendly(error: unknown): Error {
   return error instanceof Error ? error : new Error(String(error))
 }
 
-async function hostingContext(cwd: string): Promise<{ availability: HostingAvailability; ctx: HostingContext | null; provider: HostingProvider | null }> {
+export async function hostingContext(cwd: string): Promise<{ availability: HostingAvailability; ctx: HostingContext | null; provider: HostingProvider | null }> {
   const { availability, remote } = await resolveHostingRemote(cwd)
   if (!remote) return { availability, ctx: null, provider: null }
   return { availability, ctx: { cwd, remote, run: runHostingCli }, provider: PROVIDERS[remote.provider] }

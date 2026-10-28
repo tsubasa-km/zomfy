@@ -52,11 +52,15 @@ export class WorktreeClaims {
   prompt(workspaceId: string | null): string | null {
     const siblings = this.siblings(workspaceId);
     if (siblings.length === 0) return null;
-    const lines = siblings.map(({ workspace }) => `- ${label(workspace)}: ${workspace.path} (workspace id ${workspace.id})`);
+    const own = this.deps.projectWorkspaces().find((w) => w.workspace.id === workspaceId)?.workspace;
+    const lines =siblings.map(({ workspace }) => `- ${label(workspace)}: ${workspace.path} (workspace id ${workspace.id})`);
     return [
       "Zomfy: this project has other worktrees, each worked on by its own chat. You may read them to understand related work:",
       ...lines,
       "Change files only in your own folder. To change another worktree, ask its chat with the harness tool send_prompt (find it with list_sessions), or, when every chat there is idle, call claim_worktree with its workspace id and edit it until your turn ends.",
+      ...(own && !own.isPrimary
+        ? ["This worktree is yours alone. When the work the person asked for is done, verified and committed, call finish_worktree to bring it home; it merges or opens a pull request as the project is set up."]
+        : []),
     ].join("\n");
   }
 

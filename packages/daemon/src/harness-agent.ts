@@ -17,6 +17,9 @@ import {
 import type { WorkflowStepContext, WorkflowStepUsage } from "@acp-harness/protocol";
 import { runClaudeTurn, type StepOptions } from "./claude-turn.ts";
 import { WorktreeClaims } from "./worktree-claims.ts";
+import { finishWorktree } from "./worktree-finish.ts";
+import { hostingContext } from "./handlers/hosting-handlers.ts";
+import { runArchiveHook } from "./project-hooks.ts";
 import { hostPath } from "./tui-agent-detection.ts";
 import { TurnAutoResume } from "./turn-auto-resume.ts";
 import { recoveryPrompt } from "./turn-recovery.ts";
@@ -77,6 +80,34 @@ export function createHarnessAgent(
         .list()
         .filter((s) => s.workspaceId === workspaceId)
         .map((s) => ({ id: s.id, busy: pendingTurns.has(s.id) || s.status === "needs-you" })),
+  });
+  /** Chats whose worktree was merged this turn: they move to the main checkout and it goes when the turn ends. */
+  const finishing = new Map<string, { workspaceId: string; primaryId: string }>();
+  localTools.set("finish_worktree", {
+    offeredTo: () => true,
+    route: async (caller, _tool, args) => {
+      const session = sessions.get(caller);
+      if (!session) return { result: "Unknown chat.", isError: true };
+      try {
+        const done = await finishWorktree(
+          {
+            requireWorkspace: (id) => workspaces.requireWorkspace(id),
+            primaryOf: (projectId) => workspaces.projectWorkspaces().find((w) => w.project.id === projectId && w.workspace.isPrimary)?.workspace,
+            hosting: async (cwd) => {
+              const { availability, ctx, provider } = await hostingContext(cwd);
+              if (!ctx || !provider) throw new Error(availability.message ?? "No GitHub or GitLab remote to open a pull request on.");
+              return { ctx, provider };
+            },
+          },
+          session.workspaceId,
+          typeof args.title === "string" ? args.title : undefined,
+        );
+        if (done.kind === "merged") finishing.set(caller, { workspaceId: done.workspaceId, primaryId: done.primaryId });
+        return { result: done.message };
+      } catch (error) {
+        return { result: error instanceof Error ? error.message : String(error), isError: true };
+      }
+    },
   });
   localTools.set("claim_worktree", {
     offeredTo: () => true,
@@ -351,6 +382,7 @@ export function createHarnessAgent(
     } finally {
       if (pendingTurns.get(session.id) === abort) pendingTurns.delete(session.id);
       claims.release(session.id);
+      if (finishing.has(session.id)) void finishAfterTurn(session.id);
     }
   }
 
@@ -421,6 +453,33 @@ export function createHarnessAgent(
         throw new acp.RequestError(-32000, error instanceof Error ? error.message : String(error));
       }
     });
+  }
+
+  /** finish_worktree merged this chat's worktree: the chat moves to the main checkout and the worktree goes. */
+  async function finishAfterTurn(sessionId: string): Promise<void> {
+    const plan = finishing.get(sessionId);
+    finishing.delete(sessionId);
+    if (!plan) return;
+    try {
+      await mover.move({ sessionId, workspaceId: plan.primaryId });
+      if (sessions.all().some((s) => s.workspaceId === plan.workspaceId)) {
+        await emit(sessionId, { sessionUpdate: "notice", severity: "info", title: "Kept the worktree: other chats still work there" });
+        return;
+      }
+      const { workspace, project } = workspaces.requireWorkspace(plan.workspaceId);
+      // Its terminals hold the folder open on Windows; they go first.
+      terminals.closeWorkspace(plan.workspaceId);
+      await runArchiveHook(project, workspace.path);
+      await workspaces.removeWorkspace({ workspaceId: plan.workspaceId, deleteBranch: true });
+      await emit(sessionId, { sessionUpdate: "notice", severity: "info", title: `Removed the worktree ${workspace.branch ?? workspace.name}` });
+    } catch (error) {
+      log(`finishing ${sessionId} failed: ${String(error)}`);
+      await emit(sessionId, {
+        sessionUpdate: "notice",
+        severity: "error",
+        title: `The work is merged, but the worktree could not be removed: ${error instanceof Error ? error.message : String(error)}`,
+      }).catch(() => undefined);
+    }
   }
 
   /** A move the agent asked for mid-turn happens once the turn ends; the chat then carries on there. */

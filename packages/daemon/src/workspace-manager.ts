@@ -169,6 +169,10 @@ export class WorkspaceManager {
       if (value) project[key] = value
       else delete project[key]
     }
+    if ('finishWith' in patch) {
+      if (patch.finishWith === 'merge' || patch.finishWith === 'pull-request') project.finishWith = patch.finishWith
+      else delete project.finishWith
+    }
     if ('hooks' in patch) {
       const setup = patch.hooks?.setup?.trim()
       const archive = patch.hooks?.archive?.trim()

@@ -245,6 +245,17 @@ export const MANAGER_TOOLS = [
     selfOnly: true
   },
   {
+    name: 'finish_worktree',
+    description:
+      "Call when the work in your own worktree is done and committed. It brings it home the way the project is set up: merged into the main checkout, after which this chat moves to the main checkout and the worktree and its branch are removed when your turn ends; or pushed as a pull request, with the worktree kept for follow-ups. Uncommitted changes, a merge conflict or a busy main checkout stop it with what to do; it never discards work or force-pushes (ask the person with forward_to_person for that).",
+    inputSchema: {
+      type: 'object',
+      properties: { title: str('For a pull request: its title; defaults to the latest commit subject.') }
+    },
+    readOnly: false,
+    selfOnly: true
+  },
+  {
     name: 'spawn_agents',
     description:
       "Runs helper agents on parts of your workflow step and waits for their reports. The step caps how many run at once; the rest queue. They work in your folder at the same time, so give each a self-contained part (goal, files it owns, how to check it) that does not overlap the others'. They do not commit: integrate, verify and commit yourself.",
