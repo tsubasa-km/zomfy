@@ -41,6 +41,7 @@ import { CloseGuardDialog, installCloseGuard } from '@/lib/close-guard'
 import { installAppUpdates, UpdateConfirmDialog } from '@/lib/app-update'
 import { installTerminalCommands } from '@/components/tab-layout/terminal-commands'
 import { installWorkflowsCommands } from '@/lib/workflows-entry'
+import { installProjectGridPreview, ProjectGridPreview, useProjectGridPreview } from '@/components/layout-preview/ProjectGridPreview'
 import { installUiZoom } from '@/lib/ui-zoom'
 import '@/assets/main.css'
 
@@ -57,6 +58,7 @@ installCloseGuard()
 installAppUpdates()
 installTerminalCommands()
 installWorkflowsCommands()
+installProjectGridPreview()
 
 export default function App() {
   const activeWorkspaceId = useStore((s) => s.activeWorkspaceId)
@@ -68,6 +70,7 @@ export default function App() {
   const boardOpen = useSidebarStore((s) => s.boardOpen)
   const tasksOpen = useTasks((s) => s.open)
   const workflowsPage = useWorkflowsPage()
+  const gridPreview = useProjectGridPreview()
 
   useEffect(() => {
     // index.html shows a themed boot screen until the shell mounts.
@@ -89,7 +92,9 @@ export default function App() {
         <div className="relative flex min-h-0 flex-1 overflow-hidden">
           <Sidebar />
           <main className="flex min-w-0 flex-1">
-            {workflowsPage ? (
+            {gridPreview ? (
+              <ProjectGridPreview />
+            ) : workflowsPage ? (
               <WorkflowsPage
                 key={`${workflowsPage.hostId}:${workflowsPage.projectId}:${workflowsPage.runId ?? ''}`}
                 target={workflowsPage}
@@ -104,7 +109,7 @@ export default function App() {
               <WorkspaceMain />
             )}
           </main>
-          {activeWorkspaceId && !workflowsPage && !dashboardOpen && !boardOpen && !tasksOpen && <RightSidebar workspaceId={activeWorkspaceId} />}
+          {activeWorkspaceId && !gridPreview && !workflowsPage && !dashboardOpen && !boardOpen && !tasksOpen && <RightSidebar workspaceId={activeWorkspaceId} />}
           {/* Orca's settings replace the app view; the views stay mounted underneath to keep their state. */}
           {automationsOpen && (
             <div className="absolute inset-0 z-20 flex">
