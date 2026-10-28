@@ -4,7 +4,7 @@
 //
 //   bun scripts/release.ts [patch|minor|major|<x.y.z>]   (default: patch)
 //
-// Signs with ~/.tauri/zomfy.key (or TAURI_SIGNING_PRIVATE_KEY); losing that key strands installed copies.
+// Signs with ~/.ssh/zomfy-updater.key (or TAURI_SIGNING_PRIVATE_KEY); losing that key strands installed copies.
 import { existsSync, readFileSync, writeFileSync } from 'node:fs'
 import { homedir } from 'node:os'
 import { join } from 'node:path'
@@ -40,7 +40,7 @@ function nextVersion(current: string, how: string): string {
 if (run(['git', 'status', '--porcelain'], { quiet: true })) throw new Error('Commit or stash your changes first.')
 if (run(['git', 'branch', '--show-current'], { quiet: true }) !== 'main') throw new Error('Release from main.')
 
-const keyPath = join(homedir(), '.tauri', 'zomfy.key')
+const keyPath = join(homedir(), '.ssh', 'zomfy-updater.key')
 const signingKey = process.env.TAURI_SIGNING_PRIVATE_KEY ?? (existsSync(keyPath) ? keyPath : null)
 if (!signingKey) throw new Error(`No signing key: ${keyPath} is missing and TAURI_SIGNING_PRIVATE_KEY is unset.`)
 // The fork's owner account, without switching gh's active account.
