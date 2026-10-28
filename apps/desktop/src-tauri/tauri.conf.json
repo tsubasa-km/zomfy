@@ -33,6 +33,18 @@
       "icons/128x128@2x.png",
       "icons/icon.icns",
       "icons/icon.ico"
-    ]
+    ],
+    "createUpdaterArtifacts": true
+  },
+  "plugins": {
+    "updater": {
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IEI0RDc1NkZFQTQ5QjVERTAKUldUZ1hadWsvbGJYdE1rSGFweHRwbG9aWjBDbjVSMGdTSmtGYm92YzBDVkJ4N0pjbVZhNG1GQm8K",
+      "endpoints": [
+        "https://github.com/tsubasa-km/zomfy/releases/latest/download/latest.json"
+      ],
+      "windows": {
+        "installMode": "passive"
+      }
+    }
   }
 }

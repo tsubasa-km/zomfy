@@ -38,6 +38,7 @@ import { installTheme } from '@/lib/theme'
 import { listenForDashboardPicks } from '@/lib/dashboard-window'
 import { installTraySync } from '@/lib/tray-sync'
 import { CloseGuardDialog, installCloseGuard } from '@/lib/close-guard'
+import { installAppUpdates, UpdateConfirmDialog } from '@/lib/app-update'
 import { installWorkflowsCommands } from '@/lib/workflows-entry'
 import { installUiZoom } from '@/lib/ui-zoom'
 import '@/assets/main.css'
@@ -52,6 +53,7 @@ installChatCommands()
 installOnboardingCommands()
 installTraySync()
 installCloseGuard()
+installAppUpdates()
 installWorkflowsCommands()
 
 export default function App() {
@@ -124,6 +126,7 @@ export default function App() {
       <Toaster />
       <WorkflowStartConfirmDialog />
       <CloseGuardDialog />
+      <UpdateConfirmDialog />
       <InboxPanel />
       <QuickOpen />
       <CommandPalette />

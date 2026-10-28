@@ -9,7 +9,8 @@
     "typecheck": "tsc --noEmit",
     "tauri": "tauri",
     "tauri:debug": "WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS=--remote-debugging-port=9223 tauri dev",
-    "cdp": "bun scripts/cdp.ts"
+    "cdp": "bun scripts/cdp.ts",
+    "release": "bun scripts/release.ts"
   },
   "dependencies": {
     "@acp-harness/protocol": "workspace:*",
@@ -28,6 +29,8 @@
     "@tauri-apps/plugin-dialog": "^2",
     "@tauri-apps/plugin-notification": "^2",
     "@tauri-apps/plugin-opener": "^2",
+    "@tauri-apps/plugin-process": "^2",
+    "@tauri-apps/plugin-updater": "^2",
     "@xterm/addon-fit": "0.11.0",
     "@xterm/addon-search": "0.16.0",
     "@xterm/addon-web-links": "0.12.0",

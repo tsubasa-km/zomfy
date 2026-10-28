@@ -18,7 +18,8 @@ interface Busy {
 
 const store = createExternalStore<Busy | null>(null)
 
-function busy(): Busy {
+/** Chats working or waiting for the person, and workflow runs still going. */
+export function busyWork(): Busy {
   const chats = getState().sessions.filter((s) => s.status === 'working' || s.status === 'needs-you').length
   const runs = getWorkflowRuns().filter((r) => r.status === 'running' || r.status === 'waiting').length
   return { chats, runs }
@@ -33,7 +34,7 @@ export function installCloseGuard(): void {
       event.preventDefault()
       return
     }
-    const now = busy()
+    const now = busyWork()
     if (now.chats === 0 && now.runs === 0) return
     event.preventDefault()
     store.set(now)

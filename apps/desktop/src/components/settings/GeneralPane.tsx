@@ -1,11 +1,12 @@
 import { useState } from 'react'
-import { RotateCcw, Sparkles } from 'lucide-react'
+import { Download, RefreshCw, RotateCcw, Sparkles } from 'lucide-react'
 import { setSidebarView, useStore, type SidebarView } from '@/session-store'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { sortedHosts } from './HostsPane'
 import { resetAllSettings, setSetting, useSetting } from '@/stores/settings-store'
 import { setOnboardingOpen } from '@/stores/app-overlay-store'
 import { Button } from '@/components/ui/button'
+import { checkForUpdate, restartToUpdate, useAppUpdate, type UpdateState } from '@/lib/app-update'
 import { SettingsRow, SettingsSegmentedControl, SettingsSubsectionHeader, SettingsSwitchRow } from './settings-form-controls'
 
 /** Where New chat and Add a project start; 'auto' follows the host with most of the projects. */
@@ -27,6 +28,51 @@ function DefaultHostSelect() {
         {value !== 'auto' && !hosts.some((h) => h.id === value) && <SelectItem value={value}>{value}</SelectItem>}
       </SelectContent>
     </Select>
+  )
+}
+
+function updateStatus(u: UpdateState): string {
+  const version = u.current ? `Zomfy ${u.current}. ` : ''
+  switch (u.phase) {
+    case 'checking':
+      return `${version}Checking…`
+    case 'downloading':
+      return `${version}Downloading ${u.next}…`
+    case 'ready':
+      return `${version}${u.next} is ready; restart to update.`
+    case 'current':
+      return `${version}This is the latest version.`
+    case 'error':
+      return `${version}Couldn't check: ${u.error}`
+    case 'unavailable':
+      return `${version}Only the installed app updates; this one runs from source.`
+    default:
+      return `${version}Zomfy checks for updates on start and every few hours.`
+  }
+}
+
+function UpdateRow() {
+  const update = useAppUpdate((u) => u)
+  const busy = update.phase === 'checking' || update.phase === 'downloading'
+  return (
+    <SettingsRow
+      label="Updates"
+      description={updateStatus(update)}
+      keywords={['update', 'version', 'upgrade', 'release']}
+      control={
+        update.phase === 'ready' ? (
+          <Button size="sm" onClick={restartToUpdate} data-update-restart>
+            <Download className="size-3.5" />
+            Restart to update
+          </Button>
+        ) : (
+          <Button variant="outline" size="sm" disabled={busy} onClick={() => void checkForUpdate(true)} data-update-check>
+            <RefreshCw className="size-3.5" />
+            Check now
+          </Button>
+        )
+      }
+    />
   )
 }
 
@@ -106,6 +152,7 @@ export function GeneralPane() {
 
       <div className="space-y-2 not-has-[[data-setting-row]]:hidden">
         <SettingsSubsectionHeader title="Maintenance" />
+        <UpdateRow />
         <SettingsRow
           label="Run setup again"
           description="Reopens the first-run guide: default agent, theme, WSL, notifications and your first project."
