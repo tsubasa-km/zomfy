@@ -1,5 +1,7 @@
 import { useRef } from 'react'
 import {
+  Archive,
+  ArchiveRestore,
   ArrowDown,
   ArrowLeft,
   ArrowRight,
@@ -42,6 +44,7 @@ import {
 import { closeGroup, splitTabTo } from './tab-group-commands'
 import { shortcutLabel } from './tab-shortcuts'
 import { ForkChatTabMenuItem } from '@/components/native-chat/NativeChatForkMenuItem'
+import { setChatArchived } from '@/chat-rename-archive'
 
 // Items and order follow Orca's SortableTabContextMenu, EditorFileTabContextMenu and BrowserTab menus.
 
@@ -161,6 +164,13 @@ export function TabContextMenu({
         {tab.kind === 'chat' && (
           <>
             <ForkChatTabMenuItem session={tab.session} />
+            <DropdownMenuItem
+              data-menu-action={tab.session.archived ? 'unarchive' : 'archive'}
+              onSelect={() => void setChatArchived(tab.session.id, !tab.session.archived)}
+            >
+              {tab.session.archived ? <ArchiveRestore className="size-3.5" /> : <Archive className="size-3.5" />}
+              {tab.session.archived ? 'Unarchive Chat' : 'Archive Chat'}
+            </DropdownMenuItem>
             <DropdownMenuSeparator />
           </>
         )}

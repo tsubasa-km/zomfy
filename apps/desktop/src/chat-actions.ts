@@ -1,6 +1,6 @@
 import { HARNESS_METHODS, type SessionInfo, type SessionOptions, type TurnResumeKind } from '@acp-harness/protocol'
 import { isExternalAgentSession } from '@/lib/chat-agents'
-import { cancelTurn, ensureSessionLoaded, harnessRequest, sendPrompt } from '@/daemon-connection'
+import { cancelTurn, ensureSessionLoaded, harnessRequest, reloadSessionTranscript, sendPrompt } from '@/daemon-connection'
 import {
   addSession,
   getState,
@@ -18,6 +18,7 @@ import {
   setMentionFiles,
   type QueuedMessage
 } from '@/stores/chat-store'
+import { queueOnStatus } from '@/stores/prompt-queue'
 
 function session(sessionId: string): Session | undefined {
   return getState().sessions.find((s) => s.id === sessionId)
@@ -36,7 +37,7 @@ export function submitPrompt(sessionId: string, text: string, images: ChatImage[
     patchChatSession(sessionId, (c) => ({ queue: [...c.queue, message] }))
     return
   }
-  patchChatSession(sessionId, { queuePaused: false })
+  patchChatSession(sessionId, { queuePaused: false, queuePauseReason: null })
   void sendPrompt(sessionId, text, images).then((sent) => {
     if (!sent) giveBack(sessionId, text, images)
   })
@@ -52,7 +53,7 @@ function giveBack(sessionId: string, text: string, images: ChatImage[]): void {
 
 /** Stop pauses the queue, so what was typed for this turn doesn't run into the next. */
 export function stopTurn(sessionId: string): void {
-  if (chatSession(sessionId).queue.length > 0) patchChatSession(sessionId, { queuePaused: true })
+  if (chatSession(sessionId).queue.length > 0) patchChatSession(sessionId, { queuePaused: true, queuePauseReason: null })
   cancelTurn(sessionId)
 }
 
@@ -71,11 +72,11 @@ export function removeQueued(sessionId: string, messageId: string): void {
 }
 
 export function clearQueue(sessionId: string): void {
-  patchChatSession(sessionId, { queue: [], queuePaused: false })
+  patchChatSession(sessionId, { queue: [], queuePaused: false, queuePauseReason: null })
 }
 
 export function resumeQueue(sessionId: string): void {
-  patchChatSession(sessionId, { queuePaused: false })
+  patchChatSession(sessionId, { queuePaused: false, queuePauseReason: null })
   const target = session(sessionId)
   if (target && !isWorking(target)) sendNextQueued(sessionId)
 }
@@ -91,9 +92,10 @@ function sendNextQueued(sessionId: string): void {
 }
 
 onSessionTransition(({ session: s, to }) => {
-  if (to !== 'idle') return
-  const chat = chatSession(s.id)
-  if (chat.queue.length > 0 && !chat.queuePaused) sendNextQueued(s.id)
+  const next = queueOnStatus(chatSession(s.id), to)
+  if (next?.kind === 'send') sendNextQueued(s.id)
+  // A failed turn holds the queue, saying why, until Resume (or a message sent by hand).
+  else if (next?.kind === 'pause') patchChatSession(s.id, { queuePaused: true, queuePauseReason: next.reason })
 })
 
 export function appendToDraft(sessionId: string, text: string): void {
@@ -232,8 +234,7 @@ export async function rewindTo(sessionId: string, messageId: string): Promise<vo
 
 /** Replays the daemon's transcript into this window from scratch. */
 export function reloadTranscript(sessionId: string): Promise<void> {
-  updateSession(sessionId, (s) => ({ ...s, loaded: false }))
-  return ensureSessionLoaded(sessionId)
+  return reloadSessionTranscript(sessionId)
 }
 
 // Dev-only hook so scripts/cdp.ts can drive chat actions without hover-only controls.

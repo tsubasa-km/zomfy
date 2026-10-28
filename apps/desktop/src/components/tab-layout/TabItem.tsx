@@ -12,6 +12,7 @@ import { TabKindIcon } from './TabKindIcon'
 import { DragChip } from '@/components/PointerDragLayer'
 import { TAB_DRAG_ACTIVATION_DISTANCE_PX, tabDrag, useInsertionMark } from './tab-drag'
 import { RENAME_TAB_EVENT } from './use-tab-keyboard'
+import { renameChat } from '@/chat-rename-archive'
 import {
   activateTab,
   canRenameTab,
@@ -75,8 +76,14 @@ export function TabItem({
   const commitRename = () => {
     if (renaming === null) return
     const next = renaming.trim()
-    setTabMeta(tab.id, { customTitle: next && next !== defaultTabTitle(tab) ? next : undefined })
     setRenaming(null)
+    const keepHere = () => setTabMeta(tab.id, { customTitle: next && next !== defaultTabTitle(tab) ? next : undefined })
+    if (tab.kind !== 'chat' || !next) return keepHere()
+    // A chat's name lives on its daemon; an older one cannot take it, so this window keeps it instead.
+    void renameChat(tab.session.id, next).then((result) => {
+      if (result === 'ok') setTabMeta(tab.id, { customTitle: undefined })
+      else if (result === 'unsupported') keepHere()
+    })
   }
   const dot = tab.kind === 'chat' ? TAB_DOT[tab.session.status] : undefined
   const dirty = tab.kind === 'editor' && tab.editor.dirty

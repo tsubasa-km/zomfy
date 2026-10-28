@@ -117,7 +117,7 @@ export function NativeChatTranscriptRow({
     case 'turn-diff':
       return <NativeChatTurnDiffRollup diff={row.diff} onReveal={actions.onRevealFile} />
     case 'decision':
-      return <NativeChatDecisionLine title={row.title} chosen={row.chosen} cwd={actions.cwd} />
+      return <NativeChatDecisionLine title={row.title} outcome={row.outcome} cwd={actions.cwd} />
     case 'compaction': {
       const label = row.status === 'completed' ? 'Context compacted' : row.status === 'in_progress' ? 'Compacting context…' : 'Compaction failed'
       return (

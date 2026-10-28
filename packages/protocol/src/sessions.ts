@@ -42,6 +42,8 @@ export interface SessionInfo {
   promptSuggestion?: string | null
   /** A workflow step's chat that works with local-only data: never relayed to the Lead or read by its tools. */
   localOnly?: boolean
+  /** Hidden from the sidebar and tab strip until unarchived; absent from older daemons. */
+  archived?: boolean
 }
 
 export interface ChatModel {
@@ -86,6 +88,19 @@ export const CHAT_META = {
   contextUsage: 'harness/contextUsage'
 } as const
 
+/**
+ * `_meta` keys that let a window splice a `session/load` replay with the live updates that raced it.
+ * Older daemons send none, and the window then applies what it got in arrival order.
+ */
+export const SESSION_REPLAY_META = {
+  /** session/update (live): the update's place in its session's transcript, counted by this daemon run. */
+  seq: 'harness/seq',
+  /** session/update: part of a `session/load` replay, not a live update. */
+  replay: 'harness/replay',
+  /** session/load response: the last `seq` the replay holds; live updates up to it are already in it. */
+  replayedThrough: 'harness/replayedThrough'
+} as const
+
 export interface ContextUsageMeta {
   estimated: boolean
   categories: { name: string; tokens: number }[]
@@ -107,7 +122,10 @@ export const SESSION_METHODS = {
   sessionSetAgentOption: '_harness/sessions/setAgentOption',
   sessionMove: '_harness/sessions/move',
   sessionAddContext: '_harness/sessions/addContext',
-  sessionConsultLead: '_harness/sessions/consultLead'
+  sessionConsultLead: '_harness/sessions/consultLead',
+  /** Absent from older daemons: the request fails as an unknown method. */
+  sessionRename: '_harness/sessions/rename',
+  sessionSetArchived: '_harness/sessions/setArchived'
 } as const
 
 /** What a chat made of a question put to it by another session (sessionConsultLead). */
@@ -165,4 +183,7 @@ export interface SessionRequests {
     params: { leadSessionId: string; from: string; question: string }
     result: LeadConsultResult
   }
+  /** A blank title is refused. */
+  [SESSION_METHODS.sessionRename]: { params: { sessionId: string; title: string }; result: SessionInfo }
+  [SESSION_METHODS.sessionSetArchived]: { params: { sessionId: string; archived: boolean }; result: SessionInfo }
 }

@@ -1,6 +1,7 @@
 import { diffFromToolCall, type NativeChatDiffLine } from '@/shared/native-chat-diff'
 import type { TurnEndMeta } from '@acp-harness/protocol'
 import type { ThreadItem } from '@/session-store'
+import { EXPIRED_APPROVAL } from '@/lib/expired-approval'
 import {
   isTaskListTool,
   normalizeNativeChatTaskList,
@@ -13,7 +14,18 @@ export type UserItem = Extract<ThreadItem, { kind: 'user' }>
 
 /** A top-level tool call; a Task call carries the calls its subagent made. */
 /** `decision` is the approval asked for this call, when there was one. */
-export type ToolNode = { tool: ToolItem; children: ToolItem[]; decision?: { title: string; chosen: string } }
+export type ToolNode = { tool: ToolItem; children: ToolItem[]; decision?: { title: string; outcome: ApprovalOutcome } }
+
+/** How an answered approval ended; 'expired' when nobody answered before its ask went away. */
+export type ApprovalOutcome = 'allowed' | 'rejected' | 'expired'
+
+export function approvalOutcome(item: Extract<ThreadItem, { kind: 'permission' }>): ApprovalOutcome {
+  if (item.chosen === EXPIRED_APPROVAL) return 'expired'
+  const option = item.options.find((o) => o.optionId === item.chosen)
+  // Other agents name their options freely; the kind says what the pick meant.
+  if (option) return option.kind.startsWith('reject') ? 'rejected' : 'allowed'
+  return item.chosen === 'reject' ? 'rejected' : 'allowed'
+}
 
 export type TurnDiffFile = { path: string; added: number; removed: number; edits: NativeChatDiffLine[][] }
 export type TurnDiff = { files: TurnDiffFile[]; added: number; removed: number }
@@ -25,7 +37,7 @@ export type TranscriptRowModel =
   | { kind: 'thought'; text: string }
   | { kind: 'tools'; tools: ToolNode[] }
   | { kind: 'tasks'; list: NativeChatTaskList; previous: NativeChatTaskList | null; fromBoard?: boolean }
-  | { kind: 'decision'; title: string; chosen: string }
+  | { kind: 'decision'; title: string; outcome: ApprovalOutcome }
   | { kind: 'notice'; text: string; severity?: string; turnEnd?: TurnEndMeta; runId?: string }
   | { kind: 'compaction'; status: string }
   | { kind: 'turn-diff'; diff: TurnDiff }
@@ -107,8 +119,9 @@ export function buildTranscript(items: ThreadItem[], turnRunning: boolean, cwd: 
         // The answer belongs to the call that asked, so it stays inside that run of tools.
         const last = rows.at(-1)
         const node = last?.kind === 'tools' ? last.tools.at(-1) : undefined
-        if (node && !node.decision) node.decision = { title: item.title, chosen: item.chosen }
-        else rows.push({ kind: 'decision', title: item.title, chosen: item.chosen })
+        const decision = { title: item.title, outcome: approvalOutcome(item) }
+        if (node && !node.decision) node.decision = decision
+        else rows.push({ kind: 'decision', ...decision })
         break
       }
       case 'user': {

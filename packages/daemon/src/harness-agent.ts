@@ -5,6 +5,7 @@ import {
   MANAGER_MCP_SERVER_NAME,
   MANAGER_SYSTEM_PROMPT,
   QUICK_CHAT_SYSTEM_PROMPT,
+  SESSION_REPLAY_META,
   TURN_RECOVERY_META,
   TURN_RECOVERY_NOTIFICATIONS,
   chatAgentLabel,
@@ -146,8 +147,8 @@ export function createHarnessAgent(
 
   /** Recorded for replay, then sent to every client so a reconnected window sees live turns. */
   async function emit(sessionId: string, update: acp.SessionUpdate): Promise<void> {
-    await sessions.record(sessionId, update);
-    broadcast(acp.methods.client.session.update, { sessionId, update });
+    const seq = await sessions.record(sessionId, update);
+    broadcast(acp.methods.client.session.update, { sessionId, update, _meta: { [SESSION_REPLAY_META.seq]: seq } });
   }
   const acpAgents = new AcpAgentSessions(sessions, emit);
   const mover = new SessionMover({ workspaces, sessions, pendingTurns, emit });
@@ -262,6 +263,8 @@ export function createHarnessAgent(
 
     const text = params.prompt.flatMap((b) => (b.type === "text" ? [b.text] : [])).join("\n");
     const external = acpAgents.for(session);
+    // Send now: the interrupted turn ends (and its last updates land) before this prompt shows.
+    await external?.settled();
     const firstTurn = external
       ? session.title === chatAgentLabel(external.agent) && (await sessions.transcript(session.id)).length === 0
       : session.claudeSessionId === null && session.title === "Claude";
@@ -418,14 +421,20 @@ export function createHarnessAgent(
     })
     .onRequest("session/load", async (ctx) => {
       if (!sessions.get(ctx.params.sessionId)) throw new Error(`Unknown session ${ctx.params.sessionId}`);
-      // Replay goes only to the client that asked; live updates already reach everyone.
-      for (const update of compactTranscript(await sessions.transcript(ctx.params.sessionId))) {
-        await ctx.client.notify(acp.methods.client.session.update, {
-          sessionId: ctx.params.sessionId,
-          update,
-        });
-      }
-      return {};
+      // Replay goes only to the client that asked; live updates already reach everyone. Queued
+      // whole inside the snapshot, so no live update recorded after it lands in its middle.
+      const { sent, through } = await sessions.snapshot(ctx.params.sessionId, (updates, through) => ({
+        through,
+        sent: compactTranscript(updates).map((update) =>
+          ctx.client.notify(acp.methods.client.session.update, {
+            sessionId: ctx.params.sessionId,
+            update,
+            _meta: { [SESSION_REPLAY_META.replay]: true },
+          }),
+        ),
+      }));
+      await Promise.all(sent);
+      return { _meta: { [SESSION_REPLAY_META.replayedThrough]: through } };
     })
     .onRequest("session/prompt", (ctx) =>
       prompt(

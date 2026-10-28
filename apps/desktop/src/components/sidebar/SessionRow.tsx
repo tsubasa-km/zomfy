@@ -1,11 +1,15 @@
+import { useRef, useState } from 'react'
 import { cn } from '@/lib/utils'
 import { allWorkspaces, getState, selectSession, useStore, type Session } from '@/session-store'
 import { AgentStateDot } from '@/components/AgentStateDot'
 import { TuiAgentIcon } from '@/components/terminal/TuiAgentIcon'
 import { sessionAgent } from '@/lib/chat-agents'
 import { SESSION_DOT } from '@/components/sidebar/WorkspaceCardBadges'
-import { ContextMenu, ContextMenuContent, ContextMenuItem, ContextMenuTrigger } from '@/components/ui/context-menu'
+import { ContextMenu, ContextMenuContent, ContextMenuItem, ContextMenuSeparator, ContextMenuTrigger } from '@/components/ui/context-menu'
+import { Input } from '@/components/ui/input'
 import { closeSession } from '@/daemon-connection'
+import { renameChat, setChatArchived } from '@/chat-rename-archive'
+import { isImeOwnedKeyboardEvent } from '@/lib/ime-composition-keyboard-event'
 import { hideChats, removeTabsFromLayout, useTabLayout } from '@/stores/tab-layout-store'
 import { chatSelection, gestureOf } from '@/stores/list-selection'
 import { beginSidebarDrag, type DragItem } from '@/components/sidebar/sidebar-drag'
@@ -66,6 +70,17 @@ export function SessionRow({
     const ids = chatSelection.targets(session.id)
     return getState().sessions.filter((s) => ids.includes(s.id))
   }
+  const archiveAll = (archived: boolean) => {
+    for (const s of targets()) void setChatArchived(s.id, archived)
+    chatSelection.reset()
+  }
+  const [renaming, setRenaming] = useState<string | null>(null)
+  const renameAfterClose = useRef(false)
+  const commitRename = () => {
+    if (renaming === null) return
+    setRenaming(null)
+    void renameChat(session.id, renaming)
+  }
   return (
     <ContextMenu>
       <ContextMenuTrigger asChild>
@@ -77,18 +92,20 @@ export function SessionRow({
       data-tab-closed={tabClosed || undefined}
       data-session-selected={selected || undefined}
       data-session-open={open || undefined}
-      title={tabClosed ? 'Tab closed: click to open it again' : undefined}
+      data-session-archived={session.archived || undefined}
+      title={session.archived ? 'Archived: click to open it' : tabClosed ? 'Tab closed: click to open it again' : undefined}
       className={cn(
         'flex min-w-0 cursor-pointer items-center gap-1.5 rounded-md py-0.5 pr-1 pl-[22px] text-[12px] text-muted-foreground hover:bg-worktree-sidebar-accent/60 hover:text-foreground',
-        tabClosed && 'opacity-60',
+        (tabClosed || session.archived) && renaming === null && 'opacity-60',
         selected && 'bg-worktree-sidebar-accent text-foreground opacity-100',
         open && 'bg-worktree-sidebar-accent/70 text-foreground opacity-100'
       )}
       // The workspace card around it has its own menu; this row's is the one meant.
       onContextMenu={(e) => e.stopPropagation()}
-      onPointerDown={drag ? (e) => beginSidebarDrag(e, drag, session.title) : undefined}
+      onPointerDown={drag && renaming === null ? (e) => beginSidebarDrag(e, drag, session.title) : undefined}
       onClick={(e) => {
         e.stopPropagation()
+        if (renaming !== null) return
         const gesture = gestureOf(e)
         if (gesture) {
           chatSelection.gesture(SCOPE, session.id, gesture, openChatId(), renderedChats(e.currentTarget))
@@ -99,10 +116,41 @@ export function SessionRow({
       }}
     >
       <TuiAgentIcon agent={sessionAgent(session)} size={11} />
-      <span className="min-w-0 flex-1 truncate">
-        {showWorkspace ? `${workspaceName} · ` : ''}
-        {session.title}
-      </span>
+      {renaming !== null ? (
+        <Input
+          autoFocus
+          data-session-rename-input
+          aria-label={`Rename chat ${session.title}`}
+          value={renaming}
+          onChange={(e) => setRenaming(e.target.value)}
+          onBlur={commitRename}
+          onKeyDown={(e) => {
+            e.stopPropagation()
+            if (isImeOwnedKeyboardEvent(e)) return
+            if (e.key === 'Enter') {
+              e.preventDefault()
+              commitRename()
+            } else if (e.key === 'Escape') {
+              e.preventDefault()
+              setRenaming(null)
+            }
+          }}
+          onClick={(e) => e.stopPropagation()}
+          onPointerDown={(e) => e.stopPropagation()}
+          className="h-5 min-w-0 flex-1 px-1 py-0 text-xs"
+          spellCheck={false}
+        />
+      ) : (
+        <span className="min-w-0 flex-1 truncate">
+          {showWorkspace ? `${workspaceName} · ` : ''}
+          {session.title}
+        </span>
+      )}
+      {session.archived && renaming === null && (
+        <span className="shrink-0 text-[10px] text-muted-foreground/80" data-session-archived-tag>
+          Archived
+        </span>
+      )}
       {place && (
         <span className="max-w-24 shrink-0 truncate font-mono text-[10px] text-muted-foreground/80" title={place} data-session-place>
           {place}
@@ -111,7 +159,15 @@ export function SessionRow({
       <AgentStateDot state={SESSION_DOT[session.status]} size="sm" />
     </div>
       </ContextMenuTrigger>
-      <ContextMenuContent>
+      <ContextMenuContent
+        onCloseAutoFocus={(event) => {
+          if (!renameAfterClose.current) return
+          renameAfterClose.current = false
+          // Why: opening the input in onSelect lets the closing menu take focus back and blur it.
+          event.preventDefault()
+          setRenaming(session.title)
+        }}
+      >
         {selected ? (
           <>
             <ContextMenuItem data-chat-action="open-selected" onSelect={() => targets().forEach((s) => selectSession(s.id))}>
@@ -126,6 +182,16 @@ export function SessionRow({
             >
               Close {targets().length} tabs
             </ContextMenuItem>
+            {targets().some((s) => !s.archived) ? (
+              <ContextMenuItem data-chat-action="archive-selected" onSelect={() => archiveAll(true)}>
+                Archive {targets().length} chats
+              </ContextMenuItem>
+            ) : (
+              <ContextMenuItem data-chat-action="unarchive-selected" onSelect={() => archiveAll(false)}>
+                Unarchive {targets().length} chats
+              </ContextMenuItem>
+            )}
+            <ContextMenuSeparator />
             <ContextMenuItem variant="destructive" data-chat-action="delete-selected" onSelect={() => deleteChats(targets())}>
               Delete {targets().length} chats…
             </ContextMenuItem>
@@ -133,6 +199,16 @@ export function SessionRow({
         ) : (
           <>
             <ContextMenuItem onSelect={() => selectSession(session.id)}>Open</ContextMenuItem>
+            <ContextMenuItem data-chat-action="rename" onSelect={() => (renameAfterClose.current = true)}>
+              Rename…
+            </ContextMenuItem>
+            <ContextMenuItem
+              data-chat-action={session.archived ? 'unarchive' : 'archive'}
+              onSelect={() => void setChatArchived(session.id, !session.archived)}
+            >
+              {session.archived ? 'Unarchive' : 'Archive'}
+            </ContextMenuItem>
+            <ContextMenuSeparator />
             <ContextMenuItem variant="destructive" onSelect={() => deleteChats([session])}>
               Delete chat…
             </ContextMenuItem>

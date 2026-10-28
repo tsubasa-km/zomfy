@@ -36,6 +36,8 @@ export class SessionRegistry {
   private readonly listeners = new Set<(sessions: SessionInfo[]) => void>()
   private saveQueue: Promise<void> = Promise.resolve()
   private readonly transcriptWrites = new Map<string, Promise<void>>()
+  /** Updates recorded per session since this daemon started (SESSION_REPLAY_META.seq). */
+  private readonly seqs = new Map<string, number>()
 
   async load(): Promise<void> {
     try {
@@ -111,6 +113,7 @@ export class SessionRegistry {
 
   async remove(id: string): Promise<void> {
     this.records.delete(id)
+    this.seqs.delete(id)
     this.changed()
     await rm(transcriptPath(id), { force: true })
     await rm(notePath(id), { force: true })
@@ -149,9 +152,12 @@ export class SessionRegistry {
    * Writes to one transcript in the order they were asked for. An external agent's updates arrive
    * without waiting for each other; unqueued, their appends could land out of order.
    */
-  private write(id: string, job: () => Promise<void>): Promise<void> {
+  private write<T>(id: string, job: () => Promise<T>): Promise<T> {
     const done = (this.transcriptWrites.get(id) ?? Promise.resolve()).then(job)
-    const tail = done.catch(() => undefined)
+    const tail = done.then(
+      () => undefined,
+      () => undefined
+    )
     this.transcriptWrites.set(id, tail)
     void tail.then(() => {
       if (this.transcriptWrites.get(id) === tail) this.transcriptWrites.delete(id)
@@ -159,12 +165,24 @@ export class SessionRegistry {
     return done
   }
 
-  record(id: string, update: acp.SessionUpdate): Promise<void> {
+  /** Resolves to the update's seq (SESSION_REPLAY_META.seq): rising per session through this daemon run. */
+  record(id: string, update: acp.SessionUpdate): Promise<number> {
     const line = `${JSON.stringify(update)}\n`
     return this.write(id, async () => {
       await mkdir(SESSIONS_DIR, { recursive: true })
       await appendFile(transcriptPath(id), line)
+      const seq = (this.seqs.get(id) ?? 0) + 1
+      this.seqs.set(id, seq)
+      return seq
     })
+  }
+
+  /**
+   * Hands `use` the transcript and the last seq it holds, with no update recorded meanwhile. `use` is
+   * synchronous, so a replay it queues goes out before any update recorded after it.
+   */
+  snapshot<T>(id: string, use: (updates: acp.SessionUpdate[], through: number) => T): Promise<T> {
+    return this.write(id, async () => use(await this.readTranscript(id), this.seqs.get(id) ?? 0))
   }
 
   /** Rewrites the whole transcript (rewind, fork, a conversation resumed from disk). */
@@ -178,6 +196,10 @@ export class SessionRegistry {
 
   async transcript(id: string): Promise<acp.SessionUpdate[]> {
     await this.transcriptWrites.get(id)
+    return this.readTranscript(id)
+  }
+
+  private async readTranscript(id: string): Promise<acp.SessionUpdate[]> {
     try {
       const text = await readFile(transcriptPath(id), 'utf8')
       return text

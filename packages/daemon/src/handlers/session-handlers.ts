@@ -49,6 +49,18 @@ export function registerSessionHandlers(ctx: HandlerContext): void {
     await sessions.remove(p.sessionId);
     return {};
   });
+  handle(HARNESS_METHODS.sessionRename, async (p) => {
+    const session = requireSession(p.sessionId);
+    const title = typeof p.title === "string" ? p.title.replace(/\s+/g, " ").trim().slice(0, 100) : "";
+    if (!title) throw new Error("A chat needs a name");
+    sessions.update(session.id, { title });
+    return publicInfo(session);
+  });
+  handle(HARNESS_METHODS.sessionSetArchived, async (p) => {
+    const session = requireSession(p.sessionId);
+    sessions.update(session.id, { archived: p.archived === true });
+    return publicInfo(session);
+  });
 
   handle(HARNESS_METHODS.sessionSetOptions, async (p) => {
     const session = requireSession(p.sessionId);

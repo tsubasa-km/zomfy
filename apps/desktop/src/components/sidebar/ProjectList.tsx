@@ -1,3 +1,4 @@
+import { useMemo } from 'react'
 import type React from 'react'
 import { MessageSquare } from 'lucide-react'
 import { HARNESS_METHODS, type HarnessState, type ProjectGroup, type ProjectLink, type Workspace } from '@acp-harness/protocol'
@@ -96,7 +97,12 @@ function linkedEntries(projects: HostedProject[], links: ProjectLink[]): LinkedE
 export function ProjectList({ actions }: { actions: SidebarActions }) {
   const hosts = useStore((s) => s.hosts)
   const view = useStore((s) => s.sidebarView)
-  const sessions = useStore((s) => s.sessions)
+  const allSessions = useStore((s) => s.sessions)
+  // Archived chats leave the list unless the person asked to see them (Workspace options).
+  const sessions = useMemo(
+    () => (view.showArchived ? allSessions : allSessions.filter((s) => !s.archived)),
+    [allSessions, view.showArchived]
+  )
   const unread = useStore((s) => s.unread)
   const activeWorkspaceId = useStore((s) => s.activeWorkspaceId)
   const filters = useSidebarStore((s) => s.filters)

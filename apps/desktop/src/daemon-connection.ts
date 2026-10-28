@@ -8,6 +8,7 @@ import {
   MANAGER_METHODS,
   MANAGER_ROUTING_CAPABILITY,
   type AutomationSnapshot,
+  SESSION_REPLAY_META,
   SETTINGS_NOTIFICATIONS,
   TODO_NOTIFICATIONS,
   PROJECT_LINK_NOTIFICATIONS,
@@ -34,6 +35,8 @@ import {
 } from "@acp-harness/protocol";
 import { applyChatUpdate, latestTurnEnd } from "./chat-transcript";
 import { WINDOW_ROLE } from "./lib/window-role";
+import { EXPIRED_APPROVAL } from "./lib/expired-approval";
+import { spliceReplay } from "./lib/replay-splice";
 import {
   LOCAL_HOST,
   addSession,
@@ -318,6 +321,7 @@ async function openConnection(hostId: HostId): Promise<void> {
     });
     setHarnessState(hostId, await opened.agent.request<HarnessState>(HARNESS_METHODS.stateGet, {}));
     mergeSessions(hostId, await opened.agent.request<SessionInfo[]>(HARNESS_METHODS.sessionsList, {}));
+    resyncTranscripts(hostId);
     setTerminals(hostId, await opened.agent.request<TerminalInfo[]>(HARNESS_METHODS.terminalsList, {}));
     upsertHost(hostId, {
       shells: await opened.agent.request<ShellOption[]>(HARNESS_METHODS.shellsList, {}),
@@ -417,40 +421,67 @@ export async function createSession(
 export function ensureSessionLoaded(sessionId: string): Promise<void> {
   const session = getState().sessions.find((s) => s.id === sessionId);
   if (!session || session.loaded) return Promise.resolve();
-  let pending = loading.get(sessionId);
-  if (!pending) {
-    markLoaded(sessionId);
-    // The replay arrives as one notification per update; rendering each one made a long chat
-    // visibly build up. Collect them and apply the whole transcript in one render.
-    replayBuffers.set(sessionId, []);
-    const flushReplay = () => {
-      const buffered = replayBuffers.get(sessionId) ?? [];
+  return loading.get(sessionId) ?? loadTranscript(sessionId);
+}
+
+/** Replays the transcript again (a rewind, a reconnect), swapping it in once it has all arrived. */
+export function reloadSessionTranscript(sessionId: string): Promise<void> {
+  const pending = loading.get(sessionId);
+  // A replay already under way may predate the change; a fresh one follows it.
+  return pending ? pending.catch(() => undefined).then(() => loadTranscript(sessionId)) : loadTranscript(sessionId);
+}
+
+/** Sessions whose replay failed (the link dropped); a reconnect replays them again. */
+const staleTranscripts = new Set<string>();
+
+function loadTranscript(sessionId: string): Promise<void> {
+  const session = getState().sessions.find((s) => s.id === sessionId);
+  if (!session) return Promise.resolve();
+  // The replay arrives as one notification per update, racing live ones; rendering each one made a
+  // long chat visibly build up. Collect them all and swap the transcript in at once.
+  replayBuffers.set(sessionId, []);
+  const pending = requireConnection(session.hostId)
+    .then((conn) =>
+      conn.agent.request(acp.methods.agent.session.load, { sessionId, cwd: session.cwd, mcpServers: [] }),
+    )
+    .then(
+      (response) => {
+        staleTranscripts.delete(sessionId);
+        applyReplay(sessionId, replayBuffers.get(sessionId) ?? [], response._meta?.[SESSION_REPLAY_META.replayedThrough]);
+      },
+      (error: unknown) => {
+        // A partial replay would show a transcript with holes; keep what was shown until a full one.
+        staleTranscripts.add(sessionId);
+        throw error;
+      },
+    )
+    .finally(() => {
       replayBuffers.delete(sessionId);
-      batchUpdates(() => {
-        for (const notification of buffered) applyChatUpdate(notification);
-        // Approvals still waiting go back under the replayed history, where the live turn is.
-        updateSession(sessionId, (s) => {
-          const open = (i: (typeof s.items)[number]) => i.kind === "permission" && i.chosen === null;
-          return { ...s, items: [...s.items.filter((i) => !open(i)), ...s.items.filter(open)] };
-        });
-      });
-    };
-    pending = requireConnection(session.hostId)
-      .then((conn) =>
-        conn.agent.request(acp.methods.agent.session.load, {
-          sessionId,
-          cwd: session.cwd,
-          mcpServers: [],
-        }),
-      )
-      .then(() => undefined)
-      .finally(() => {
-        flushReplay();
-        loading.delete(sessionId);
-      });
-    loading.set(sessionId, pending);
-  }
+      if (loading.get(sessionId) === pending) loading.delete(sessionId);
+    });
+  loading.set(sessionId, pending);
   return pending;
+}
+
+/** Replaces the transcript with a replay and the live updates that raced it. */
+function applyReplay(sessionId: string, buffered: acp.SessionNotification[], through: unknown): void {
+  const spliced = spliceReplay(buffered, through);
+  batchUpdates(() => {
+    markLoaded(sessionId);
+    for (const notification of spliced) applyChatUpdate(notification);
+    // Approvals still waiting go back under the replayed history, where the live turn is.
+    updateSession(sessionId, (s) => {
+      const open = (i: (typeof s.items)[number]) => i.kind === "permission" && i.chosen === null;
+      return { ...s, items: [...s.items.filter((i) => !open(i)), ...s.items.filter(open)] };
+    });
+  });
+}
+
+/** After a reconnect: whatever happened while the link was down reached no window, so replay again. */
+function resyncTranscripts(hostId: HostId): void {
+  for (const s of getState().sessions) {
+    if (s.hostId === hostId && (s.loaded || staleTranscripts.has(s.id))) void reloadSessionTranscript(s.id).catch(() => undefined);
+  }
 }
 
 /** Starts a shell in a workspace and makes it the active tab. */
@@ -541,6 +572,8 @@ export async function sendPrompt(sessionId: string, text: string, images: ChatIm
       ],
     });
   } catch (error) {
+    // The link dropped, not the turn: it goes on there, and the reconnect replays what it did.
+    if (conn.signal.aborted) return true;
     // The daemon records a failed turn's error before replying; only a failure to reach it is new.
     updateSession(sessionId, (s) => {
       if (latestTurnEnd(s.items)) return { ...s, turnStartedAt: null };
@@ -563,8 +596,19 @@ export function cancelTurn(sessionId: string): void {
 /** False when the request is not held by this window (another window ran the turn). */
 export function answerPermission(requestId: string, optionId: string | null): boolean {
   const entry = pendingPermissions.get(requestId);
-  entry?.settle(optionId);
-  return entry !== undefined;
+  if (entry) {
+    entry.settle(optionId);
+    return true;
+  }
+  // A card this window drew whose ask is gone (a reloaded module): nobody waits on it any more.
+  for (const s of getState().sessions) {
+    if (!s.items.some((i) => i.kind === "permission" && i.requestId === requestId && i.chosen === null)) continue;
+    updateSession(s.id, (x) => ({
+      ...x,
+      items: x.items.map((i) => (i.kind === "permission" && i.requestId === requestId ? { ...i, chosen: EXPIRED_APPROVAL } : i)),
+    }));
+  }
+  return false;
 }
 
 async function requestPermission(
@@ -596,7 +640,7 @@ async function requestPermission(
         ...s,
         items: s.items.map((item) =>
           item.kind === "permission" && item.requestId === requestId
-            ? { ...item, chosen: optionId ?? "cancelled" }
+            ? { ...item, chosen: optionId ?? EXPIRED_APPROVAL }
             : item,
         ),
       }));

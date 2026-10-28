@@ -79,6 +79,14 @@ export function WorkspaceOptionsMenu() {
             Workspaces
           </DropdownMenuRadioItem>
         </DropdownMenuRadioGroup>
+        <DropdownMenuCheckboxItem
+          data-option="show-archived"
+          checked={view.showArchived === true}
+          onCheckedChange={(checked) => setSidebarView({ showArchived: checked === true })}
+          onSelect={(e) => e.preventDefault()}
+        >
+          Archived chats
+        </DropdownMenuCheckboxItem>
         <DropdownMenuSeparator />
         <DropdownMenuLabel className="text-xs text-muted-foreground">Group by</DropdownMenuLabel>
         <DropdownMenuRadioGroup

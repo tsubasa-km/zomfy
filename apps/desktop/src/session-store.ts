@@ -46,6 +46,7 @@ export type ThreadItem =
       /** The tool call's input (an ExitPlanMode plan, a command). */
       input?: unknown
       options: acp.PermissionOption[]
+      /** The picked option's id, EXPIRED_APPROVAL, or null while it waits. */
       chosen: string | null
     }
 
@@ -109,6 +110,8 @@ export interface SidebarView {
   sortBy: 'created' | 'name' | 'recent' | 'manual'
   /** What a project lists: its chats (the default; worktrees stay behind them) or its workspaces as cards. */
   rows?: 'chats' | 'workspaces'
+  /** List archived chats too (dimmed, with Unarchive in their menu). */
+  showArchived?: boolean
 }
 
 /** `plugin:<publisher.id>/<panelId>` names an enabled plugin's panel. */

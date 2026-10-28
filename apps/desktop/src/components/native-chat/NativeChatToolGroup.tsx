@@ -3,7 +3,7 @@ import { cn } from '@/lib/utils'
 import { NativeChatToolLine } from './NativeChatToolLine'
 import { NativeChatSubagentRun } from './NativeChatSubagentRun'
 import { useNativeChatDisclosure } from './native-chat-disclosure-store'
-import { isSubagentTool, shortenPaths, type ToolNode } from './native-chat-transcript-model'
+import { isSubagentTool, shortenPaths, type ApprovalOutcome, type ToolNode } from './native-chat-transcript-model'
 
 // A run of tool calls folds into one line, as the Claude app shows "Ran 4 commands": the reader
 // opens it for the calls; while one is still going, that call shows under the line.
@@ -35,12 +35,14 @@ export function toolRunSummary(tools: ToolNode[]): string {
   return text.charAt(0).toUpperCase() + text.slice(1)
 }
 
-export function NativeChatDecisionLine({ title, chosen, cwd }: { title: string; chosen: string; cwd: string }) {
+const OUTCOME_LABELS: Record<ApprovalOutcome, string> = { allowed: 'Allowed', rejected: 'Rejected', expired: 'Expired' }
+
+export function NativeChatDecisionLine({ title, outcome, cwd }: { title: string; outcome: ApprovalOutcome; cwd: string }) {
   return (
-    <div className="flex items-center gap-1.5 text-xs text-chat-foreground-faint">
+    <div data-approval-outcome={outcome} className="flex items-center gap-1.5 text-xs text-chat-foreground-faint">
       <ShieldQuestion className="size-3.5" aria-hidden />
       <span className="truncate">
-        {chosen === 'reject' || chosen === 'cancelled' ? 'Rejected' : 'Allowed'}: {shortenPaths(title, cwd)}
+        {OUTCOME_LABELS[outcome]}: {shortenPaths(title, cwd)}
       </span>
     </div>
   )
@@ -54,7 +56,7 @@ function Call({ node, rowKey, cwd }: { node: ToolNode; rowKey: string; cwd: stri
       ) : (
         <NativeChatToolLine tool={node.tool} cwd={cwd} />
       )}
-      {node.decision ? <NativeChatDecisionLine title={node.decision.title} chosen={node.decision.chosen} cwd={cwd} /> : null}
+      {node.decision ? <NativeChatDecisionLine title={node.decision.title} outcome={node.decision.outcome} cwd={cwd} /> : null}
     </>
   )
 }
