@@ -219,7 +219,8 @@ export function duplicateBrowserTab(workspaceId: string, tabId: string): void {
   syncWorkspaceFocus(workspaceId)
 }
 
-export async function newTerminalTab(workspaceId: string, shellId?: string): Promise<void> {
-  const id = await createTerminal(workspaceId, shellId)
+/** `select: false` opens it without switching the pane's tab (the tab drawer's +). */
+export async function newTerminalTab(workspaceId: string, shellId?: string, options: { select?: boolean } = {}): Promise<void> {
+  const id = await createTerminal(workspaceId, shellId, undefined, options)
   if (shellId) setTabMeta(id, { shellId })
 }

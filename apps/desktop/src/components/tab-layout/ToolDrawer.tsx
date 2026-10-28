@@ -147,7 +147,7 @@ export function ToolDrawer({ workspaceId, exclude }: { workspaceId: string; excl
             <button
               type="button"
               title="New terminal"
-              onClick={() => void newTerminalTab(workspaceId)}
+              onClick={() => void newTerminalTab(workspaceId, undefined, { select: false })}
               className="flex size-6 shrink-0 items-center justify-center rounded-md text-muted-foreground hover:bg-accent/50 hover:text-foreground"
             >
               <Plus className="size-3.5" />
