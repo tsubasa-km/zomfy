@@ -6,6 +6,7 @@ import { Input } from '@/components/ui/input'
 import { isImeOwnedKeyboardEvent } from '@/lib/ime-composition-keyboard-event'
 import { cn } from '@/lib/utils'
 import { setTabMeta, useTabLayout } from '@/stores/tab-layout-store'
+import { gestureOf, tabSelection } from '@/stores/list-selection'
 import { TabContextMenu } from './TabContextMenu'
 import { TabKindIcon } from './TabKindIcon'
 import { DragChip } from '@/components/PointerDragLayer'
@@ -37,6 +38,7 @@ export function TabItem({
   tab,
   groupTabs,
   active,
+  groupActiveId,
   hasSplit
 }: {
   workspaceId: string
@@ -44,6 +46,8 @@ export function TabItem({
   tab: WorkspaceTab
   groupTabs: WorkspaceTab[]
   active: boolean
+  /** The group's open tab, which joins the first Ctrl-click's selection. */
+  groupActiveId: string | null
   hasSplit: boolean
 }) {
   const meta = useTabLayout((s) => s.meta[tab.id])
@@ -52,6 +56,7 @@ export function TabItem({
   const [menu, setMenu] = useState<{ x: number; y: number; open: boolean } | null>(null)
   const [renaming, setRenaming] = useState<string | null>(null)
   const dropSide = useInsertionMark(tab.id)
+  const selected = tabSelection.use((s) => s.scope === groupId && s.ids.length > 1 && s.ids.includes(tab.id))
   const ref = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
@@ -86,6 +91,7 @@ export function TabItem({
         data-tab-kind={tab.kind}
         data-tab-title={title}
         data-pinned={pinned ? 'true' : 'false'}
+        data-tab-selected={selected || undefined}
         onPointerDown={(e) => {
           if (renaming !== null) return
           tabDrag.begin(e, {
@@ -97,7 +103,15 @@ export function TabItem({
             autoScroll: false
           })
         }}
-        onClick={() => activateTab(workspaceId, groupId, tab.id)}
+        onClick={(e) => {
+          const gesture = gestureOf(e)
+          if (gesture) {
+            tabSelection.gesture(groupId, tab.id, gesture, groupActiveId, groupTabs.map((t) => t.id))
+            return
+          }
+          tabSelection.reset(groupId, tab.id)
+          activateTab(workspaceId, groupId, tab.id)
+        }}
         onDoubleClick={() => canRenameTab(tab) && setRenaming(title)}
         onMouseDown={(e) => e.button === 1 && e.preventDefault()}
         onAuxClick={(e) => {
@@ -111,7 +125,7 @@ export function TabItem({
         }}
         className={cn(
           'group relative flex h-full w-[180px] min-w-[72px] shrink cursor-pointer items-center gap-1.5 border-r border-border px-1.5 text-xs select-none min-[1280px]:w-[220px]',
-          active
+          active || selected
             ? 'bg-[color-mix(in_srgb,var(--foreground)_6%,var(--card))] text-foreground'
             : 'bg-card text-muted-foreground hover:text-foreground',
           dropSide === 'before' && DROP_BEFORE,

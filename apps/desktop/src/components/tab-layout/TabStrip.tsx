@@ -9,6 +9,7 @@ import {
 } from '@/components/ui/dropdown-menu'
 import { cn } from '@/lib/utils'
 import { NewTabMenu } from './NewTabMenu'
+import { NewTerminalButton } from './terminal-commands'
 import { QuickCommandsButton } from '@/components/terminal/QuickCommandsButton'
 import { TabItem } from './TabItem'
 import { closeGroup } from './tab-group-commands'
@@ -156,6 +157,7 @@ export function TabStrip({
             tab={tab}
             groupTabs={tabs}
             active={tab.id === activeId}
+            groupActiveId={activeId}
             hasSplit={hasSplit}
           />
         ))}
@@ -164,6 +166,7 @@ export function TabStrip({
         <ScrollButton direction="end" disabled={!overflow.canScrollEnd} onClick={() => scrollBy('end')} />
       )}
       <NewTabMenu workspaceId={workspaceId} groupId={groupId} />
+      <NewTerminalButton workspaceId={workspaceId} groupId={groupId} />
       <QuickCommandsButton workspaceId={workspaceId} />
       <div className="min-w-0 flex-1" />
       {hasSplit && (

@@ -29,6 +29,7 @@ import {
   DropdownMenuTrigger
 } from '@/components/ui/dropdown-menu'
 import { setTabMeta, useTabLayout, type SplitSide } from '@/stores/tab-layout-store'
+import { tabSelection } from '@/stores/list-selection'
 import { currentUrl } from '@/stores/browser-tab-store'
 import { cn } from '@/lib/utils'
 import {
@@ -100,6 +101,9 @@ export function TabContextMenu({
   const others = unpinned(groupTabs.filter((t) => t.id !== tab.id))
   const toRight = unpinned(groupTabs.slice(index + 1))
   const toLeft = unpinned(groupTabs.slice(0, index))
+  // Right-clicking one of several selected tabs acts on the selection.
+  const selectedIds = tabSelection.use((s) => (s.scope === groupId && s.ids.length > 1 && s.ids.includes(tab.id) ? s.ids : null))
+  const selected = selectedIds ? unpinned(groupTabs.filter((t) => selectedIds.includes(t.id))) : null
   const renameAfterClose = useRef(false)
   const close = (list: WorkspaceTab[]) => closeWorkspaceTabs(workspaceId, list)
 
@@ -169,6 +173,19 @@ export function TabContextMenu({
           Copy Tab ID
         </DropdownMenuItem>
         <DropdownMenuSeparator />
+        {selected && (
+          <DropdownMenuItem
+            data-menu-action="close-selected"
+            disabled={selected.length === 0}
+            onSelect={() => {
+              tabSelection.reset()
+              close(selected)
+            }}
+          >
+            <X className="size-3.5" />
+            Close {selected.length} Selected Tabs
+          </DropdownMenuItem>
+        )}
         <DropdownMenuItem data-menu-action="close" disabled={isPinned} onSelect={() => !isPinned && close([tab])}>
           <X className="size-3.5" />
           Close

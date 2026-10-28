@@ -1,4 +1,5 @@
 import { useSyncExternalStore } from 'react'
+import { nextSelection, type Gesture } from './list-selection'
 import type { WorkspaceStatusId, WorkspaceSummary } from '@acp-harness/protocol'
 import type { HostId } from '@/session-store'
 
@@ -177,24 +178,13 @@ export function setDropTarget(dropTarget: DropTarget | null): void {
 /** Orca's list gestures: Ctrl/Cmd toggles one card, Shift extends from the anchor. */
 export function selectWithGesture(
   id: string,
-  gesture: { toggle: boolean; range: boolean },
+  gesture: Gesture,
   activeId: string | null,
   /** Cards in the order they are drawn, for Shift ranges. */
   order: string[]
 ): void {
-  if (gesture.range) {
-    const anchor = state.selectionAnchor ?? activeId ?? id
-    const from = order.indexOf(anchor)
-    const to = order.indexOf(id)
-    if (from !== -1 && to !== -1) {
-      const range = order.slice(Math.min(from, to), Math.max(from, to) + 1)
-      set({ selection: gesture.toggle ? [...new Set([...state.selection, ...range])] : range, selectionAnchor: anchor })
-      return
-    }
-  }
-  // The first Ctrl-click also keeps the workspace that is open, so two clicks make a pair.
-  const base = state.selection.length === 0 && activeId && activeId !== id ? [activeId] : state.selection
-  set({ selection: toggleIn(base, id), selectionAnchor: id })
+  const next = nextSelection({ ids: state.selection, anchor: state.selectionAnchor }, id, gesture, activeId, order)
+  set({ selection: next.ids, selectionAnchor: next.anchor })
 }
 
 export function clearSelection(): void {
