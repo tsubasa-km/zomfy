@@ -6,6 +6,7 @@ import {
   normalizeNativeChatTaskList,
   type NativeChatTaskList
 } from './native-chat-task-list'
+import { splitTaskNotifications } from './native-chat-task-notification'
 
 export type ToolItem = Extract<ThreadItem, { kind: 'tool' }>
 export type UserItem = Extract<ThreadItem, { kind: 'user' }>
@@ -19,6 +20,7 @@ export type TurnDiff = { files: TurnDiffFile[]; added: number; removed: number }
 
 export type TranscriptRowModel =
   | { kind: 'user'; item: UserItem }
+  | { kind: 'background'; status: string | null; summary: string }
   | { kind: 'agent'; text: string }
   | { kind: 'thought'; text: string }
   | { kind: 'tools'; tools: ToolNode[] }
@@ -109,10 +111,13 @@ export function buildTranscript(items: ThreadItem[], turnRunning: boolean, cwd: 
         else rows.push({ kind: 'decision', title: item.title, chosen: item.chosen })
         break
       }
-      case 'user':
+      case 'user': {
         closeTurn()
-        rows.push({ kind: 'user', item })
+        const { notifications, rest } = splitTaskNotifications(item.text)
+        for (const n of notifications) rows.push({ kind: 'background', ...n })
+        if (notifications.length === 0 || rest || item.images?.length) rows.push({ kind: 'user', item: { ...item, text: rest } })
         break
+      }
       case 'agent':
       case 'thought':
         // An empty reply between two calls would split one run of tools into several.

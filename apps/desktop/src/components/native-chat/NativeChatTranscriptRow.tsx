@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { ChevronRight, GitFork, Undo2 } from 'lucide-react'
+import { ChevronRight, CircleAlert, GitFork, SquareTerminal, Undo2 } from 'lucide-react'
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { cn } from '@/lib/utils'
@@ -125,6 +125,18 @@ export function NativeChatTranscriptRow({
           <span className="h-px flex-1 bg-border" />
           <span>{label}</span>
           <span className="h-px flex-1 bg-border" />
+        </div>
+      )
+    }
+    case 'background': {
+      const failed = row.status === 'failed' || row.status === 'killed'
+      const Icon = failed ? CircleAlert : SquareTerminal
+      return (
+        <div data-native-chat-background={row.status ?? ''} className="flex min-w-0 items-center gap-2 text-xs text-chat-foreground-faint">
+          <Icon className={cn('size-3.5 shrink-0', failed && 'text-destructive')} />
+          <span className="min-w-0 truncate select-text" title={row.summary}>
+            {row.summary}
+          </span>
         </div>
       )
     }
