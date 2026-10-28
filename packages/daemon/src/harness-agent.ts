@@ -16,6 +16,7 @@ import {
 } from "@acp-harness/protocol";
 import type { WorkflowStepContext, WorkflowStepUsage } from "@acp-harness/protocol";
 import { runClaudeTurn, type StepOptions } from "./claude-turn.ts";
+import { WorktreeClaims } from "./worktree-claims.ts";
 import { hostPath } from "./tui-agent-detection.ts";
 import { TurnAutoResume } from "./turn-auto-resume.ts";
 import { recoveryPrompt } from "./turn-recovery.ts";
@@ -69,6 +70,27 @@ export function createHarnessAgent(
   const localTools = new Map<ManagerToolName, { route: ManagerRoute; offeredTo: (sessionId: string) => boolean }>();
   managerMcp.setRoute((caller, tool, args) => (localTools.get(tool)?.route ?? managerRouting.route)(caller, tool, args));
   managerMcp.setStepToolOffers((sessionId, tool) => localTools.get(tool)?.offeredTo(sessionId) ?? false);
+  const claims = new WorktreeClaims({
+    projectWorkspaces: () => workspaces.projectWorkspaces(),
+    chatsIn: (workspaceId) =>
+      sessions
+        .list()
+        .filter((s) => s.workspaceId === workspaceId)
+        .map((s) => ({ id: s.id, busy: pendingTurns.has(s.id) || s.status === "needs-you" })),
+  });
+  localTools.set("claim_worktree", {
+    offeredTo: () => true,
+    route: async (caller, _tool, args) => {
+      const session = sessions.get(caller);
+      const workspaceId = typeof args.workspaceId === "string" ? args.workspaceId : "";
+      if (!session) return { result: "Unknown chat.", isError: true };
+      try {
+        return { result: claims.claim(caller, session.workspaceId, workspaceId) };
+      } catch (error) {
+        return { result: error instanceof Error ? error.message : String(error), isError: true };
+      }
+    },
+  });
   let knownSessionIds = new Set<string>();
   sessions.onChange((list) => {
     const ids = new Set(list.map((s) => s.id));
@@ -261,6 +283,7 @@ export function createHarnessAgent(
     };
 
     const quickChat = workspaces.isScratch(session.workspaceId);
+    const worktreePrompt = quickChat ? null : claims.prompt(session.workspaceId);
     try {
       const stopReason = external
         ? await external.prompt(agentPrompt, abort, askPermission)
@@ -291,7 +314,10 @@ export function createHarnessAgent(
           ? { appendSystemPrompt: MANAGER_SYSTEM_PROMPT }
           : quickChat
             ? { appendSystemPrompt: QUICK_CHAT_SYSTEM_PROMPT }
-            : {}),
+            : worktreePrompt
+              ? { appendSystemPrompt: worktreePrompt }
+              : {}),
+        ...(quickChat ? {} : { worktreeGuards: () => claims.guards(session.id, session.workspaceId) }),
         onTurnEnd: (turnEnd) => (outcome.end = turnEnd),
         onPromptSuggestion: (promptSuggestion) => sessions.update(session.id, { promptSuggestion }),
         ...(stepTurns.get(session.id) ?? {}),
@@ -324,6 +350,7 @@ export function createHarnessAgent(
       throw error;
     } finally {
       if (pendingTurns.get(session.id) === abort) pendingTurns.delete(session.id);
+      claims.release(session.id);
     }
   }
 

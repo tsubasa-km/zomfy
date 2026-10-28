@@ -233,6 +233,18 @@ export const MANAGER_TOOLS = [
     selfOnly: true
   },
   {
+    name: 'claim_worktree',
+    description:
+      "Lets you change another worktree of your project until your turn ends. Every chat working there must be idle; while you hold it they may only read. Prefer asking that worktree's chat with send_prompt when the change is theirs to make.",
+    inputSchema: {
+      type: 'object',
+      properties: { workspaceId: str('The other worktree, as your instructions or list_workspaces give it.') },
+      required: ['workspaceId']
+    },
+    readOnly: false,
+    selfOnly: true
+  },
+  {
     name: 'spawn_agents',
     description:
       "Runs helper agents on parts of your workflow step and waits for their reports. The step caps how many run at once; the rest queue. They work in your folder at the same time, so give each a self-contained part (goal, files it owns, how to check it) that does not overlap the others'. They do not commit: integrate, verify and commit yourself.",

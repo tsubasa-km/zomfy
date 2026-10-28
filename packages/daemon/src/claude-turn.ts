@@ -65,6 +65,8 @@ interface TurnInput {
   onPromptSuggestion?: (suggestion: string) => void;
   /** A workflow step's tool policy and the shape its result must take. */
   step?: StepOptions;
+  /** The project's other worktrees this chat may only read (worktree-claims.ts), read on every tool call. */
+  worktreeGuards?: () => PathGuard[];
   /** The turn's final text and, with step.outputFormat, its structured result. */
   onResult?: (result: { text: string; structured: unknown; usage: WorkflowStepUsage; context?: WorkflowStepContext }) => void;
 }
@@ -165,7 +167,9 @@ export async function runClaudeTurn(input: TurnInput): Promise<acp.StopReason> {
       ...(input.step?.skills ? { skills: input.step.skills } : {}),
       ...(input.step?.strictMcpConfig ? { strictMcpConfig: true } : {}),
       ...(input.step?.outputFormat ? { outputFormat: input.step.outputFormat } : {}),
-      ...(input.step?.guards?.length ? { hooks: pathGuardHooks(input.step.guards) } : {}),
+      ...(input.step?.guards?.length || input.worktreeGuards
+        ? { hooks: pathGuardHooks(() => [...(input.step?.guards ?? []), ...(input.worktreeGuards?.() ?? [])]) }
+        : {}),
       ...(input.appendSystemPrompt
         ? { systemPrompt: { type: "preset" as const, preset: "claude_code" as const, append: input.appendSystemPrompt } }
         : {}),

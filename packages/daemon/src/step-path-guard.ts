@@ -13,6 +13,8 @@ export interface PathGuard {
   name: string;
   /** none: may not touch it; read: may read but not change it. */
   allow: "none" | "read";
+  /** Said instead of the workflow-step refusal (another chat's worktree). */
+  reason?: string;
 }
 
 const FILE_TOOLS: Record<string, string[]> = {
@@ -47,7 +49,8 @@ export function guardedUse(guards: PathGuard[], tool: string, input: unknown, cw
   const fields = input && typeof input === "object" ? (input as Record<string, unknown>) : {};
   for (const guard of guards) {
     const root = norm(guard.path, cwd);
-    const refuse = `Zomfy: this workflow step is not allowed to ${guard.allow === "read" ? "change" : "use"} "${guard.name}" (${guard.path}).`;
+    const refuse =
+      guard.reason ?? `Zomfy: this workflow step is not allowed to ${guard.allow === "read" ? "change" : "use"} "${guard.name}" (${guard.path}).`;
     // Any shell (Bash, PowerShell on Windows) takes a command line.
     if (typeof fields.command === "string" && !FILE_TOOLS[tool]) {
       if (guard.allow !== "none") continue;
@@ -74,14 +77,15 @@ export function guardedUse(guards: PathGuard[], tool: string, input: unknown, cw
   return null;
 }
 
-export function pathGuardHooks(guards: PathGuard[]): { PreToolUse: HookCallbackMatcher[] } {
+/** `guards` may be a function: read on every call, so guards that change mid-turn (a claim) apply at once. */
+export function pathGuardHooks(guards: PathGuard[] | (() => PathGuard[])): { PreToolUse: HookCallbackMatcher[] } {
   return {
     PreToolUse: [
       {
         hooks: [
           async (input) => {
             if (input.hook_event_name !== "PreToolUse") return {};
-            const reason = guardedUse(guards, input.tool_name, input.tool_input, input.cwd);
+            const reason = guardedUse(typeof guards === "function" ? guards() : guards, input.tool_name, input.tool_input, input.cwd);
             return reason
               ? { hookSpecificOutput: { hookEventName: "PreToolUse" as const, permissionDecision: "deny" as const, permissionDecisionReason: reason } }
               : {};
