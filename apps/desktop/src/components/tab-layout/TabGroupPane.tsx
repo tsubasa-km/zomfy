@@ -6,6 +6,7 @@ import { DiffTabView } from '@/components/EditorTabViews'
 import { FileEditorView } from '@/components/FileEditorView'
 import { cn } from '@/lib/utils'
 import { BrowserTabView } from './BrowserTabView'
+import { ToolDrawer } from './ToolDrawer'
 import { TabStrip } from './TabStrip'
 import { resolveTabDropTarget, setInsertionMark, tabDrag, type DropZone } from './tab-drag'
 import { focusGroup, moveTabTo, splitTabTo } from './tab-group-commands'
@@ -104,6 +105,7 @@ export function TabGroupPane({
       />
       <div data-tab-group-body-id={groupId} className="relative flex min-h-0 min-w-0 flex-1 flex-col">
         {active ? <TabBody tab={active} /> : <div className="m-auto px-4 text-center text-sm text-muted-foreground">{emptyHint}</div>}
+        <ToolDrawer workspaceId={workspaceId} exclude={active?.id} />
       </div>
       {zone && (
         <div aria-hidden data-tab-drop-zone={zone} className="tab-drop-overlay" style={OVERLAY_RECT[zone]}>
