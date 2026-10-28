@@ -1,5 +1,5 @@
 import { Fragment } from 'react'
-import { ChevronRight, FolderGit2, FolderOpen, FolderPlus, MoreHorizontal, Plus, Settings2, Unlink, Workflow as WorkflowIcon } from 'lucide-react'
+import { ChevronRight, FolderGit2, FolderOpen, FolderPlus, MessageSquarePlus, MoreHorizontal, Plus, Settings2, Unlink, Workflow as WorkflowIcon } from 'lucide-react'
 import { HARNESS_METHODS, type ProjectGroup, type Workspace } from '@acp-harness/protocol'
 import { harnessRequest } from '@/daemon-connection'
 import { setSidebarView, useStore, type HostId, type HostedProject, type Session } from '@/session-store'
@@ -29,6 +29,7 @@ import { cn } from '@/lib/utils'
 import { openAddProjectDialog } from '@/lib/project-dialogs'
 import { unlinkProject } from '@/stores/project-links-store'
 import { openWorkflows } from '@/stores/workflows-store'
+import { startChat } from '@/lib/chat-worktree'
 
 /** Dialogs and flows the sidebar root owns; sections only ask for them. */
 export interface SidebarActions {
@@ -189,13 +190,16 @@ export function ProjectSection({
               <Button
                 size="icon-xs"
                 variant="ghost"
-                aria-label={`New workspace in ${label}`}
-                onClick={() => actions.newWorkspace(project)}
+                aria-label={showChats ? `New chat in ${label}` : `New workspace in ${label}`}
+                data-project-new-chat={showChats || undefined}
+                onClick={() => (showChats ? void startChat(project) : actions.newWorkspace(project))}
               >
                 <Plus className="size-3.5" />
               </Button>
             </TooltipTrigger>
-            <TooltipContent side="right">New workspace…</TooltipContent>
+            <TooltipContent side="right">
+              {showChats ? (project.kind === 'git' ? 'New chat in its own worktree' : 'New chat') : 'New workspace…'}
+            </TooltipContent>
           </Tooltip>
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
@@ -218,6 +222,19 @@ export function ProjectSection({
                 onCleanUp={project.kind === 'git' ? () => actions.cleanUp(project) : undefined}
                 onRemove={() => actions.removeProject(project)}
               />
+              {project.kind === 'git' && (
+                <>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem data-project-action="chat-worktree" onSelect={() => void startChat(project)}>
+                    <MessageSquarePlus className="size-3.5" />
+                    New Chat in Its Own Worktree
+                  </DropdownMenuItem>
+                  <DropdownMenuItem data-project-action="chat-checkout" onSelect={() => void startChat(project, 'checkout')}>
+                    <MessageSquarePlus className="size-3.5" />
+                    New Chat in the Main Checkout
+                  </DropdownMenuItem>
+                </>
+              )}
               <DropdownMenuSeparator />
               <DropdownMenuItem
                 data-project-action="workflows"
