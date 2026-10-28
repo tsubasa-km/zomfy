@@ -1,4 +1,5 @@
 import type { Project, Workspace } from "@acp-harness/protocol";
+import { realpathSync } from "node:fs";
 import type { PathGuard } from "./step-path-guard.ts";
 
 // One chat, one worktree: a chat sees its project's other worktrees but changes only its own. To
@@ -30,21 +31,21 @@ export class WorktreeClaims {
     const others = this.siblings(workspaceId)
       .filter((w) => this.claims.get(w.workspace.id) !== sessionId)
       // Worktrees kept inside the main checkout: guarding the checkout would fence this chat out of its own.
-      .filter((w) => !ownPath || !inside(ownPath, w.workspace.path))
-      .map(({ workspace }) => ({
-        path: workspace.path,
+      .filter((w) => !ownPath || !spellings(ownPath).some((own) => spellings(w.workspace.path).some((root) => inside(own, root))))
+      .flatMap(({ workspace }) =>
+        spellings(workspace.path).map((path) => ({
+        path,
         name: label(workspace),
         allow: "read" as const,
         reason: `Zomfy: ${workspace.path} is ${label(workspace)}, another chat's worktree: read it, but change only your own folder. Ask its chat with send_prompt, or call claim_worktree (workspace id ${workspace.id}) while every chat there is idle.`,
-      }));
+        })),
+      );
     const holder = workspaceId ? this.claims.get(workspaceId) : undefined;
     const own = this.deps.projectWorkspaces().find((w) => w.workspace.id === workspaceId)?.workspace;
     // Another chat holds this worktree for now: wait for it rather than edit underneath it.
     if (!holder || holder === sessionId || !own) return others;
-    return [
-      ...others,
-      { path: own.path, name: label(own), allow: "read", reason: "Zomfy: another chat has claimed this worktree for its current turn; wait for it to finish before changing files." },
-    ];
+    const reason = "Zomfy: another chat has claimed this worktree for its current turn; wait for it to finish before changing files.";
+    return [...others, ...spellings(own.path).map((path) => ({ path, name: label(own), allow: "read" as const, reason }))];
   }
 
   /** What the chat should know about the worktrees around it, or null outside a multi-worktree project. */
@@ -73,6 +74,16 @@ export class WorktreeClaims {
   /** The claiming turn ended: its worktrees go back to their chats. */
   release(sessionId: string): void {
     for (const [workspaceId, holder] of this.claims) if (holder === sessionId) this.claims.delete(workspaceId);
+  }
+}
+
+/** The path as stored and as the file system spells it: Windows 8.3 names (SUZUKI~1) reach the same folder. */
+function spellings(path: string): string[] {
+  try {
+    const real = realpathSync.native(path);
+    return real === path ? [path] : [path, real];
+  } catch {
+    return [path];
   }
 }
 
