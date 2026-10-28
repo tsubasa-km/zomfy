@@ -31,7 +31,9 @@ const BUCKET_LABEL: Record<Bucket, string> = {
 function bucketOf(session: Session, unread: StoreState['unread']): Bucket {
   if (session.status === 'needs-you') return 'attention'
   if (session.status === 'working') return 'working'
-  return unread[session.id] || session.status === 'error' ? 'done' : 'idle'
+  // A failed turn is not done: until it is looked at, it waits on the person.
+  if (session.status === 'error') return unread[session.id] ? 'attention' : 'idle'
+  return unread[session.id] ? 'done' : 'idle'
 }
 
 export function AgentDashboard() {

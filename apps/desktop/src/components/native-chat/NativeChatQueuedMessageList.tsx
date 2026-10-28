@@ -25,7 +25,7 @@ function IconAction({ label, onClick, children }: { label: string; onClick: () =
 }
 
 export function NativeChatQueuedMessageList({ sessionId, working }: { sessionId: string; working: boolean }) {
-  const { queue, queuePaused } = useChatSession(sessionId)
+  const { queue, queuePaused, queuePauseReason } = useChatSession(sessionId)
   const [expanded, setExpanded] = useState(true)
   if (queue.length === 0) return <div aria-live="polite" />
   return (
@@ -39,7 +39,9 @@ export function NativeChatQueuedMessageList({ sessionId, working }: { sessionId:
               !expanded && 'rounded-b-md'
             )}
           >
-            <p className={cn('truncate', queuePaused && 'font-medium text-foreground')}>{queuePaused ? 'Paused' : 'Queued'}</p>
+            <p className={cn('truncate', queuePaused && 'font-medium text-foreground')}>
+              {queuePaused ? (queuePauseReason ? `Paused · ${queuePauseReason}` : 'Paused') : 'Queued'}
+            </p>
             <span aria-hidden>·</span>
             <span className="min-w-0 flex-1 tabular-nums">{queue.length}</span>
             {queuePaused ? (

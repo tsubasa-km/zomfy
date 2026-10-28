@@ -37,6 +37,7 @@ import { stat } from "node:fs/promises";
 import { dirname } from "node:path";
 import { sanitizeWorkspaceName } from "./worktree-naming.ts";
 import { log } from "./log.ts";
+import { killTree, trackChild } from "./process-tree.ts";
 import { git, GitError } from "./git-cli.ts";
 
 // Runs a workflow graph: the engine, not a model, picks each next step. Agent steps are chat
@@ -77,11 +78,18 @@ type TurnResult = Verdict & { index: number };
 
 class RunStopped extends Error {}
 
+/** A run being driven: Stop aborts its sessions' turns and kills its check commands. */
+interface LiveRun {
+  stopped: boolean;
+  sessions: Set<string>;
+  commands: Set<Bun.Subprocess>;
+}
+
 /** A step session that may spawn helpers, sharing its step's cap with the step's other sessions. */
 interface Spawner {
   run: WorkflowRun;
   node: WorkflowNode;
-  live: { stopped: boolean; sessions: Set<string> };
+  live: LiveRun;
   workspace: Workspace;
   step: StepOptions;
   slots: Slots;
@@ -108,7 +116,7 @@ class Slots {
 
 export class WorkflowEngine {
   /** Runs this daemon is driving now, so Stop can reach their turns. */
-  private readonly live = new Map<string, { stopped: boolean; sessions: Set<string> }>();
+  private readonly live = new Map<string, LiveRun>();
   /** A step's session waiting mid-turn on the person (ask_requester escalated), by run id. */
   private readonly asking = new Map<string, (answer: string) => void>();
   /** Step sessions that may spawn helpers now, by session id. */
@@ -263,7 +271,18 @@ export class WorkflowEngine {
     const live = this.live.get(runId);
     if (live) {
       live.stopped = true;
-      for (const sessionId of live.sessions) this.deps.pendingTurns.get(sessionId)?.abort();
+      const abortTurns = () => {
+        for (const sessionId of live.sessions) this.deps.pendingTurns.get(sessionId)?.abort();
+      };
+      abortTurns();
+      for (const proc of live.commands) killTree(proc);
+      // A step turn still starting has no abort to reach yet: sweep again until the run's turns are gone.
+      void (async () => {
+        for (let i = 0; i < 40 && live.sessions.size > 0; i++) {
+          await Bun.sleep(250);
+          abortTurns();
+        }
+      })();
     }
     if (run.status === "running" || run.status === "waiting") return this.finish(run, "stopped");
     return run;
@@ -301,7 +320,7 @@ export class WorkflowEngine {
   // ── The loop ──────────────────────────────────────────────────────────
 
   private async drive(run: WorkflowRun): Promise<void> {
-    const live = { stopped: false, sessions: new Set<string>() };
+    const live: LiveRun = { stopped: false, sessions: new Set(), commands: new Set() };
     this.live.set(run.id, live);
     try {
       while (run.status === "running" && run.currentNodeId && !live.stopped) {
@@ -389,9 +408,9 @@ export class WorkflowEngine {
     }
   }
 
-  private async execute(run: WorkflowRun, node: WorkflowNode, live: { stopped: boolean; sessions: Set<string> }): Promise<StepResult> {
+  private async execute(run: WorkflowRun, node: WorkflowNode, live: LiveRun): Promise<StepResult> {
     if (node.kind === "check" || (node.kind === "custom" && node.config.runner === "command")) {
-      return this.runCommand(run, node);
+      return this.runCommand(run, node, live);
     }
     const outcomes = workflowOutcomes(node);
     const count = Math.max(1, Math.min(8, node.config.parallel?.count ?? 1));
@@ -408,6 +427,7 @@ export class WorkflowEngine {
     const dataDirs = await this.dataDirs(run, node);
     if (dataDirs.length > 0) step.additionalDirectories = dataDirs;
     const turn = async (sessionId: string, index: number): Promise<TurnResult> => {
+      if (live.stopped) throw new RunStopped();
       live.sessions.add(sessionId);
       // The starting chat is the person's: its asks are never answered for them.
       if (run.autoApprove && node.config.runBy !== "lead") this.deps.autoApprove.add(sessionId);
@@ -661,6 +681,7 @@ export class WorkflowEngine {
       "",
       "Finish with a short report: what you changed (files), how you checked it, and anything left open.",
     ].join("\n");
+    if (live.stopped) return "Not run: the workflow was stopped.";
     live.sessions.add(record.id);
     if (run.autoApprove) this.deps.autoApprove.add(record.id);
     try {
@@ -766,7 +787,7 @@ export class WorkflowEngine {
 
   // ── Steps that are not sessions ───────────────────────────────────────
 
-  private async runCommand(run: WorkflowRun, node: WorkflowNode): Promise<StepResult> {
+  private async runCommand(run: WorkflowRun, node: WorkflowNode, live: LiveRun): Promise<StepResult> {
     const fields = node.config.fields ?? [];
     const command = (node.config.command ?? "").replace(/\{\{\s*([\w-]+)\s*\}\}/g, (all, key: string) => {
       const field = fields.find((f) => f.key === key);
@@ -777,13 +798,29 @@ export class WorkflowEngine {
     // cmd.exe reads its command line as typed: quoting it as an argument would mangle the command's own quotes.
     const windows = process.platform === "win32";
     const argv = windows ? ["cmd.exe", "/d", "/s", "/c", `"${command}"`] : ["bash", "-lc", command];
-    const proc = Bun.spawn(argv, { cwd, stdout: "pipe", stderr: "pipe", stdin: "ignore", windowsHide: true, windowsVerbatimArguments: windows });
-    const timer = setTimeout(() => proc.kill(), CHECK_TIMEOUT_MS);
+    if (live.stopped) throw new RunStopped();
+    const proc = Bun.spawn(argv, {
+      cwd,
+      stdout: "pipe",
+      stderr: "pipe",
+      stdin: "ignore",
+      windowsHide: true,
+      windowsVerbatimArguments: windows,
+      // Its own process group, so a Stop or the timeout ends what the command started too.
+      detached: !windows,
+    });
+    trackChild(proc);
+    live.commands.add(proc);
+    const timer = setTimeout(() => killTree(proc), CHECK_TIMEOUT_MS);
     const [stdout, stderr, code] = await Promise.all([
       new Response(proc.stdout).text(),
       new Response(proc.stderr).text(),
       proc.exited,
-    ]).finally(() => clearTimeout(timer));
+    ]).finally(() => {
+      clearTimeout(timer);
+      live.commands.delete(proc);
+    });
+    if (live.stopped) throw new RunStopped();
     const output = `${stdout}${stderr}`.trim();
     const tail = output.length > OUTPUT_TAIL ? `…${output.slice(-OUTPUT_TAIL)}` : output;
     const own = (node.config.outcomes ?? []).filter((o) => o.trim());
@@ -983,6 +1020,14 @@ export class WorkflowEngine {
     run.status = status;
     run.waiting = null;
     run.endedAt = Date.now();
+    // A step cut off by the Stop ends with the run, not left "running".
+    if (status === "stopped") {
+      for (const step of run.steps) {
+        if (step.endedAt !== null) continue;
+        step.endedAt = run.endedAt;
+        step.error ??= "Stopped";
+      }
+    }
     if (why) {
       run.endReason = why;
       const last = run.steps.at(-1);

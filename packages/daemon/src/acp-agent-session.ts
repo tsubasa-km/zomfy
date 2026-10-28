@@ -19,6 +19,8 @@ import { log } from './log.ts'
 
 /** A server left idle this long exits; the next turn starts it again on the same conversation. */
 const IDLE_EXIT_MS = 15 * 60_000
+/** How long a cancelled turn may take to end before its server is stopped (it ignored the cancel). */
+const CANCEL_GRACE_MS = 10_000
 
 /** Asks the person; the caller puts the harness session id on the request. */
 export type AskPermission = (request: acp.RequestPermissionRequest) => Promise<acp.RequestPermissionResponse>
@@ -50,6 +52,10 @@ export class AcpAgentSession {
   /** Updates the agent replays while `session/load` reopens a conversation the transcript has. */
   private replaying = false
   private ask: AskPermission | null = null
+  /** The running turn's abort: a cancel answers the agent's open permission asks for the person. */
+  private turnSignal: AbortSignal | null = null
+  /** Ends when the running turn has ended; the next turn waits for it (ACP runs one prompt at a time). */
+  private turn: Promise<void> | null = null
   private idleTimer: ReturnType<typeof setTimeout> | null = null
   private disposed = false
 
@@ -70,24 +76,65 @@ export class AcpAgentSession {
 
   /** What the last turn used, when the agent reports it. */
   lastUsage: WorkflowStepUsage | null = null
+  cancelGraceMs = CANCEL_GRACE_MS
+
+  /** Resolves once no turn is running; a turn aborted for a newer prompt ends first (send now). */
+  async settled(): Promise<void> {
+    while (this.turn) await this.turn
+  }
 
   async prompt(blocks: acp.ContentBlock[], abort: AbortController, ask: AskPermission): Promise<acp.StopReason> {
-    const running = await this.ensureStarted()
-    this.clearIdle()
-    this.ask = ask
-    const cancel = () => void running.conn.agent.notify(acp.methods.agent.session.cancel, { sessionId: running.agentSessionId })
-    abort.signal.addEventListener('abort', cancel)
+    while (this.turn) await this.turn
+    let release!: () => void
+    const turn = new Promise<void>((resolve) => (release = resolve))
+    this.turn = turn
     try {
-      const response = await running.conn.agent.request(acp.methods.agent.session.prompt, {
-        sessionId: running.agentSessionId,
-        prompt: await this.promptFor(blocks, running.capabilities.promptCapabilities)
+      return await this.runTurn(blocks, abort.signal, ask)
+    } finally {
+      if (this.turn === turn) this.turn = null
+      release()
+    }
+  }
+
+  private async runTurn(blocks: acp.ContentBlock[], signal: AbortSignal, ask: AskPermission): Promise<acp.StopReason> {
+    const aborted = whenAborted(signal)
+    try {
+      // A Stop while the server starts ends the turn now; the start goes on for the next one.
+      const running = await Promise.race([this.ensureStarted(), aborted.promise])
+      if (!running || signal.aborted) return 'cancelled'
+      this.clearIdle()
+      const prompt = await this.promptFor(blocks, running.capabilities.promptCapabilities)
+      if (signal.aborted) return 'cancelled'
+      this.ask = ask
+      this.turnSignal = signal
+      const request = running.conn.agent.request(acp.methods.agent.session.prompt, { sessionId: running.agentSessionId, prompt })
+      const answeredAtAll = request.then(
+        () => true,
+        () => true
+      )
+      const cancelled = aborted.promise.then(async () => {
+        void running.conn.agent.notify(acp.methods.agent.session.cancel, { sessionId: running.agentSessionId }).catch(() => undefined)
+        const ended = await Promise.race([answeredAtAll, Bun.sleep(this.cancelGraceMs).then(() => false)])
+        if (!ended && this.running === running) {
+          log(`${this.agent} ignored a cancel for ${this.cancelGraceMs}ms; stopping its server`)
+          this.stopProcess()
+        }
+        return 'cancelled' as const
       })
+      // A cancelled turn whose server was stopped fails its request; that is still just a Stop.
+      const answered = request.catch((error: unknown) => {
+        if (signal.aborted) return 'cancelled' as const
+        throw error
+      })
+      const response = await Promise.race([answered, cancelled])
+      if (typeof response === 'string') return response
       this.lastUsage = reportedUsage(response)
       return response.stopReason
     } finally {
-      abort.signal.removeEventListener('abort', cancel)
+      aborted.dispose()
       this.ask = null
-      this.armIdle()
+      this.turnSignal = null
+      if (!this.disposed) this.armIdle()
     }
   }
 
@@ -238,8 +285,15 @@ export class AcpAgentSession {
 
   private async permission(params: acp.RequestPermissionRequest): Promise<acp.RequestPermissionResponse> {
     // Asked outside a turn (none should be): nobody is there to answer.
-    if (!this.ask) return { outcome: { outcome: 'cancelled' } }
-    return this.ask(params)
+    const { ask, turnSignal } = this
+    if (!ask || !turnSignal || turnSignal.aborted) return { outcome: { outcome: 'cancelled' } }
+    // ACP: once the turn is cancelled, its open asks are answered `cancelled`, or the agent waits on them.
+    const aborted = whenAborted(turnSignal)
+    try {
+      return await Promise.race([ask(params), aborted.promise.then((): acp.RequestPermissionResponse => ({ outcome: { outcome: 'cancelled' } }))])
+    } finally {
+      aborted.dispose()
+    }
   }
 
   private async onUpdate({ update }: acp.SessionNotification): Promise<void> {
@@ -377,6 +431,17 @@ function withOutputText(update: Extract<acp.SessionUpdate, { sessionUpdate: 'too
   const raw = update.rawOutput as { output?: unknown; stdout?: unknown; metadata?: { output?: unknown } }
   const text = [raw.output, raw.stdout, raw.metadata?.output].find((v): v is string => typeof v === 'string')
   return text ? { ...update, content: [{ type: 'content', content: { type: 'text', text } }] } : update
+}
+
+/** Resolves when `signal` aborts (at once if it has); `dispose` drops the listener. */
+function whenAborted(signal: AbortSignal): { promise: Promise<void>; dispose(): void } {
+  let onAbort: () => void = () => {}
+  const promise = new Promise<void>((resolve) => {
+    onAbort = () => resolve()
+    if (signal.aborted) resolve()
+    else signal.addEventListener('abort', onAbort, { once: true })
+  })
+  return { promise, dispose: () => signal.removeEventListener('abort', onAbort) }
 }
 
 function stdinWriter(sink: Bun.FileSink): WritableStream<Uint8Array> {

@@ -166,7 +166,8 @@ function DashboardCounts() {
     let working = 0
     let done = 0
     for (const session of s.sessions) {
-      if (session.status === 'needs-you') attention++
+      // An unseen failure is not done (the dashboard lists it under Needs You).
+      if (session.status === 'needs-you' || (session.status === 'error' && s.unread[session.id])) attention++
       else if (session.status === 'working') working++
       else if (s.unread[session.id]) done++
     }

@@ -27,6 +27,8 @@ export interface ChatSessionState {
   queue: QueuedMessage[]
   /** After Stop the queue waits for Resume instead of sending into the next turn. */
   queuePaused: boolean
+  /** Why it is paused, when not a Stop (the turn failed). */
+  queuePauseReason: string | null
   usage: ContextUsage | null
 }
 
@@ -48,6 +50,7 @@ const EMPTY_SESSION: ChatSessionState = {
   draftImages: [],
   queue: [],
   queuePaused: false,
+  queuePauseReason: null,
   usage: null
 }
 
