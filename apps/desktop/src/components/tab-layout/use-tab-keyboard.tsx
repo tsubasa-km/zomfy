@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { getTabLayoutState, type WorkspaceLayout } from '@/stores/tab-layout-store'
 import { isFloating } from '@/session-store'
+import { tabSelection } from '@/stores/list-selection'
 import { matchTabShortcut } from './tab-shortcuts'
 import {
   activateTab,
@@ -90,11 +91,20 @@ export function useTabKeyboard({
         activateTab(workspaceId, group.id, next.id)
       }
       switch (action) {
-        case 'tab.close':
+        case 'tab.close': {
+          // Several selected tabs close together, as the context menu's "Close Selected Tabs" does.
+          const selection = tabSelection.get()
+          if (group && selection.scope === group.id && selection.ids.length > 1) {
+            const meta = getTabLayoutState().meta
+            tabSelection.reset()
+            closeWorkspaceTabs(workspaceId, list.filter((t) => selection.ids.includes(t.id) && !meta[t.id]?.pinned))
+            break
+          }
           // A split terminal closes its active pane first, as Orca's terminal.closePane does.
           if (active?.kind === 'terminal' && closeActivePane()) break
           if (active && !getTabLayoutState().meta[active.id]?.pinned) closeWorkspaceTabs(workspaceId, [active])
           break
+        }
         case 'tab.reopenClosed':
           void reopenClosedTab(workspaceId)
           break

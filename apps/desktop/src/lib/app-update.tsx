@@ -41,28 +41,32 @@ function updatable(): boolean {
 
 export async function checkForUpdate(manual = false): Promise<void> {
   const phase = store.get().phase
-  if (phase === 'checking' || phase === 'downloading' || phase === 'ready') return
+  if (phase === 'checking' || phase === 'downloading') return
   if (!updatable()) {
     patch({ phase: 'unavailable' })
     return
   }
-  patch({ phase: 'checking', error: null })
+  // With one release downloaded, a newer one replaces it quietly; the Restart button stays meanwhile.
+  const ready = phase === 'ready'
+  if (!ready) patch({ phase: 'checking', error: null })
   try {
     const update = await check()
-    if (!update) {
-      patch({ phase: 'current' })
+    if (!update || (ready && update.version === store.get().next)) {
+      if (!ready) patch({ phase: 'current' })
       return
     }
-    patch({ phase: 'downloading', next: update.version })
+    if (!ready) patch({ phase: 'downloading', next: update.version })
     await update.download()
     pending = update
-    patch({ phase: 'ready' })
+    patch({ phase: 'ready', next: update.version })
     toast(`Zomfy ${update.version} is ready`, {
+      id: 'app-update',
       description: 'Restart to update.',
       duration: Infinity,
       action: { label: 'Restart', onClick: () => restartToUpdate() }
     })
   } catch (error) {
+    if (ready) return
     patch({ phase: 'error', error: error instanceof Error ? error.message : String(error) })
     if (manual) toast.error("Couldn't check for updates", { description: store.get().error ?? undefined })
   }
