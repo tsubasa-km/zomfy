@@ -6,6 +6,7 @@ import { setSidebarView, useStore, type HostId, type HostedProject, type Session
 import { toggleProjectCollapsed, useSidebarStore } from '@/stores/sidebar-store'
 import { DropLine, WorkspaceCard } from '@/components/sidebar/WorkspaceCard'
 import { ProjectMenuItems, updateWorkspace } from '@/components/sidebar/WorkspaceMenu'
+import { ProjectChatList, projectChats } from '@/components/sidebar/ProjectChatList'
 import { beginSidebarDrag, useSidebarDropTarget, type DragItem } from '@/components/sidebar/sidebar-drag'
 import {
   buildWorkspaceTree,
@@ -85,6 +86,8 @@ export function ProjectSection({
     (item, position) => onProjectDrop(item, position === 'before' ? 'before' : 'after')
   )
   const tree = buildWorkspaceTree(sortWorkspaces(workspaces, view, sessions))
+  const showChats = (view.rows ?? 'chats') === 'chats'
+  const hostOf = (w: Workspace) => (copies.find((c) => c.id === w.projectId) ?? project).hostId
 
   /** Reorder among the target's siblings, or nest under the target (Orca's lineage drop). */
   function dropOnWorkspace(
@@ -165,7 +168,9 @@ export function ProjectSection({
           <FolderOpen className="size-3.5 shrink-0 text-muted-foreground" />
         )}
         <div className="min-w-0 truncate pl-0.5 text-[13px] leading-none font-semibold">{label}</div>
-        <span className="text-[11px] text-muted-foreground tabular-nums">{workspaces.length}</span>
+        <span className="text-[11px] text-muted-foreground tabular-nums">
+          {showChats ? projectChats(workspaces, sessions).length : workspaces.length}
+        </span>
         {hostBadge && (
           <span
             className="shrink-0 rounded border border-worktree-sidebar-border px-1 text-[10px] leading-4 text-muted-foreground"
@@ -254,7 +259,12 @@ export function ProjectSection({
           </DropdownMenu>
         </div>
       </div>
-      {!collapsed && renderNodes(tree, 0)}
+      {!collapsed &&
+        (showChats ? (
+          <ProjectChatList workspaces={workspaces} sessions={sessions} activeWorkspaceId={activeWorkspaceId} hostOf={hostOf} />
+        ) : (
+          renderNodes(tree, 0)
+        ))}
     </section>
   )
 }

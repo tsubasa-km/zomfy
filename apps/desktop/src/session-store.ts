@@ -107,6 +107,8 @@ export interface EditorTab {
 export interface SidebarView {
   groupBy: 'project' | 'status'
   sortBy: 'created' | 'name' | 'recent' | 'manual'
+  /** What a project lists: its chats (the default; worktrees stay behind them) or its workspaces as cards. */
+  rows?: 'chats' | 'workspaces'
 }
 
 /** `plugin:<publisher.id>/<panelId>` names an enabled plugin's panel. */

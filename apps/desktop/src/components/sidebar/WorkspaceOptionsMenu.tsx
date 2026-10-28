@@ -67,6 +67,19 @@ export function WorkspaceOptionsMenu() {
       <DropdownMenuContent side="right" align="start" sideOffset={8} className="w-60 pb-2">
         <DropdownMenuLabel className="pb-0 text-sm text-foreground">Workspace options</DropdownMenuLabel>
         <DropdownMenuSeparator />
+        <DropdownMenuLabel className="text-xs text-muted-foreground">Show</DropdownMenuLabel>
+        <DropdownMenuRadioGroup
+          value={view.rows ?? 'chats'}
+          onValueChange={(v) => setSidebarView({ rows: v === 'workspaces' ? 'workspaces' : 'chats' })}
+        >
+          <DropdownMenuRadioItem value="chats" data-rows="chats" onSelect={(e) => e.preventDefault()}>
+            Chats
+          </DropdownMenuRadioItem>
+          <DropdownMenuRadioItem value="workspaces" data-rows="workspaces" onSelect={(e) => e.preventDefault()}>
+            Workspaces
+          </DropdownMenuRadioItem>
+        </DropdownMenuRadioGroup>
+        <DropdownMenuSeparator />
         <DropdownMenuLabel className="text-xs text-muted-foreground">Group by</DropdownMenuLabel>
         <DropdownMenuRadioGroup
           value={view.groupBy}
