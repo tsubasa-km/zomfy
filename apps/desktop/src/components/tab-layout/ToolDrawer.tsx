@@ -143,7 +143,12 @@ export function ToolDrawer({ workspaceId, exclude }: { workspaceId: string; excl
               <button
                 key={t.id}
                 type="button"
-                onClick={() => setActiveId(t.id)}
+                onClick={() => {
+                  setActiveId(t.id)
+                  // A clicked terminal takes the keys; one shown by hovering leaves them where they were.
+                  if (t.kind === 'terminal')
+                    requestAnimationFrame(() => rootRef.current?.querySelector<HTMLElement>(`[data-drawer-tool="${t.id}"] .xterm-helper-textarea`)?.focus())
+                }}
                 className={cn(
                   'flex max-w-40 shrink-0 items-center gap-1 rounded-md px-2 py-1 text-xs',
                   t.id === activeTool?.id ? 'bg-background text-foreground shadow-sm' : 'text-muted-foreground hover:bg-accent/50'
@@ -210,7 +215,7 @@ export function ToolDrawer({ workspaceId, exclude }: { workspaceId: string; excl
         </div>
         <div className="relative min-h-0 flex-1">
           {tools.map((t) => (
-            <div key={t.id} className={cn('absolute inset-0 flex flex-col', t.id !== activeTool?.id && 'invisible')}>
+            <div key={t.id} data-drawer-tool={t.id} className={cn('absolute inset-0 flex flex-col', t.id !== activeTool?.id && 'invisible')}>
               {t.kind === 'terminal' ? <TerminalTabBody tabId={t.id} terminal={t.terminal} /> : <BrowserTabView tab={t.browser} />}
             </div>
           ))}

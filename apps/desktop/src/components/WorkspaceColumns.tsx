@@ -19,18 +19,19 @@ import { canPopOutWorkspace, popOutWorkspace } from '@/lib/workspace-window'
 import type { DragPoint } from '@/lib/pointer-drag'
 import { cn } from '@/lib/utils'
 
-// The main area: one workspace, or several side by side as columns, each with its own tab layout.
-// Dragging a workspace from the sidebar onto a column's left or right quarter opens it beside that
-// column; onto its middle, it takes the column over.
+// The main area: one workspace, or several from any project side by side, each with its own tab layout.
+// Two sit as columns; from three on they fill a two-row grid in order. Dragging a workspace from the
+// sidebar onto a pane's left or right quarter opens it beside that pane; onto its middle, it takes it over.
 
 const EMPTY_HINT = 'No tabs yet. Use + in the tab bar to start Claude in this workspace.'
 const MIN_COLUMN_PX = 280
+const MIN_ROW_PX = 160
 
 export function WorkspaceMain() {
   const active = useStore((s) => s.activeWorkspaceId)
   const columns = useStore((s) => s.columns)
   const showColumns = active !== null && columns.length > 1 && columns.includes(active)
-  const [hint, setHint] = useState<{ left: number; width: number; label: string | null } | null>(null)
+  const [hint, setHint] = useState<{ left: number; top: number; width: number; height: number; label: string | null } | null>(null)
 
   const dropAt = useCallback((item: DragItem, point: DragPoint, container: HTMLElement) => {
     const bounds = container.getBoundingClientRect()
@@ -38,24 +39,30 @@ export function WorkspaceMain() {
     const shown = current.length > 1 && activeWorkspaceId && current.includes(activeWorkspaceId) ? current : []
     const ids = shown.length > 0 ? shown : activeWorkspaceId ? [activeWorkspaceId] : []
     const elements = shown.length > 0 ? [...container.querySelectorAll<HTMLElement>('[data-workspace-column]')] : [container]
-    const index = Math.max(0, elements.findIndex((el) => point.x <= el.getBoundingClientRect().right))
+    // The pane under the pointer, or the nearest one when it is over a divider.
+    const distance = (el: HTMLElement) => {
+      const r = el.getBoundingClientRect()
+      return Math.hypot(Math.max(r.left - point.x, 0, point.x - r.right), Math.max(r.top - point.y, 0, point.y - r.bottom))
+    }
+    const index = elements.reduce((best, el, i) => (distance(el) < distance(elements[best]!) ? i : best), 0)
     const rect = (elements[index] ?? container).getBoundingClientRect()
     const fraction = (point.x - rect.left) / Math.max(1, rect.width)
     const side = ids.length === 0 ? 'replace' : fraction < 0.25 ? 'before' : fraction > 0.75 ? 'after' : 'replace'
     const left = rect.left - bounds.left
+    const top = rect.top - bounds.top
     const at = side === 'after' ? index + 1 : index
     return {
       hint:
         side === 'replace'
-          ? { left, width: rect.width, label: null }
-          : { left: side === 'before' ? left : left + rect.width / 2, width: rect.width / 2, label: 'New column' },
+          ? { left, top, width: rect.width, height: rect.height, label: null }
+          : { left: side === 'before' ? left : left + rect.width / 2, top, width: rect.width / 2, height: rect.height, label: 'Open beside' },
       apply: () => {
         if (side === 'replace') {
           if (ids[index]) selectWorkspace(ids[index]!)
           selectWorkspace(item.id)
           return
         }
-        // openInColumn takes the workspace out of its old column first, which shifts later indexes.
+        // openInColumn takes the workspace out of its old place first, which shifts later indexes.
         const from = ids.indexOf(item.id)
         openInColumn(item.id, from !== -1 && from < at ? at - 1 : at)
       }
@@ -82,7 +89,7 @@ export function WorkspaceMain() {
         <QuickStart />
       )}
       {hint && (
-        <div aria-hidden className="tab-drop-overlay" style={{ top: 0, bottom: 0, left: hint.left, width: hint.width }}>
+        <div aria-hidden className="tab-drop-overlay" style={{ top: hint.top, height: hint.height, left: hint.left, width: hint.width }}>
           {hint.label && (
             <span className="tab-drop-overlay__label pointer-events-none absolute bottom-2 left-2 rounded-sm px-1.5 py-0.5 font-medium">
               {hint.label}
@@ -96,28 +103,84 @@ export function WorkspaceMain() {
 
 function Columns({ columns, active }: { columns: string[]; active: string }) {
   const widths = useStore((s) => s.columnWidths)
+  // Two panes sit side by side; more fill two rows, the top one taking the extra pane.
+  const split = columns.length > 2 ? Math.ceil(columns.length / 2) : columns.length
+  const rows = [columns.slice(0, split), columns.slice(split)].filter((row) => row.length > 0)
   return (
-    <div className="flex min-w-0 flex-1">
-      {columns.map((id, index) => (
-        <Fragment key={id}>
-          {index > 0 && <ColumnDivider leftId={columns[index - 1]!} rightId={id} />}
-          <div
-            data-workspace-column={id}
-            className="flex min-w-0 flex-col overflow-hidden"
-            style={{ flex: `${widths[id] ?? 1} 1 0%` }}
-            onPointerDownCapture={() => {
-              if (getState().activeWorkspaceId !== id) selectWorkspace(id)
-            }}
-            onFocusCapture={() => {
-              if (getState().activeWorkspaceId !== id) selectWorkspace(id)
-            }}
-          >
-            <ColumnHeader workspaceId={id} focused={id === active} />
-            <WorkspaceTabs workspaceId={id} emptyHint={EMPTY_HINT} />
+    <div className="flex min-w-0 flex-1 flex-col">
+      {rows.map((row, r) => (
+        <Fragment key={r}>
+          {r > 0 && <RowDivider />}
+          <div data-workspace-row={r} className="flex min-h-0 min-w-0 flex-col" style={{ flex: '1 1 0%' }}>
+            <div className="flex min-h-0 min-w-0 flex-1">
+              {row.map((id, index) => (
+                <Fragment key={id}>
+                  {index > 0 && <ColumnDivider leftId={row[index - 1]!} rightId={id} />}
+                  <div
+                    data-workspace-column={id}
+                    className="flex min-h-0 min-w-0 flex-col overflow-hidden"
+                    style={{ flex: `${widths[id] ?? 1} 1 0%` }}
+                    onPointerDownCapture={() => {
+                      if (getState().activeWorkspaceId !== id) selectWorkspace(id)
+                    }}
+                    onFocusCapture={() => {
+                      if (getState().activeWorkspaceId !== id) selectWorkspace(id)
+                    }}
+                  >
+                    <ColumnHeader workspaceId={id} focused={id === active} />
+                    <WorkspaceTabs workspaceId={id} emptyHint={EMPTY_HINT} />
+                  </div>
+                </Fragment>
+              ))}
+            </div>
           </div>
         </Fragment>
       ))}
     </div>
+  )
+}
+
+/** Resizes the grid's two rows for as long as the window lives; the split is not stored. */
+function RowDivider() {
+  const [dragging, setDragging] = useState(false)
+  const handleRef = useRef<HTMLDivElement>(null)
+
+  const onPointerDown = (event: React.PointerEvent<HTMLDivElement>) => {
+    const handle = handleRef.current
+    const top = handle?.previousElementSibling
+    const bottom = handle?.nextElementSibling
+    if (!handle || !(top instanceof HTMLElement) || !(bottom instanceof HTMLElement)) return
+    event.preventDefault()
+    handle.setPointerCapture(event.pointerId)
+    setDragging(true)
+    const startTop = top.getBoundingClientRect().height
+    const total = startTop + bottom.getBoundingClientRect().height
+    const onMove = (move: PointerEvent) => {
+      if (move.pointerId !== event.pointerId) return
+      const px = Math.min(total - MIN_ROW_PX, Math.max(MIN_ROW_PX, startTop + move.clientY - event.clientY))
+      top.style.flex = `${px} 1 0%`
+      bottom.style.flex = `${total - px} 1 0%`
+    }
+    const cleanup = () => {
+      handle.removeEventListener('pointermove', onMove)
+      handle.removeEventListener('pointerup', cleanup)
+      handle.removeEventListener('pointercancel', cleanup)
+      handle.removeEventListener('lostpointercapture', cleanup)
+      setDragging(false)
+    }
+    handle.addEventListener('pointermove', onMove)
+    handle.addEventListener('pointerup', cleanup)
+    handle.addEventListener('pointercancel', cleanup)
+    handle.addEventListener('lostpointercapture', cleanup)
+  }
+
+  return (
+    <div
+      ref={handleRef}
+      data-row-divider
+      className={`tab-group-split-resize-handle is-horizontal${dragging ? ' is-dragging' : ''}`}
+      onPointerDown={onPointerDown}
+    />
   )
 }
 

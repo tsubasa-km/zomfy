@@ -85,6 +85,9 @@ export function TerminalView({ terminal, embedded = false }: { terminal: Termina
     // Same route as every other link: system browser, Mod+click to an in-app tab.
     xterm.loadAddon(new WebLinksAddon((event, uri) => openHref(uri, { inApp: isLinkModifier(event), workspaceId: terminal.workspaceId })))
     xterm.open(element)
+    // xterm 6 draws no cursor until its first focus; an alternate-screen round trip starts it, so a
+    // terminal nobody has clicked yet (a drawer's, a background split pane's) still shows one.
+    xterm.write('[?1047h[?1047l')
     setSearchAddon(search)
     const fileLinks = registerFileLinks(xterm, terminal.id, terminal.workspaceId, () => cwdRef.current)
 
