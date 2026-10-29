@@ -118,7 +118,7 @@ export function NativeChatMessageRail({
                 aria-hidden
                 className={cn(
                   'h-[3px] rounded-full transition-[width,background-color] duration-150 motion-reduce:transition-none',
-                  item.id === activeId ? 'w-5 bg-highlight' : 'w-3 bg-highlight/50'
+                  item.id === activeId ? 'w-5 bg-highlight' : 'w-3 bg-muted-foreground/40'
                 )}
               />
             </button>

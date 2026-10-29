@@ -115,7 +115,7 @@ export function ToolDrawer({ workspaceId, exclude }: { workspaceId: string; excl
       >
         <div
           className={cn(
-            'h-1 w-8 rounded-full bg-border transition-[background-color,opacity] group-hover:bg-muted-foreground/60',
+            'h-1 w-8 rounded-full bg-muted-foreground/30 transition-[background-color,opacity] group-hover:bg-muted-foreground/60',
             shown && 'opacity-0'
           )}
         />

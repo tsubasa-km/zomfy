@@ -33,6 +33,11 @@
   background: var(--background);
 }
 
+/* Terminal dividers float over the xterm surface: an opaque band would cover its text. */
+.tab-group-split-resize-handle.terminal-pane-divider {
+  background: transparent;
+}
+
 .tab-group-split-resize-handle.is-vertical {
   width: 6px;
   cursor: col-resize;

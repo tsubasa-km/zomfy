@@ -127,7 +127,7 @@ export function NativeChatContextUsageRing({ usage }: { usage: ContextUsage }) {
                 {used}/{window}
               </span>
             </div>
-            <Progress value={filled} aria-label={label} className="mt-2 h-1.5 bg-highlight/20" indicatorClassName="bg-highlight" />
+            <Progress value={filled} aria-label={label} className="mt-2 h-1.5 bg-highlight/20" indicatorClassName={critical ? 'bg-destructive' : 'bg-highlight'} />
             {rows.length > 0 ? (
               <ul className="mt-3 space-y-1 text-xs">
                 {rows.map((row, index) => (
