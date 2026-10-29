@@ -8,6 +8,7 @@ mod local_daemon;
 mod open_in;
 mod ssh_config;
 mod ssh_daemon;
+mod title_bar;
 mod tray;
 mod wsl_daemon;
 
@@ -121,6 +122,11 @@ fn presize_maximized<R: tauri::Runtime>(window: &tauri::WebviewWindow<R>) -> boo
 }
 
 #[tauri::command]
+fn title_bar_alive(window: tauri::WebviewWindow) {
+    title_bar::alive(&window);
+}
+
+#[tauri::command]
 fn window_ready(window: tauri::WebviewWindow, dark: bool) {
     show_main_once(&window, Some(dark));
 }
@@ -135,11 +141,13 @@ pub fn run() {
         .plugin(tauri_plugin_process::init())
         // Remembers the main window's size and maximized state; the first launch opens maximized
         // (tauri.conf.json). Visibility is left out: the window opens hidden and shows itself once sized.
+        // Decorations too: on Windows the app draws its own title bar (TitleBar.tsx).
         .plugin(
             tauri_plugin_window_state::Builder::default()
                 .with_state_flags(
                     tauri_plugin_window_state::StateFlags::all()
-                        & !tauri_plugin_window_state::StateFlags::VISIBLE,
+                        & !tauri_plugin_window_state::StateFlags::VISIBLE
+                        & !tauri_plugin_window_state::StateFlags::DECORATIONS,
                 )
                 .with_denylist(&["dashboard"])
                 .build(),
@@ -154,13 +162,18 @@ pub fn run() {
             open_workspace_in,
             set_tray_attention,
             set_minimize_to_tray,
-            window_ready
+            window_ready,
+            title_bar_alive
         ])
         .setup(|app| {
             if let Ok(dir) = app.path().resource_dir() {
                 daemon_process::set_resource_dir(dir);
             }
             tray::create(app.handle())?;
+            #[cfg(windows)]
+            if let Some(main) = app.get_webview_window("main") {
+                title_bar::install(&main)?;
+            }
             let handle = app.handle().clone();
             std::thread::spawn(move || {
                 std::thread::sleep(SHOW_ANYWAY_AFTER);
@@ -176,7 +189,12 @@ pub fn run() {
                     api.prevent_close();
                 }
             }
-            tauri::WindowEvent::Focused(true) => tray::clear_attention(window.app_handle()),
+            tauri::WindowEvent::Focused(true) => {
+                tray::clear_attention(window.app_handle());
+                if window.label() == "main" {
+                    title_bar::focused();
+                }
+            }
             _ => {}
         })
         .build(tauri::generate_context!())

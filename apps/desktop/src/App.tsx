@@ -4,6 +4,7 @@ import { useStore } from '@/session-store'
 import { useAppOverlays } from '@/stores/app-overlay-store'
 import { Sidebar } from '@/components/Sidebar'
 import { FloatingWorkspace } from '@/components/FloatingWorkspace'
+import { OWN_TITLE_BAR, TitleBar } from '@/components/TitleBar'
 import { PointerDragLayer } from '@/components/PointerDragLayer'
 import { Toaster } from '@/components/ui/sonner'
 import { WorkflowStartConfirmDialog } from '@/components/workflows/WorkflowStartConfirm'
@@ -89,6 +90,7 @@ export default function App() {
   return (
     <TooltipProvider delayDuration={300}>
       <div className="flex h-full w-full flex-col overflow-hidden bg-background text-foreground">
+        {OWN_TITLE_BAR && <TitleBar />}
         <div className="relative flex min-h-0 flex-1 overflow-hidden">
           <Sidebar />
           <main className="flex min-w-0 flex-1">
