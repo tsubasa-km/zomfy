@@ -1,0 +1,13 @@
+/* Boot screen shown until React mounts (dev builds load for seconds). Values mirror the
+   --background / --worktree-sidebar / --border / --muted-foreground tokens in main.css.
+   A file, not an inline <style>: an inline one makes Tauri add a nonce to style-src, which turns off
+   'unsafe-inline' and drops the styles CodeMirror, sonner and xterm insert at runtime. */
+html, body { margin: 0; height: 100%; background: #fff; }
+html.dark, html.dark body { background: #0a0a0a; }
+#boot { position: fixed; inset: 0; display: flex; font: 13px 'Segoe UI', -apple-system, sans-serif; }
+#boot-sidebar { width: 280px; background: #f5f5f5; border-right: 1px solid #e5e5e5; }
+#boot-main { flex: 1; display: flex; align-items: center; justify-content: center; gap: 10px; color: #737373; }
+#boot-spinner { width: 14px; height: 14px; border-radius: 50%; border: 2px solid currentColor; border-right-color: transparent; animation: boot-spin 0.8s linear infinite; }
+html.dark #boot-sidebar { background: #2a2a2a; border-right-color: rgb(255 255 255 / 0.07); }
+html.dark #boot-main { color: #a1a1a1; }
+@keyframes boot-spin { to { transform: rotate(360deg); } }
