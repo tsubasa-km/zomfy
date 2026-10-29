@@ -1,3 +1,6 @@
+use std::sync::atomic::{AtomicBool, Ordering};
+use std::time::Duration;
+use tauri::window::Color;
 use tauri::Manager;
 
 mod daemon_process;
@@ -70,6 +73,29 @@ fn set_minimize_to_tray(enabled: bool) {
     tray::set_minimize_to_tray(enabled);
 }
 
+/// The main window starts hidden so it can take its remembered size first; it shows once the page
+/// has its boot screen up (`window_ready`), or after a while regardless.
+static MAIN_SHOWN: AtomicBool = AtomicBool::new(false);
+const SHOW_ANYWAY_AFTER: Duration = Duration::from_secs(3);
+
+fn show_main_once<R: tauri::Runtime>(window: &tauri::WebviewWindow<R>, dark: Option<bool>) {
+    if window.label() != "main" || MAIN_SHOWN.swap(true, Ordering::SeqCst) {
+        return;
+    }
+    // Same colours as the boot screen (index.html), so a resize the page lags behind never flashes.
+    if let Some(dark) = dark {
+        let color = if dark { Color(10, 10, 10, 255) } else { Color(255, 255, 255, 255) };
+        let _ = window.set_background_color(Some(color));
+    }
+    let _ = window.show();
+    let _ = window.set_focus();
+}
+
+#[tauri::command]
+fn window_ready(window: tauri::WebviewWindow, dark: bool) {
+    show_main_once(&window, Some(dark));
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
@@ -79,7 +105,7 @@ pub fn run() {
         .plugin(tauri_plugin_updater::Builder::new().build())
         .plugin(tauri_plugin_process::init())
         // Remembers the main window's size and maximized state; the first launch opens maximized
-        // (tauri.conf.json). Visibility is left out so a window hidden to the tray still opens shown.
+        // (tauri.conf.json). Visibility is left out: the window opens hidden and shows itself once sized.
         .plugin(
             tauri_plugin_window_state::Builder::default()
                 .with_state_flags(
@@ -98,13 +124,21 @@ pub fn run() {
             disconnect_ssh_host,
             open_workspace_in,
             set_tray_attention,
-            set_minimize_to_tray
+            set_minimize_to_tray,
+            window_ready
         ])
         .setup(|app| {
             if let Ok(dir) = app.path().resource_dir() {
                 daemon_process::set_resource_dir(dir);
             }
             tray::create(app.handle())?;
+            let handle = app.handle().clone();
+            std::thread::spawn(move || {
+                std::thread::sleep(SHOW_ANYWAY_AFTER);
+                if let Some(window) = handle.get_webview_window("main") {
+                    show_main_once(&window, None);
+                }
+            });
             Ok(())
         })
         .on_window_event(|window, event| match event {

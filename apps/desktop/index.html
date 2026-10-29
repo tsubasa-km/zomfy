@@ -35,6 +35,13 @@
       <div id="boot-main"><div id="boot-spinner"></div>Starting Zomfy…</div>
     </div>
     <div id="root"></div>
+    <script>
+      // The main window opens hidden at its remembered size; show it now the boot screen is in place.
+      try {
+        window.__TAURI_INTERNALS__ &&
+          window.__TAURI_INTERNALS__.invoke('window_ready', { dark: document.documentElement.classList.contains('dark') })
+      } catch (e) {}
+    </script>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>

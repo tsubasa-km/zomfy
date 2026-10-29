@@ -16,6 +16,7 @@
         "width": 1280,
         "height": 820,
         "maximized": true,
+        "visible": false,
         "minWidth": 720,
         "minHeight": 480
       }
