@@ -65,7 +65,7 @@ function Section({ title, children, aside }: { title: string; children: React.Re
 function Bar({ value, max, warn }: { value: number; max: number; warn?: boolean }) {
   return (
     <div className="h-1.5 w-full overflow-hidden rounded-full bg-muted">
-      <div className={cn('h-full rounded-full', warn ? 'bg-status-warning' : 'bg-primary')} style={{ width: `${Math.min(100, max ? (value / max) * 100 : 0)}%` }} />
+      <div className={cn('h-full rounded-full', warn ? 'bg-status-warning' : 'bg-highlight')} style={{ width: `${Math.min(100, max ? (value / max) * 100 : 0)}%` }} />
     </div>
   )
 }

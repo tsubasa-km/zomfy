@@ -194,7 +194,7 @@ function ActivityButton({
           <Icon size={top ? 16 : 18} />
           {badge && <div className="absolute top-[7px] right-[7px] size-[7px] rounded-full bg-agent-question ring-1 ring-sidebar" />}
           {dot && !badge && <div className={cn('absolute top-[7px] right-[7px] size-[7px] rounded-full ring-1 ring-sidebar', STATUS_DOT_COLOR[dot])} />}
-          {active && top && <div className="absolute right-[25%] bottom-0 left-[25%] h-[2px] rounded-t bg-foreground" />}
+          {active && top && <div className="absolute right-[25%] bottom-0 left-[25%] h-[2px] rounded-t bg-highlight" />}
         </button>
       </TooltipTrigger>
       <TooltipContent side={top ? 'bottom' : 'left'} sideOffset={6}>

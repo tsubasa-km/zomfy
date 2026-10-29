@@ -75,6 +75,7 @@
   --color-input: var(--input);
   --color-ring: var(--ring);
   --color-editor-surface: var(--editor-surface);
+  --color-highlight: var(--highlight);
   --color-agent-question: var(--agent-question);
   --color-agent-question-text: var(--agent-question-text);
   --color-chart-1: var(--chart-1);
@@ -212,6 +213,8 @@
   --terminal-pane-locate: var(--color-blue-600);
   --mention-foreground: var(--color-blue-600);
   --ai-action-accent: var(--color-violet-500);
+  /* Selection marks and meters (active tab, message rail, context use): a warm accent instead of black. */
+  --highlight: #d97757;
   /* "An agent is asking you something" — one hue for every surface that shows
      it (sidebar, tabs, dashboard, kanban). Orange, not amber: it has to stay
      separable from working-yellow at a glance. */
@@ -330,6 +333,7 @@
   --terminal-pane-locate: var(--color-blue-400);
   --mention-foreground: var(--color-blue-400);
   --ai-action-accent: var(--color-violet-400);
+  --highlight: #e08a6d;
   --agent-question: var(--color-orange-500);
   --agent-question-text: var(--color-orange-300);
   --workspace-status-done: #c7a594;

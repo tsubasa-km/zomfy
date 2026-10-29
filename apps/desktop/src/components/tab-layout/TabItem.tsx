@@ -192,7 +192,7 @@ export function TabItem({
             <X className="size-3" />
           </button>
         )}
-        {active && <span className="pointer-events-none absolute inset-x-0 bottom-0 z-20 h-[2px] bg-foreground" />}
+        {active && <span className="pointer-events-none absolute inset-x-0 bottom-0 z-20 h-[2px] bg-highlight" />}
       </div>
       {menu && (
         <TabContextMenu
