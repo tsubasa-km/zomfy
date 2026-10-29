@@ -87,8 +87,37 @@ fn show_main_once<R: tauri::Runtime>(window: &tauri::WebviewWindow<R>, dark: Opt
         let color = if dark { Color(10, 10, 10, 255) } else { Color(255, 255, 255, 255) };
         let _ = window.set_background_color(Some(color));
     }
-    let _ = window.show();
-    let _ = window.set_focus();
+    if !presize_maximized(window) {
+        let _ = window.show();
+        let _ = window.set_focus();
+        return;
+    }
+    // The page relays out at the new size before anyone sees it.
+    let window = window.clone();
+    std::thread::spawn(move || {
+        std::thread::sleep(PRESIZE_SETTLE);
+        let _ = window.show();
+        let _ = window.set_focus();
+    });
+}
+
+const PRESIZE_SETTLE: Duration = Duration::from_millis(120);
+
+/// A hidden window keeps its maximize until it is shown (tao), so it used to grow on screen with the
+/// page a beat behind. Hidden, it takes the work area's size first; the maximize at show then changes
+/// next to nothing. Returns whether it did.
+fn presize_maximized<R: tauri::Runtime>(window: &tauri::WebviewWindow<R>) -> bool {
+    if !window.is_maximized().unwrap_or(false) {
+        return false;
+    }
+    let Ok(Some(monitor)) = window.current_monitor() else {
+        return false;
+    };
+    let area = *monitor.work_area();
+    let _ = window.set_position(area.position);
+    let _ = window.set_size(area.size);
+    let _ = window.maximize();
+    true
 }
 
 #[tauri::command]
