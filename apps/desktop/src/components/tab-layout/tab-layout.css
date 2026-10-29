@@ -29,7 +29,8 @@
 .tab-group-split-resize-handle {
   flex-shrink: 0;
   position: relative;
-  background: transparent;
+  /* Not transparent: the column container behind it is the darker app chrome. */
+  background: var(--background);
 }
 
 .tab-group-split-resize-handle.is-vertical {
@@ -46,7 +47,7 @@
   content: '';
   position: absolute;
   border-radius: 1px;
-  background: var(--tab-group-split-divider);
+  background: var(--border);
   transition: background 100ms ease;
 }
 
@@ -54,7 +55,7 @@
   top: 0;
   bottom: 0;
   left: 50%;
-  width: 3px;
+  width: 1px;
   transform: translateX(-50%);
 }
 
@@ -62,13 +63,24 @@
   left: 0;
   right: 0;
   top: 50%;
-  height: 3px;
+  height: 1px;
   transform: translateY(-50%);
 }
 
+/* A hairline at rest; it thickens only when grabbed or hovered. */
 .tab-group-split-resize-handle:hover::after,
 .tab-group-split-resize-handle.is-dragging::after {
   background: var(--tab-group-split-divider-strong);
+}
+
+.tab-group-split-resize-handle.is-vertical:hover::after,
+.tab-group-split-resize-handle.is-vertical.is-dragging::after {
+  width: 3px;
+}
+
+.tab-group-split-resize-handle.is-horizontal:hover::after,
+.tab-group-split-resize-handle.is-horizontal.is-dragging::after {
+  height: 3px;
 }
 
 .tab-drop-overlay {

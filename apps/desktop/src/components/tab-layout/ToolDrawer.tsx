@@ -105,28 +105,20 @@ export function ToolDrawer({ workspaceId, exclude }: { workspaceId: string; excl
 
   return (
     <div ref={rootRef} className="pointer-events-none absolute inset-0 z-10 flex flex-col">
+      {/* A thin grab bar, not a box: one sits under every pane's tab strip, so it stays out of the way. */}
       <div
-        className="pointer-events-auto flex h-4 shrink-0 justify-center"
+        className="group pointer-events-auto mx-auto flex h-3 w-24 shrink-0 justify-center pt-1"
         data-drawer-handle
+        title={`${terminals} terminal${terminals === 1 ? '' : 's'} · ${browsers} browser${browsers === 1 ? '' : 's'}`}
         onPointerEnter={() => later(true, OPEN_DELAY_MS)}
         onPointerLeave={() => !shown && clearTimeout(timer.current)}
       >
         <div
           className={cn(
-            'flex h-4 items-center gap-2 rounded-b-md border border-t-0 border-border bg-muted px-2 text-xs leading-none text-muted-foreground transition-opacity',
+            'h-1 w-8 rounded-full bg-border transition-[background-color,opacity] group-hover:bg-muted-foreground/60',
             shown && 'opacity-0'
           )}
-        >
-          <span className="flex items-center gap-0.5">
-            <SquareTerminal className="size-3" />
-            {terminals}
-          </span>
-          <span className="flex items-center gap-0.5">
-            <Globe className="size-3" />
-            {browsers}
-          </span>
-          <Files className="size-3" />
-        </div>
+        />
       </div>
       <div
         data-drawer={shown ? 'open' : 'closed'}
