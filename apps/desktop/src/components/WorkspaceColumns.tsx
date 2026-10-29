@@ -204,7 +204,7 @@ function ColumnHeader({ workspaceId, focused }: { workspaceId: string; focused: 
       data-focused={focused || undefined}
       className={cn(
         'flex h-7 shrink-0 items-center gap-1.5 border-t-2 border-b border-b-border pr-1 pl-2.5 text-xs',
-        focused ? 'border-t-primary' : 'border-t-transparent'
+        focused ? 'border-t-highlight' : 'border-t-transparent'
       )}
     >
       <span className={cn('shrink-0 font-medium', focused ? 'text-foreground' : 'text-muted-foreground')}>{title}</span>
