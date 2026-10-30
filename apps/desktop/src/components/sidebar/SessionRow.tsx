@@ -12,7 +12,7 @@ import { closeSession } from '@/daemon-connection'
 import { renameChat, setChatArchived } from '@/chat-rename-archive'
 import { isImeOwnedKeyboardEvent } from '@/lib/ime-composition-keyboard-event'
 import { hideChats, removeTabsFromLayout, useTabLayout } from '@/stores/tab-layout-store'
-import { chatSelection, gestureOf } from '@/stores/list-selection'
+import { chatSelection, gestureOf, keepTextUnselected } from '@/stores/list-selection'
 import { beginSidebarDrag, type DragItem } from '@/components/sidebar/sidebar-drag'
 import { toggleChatExpanded } from '@/stores/sidebar-store'
 
@@ -113,6 +113,7 @@ export function SessionRow({
       // The workspace card around it has its own menu; this row's is the one meant.
       onContextMenu={(e) => e.stopPropagation()}
       onPointerDown={drag && renaming === null ? (e) => beginSidebarDrag(e, drag, session.title) : undefined}
+      onMouseDown={keepTextUnselected}
       onClick={(e) => {
         e.stopPropagation()
         if (renaming !== null) return

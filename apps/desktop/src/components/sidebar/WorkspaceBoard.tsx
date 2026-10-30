@@ -22,6 +22,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import type { WorktreeStatus } from '@/lib/worktree-status'
 import { cn } from '@/lib/utils'
+import { keepTextUnselected } from '@/stores/list-selection'
 
 // Orca's WorkspaceKanbanDrawer: one lane per workspace status, cards dragged between lanes set the
 // status, and a search field narrows every lane. Shown in the main area instead of a drawer.
@@ -231,6 +232,7 @@ function BoardCard({
           workspaceLabel(workspace)
         )
       }
+      onMouseDown={keepTextUnselected}
       onClick={(e) => {
         const toggle = isMac ? e.metaKey : e.ctrlKey
         if (toggle || e.shiftKey) {

@@ -22,6 +22,7 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuTrigger } from '@/compon
 import type { WorktreeStatus } from '@/lib/worktree-status'
 import { openWorkflows } from '@/stores/workflows-store'
 import { cn } from '@/lib/utils'
+import { keepTextUnselected } from '@/stores/list-selection'
 
 // Markup follows Orca's worktree-card-surface / worktree-card-header / worktree-card-meta-row, with the
 // compact layout folding agent rows into a badge (worktree-card-compact-agents).
@@ -106,6 +107,7 @@ export function WorkspaceCard({
       data-depth={depth}
       ref={dropRef}
       onPointerDown={(e) => beginSidebarDrag(e, { kind: 'workspace', id: workspace.id, hostId, projectId: workspace.projectId }, title)}
+      onMouseDown={keepTextUnselected}
       onClick={(e) => {
         const toggle = isMac ? e.metaKey : e.ctrlKey
         if (toggle || e.shiftKey) {

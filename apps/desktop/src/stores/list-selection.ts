@@ -14,6 +14,15 @@ export function gestureOf(e: { metaKey: boolean; ctrlKey: boolean; shiftKey: boo
   return toggle || e.shiftKey ? { toggle, range: e.shiftKey } : null
 }
 
+/**
+ * For an item's onMouseDown: a Shift or Ctrl/Cmd press selects items, so the browser must not also
+ * extend a text selection across the list. Text fields keep their own Shift-click.
+ */
+export function keepTextUnselected(e: { metaKey: boolean; ctrlKey: boolean; shiftKey: boolean; target: EventTarget; preventDefault(): void }): void {
+  const field = e.target instanceof HTMLElement && (e.target.closest('input, textarea') || e.target.isContentEditable)
+  if (gestureOf(e) && !field) e.preventDefault()
+}
+
 /** `order` is the items as drawn, for Shift ranges; the open item joins the first Ctrl-click so two clicks make a pair. */
 export function nextSelection(current: Selection, id: string, gesture: Gesture, activeId: string | null, order: string[]): Selection {
   if (gesture.range) {

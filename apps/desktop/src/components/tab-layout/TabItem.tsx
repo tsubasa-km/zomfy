@@ -6,7 +6,7 @@ import { Input } from '@/components/ui/input'
 import { isImeOwnedKeyboardEvent } from '@/lib/ime-composition-keyboard-event'
 import { cn } from '@/lib/utils'
 import { setTabMeta, useTabLayout } from '@/stores/tab-layout-store'
-import { gestureOf, tabSelection } from '@/stores/list-selection'
+import { gestureOf, keepTextUnselected, tabSelection } from '@/stores/list-selection'
 import { TabContextMenu } from './TabContextMenu'
 import { TabKindIcon } from './TabKindIcon'
 import { DragChip } from '@/components/PointerDragLayer'
@@ -120,7 +120,10 @@ export function TabItem({
           activateTab(workspaceId, groupId, tab.id)
         }}
         onDoubleClick={() => canRenameTab(tab) && setRenaming(title)}
-        onMouseDown={(e) => e.button === 1 && e.preventDefault()}
+        onMouseDown={(e) => {
+          if (e.button === 1) e.preventDefault()
+          else keepTextUnselected(e)
+        }}
         onAuxClick={(e) => {
           if (e.button !== 1) return
           e.preventDefault()
