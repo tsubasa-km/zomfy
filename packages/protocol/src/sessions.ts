@@ -36,6 +36,11 @@ export interface SessionInfo {
   role?: SessionRole
   /** Set on a side chat: the main chat it was opened beside. Tab strips leave side chats out. */
   sideOf?: string
+  /**
+   * The chat this one works for: a workflow step's chat sits under the chat that started the run.
+   * One level only, so a parent never has a parent of its own. A side chat's parent is `sideOf`.
+   */
+  parentId?: string
   /** Set while the daemon will resume this chat after a usage limit; absent from older daemons. */
   autoResume?: AutoResumeState | null
   /** Claude's guess at the next prompt, offered as the composer's Tab completion; cleared by the next turn. */

@@ -87,7 +87,7 @@ export class SessionRegistry {
 
   create(
     fields: Pick<SessionInfo, 'workspaceId' | 'cwd'> &
-      Partial<Pick<SessionRecord, 'title' | 'claudeSessionId' | 'options' | 'agent' | 'role' | 'sideOf' | 'seedContext' | 'localOnly'>>
+      Partial<Pick<SessionRecord, 'title' | 'claudeSessionId' | 'options' | 'agent' | 'role' | 'sideOf' | 'parentId' | 'seedContext' | 'localOnly'>>
   ): SessionRecord {
     const record: SessionRecord = {
       id: crypto.randomUUID(),
@@ -139,6 +139,14 @@ export class SessionRegistry {
     const temp = `${notePath(id)}.${process.pid}.tmp`
     await writeFile(temp, text)
     await rename(temp, notePath(id))
+  }
+
+  /** The chat a new child of `id` hangs under: `id` itself, or its own parent, so nesting stays one level deep. */
+  parentFor(id: string | undefined): string | undefined {
+    const record = id ? this.records.get(id) : undefined
+    if (!record) return undefined
+    const above = record.parentId ?? record.sideOf
+    return above && this.records.has(above) ? above : record.id
   }
 
   /** Removes every session of a workspace that no longer exists. */

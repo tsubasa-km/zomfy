@@ -55,6 +55,8 @@ interface SidebarState {
   cardLayout: CardLayout
   cardProperties: CardProperty[]
   collapsedProjects: string[]
+  /** Parent chats whose child chats are shown; the rest keep them folded away. */
+  expandedChats: string[]
   /** Multi-selected workspace ids (Ctrl/Shift click). */
   selection: string[]
   selectionAnchor: string | null
@@ -64,7 +66,7 @@ interface SidebarState {
 }
 
 const KEY = 'acp-harness.sidebar.v1'
-type Saved = Pick<SidebarState, 'filters' | 'cardLayout' | 'cardProperties' | 'collapsedProjects'>
+type Saved = Pick<SidebarState, 'filters' | 'cardLayout' | 'cardProperties' | 'collapsedProjects' | 'expandedChats'>
 
 function readSaved(): Partial<Saved> {
   try {
@@ -81,6 +83,7 @@ let state: SidebarState = {
   cardLayout: saved.cardLayout ?? 'detailed',
   cardProperties: saved.cardProperties ?? CARD_PROPERTIES.map((p) => p.id),
   collapsedProjects: saved.collapsedProjects ?? [],
+  expandedChats: saved.expandedChats ?? [],
   selection: [],
   selectionAnchor: null,
   boardOpen: false,
@@ -97,7 +100,8 @@ function set(change: Partial<SidebarState>): void {
       filters: state.filters,
       cardLayout: state.cardLayout,
       cardProperties: state.cardProperties,
-      collapsedProjects: state.collapsedProjects
+      collapsedProjects: state.collapsedProjects,
+      expandedChats: state.expandedChats
     }
     localStorage.setItem(KEY, JSON.stringify(persisted))
   } catch {
@@ -154,6 +158,10 @@ export function toggleCardProperty(property: CardProperty): void {
 
 export function toggleProjectCollapsed(projectId: string): void {
   set({ collapsedProjects: toggleIn(state.collapsedProjects, projectId) })
+}
+
+export function toggleChatExpanded(sessionId: string): void {
+  set({ expandedChats: toggleIn(state.expandedChats, sessionId) })
 }
 
 export function setBoardOpen(boardOpen: boolean): void {

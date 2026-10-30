@@ -1,4 +1,5 @@
 import { useRef, useState } from 'react'
+import { ChevronRight } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { allWorkspaces, getState, selectSession, useStore, type Session } from '@/session-store'
 import { AgentStateDot } from '@/components/AgentStateDot'
@@ -13,6 +14,7 @@ import { isImeOwnedKeyboardEvent } from '@/lib/ime-composition-keyboard-event'
 import { hideChats, removeTabsFromLayout, useTabLayout } from '@/stores/tab-layout-store'
 import { chatSelection, gestureOf } from '@/stores/list-selection'
 import { beginSidebarDrag, type DragItem } from '@/components/sidebar/sidebar-drag'
+import { toggleChatExpanded } from '@/stores/sidebar-store'
 
 const SCOPE = 'sidebar'
 
@@ -50,7 +52,9 @@ export function SessionRow({
   showWorkspace,
   place,
   drag,
-  showActive
+  showActive,
+  fold,
+  child
 }: {
   session: Session
   showWorkspace?: boolean
@@ -60,6 +64,10 @@ export function SessionRow({
   drag?: DragItem
   /** Mark the chat that is open in the focused workspace (the project chat list has no card to mark). */
   showActive?: boolean
+  /** A parent chat's fold: how many chats sit under it, and the most pressing of their states. */
+  fold?: { count: number; expanded: boolean; status: Session['status'] }
+  /** Drawn indented, under its parent chat. */
+  child?: boolean
 }) {
   const open = useStore((s) => Boolean(showActive) && s.activeWorkspaceId === session.workspaceId && s.activeSessionByWorkspace[session.workspaceId] === session.id)
   const workspaceName = useStore((s) => allWorkspaces(s).find((w) => w.id === session.workspaceId)?.name ?? '')
@@ -93,9 +101,11 @@ export function SessionRow({
       data-session-selected={selected || undefined}
       data-session-open={open || undefined}
       data-session-archived={session.archived || undefined}
+      data-session-child={child || undefined}
       title={session.archived ? 'Archived: click to open it' : tabClosed ? 'Tab closed: click to open it again' : undefined}
       className={cn(
-        'flex min-w-0 cursor-pointer items-center gap-1.5 rounded-md py-0.5 pr-1 pl-[22px] text-[12px] text-muted-foreground hover:bg-worktree-sidebar-accent/60 hover:text-foreground',
+        'relative flex min-w-0 cursor-pointer items-center gap-1.5 rounded-md py-0.5 pr-1 text-[12px] text-muted-foreground hover:bg-worktree-sidebar-accent/60 hover:text-foreground',
+        child ? 'pl-[36px]' : 'pl-[22px]',
         (tabClosed || session.archived) && renaming === null && 'opacity-60',
         selected && 'bg-worktree-sidebar-accent text-foreground opacity-100',
         open && 'bg-worktree-sidebar-accent/70 text-foreground opacity-100'
@@ -115,6 +125,22 @@ export function SessionRow({
         selectSession(session.id)
       }}
     >
+      {fold && (
+        <button
+          type="button"
+          aria-label={fold.expanded ? 'Hide chats under this one' : 'Show chats under this one'}
+          aria-expanded={fold.expanded}
+          data-chat-fold
+          className="absolute left-[5px] flex size-4 items-center justify-center rounded-sm text-muted-foreground/70 hover:bg-worktree-sidebar-accent hover:text-foreground"
+          onPointerDown={(e) => e.stopPropagation()}
+          onClick={(e) => {
+            e.stopPropagation()
+            toggleChatExpanded(session.id)
+          }}
+        >
+          <ChevronRight className={cn('size-3 transition-transform', fold.expanded && 'rotate-90')} />
+        </button>
+      )}
       <TuiAgentIcon agent={sessionAgent(session)} size={11} />
       {renaming !== null ? (
         <Input
@@ -154,6 +180,16 @@ export function SessionRow({
       {place && (
         <span className="max-w-24 shrink-0 truncate font-mono text-[10px] text-muted-foreground/80" title={place} data-session-place>
           {place}
+        </span>
+      )}
+      {fold && !fold.expanded && (
+        <span
+          className="flex shrink-0 items-center gap-1 text-[10px] text-muted-foreground/80 tabular-nums"
+          title={`${fold.count} chat${fold.count === 1 ? '' : 's'} under this one`}
+          data-chat-children={fold.count}
+        >
+          {fold.count}
+          {fold.status !== 'idle' && <AgentStateDot state={SESSION_DOT[fold.status]} size="sm" />}
         </span>
       )}
       <AgentStateDot state={SESSION_DOT[session.status]} size="sm" />

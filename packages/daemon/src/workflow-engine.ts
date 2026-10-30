@@ -136,6 +136,7 @@ export class WorkflowEngine {
   /** A run left running by a previous daemon cannot pick its turn back up; a waiting one can. */
   async recover(): Promise<void> {
     for (const run of await this.runs.all()) {
+      this.adoptChats(run);
       if (run.status !== "running") continue;
       run.status = "stopped";
       run.endedAt = Date.now();
@@ -475,6 +476,7 @@ export class WorkflowEngine {
         workspaceId: ws.id,
         cwd: ws.path,
         title: `${node.label}${count > 1 ? ` ${i + 1}` : ""} · ${run.workflow.name}`,
+        ...this.parentOf(run),
         ...(stepAgent(node) ? { agent: stepAgent(node) } : {}),
         // Agents edit their own worktree without asking each time; reviewers only read.
         options: {
@@ -662,6 +664,7 @@ export class WorkflowEngine {
       workspaceId: workspace.id,
       cwd: workspace.path,
       title: `${node.label} · helper: ${part.title}`,
+      ...this.parentOf(run),
       ...(stepAgent(node) ? { agent: stepAgent(node) } : {}),
       ...(this.heldBack(run, node.id) ? { localOnly: true } : {}),
       options: { model: null, effort: null, permissionMode: node.kind === "review" ? "default" : "acceptEdits" },
@@ -995,6 +998,23 @@ export class WorkflowEngine {
     const own = node.config.question?.trim();
     if (own && last) return `${own}\n\nFrom "${last.label}": ${last.summary}`;
     return own || (last ? `From "${last.label}": ${last.summary}` : `"${node.label}" needs your decision.`);
+  }
+
+  /** Chats from runs made before chats had parents are put under the run's starting chat. */
+  private adoptChats(run: WorkflowRun): void {
+    if (!run.originSessionId) return;
+    const { parentId } = this.parentOf(run);
+    if (!parentId) return;
+    for (const id of new Set(run.steps.flatMap((s) => s.sessionIds))) {
+      const record = this.deps.sessions.get(id);
+      if (record && id !== parentId && !record.parentId && !record.sideOf) this.deps.sessions.update(id, { parentId });
+    }
+  }
+
+  /** Where the run's chats sit in the sidebar: under the chat it was started from. */
+  private parentOf(run: WorkflowRun): { parentId?: string } {
+    const parentId = this.deps.sessions.parentFor(run.originSessionId);
+    return parentId ? { parentId } : {};
   }
 
   /** The Claude chat the run was started from, which answers its questions and hears how it goes. */
