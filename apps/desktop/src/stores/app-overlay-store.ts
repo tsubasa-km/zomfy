@@ -14,6 +14,8 @@ export interface AppOverlays {
   skills: boolean
   /** Orca's first-run flow; reopened from Settings › General. */
   onboarding: boolean
+  /** The guided tour over the live window. */
+  tour: boolean
 }
 
 const store = createExternalStore<AppOverlays>({
@@ -22,7 +24,8 @@ const store = createExternalStore<AppOverlays>({
   commandPalette: false,
   commandPaletteMode: 'all',
   skills: false,
-  onboarding: false
+  onboarding: false,
+  tour: false
 })
 
 export const useAppOverlays = store.use
@@ -70,4 +73,13 @@ export function setSkillsPageOpen(open: boolean): void {
 
 export function setOnboardingOpen(open: boolean): void {
   store.update((s) => ({ ...s, onboarding: open, settings: open ? { ...s.settings, open: false } : s.settings, commandPalette: false }))
+}
+
+/** The tour lights up the workspace view, so the pages covering it close first. */
+export function setTourOpen(open: boolean): void {
+  store.update((s) => ({
+    ...s,
+    tour: open,
+    ...(open ? { settings: { ...s.settings, open: false }, skills: false, commandPalette: false, quickOpen: { ...s.quickOpen, open: false } } : {})
+  }))
 }

@@ -72,6 +72,7 @@ export const SETTINGS_SECTIONS: readonly SettingsNavSection[] = [
       { title: 'Status bar', keywords: ['footer', 'status bar'] },
       { title: 'Minimize to Tray on Close', keywords: ['tray', 'minimize', 'close', 'background'] },
       { title: 'Run setup again', keywords: ['onboarding', 'welcome', 'first run', 'setup'] },
+      { title: 'Take the tour', keywords: ['tour', 'tutorial', 'guide', 'help', 'walkthrough'] },
       { title: 'Reset all settings', keywords: ['defaults', 'restore'] }
     ]
   },

@@ -62,6 +62,8 @@ export interface AppSettings {
   defaultHost: string
   /** First-run flow finished or skipped; settings can reopen it. */
   onboardingDone: boolean
+  /** The guided tour was finished or ended; the command palette and settings start it again. */
+  tourDone: boolean
   /** Windows: closing the window hides it to the tray instead of quitting (Orca's minimizeToTrayOnClose). */
   minimizeToTrayOnClose: boolean
   /** Composer dictation, sent only to the transcription endpoint configured below. */
@@ -113,6 +115,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
   defaultPermissionMode: 'auto',
   defaultHost: 'auto',
   onboardingDone: false,
+  tourDone: false,
   minimizeToTrayOnClose: false,
   voiceDictationEnabled: false,
   dictationEndpoint: '',

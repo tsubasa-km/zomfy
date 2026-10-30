@@ -18,6 +18,7 @@ import { installSkillsCommands } from '@/components/skills/skills-commands'
 import { installChatCommands } from '@/components/native-chat/native-chat-commands'
 import { usePluginBootstrap } from '@/plugins/plugin-registry'
 import { OnboardingGate, installOnboardingCommands } from '@/components/onboarding/OnboardingFlow'
+import { TourGate, installTourCommands } from '@/components/tour/GuidedTour'
 import { QuickOpen } from '@/components/QuickOpen'
 import { CommandPalette } from '@/components/CommandPalette'
 import { StatusBar } from '@/components/status-bar/StatusBar'
@@ -54,6 +55,7 @@ installInbox()
 installSkillsCommands()
 installChatCommands()
 installOnboardingCommands()
+installTourCommands()
 installTraySync()
 installCloseGuard()
 installAppUpdates()
@@ -140,6 +142,7 @@ export default function App() {
       <QuickOpen />
       <CommandPalette />
       <OnboardingGate />
+      <TourGate />
       <PointerDragLayer />
     </TooltipProvider>
   )

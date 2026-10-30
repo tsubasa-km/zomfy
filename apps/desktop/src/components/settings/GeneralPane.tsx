@@ -1,11 +1,12 @@
 import { useState } from 'react'
-import { Download, RefreshCw, RotateCcw, Sparkles } from 'lucide-react'
+import { Download, RefreshCw, RotateCcw, Sparkles, Compass } from 'lucide-react'
 import { setSidebarView, useStore, type SidebarView } from '@/session-store'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { sortedHosts } from './HostsPane'
 import { resetAllSettings, setSetting, useSetting } from '@/stores/settings-store'
 import { setOnboardingOpen } from '@/stores/app-overlay-store'
 import { Button } from '@/components/ui/button'
+import { startTour } from '@/components/tour/GuidedTour'
 import { checkForUpdate, restartToUpdate, useAppUpdate, type UpdateState } from '@/lib/app-update'
 import { SettingsRow, SettingsSegmentedControl, SettingsSubsectionHeader, SettingsSwitchRow } from './settings-form-controls'
 
@@ -161,6 +162,17 @@ export function GeneralPane() {
             <Button variant="outline" size="sm" onClick={() => setOnboardingOpen(true)} data-run-setup>
               <Sparkles className="size-3.5" />
               Open
+            </Button>
+          }
+        />
+        <SettingsRow
+          label="Take the tour"
+          description="Walks through the window: chats, layout, workflows, and the pages that keep track of your agents."
+          keywords={['tour', 'tutorial', 'guide', 'help', 'walkthrough']}
+          control={
+            <Button variant="outline" size="sm" onClick={startTour} data-take-tour>
+              <Compass className="size-3.5" />
+              Start
             </Button>
           }
         />
