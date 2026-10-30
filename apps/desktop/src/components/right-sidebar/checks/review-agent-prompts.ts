@@ -1,5 +1,5 @@
 import type { HostedCheck, HostedReview, HostedReviewComment } from '@acp-harness/protocol'
-import { checkStatusLabel, reviewShortLabel } from './review-presentation'
+import { checkStatusText, reviewShortLabel } from './review-presentation'
 
 // Orca's pr-checks-fix-prompt.ts and pr-comments-resolution-prompt.ts, without the log tails and
 // host-side thread resolution this port does not have.
@@ -21,7 +21,7 @@ export function buildFixBrokenChecksPrompt(review: HostedReview, checks: HostedC
   const data = {
     title: review.title,
     url: review.url,
-    checks: broken.map((c) => ({ name: c.name, group: c.group ?? undefined, status: checkStatusLabel(c), url: c.url }))
+    checks: broken.map((c) => ({ name: c.name, group: c.group ?? undefined, status: checkStatusText(c), url: c.url }))
   }
   return [
     `Investigate the broken checks for ${label(review)} and fix only failures caused by this branch.`,

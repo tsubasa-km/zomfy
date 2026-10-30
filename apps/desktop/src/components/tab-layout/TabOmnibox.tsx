@@ -13,11 +13,12 @@ import { groupOfTab, layoutFor, useTabLayout } from '@/stores/tab-layout-store'
 import { TabKindIcon } from './TabKindIcon'
 import { matchFiles, workspaceFiles } from './workspace-file-index'
 import { activateTab, openBrowserTab, tabTitle, useWorkspaceTabs, type WorkspaceTab } from './workspace-tab-model'
+import { t } from '@/i18n/i18n'
 
 // Orca's new-tab omnibox (TabBarCreateEntry.tsx): one box that switches to an open tab, opens a
 // file, opens a URL or search, or launches an agent.
 
-const PLACEHOLDER = 'Search open tabs, files, URLs, agents…'
+const PLACEHOLDER = t('Search open tabs, files, URLs, agents…')
 
 type Option =
   | { kind: 'tab'; tab: WorkspaceTab; title: string }
@@ -44,15 +45,15 @@ function optionKey(option: Option): string {
 function presentation(option: Option): { icon: React.ReactNode; label: string; detail: string } {
   switch (option.kind) {
     case 'tab':
-      return { icon: <TabKindIcon tab={option.tab} className="shrink-0" />, label: 'Switch to tab', detail: option.title }
+      return { icon: <TabKindIcon tab={option.tab} className="shrink-0" />, label: t('Switch to tab'), detail: option.title }
     case 'agent':
-      return { icon: <TuiAgentIcon agent={option.id} size={14} />, label: 'Launch agent', detail: option.label }
+      return { icon: <TuiAgentIcon agent={option.id} size={14} />, label: t('Launch agent'), detail: option.label }
     case 'file':
-      return { icon: <FileText className="size-3.5 shrink-0" />, label: 'Open file', detail: option.path }
+      return { icon: <FileText className="size-3.5 shrink-0" />, label: t('Open file'), detail: option.path }
     case 'url':
-      return { icon: <Globe className="size-3.5 shrink-0" />, label: 'Open URL', detail: option.url }
+      return { icon: <Globe className="size-3.5 shrink-0" />, label: t('Open URL'), detail: option.url }
     case 'search':
-      return { icon: <Search className="size-3.5 shrink-0" />, label: 'Search Google', detail: option.query }
+      return { icon: <Search className="size-3.5 shrink-0" />, label: t('Search Google'), detail: option.query }
   }
 }
 

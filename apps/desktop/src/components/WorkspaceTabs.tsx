@@ -17,6 +17,7 @@ import { TerminalWorkspaceDialogs } from '@/components/terminal/TerminalWorkspac
 import { reconcileWorkspacePanes } from '@/components/terminal/terminal-pane-commands'
 import { paneOwnerTab, setActivePane, useTerminalPaneState } from '@/stores/terminal-pane-store'
 import '@/components/tab-layout/tab-layout.css'
+import { t } from '@/i18n/i18n'
 
 // A workspace's center area, as Orca draws it: a split tree of tab groups (TabGroupSplitNodeTree),
 // each with its own tab strip (tab-bar/) and body.
@@ -89,7 +90,7 @@ export function WorkspaceTabs({
               isFocused={groupId === layout.focusedGroupId}
               hasSplit={hasSplit}
               trailing={groupId === trailingGroup ? trailing : undefined}
-              emptyHint={hasSplit ? 'Empty pane' : emptyHint}
+              emptyHint={hasSplit ? t('Empty pane') : emptyHint}
             />
           )
         }}

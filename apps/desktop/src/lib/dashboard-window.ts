@@ -3,6 +3,7 @@ import { emitTo, listen } from '@tauri-apps/api/event'
 import { getCurrentWindow } from '@tauri-apps/api/window'
 import { WebviewWindow } from '@tauri-apps/api/webviewWindow'
 import { selectSession, setDashboardOpen } from '@/session-store'
+import { t } from '@/i18n/i18n'
 
 // Orca's dashboard pop-out (dashboard-popout/): the agent dashboard in a window of its own, which
 // hands the session the user picks back to the main window. The browser preview has no windows,
@@ -22,7 +23,7 @@ export async function popOutDashboard(): Promise<void> {
   }
   new WebviewWindow(DASHBOARD_WINDOW_LABEL, {
     url: '/index.html?window=dashboard',
-    title: 'Agents — Zomfy',
+    title: t('Agents — Zomfy'),
     width: 1100,
     height: 720,
     minWidth: 560,

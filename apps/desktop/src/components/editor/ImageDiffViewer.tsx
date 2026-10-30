@@ -1,5 +1,6 @@
 import { cn } from '@/lib/utils'
 import { ImageViewer } from './ImageViewer'
+import { t, tc } from '@/i18n/i18n'
 
 function ImageDiffPane({
   label,
@@ -14,13 +15,13 @@ function ImageDiffPane({
 }): React.JSX.Element {
   return (
     <div className="flex h-full min-h-0 flex-col overflow-hidden rounded-md bg-muted/10" data-image-diff-pane={label}>
-      <div className="px-3 py-2 text-xs font-medium text-muted-foreground">{label}</div>
+      <div className="px-3 py-2 text-xs font-medium text-muted-foreground">{tc(label, 'diff side')}</div>
       {base64 ? (
         <div className="min-h-0 flex-1">
           <ImageViewer base64={base64} mimeType={mimeType} filePath={filePath} size={Math.floor((base64.length * 3) / 4)} />
         </div>
       ) : (
-        <div className="flex flex-1 items-center justify-center bg-muted/20 p-6 text-sm text-muted-foreground">No preview</div>
+        <div className="flex flex-1 items-center justify-center bg-muted/20 p-6 text-sm text-muted-foreground">{t('No preview')}</div>
       )}
     </div>
   )

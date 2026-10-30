@@ -8,6 +8,7 @@ import { WORKFLOW_META,
 } from '@acp-harness/protocol'
 import { appendText, getState, updateSession, upsertTool, type ThreadItem } from '@/session-store'
 import { patchChatSession } from '@/stores/chat-store'
+import { t } from '@/i18n/i18n'
 
 /** Folds one ACP session update into the window's transcript and chat state. */
 export function applyChatUpdate({ sessionId, update }: acp.SessionNotification): void {
@@ -66,7 +67,7 @@ export function applyChatUpdate({ sessionId, update }: acp.SessionNotification):
           {
             kind: 'tool',
             id: `plan:${s.items.length}`,
-            title: 'Plan',
+            title: t('Plan'),
             toolKind: 'think',
             toolName: 'TodoWrite',
             status: 'completed',

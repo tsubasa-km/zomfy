@@ -18,13 +18,14 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuSeparator, DropdownMenuT
 import { SwitchIndicator } from '@/components/ui/switch'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { cn } from '@/lib/utils'
+import { t } from '@/i18n/i18n'
 
 // Orca's SidebarFilter: switch rows, then a searchable project list, then Reset. Rows for agent
 // state, unread, status and host stand in for Orca's sleeping/automation rows the harness lacks.
 
 export const STATUS_FILTERS: { id: StatusFilterId; label: string }[] = [
-  ...WORKSPACE_STATUSES.map((s) => ({ id: s.id, label: s.label })),
-  { id: 'none', label: 'No status' }
+  ...WORKSPACE_STATUSES.map((s) => ({ id: s.id, label: t(s.label) })),
+  { id: 'none', label: t('No status') }
 ]
 
 /** Orca's FilterToggleRow. */
@@ -74,7 +75,7 @@ function SectionLabel({ children, onClear }: { children: ReactNode; onClear?: ()
           onClick={onClear}
           className="rounded-full px-2 py-0.5 text-[11px] text-muted-foreground hover:bg-muted hover:text-foreground"
         >
-          Clear
+          {t('Clear')}
         </button>
       )}
     </div>
@@ -98,7 +99,7 @@ export function SidebarFilterMenu() {
             <Button
               variant="ghost"
               size="icon-xs"
-              aria-label={count > 0 ? `Edit filters (${count} active)` : 'Filter workspaces'}
+              aria-label={count > 0 ? t('Edit filters ({n} active)', { n: count }) : t('Filter workspaces')}
               className="relative text-muted-foreground"
               data-sidebar-filter-trigger
             >
@@ -115,42 +116,42 @@ export function SidebarFilterMenu() {
           </DropdownMenuTrigger>
         </TooltipTrigger>
         <TooltipContent side="bottom" sideOffset={6}>
-          {count > 0 ? 'Edit filters' : 'Filter workspaces'}
+          {count > 0 ? t('Edit filters') : t('Filter workspaces')}
         </TooltipContent>
       </Tooltip>
       <DropdownMenuContent side="right" align="start" sideOffset={8} className="w-72" data-sidebar-filter-menu>
         <FilterToggleRow
           filterId="agent-running"
           icon={<Loader className="size-3.5" />}
-          label="Agent running"
+          label={t('Agent running')}
           checked={filters.agentRunning}
           onChange={(agentRunning) => setFilters({ agentRunning })}
         />
         <FilterToggleRow
           filterId="needs-you"
           icon={<Bell className="size-3.5" />}
-          label="Needs you"
+          label={t('Needs you')}
           checked={filters.needsYou}
           onChange={(needsYou) => setFilters({ needsYou })}
         />
         <FilterToggleRow
           filterId="unread"
           icon={<Mail className="size-3.5" />}
-          label="Unread"
+          label={t('Unread')}
           checked={filters.unread}
           onChange={(unread) => setFilters({ unread })}
         />
         <FilterToggleRow
           filterId="hide-primary"
           icon={<GitBranch className="size-3.5" />}
-          label="Hide default branch"
+          label={t('Hide default branch')}
           checked={filters.hidePrimary}
           onChange={(hidePrimary) => setFilters({ hidePrimary })}
         />
 
         <DropdownMenuSeparator />
         <SectionLabel onClear={filters.statuses.length > 0 ? () => setFilters({ statuses: [] }) : undefined}>
-          Status
+          {t('Status')}
         </SectionLabel>
         {STATUS_FILTERS.map((s) => (
           <FilterToggleRow
@@ -167,7 +168,7 @@ export function SidebarFilterMenu() {
           <>
             <DropdownMenuSeparator />
             <SectionLabel onClear={filters.hostIds.length > 0 ? () => setFilters({ hostIds: [] }) : undefined}>
-              Hosts
+              {t('Hosts')}
             </SectionLabel>
             {hostList.map((h) => (
               <FilterToggleRow
@@ -186,7 +187,7 @@ export function SidebarFilterMenu() {
           <>
             <DropdownMenuSeparator />
             <SectionLabel onClear={filters.projectIds.length > 0 ? () => setFilters({ projectIds: [] }) : undefined}>
-              Projects
+              {t('Projects')}
               {filters.projectIds.length > 0 && (
                 <span className="ml-1.5 font-medium tracking-normal text-foreground normal-case">
                   · {filters.projectIds.length}
@@ -195,7 +196,7 @@ export function SidebarFilterMenu() {
             </SectionLabel>
             <Command shouldFilter={false} className="bg-transparent">
               <CommandInput
-                placeholder="Search projects..."
+                placeholder={t('Search projects...')}
                 value={query}
                 onValueChange={setQuery}
                 onKeyDown={(e) => e.stopPropagation()}
@@ -204,7 +205,7 @@ export function SidebarFilterMenu() {
                 iconClassName="h-3.5 w-3.5"
               />
               <CommandList className="max-h-48 py-1">
-                <CommandEmpty className="py-4 text-[11px]">No projects match</CommandEmpty>
+                <CommandEmpty className="py-4 text-[11px]">{t('No projects match')}</CommandEmpty>
                 {matching.map((p) => (
                   <CommandItem
                     key={p.id}
@@ -233,7 +234,7 @@ export function SidebarFilterMenu() {
                 onClick={resetFilters}
                 className="rounded-[5px] px-2 py-1 text-[11px] text-muted-foreground hover:bg-muted hover:text-foreground"
               >
-                Reset filters
+                {t('Reset filters')}
               </button>
             </div>
           </>

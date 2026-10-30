@@ -5,6 +5,7 @@ import { CornerDownLeft, Pencil, Trash } from 'lucide-react'
 import { monaco } from '@/lib/monaco-setup'
 import { addReviewNote, deleteReviewNote, editReviewNote, useReviewNotes, type ReviewNote } from '@/stores/review-notes-store'
 import { Button } from '@/components/ui/button'
+import { t } from '@/i18n/i18n'
 import './review-notes.css'
 
 // Orca's useDiffCommentDecorator + DiffCommentCard/DiffCommentDraftCard: a "+" on the hovered line
@@ -22,7 +23,7 @@ interface Draft {
 }
 
 function rangeLabel(start: number | undefined, line: number): string {
-  return start !== undefined && start !== line ? `Lines ${start}-${line}` : `Line ${line}`
+  return start !== undefined && start !== line ? t('Lines {start}-{end}', { start, end: line }) : t('Line {line}', { line })
 }
 
 /** The hovered-line "+" button, placed in the gutter like Orca's diff-comment-add-button-overlay. */
@@ -35,8 +36,8 @@ function useAddNoteButton(editor: CodeEditor, onAdd: (draft: Draft) => void): vo
     const button = document.createElement('button')
     button.type = 'button'
     button.className = 'review-note-add-btn'
-    button.title = 'Add note for the AI'
-    button.setAttribute('aria-label', 'Add note for the AI')
+    button.title = t('Add note for the AI')
+    button.setAttribute('aria-label', t('Add note for the AI'))
     button.dataset.reviewNoteAdd = ''
     button.innerHTML = PLUS_SVG
     dom.appendChild(button)
@@ -234,7 +235,7 @@ function NoteTextarea({
       <textarea
         autoFocus
         className="review-note-textarea"
-        placeholder="Add note for the AI"
+        placeholder={t('Add note for the AI')}
         value={body}
         onChange={(e) => setBody(e.target.value)}
         onKeyDownCapture={(e) => {
@@ -250,7 +251,7 @@ function NoteTextarea({
       />
       <div className="flex items-center justify-end gap-1.5">
         <Button type="button" size="xs" variant="ghost" onClick={onCancel}>
-          Cancel
+          {t('Cancel')}
         </Button>
         <Button type="button" size="xs" disabled={!body.trim()} onClick={submit} data-review-note-submit>
           {submitLabel}
@@ -276,7 +277,7 @@ function DraftCard({
   return (
     <div ref={ref} className="review-note-card" data-review-note-draft>
       <div className="review-note-header">{label}</div>
-      <NoteTextarea initial="" submitLabel="Add note" onCancel={onCancel} onSubmit={onSubmit} />
+      <NoteTextarea initial="" submitLabel={t('Add note')} onCancel={onCancel} onSubmit={onSubmit} />
     </div>
   )
 }
@@ -289,18 +290,18 @@ function NoteCard({ note, onHeight }: { note: ReviewNote; onHeight: (height: num
       <div className="review-note-header">
         <span className="flex items-center gap-1.5">
           {rangeLabel(note.startLine, note.lineNumber)}
-          {note.sentAt && <span className="rounded bg-muted px-1 text-[10px] font-normal text-muted-foreground">Sent</span>}
+          {note.sentAt && <span className="rounded bg-muted px-1 text-[10px] font-normal text-muted-foreground">{t('Sent')}</span>}
         </span>
         {!editing && (
           <span className="review-note-pill">
-            <button type="button" className="review-note-pill-btn" title="Edit note" aria-label="Edit note" onClick={() => setEditing(true)}>
+            <button type="button" className="review-note-pill-btn" title={t('Edit note')} aria-label={t('Edit note')} onClick={() => setEditing(true)}>
               <Pencil className="size-3" />
             </button>
             <button
               type="button"
               className="review-note-pill-btn review-note-pill-btn-danger"
-              title="Delete note"
-              aria-label="Delete note"
+              title={t('Delete note')}
+              aria-label={t('Delete note')}
               onClick={() => deleteReviewNote(note.workspaceId, note.id)}
             >
               <Trash className="size-3" />
@@ -311,7 +312,7 @@ function NoteCard({ note, onHeight }: { note: ReviewNote; onHeight: (height: num
       {editing ? (
         <NoteTextarea
           initial={note.body}
-          submitLabel="Save"
+          submitLabel={t('Save')}
           onCancel={() => setEditing(false)}
           onSubmit={(body) => {
             editReviewNote(note.workspaceId, note.id, body)

@@ -8,6 +8,7 @@ import { Segment } from '@/components/status-bar/status-bar-segments'
 import { registerCommandHandler, useShortcutLabel } from '@/keybindings/keybinding-registry'
 import { cn } from '@/lib/utils'
 import { inboxEntries } from './inbox-entries'
+import { t } from '@/i18n/i18n'
 
 /** Everything waiting on the person: approvals and questions, unread finishes, open todos. */
 function useInboxCounts(): { total: number; urgent: number } {
@@ -26,8 +27,8 @@ function InboxSegment() {
   const shortcut = useShortcutLabel('inbox.toggle')
   return (
     <Segment
-      label={`Inbox, ${total} item${total === 1 ? '' : 's'}`}
-      tooltip={`Inbox: ${urgent} waiting on you, ${total - urgent} to review${shortcut ? ` (${shortcut})` : ''}`}
+      label={t(total === 1 ? 'Inbox, {n} item' : 'Inbox, {n} items', { n: total })}
+      tooltip={`${t('Inbox: {urgent} waiting on you, {review} to review', { urgent, review: total - urgent })}${shortcut ? ` (${shortcut})` : ''}`}
       onClick={() => setInboxOpen(!getInbox().open)}
       className={cn(urgent > 0 && 'text-agent-question-text')}
     >
@@ -41,7 +42,7 @@ function InboxSegment() {
 
 /** Status bar badge and the inbox / manager shortcuts; called once at startup. */
 export function installInbox(): void {
-  registerStatusBarItem({ id: 'inbox', label: 'Inbox', side: 'left', order: 15, render: () => <InboxSegment /> })
+  registerStatusBarItem({ id: 'inbox', label: t('Inbox'), side: 'left', order: 15, render: () => <InboxSegment /> })
   registerCommandHandler('inbox.toggle', () => setInboxOpen(!getInbox().open))
   registerCommandHandler('manager.open', () => {
     void openManager()

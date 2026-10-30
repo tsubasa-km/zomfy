@@ -29,6 +29,7 @@ import {
 } from '@/components/ui/dropdown-menu'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { cn } from '@/lib/utils'
+import { t } from '@/i18n/i18n'
 
 // Orca's SidebarHeader / sidebar-header-actions / SidebarToolbar: title, then board, filter, options
 // and add. Skills, Automations and the dashboard are SidebarNav rows, as in Orca.
@@ -38,7 +39,7 @@ export function SidebarHeader({ onNewGroup }: { onNewGroup: (hostId: HostId) => 
   return (
     <div className="mt-2 flex h-8 min-w-0 items-center justify-between gap-1.5 px-2">
       <span className="min-w-0 truncate pr-0.5 pl-2 text-xs font-semibold text-muted-foreground/80 select-none">
-        {groupBy === 'project' ? 'Projects' : 'Workspaces'}
+        {groupBy === 'project' ? t('Projects') : t('Workspaces')}
       </span>
       <div className="flex shrink-0 items-center gap-0.5">
         <BoardButton />
@@ -58,7 +59,7 @@ function BoardButton() {
         <Button
           size="icon-xs"
           variant="ghost"
-          aria-label="Workspace board"
+          aria-label={t('Workspace board')}
           aria-pressed={open}
           data-board-toggle
           className={cn('text-muted-foreground', open && 'bg-primary/15 text-primary hover:bg-primary/20')}
@@ -70,7 +71,7 @@ function BoardButton() {
           <Kanban className="size-3.5" strokeWidth={2.25} />
         </Button>
       </TooltipTrigger>
-      <TooltipContent side="bottom">Workspace board</TooltipContent>
+      <TooltipContent side="bottom">{t('Workspace board')}</TooltipContent>
     </Tooltip>
   )
 }
@@ -88,41 +89,41 @@ function AddMenu({ onNewGroup }: { onNewGroup: (hostId: HostId) => void }) {
       }}
     >
       <DropdownMenuTrigger asChild>
-        <Button size="icon-xs" variant="ghost" aria-label="Add" className="text-muted-foreground">
+        <Button size="icon-xs" variant="ghost" aria-label={t('Add')} className="text-muted-foreground">
           <Plus className="size-3.5" strokeWidth={2.25} />
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="start" className="w-64">
         <DropdownMenuItem data-add="project" onSelect={() => openAddProjectDialog()}>
           <FolderPlus className="size-4" />
-          Add project…
+          {t('Add project…')}
         </DropdownMenuItem>
         <DropdownMenuItem data-add="clone" onSelect={() => openAddProjectDialog({ step: 'clone' })}>
           <GitBranchPlus className="size-4" />
-          Clone from URL…
+          {t('Clone from URL…')}
         </DropdownMenuItem>
         <DropdownMenuItem data-add="create-repo" onSelect={() => openAddProjectDialog({ step: 'create' })}>
           <SquarePlus className="size-4" />
-          Create new project…
+          {t('Create new project…')}
         </DropdownMenuItem>
         <DropdownMenuItem data-add="orca-import" onSelect={() => setOrcaImportOpen(true)}>
           <Download className="size-4" />
-          Import from Orca…
+          {t('Import from Orca…')}
         </DropdownMenuItem>
         <DropdownMenuSeparator />
         <DropdownMenuItem data-add="group" onSelect={() => onNewGroup(LOCAL_HOST)}>
           <Folders className="size-4" />
-          New project group…
+          {t('New project group…')}
         </DropdownMenuItem>
         <DropdownMenuSeparator />
         <DropdownMenuItem data-add="ssh" onSelect={() => setSshOpen(true)}>
           <TerminalSquare className="size-4" />
-          Connect SSH host…
+          {t('Connect SSH host…')}
         </DropdownMenuItem>
         {distros && distros.length > 0 && (
           <>
             <DropdownMenuSeparator />
-            <DropdownMenuLabel className="text-xs text-muted-foreground">Connect WSL</DropdownMenuLabel>
+            <DropdownMenuLabel className="text-xs text-muted-foreground">{t('Connect WSL')}</DropdownMenuLabel>
             {distros.map((distro) => {
               const hostId = `wsl:${distro}`
               return (

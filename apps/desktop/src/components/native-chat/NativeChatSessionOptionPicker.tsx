@@ -5,19 +5,20 @@ import { Button } from '@/components/ui/button'
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group'
+import { t } from '@/i18n/i18n'
 
 // Ported from Orca's NativeChatSessionOptionPickers, NativeChatModelCombobox and
 // NativeChatSessionOptionRows: one pill naming the model and effort, opening a searchable model
 // list with the model's effort levels pinned under it.
 
 const EFFORT_LABEL: Record<ChatEffort, string> = {
-  low: 'Low',
-  medium: 'Medium',
-  high: 'High',
-  xhigh: 'Extra high',
-  max: 'Max'
+  low: t('Low'),
+  medium: t('Medium'),
+  high: t('High'),
+  xhigh: t('Extra high'),
+  max: t('Max')
 }
-const EFFORT_SHORT: Record<ChatEffort, string> = { low: 'Low', medium: 'Med', high: 'High', xhigh: 'XHigh', max: 'Max' }
+const EFFORT_SHORT: Record<ChatEffort, string> = { low: t('Low'), medium: t('Med'), high: t('High'), xhigh: t('XHigh'), max: t('Max') }
 /** The CLI's own default, shown when the session names none. */
 const DEFAULT_MODEL = 'default'
 
@@ -43,7 +44,7 @@ export function NativeChatSessionOptionPicker({
   const search = useRef<HTMLInputElement>(null)
   const currentValue = options.model ?? models.find((m) => m.value === DEFAULT_MODEL)?.value ?? DEFAULT_MODEL
   const current = models.find((m) => m.value === currentValue)
-  const modelLabel = current?.displayName ?? options.model ?? 'Model'
+  const modelLabel = current?.displayName ?? options.model ?? t('Model')
   const efforts = current?.efforts ?? []
   const effort = options.effort && efforts.includes(options.effort) ? options.effort : null
 
@@ -55,7 +56,7 @@ export function NativeChatSessionOptionPicker({
           variant="ghost"
           size="xs"
           data-native-chat-model-picker
-          aria-label={`Model ${modelLabel}${effort ? `, Effort ${EFFORT_LABEL[effort]}` : ''}`}
+          aria-label={effort ? t('Model {model}, Effort {effort}', { model: modelLabel, effort: EFFORT_LABEL[effort] }) : t('Model {model}', { model: modelLabel })}
           className="max-w-64 min-w-0 shrink"
           onKeyDown={(event) => {
             // A popover trigger opens on Enter and Space only; a menu also takes ArrowDown.
@@ -76,8 +77,8 @@ export function NativeChatSessionOptionPicker({
         collisionPadding={8}
         className="flex w-96 max-w-(--radix-popover-content-available-width) flex-col p-0 select-none"
       >
-        <Command surface="inline" density="menu" label="Search models…" filter={modelChoiceFilter} defaultValue={currentValue}>
-          <CommandInput ref={search} placeholder="Search models…" />
+        <Command surface="inline" density="menu" label={t('Search models…')} filter={modelChoiceFilter} defaultValue={currentValue}>
+          <CommandInput ref={search} placeholder={t('Search models…')} />
           <CommandList
             onMouseDown={(event) => {
               // A row is not a focus target; typing keeps filtering after a click.
@@ -85,7 +86,7 @@ export function NativeChatSessionOptionPicker({
               search.current?.focus()
             }}
           >
-            <CommandEmpty>{loading ? 'Loading models…' : 'No models match your search.'}</CommandEmpty>
+            <CommandEmpty>{loading ? t('Loading models…') : t('No models match your search.')}</CommandEmpty>
             <CommandGroup>
               {models.map((model) => {
                 const selected = model.value === currentValue
@@ -120,7 +121,7 @@ export function NativeChatSessionOptionPicker({
           <div className="border-t border-border p-1">
             <div className="flex min-h-7 flex-wrap items-center justify-between gap-x-3 gap-y-1 pl-2">
               <span id="native-chat-effort-label" className="text-xs text-muted-foreground">
-                Effort
+                {t('Effort')}
               </span>
               <ToggleGroup
                 type="single"

@@ -3,6 +3,7 @@ import { chatAgentLabel, type WorkflowAgentProfile } from '@acp-harness/protocol
 import { TuiAgentIcon } from '@/components/terminal/TuiAgentIcon'
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog'
+import { t } from '@/i18n/i18n'
 
 // Every agent defined on the host, used by a step or not, to open for editing (or deleting) or to add.
 
@@ -21,11 +22,11 @@ export function WorkflowAgentsDialog({
     <Dialog open onOpenChange={(open) => !open && onClose()}>
       <DialogContent className="sm:max-w-md" data-workflow-agents-dialog>
         <DialogHeader>
-          <DialogTitle>Agents</DialogTitle>
-          <DialogDescription>Defined once on this host for every workflow. Steps that use one follow its changes.</DialogDescription>
+          <DialogTitle>{t('Agents')}</DialogTitle>
+          <DialogDescription>{t('Defined once on this host for every workflow. Steps that use one follow its changes.')}</DialogDescription>
         </DialogHeader>
         {agents.length === 0 ? (
-          <p className="text-sm text-muted-foreground">None yet.</p>
+          <p className="text-sm text-muted-foreground">{t('None yet.')}</p>
         ) : (
           <ul className="max-h-80 space-y-1 overflow-y-auto">
             {agents.map((a) => (
@@ -34,12 +35,12 @@ export function WorkflowAgentsDialog({
                 <div className="min-w-0 flex-1">
                   <div className="truncate text-sm">{a.name}</div>
                   <div className="truncate text-[11px] text-muted-foreground">
-                    {a.kind === 'review' ? 'Reviews' : 'Does the work'} · {chatAgentLabel(a.agent ?? 'claude')}
+                    {a.kind === 'review' ? t('Reviews') : t('Does the work')} · {chatAgentLabel(a.agent ?? 'claude')}
                     {a.model ? ` · ${a.model}` : ''}
                   </div>
                 </div>
-                {a.local && <HardDrive className="size-3.5 shrink-0 text-muted-foreground" aria-label="Local model" />}
-                <Button variant="ghost" size="icon" className="size-7" aria-label={`Edit ${a.name}`} onClick={() => onEdit(a)}>
+                {a.local && <HardDrive className="size-3.5 shrink-0 text-muted-foreground" aria-label={t('Local model')} />}
+                <Button variant="ghost" size="icon" className="size-7" aria-label={t('Edit {name}', { name: a.name })} onClick={() => onEdit(a)}>
                   <Pencil className="size-3.5" />
                 </Button>
               </li>
@@ -48,7 +49,7 @@ export function WorkflowAgentsDialog({
         )}
         <Button variant="outline" size="sm" className="w-fit" onClick={onNew}>
           <Plus className="size-3.5" />
-          New agent
+          {t('New agent')}
         </Button>
       </DialogContent>
     </Dialog>

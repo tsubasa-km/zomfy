@@ -13,6 +13,7 @@ import {
   DropdownMenuTrigger
 } from '@/components/ui/dropdown-menu'
 import { cn } from '@/lib/utils'
+import { t } from '@/i18n/i18n'
 
 // Picks one of the project's workflows for the next message: sent with one picked, the message is
 // the run's task and the harness runs the workflow instead of this chat taking a turn.
@@ -47,7 +48,7 @@ export function NativeChatWorkflowPicker({
       <DropdownMenuTrigger asChild>
         <button
           type="button"
-          aria-label={picked ? `Workflow: ${picked.name}` : 'Run a workflow'}
+          aria-label={picked ? t('Workflow: {name}', { name: picked.name }) : t('Run a workflow')}
           data-native-chat-workflow={picked?.id ?? ''}
           className={cn(
             'flex h-7 max-w-48 items-center gap-1 rounded-md px-1.5 text-xs transition-colors hover:bg-accent hover:text-accent-foreground focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none',
@@ -59,7 +60,7 @@ export function NativeChatWorkflowPicker({
           {picked ? (
             <X
               className="size-3 shrink-0 opacity-70 hover:opacity-100"
-              aria-label="Clear the workflow"
+              aria-label={t('Clear the workflow')}
               onPointerDown={(e) => {
                 e.preventDefault()
                 e.stopPropagation()
@@ -70,9 +71,9 @@ export function NativeChatWorkflowPicker({
         </button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="start" className="w-64">
-        <DropdownMenuLabel className="text-xs text-muted-foreground">Run a workflow on this message</DropdownMenuLabel>
-        {workflows === null && <div className="px-2 py-1.5 text-xs text-muted-foreground">Loading…</div>}
-        {workflows?.length === 0 && <div className="px-2 py-1.5 text-xs text-muted-foreground">No workflows in this project yet.</div>}
+        <DropdownMenuLabel className="text-xs text-muted-foreground">{t('Run a workflow on this message')}</DropdownMenuLabel>
+        {workflows === null && <div className="px-2 py-1.5 text-xs text-muted-foreground">{t('Loading…')}</div>}
+        {workflows?.length === 0 && <div className="px-2 py-1.5 text-xs text-muted-foreground">{t('No workflows in this project yet.')}</div>}
         {workflows?.map((w) => (
           <DropdownMenuItem key={w.id} onSelect={() => onPick(picked?.id === w.id ? null : { id: w.id, name: w.name })}>
             <span className="min-w-0 flex-1 truncate">{w.name}</span>
@@ -82,7 +83,7 @@ export function NativeChatWorkflowPicker({
         <DropdownMenuSeparator />
         <DropdownMenuItem onSelect={() => openWorkflows({ hostId: home.hostId, projectId, projectName: home.projectName })}>
           <Pencil className="size-3.5" />
-          Edit workflows…
+          {t('Edit workflows…')}
         </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>

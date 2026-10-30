@@ -12,6 +12,7 @@ import { Checkbox } from '@/components/ui/checkbox'
 import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
+import { t } from '@/i18n/i18n'
 
 // Orca has no side chat; this follows Claude Code's /btw: a short-lived chat in the same workspace
 // that sees the main chat's latest messages and leaves that conversation alone.
@@ -51,12 +52,12 @@ export function SideChatPanel({ workspaceId }: { workspaceId: string }) {
     <div className="flex min-h-0 flex-1 flex-col" data-side-chat-panel>
       <div className="flex h-8 shrink-0 items-center gap-1 border-b border-border px-2">
         <span className="min-w-0 truncate text-xs text-muted-foreground" title={anchor?.title}>
-          {anchor ? <>Beside “{anchor.title}”</> : 'No chat in this workspace'}
+          {anchor ? t('Beside “{title}”', { title: anchor.title }) : t('No chat in this workspace')}
         </span>
         <div className="ml-auto flex shrink-0 items-center">
           {side && anchor && lastAnswer?.kind === 'agent' ? (
             <IconAction
-              label="Send last answer to main chat"
+              label={t('Send last answer to main chat')}
               data="send-last"
               onClick={() => sendToMainChat(anchor, lastAnswer.text)}
             >
@@ -64,7 +65,7 @@ export function SideChatPanel({ workspaceId }: { workspaceId: string }) {
             </IconAction>
           ) : null}
           {side && main ? (
-            <IconAction label="New side chat" data="new" onClick={() => setSetupOpen((open) => !open)}>
+            <IconAction label={t('New side chat')} data="new" onClick={() => setSetupOpen((open) => !open)}>
               <Plus className="size-3.5" />
             </IconAction>
           ) : null}
@@ -88,7 +89,7 @@ export function SideChatPanel({ workspaceId }: { workspaceId: string }) {
         />
       ) : !main ? (
         <p className="px-3 py-6 text-center text-xs text-muted-foreground">
-          Start a chat in this workspace first; a side chat asks about it without interrupting.
+          {t('Start a chat in this workspace first; a side chat asks about it without interrupting.')}
         </p>
       ) : null}
     </div>
@@ -115,17 +116,17 @@ function SideChatSetup({
   return (
     <div className="flex shrink-0 flex-col gap-3 border-b border-border px-3 py-3" data-side-chat-setup>
       <p className="text-xs text-muted-foreground">
-        Ask a quick question about this workspace. The main chat keeps working and its conversation is not touched.
+        {t('Ask a quick question about this workspace. The main chat keeps working and its conversation is not touched.')}
       </p>
       <div className="flex items-center gap-2">
         <Select value={agent} onValueChange={(value) => isChatAgentId(value) && setAgent(value)}>
-          <SelectTrigger size="sm" className="min-w-0 flex-1" aria-label="Side chat agent">
+          <SelectTrigger size="sm" className="min-w-0 flex-1" aria-label={t('Side chat agent')}>
             <SelectValue />
           </SelectTrigger>
           <SelectContent position="popper">
             <SelectItem value="claude">
               <TuiAgentIcon agent="claude" size={14} />
-              Claude (low effort)
+              {t('Claude (low effort)')}
             </SelectItem>
             {ready.map((a) => (
               <SelectItem key={a.id} value={a.id}>
@@ -143,13 +144,13 @@ function SideChatSetup({
           onCheckedChange={(checked) => setWithContext(checked === true)}
         />
         <Label htmlFor="side-chat-context" className="min-w-0 text-xs font-normal">
-          <span className="truncate">Include recent messages from “{mainTitle}”</span>
+          <span className="truncate">{t('Include recent messages from “{title}”', { title: mainTitle })}</span>
         </Label>
       </div>
       <div className="flex justify-end gap-2">
         {onCancel ? (
           <Button size="sm" variant="ghost" onClick={onCancel}>
-            Cancel
+            {t('Cancel')}
           </Button>
         ) : null}
         <Button
@@ -159,7 +160,7 @@ function SideChatSetup({
           onClick={() => onStart(agent, withContext ? SIDE_CHAT_DEFAULT_CONTEXT_MESSAGES : 0)}
         >
           <MessageSquarePlus />
-          {starting ? 'Starting…' : 'Start side chat'}
+          {starting ? t('Starting…') : t('Start side chat')}
         </Button>
       </div>
     </div>

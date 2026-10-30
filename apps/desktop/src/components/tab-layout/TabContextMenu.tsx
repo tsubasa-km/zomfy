@@ -45,6 +45,7 @@ import { closeGroup, splitTabTo } from './tab-group-commands'
 import { shortcutLabel } from './tab-shortcuts'
 import { ForkChatTabMenuItem } from '@/components/native-chat/NativeChatForkMenuItem'
 import { setChatArchived } from '@/chat-rename-archive'
+import { t } from '@/i18n/i18n'
 
 // Items and order follow Orca's SortableTabContextMenu, EditorFileTabContextMenu and BrowserTab menus.
 
@@ -52,23 +53,23 @@ import { setChatArchived } from '@/chat-rename-archive'
 const MENU_CLASS = 'min-w-[13rem] max-w-[calc(100vw-1rem)] whitespace-nowrap'
 
 const TAB_COLORS: { label: string; value: string | null }[] = [
-  { label: 'None', value: null },
-  { label: 'Blue', value: '#3b82f6' },
-  { label: 'Purple', value: '#a855f7' },
-  { label: 'Pink', value: '#ec4899' },
-  { label: 'Red', value: '#ef4444' },
-  { label: 'Orange', value: '#f97316' },
-  { label: 'Yellow', value: '#eab308' },
-  { label: 'Green', value: '#22c55e' },
-  { label: 'Teal', value: '#14b8a6' },
-  { label: 'Gray', value: '#9ca3af' }
+  { label: t('None'), value: null },
+  { label: t('Blue'), value: '#3b82f6' },
+  { label: t('Purple'), value: '#a855f7' },
+  { label: t('Pink'), value: '#ec4899' },
+  { label: t('Red'), value: '#ef4444' },
+  { label: t('Orange'), value: '#f97316' },
+  { label: t('Yellow'), value: '#eab308' },
+  { label: t('Green'), value: '#22c55e' },
+  { label: t('Teal'), value: '#14b8a6' },
+  { label: t('Gray'), value: '#9ca3af' }
 ]
 
 const SPLIT_SIDES: { side: SplitSide; label: string; icon: React.ReactNode }[] = [
-  { side: 'right', label: 'Right', icon: <ArrowRight className="size-3.5 shrink-0" /> },
-  { side: 'left', label: 'Left', icon: <ArrowLeft className="size-3.5 shrink-0" /> },
-  { side: 'down', label: 'Down', icon: <ArrowDown className="size-3.5 shrink-0" /> },
-  { side: 'up', label: 'Up', icon: <ArrowUp className="size-3.5 shrink-0" /> }
+  { side: 'right', label: t('Right'), icon: <ArrowRight className="size-3.5 shrink-0" /> },
+  { side: 'left', label: t('Left'), icon: <ArrowLeft className="size-3.5 shrink-0" /> },
+  { side: 'down', label: t('Down'), icon: <ArrowDown className="size-3.5 shrink-0" /> },
+  { side: 'up', label: t('Up'), icon: <ArrowUp className="size-3.5 shrink-0" /> }
 ]
 
 function copyText(text: string): void {
@@ -138,7 +139,7 @@ export function TabContextMenu({
             <DropdownMenuSub>
               <DropdownMenuSubTrigger className="[&>svg:last-child]:size-3.5">
                 <Columns2 className="size-3.5 shrink-0" />
-                Move Tab to Split
+                {t('Move Tab to Split')}
               </DropdownMenuSubTrigger>
               <DropdownMenuSubContent className="max-w-[calc(100vw-1rem)] whitespace-nowrap">
                 {SPLIT_SIDES.map(({ side, label, icon }) => (
@@ -156,7 +157,7 @@ export function TabContextMenu({
           <>
             <DropdownMenuItem onSelect={() => duplicateBrowserTab(workspaceId, tab.id)}>
               <Copy className="size-3.5" />
-              Duplicate Tab
+              {t('Duplicate Tab')}
             </DropdownMenuItem>
             <DropdownMenuSeparator />
           </>
@@ -169,18 +170,18 @@ export function TabContextMenu({
               onSelect={() => void setChatArchived(tab.session.id, !tab.session.archived)}
             >
               {tab.session.archived ? <ArchiveRestore className="size-3.5" /> : <Archive className="size-3.5" />}
-              {tab.session.archived ? 'Unarchive Chat' : 'Archive Chat'}
+              {tab.session.archived ? t('Unarchive Chat') : t('Archive Chat')}
             </DropdownMenuItem>
             <DropdownMenuSeparator />
           </>
         )}
         <DropdownMenuItem onSelect={() => setTabMeta(tab.id, { pinned: !isPinned })}>
           {isPinned ? <PinOff className="size-3.5 shrink-0" /> : <Pin className="size-3.5 shrink-0" />}
-          {isPinned ? 'Unpin Tab' : 'Pin Tab'}
+          {isPinned ? t('Unpin Tab') : t('Pin Tab')}
         </DropdownMenuItem>
         <DropdownMenuItem onSelect={() => copyText(tab.id)}>
           <Hash className="size-3.5" />
-          Copy Tab ID
+          {t('Copy Tab ID')}
         </DropdownMenuItem>
         <DropdownMenuSeparator />
         {selected && (
@@ -193,40 +194,40 @@ export function TabContextMenu({
             }}
           >
             <X className="size-3.5" />
-            Close {selected.length} Selected Tabs
+            {t('Close {n} Selected Tabs', { n: selected.length })}
           </DropdownMenuItem>
         )}
         <DropdownMenuItem data-menu-action="close" disabled={isPinned} onSelect={() => !isPinned && close([tab])}>
           <X className="size-3.5" />
-          Close
+          {t('Close')}
           <DropdownMenuShortcut>{shortcutLabel('tab.close')}</DropdownMenuShortcut>
         </DropdownMenuItem>
         <DropdownMenuItem data-menu-action="close-others" disabled={others.length === 0} onSelect={() => close(others)}>
           {tab.kind === 'chat' || tab.kind === 'terminal' ? <ListX className="size-3.5" /> : <CopyX className="size-3.5" />}
-          Close Others
+          {t('Close Others')}
         </DropdownMenuItem>
         {tab.kind === 'editor' && (
           <DropdownMenuItem
             onSelect={() => close(unpinned(groupTabs.filter((t) => t.kind === 'editor')))}
           >
             <ListX className="size-3.5" />
-            Close All Editor Tabs
+            {t('Close All Editor Tabs')}
           </DropdownMenuItem>
         )}
         <DropdownMenuItem data-menu-action="close-right" disabled={toRight.length === 0} onSelect={() => close(toRight)}>
           <PanelRightClose className="size-3.5" />
-          Close Tabs To The Right
+          {t('Close Tabs To The Right')}
         </DropdownMenuItem>
         <DropdownMenuItem data-menu-action="close-left" disabled={toLeft.length === 0} onSelect={() => close(toLeft)}>
           <PanelLeftClose className="size-3.5" />
-          Close Tabs To The Left
+          {t('Close Tabs To The Left')}
         </DropdownMenuItem>
         {hasSplit && (
           <>
             <DropdownMenuSeparator />
             <DropdownMenuItem variant="destructive" onSelect={() => closeGroup(workspaceId, groupId, groupTabs)}>
               <X className="size-3.5" />
-              Close split pane
+              {t('Close split pane')}
             </DropdownMenuItem>
           </>
         )}
@@ -236,7 +237,7 @@ export function TabContextMenu({
             onSelect={() => window.open(currentUrl(tab.browser), '_blank', 'noopener')}
           >
             <ExternalLink className="size-3.5" />
-            Open In Browser
+            {t('Open In Browser')}
           </DropdownMenuItem>
         )}
         {tab.kind === 'editor' && (
@@ -244,11 +245,11 @@ export function TabContextMenu({
             <DropdownMenuSeparator />
             <DropdownMenuItem onSelect={() => copyText(absoluteEditorPath(workspaceId, tab.editor.path))}>
               <Copy className="size-3.5" />
-              Copy Path
+              {t('Copy Path')}
             </DropdownMenuItem>
             <DropdownMenuItem onSelect={() => copyText(tab.editor.path)}>
               <Copy className="size-3.5" />
-              Copy Relative Path
+              {t('Copy Relative Path')}
             </DropdownMenuItem>
           </>
         )}
@@ -257,10 +258,10 @@ export function TabContextMenu({
             <DropdownMenuSeparator />
             <DropdownMenuItem data-menu-action="rename" onSelect={() => (renameAfterClose.current = true)}>
               <Pencil className="size-3.5" />
-              Change Title
+              {t('Change Title')}
             </DropdownMenuItem>
             <div className="px-2 pt-1.5 pb-1">
-              <div className="mb-1.5 text-xs font-medium text-muted-foreground">Tab Color</div>
+              <div className="mb-1.5 text-xs font-medium text-muted-foreground">{t('Tab Color')}</div>
               <div className="flex flex-wrap gap-2">
                 {TAB_COLORS.map((color) => (
                   <DropdownMenuItem

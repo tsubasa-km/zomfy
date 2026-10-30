@@ -4,6 +4,7 @@ import { setSetting, useSetting } from '@/stores/settings-store'
 import { ContextMenu, ContextMenuContent, ContextMenuItem, ContextMenuLabel, ContextMenuSeparator, ContextMenuTrigger } from '@/components/ui/context-menu'
 import { useStatusBarItems, type StatusBarItem } from './status-bar-registry'
 import './status-bar-segments'
+import { t } from '@/i18n/i18n'
 
 // Orca's status bar (status-bar/StatusBarSurface.tsx): one 24px line along the bottom, segments
 // left and right, and a right-click menu that chooses which segments show.
@@ -32,17 +33,17 @@ export function StatusBar() {
         </footer>
       </ContextMenuTrigger>
       <ContextMenuContent>
-        <ContextMenuLabel>Status bar items</ContextMenuLabel>
+        <ContextMenuLabel>{t('Status bar items')}</ContextMenuLabel>
         {items
           .filter((item) => !item.pinned)
           .map((item) => (
             <ContextMenuItem key={item.id} onSelect={() => toggle(item.id)}>
               <Check className={hidden.includes(item.id) ? 'invisible' : undefined} />
-              {item.label}
+              {t(item.label)}
             </ContextMenuItem>
           ))}
         <ContextMenuSeparator />
-        <ContextMenuItem onSelect={() => setSetting('statusBarVisible', false)}>Hide status bar</ContextMenuItem>
+        <ContextMenuItem onSelect={() => setSetting('statusBarVisible', false)}>{t('Hide status bar')}</ContextMenuItem>
       </ContextMenuContent>
     </ContextMenu>
   )

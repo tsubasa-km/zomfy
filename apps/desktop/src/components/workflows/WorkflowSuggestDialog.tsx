@@ -13,6 +13,7 @@ import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { outcomeLabel } from './workflow-model'
+import { t } from '@/i18n/i18n'
 
 // Changes Claude proposes from the workflow's last runs; the person picks which to make, here or in
 // a variant to compare against the original.
@@ -23,7 +24,7 @@ function ChangeDetail({ workflow, change }: { workflow: Workflow; change: Workfl
     const before = workflow.nodes.find((n) => n.id === change.nodeId)?.config.prompt?.trim()
     return (
       <div className="space-y-1 text-[11px]">
-        <div className="text-muted-foreground">Instructions of “{label(change.nodeId)}”</div>
+        <div className="text-muted-foreground">{t('Instructions of “{name}”', { name: label(change.nodeId) })}</div>
         {before && <p className="line-clamp-3 rounded bg-destructive/5 px-2 py-1 whitespace-pre-wrap text-muted-foreground line-through">{before}</p>}
         <p className="rounded bg-status-success/10 px-2 py-1 whitespace-pre-wrap">{change.prompt}</p>
       </div>
@@ -33,15 +34,19 @@ function ChangeDetail({ workflow, change }: { workflow: Workflow; change: Workfl
     const before = workflow.nodes.find((n) => n.id === change.nodeId)?.config.maxRounds
     return (
       <p className="text-[11px] text-muted-foreground">
-        Round limit of “{label(change.nodeId)}”: {before ?? 'none'} → {change.maxRounds ?? 'none'}
+        {t('Round limit of “{name}”: {before} → {after}', { name: label(change.nodeId), before: before ?? t('none'), after: change.maxRounds ?? t('none') })}
       </p>
     )
   }
   const edge = workflow.edges.find((e) => e.id === change.edgeId)
   return (
     <p className="text-[11px] text-muted-foreground">
-      Arrow “{edge ? label(edge.from) : '?'}” → “{edge ? label(edge.to) : '?'}” ({edge ? outcomeLabel(edge.outcome) : '?'}):{' '}
-      {change.on ? 'continue in the same chat' : 'a fresh session with a summary'}
+      {t('Arrow “{from}” → “{to}” ({outcome}):', {
+        from: edge ? label(edge.from) : '?',
+        to: edge ? label(edge.to) : '?',
+        outcome: edge ? outcomeLabel(edge.outcome) : '?'
+      })}{' '}
+      {change.on ? t('continue in the same chat') : t('a fresh session with a summary')}
     </p>
   )
 }
@@ -87,15 +92,15 @@ export function WorkflowSuggestDialog({
     <Dialog open onOpenChange={(open) => !open && onClose()}>
       <DialogContent className="max-h-[85vh] overflow-y-auto sm:max-w-xl" data-workflow-suggest-dialog>
         <DialogHeader>
-          <DialogTitle>Suggested changes</DialogTitle>
+          <DialogTitle>{t('Suggested changes')}</DialogTitle>
           <DialogDescription>
-            From the last runs of “{workflow.name}”. “Compare as a variant” saves them as a copy and opens a comparison with the original.
+            {t('From the last runs of “{name}”. “Compare as a variant” saves them as a copy and opens a comparison with the original.', { name: workflow.name })}
           </DialogDescription>
         </DialogHeader>
         {!result && !error && (
           <div className="flex items-center gap-2 py-6 text-sm text-muted-foreground">
             <Loader2 className="size-4 animate-spin" />
-            Reading the last runs…
+            {t('Reading the last runs…')}
           </div>
         )}
         {error && <p className="text-sm text-destructive">{error}</p>}
@@ -103,7 +108,7 @@ export function WorkflowSuggestDialog({
           <div className="space-y-4">
             {result.assessment && <p className="text-sm">{result.assessment}</p>}
             {result.suggestions.length === 0 ? (
-              <p className="text-xs text-muted-foreground">No change suggested from {result.runIds.length} run(s).</p>
+              <p className="text-xs text-muted-foreground">{t('No change suggested from {n} run(s).', { n: result.runIds.length })}</p>
             ) : (
               <ul className="space-y-3">
                 {result.suggestions.map((s) => (
@@ -126,18 +131,18 @@ export function WorkflowSuggestDialog({
         )}
         <DialogFooter>
           <Button variant="outline" onClick={onClose}>
-            Close
+            {t('Close')}
           </Button>
           {result && result.suggestions.length > 0 && (
             <>
               <Button variant="outline" disabled={picked.length === 0} onClick={() => apply('here')}>
-                Apply here
+                {t('Apply here')}
               </Button>
               <Button variant="outline" disabled={picked.length === 0} onClick={() => apply('variant')} data-workflow-suggest-variant>
-                Apply as a variant
+                {t('Apply as a variant')}
               </Button>
               <Button disabled={picked.length === 0} onClick={() => apply('compare')} data-workflow-suggest-compare>
-                Compare as a variant
+                {t('Compare as a variant')}
               </Button>
             </>
           )}

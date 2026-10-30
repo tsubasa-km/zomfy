@@ -12,6 +12,7 @@ import { saveQuickCommand } from '@/lib/quick-commands'
 import { SUBMIT_SHORTCUT_LABEL, isSubmitShortcut } from '@/lib/terminal-shortcuts'
 import { cn } from '@/lib/utils'
 import { allWorkspaces, useStore, type HostId } from '@/session-store'
+import { t, tc } from '@/i18n/i18n'
 
 // Ported from Orca's TerminalQuickCommandDialog and its field components.
 
@@ -103,8 +104,8 @@ export function QuickCommandDialog({ workspaceId }: { workspaceId: string }) {
         showCloseButton={false}
       >
         <DialogHeader className="px-6 pt-6 pb-0">
-          <DialogTitle className="text-sm">{open.mode === 'edit' ? 'Edit Quick Command' : 'Add Quick Command'}</DialogTitle>
-          <DialogDescription className="text-xs">Saved items appear in the tab bar menu for one-click run.</DialogDescription>
+          <DialogTitle className="text-sm">{open.mode === 'edit' ? t('Edit Quick Command') : t('Add Quick Command')}</DialogTitle>
+          <DialogDescription className="text-xs">{t('Saved items appear in the tab bar menu for one-click run.')}</DialogDescription>
         </DialogHeader>
 
         <fieldset
@@ -119,17 +120,17 @@ export function QuickCommandDialog({ workspaceId }: { workspaceId: string }) {
         >
           <div className="grid grid-cols-1 items-end gap-3 sm:grid-cols-[minmax(0,1fr)_auto]">
             <div className="space-y-2">
-              <Label htmlFor="quick-command-label">Label</Label>
+              <Label htmlFor="quick-command-label">{t('Label')}</Label>
               <Input
                 id="quick-command-label"
                 autoFocus
                 value={draft.label}
                 onChange={(e) => update({ label: e.target.value })}
-                placeholder="Start dev server"
+                placeholder={t('Start dev server')}
               />
             </div>
             <div className="space-y-2">
-              <Label>Action</Label>
+              <Label>{t('Action')}</Label>
               <ToggleGroup
                 type="single"
                 variant="outline"
@@ -139,11 +140,11 @@ export function QuickCommandDialog({ workspaceId }: { workspaceId: string }) {
                 }}
                 className="grid w-[11.5rem] grid-cols-2"
               >
-                <ToggleGroupItem value="terminal-command" aria-label="Terminal Command" className={cn(TOGGLE_ITEM_CLASS, 'w-full justify-center')}>
-                  Terminal
+                <ToggleGroupItem value="terminal-command" aria-label={t('Terminal Command')} className={cn(TOGGLE_ITEM_CLASS, 'w-full justify-center')}>
+                  {t('Terminal')}
                 </ToggleGroupItem>
-                <ToggleGroupItem value="agent-prompt" aria-label="Agent Prompt" className={cn(TOGGLE_ITEM_CLASS, 'w-full justify-center')}>
-                  Agent
+                <ToggleGroupItem value="agent-prompt" aria-label={t('Agent Prompt')} className={cn(TOGGLE_ITEM_CLASS, 'w-full justify-center')}>
+                  {t('Agent')}
                 </ToggleGroupItem>
               </ToggleGroup>
             </div>
@@ -151,10 +152,10 @@ export function QuickCommandDialog({ workspaceId }: { workspaceId: string }) {
 
           {isAgent && (
             <div className="space-y-2">
-              <Label>Agent</Label>
+              <Label>{t('Agent')}</Label>
               <Select value={draft.agent} onValueChange={(value) => update({ agent: value as TuiAgentId })}>
                 <SelectTrigger className="w-full">
-                  <SelectValue placeholder="Choose agent" />
+                  <SelectValue placeholder={t('Choose agent')} />
                 </SelectTrigger>
                 <SelectContent position="popper" align="start" className="max-h-[min(20rem,var(--radix-select-content-available-height))]">
                   {PROMPT_AGENTS.map((agent) => (
@@ -172,14 +173,14 @@ export function QuickCommandDialog({ workspaceId }: { workspaceId: string }) {
           <div className="overflow-hidden rounded-md border border-border bg-[var(--editor-surface)] transition-[color,box-shadow] focus-within:border-ring focus-within:ring-[3px] focus-within:ring-ring/50">
             <div className="flex items-center justify-between gap-3 border-b border-border bg-muted/70 px-3 py-2">
               <span className="text-[11px] font-semibold tracking-wide text-muted-foreground uppercase">
-                {isAgent ? 'Prompt' : 'Command'}
+                {isAgent ? t('Prompt') : t('Command')}
               </span>
             </div>
             <textarea
               value={body}
-              aria-label={isAgent ? 'Prompt' : 'Command'}
+              aria-label={isAgent ? t('Prompt') : t('Command')}
               onChange={(e) => update(isAgent ? { prompt: e.target.value } : { command: e.target.value })}
-              placeholder={isAgent ? 'Ask the agent to investigate this workspace' : 'npm run dev'}
+              placeholder={isAgent ? t('Ask the agent to investigate this workspace') : 'npm run dev'}
               spellCheck={isAgent}
               rows={10}
               className={cn(
@@ -189,23 +190,23 @@ export function QuickCommandDialog({ workspaceId }: { workspaceId: string }) {
             />
             <div className="flex items-center justify-between gap-3 border-t border-border bg-muted/50 px-3 py-2">
               {isAgent ? (
-                <span className="text-[11px] text-muted-foreground">Multi-line prompts are fine — keep them focused.</span>
+                <span className="text-[11px] text-muted-foreground">{t('Multi-line prompts are fine — keep them focused.')}</span>
               ) : (
                 <label className="flex min-w-0 cursor-pointer items-center gap-2">
                   <Switch
                     checked={draft.appendEnter}
-                    aria-label="Toggle append Enter"
+                    aria-label={t('Toggle append Enter')}
                     onCheckedChange={(checked) => update({ appendEnter: checked })}
                   />
-                  <span className="truncate text-[11px] text-muted-foreground">Append Enter — run immediately</span>
+                  <span className="truncate text-[11px] text-muted-foreground">{t('Append Enter — run immediately')}</span>
                 </label>
               )}
-              <span className="shrink-0 text-[11px] text-muted-foreground">Drag corner to resize</span>
+              <span className="shrink-0 text-[11px] text-muted-foreground">{t('Drag corner to resize')}</span>
             </div>
           </div>
 
           <div className="space-y-2">
-            <Label>Scope</Label>
+            <Label>{t('Scope')}</Label>
             <ToggleGroup
               type="single"
               variant="outline"
@@ -217,10 +218,10 @@ export function QuickCommandDialog({ workspaceId }: { workspaceId: string }) {
               className="justify-start"
             >
               <ToggleGroupItem value="global" className={TOGGLE_ITEM_CLASS}>
-                Global
+                {tc('Global', 'scope')}
               </ToggleGroupItem>
               <ToggleGroupItem value="project" disabled={!projectId} className={TOGGLE_ITEM_CLASS}>
-                Project
+                {t('Project')}
               </ToggleGroupItem>
             </ToggleGroup>
           </div>
@@ -228,10 +229,10 @@ export function QuickCommandDialog({ workspaceId }: { workspaceId: string }) {
 
         <DialogFooter className="border-t border-border px-6 py-4 sm:justify-end">
           <Button type="button" variant="outline" disabled={saving} onClick={() => requestQuickCommandEditor(null)}>
-            Cancel
+            {t('Cancel')}
           </Button>
-          <Button type="button" disabled={!canSave} onClick={() => void save()} title={`Save (${SUBMIT_SHORTCUT_LABEL})`}>
-            Save
+          <Button type="button" disabled={!canSave} onClick={() => void save()} title={t('Save ({shortcut})', { shortcut: SUBMIT_SHORTCUT_LABEL })}>
+            {t('Save')}
             <span className="ml-1 text-[10px] opacity-60">{SUBMIT_SHORTCUT_LABEL}</span>
           </Button>
         </DialogFooter>

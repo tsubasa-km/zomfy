@@ -5,14 +5,15 @@ import { harnessRequest } from '@/daemon-connection'
 import { selectSession, type Session } from '@/session-store'
 import { resumeConversation } from '@/chat-actions'
 import { isExternalAgentSession, sessionAgent } from '@/lib/chat-agents'
+import { t } from '@/i18n/i18n'
 
 function relativeTime(ms: number): string {
   const minutes = Math.round((Date.now() - ms) / 60_000)
-  if (minutes < 1) return 'just now'
-  if (minutes < 60) return `${minutes}m ago`
+  if (minutes < 1) return t('just now')
+  if (minutes < 60) return t('{n}m ago', { n: minutes })
   const hours = Math.round(minutes / 60)
-  if (hours < 24) return `${hours}h ago`
-  return `${Math.round(hours / 24)}d ago`
+  if (hours < 24) return t('{n}h ago', { n: hours })
+  return t('{n}d ago', { n: Math.round(hours / 24) })
 }
 
 /** Orca's empty chat, with this folder's earlier Claude conversations to pick up again. */
@@ -40,24 +41,24 @@ export function NativeChatEmptyState({ session }: { session: Session }) {
       <div className="flex size-12 items-center justify-center rounded-full bg-accent text-accent-foreground">
         <MessageSquare className="size-6" />
       </div>
-      <p className="text-sm font-medium text-chat-foreground-strong">Start a conversation with {label}</p>
+      <p className="text-sm font-medium text-chat-foreground-strong">{t('Start a conversation with {label}', { label })}</p>
       <p className="max-w-sm text-xs text-balance text-chat-foreground-faint">
-        Type / for commands, @ to mention a file, or paste an image.
+        {t('Type / for commands, @ to mention a file, or paste an image.')}
       </p>
       {agentState?.phase === 'starting' ? (
         <p className="text-xs text-chat-foreground-faint" data-agent-phase="starting">
-          Starting {label}…
+          {t('Starting {label}…', { label })}
         </p>
       ) : agentState?.phase === 'failed' ? (
         <p className="max-w-md text-xs text-balance text-destructive" data-agent-phase="failed">
-          {agentState.error ?? `${label} could not start`}
+          {agentState.error ?? t('{label} could not start', { label })}
         </p>
       ) : null}
       {others.length > 0 ? (
         <div className="mt-4 w-full max-w-md text-left" data-native-chat-history>
           <div className="flex items-center gap-1.5 px-2 pb-1 text-2xs font-semibold tracking-[0.05em] text-muted-foreground uppercase">
             <History className="size-3" aria-hidden />
-            Recent conversations
+            {t('Recent conversations')}
           </div>
           <ul className="scrollbar-sleek max-h-72 overflow-y-auto">
             {others.slice(0, 30).map((c) => (
@@ -80,7 +81,7 @@ export function NativeChatEmptyState({ session }: { session: Session }) {
                     </span>
                   ) : null}
                   <span className="shrink-0 text-xs text-muted-foreground tabular-nums">
-                    {c.openSessionId ? 'Open' : relativeTime(c.lastModified)}
+                    {c.openSessionId ? t('Open') : relativeTime(c.lastModified)}
                   </span>
                 </button>
               </li>
@@ -88,7 +89,7 @@ export function NativeChatEmptyState({ session }: { session: Session }) {
           </ul>
         </div>
       ) : failed ? (
-        <p className="text-xs text-chat-foreground-faint">Couldn't list earlier conversations</p>
+        <p className="text-xs text-chat-foreground-faint">{t("Couldn't list earlier conversations")}</p>
       ) : null}
     </div>
   )

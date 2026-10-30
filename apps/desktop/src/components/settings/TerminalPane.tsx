@@ -3,6 +3,7 @@ import { setSetting, useSetting, type TerminalShortcutPolicy } from '@/stores/se
 import { useHostSettings, updateHostSettings } from '@/stores/host-settings-store'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { SettingsRow, SettingsSegmentedControl, SettingsSubsectionHeader } from './settings-form-controls'
+import { t } from '@/i18n/i18n'
 
 // Orca's DESKTOP_TERMINAL_SCROLLBACK_ROW_PRESETS.
 const SCROLLBACK_PRESETS = [5_000, 10_000, 25_000, 50_000]
@@ -14,8 +15,8 @@ export function DefaultShellRow({ hostId }: { hostId: string }) {
   const settings = useHostSettings(hostId)
   return (
     <SettingsRow
-      label="Default shell"
-      description="New terminal tabs on this host start with it; the + menu can still pick another."
+      label={t('Default shell')}
+      description={t('New terminal tabs on this host start with it; the + menu can still pick another.')}
       keywords={['shell', 'powershell', 'bash', 'zsh', 'cmd']}
       control={
         <Select
@@ -23,11 +24,11 @@ export function DefaultShellRow({ hostId }: { hostId: string }) {
           value={settings?.defaultShellId ?? FIRST_SHELL}
           onValueChange={(value) => void updateHostSettings(hostId, { defaultShellId: value === FIRST_SHELL ? null : value })}
         >
-          <SelectTrigger size="sm" className="min-w-[200px]" aria-label="Default shell">
+          <SelectTrigger size="sm" className="min-w-[200px]" aria-label={t('Default shell')}>
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value={FIRST_SHELL}>First detected{shells[0] ? ` (${shells[0].label})` : ''}</SelectItem>
+            <SelectItem value={FIRST_SHELL}>{shells[0] ? t('First detected ({shell})', { shell: shells[0].label }) : t('First detected')}</SelectItem>
             {shells.map((shell) => (
               <SelectItem key={shell.id} value={shell.id}>
                 {shell.label}
@@ -47,21 +48,21 @@ export function TerminalPane() {
   return (
     <div className="space-y-8">
       <div className="space-y-2 not-has-[[data-setting-row]]:hidden">
-        <SettingsSubsectionHeader title="Behavior" />
+        <SettingsSubsectionHeader title={t('Behavior')} />
         <div className="divide-y divide-border/40">
           <SettingsRow
-            label="Scrollback"
-            description="Lines each terminal keeps above the screen."
+            label={t('Scrollback')}
+            description={t('Lines each terminal keeps above the screen.')}
             keywords={['history', 'lines', 'buffer']}
             control={
               <Select value={String(scrollback)} onValueChange={(value) => setSetting('terminalScrollbackRows', Number(value))}>
-                <SelectTrigger size="sm" className="min-w-[140px]" aria-label="Scrollback">
+                <SelectTrigger size="sm" className="min-w-[140px]" aria-label={t('Scrollback')}>
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
                   {SCROLLBACK_PRESETS.map((rows) => (
                     <SelectItem key={rows} value={String(rows)}>
-                      {rows.toLocaleString()} lines
+                      {t('{n} lines', { n: rows.toLocaleString() })}
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -69,17 +70,17 @@ export function TerminalPane() {
             }
           />
           <SettingsRow
-            label="Shortcuts in Terminal"
-            description="Choose whether the app or the focused terminal wins when shortcuts overlap."
+            label={t('Shortcuts in Terminal')}
+            description={t('Choose whether the app or the focused terminal wins when shortcuts overlap.')}
             keywords={['shortcut', 'priority', 'policy', 'keybindings']}
             control={
               <SettingsSegmentedControl<TerminalShortcutPolicy>
-                ariaLabel="Shortcuts in Terminal"
+                ariaLabel={t('Shortcuts in Terminal')}
                 value={policy}
                 onChange={(value) => setSetting('terminalShortcutPolicy', value)}
                 options={[
-                  { value: 'orca-first', label: 'App first' },
-                  { value: 'terminal-first', label: 'Terminal first' }
+                  { value: 'orca-first', label: t('App first') },
+                  { value: 'terminal-first', label: t('Terminal first') }
                 ]}
               />
             }
@@ -87,7 +88,7 @@ export function TerminalPane() {
         </div>
       </div>
       <div className="space-y-2 not-has-[[data-setting-row]]:hidden">
-        <SettingsSubsectionHeader title="This computer" description="Shells for other hosts are under Hosts." />
+        <SettingsSubsectionHeader title={t('This computer')} description={t('Shells for other hosts are under Hosts.')} />
         <DefaultShellRow hostId={LOCAL_HOST} />
       </div>
     </div>

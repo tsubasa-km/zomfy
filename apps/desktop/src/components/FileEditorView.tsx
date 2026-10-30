@@ -18,6 +18,7 @@ import { acceptConflict, useMonacoConflicts } from '@/components/editor/use-mona
 import { useFileDiskWatch } from '@/components/editor/use-file-disk-watch'
 import { EDITOR_FONT_FAMILY, useDarkClass } from '@/components/editor/use-dark-class'
 import { cn } from '@/lib/utils'
+import { t } from '@/i18n/i18n'
 
 type MonacoEditor = Parameters<OnMount>[0]
 
@@ -167,7 +168,7 @@ function TextFileEditor({ tab, markdown }: { tab: EditorTab; markdown: boolean }
     // addAction, unlike addCommand, binds the key to this editor only, so other editors cannot steal it.
     editor.addAction({
       id: 'acpHarness.save',
-      label: 'Save',
+      label: t('Save'),
       keybindings: [monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyS],
       run: () => void saveRef.current()
     })
@@ -210,7 +211,7 @@ function TextFileEditor({ tab, markdown }: { tab: EditorTab; markdown: boolean }
         path={tab.path}
         status={
           <>
-            {file?.truncated && <span className="shrink-0 text-xs text-muted-foreground">First 1 MB, read-only</span>}
+            {file?.truncated && <span className="shrink-0 text-xs text-muted-foreground">{t('First 1 MB, read-only')}</span>}
             {error && (
               <span className="min-w-0 truncate text-xs text-destructive" title={error}>
                 {error}
@@ -230,18 +231,18 @@ function TextFileEditor({ tab, markdown }: { tab: EditorTab; markdown: boolean }
         menuItems={
           <>
             <DropdownMenuItem disabled={!tab.dirty || readOnly} onSelect={() => void save()}>
-              Save
+              {t('Save')}
               <DropdownMenuShortcut>{isMac ? '⌘S' : 'Ctrl+S'}</DropdownMenuShortcut>
             </DropdownMenuItem>
             <DropdownMenuItem
               onSelect={() => {
-                if (!tab.dirty || window.confirm('Discard unsaved changes and reload from disk?')) void load('reload')
+                if (!tab.dirty || window.confirm(t('Discard unsaved changes and reload from disk?'))) void load('reload')
               }}
             >
-              Reload from Disk
+              {t('Reload from Disk')}
             </DropdownMenuItem>
             <DropdownMenuItem disabled={!codeEditor || !showSource} onSelect={() => runEditorAction('editor.action.gotoLine')}>
-              Go to Line…
+              {t('Go to Line…')}
               <DropdownMenuShortcut>{isMac ? '⌃G' : 'Ctrl+G'}</DropdownMenuShortcut>
             </DropdownMenuItem>
             <DropdownMenuSeparator />
@@ -249,13 +250,13 @@ function TextFileEditor({ tab, markdown }: { tab: EditorTab; markdown: boolean }
               checked={prefs.editorWordWrap}
               onCheckedChange={() => updateEditorPreferences({ editorWordWrap: !prefs.editorWordWrap })}
             >
-              Word Wrap
+              {t('Word Wrap')}
             </DropdownMenuCheckboxItem>
             <DropdownMenuCheckboxItem
               checked={prefs.editorMinimap}
               onCheckedChange={() => updateEditorPreferences({ editorMinimap: !prefs.editorMinimap })}
             >
-              Minimap
+              {t('Minimap')}
             </DropdownMenuCheckboxItem>
           </>
         }
@@ -280,8 +281,8 @@ function TextFileEditor({ tab, markdown }: { tab: EditorTab; markdown: boolean }
       {file?.binary ? (
         <div className="flex h-full items-center justify-center px-6 text-center">
           <div className="space-y-2">
-            <div className="text-sm font-medium text-foreground">Binary file</div>
-            <div className="text-xs text-muted-foreground">This file cannot be displayed as text.</div>
+            <div className="text-sm font-medium text-foreground">{t('Binary file')}</div>
+            <div className="text-xs text-muted-foreground">{t('This file cannot be displayed as text.')}</div>
           </div>
         </div>
       ) : file ? (
@@ -317,7 +318,7 @@ function TextFileEditor({ tab, markdown }: { tab: EditorTab; markdown: boolean }
           )}
         </div>
       ) : (
-        !error && <p className="p-3 text-xs text-muted-foreground">Loading…</p>
+        !error && <p className="p-3 text-xs text-muted-foreground">{t('Loading…')}</p>
       )}
       {compareOpen && (
         <ExternalFileChangeCompareDialog

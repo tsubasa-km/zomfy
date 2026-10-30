@@ -4,6 +4,7 @@ import type { HostId } from '@/session-store'
 import { TuiAgentIcon } from '@/components/terminal/TuiAgentIcon'
 import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { t } from '@/i18n/i18n'
 
 // Which agent runs a step's sessions: Claude, or another agent this host can run over ACP (as a chat can).
 
@@ -23,9 +24,9 @@ export function WorkflowStepAgentField({
   const choices: ChatAgentId[] = ['claude', ...ready, ...(current !== 'claude' && !ready.includes(current) ? [current] : [])]
   return (
     <div className="space-y-1.5" data-workflow-step-agent={current}>
-      <Label className="text-xs">Runs on</Label>
+      <Label className="text-xs">{t('Runs on')}</Label>
       <Select value={current} onValueChange={(v) => isChatAgentId(v) && onChange(v === 'claude' ? undefined : v)}>
-        <SelectTrigger size="sm" className="h-8 w-full text-xs" aria-label="Runs on">
+        <SelectTrigger size="sm" className="h-8 w-full text-xs" aria-label={t('Runs on')}>
           <SelectValue />
         </SelectTrigger>
         <SelectContent position="popper">
@@ -33,15 +34,15 @@ export function WorkflowStepAgentField({
             <SelectItem key={id} value={id}>
               <TuiAgentIcon agent={id} size={14} />
               {chatAgentLabel(id)}
-              {id !== 'claude' && !ready.includes(id) ? ' (not set up on this host)' : ''}
+              {id !== 'claude' && !ready.includes(id) ? t(' (not set up on this host)') : ''}
             </SelectItem>
           ))}
         </SelectContent>
       </Select>
       <p className="text-[11px] text-muted-foreground">
         {current === 'claude'
-          ? 'Other agents set up on this host (Settings › Agents) can run the step too.'
-          : 'It gets the step’s MCP servers and browser; read-only, skills and tool rules are Claude’s.'}
+          ? t('Other agents set up on this host (Settings › Agents) can run the step too.')
+          : t('It gets the step’s MCP servers and browser; read-only, skills and tool rules are Claude’s.')}
       </p>
     </div>
   )

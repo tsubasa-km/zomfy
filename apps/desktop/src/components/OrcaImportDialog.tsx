@@ -13,6 +13,7 @@ import {
   DialogHeader,
   DialogTitle
 } from '@/components/ui/dialog'
+import { t } from '@/i18n/i18n'
 
 type RowState = 'pending' | 'importing' | 'done' | { error: string }
 
@@ -61,17 +62,17 @@ export function OrcaImportDialog({ open, onClose }: { open: boolean; onClose: ()
     <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
       <DialogContent className="flex max-h-[calc(100vh-2rem)] flex-col sm:max-w-xl">
         <DialogHeader>
-          <DialogTitle>Import from Orca</DialogTitle>
+          <DialogTitle>{t('Import from Orca')}</DialogTitle>
           <DialogDescription>
-            Projects from Orca&apos;s active profile. Each is added on the machine it lives on: WSL
-            folders open in that distro&apos;s daemon, so git and agents run inside WSL. Existing
-            worktrees come along as workspaces.
+            {t(
+              "Projects from Orca's active profile. Each is added on the machine it lives on: WSL folders open in that distro's daemon, so git and agents run inside WSL. Existing worktrees come along as workspaces."
+            )}
           </DialogDescription>
         </DialogHeader>
         <div className="scrollbar-sleek min-h-0 flex-1 space-y-1 overflow-y-auto py-2">
           {loadError && <p className="text-sm text-destructive">{loadError}</p>}
-          {projects === null && !loadError && <p className="text-sm text-muted-foreground">Reading Orca…</p>}
-          {projects?.length === 0 && <p className="text-sm text-muted-foreground">Orca has no projects.</p>}
+          {projects === null && !loadError && <p className="text-sm text-muted-foreground">{t('Reading Orca…')}</p>}
+          {projects?.length === 0 && <p className="text-sm text-muted-foreground">{t('Orca has no projects.')}</p>}
           {projects?.map((project) => {
             const { hostId, path } = hostForPath(project.path)
             const added = alreadyAdded.has(`${hostId}|${path}`)
@@ -107,9 +108,9 @@ export function OrcaImportDialog({ open, onClose }: { open: boolean; onClose: ()
                     </span>
                   </div>
                   <div className="truncate font-mono text-[11px] text-muted-foreground">{path}</div>
-                  {added && !row && <div className="text-xs text-muted-foreground">Already added</div>}
-                  {row === 'importing' && <div className="text-xs text-muted-foreground">Importing…</div>}
-                  {row === 'done' && <div className="text-xs text-[var(--status-success)]">Imported</div>}
+                  {added && !row && <div className="text-xs text-muted-foreground">{t('Already added')}</div>}
+                  {row === 'importing' && <div className="text-xs text-muted-foreground">{t('Importing…')}</div>}
+                  {row === 'done' && <div className="text-xs text-[var(--status-success)]">{t('Imported')}</div>}
                   {typeof row === 'object' && <div className="text-xs break-words text-destructive">{row.error}</div>}
                 </div>
               </label>
@@ -118,10 +119,10 @@ export function OrcaImportDialog({ open, onClose }: { open: boolean; onClose: ()
         </div>
         <DialogFooter>
           <Button variant="outline" onClick={onClose}>
-            {allDone ? 'Close' : 'Cancel'}
+            {allDone ? t('Close') : t('Cancel')}
           </Button>
           <Button disabled={busy || !projects || chosen.size === 0 || allDone} onClick={() => void runImport()}>
-            {busy ? 'Importing…' : `Import ${chosen.size}`}
+            {busy ? t('Importing…') : t('Import {n}', { n: chosen.size })}
           </Button>
         </DialogFooter>
       </DialogContent>

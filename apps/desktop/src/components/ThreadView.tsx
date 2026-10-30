@@ -51,6 +51,7 @@ import { NativeChatTranscriptRow } from '@/components/native-chat/NativeChatTran
 import { buildTranscript } from '@/components/native-chat/native-chat-transcript-model'
 import { useNativeChatFind } from '@/components/native-chat/use-native-chat-find'
 import '@/components/native-chat/native-chat-appearance.css'
+import { t } from '@/i18n/i18n'
 
 // Layout and classes follow Orca's native chat (NativeChatMessageList, NativeChatResolvedView,
 // NativeChatComposer, NativeChatWorkingStatus).
@@ -205,16 +206,16 @@ export function ThreadView({ session, onSendToMain }: { session: Session; onSend
               <>
                 <ContextMenuItem onSelect={() => void navigator.clipboard.writeText(menuTarget.selection)}>
                   <Copy />
-                  Copy
+                  {t('Copy')}
                 </ContextMenuItem>
                 <ContextMenuItem onSelect={() => quote(formatNativeChatQuote(menuTarget.selection))}>
                   <Quote />
-                  Add selection to chat
+                  {t('Add selection to chat')}
                 </ContextMenuItem>
                 {askSide ? (
                   <ContextMenuItem data-native-chat-ask-side onSelect={() => askSide(formatNativeChatQuote(menuTarget.selection))}>
                     <MessagesSquare />
-                    Ask in side chat
+                    {t('Ask in side chat')}
                   </ContextMenuItem>
                 ) : null}
               </>
@@ -222,7 +223,7 @@ export function ThreadView({ session, onSendToMain }: { session: Session; onSend
             {menuTarget.message !== null ? (
               <ContextMenuItem onSelect={() => void navigator.clipboard.writeText(menuTarget.message ?? '')}>
                 <TextSelect />
-                Copy message
+                {t('Copy message')}
               </ContextMenuItem>
             ) : null}
             {onSendToMain && (menuTarget.selection || menuTarget.message) ? (
@@ -231,19 +232,19 @@ export function ThreadView({ session, onSendToMain }: { session: Session; onSend
                 onSelect={() => onSendToMain(menuTarget.selection || (menuTarget.message ?? ''))}
               >
                 <CornerDownLeft />
-                Send to main chat
+                {t('Send to main chat')}
               </ContextMenuItem>
             ) : null}
             {menuTarget.selection || menuTarget.message !== null ? <ContextMenuSeparator /> : null}
             <ContextMenuItem onSelect={() => find.show()}>
               <Search />
-              Find in chat
+              {t('Find in chat')}
               <ContextMenuShortcut>{isMac ? '⌘F' : 'Ctrl+F'}</ContextMenuShortcut>
             </ContextMenuItem>
             <ContextMenuItem data-native-chat-fork disabled={forkReason !== null} onSelect={() => void forkChat(session.id)}>
               <GitFork />
-              Fork Chat
-              {forkReason ? <span className="ml-auto pl-3 text-xs text-muted-foreground">Claude only</span> : null}
+              {t('Fork Chat')}
+              {forkReason ? <span className="ml-auto pl-3 text-xs text-muted-foreground">{t('Claude only')}</span> : null}
             </ContextMenuItem>
           </ContextMenuContent>
         </ContextMenu>
@@ -268,15 +269,16 @@ export function ThreadView({ session, onSendToMain }: { session: Session; onSend
       <Dialog open={rewindTarget !== null} onOpenChange={(open) => !open && setRewindTarget(null)}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
-            <DialogTitle>Rewind to this message?</DialogTitle>
+            <DialogTitle>{t('Rewind to this message?')}</DialogTitle>
             <DialogDescription>
-              This message and everything after it leave the conversation, and its text returns to the composer. Files
-              the agent changed stay as they are.
+              {t(
+                'This message and everything after it leave the conversation, and its text returns to the composer. Files the agent changed stay as they are.'
+              )}
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>
             <Button variant="outline" onClick={() => setRewindTarget(null)}>
-              Cancel
+              {t('Cancel')}
             </Button>
             <Button
               data-native-chat-rewind-confirm
@@ -286,7 +288,7 @@ export function ThreadView({ session, onSendToMain }: { session: Session; onSend
                 if (target) void rewindTo(session.id, target).then(() => composerRef.current?.focus())
               }}
             >
-              Rewind
+              {t('Rewind')}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -304,7 +306,7 @@ function WorkingStatus({ startedAt }: { startedAt: number }) {
   const seconds = Math.max(0, Math.floor((now - startedAt) / 1000))
   return (
     <div className="flex min-h-8 items-center gap-1 border-b border-border text-sm text-chat-foreground-faint tabular-nums select-none">
-      <span>Working for {seconds}s</span>
+      <span>{t('Working for {seconds}s', { seconds })}</span>
     </div>
   )
 }

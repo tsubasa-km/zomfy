@@ -13,6 +13,7 @@ import { useShortcutLabel } from '@/keybindings/keybinding-registry'
 import { sessionAgent } from '@/lib/chat-agents'
 import { inboxEntries, questionsOf, type Approval, type InboxEntry } from './inbox-entries'
 import type { TodoItem, TodoLink } from '@acp-harness/protocol'
+import { t } from '@/i18n/i18n'
 
 // One place for everything waiting on the person across hosts (the sidebar's "Waiting for you" and
 // the dashboard's Needs You / Done lanes, plus the person's own todos). Anchored above the status
@@ -51,13 +52,13 @@ function InboxSurface() {
   return (
     <div
       role="dialog"
-      aria-label="Inbox"
+      aria-label={t('Inbox')}
       data-inbox
       className="fixed right-3 bottom-8 z-[47] flex max-h-[min(640px,calc(100vh-80px))] w-[400px] max-w-[calc(100vw-24px)] flex-col overflow-hidden rounded-lg border border-border bg-card text-foreground shadow-[0_10px_24px_rgba(0,0,0,0.18)]"
     >
       <div className="flex shrink-0 items-center gap-2 border-b border-border px-3 py-2">
         <Inbox className="size-4 text-muted-foreground" />
-        <h2 className="text-[13px] font-semibold">Inbox</h2>
+        <h2 className="text-[13px] font-semibold">{t('Inbox')}</h2>
         <span className="text-[11px] text-muted-foreground tabular-nums">{waiting.length + finished.length + openTodos.length}</span>
         <div className="ml-auto flex items-center gap-1">
           <button
@@ -67,15 +68,15 @@ function InboxSurface() {
               setInboxOpen(false)
               void openManager()
             }}
-            title={`Open the Manager agent${managerShortcut ? ` (${managerShortcut})` : ''}`}
+            title={`${t('Open the Manager agent')}${managerShortcut ? ` (${managerShortcut})` : ''}`}
             className="inline-flex items-center gap-1 rounded-md px-1.5 py-1 text-[11px] text-muted-foreground hover:bg-accent hover:text-foreground"
           >
             <BotMessageSquare className="size-3.5" />
-            Manager
+            {t('Manager')}
           </button>
           <button
             type="button"
-            aria-label="Close inbox"
+            aria-label={t('Close inbox')}
             onClick={() => setInboxOpen(false)}
             className="rounded-sm p-1 text-muted-foreground opacity-70 transition-opacity hover:opacity-100"
           >
@@ -84,13 +85,14 @@ function InboxSurface() {
         </div>
       </div>
       <div className="scrollbar-sleek min-h-0 flex-1 overflow-y-auto">
-        <InboxSection title="Needs you" count={waiting.length}>
+        <InboxSection id="Needs you" title={t('Needs you')} count={waiting.length}>
           {waiting.map((entry) => (
             <EntryRow key={entryKey(entry)} entry={entry} where={where(entry.session)} offline={offline(entry.session)} />
           ))}
         </InboxSection>
         <InboxSection
-          title="Finished"
+          id="Finished"
+          title={t('Finished')}
           count={finished.length}
           action={
             finished.length > 1 ? (
@@ -99,7 +101,7 @@ function InboxSurface() {
                 className="inline-flex items-center gap-1 text-[11px] text-muted-foreground hover:text-foreground"
                 onClick={() => finished.forEach((e) => markSeen(e.session.id))}
               >
-                <CheckCheck className="size-3" /> Mark all read
+                <CheckCheck className="size-3" /> {t('Mark all read')}
               </button>
             ) : null
           }
@@ -119,24 +121,27 @@ function entryKey(entry: InboxEntry): string {
 }
 
 function InboxSection({
+  id,
   title,
   count,
   action,
   children
 }: {
+  /** English, for the data attribute. */
+  id: string
   title: string
   count: number
   action?: React.ReactNode
   children: React.ReactNode
 }) {
   return (
-    <section className="border-b border-border/60 px-2 py-2 last:border-b-0" data-inbox-section={title}>
+    <section className="border-b border-border/60 px-2 py-2 last:border-b-0" data-inbox-section={id}>
       <header className="flex items-center gap-2 px-1 pb-1.5">
         <span className="text-[11px] font-semibold tracking-[0.05em] text-muted-foreground uppercase">{title}</span>
         <span className="rounded-full bg-muted px-1.5 text-[11px] text-muted-foreground tabular-nums">{count}</span>
         <span className="ml-auto">{action}</span>
       </header>
-      {count === 0 ? <p className="px-1 pb-1 text-[11px] text-muted-foreground">Nothing here.</p> : <div className="flex flex-col gap-1.5">{children}</div>}
+      {count === 0 ? <p className="px-1 pb-1 text-[11px] text-muted-foreground">{t('Nothing here.')}</p> : <div className="flex flex-col gap-1.5">{children}</div>}
     </section>
   )
 }
@@ -165,8 +170,8 @@ function EntryRow({ entry, where, offline }: { entry: InboxEntry; where: string;
         <TuiAgentIcon agent={sessionAgent(session)} size={12} />
         <span className="min-w-0 truncate text-[12px] font-medium">{session.title}</span>
         {offline ? (
-          <span className="ml-auto shrink-0 text-[10px] text-muted-foreground" title="Its host is out of contact; it may still be running">
-            unverifiable
+          <span className="ml-auto shrink-0 text-[10px] text-muted-foreground" title={t('Its host is out of contact; it may still be running')}>
+            {t('unverifiable')}
           </span>
         ) : (
           <AgentStateDot
@@ -178,19 +183,19 @@ function EntryRow({ entry, where, offline }: { entry: InboxEntry; where: string;
       <div className="truncate text-[11px] text-muted-foreground">{where}</div>
       {entry.kind === 'approval' && <ApprovalBody approval={entry.approval} />}
       {entry.kind === 'needs-you' && (
-        <p className="mt-1 text-[11px] text-agent-question-text">Waiting on an answer in its chat; open it to reply.</p>
+        <p className="mt-1 text-[11px] text-agent-question-text">{t('Waiting on an answer in its chat; open it to reply.')}</p>
       )}
       {entry.kind === 'finished' && (
         <div className="mt-1 flex items-start gap-2">
           <p className="line-clamp-2 min-w-0 flex-1 text-[11px] leading-snug text-foreground/85">
-            {session.status === 'error' ? 'The turn failed.' : (lastReply?.kind === 'agent' && lastReply.text.trim()) || 'Turn finished.'}
+            {session.status === 'error' ? t('The turn failed.') : (lastReply?.kind === 'agent' && lastReply.text.trim()) || t('Turn finished.')}
           </p>
           <button
             type="button"
             className="shrink-0 text-[11px] text-muted-foreground hover:text-foreground"
             onClick={() => markSeen(session.id)}
           >
-            Mark read
+            {t('Mark read')}
           </button>
         </div>
       )}
@@ -205,7 +210,7 @@ function ApprovalBody({ approval }: { approval: Approval }) {
     <div className="mt-1">
       <div className="flex items-start gap-1 text-[11px] text-agent-question-text">
         <AgentQuestionIcon className="mt-px size-3 shrink-0" />
-        <span className="line-clamp-3 break-words">{questions.length > 0 ? questions.join(' ') : `Allow ${approval.title}?`}</span>
+        <span className="line-clamp-3 break-words">{questions.length > 0 ? questions.join(' ') : t('Allow {title}?', { title: approval.title })}</span>
       </div>
       <div className="mt-1.5 flex flex-wrap gap-1">
         {options.map((option, i) => (
@@ -258,12 +263,13 @@ function TodoSection({ todos }: { todos: TodoItem[] }) {
   return (
     <>
       <InboxSection
-        title="To do"
+        id="To do"
+        title={t('To do')}
         count={open.length}
         action={
           done.length > 0 ? (
             <button type="button" className="text-[11px] text-muted-foreground hover:text-foreground" onClick={() => setShowDone(!showDone)}>
-              {showDone ? 'Hide done' : `Show done (${done.length})`}
+              {showDone ? t('Hide done') : t('Show done ({n})', { n: done.length })}
             </button>
           ) : null
         }
@@ -283,7 +289,7 @@ function TodoSection({ todos }: { todos: TodoItem[] }) {
           data-todo-input
           value={text}
           onChange={(e) => setText(e.target.value)}
-          placeholder="Add a todo…"
+          placeholder={t('Add a todo…')}
           className="h-7 text-xs"
         />
         {target && (
@@ -291,7 +297,7 @@ function TodoSection({ todos }: { todos: TodoItem[] }) {
             type="button"
             aria-pressed={linkIt}
             onClick={() => setLinkIt(!linkIt)}
-            title={linkIt ? `Linked to ${target.label}` : `Link to ${target.label}`}
+            title={linkIt ? t('Linked to {target}', { target: target.label }) : t('Link to {target}', { target: target.label })}
             className={
               linkIt
                 ? 'shrink-0 rounded-md bg-accent p-1.5 text-foreground'
@@ -312,12 +318,12 @@ function TodoRow({ todo }: { todo: TodoItem }) {
   const linkLabel = session?.title ?? (workspace ? (workspace.displayName ?? workspace.name) : null)
   return (
     <div data-todo={todo.id} className="group flex items-start gap-2 rounded-md px-1 py-1 hover:bg-accent/40">
-      <Checkbox className="mt-0.5" checked={todo.done} onCheckedChange={(v) => setTodoDone(todo.id, v === true)} aria-label="Done" />
+      <Checkbox className="mt-0.5" checked={todo.done} onCheckedChange={(v) => setTodoDone(todo.id, v === true)} aria-label={t('Done')} />
       <div className="min-w-0 flex-1">
         <p className={todo.done ? 'text-[12px] break-words text-muted-foreground line-through' : 'text-[12px] break-words'}>{todo.text}</p>
         {(todo.fromAgent || linkLabel) && (
           <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
-            {todo.fromAgent && <span>from {todo.fromAgent}</span>}
+            {todo.fromAgent && <span>{t('from {agent}', { agent: todo.fromAgent })}</span>}
             {linkLabel && (
               <button
                 type="button"
@@ -337,7 +343,7 @@ function TodoRow({ todo }: { todo: TodoItem }) {
       </div>
       <button
         type="button"
-        aria-label="Delete todo"
+        aria-label={t('Delete todo')}
         onClick={() => removeTodo(todo.id)}
         className="shrink-0 rounded-sm p-0.5 text-muted-foreground opacity-0 group-hover:opacity-100 hover:text-foreground"
       >

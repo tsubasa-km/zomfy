@@ -23,15 +23,16 @@ import { Input } from '@/components/ui/input'
 import type { WorktreeStatus } from '@/lib/worktree-status'
 import { cn } from '@/lib/utils'
 import { keepTextUnselected } from '@/stores/list-selection'
+import { t } from '@/i18n/i18n'
 
 // Orca's WorkspaceKanbanDrawer: one lane per workspace status, cards dragged between lanes set the
 // status, and a search field narrows every lane. Shown in the main area instead of a drawer.
 
 const LANES: { id: StatusFilterId; label: string; border: string; tint: string }[] = [
-  { id: 'none', label: 'No status', border: 'border-t-muted-foreground/45', tint: 'bg-background/55' },
+  { id: 'none', label: t('No status'), border: 'border-t-muted-foreground/45', tint: 'bg-background/55' },
   ...WORKSPACE_STATUSES.map((s) => ({
     id: s.id,
-    label: s.label,
+    label: t(s.label),
     ...{
       todo: { border: 'border-t-muted-foreground/45', tint: 'bg-background/55' },
       'in-progress': { border: 'border-t-[#d4a300]/70', tint: 'bg-[#d4a300]/[0.04]' },
@@ -85,14 +86,14 @@ export function WorkspaceBoard() {
   return (
     <div className="flex min-h-0 min-w-0 flex-1 flex-col bg-background" data-workspace-board>
       <div className="flex h-11 shrink-0 items-center gap-3 border-b border-border px-4">
-        <div className="text-sm font-semibold">Workspace board</div>
+        <div className="text-sm font-semibold">{t('Workspace board')}</div>
         <div className="relative flex max-w-xs min-w-0 flex-1 items-center">
           <Search className="pointer-events-none absolute top-1/2 left-2 size-3.5 -translate-y-1/2 text-muted-foreground" />
           <Input
             ref={inputRef}
             value={query}
-            aria-label="Search workspaces"
-            placeholder="Search workspaces"
+            aria-label={t('Search workspaces')}
+            placeholder={t('Search workspaces')}
             data-board-search
             className="h-7 border-worktree-sidebar-border bg-background pr-16 pl-7 text-xs"
             onChange={(e) => setQuery(e.target.value)}
@@ -113,7 +114,7 @@ export function WorkspaceBoard() {
           size="icon-xs"
           variant="ghost"
           className="ml-auto"
-          aria-label="Close board"
+          aria-label={t('Close board')}
           onClick={() => setBoardOpen(false)}
         >
           <X className="size-3.5" />
@@ -250,7 +251,7 @@ function BoardCard({
       <div className="flex min-w-0 items-center gap-1.5">
         <StatusIndicator status={CARD_STATUS[workspaceStatus(own)]} />
         <div className="min-w-0 flex-1 truncate text-[13px] leading-5 font-medium">{workspaceLabel(workspace)}</div>
-        {workspace.pinned && <Pin className="size-3 shrink-0 text-muted-foreground" aria-label="Pinned" />}
+        {workspace.pinned && <Pin className="size-3 shrink-0 text-muted-foreground" aria-label={t('Pinned')} />}
         <AgentBadge sessions={own} />
       </div>
       <div className="mt-0.5 flex min-w-0 items-center gap-1 text-[11px] text-muted-foreground">

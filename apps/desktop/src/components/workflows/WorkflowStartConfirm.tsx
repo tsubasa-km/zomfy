@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Label } from '@/components/ui/label'
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
+import { t } from '@/i18n/i18n'
 
 // Before a run of a workflow whose loops nothing caps, the person says it may go round as long as it
 // takes. Every start asks, whether from the composer or a chat's run_workflow, unless the person
@@ -76,26 +77,30 @@ export function WorkflowStartConfirmDialog() {
     <Dialog open onOpenChange={(open) => !open && answer(false)}>
       <DialogContent className="sm:max-w-md" data-workflow-start-confirm>
         <DialogHeader>
-          <DialogTitle>Start “{ask.workflow.name}”?</DialogTitle>
+          <DialogTitle>{t('Start “{name}”?', { name: ask.workflow.name })}</DialogTitle>
           <DialogDescription>
-            {ask.by === 'lead' ? 'A chat wants to start it. ' : ''}
+            {ask.by === 'lead' ? t('A chat wants to start it. ') : ''}
             {ask.loops.length > 0
-              ? 'These loops have no round limit, so the run keeps going round until they finish. A loop that gets stuck is handed up to rethink, but nothing caps how long that takes.'
-              : 'The run works in a worktree of its own.'}
+              ? t(
+                  'These loops have no round limit, so the run keeps going round until they finish. A loop that gets stuck is handed up to rethink, but nothing caps how long that takes.'
+                )
+              : t('The run works in a worktree of its own.')}
           </DialogDescription>
         </DialogHeader>
         {ask.uncommitted.paths.length > 0 && (
           <div className="space-y-1 rounded-md border border-status-warning-border px-3 py-2 text-xs" data-workflow-start-uncommitted>
             <p className="flex items-center gap-1.5 font-medium text-foreground">
               <TriangleAlert className="size-3.5 shrink-0 text-status-warning" />
-              Uncommitted changes in {ask.uncommitted.branch ?? 'the project'} stay behind
+              {ask.uncommitted.branch
+                ? t('Uncommitted changes in {branch} stay behind', { branch: ask.uncommitted.branch })
+                : t('Uncommitted changes in the project stay behind')}
             </p>
             <p className="text-muted-foreground">
-              The run starts from the last commit, so it will not see these. Commit them first if the run needs them.
+              {t('The run starts from the last commit, so it will not see these. Commit them first if the run needs them.')}
             </p>
             <p className="truncate font-mono text-muted-foreground">
               {ask.uncommitted.paths.slice(0, 4).join(', ')}
-              {ask.uncommitted.paths.length > 4 ? ` and ${ask.uncommitted.paths.length - 4} more` : ''}
+              {ask.uncommitted.paths.length > 4 ? t(' and {n} more', { n: ask.uncommitted.paths.length - 4 }) : ''}
             </p>
           </div>
         )}
@@ -112,16 +117,16 @@ export function WorkflowStartConfirmDialog() {
           <div className="flex items-center gap-2">
             <Checkbox id="workflow-start-quiet" checked={quiet} onCheckedChange={(v) => setQuiet(v === true)} data-workflow-start-quiet />
             <Label htmlFor="workflow-start-quiet" className="text-sm font-normal">
-              Don't ask again for this workflow
+              {t("Don't ask again for this workflow")}
             </Label>
           </div>
         )}
         <DialogFooter>
           <Button variant="outline" onClick={() => answer(false)}>
-            Cancel
+            {t('Cancel')}
           </Button>
           <Button onClick={() => answer(true)} data-workflow-start-go>
-            Start
+            {t('Start')}
           </Button>
         </DialogFooter>
       </DialogContent>

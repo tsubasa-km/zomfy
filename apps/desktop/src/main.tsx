@@ -2,9 +2,12 @@ import React from "react";
 import ReactDOM from "react-dom/client";
 import { WINDOW_ROLE } from "./lib/window-role";
 import { installLinkRouting } from "./lib/link-routing";
+import { followLanguageChanges } from "./i18n/i18n";
+import { STORAGE_KEY } from "./stores/settings-store";
 
 // Both roots show links (chats, panels), and the webview has no opener of its own.
 installLinkRouting();
+followLanguageChanges(STORAGE_KEY);
 
 // Pop-outs (the dashboard, a workspace) load only their own root, so the app shell's startup work does not run twice.
 const Root =

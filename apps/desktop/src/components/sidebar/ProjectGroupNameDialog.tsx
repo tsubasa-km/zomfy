@@ -5,6 +5,7 @@ import type { HostId } from '@/session-store'
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
+import { t } from '@/i18n/i18n'
 
 // Orca's ProjectGroupNameDialog: name a new group (optionally with projects in it) or rename one.
 
@@ -43,7 +44,7 @@ export function ProjectGroupNameDialog({ request, onClose }: { request: GroupNam
     <Dialog open={request !== null} onOpenChange={(o) => !o && onClose()}>
       <DialogContent className="sm:max-w-sm" data-group-name-dialog>
         <DialogHeader>
-          <DialogTitle>{request?.mode === 'rename' ? 'Rename Group' : 'New Project Group'}</DialogTitle>
+          <DialogTitle>{request?.mode === 'rename' ? t('Rename Group') : t('New Project Group')}</DialogTitle>
         </DialogHeader>
         <form
           className="space-y-4"
@@ -52,14 +53,14 @@ export function ProjectGroupNameDialog({ request, onClose }: { request: GroupNam
             void save()
           }}
         >
-          <Input autoFocus aria-label="Group name" placeholder="Group name" value={name} onChange={(e) => setName(e.target.value)} />
+          <Input autoFocus aria-label={t('Group name')} placeholder={t('Group name')} value={name} onChange={(e) => setName(e.target.value)} />
           {error && <p className="text-sm text-destructive">{error}</p>}
           <DialogFooter>
             <Button type="button" variant="outline" onClick={onClose}>
-              Cancel
+              {t('Cancel')}
             </Button>
             <Button type="submit" disabled={!name.trim()}>
-              {request?.mode === 'rename' ? 'Rename' : 'Create'}
+              {request?.mode === 'rename' ? t('Rename') : t('Create')}
             </Button>
           </DialogFooter>
         </form>

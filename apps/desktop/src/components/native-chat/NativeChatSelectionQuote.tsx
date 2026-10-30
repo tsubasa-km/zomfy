@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState, type RefObject } from 'react'
 import { MessagesSquare, Quote } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Popover, PopoverAnchor, PopoverContent } from '@/components/ui/popover'
+import { t } from '@/i18n/i18n'
 
 // Ported from Orca's NativeChatSelectionQuote and native-chat-quote-selection.
 
@@ -129,7 +130,7 @@ export function NativeChatSelectionQuote({
               }}
             >
               <Quote />
-              Add to chat
+              {t('Add to chat')}
             </Button>
             {onAskInSideChat ? (
               <Button
@@ -142,7 +143,7 @@ export function NativeChatSelectionQuote({
                 }}
               >
                 <MessagesSquare />
-                Ask in side chat
+                {t('Ask in side chat')}
               </Button>
             ) : null}
           </div>

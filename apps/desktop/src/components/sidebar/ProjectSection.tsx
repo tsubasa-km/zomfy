@@ -30,6 +30,7 @@ import { openAddProjectDialog } from '@/lib/project-dialogs'
 import { unlinkProject } from '@/stores/project-links-store'
 import { openWorkflows } from '@/stores/workflows-store'
 import { startChat } from '@/lib/chat-worktree'
+import { t } from '@/i18n/i18n'
 
 /** Dialogs and flows the sidebar root owns; sections only ask for them. */
 export interface SidebarActions {
@@ -190,7 +191,7 @@ export function ProjectSection({
               <Button
                 size="icon-xs"
                 variant="ghost"
-                aria-label={showChats ? `New chat in ${label}` : `New workspace in ${label}`}
+                aria-label={showChats ? t('New chat in {project}', { project: label }) : t('New workspace in {project}', { project: label })}
                 data-project-new-chat={showChats || undefined}
                 onClick={() => (showChats ? void startChat(project) : actions.newWorkspace(project))}
               >
@@ -198,12 +199,12 @@ export function ProjectSection({
               </Button>
             </TooltipTrigger>
             <TooltipContent side="right">
-              {showChats ? (project.kind === 'git' ? 'New chat in its own worktree' : 'New chat') : 'New workspace…'}
+              {showChats ? (project.kind === 'git' ? t('New chat in its own worktree') : t('New chat')) : t('New workspace…')}
             </TooltipContent>
           </Tooltip>
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button size="icon-xs" variant="ghost" aria-label={`Project actions for ${label}`}>
+              <Button size="icon-xs" variant="ghost" aria-label={t('Project actions for {project}', { project: label })}>
                 <MoreHorizontal className="size-3.5" />
               </Button>
             </DropdownMenuTrigger>
@@ -227,11 +228,11 @@ export function ProjectSection({
                   <DropdownMenuSeparator />
                   <DropdownMenuItem data-project-action="chat-worktree" onSelect={() => void startChat(project)}>
                     <MessageSquarePlus className="size-3.5" />
-                    New Chat in Its Own Worktree
+                    {t('New Chat in Its Own Worktree')}
                   </DropdownMenuItem>
                   <DropdownMenuItem data-project-action="chat-checkout" onSelect={() => void startChat(project, 'checkout')}>
                     <MessageSquarePlus className="size-3.5" />
-                    New Chat in the Main Checkout
+                    {t('New Chat in the Main Checkout')}
                   </DropdownMenuItem>
                 </>
               )}
@@ -241,7 +242,7 @@ export function ProjectSection({
                 onSelect={() => openWorkflows({ hostId: project.hostId, projectId: project.id, projectName: label })}
               >
                 <WorkflowIcon className="size-3.5" />
-                Workflows…
+                {t('Workflows…')}
               </DropdownMenuItem>
               <DropdownMenuItem
                 data-project-action="add-workspace-elsewhere"
@@ -250,25 +251,25 @@ export function ProjectSection({
                 }
               >
                 <FolderPlus className="size-3.5" />
-                Add Workspace on Another Host…
+                {t('Add Workspace on Another Host…')}
               </DropdownMenuItem>
               {copies.map((copy) => (
                 <Fragment key={copy.id}>
                   <DropdownMenuSeparator />
                   <DropdownMenuLabel className="px-2 py-1 text-[11px] font-medium text-muted-foreground">
-                    {projectLabel(copy)} on {badgeFor?.(copy.hostId) ?? copy.hostId}
+                    {t('{project} on {host}', { project: projectLabel(copy), host: badgeFor?.(copy.hostId) ?? copy.hostId })}
                   </DropdownMenuLabel>
                   <DropdownMenuItem onSelect={() => actions.newWorkspace(copy)}>
                     <Plus className="size-3.5" />
-                    New Workspace There…
+                    {t('New Workspace There…')}
                   </DropdownMenuItem>
                   <DropdownMenuItem onSelect={() => actions.projectSettings(copy)}>
                     <Settings2 className="size-3.5" />
-                    Project Settings…
+                    {t('Project Settings…')}
                   </DropdownMenuItem>
                   <DropdownMenuItem onSelect={() => void unlinkProject({ hostId: copy.hostId, projectId: copy.id })}>
                     <Unlink className="size-3.5" />
-                    Detach from {label}
+                    {t('Detach from {project}', { project: label })}
                   </DropdownMenuItem>
                 </Fragment>
               ))}

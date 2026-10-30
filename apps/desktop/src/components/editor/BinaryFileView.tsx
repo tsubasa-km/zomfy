@@ -8,6 +8,7 @@ import { ImageViewer } from './ImageViewer'
 import { PdfViewer } from './PdfViewer'
 import { imageMimeType } from './editor-file-kind'
 import { useFileDiskWatch } from './use-file-disk-watch'
+import { t } from '@/i18n/i18n'
 
 /** Image and PDF tabs: read-only, reloaded whenever the file changes on disk. */
 export function BinaryFileView({ tab, kind }: { tab: EditorTab; kind: 'image' | 'pdf' }): React.JSX.Element {
@@ -52,7 +53,7 @@ export function BinaryFileView({ tab, kind }: { tab: EditorTab; kind: 'image' | 
             </span>
           )
         }
-        menuItems={<DropdownMenuItem onSelect={() => void load()}>Reload from Disk</DropdownMenuItem>}
+        menuItems={<DropdownMenuItem onSelect={() => void load()}>{t('Reload from Disk')}</DropdownMenuItem>}
       />
       <div className="min-h-0 flex-1">
         {file ? (
@@ -67,7 +68,7 @@ export function BinaryFileView({ tab, kind }: { tab: EditorTab; kind: 'image' | 
             />
           )
         ) : (
-          !error && <div className="flex h-full items-center justify-center text-sm text-muted-foreground">Loading preview...</div>
+          !error && <div className="flex h-full items-center justify-center text-sm text-muted-foreground">{t('Loading preview...')}</div>
         )}
       </div>
     </div>

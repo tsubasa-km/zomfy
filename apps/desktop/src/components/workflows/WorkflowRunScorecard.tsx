@@ -1,5 +1,6 @@
 import type { WorkflowScorecard } from '@acp-harness/protocol'
 import { cn } from '@/lib/utils'
+import { t } from '@/i18n/i18n'
 
 // A run's scorecard: the few figures worth comparing (time, cost, rounds, what handoffs lost, waits
 // on the person). Each figure's tooltip says what it counts. What fills a chat's context is in the
@@ -28,25 +29,32 @@ export function WorkflowRunScorecard({ card }: { card: WorkflowScorecard }) {
   const rounds = card.sentBack + card.checksFailed
   return (
     <div className="grid grid-cols-3 gap-x-3 gap-y-2" data-workflow-scorecard>
-      <Figure label="Time" value={formatDuration(card.durationMs)} hint="From the first step's start to the run's end (or now)." />
+      <Figure label={t('Time')} value={formatDuration(card.durationMs)} hint={t("From the first step's start to the run's end (or now).")} />
       <Figure
-        label="Tokens"
+        label={t('Tokens')}
         value={`${formatTokens(tokens)}${card.usage.costUsd !== undefined ? ` · $${card.usage.costUsd.toFixed(2)}` : ''}`}
-        hint={`New input ${card.usage.inputTokens.toLocaleString()}, output ${card.usage.outputTokens.toLocaleString()}, cache reads ${card.usage.cacheReadTokens.toLocaleString()}. Cost from Claude steps only.${card.unmetered ? ` ${card.unmetered} step(s) did not report usage.` : ''}`}
+        hint={`${t('New input {input}, output {output}, cache reads {cache}. Cost from Claude steps only.', {
+          input: card.usage.inputTokens.toLocaleString(),
+          output: card.usage.outputTokens.toLocaleString(),
+          cache: card.usage.cacheReadTokens.toLocaleString()
+        })}${card.unmetered ? t(' {n} step(s) did not report usage.', { n: card.unmetered }) : ''}`}
       />
       <Figure
-        label="Rounds"
+        label={t('Rounds')}
         value={String(rounds)}
-        hint={`Work sent back by a review (${card.sentBack}) plus failed checks (${card.checksFailed}).`}
+        hint={t('Work sent back by a review ({sentBack}) plus failed checks ({failed}).', { sentBack: card.sentBack, failed: card.checksFailed })}
         warn={rounds > 2}
       />
       <Figure
-        label="Re-read after handoff"
-        value={card.reads ? `${card.rereadAfterHandoff} of ${card.reads}` : '—'}
-        hint={`File reads of something an earlier step had read, unchanged since: what its summary did not carry (${card.handoffs} handoffs, ${card.handoffChars} characters on average). Commands run again by a later step: ${card.rerunCommands} of ${card.commands}.`}
+        label={t('Re-read after handoff')}
+        value={card.reads ? t('{n} of {total}', { n: card.rereadAfterHandoff, total: card.reads }) : '—'}
+        hint={t(
+          'File reads of something an earlier step had read, unchanged since: what its summary did not carry ({handoffs} handoffs, {chars} characters on average). Commands run again by a later step: {rerun} of {commands}.',
+          { handoffs: card.handoffs, chars: card.handoffChars, rerun: card.rerunCommands, commands: card.commands }
+        )}
         warn={card.reads > 0 && card.rereadAfterHandoff / card.reads > 0.3}
       />
-      <Figure label="Waited on you" value={String(card.personWaits)} hint="Times the run stopped for the person." />
+      <Figure label={t('Waited on you')} value={String(card.personWaits)} hint={t('Times the run stopped for the person.')} />
     </div>
   )
 }

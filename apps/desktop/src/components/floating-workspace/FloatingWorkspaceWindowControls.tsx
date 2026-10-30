@@ -6,6 +6,7 @@ import { useShortcutLabel } from '@/keybindings/keybinding-registry'
 import { TuiAgentIcon } from '@/components/terminal/TuiAgentIcon'
 import { Button } from '@/components/ui/button'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
+import { t } from '@/i18n/i18n'
 
 // Orca's FloatingTerminalWindowControls: launch the default agent here, maximize/restore, minimize.
 
@@ -55,7 +56,7 @@ export function FloatingWorkspaceWindowControls({
 }) {
   const saved = useSetting('defaultChatAgent')
   const agent = isChatAgentId(saved) ? saved : 'claude'
-  const agentLabel = `Open ${chatAgentLabel(agent)} in floating workspace`
+  const agentLabel = t('Open {agent} in floating workspace', { agent: chatAgentLabel(agent) })
   const maximizeShortcut = useShortcutLabel('floatingWorkspace.maximize')
   const minimizeShortcut = useShortcutLabel('floatingWorkspace.minimize')
   return (
@@ -64,14 +65,14 @@ export function FloatingWorkspaceWindowControls({
         <TuiAgentIcon agent={agent} size={14} />
       </ControlButton>
       <ControlButton
-        label={maximized ? 'Restore floating workspace' : 'Maximize floating workspace'}
-        tooltip={withShortcut(maximized ? 'Restore' : 'Maximize', maximizeShortcut)}
+        label={maximized ? t('Restore floating workspace') : t('Maximize floating workspace')}
+        tooltip={withShortcut(maximized ? t('Restore') : t('Maximize'), maximizeShortcut)}
         pressed={maximized}
         onClick={onToggleMaximized}
       >
         {maximized ? <Minimize2 className="size-3.5" /> : <Maximize2 className="size-3.5" />}
       </ControlButton>
-      <ControlButton label="Minimize floating workspace" tooltip={withShortcut('Minimize', minimizeShortcut)} onClick={onMinimize}>
+      <ControlButton label={t('Minimize floating workspace')} tooltip={withShortcut(t('Minimize'), minimizeShortcut)} onClick={onMinimize}>
         <Minus className="size-3.5" />
       </ControlButton>
     </div>

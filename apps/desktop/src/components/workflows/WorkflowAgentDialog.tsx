@@ -13,6 +13,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { WorkflowStepAgentField } from './WorkflowStepAgentField'
 import { WorkflowToolsEditor } from './WorkflowToolsEditor'
+import { t } from '@/i18n/i18n'
 
 // Defines an agent once for every workflow on the host: which agent runs it, whether its model is
 // local, its role, standing instructions and tools. Steps using it follow later edits.
@@ -58,17 +59,22 @@ export function WorkflowAgentDialog({
       await saveWorkflowAgent(hostId, saved)
       onSaved(saved)
     } catch (error) {
-      toast.error('Could not save the agent', { description: String(error) })
+      toast.error(t('Could not save the agent'), { description: String(error) })
     } finally {
       setBusy(false)
     }
   }
 
   const remove = async () => {
-    const note = usedBy > 0 ? ` ${usedBy} step${usedBy > 1 ? 's' : ''} in this workflow use it and will need another agent.` : ''
-    if (!window.confirm(`Delete the agent "${initial.name}" from every workflow on this host?${note}`)) return
+    const note =
+      usedBy > 1
+        ? t(' {n} steps in this workflow use it and will need another agent.', { n: usedBy })
+        : usedBy === 1
+          ? t(' {n} step in this workflow use it and will need another agent.', { n: usedBy })
+          : ''
+    if (!window.confirm(t('Delete the agent "{name}" from every workflow on this host?', { name: initial.name }) + note)) return
     await removeWorkflowAgent(hostId, initial.id).catch((error: unknown) =>
-      toast.error('Could not delete the agent', { description: String(error) })
+      toast.error(t('Could not delete the agent'), { description: String(error) })
     )
     onClose()
   }
@@ -77,33 +83,33 @@ export function WorkflowAgentDialog({
     <Dialog open onOpenChange={(open) => !open && onClose()}>
       <DialogContent className="max-h-[85vh] overflow-y-auto sm:max-w-lg" data-workflow-agent-dialog>
         <DialogHeader>
-          <DialogTitle>{isNew ? 'New agent' : `Edit “${initial.name}”`}</DialogTitle>
-          <DialogDescription>Defined once on this host; every step that uses it follows your changes.</DialogDescription>
+          <DialogTitle>{isNew ? t('New agent') : t('Edit “{name}”', { name: initial.name })}</DialogTitle>
+          <DialogDescription>{t('Defined once on this host; every step that uses it follows your changes.')}</DialogDescription>
         </DialogHeader>
         <div className="space-y-4">
           <div className="grid grid-cols-[1fr_auto] gap-3">
             <div className="space-y-1.5">
               <Label className="text-xs" htmlFor="workflow-agent-name">
-                Name
+                {t('Name')}
               </Label>
               <Input
                 id="workflow-agent-name"
                 value={agent.name}
-                placeholder="Local developer"
+                placeholder={t('Local developer')}
                 autoFocus
                 onChange={(e) => set({ name: e.target.value })}
                 className="h-8"
               />
             </div>
             <div className="space-y-1.5">
-              <Label className="text-xs">Does</Label>
+              <Label className="text-xs">{t('Does')}</Label>
               <Select value={agent.kind} onValueChange={(v) => set({ kind: v === 'review' ? 'review' : 'agent' })}>
-                <SelectTrigger size="sm" className="h-8 w-36 text-xs" aria-label="Does">
+                <SelectTrigger size="sm" className="h-8 w-36 text-xs" aria-label={t('Does')}>
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="agent">The work</SelectItem>
-                  <SelectItem value="review">Reviews</SelectItem>
+                  <SelectItem value="agent">{t('The work')}</SelectItem>
+                  <SelectItem value="review">{t('Reviews')}</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -111,48 +117,49 @@ export function WorkflowAgentDialog({
           <WorkflowStepAgentField hostId={hostId} agent={agent.agent} onChange={(id) => set({ agent: id })} />
           <div className="flex items-start justify-between gap-3" data-workflow-agent-local>
             <div className="space-y-0.5">
-              <div className="text-xs font-medium">Runs on a local model</div>
+              <div className="text-xs font-medium">{t('Runs on a local model')}</div>
               <p className="text-[11px] text-muted-foreground">
-                Its model runs on your own machines (for example OpenCode on the in-house LLM), so it may see data marked local only.
+                {t('Its model runs on your own machines (for example OpenCode on the in-house LLM), so it may see data marked local only.')}
               </p>
             </div>
             <Switch
               checked={agent.local === true}
               disabled={(agent.agent ?? 'claude') === 'claude'}
               onCheckedChange={(on) => set({ local: on || undefined })}
-              aria-label="Runs on a local model"
+              aria-label={t('Runs on a local model')}
             />
           </div>
           {(agent.agent ?? 'claude') !== 'claude' && (
             <div className="space-y-1.5">
               <Label className="text-xs" htmlFor="workflow-agent-model">
-                Model
+                {t('Model')}
               </Label>
               <Input
                 id="workflow-agent-model"
                 value={agent.model ?? ''}
-                placeholder={agent.local ? 'Required: the local model, as the agent names it' : 'The agent’s default'}
+                placeholder={agent.local ? t('Required: the local model, as the agent names it') : t('The agent’s default')}
                 onChange={(e) => set({ model: e.target.value || undefined })}
                 className="h-8 font-mono text-xs"
               />
               <p className="text-[11px] text-muted-foreground">
-                Set on each session it starts; the step fails if the agent offers no such model. A local agent needs one, so “local” is
-                checked, not just claimed.
+                {t(
+                  'Set on each session it starts; the step fails if the agent offers no such model. A local agent needs one, so “local” is checked, not just claimed.'
+                )}
               </p>
             </div>
           )}
           <div className="space-y-1.5">
-            <Label className="text-xs">Role</Label>
-            <Input value={agent.role ?? ''} placeholder={name || 'Developer'} onChange={(e) => set({ role: e.target.value })} className="h-8" />
-            <p className="text-[11px] text-muted-foreground">Who it acts as; it opens its prompt. Empty: its name.</p>
+            <Label className="text-xs">{t('Role')}</Label>
+            <Input value={agent.role ?? ''} placeholder={name || t('Developer')} onChange={(e) => set({ role: e.target.value })} className="h-8" />
+            <p className="text-[11px] text-muted-foreground">{t('Who it acts as; it opens its prompt. Empty: its name.')}</p>
           </div>
           <div className="space-y-1.5">
-            <Label className="text-xs">Instructions</Label>
+            <Label className="text-xs">{t('Instructions')}</Label>
             <Textarea value={agent.prompt ?? ''} onChange={(e) => set({ prompt: e.target.value })} className="min-h-24 text-xs" />
-            <p className="text-[11px] text-muted-foreground">Given in every step it runs; a step's own instructions come after.</p>
+            <p className="text-[11px] text-muted-foreground">{t("Given in every step it runs; a step's own instructions come after.")}</p>
           </div>
           <div className="space-y-1.5">
-            <Label className="text-xs">Helper agents at once</Label>
+            <Label className="text-xs">{t('Helper agents at once')}</Label>
             <Input
               type="number"
               min={0}
@@ -176,17 +183,17 @@ export function WorkflowAgentDialog({
           {!isNew ? (
             <Button variant="ghost" size="sm" onClick={() => void remove()}>
               <Trash2 className="size-3.5" />
-              Delete agent
+              {t('Delete agent')}
             </Button>
           ) : (
             <span />
           )}
           <div className="flex gap-2">
             <Button variant="outline" onClick={onClose}>
-              Cancel
+              {t('Cancel')}
             </Button>
             <Button onClick={() => void save()} disabled={!name || busy || (agent.local === true && !agent.model?.trim())} data-workflow-agent-save>
-              {isNew ? 'Create' : 'Save'}
+              {isNew ? t('Create') : t('Save')}
             </Button>
           </div>
         </DialogFooter>

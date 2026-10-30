@@ -16,16 +16,17 @@ import { Switch } from '@/components/ui/switch'
 import { cn } from '@/lib/utils'
 import { canPopOutDashboard, popOutDashboard } from '@/lib/dashboard-window'
 import { WINDOW_ROLE } from '@/lib/window-role'
+import { t } from '@/i18n/i18n'
 
 // Follows Orca's agent dashboard (dashboard-popout/AgentKanbanBoard.tsx, AgentKanbanCard.tsx):
 // Needs You / Working / Done / Idle lanes; Done holds turns the user has not looked at yet.
 
 type Bucket = 'attention' | 'working' | 'done' | 'idle'
 const BUCKET_LABEL: Record<Bucket, string> = {
-  attention: 'Needs You',
-  working: 'Working',
-  done: 'Done',
-  idle: 'Idle'
+  attention: t('Needs You'),
+  working: t('Working'),
+  done: t('Done'),
+  idle: t('Idle')
 }
 
 function bucketOf(session: Session, unread: StoreState['unread']): Bucket {
@@ -56,21 +57,21 @@ export function AgentDashboard() {
   return (
     <div className="relative flex min-h-0 min-w-0 flex-1 flex-col bg-background text-foreground" data-dashboard>
       <div className="flex shrink-0 items-center gap-2 border-b border-border px-4 py-2.5">
-        <h1 className="text-[13px] font-semibold">Agents</h1>
+        <h1 className="text-[13px] font-semibold">{t('Agents')}</h1>
         <span className="text-[11px] text-muted-foreground">
-          {sessions.length} session{sessions.length === 1 ? '' : 's'} across{' '}
-          {Object.keys(hosts).length} host{Object.keys(hosts).length === 1 ? '' : 's'}
+          {t(sessions.length === 1 ? '{n} session' : '{n} sessions', { n: sessions.length })}{' '}
+          {t(Object.keys(hosts).length === 1 ? 'across {n} host' : 'across {n} hosts', { n: Object.keys(hosts).length })}
         </span>
         <div className="ml-auto flex items-center gap-3">
           <label className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
             <Switch checked={showIdle} onCheckedChange={setShowIdle} />
-            Show idle
+            {t('Show idle')}
           </label>
           {WINDOW_ROLE === 'main' && canPopOutDashboard() ? (
             <button
               type="button"
-              aria-label="Open dashboard in its own window"
-              title="Open in its own window"
+              aria-label={t('Open dashboard in its own window')}
+              title={t('Open in its own window')}
               data-dashboard-popout
               className="rounded-sm p-1 text-muted-foreground opacity-70 transition-opacity hover:opacity-100"
               onClick={() => void popOutDashboard()}
@@ -80,7 +81,7 @@ export function AgentDashboard() {
           ) : null}
           <button
             type="button"
-            aria-label="Close dashboard"
+            aria-label={t('Close dashboard')}
             className="rounded-sm p-1 text-muted-foreground opacity-70 transition-opacity hover:opacity-100"
             onClick={() => setDashboardOpen(false)}
           >
@@ -107,7 +108,7 @@ export function AgentDashboard() {
                   </span>
                 </header>
                 <div className="scrollbar-sleek flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto px-2 pb-2">
-                  {cards.length === 0 && <p className="px-1 py-2 text-[11px] text-muted-foreground">Nothing here.</p>}
+                  {cards.length === 0 && <p className="px-1 py-2 text-[11px] text-muted-foreground">{t('Nothing here.')}</p>}
                   {cards.map((session) => (
                     <AgentCard
                       key={session.id}
@@ -176,7 +177,7 @@ function AgentCard({
         {pendingAsk?.kind === 'permission' && (
           <div className="flex w-full items-start gap-1 rounded-md bg-agent-question/15 px-1.5 py-1 text-[11px] text-agent-question-text ring-1 ring-agent-question/25 ring-inset">
             <AgentQuestionIcon className="mt-px size-3 shrink-0" />
-            <span className="line-clamp-2">Allow {pendingAsk.title}?</span>
+            <span className="line-clamp-2">{t('Allow {title}?', { title: pendingAsk.title })}</span>
           </div>
         )}
       </button>

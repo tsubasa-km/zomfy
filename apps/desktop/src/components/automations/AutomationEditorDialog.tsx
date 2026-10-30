@@ -25,30 +25,31 @@ import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Switch } from '@/components/ui/switch'
 import { Textarea } from '@/components/ui/textarea'
+import { t } from '@/i18n/i18n'
 
 // Fields follow Orca's AutomationEditorDialog (prompt, schedule picker, workspace, agent,
 // reuse session); event triggers are the harness's addition.
 
 type TriggerKind = AutomationTrigger['kind']
 const TRIGGER_LABEL: Record<TriggerKind, string> = {
-  schedule: 'On a schedule',
-  'workspace-created': 'When a workspace is created',
-  'agent-finished': 'When an agent finishes a turn'
+  schedule: t('On a schedule'),
+  'workspace-created': t('When a workspace is created'),
+  'agent-finished': t('When an agent finishes a turn')
 }
 const PRESET_LABEL: Record<AutomationSchedulePreset, string> = {
-  hourly: 'Hourly',
-  daily: 'Daily',
-  weekdays: 'Weekdays',
-  weekly: 'Weekly'
+  hourly: t('Hourly'),
+  daily: t('Daily'),
+  weekdays: t('Weekdays'),
+  weekly: t('Weekly')
 }
 const DAY_NAMES = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday']
 const EFFORTS: ChatEffort[] = ['low', 'medium', 'high', 'xhigh', 'max']
 const PERMISSION_LABEL: Record<ChatPermissionMode, string> = {
-  default: 'Ask before acting',
-  acceptEdits: 'Accept edits',
-  plan: 'Plan only',
-  auto: 'Auto',
-  bypassPermissions: 'Bypass permissions'
+  default: t('Ask before acting'),
+  acceptEdits: t('Accept edits'),
+  plan: t('Plan only'),
+  auto: t('Auto'),
+  bypassPermissions: t('Bypass permissions')
 }
 const TRIGGER_KINDS: TriggerKind[] = ['schedule', 'workspace-created', 'agent-finished']
 const PRESETS: AutomationSchedulePreset[] = ['hourly', 'daily', 'weekdays', 'weekly']
@@ -187,31 +188,31 @@ function EditorBody({
   return (
     <>
       <DialogHeader>
-        <DialogTitle>{existing ? 'Edit automation' : 'New automation'}</DialogTitle>
+        <DialogTitle>{existing ? t('Edit automation') : t('New automation')}</DialogTitle>
         <DialogDescription>
-          The host runs it, in a chat you can open from its run history, even while this window is closed.
+          {t('The host runs it, in a chat you can open from its run history, even while this window is closed.')}
         </DialogDescription>
       </DialogHeader>
       <div className="grid gap-4">
-        <Field label="Name">
+        <Field label={t('Name')}>
           <Input
             value={draft.name}
-            placeholder="Morning triage"
+            placeholder={t('Morning triage')}
             data-automation-field="name"
             onChange={(e) => patch({ name: e.target.value })}
           />
         </Field>
-        <Field label="Prompt">
+        <Field label={t('Prompt')}>
           <Textarea
             value={draft.prompt}
             rows={5}
-            placeholder="Summarize what changed since yesterday and list anything that needs me."
+            placeholder={t('Summarize what changed since yesterday and list anything that needs me.')}
             data-automation-field="prompt"
             onChange={(e) => patch({ prompt: e.target.value })}
           />
         </Field>
         {connectedHosts.length > 1 && !existing ? (
-          <Field label="Host">
+          <Field label={t('Host')}>
             <Select
               value={draft.hostId}
               onValueChange={(hostId) => patch({ hostId, workspaceId: '', projectId: ANY })}
@@ -229,7 +230,7 @@ function EditorBody({
             </Select>
           </Field>
         ) : null}
-        <Field label="Trigger">
+        <Field label={t('Trigger')}>
           <Select
             value={draft.triggerKind}
             onValueChange={(value) => {
@@ -251,7 +252,7 @@ function EditorBody({
         </Field>
         {draft.triggerKind === 'schedule' ? (
           <div className="grid grid-cols-3 gap-3">
-            <Field label="Cadence">
+            <Field label={t('Cadence')}>
               <Select
                 value={draft.schedule.preset}
                 onValueChange={(value) => {
@@ -272,7 +273,7 @@ function EditorBody({
               </Select>
             </Field>
             {draft.schedule.preset === 'weekly' ? (
-              <Field label="Day">
+              <Field label={t('Day')}>
                 <Select
                   value={String(draft.schedule.dayOfWeek)}
                   onValueChange={(value) => patch({ schedule: { ...draft.schedule, dayOfWeek: Number(value) } })}
@@ -283,14 +284,14 @@ function EditorBody({
                   <SelectContent position="popper">
                     {DAY_NAMES.map((day, index) => (
                       <SelectItem key={day} value={String(index)}>
-                        {day}
+                        {t(day)}
                       </SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
               </Field>
             ) : null}
-            <Field label={draft.schedule.preset === 'hourly' ? 'Minute' : 'Time'}>
+            <Field label={draft.schedule.preset === 'hourly' ? t('Minute') : t('Time')}>
               {draft.schedule.preset === 'hourly' ? (
                 <Input
                   type="number"
@@ -314,13 +315,13 @@ function EditorBody({
           </div>
         ) : null}
         {draft.triggerKind === 'workspace-created' ? (
-          <Field label="Project" hint="The run uses the new workspace.">
+          <Field label={t('Project')} hint={t('The run uses the new workspace.')}>
             <Select value={draft.projectId} onValueChange={(projectId) => patch({ projectId })}>
               <SelectTrigger className="w-full">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent position="popper">
-                <SelectItem value={ANY}>Any project</SelectItem>
+                <SelectItem value={ANY}>{t('Any project')}</SelectItem>
                 {projects.map((p) => (
                   <SelectItem key={p.id} value={p.id}>
                     {p.displayName || p.name}
@@ -331,15 +332,15 @@ function EditorBody({
           </Field>
         ) : (
           <Field
-            label="Workspace"
-            hint={draft.triggerKind === 'agent-finished' ? 'The run goes to the workspace whose agent finished.' : undefined}
+            label={t('Workspace')}
+            hint={draft.triggerKind === 'agent-finished' ? t('The run goes to the workspace whose agent finished.') : undefined}
           >
             <Select value={draft.workspaceId} onValueChange={(workspaceId) => patch({ workspaceId })}>
               <SelectTrigger className="w-full" data-automation-field="workspace">
-                <SelectValue placeholder="Pick a workspace" />
+                <SelectValue placeholder={t('Pick a workspace')} />
               </SelectTrigger>
               <SelectContent position="popper">
-                {draft.triggerKind === 'agent-finished' ? <SelectItem value={ANY}>Any workspace</SelectItem> : null}
+                {draft.triggerKind === 'agent-finished' ? <SelectItem value={ANY}>{t('Any workspace')}</SelectItem> : null}
                 {workspaces.map((w) => (
                   <SelectItem key={w.id} value={w.id}>
                     {w.displayName || w.name}
@@ -350,7 +351,7 @@ function EditorBody({
           </Field>
         )}
         <div className="grid grid-cols-2 gap-3">
-          <Field label="Agent">
+          <Field label={t('Agent')}>
             <Select value={draft.agent} onValueChange={(value) => isChatAgentId(value) && patch({ agent: value })}>
               <SelectTrigger className="w-full">
                 <SelectValue />
@@ -370,7 +371,7 @@ function EditorBody({
             </Select>
           </Field>
           {draft.agent === 'claude' ? (
-            <Field label="Effort">
+            <Field label={t('Effort')}>
               <Select
                 value={draft.effort}
                 onValueChange={(value) => {
@@ -382,7 +383,7 @@ function EditorBody({
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent position="popper">
-                  <SelectItem value="default">Claude's default</SelectItem>
+                  <SelectItem value="default">{t("Claude's default")}</SelectItem>
                   {EFFORTS.map((e) => (
                     <SelectItem key={e} value={e}>
                       {e}
@@ -394,8 +395,8 @@ function EditorBody({
           ) : null}
         </div>
         <Field
-          label="Permissions"
-          hint="Asks go to an open window; with none open they are denied, so unattended runs need a mode that does not ask."
+          label={t('Permissions')}
+          hint={t('Asks go to an open window; with none open they are denied, so unattended runs need a mode that does not ask.')}
         >
           <Select
             value={draft.permissionMode}
@@ -417,12 +418,12 @@ function EditorBody({
           </Select>
         </Field>
         <ToggleRow
-          label="Continue the previous run's chat"
+          label={t("Continue the previous run's chat")}
           checked={draft.reuseSession}
           onChange={(reuseSession) => patch({ reuseSession })}
         />
         {draft.triggerKind === 'schedule' ? (
-          <Field label="Skip a run missed by more than (minutes)">
+          <Field label={t('Skip a run missed by more than (minutes)')}>
             <Input
               type="number"
               min={1}
@@ -432,15 +433,15 @@ function EditorBody({
             />
           </Field>
         ) : null}
-        <ToggleRow label="Enabled" checked={draft.enabled} onChange={(enabled) => patch({ enabled })} />
+        <ToggleRow label={t('Enabled')} checked={draft.enabled} onChange={(enabled) => patch({ enabled })} />
         {error ? <p className="text-xs text-destructive">{error}</p> : null}
       </div>
       <DialogFooter>
         <Button variant="outline" onClick={onDone}>
-          Cancel
+          {t('Cancel')}
         </Button>
         <Button disabled={saving} data-automation-save onClick={() => void save()}>
-          {saving ? 'Saving…' : existing ? 'Save' : 'Create'}
+          {saving ? t('Saving…') : existing ? t('Save') : t('Create')}
         </Button>
       </DialogFooter>
     </>

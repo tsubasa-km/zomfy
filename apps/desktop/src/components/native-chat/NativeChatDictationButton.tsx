@@ -6,6 +6,7 @@ import { LOCAL_HOST } from '@/session-store'
 import { Button } from '@/components/ui/button'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { useSettings } from '@/stores/settings-store'
+import { t } from '@/i18n/i18n'
 
 // Orca's composer dictation (components/dictation/), with Orca's cloud path only: audio goes to the
 // OpenAI-compatible transcription endpoint the user configured in Settings › Voice, never elsewhere.
@@ -49,7 +50,7 @@ export function NativeChatDictationButton({ onTranscript }: { onTranscript: (tex
       rec.start()
       setPhase({ kind: 'recording', startedAt: Date.now() })
     } catch (e) {
-      setPhase({ kind: 'error', message: e instanceof Error ? e.message : 'Microphone unavailable' })
+      setPhase({ kind: 'error', message: e instanceof Error ? e.message : t('Microphone unavailable') })
     }
   }
 
@@ -77,12 +78,12 @@ export function NativeChatDictationButton({ onTranscript }: { onTranscript: (tex
   const seconds = recording ? Math.floor((Date.now() - phase.startedAt) / 1000) : 0
   const label =
     phase.kind === 'recording'
-      ? `Stop dictation (${seconds}s)`
+      ? t('Stop dictation ({seconds}s)', { seconds })
       : phase.kind === 'transcribing'
-        ? 'Transcribing…'
+        ? t('Transcribing…')
         : phase.kind === 'error'
-          ? `Dictation: ${phase.message}`
-          : 'Dictate'
+          ? t('Dictation: {message}', { message: phase.message })
+          : t('Dictate')
   return (
     <Tooltip>
       <TooltipTrigger asChild>

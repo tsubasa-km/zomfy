@@ -10,6 +10,7 @@ import { Switch } from '@/components/ui/switch'
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { cn } from '@/lib/utils'
 import { SearchableSetting } from './SettingsSection'
+import { t } from '@/i18n/i18n'
 
 // Orca's PluginsSettingsSection / PluginSettingsRow / PluginConsentDialog for plugins installed as
 // folders in this computer's harness home. No marketplace and no downloads: the user copies a
@@ -17,25 +18,25 @@ import { SearchableSetting } from './SettingsSection'
 
 /** Orca's PLUGIN_CAPABILITY_DESCRIPTIONS, with what the harness actually grants. */
 const CAPABILITY_COPY: Record<PluginCapabilityKind, { text: string; available: boolean }> = {
-  'workspace:read': { text: 'Read the name, branch, and terminal list of your focused workspace', available: true },
-  'terminal:send': { text: 'Type text into a terminal you can see', available: false },
-  'notifications:show': { text: 'Show desktop notifications labeled with the plugin name', available: true },
-  storage: { text: "Store data in the plugin's own storage folder", available: false },
-  secrets: { text: "Store and read secrets in the plugin's own encrypted vault", available: false },
-  'events:subscribe': { text: 'Get notified when workspaces are created or removed and when agent status changes', available: false },
-  'settings:own': { text: "Read and change the plugin's own settings", available: false }
+  'workspace:read': { text: t('Read the name, branch, and terminal list of your focused workspace'), available: true },
+  'terminal:send': { text: t('Type text into a terminal you can see'), available: false },
+  'notifications:show': { text: t('Show desktop notifications labeled with the plugin name'), available: true },
+  storage: { text: t("Store data in the plugin's own storage folder"), available: false },
+  secrets: { text: t("Store and read secrets in the plugin's own encrypted vault"), available: false },
+  'events:subscribe': { text: t('Get notified when workspaces are created or removed and when agent status changes'), available: false },
+  'settings:own': { text: t("Read and change the plugin's own settings"), available: false }
 }
 
 function statusBadge(plugin: PluginListEntry): { label: string; className: string } {
   switch (plugin.status) {
     case 'enabled':
-      return { label: 'Enabled', className: 'border-status-success-border bg-status-success-background text-status-success' }
+      return { label: t('Enabled'), className: 'border-status-success-border bg-status-success-background text-status-success' }
     case 'needs-review':
-      return { label: 'Needs review', className: 'border-foreground/20 bg-foreground/8 text-foreground' }
+      return { label: t('Needs review'), className: 'border-foreground/20 bg-foreground/8 text-foreground' }
     case 'invalid':
-      return { label: 'Invalid', className: 'border-destructive/25 bg-destructive/8 text-destructive' }
+      return { label: t('Invalid'), className: 'border-destructive/25 bg-destructive/8 text-destructive' }
     default:
-      return { label: 'Disabled', className: 'border-border bg-muted/40 text-muted-foreground' }
+      return { label: t('Disabled'), className: 'border-border bg-muted/40 text-muted-foreground' }
   }
 }
 
@@ -59,8 +60,16 @@ function PluginRow({ plugin, onReview }: { plugin: PluginListEntry; onReview: (p
   const needsReview = plugin.status === 'disabled' || plugin.status === 'needs-review'
   const contributions = manifest
     ? [
-        manifest.contributes.panels.length ? `${manifest.contributes.panels.length} panel${manifest.contributes.panels.length === 1 ? '' : 's'}` : null,
-        manifest.contributes.commands.length ? `${manifest.contributes.commands.length} command${manifest.contributes.commands.length === 1 ? '' : 's'}` : null
+        manifest.contributes.panels.length
+          ? manifest.contributes.panels.length === 1
+            ? t('{n} panel', { n: manifest.contributes.panels.length })
+            : t('{n} panels', { n: manifest.contributes.panels.length })
+          : null,
+        manifest.contributes.commands.length
+          ? manifest.contributes.commands.length === 1
+            ? t('{n} command', { n: manifest.contributes.commands.length })
+            : t('{n} commands', { n: manifest.contributes.commands.length })
+          : null
       ].filter(Boolean)
     : []
   return (
@@ -83,7 +92,7 @@ function PluginRow({ plugin, onReview }: { plugin: PluginListEntry; onReview: (p
           <Switch
             checked
             disabled={busy}
-            aria-label={`Disable ${manifest?.name ?? plugin.pluginKey}`}
+            aria-label={t('Disable {name}', { name: manifest?.name ?? plugin.pluginKey })}
             onCheckedChange={() => {
               setBusy(true)
               void setPluginEnabled(plugin, false)
@@ -96,12 +105,12 @@ function PluginRow({ plugin, onReview }: { plugin: PluginListEntry; onReview: (p
       <div className="mt-3 flex items-center gap-2">
         {needsReview ? (
           <Button variant="secondary" size="sm" onClick={() => onReview(plugin)}>
-            Review &amp; enable
+            {t('Review & enable')}
           </Button>
         ) : null}
         <Button variant="ghost" size="sm" className="ml-auto text-muted-foreground" onClick={() => openFolder(plugin.rootDir)}>
           <FolderOpen className="size-3.5" />
-          Open folder
+          {t('Open folder')}
         </Button>
       </div>
     </article>
@@ -139,25 +148,25 @@ function PluginConsentDialog({ plugin, onClose }: { plugin: PluginListEntry | nu
         }}
       >
         <DialogHeader>
-          <DialogTitle>Enable {manifest.name}?</DialogTitle>
+          <DialogTitle>{t('Enable {name}?', { name: manifest.name })}</DialogTitle>
           <DialogDescription>
             {manifest.name} v{manifest.version} · {manifest.publisher}
           </DialogDescription>
         </DialogHeader>
         {plugin.status === 'needs-review' ? (
           <p className="border-l-2 border-foreground/25 py-0.5 pl-3 text-sm leading-6">
-            Permissions or contributions changed since you last reviewed this plugin. Review it again before it can run.
+            {t('Permissions or contributions changed since you last reviewed this plugin. Review it again before it can run.')}
           </p>
         ) : null}
         {manifest.capabilities.length > 0 ? (
           <div className="space-y-2">
-            <p className="text-[11px] font-semibold tracking-[0.05em] text-muted-foreground uppercase">This plugin can</p>
+            <p className="text-[11px] font-semibold tracking-[0.05em] text-muted-foreground uppercase">{t('This plugin can')}</p>
             {manifest.capabilities.map(({ kind }) => (
               <div key={kind} className="flex items-start gap-2 text-sm leading-6">
                 <Check className="mt-1 size-3.5 shrink-0 text-muted-foreground" />
                 <span>
                   {CAPABILITY_COPY[kind].text} <span className="font-mono text-[11px] text-muted-foreground">({kind})</span>
-                  {!CAPABILITY_COPY[kind].available ? <span className="text-xs text-muted-foreground"> — not offered by acp-harness yet</span> : null}
+                  {!CAPABILITY_COPY[kind].available ? <span className="text-xs text-muted-foreground">{t(' — not offered by acp-harness yet')}</span> : null}
                 </span>
               </div>
             ))}
@@ -165,10 +174,10 @@ function PluginConsentDialog({ plugin, onClose }: { plugin: PluginListEntry | nu
         ) : null}
         {panels.length > 0 || commands.length > 0 ? (
           <div className="space-y-2">
-            <p className="text-[11px] font-semibold tracking-[0.05em] text-muted-foreground uppercase">It adds</p>
+            <p className="text-[11px] font-semibold tracking-[0.05em] text-muted-foreground uppercase">{t('It adds')}</p>
             {panels.map((panel) => (
               <p key={`panel-${panel.id}`} className="text-sm leading-6">
-                Right sidebar panel <span className="font-medium">{panel.title}</span>
+                {t('Right sidebar panel')} <span className="font-medium">{panel.title}</span>
               </p>
             ))}
             {commands.map((command) => {
@@ -176,7 +185,7 @@ function PluginConsentDialog({ plugin, onClose }: { plugin: PluginListEntry | nu
               const keys = manifest.contributes.keybindings.filter((k) => k.command === command.id).map((k) => k.key)
               return (
                 <p key={`command-${command.id}`} className="text-sm leading-6">
-                  Command <span className="font-medium">{command.title}</span>
+                  {t('Command')} <span className="font-medium">{command.title}</span>
                   {keys.length ? <span className="font-mono text-[11px] text-muted-foreground"> {keys.join(', ')}</span> : null}
                   {reason ? <span className="block text-xs text-muted-foreground">{reason}</span> : null}
                 </p>
@@ -188,18 +197,18 @@ function PluginConsentDialog({ plugin, onClose }: { plugin: PluginListEntry | nu
           <AlertTriangle className="mt-1 size-4 shrink-0" />
           <span>
             {manifest.main
-              ? 'This plugin ships a background worker. acp-harness does not run plugin workers, so only its panels and declarative commands take effect.'
-              : "These permissions limit how the plugin uses acp-harness. Panels run in a sandbox with no network access; the plugin has no background worker."}
+              ? t('This plugin ships a background worker. acp-harness does not run plugin workers, so only its panels and declarative commands take effect.')
+              : t('These permissions limit how the plugin uses acp-harness. Panels run in a sandbox with no network access; the plugin has no background worker.')}
           </span>
         </div>
         {error ? <p className="text-xs text-destructive">{error}</p> : null}
         <DialogFooter>
           <Button ref={keepDisabled} variant="ghost" size="sm" disabled={busy} onClick={onClose}>
-            Keep Disabled
+            {t('Keep Disabled')}
           </Button>
           <Button size="sm" disabled={busy} onClick={() => void enable()}>
             {busy ? <Loader2 className="animate-spin" /> : null}
-            Enable plugin
+            {t('Enable plugin')}
           </Button>
         </DialogFooter>
       </DialogContent>
@@ -213,33 +222,42 @@ export function PluginsPane() {
   const plugins = state.snapshot?.plugins ?? []
   return (
     <div className="space-y-5">
-      <SearchableSetting entry={{ title: 'Plugins folder', keywords: ['plugin', 'install', 'folder', 'orca-plugin.json'] }}>
+      <SearchableSetting entry={{ title: t('Plugins folder'), keywords: ['plugin', 'install', 'folder', 'orca-plugin.json'] }}>
         <div className="flex items-start gap-4 py-2">
           <div className="min-w-0 flex-1 space-y-1">
-            <p className="text-sm font-medium">Plugins folder</p>
+            <p className="text-sm font-medium">{t('Plugins folder')}</p>
             <p className="text-xs text-muted-foreground">
-              Copy a plugin folder (with its <span className="font-mono">orca-plugin.json</span>) here, then refresh. Nothing is downloaded.
+              {(() => {
+                const [before, after] = t('Copy a plugin folder (with its {file}) here, then refresh. Nothing is downloaded.').split('{file}')
+                return (
+                  <>
+                    {before}
+                    <span className="font-mono">orca-plugin.json</span>
+                    {after}
+                  </>
+                )
+              })()}
             </p>
             {state.snapshot ? <p className="font-mono text-[11px] break-all text-muted-foreground">{state.snapshot.pluginsDir}</p> : null}
           </div>
           <div className="flex shrink-0 items-center gap-1.5">
             <Button variant="outline" size="sm" disabled={!state.snapshot} onClick={() => state.snapshot && openFolder(state.snapshot.pluginsDir)}>
               <FolderOpen className="size-3.5" />
-              Open
+              {t('Open')}
             </Button>
-            <Button variant="ghost" size="icon-sm" aria-label="Refresh plugins" disabled={state.status === 'loading'} onClick={() => void loadPlugins()}>
+            <Button variant="ghost" size="icon-sm" aria-label={t('Refresh plugins')} disabled={state.status === 'loading'} onClick={() => void loadPlugins()}>
               <RefreshCw className={state.status === 'loading' ? 'animate-spin' : undefined} />
             </Button>
           </div>
         </div>
       </SearchableSetting>
       {state.error ? <p className="text-xs text-destructive">{state.error}</p> : null}
-      <SearchableSetting entry={{ title: 'Installed plugins', keywords: ['plugin', 'enable', 'disable', 'panel', 'command'] }}>
+      <SearchableSetting entry={{ title: t('Installed plugins'), keywords: ['plugin', 'enable', 'disable', 'panel', 'command'] }}>
         {plugins.length === 0 ? (
           <div className="flex flex-col items-center gap-2 rounded-xl border border-dashed border-border/70 px-6 py-10 text-center" data-plugins-empty>
-            <Badge variant="outline">No plugins</Badge>
+            <Badge variant="outline">{t('No plugins')}</Badge>
             <p className="max-w-sm text-xs leading-5 text-muted-foreground">
-              Plugins add right-sidebar panels and commands. Put one in the plugins folder above to get started.
+              {t('Plugins add right-sidebar panels and commands. Put one in the plugins folder above to get started.')}
             </p>
           </div>
         ) : (

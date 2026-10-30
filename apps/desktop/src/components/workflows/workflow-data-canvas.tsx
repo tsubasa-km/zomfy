@@ -3,6 +3,7 @@ import { Handle, MarkerType, Position, type Edge, type Node, type NodeProps } fr
 import { Database, Lock } from 'lucide-react'
 import type { Workflow, WorkflowDataSource } from '@acp-harness/protocol'
 import { cn } from '@/lib/utils'
+import { t } from '@/i18n/i18n'
 
 // Data sources on the canvas: a card per file or folder, and a dotted line to each step that uses
 // it. They sit beside the flow (no outcomes, no loops); a step sees only the data linked to it.
@@ -25,28 +26,28 @@ function DataCard({ data, selected }: NodeProps<DataCanvasNode>) {
     >
       <div className="flex items-center gap-2">
         <Database className="size-4 shrink-0 text-muted-foreground" />
-        <div className="min-w-0 flex-1 truncate text-[13px] font-medium">{source.name || 'Data'}</div>
+        <div className="min-w-0 flex-1 truncate text-[13px] font-medium">{source.name || t('Data')}</div>
         {issue && (
           <span
-            aria-label={issue === 'error' ? 'Has problems' : 'Has warnings'}
+            aria-label={issue === 'error' ? t('Has problems') : t('Has warnings')}
             className={cn('size-1.5 shrink-0 rounded-full', issue === 'error' ? 'bg-destructive' : 'bg-status-warning')}
           />
         )}
         {source.localOnly && (
           <span
             className="flex shrink-0 items-center gap-0.5 rounded bg-status-warning/15 px-1 text-[10px] font-medium text-status-warning"
-            title="Only agents on a local model may see it"
+            title={t('Only agents on a local model may see it')}
           >
             <Lock className="size-2.5" />
-            Local only
+            {t('Local only')}
           </span>
         )}
       </div>
       <div className="mt-0.5 truncate pl-6 font-mono text-[11px] text-muted-foreground" title={source.path}>
-        {source.path.trim() || 'No path yet'}
+        {source.path.trim() || t('No path yet')}
       </div>
       <div className="mt-0.5 pl-6 text-[11px] text-muted-foreground">
-        {steps === 0 ? 'Drag to a step to give it access' : `${steps} step${steps > 1 ? 's' : ''} may use it`}
+        {steps === 0 ? t('Drag to a step to give it access') : steps > 1 ? t('{n} steps may use it', { n: steps }) : t('{n} step may use it', { n: steps })}
       </div>
       <Handle id="data" type="source" position={Position.Bottom} className="!size-2.5 !border-border !bg-background" />
     </div>
@@ -90,7 +91,7 @@ export function dataCanvasEdges(workflow: Workflow, selected: string | null, fad
         target: link.nodeId,
         sourceHandle: 'data',
         targetHandle: 'data-in',
-        label: link.write ? 'reads · writes' : 'reads',
+        label: link.write ? t('reads · writes') : t('reads'),
         selected: isSelected,
         zIndex: -1,
         markerEnd: { type: MarkerType.ArrowClosed, color, width: 14, height: 14 },

@@ -17,6 +17,7 @@ import {
   getZoomedImageLayoutSize
 } from './image-viewer-zoom'
 import { formatByteSize } from './editor-file-kind'
+import { t } from '@/i18n/i18n'
 
 /** Orca's inline ImageViewer: fit-to-pane, zoom buttons, Ctrl+wheel/pinch zoom around the pointer. */
 export function ImageViewer({
@@ -72,7 +73,7 @@ export function ImageViewer({
     return (
       <div className="flex h-full flex-col items-center justify-center gap-3 bg-muted/20 p-8 text-sm text-muted-foreground">
         <ImageIcon size={40} />
-        <div>Failed to load file preview</div>
+        <div>{t('Failed to load file preview')}</div>
         <div className="max-w-md break-all text-center text-xs">{filename}</div>
       </div>
     )
@@ -106,8 +107,8 @@ export function ImageViewer({
             className="rounded p-1 hover:bg-accent hover:text-foreground disabled:opacity-50"
             onClick={() => applyZoomChange((current) => current / IMAGE_VIEWER_ZOOM_STEP)}
             disabled={zoom <= MIN_IMAGE_VIEWER_ZOOM}
-            title="Zoom out"
-            aria-label="Zoom out"
+            title={t('Zoom out')}
+            aria-label={t('Zoom out')}
           >
             <ZoomOut size={14} />
           </button>
@@ -116,8 +117,8 @@ export function ImageViewer({
             className="rounded p-1 hover:bg-accent hover:text-foreground disabled:opacity-50"
             onClick={() => applyZoomChange(() => 1)}
             disabled={zoom === 1}
-            title="Reset zoom"
-            aria-label="Reset zoom"
+            title={t('Reset zoom')}
+            aria-label={t('Reset zoom')}
           >
             <RotateCcw size={14} />
           </button>
@@ -126,8 +127,8 @@ export function ImageViewer({
             className="rounded p-1 hover:bg-accent hover:text-foreground disabled:opacity-50"
             onClick={() => applyZoomChange((current) => current * IMAGE_VIEWER_ZOOM_STEP)}
             disabled={zoom >= MAX_IMAGE_VIEWER_ZOOM}
-            title="Zoom in"
-            aria-label="Zoom in"
+            title={t('Zoom in')}
+            aria-label={t('Zoom in')}
           >
             <ZoomIn size={14} />
           </button>

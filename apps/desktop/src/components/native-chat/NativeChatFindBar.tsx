@@ -3,6 +3,7 @@ import './native-chat-find.css'
 import { ChevronDown, ChevronUp, X } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import type { NativeChatFind } from './use-native-chat-find'
+import { t } from '@/i18n/i18n'
 
 /** Ported from Orca's NativeChatFindBar: top-right of the transcript, like the terminal's search. */
 export function NativeChatFindBar({ find }: { find: NativeChatFind }) {
@@ -11,7 +12,7 @@ export function NativeChatFindBar({ find }: { find: NativeChatFind }) {
     inputRef.current?.focus()
     inputRef.current?.select()
   }, [])
-  const status = find.query && find.matchCount === 0 ? 'No results' : `${find.activeIndex + 1}/${find.matchCount}`
+  const status = find.query && find.matchCount === 0 ? t('No results') : `${find.activeIndex + 1}/${find.matchCount}`
   return (
     <div
       role="search"
@@ -40,22 +41,22 @@ export function NativeChatFindBar({ find }: { find: NativeChatFind }) {
         type="text"
         value={find.query}
         onChange={(event) => find.setQuery(event.target.value)}
-        placeholder="Find in chat"
-        aria-label="Find in chat"
+        placeholder={t('Find in chat')}
+        aria-label={t('Find in chat')}
         className="min-w-0 flex-1 border-none bg-transparent text-sm text-popover-foreground outline-none placeholder:text-muted-foreground"
       />
       <span aria-live="polite" className="shrink-0 px-1 text-xs whitespace-nowrap text-muted-foreground tabular-nums">
         {status}
       </span>
       <div className="mx-0.5 h-4 w-px bg-border" />
-      <Button type="button" variant="ghost" size="icon-xs" onClick={() => find.step(-1)} disabled={find.matchCount === 0} className="shrink-0" title="Previous match" aria-label="Previous match">
+      <Button type="button" variant="ghost" size="icon-xs" onClick={() => find.step(-1)} disabled={find.matchCount === 0} className="shrink-0" title={t('Previous match')} aria-label={t('Previous match')}>
         <ChevronUp size={14} />
       </Button>
-      <Button type="button" variant="ghost" size="icon-xs" onClick={() => find.step(1)} disabled={find.matchCount === 0} className="shrink-0" title="Next match" aria-label="Next match">
+      <Button type="button" variant="ghost" size="icon-xs" onClick={() => find.step(1)} disabled={find.matchCount === 0} className="shrink-0" title={t('Next match')} aria-label={t('Next match')}>
         <ChevronDown size={14} />
       </Button>
       <div className="mx-0.5 h-4 w-px bg-border" />
-      <Button type="button" variant="ghost" size="icon-xs" onClick={find.close} className="shrink-0" title="Close" aria-label="Close">
+      <Button type="button" variant="ghost" size="icon-xs" onClick={find.close} className="shrink-0" title={t('Close')} aria-label={t('Close')}>
         <X size={14} />
       </Button>
     </div>

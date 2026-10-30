@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button'
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { cn } from '@/lib/utils'
+import { t } from '@/i18n/i18n'
 
 // Orca's ComposerBaseRefPicker: a searchable branch list in a popover.
 
@@ -49,9 +50,9 @@ export function BranchCombobox({
       </PopoverTrigger>
       <PopoverContent className="w-[var(--radix-popover-trigger-width)] p-0" align="start">
         <Command>
-          <CommandInput placeholder="Search branches..." className="h-8 text-xs" />
+          <CommandInput placeholder={t('Search branches...')} className="h-8 text-xs" />
           <CommandList className="max-h-60">
-            <CommandEmpty className="py-4 text-xs">No branches match</CommandEmpty>
+            <CommandEmpty className="py-4 text-xs">{t('No branches match')}</CommandEmpty>
             {groups
               .filter((g) => g.options.length > 0)
               .map((g) => (

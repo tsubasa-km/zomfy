@@ -25,16 +25,17 @@ import { cn } from '@/lib/utils'
 import { useProjectLinks } from '@/stores/project-links-store'
 import { defaultHostId } from '@/lib/default-host'
 import { useSetting } from '@/stores/settings-store'
+import { t } from '@/i18n/i18n'
 
 // One list of projects across every host: where a project lives is its badge, not a section, so
 // the person picks work rather than machines. Host controls live in the status bar (HostsMenu).
 
 const STATUS_GROUPS = [
-  { id: 'in-progress', label: 'In progress' },
-  { id: 'in-review', label: 'In review' },
-  { id: 'todo', label: 'Todo' },
-  { id: 'completed', label: 'Done' },
-  { id: 'none', label: 'No status' }
+  { id: 'in-progress', label: t('In progress') },
+  { id: 'in-review', label: t('In review') },
+  { id: 'todo', label: t('Todo') },
+  { id: 'completed', label: t('Done') },
+  { id: 'none', label: t('No status') }
 ] as const
 
 export function hasActiveFilters(f: SidebarFilters): boolean {
@@ -157,7 +158,7 @@ export function ProjectList({ actions }: { actions: SidebarActions }) {
     if (order) void harnessRequest(HARNESS_METHODS.projectsReorder, { projectIds: order }, project.hostId)
   }
 
-  const badgeText = (hostId: HostId) => (badges[hostId] ? `${badges[hostId]}${offline.has(hostId) ? ' · offline' : ''}` : null)
+  const badgeText = (hostId: HostId) => (badges[hostId] ? `${badges[hostId]}${offline.has(hostId) ? ` · ${t('offline')}` : ''}` : null)
 
   const renderProject = ({ primary: project, copies }: LinkedEntry) => {
     const members = [project, ...copies]
@@ -191,7 +192,7 @@ export function ProjectList({ actions }: { actions: SidebarActions }) {
         <section className="mb-2" data-quick-chats>
           <div className="flex h-7 min-w-0 items-center gap-1 pt-1 pr-1 pl-4 select-none">
             <MessageSquare className="size-3.5 shrink-0 text-muted-foreground" />
-            <div className="min-w-0 truncate pl-0.5 text-[13px] leading-none font-semibold">Quick chats</div>
+            <div className="min-w-0 truncate pl-0.5 text-[13px] leading-none font-semibold">{t('Quick chats')}</div>
             <span className="text-[11px] text-muted-foreground tabular-nums">{quickChats.length}</span>
           </div>
           {quickChats.map((w) => (
@@ -277,7 +278,7 @@ export function ProjectList({ actions }: { actions: SidebarActions }) {
       )}
       {projects.length === 0 && quickChats.length === 0 && (
         <p className="px-3 pt-3 text-center text-xs text-muted-foreground">
-          {loading ? 'Connecting…' : 'No projects yet. Use + to add one, or start a chat with New chat.'}
+          {loading ? t('Connecting…') : t('No projects yet. Use + to add one, or start a chat with New chat.')}
         </p>
       )}
     </div>

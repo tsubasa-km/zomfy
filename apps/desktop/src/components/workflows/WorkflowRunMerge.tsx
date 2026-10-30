@@ -6,6 +6,7 @@ import { harnessRequest } from '@/daemon-connection'
 import { allWorkspaces, useStore } from '@/session-store'
 import { upsertWorkflowRun, type HostedWorkflowRun } from '@/stores/workflow-runs-store'
 import { Button } from '@/components/ui/button'
+import { t } from '@/i18n/i18n'
 
 /** A done run's next step: its branch merged into the main checkout, where the person works. */
 export function WorkflowRunMerge({ run }: { run: HostedWorkflowRun }) {
@@ -21,7 +22,7 @@ export function WorkflowRunMerge({ run }: { run: HostedWorkflowRun }) {
     return (
       <p className="flex items-center gap-1.5 text-xs text-status-success" data-workflow-run-merged>
         <GitMerge className="size-3.5" />
-        Merged into {run.mergedInto}
+        {t('Merged into {branch}', { branch: run.mergedInto })}
       </p>
     )
   }
@@ -31,9 +32,9 @@ export function WorkflowRunMerge({ run }: { run: HostedWorkflowRun }) {
     setBusy(true)
     try {
       upsertWorkflowRun(run.hostId, await harnessRequest(HARNESS_METHODS.workflowRunMerge, { runId: run.id }, run.hostId))
-      toast.success(`Merged into ${into}`, { description: from })
+      toast.success(t('Merged into {branch}', { branch: into }), { description: from })
     } catch (error) {
-      toast.error('Not merged', { description: error instanceof Error ? error.message : String(error) })
+      toast.error(t('Not merged'), { description: error instanceof Error ? error.message : String(error) })
     } finally {
       setBusy(false)
     }
@@ -41,11 +42,20 @@ export function WorkflowRunMerge({ run }: { run: HostedWorkflowRun }) {
   return (
     <div className="flex flex-wrap items-center gap-2 rounded-md border border-border px-2 py-1.5 text-xs" data-workflow-run-merge>
       <span className="min-w-0 flex-1 text-muted-foreground">
-        The changes are on <span className="font-mono text-foreground">{from}</span>.
+        {(() => {
+          const [before, after] = t('The changes are on {branch}.').split('{branch}')
+          return (
+            <>
+              {before}
+              <span className="font-mono text-foreground">{from}</span>
+              {after}
+            </>
+          )
+        })()}
       </span>
       <Button size="sm" className="h-7" disabled={busy} onClick={() => void merge()}>
         <GitMerge className="size-3.5" />
-        Merge into {into}
+        {t('Merge into {branch}', { branch: into })}
       </Button>
     </div>
   )

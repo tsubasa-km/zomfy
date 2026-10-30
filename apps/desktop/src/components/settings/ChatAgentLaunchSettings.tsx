@@ -9,16 +9,17 @@ import { TuiAgentIcon } from '@/components/terminal/TuiAgentIcon'
 import { loadChatAgents, setChatAgents, useChatAgents } from '@/lib/chat-agents'
 import { cn } from '@/lib/utils'
 import { SettingsRow, TextField } from './settings-form-controls'
+import { t } from '@/i18n/i18n'
 
 // Orca's HostAgentLaunchSettings and HostAgentEnvironmentEditor: per host, each chat agent's
 // launch command and environment. Values are write-only: the daemon reports names, never values.
 // An account is the agent's account-folder variable (CODEX_HOME, CLAUDE_CONFIG_DIR…) set here.
 
 const STATUS_LABEL: Record<ChatAgentInfo['status'], string> = {
-  ready: 'Ready',
-  missing: 'Not installed',
-  'needs-adapter': 'Needs adapter',
-  unsupported: 'No chat mode'
+  ready: t('Ready'),
+  missing: t('Not installed'),
+  'needs-adapter': t('Needs adapter'),
+  unsupported: t('No chat mode')
 }
 
 type LaunchPatch = { command?: string | null; env?: { name: string; value: string | null } }
@@ -43,11 +44,11 @@ export function ChatAgentLaunchSettings({ host }: { host: HostEntry }) {
           onClick={() => void loadChatAgents(host.id, true)}
         >
           <RefreshCw className="size-3" />
-          Refresh
+          {t('Refresh')}
         </Button>
       </div>
       {state.kind === 'failed' && state.agents.length === 0 ? (
-        <p className="py-2 text-xs text-muted-foreground">Can’t reach this host to list its agents: {state.reason}</p>
+        <p className="py-2 text-xs text-muted-foreground">{t('Can’t reach this host to list its agents: {reason}', { reason: state.reason })}</p>
       ) : null}
       <div className="divide-y divide-border/40">
         {installed.map((agent) => (
@@ -56,7 +57,7 @@ export function ChatAgentLaunchSettings({ host }: { host: HostEntry }) {
       </div>
       {missing.length > 0 ? (
         <p className="py-2 text-xs text-muted-foreground">
-          Not installed on this host: {missing.map((a) => a.label).join(', ')}
+          {t('Not installed on this host: {agents}', { agents: missing.map((a) => a.label).join(', ') })}
         </p>
       ) : null}
     </div>
@@ -85,11 +86,11 @@ function ChatAgentRow({ host, agent }: { host: HostEntry; agent: ChatAgentInfo }
       {agent.detail ? <p className="font-mono text-xs break-all text-muted-foreground">{agent.detail}</p> : null}
       {agent.id !== 'claude' ? (
         <TextField
-          label={`${agent.label} command`}
-          description="Starts this agent’s ACP server. Empty uses the catalog command."
+          label={t('{agent} command', { agent: agent.label })}
+          description={t('Starts this agent’s ACP server. Empty uses the catalog command.')}
           keywords={[agent.id, 'command', 'acp']}
           value={agent.command ?? ''}
-          placeholder="Catalog command"
+          placeholder={t('Catalog command')}
           className="w-72 font-mono text-xs"
           onChange={(value) => void run({ command: value || null })}
         />
@@ -110,11 +111,11 @@ function EnvironmentEditor({
   const [newName, setNewName] = useState('')
   return (
     <SettingsRow
-      label={`${agent.label} environment`}
+      label={t('{agent} environment', { agent: agent.label })}
       description={
         agent.accountVariable
-          ? `Variables this host starts ${agent.label} with. Set ${agent.accountVariable} to run another account.`
-          : `Variables this host starts ${agent.label} with (API keys, an account’s config folder).`
+          ? t('Variables this host starts {agent} with. Set {variable} to run another account.', { agent: agent.label, variable: agent.accountVariable })
+          : t('Variables this host starts {agent} with (API keys, an account’s config folder).', { agent: agent.label })
       }
       keywords={[agent.id, 'environment', 'account', 'profile', ...(agent.accountVariable ? [agent.accountVariable] : [])]}
       alignTop
@@ -126,8 +127,8 @@ function EnvironmentEditor({
           <Input
             value={newName}
             onChange={(event) => setNewName(event.target.value)}
-            aria-label={`New ${agent.label} environment variable name`}
-            placeholder={agent.accountVariable && !agent.envNames.includes(agent.accountVariable) ? agent.accountVariable : 'Variable name'}
+            aria-label={t('New {agent} environment variable name', { agent: agent.label })}
+            placeholder={agent.accountVariable && !agent.envNames.includes(agent.accountVariable) ? agent.accountVariable : t('Variable name')}
             spellCheck={false}
             className="h-7 font-mono text-xs"
           />
@@ -176,17 +177,17 @@ function EnvironmentValueRow({
           value={value}
           readOnly={pending}
           onChange={(event) => setValue(event.target.value)}
-          aria-label={`Value for ${name}`}
-          placeholder={saved ? 'Saved value · enter to replace' : 'Value'}
+          aria-label={t('Value for {name}', { name })}
+          placeholder={saved ? t('Saved value · enter to replace') : t('Value')}
           spellCheck={false}
           className="h-7 text-xs"
         />
         <Button type="button" size="xs" disabled={!value || pending} onClick={() => write(value)}>
-          Save
+          {t('Save')}
         </Button>
         {saved ? (
           <Button type="button" variant="ghost" size="xs" disabled={pending} onClick={() => write(null)}>
-            Remove
+            {t('Remove')}
           </Button>
         ) : null}
       </div>

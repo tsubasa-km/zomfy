@@ -2,6 +2,7 @@ import { useEffect, useRef } from 'react'
 import { FileText, Package } from 'lucide-react'
 import type { ChatCommand } from '@acp-harness/protocol'
 import { cn } from '@/lib/utils'
+import { t } from '@/i18n/i18n'
 
 // Ported from Orca's NativeChatAutocompleteMenus: the `/` command menu and the `@` file menu
 // open above the composer; the textarea keeps focus and drives the active row.
@@ -148,10 +149,10 @@ export function NativeChatAutocompleteMenu({
         {items.length === 0 ? (
           <PickerStatus>
             {autocomplete.status === 'loading'
-              ? 'Loading files...'
+              ? t('Loading files...')
               : autocomplete.status === 'error'
-                ? "Couldn't load files"
-                : 'No matching files'}
+                ? t("Couldn't load files")
+                : t('No matching files')}
           </PickerStatus>
         ) : null}
       </PickerListbox>
@@ -186,17 +187,17 @@ export function NativeChatAutocompleteMenu({
   }
   return (
     <PickerListbox id={listboxId}>
-      {grouped ? <PickerGroupHeading>Commands</PickerGroupHeading> : null}
+      {grouped ? <PickerGroupHeading>{t('Commands')}</PickerGroupHeading> : null}
       {builtin.map(option)}
-      {grouped ? <PickerGroupHeading>Skills and custom commands</PickerGroupHeading> : null}
+      {grouped ? <PickerGroupHeading>{t('Skills and custom commands')}</PickerGroupHeading> : null}
       {custom.map(option)}
       {autocomplete.items.length === 0 ? (
         <PickerStatus>
           {autocomplete.status === 'loading'
-            ? 'Loading commands...'
+            ? t('Loading commands...')
             : autocomplete.status === 'error'
-              ? "Couldn't load commands"
-              : 'No matching commands'}
+              ? t("Couldn't load commands")
+              : t('No matching commands')}
         </PickerStatus>
       ) : null}
     </PickerListbox>

@@ -20,6 +20,7 @@ import {
   defaultTabTitle,
   type WorkspaceTab
 } from './workspace-tab-model'
+import { t } from '@/i18n/i18n'
 
 // Tab chrome follows Orca's SortableTab / EditorFileTab / BrowserTab (drop-indicator.ts, tab-width-rules.ts).
 
@@ -150,7 +151,7 @@ export function TabItem({
           <Input
             autoFocus
             data-tab-rename-input="true"
-            aria-label={`Rename tab ${title}`}
+            aria-label={t('Rename tab {title}', { title })}
             value={renaming}
             onChange={(e) => setRenaming(e.target.value)}
             onBlur={commitRename}
@@ -176,11 +177,11 @@ export function TabItem({
         {meta?.color && renaming === null && (
           <span className="size-2 shrink-0 rounded-full" style={{ backgroundColor: meta.color }} />
         )}
-        {dirty && <span aria-label="Unsaved changes" className="size-2 shrink-0 rounded-full bg-foreground/60" />}
+        {dirty && <span aria-label={t('Unsaved changes')} className="size-2 shrink-0 rounded-full bg-foreground/60" />}
         {!pinned && renaming === null && (
           <button
             type="button"
-            aria-label={`Close ${title}`}
+            aria-label={t('Close {title}', { title })}
             className={cn(
               'flex h-4 w-4 shrink-0 items-center justify-center rounded-sm',
               active

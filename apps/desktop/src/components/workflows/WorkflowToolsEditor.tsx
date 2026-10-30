@@ -8,6 +8,7 @@ import { Checkbox } from '@/components/ui/checkbox'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Switch } from '@/components/ui/switch'
+import { t } from '@/i18n/i18n'
 
 // What a step's sessions may use. The engine hands this to each session it starts for the step,
 // so it holds whatever the prompt says: a reviewer without Edit cannot edit.
@@ -69,17 +70,17 @@ export function WorkflowToolsEditor({
 
   return (
     <div className="space-y-3 rounded-md border border-border p-3" data-workflow-tools>
-      <Label className="text-xs">Tools</Label>
+      <Label className="text-xs">{t('Tools')}</Label>
       <ToggleRow
-        label="Browser (Playwright)"
-        hint="Opens pages, takes screenshots and reads the DOM; its tools run without asking."
+        label={t('Browser (Playwright)')}
+        hint={t('Opens pages, takes screenshots and reads the DOM; its tools run without asking.')}
         checked={hasBrowser}
         onChange={(on) => set({ mcp: on ? [...mcp, PLAYWRIGHT] : mcp.filter((s) => s.preset !== 'playwright') })}
       />
       {claude && (
         <ToggleRow
-          label="Read only"
-          hint="No Edit, Write or NotebookEdit, whatever the instructions say."
+          label={t('Read only')}
+          hint={t('No Edit, Write or NotebookEdit, whatever the instructions say.')}
           checked={policy.readOnly === true}
           onChange={(on) => set({ readOnly: on || undefined })}
         />
@@ -87,7 +88,7 @@ export function WorkflowToolsEditor({
 
       <div className="space-y-1.5">
         <div className="flex items-center justify-between">
-          <div className="text-xs font-medium">Other MCP servers</div>
+          <div className="text-xs font-medium">{t('Other MCP servers')}</div>
           <Button
             variant="ghost"
             size="sm"
@@ -95,7 +96,7 @@ export function WorkflowToolsEditor({
             onClick={() => setCustom([...custom, { name: `server${custom.length + 1}`, command: '', args: [] }])}
           >
             <Plus className="size-3" />
-            Add
+            {t('Add')}
           </Button>
         </div>
         {custom.map((server, index) => (
@@ -104,7 +105,7 @@ export function WorkflowToolsEditor({
               value={server.name}
               onChange={(e) => setCustom(custom.map((s, i) => (i === index ? { ...s, name: e.target.value.replace(/\s+/g, '_') } : s)))}
               className="h-7 w-24 font-mono text-xs"
-              aria-label="Server name"
+              aria-label={t('Server name')}
             />
             <Input
               value={[server.command ?? '', ...(server.args ?? [])].join(' ').trim()}
@@ -114,13 +115,13 @@ export function WorkflowToolsEditor({
                 setCustom(custom.map((s, i) => (i === index ? { ...s, command, args } : s)))
               }}
               className="h-7 flex-1 font-mono text-xs"
-              aria-label="Server command"
+              aria-label={t('Server command')}
             />
             <Button
               variant="ghost"
               size="icon"
               className="size-6 shrink-0"
-              aria-label="Remove server"
+              aria-label={t('Remove server')}
               onClick={() => setCustom(custom.filter((_, i) => i !== index))}
             >
               <X className="size-3.5" />
@@ -129,8 +130,8 @@ export function WorkflowToolsEditor({
         ))}
         {claude && mcp.length > 0 && (
           <ToggleRow
-            label="Only these servers"
-            hint="Leave out the MCP servers from the host's Claude settings."
+            label={t('Only these servers')}
+            hint={t("Leave out the MCP servers from the host's Claude settings.")}
             checked={policy.strictMcp === true}
             onChange={(on) => set({ strictMcp: on || undefined })}
           />
@@ -140,15 +141,15 @@ export function WorkflowToolsEditor({
       {claude && (
         <div className="space-y-1.5">
           <ToggleRow
-            label="Limit skills"
-            hint="Only the checked skills are listed and callable (their files stay readable)."
+            label={t('Limit skills')}
+            hint={t('Only the checked skills are listed and callable (their files stay readable).')}
             checked={limitSkills}
             onChange={(on) => set({ skills: on ? [] : undefined })}
           />
           {limitSkills && (
             <div className="max-h-40 space-y-1 overflow-y-auto rounded border border-border p-1.5" data-workflow-skills>
-              {skills === null && <p className="text-[11px] text-muted-foreground">Reading the host's skills…</p>}
-              {skills?.length === 0 && <p className="text-[11px] text-muted-foreground">No skills found on this host.</p>}
+              {skills === null && <p className="text-[11px] text-muted-foreground">{t("Reading the host's skills…")}</p>}
+              {skills?.length === 0 && <p className="text-[11px] text-muted-foreground">{t('No skills found on this host.')}</p>}
               {[...new Map((skills ?? []).map((s) => [s.name, s])).values()].map((skill) => (
                 <label key={skill.name} className="flex items-start gap-2 text-xs" title={skill.description ?? undefined}>
                   <Checkbox
@@ -170,21 +171,21 @@ export function WorkflowToolsEditor({
 
       {claude && (
         <div className="space-y-1.5">
-          <div className="text-xs font-medium">Allow without asking</div>
+          <div className="text-xs font-medium">{t('Allow without asking')}</div>
           <Input
             value={(policy.allow ?? []).join(', ')}
             placeholder="Bash(bun test:*), mcp__server"
             onChange={(e) => set({ allow: list(e.target.value) })}
             className="h-7 font-mono text-xs"
-            aria-label="Allowed tools"
+            aria-label={t('Allowed tools')}
           />
-          <div className="text-xs font-medium">Never allow</div>
+          <div className="text-xs font-medium">{t('Never allow')}</div>
           <Input
             value={(policy.deny ?? []).join(', ')}
             placeholder="WebFetch, Bash(git push:*)"
             onChange={(e) => set({ deny: list(e.target.value) })}
             className="h-7 font-mono text-xs"
-            aria-label="Denied tools"
+            aria-label={t('Denied tools')}
           />
         </div>
       )}

@@ -8,6 +8,7 @@ import {
   type NativeChatTaskList
 } from './native-chat-task-list'
 import { splitTaskNotifications } from './native-chat-task-notification'
+import { t } from '@/i18n/i18n'
 
 export type ToolItem = Extract<ThreadItem, { kind: 'tool' }>
 export type UserItem = Extract<ThreadItem, { kind: 'user' }>
@@ -190,7 +191,7 @@ class TaskBoard {
     if (name === 'TaskCreate') {
       this.created += 1
       const id = /#(\d+)/.exec(tool.output)?.[1] ?? String(this.created)
-      const content = text(input.subject) ?? text(input.description) ?? `Task ${id}`
+      const content = text(input.subject) ?? text(input.description) ?? t('Task {id}', { id })
       const activeForm = text(input.activeForm)
       this.tasks.set(id, { content, status: 'pending', ...(activeForm ? { activeForm } : {}) })
       return true

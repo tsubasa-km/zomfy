@@ -7,12 +7,14 @@ import {
   REVIEW_DECISION_LABEL,
   providerName,
   reviewNumberLabel,
-  reviewShortLabel
+  reviewShortLabel,
+  reviewStateLabel
 } from '@/components/right-sidebar/checks/review-presentation'
 import { AgentStateDot, type AgentDotState } from '@/components/AgentStateDot'
 import { TuiAgentIcon } from '@/components/terminal/TuiAgentIcon'
 import { sessionAgent } from '@/lib/chat-agents'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
+import { t } from '@/i18n/i18n'
 
 // Small right-aligned card badges, in the source-control panel's +/- colours.
 
@@ -36,12 +38,14 @@ export function DiffStatsBadge({ summary }: { summary: WorkspaceSummary | undefi
             </>
           ) : (
             // Only new or binary files: no line counts to show.
-            <span style={{ color: 'var(--git-decoration-untracked)' }}>{summary.changedFiles} new</span>
+            <span style={{ color: 'var(--git-decoration-untracked)' }}>{t('{n} new', { n: summary.changedFiles })}</span>
           )}
         </span>
       </TooltipTrigger>
       <TooltipContent side="right">
-        {summary.changedFiles} uncommitted {summary.changedFiles === 1 ? 'file' : 'files'}
+        {summary.changedFiles === 1
+          ? t('{n} uncommitted file', { n: summary.changedFiles })
+          : t('{n} uncommitted files', { n: summary.changedFiles })}
       </TooltipContent>
     </Tooltip>
   )
@@ -71,7 +75,7 @@ export function SyncBadge({ summary }: { summary: WorkspaceSummary | undefined }
         </span>
       </TooltipTrigger>
       <TooltipContent side="right">
-        {summary.ahead ?? 0} ahead, {summary.behind ?? 0} behind {summary.compareRef}
+        {t('{ahead} ahead, {behind} behind {ref}', { ahead: summary.ahead ?? 0, behind: summary.behind ?? 0, ref: summary.compareRef })}
       </TooltipContent>
     </Tooltip>
   )
@@ -92,7 +96,7 @@ export function AgentBadge({ sessions }: { sessions: Session[] }) {
   )
 }
 
-const CHECKS_LABEL = { success: 'Passing', failure: 'Failed', pending: 'Pending', neutral: 'Neutral', none: 'None' } as const
+const CHECKS_LABEL = { success: t('Passing'), failure: t('Failed'), pending: t('Pending'), neutral: t('Neutral'), none: t('None') } as const
 
 /** Orca's card review indicator: the branch's PR/MR, toned by its checks; opens the Checks tab. */
 export function ReviewBadge({ workspaceId, showNumber }: { workspaceId: string; showNumber: boolean }) {
@@ -119,11 +123,11 @@ export function ReviewBadge({ workspaceId, showNumber }: { workspaceId: string; 
       </TooltipTrigger>
       <TooltipContent side="right" className="max-w-72">
         <div className="font-medium">
-          {label} {reviewNumberLabel(review)} · {review.state}
+          {label} {reviewNumberLabel(review)} · {reviewStateLabel(review.state)}
         </div>
         <div className="break-words">{review.title}</div>
         <div className="text-muted-foreground">
-          Checks: {CHECKS_LABEL[review.checksStatus]}
+          {t('Checks: {status}', { status: CHECKS_LABEL[review.checksStatus] })}
           {review.reviewDecision ? ` · ${REVIEW_DECISION_LABEL[review.reviewDecision]}` : ''} · {providerName(review.provider)}
         </div>
       </TooltipContent>

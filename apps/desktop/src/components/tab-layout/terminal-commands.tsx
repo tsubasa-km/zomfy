@@ -5,12 +5,13 @@ import { registerCommandHandler, shortcutLabel } from '@/keybindings/keybinding-
 import { focusedWorkspaceId } from '@/lib/workspace-navigation'
 import { focusGroup } from './tab-group-commands'
 import { newTerminalTab } from './workspace-tab-model'
+import { t } from '@/i18n/i18n'
 
 // A terminal runs where the workspace's daemon runs, so a WSL or SSH workspace gets a shell on that host.
 
 function openTerminal(workspaceId: string): void {
   void newTerminalTab(workspaceId).catch((error: unknown) =>
-    toast.error("Couldn't open a terminal", { description: error instanceof Error ? error.message : String(error) })
+    toast.error(t("Couldn't open a terminal"), { description: error instanceof Error ? error.message : String(error) })
   )
 }
 
@@ -18,7 +19,7 @@ export function installTerminalCommands(): void {
   registerKeybindingDefinitions([
     {
       id: 'terminal.new',
-      title: 'New Terminal',
+      title: t('New Terminal'),
       group: 'Tabs',
       keywords: ['terminal', 'shell', 'console', 'command line', 'wsl', 'ssh'],
       defaultBindings: ['Ctrl+Shift+Backquote'],
@@ -35,7 +36,7 @@ export function installTerminalCommands(): void {
 /** The tab strip's one-click terminal, beside "+", in the group it belongs to. */
 export function NewTerminalButton({ workspaceId, groupId }: { workspaceId: string; groupId: string }) {
   const shortcut = shortcutLabel('terminal.new')
-  const label = shortcut ? `New terminal (${shortcut})` : 'New terminal'
+  const label = shortcut ? t('New terminal ({shortcut})', { shortcut }) : t('New terminal')
   return (
     <button
       type="button"

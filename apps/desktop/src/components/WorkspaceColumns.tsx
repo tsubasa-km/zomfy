@@ -18,12 +18,13 @@ import { Button } from '@/components/ui/button'
 import { canPopOutWorkspace, popOutWorkspace } from '@/lib/workspace-window'
 import type { DragPoint } from '@/lib/pointer-drag'
 import { cn } from '@/lib/utils'
+import { t } from '@/i18n/i18n'
 
 // The main area: one workspace, or several from any project side by side, each with its own tab layout.
 // Two sit as columns; from three on they fill a two-row grid in order. Dragging a workspace from the
 // sidebar onto a pane's left or right quarter opens it beside that pane; onto its middle, it takes it over.
 
-const EMPTY_HINT = 'No tabs yet. Use + in the tab bar to start Claude in this workspace.'
+const EMPTY_HINT = t('No tabs yet. Use + in the tab bar to start Claude in this workspace.')
 const MIN_COLUMN_PX = 280
 const MIN_ROW_PX = 160
 
@@ -55,7 +56,7 @@ export function WorkspaceMain() {
       hint:
         side === 'replace'
           ? { left, top, width: rect.width, height: rect.height, label: null }
-          : { left: side === 'before' ? left : left + rect.width / 2, top, width: rect.width / 2, height: rect.height, label: 'Open beside' },
+          : { left: side === 'before' ? left : left + rect.width / 2, top, width: rect.width / 2, height: rect.height, label: t('Open beside') },
       apply: () => {
         if (side === 'replace') {
           if (ids[index]) selectWorkspace(ids[index]!)
@@ -190,7 +191,7 @@ function ColumnHeader({ workspaceId, focused }: { workspaceId: string; focused: 
     const workspace = allWorkspaces(s).find((w) => w.id === workspaceId)
     if (!workspace) return ''
     const project = allProjects(s.hosts).find((p) => p.id === workspace.projectId)
-    return project ? projectLabel(project) : workspace.scratch ? 'Quick chat' : workspace.name
+    return project ? projectLabel(project) : workspace.scratch ? t('Quick chat') : workspace.name
   })
   const detail = useStore((s) => {
     const workspace = allWorkspaces(s).find((w) => w.id === workspaceId)
@@ -211,11 +212,11 @@ function ColumnHeader({ workspaceId, focused }: { workspaceId: string; focused: 
       {detail && detail !== title && <span className="min-w-0 truncate text-muted-foreground">{detail}</span>}
       <div className="ml-auto flex shrink-0 items-center">
         {canPopOutWorkspace() && (
-          <Button size="icon-xs" variant="ghost" aria-label="Open in new window" onClick={() => void popOutWorkspace(workspaceId)}>
+          <Button size="icon-xs" variant="ghost" aria-label={t('Open in new window')} onClick={() => void popOutWorkspace(workspaceId)}>
             <AppWindow className="size-3.5" />
           </Button>
         )}
-        <Button size="icon-xs" variant="ghost" aria-label="Close column" onClick={() => closeColumn(workspaceId)}>
+        <Button size="icon-xs" variant="ghost" aria-label={t('Close column')} onClick={() => closeColumn(workspaceId)}>
           <X className="size-3.5" />
         </Button>
       </div>

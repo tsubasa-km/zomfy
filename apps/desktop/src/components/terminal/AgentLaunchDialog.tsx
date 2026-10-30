@@ -10,6 +10,7 @@ import { launchAgentTerminal } from '@/lib/agent-terminal-launch'
 import { useDetectedAgents } from '@/lib/detected-agents'
 import { SUBMIT_SHORTCUT_LABEL, isSubmitShortcut } from '@/lib/terminal-shortcuts'
 import { LOCAL_HOST, allWorkspaces, useStore } from '@/session-store'
+import { t } from '@/i18n/i18n'
 
 // The menu that opens this unmounts on select, so the request goes through a tiny store.
 let requested: string | null = null
@@ -52,9 +53,9 @@ export function AgentLaunchDialog({ workspaceId }: { workspaceId: string }) {
     <Dialog open={open} onOpenChange={(next) => !next && requestAgentLaunchDialog(null)}>
       <DialogContent className="max-w-xl" showCloseButton={false}>
         <DialogHeader>
-          <DialogTitle className="text-sm">Launch Agent</DialogTitle>
+          <DialogTitle className="text-sm">{t('Launch Agent')}</DialogTitle>
           <DialogDescription className="text-xs">
-            Starts the agent in a new terminal tab with this as its first prompt.
+            {t('Starts the agent in a new terminal tab with this as its first prompt.')}
           </DialogDescription>
         </DialogHeader>
         <div
@@ -67,10 +68,10 @@ export function AgentLaunchDialog({ workspaceId }: { workspaceId: string }) {
           }}
         >
           <div className="space-y-2">
-            <Label>Agent</Label>
+            <Label>{t('Agent')}</Label>
             <Select value={selected} onValueChange={(value) => setAgent(value as TuiAgentId)}>
               <SelectTrigger className="w-full" data-agent-select>
-                <SelectValue placeholder="Choose agent" />
+                <SelectValue placeholder={t('Choose agent')} />
               </SelectTrigger>
               <SelectContent position="popper" align="start">
                 {agents.map((id) => (
@@ -83,23 +84,23 @@ export function AgentLaunchDialog({ workspaceId }: { workspaceId: string }) {
             </Select>
           </div>
           <div className="space-y-2">
-            <Label htmlFor="agent-launch-prompt">Prompt</Label>
+            <Label htmlFor="agent-launch-prompt">{t('Prompt')}</Label>
             <Textarea
               id="agent-launch-prompt"
               autoFocus
               rows={6}
               value={prompt}
               onChange={(e) => setPrompt(e.target.value)}
-              placeholder="Ask the agent to investigate this workspace"
+              placeholder={t('Ask the agent to investigate this workspace')}
             />
           </div>
         </div>
         <DialogFooter>
           <Button type="button" variant="outline" onClick={() => requestAgentLaunchDialog(null)}>
-            Cancel
+            {t('Cancel')}
           </Button>
           <Button type="button" disabled={!canLaunch} onClick={launch} data-agent-launch-submit>
-            Launch
+            {t('Launch')}
             <span className="ml-1 text-[10px] opacity-60">{SUBMIT_SHORTCUT_LABEL}</span>
           </Button>
         </DialogFooter>

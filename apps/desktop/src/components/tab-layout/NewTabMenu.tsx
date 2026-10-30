@@ -18,6 +18,7 @@ import { TabOmnibox } from './TabOmnibox'
 import { focusGroup } from './tab-group-commands'
 import { shortcutLabel } from './tab-shortcuts'
 import { newTerminalTab, openBrowserTab } from './workspace-tab-model'
+import { t } from '@/i18n/i18n'
 
 // Orca's "+" menu (tab-bar-static-create-menu.tsx). One section per kind of tab; add a new kind as
 // its own section so the menu stays easy to extend.
@@ -31,7 +32,7 @@ function AgentSection({ workspaceId }: { workspaceId: string }) {
     <>
       <DropdownMenuItem data-new-tab="claude" onSelect={() => void createSession(workspaceId)}>
         <TuiAgentIcon agent="claude" size={14} />
-        New Claude Chat
+        {t('New Claude Chat')}
       </DropdownMenuItem>
       {others.map((agent) =>
         agent.status === 'ready' ? (
@@ -41,13 +42,13 @@ function AgentSection({ workspaceId }: { workspaceId: string }) {
             onSelect={() => void createSession(workspaceId, agent.id)}
           >
             <TuiAgentIcon agent={agent.id} size={14} />
-            New {agent.label} Chat
+            {t('New {agent} Chat', { agent: agent.label })}
           </DropdownMenuItem>
         ) : (
           <DropdownMenuItem key={agent.id} disabled data-new-tab={`chat:${agent.id}`} title={agent.detail ?? undefined}>
             <TuiAgentIcon agent={agent.id} size={14} />
             <span className="flex min-w-0 flex-col">
-              <span>New {agent.label} Chat</span>
+              <span>{t('New {agent} Chat', { agent: agent.label })}</span>
               <span className="truncate text-xs text-muted-foreground">{agent.detail}</span>
             </span>
           </DropdownMenuItem>
@@ -62,7 +63,7 @@ function TerminalSection({ workspaceId }: { workspaceId: string }) {
   const shells = useStore((s) => s.hosts[hostId]?.shells) ?? []
   return (
     <>
-      <DropdownMenuLabel className="text-xs text-muted-foreground">Terminal</DropdownMenuLabel>
+      <DropdownMenuLabel className="text-xs text-muted-foreground">{t('Terminal')}</DropdownMenuLabel>
       {shells.map((shell) => (
         <DropdownMenuItem
           key={shell.id}
@@ -70,7 +71,7 @@ function TerminalSection({ workspaceId }: { workspaceId: string }) {
           onSelect={() => void newTerminalTab(workspaceId, shell.id)}
         >
           <SquareTerminal className="size-4" />
-          New Terminal ({shell.label})
+          {t('New Terminal ({shell})', { shell: shell.label })}
         </DropdownMenuItem>
       ))}
     </>
@@ -81,7 +82,7 @@ function BrowserSection({ workspaceId }: { workspaceId: string }) {
   return (
     <DropdownMenuItem data-new-tab="browser" onSelect={() => openBrowserTab(workspaceId)}>
       <Globe className="size-4" />
-      New Browser Tab
+      {t('New Browser Tab')}
       <DropdownMenuShortcut>{shortcutLabel('tab.newBrowser')}</DropdownMenuShortcut>
     </DropdownMenuItem>
   )
@@ -104,8 +105,8 @@ export function NewTabMenu({ workspaceId, groupId }: { workspaceId: string; grou
       <DropdownMenuTrigger asChild>
         <button
           type="button"
-          aria-label="New tab"
-          title="New tab"
+          aria-label={t('New tab')}
+          title={t('New tab')}
           className="my-auto ml-2 flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-muted-foreground hover:bg-accent/50 hover:text-foreground"
         >
           <Plus className="size-3.5" />

@@ -16,6 +16,7 @@ import { buildChangeTree, directoryFiles, flattenChangeTree, type ChangeTreeNode
 import { useBranchContext } from './source-control/use-branch-context'
 import { useCommitFlows } from './source-control/use-commit-flows'
 import { isSourceControlSplitOpenModifier, openEditorTabInSplit } from './source-control/split-open'
+import { t } from '@/i18n/i18n'
 
 // Layout follows Orca's source control panel (source-control/panel/panel-ready.tsx, panel-content.tsx):
 // header toolbar, commit area, Changes / Staged / Untracked sections, "Committed on Branch",
@@ -25,10 +26,10 @@ type SectionId = 'conflicts' | 'unstaged' | 'staged' | 'untracked'
 type Section = { id: SectionId; items: GitChange[] }
 
 const SECTION_LABEL: Record<SectionId, string> = {
-  conflicts: 'Conflicts',
-  unstaged: 'Changes',
-  staged: 'Staged Changes',
-  untracked: 'Untracked Files'
+  conflicts: t('Conflicts'),
+  unstaged: t('Changes'),
+  staged: t('Staged Changes'),
+  untracked: t('Untracked Files')
 }
 const VIEW_MODE_KEY = 'acp-harness:source-control-view-mode'
 /** Orca keeps an unsent message per workspace across panel and workspace switches (commit-drafts.ts). */
@@ -226,12 +227,12 @@ export function SourceControl({ workspaceId }: { workspaceId: string }) {
   const dropdown = resolveDropdownItems(actionInputs)
   const showSpinner = primary.kind === 'commit' ? flows.isCommitting : flows.remoteOp !== null && primary.kind === flows.remoteOp
   const generateTooltip = flows.isCommitting
-    ? 'Commit in progress…'
+    ? t('Commit in progress…')
     : staged.length === 0
-      ? 'Stage at least one file to generate a message.'
+      ? t('Stage at least one file to generate a message.')
       : message.trim()
-        ? 'Clear the message to regenerate.'
-        : 'Generate commit message with AI'
+        ? t('Clear the message to regenerate.')
+        : t('Generate commit message with AI')
 
   // ── Branch compare & history ──────────────────────────────────────────
   const compareSummary = branchContext.compare.result?.summary ?? null
@@ -247,7 +248,7 @@ export function SourceControl({ workspaceId }: { workspaceId: string }) {
       kind: 'diff' as const,
       path: entry.path,
       staged: false,
-      compare: { base: compareSummary.mergeBase, head: compareSummary.headOid, label: `vs ${compareSummary.baseRef}` }
+      compare: { base: compareSummary.mergeBase, head: compareSummary.headOid, label: t('vs {ref}', { ref: compareSummary.baseRef }) }
     }
     if (event && isSourceControlSplitOpenModifier(event, isMac)) void openEditorTabInSplit(tab)
     else openEditorTab(tab)
@@ -267,7 +268,7 @@ export function SourceControl({ workspaceId }: { workspaceId: string }) {
   const loadBaseRefs = useCallback(() => harnessRequest(HARNESS_METHODS.gitBaseRefs, { workspaceId }), [workspaceId])
 
   if (status && !status.isRepo) {
-    return <p className="px-3 py-4 text-xs text-muted-foreground">This workspace is not a git repository.</p>
+    return <p className="px-3 py-4 text-xs text-muted-foreground">{t('This workspace is not a git repository.')}</p>
   }
 
   const notices = [
@@ -286,17 +287,17 @@ export function SourceControl({ workspaceId }: { workspaceId: string }) {
         {area && (
           <ActionButton
             icon={area === 'untracked' ? Trash : Undo2}
-            title={area === 'untracked' ? 'Delete all untracked' : 'Discard all'}
+            title={area === 'untracked' ? t('Delete all untracked') : t('Discard all')}
             disabled={bulkBusy}
             onClick={() => setPendingDiscard({ kind: 'area', area, paths: area === 'staged' ? withOldPaths(section.items) : section.items.map((c) => c.path) })}
           />
         )}
         {section.id === 'staged' ? (
-          <ActionButton icon={Minus} title="Unstage all" disabled={bulkBusy} onClick={() => void unstage(withOldPaths(section.items))} />
+          <ActionButton icon={Minus} title={t('Unstage all')} disabled={bulkBusy} onClick={() => void unstage(withOldPaths(section.items))} />
         ) : (
           <ActionButton
             icon={Plus}
-            title={section.id === 'conflicts' ? 'Stage all (mark resolved)' : 'Stage all'}
+            title={section.id === 'conflicts' ? t('Stage all (mark resolved)') : t('Stage all')}
             disabled={bulkBusy}
             onClick={() => void stage(section.items.map((c) => c.path))}
           />
@@ -316,13 +317,13 @@ export function SourceControl({ workspaceId }: { workspaceId: string }) {
             title={
               kind === 'folder'
                 ? section === 'untracked'
-                  ? 'Delete untracked in folder'
-                  : 'Discard folder'
+                  ? t('Delete untracked in folder')
+                  : t('Discard folder')
                 : section === 'untracked'
-                  ? 'Delete untracked file'
+                  ? t('Delete untracked file')
                   : single?.status === 'deleted'
-                    ? 'Restore file'
-                    : 'Discard changes'
+                    ? t('Restore file')
+                    : t('Discard changes')
             }
             disabled={bulkBusy}
             onClick={() =>
@@ -333,11 +334,11 @@ export function SourceControl({ workspaceId }: { workspaceId: string }) {
           />
         )}
         {section === 'staged' ? (
-          <ActionButton icon={Minus} title={kind === 'folder' ? 'Unstage folder' : 'Unstage'} disabled={bulkBusy} onClick={() => void unstage(withOldPaths(entries))} />
+          <ActionButton icon={Minus} title={kind === 'folder' ? t('Unstage folder') : t('Unstage')} disabled={bulkBusy} onClick={() => void unstage(withOldPaths(entries))} />
         ) : (
           <ActionButton
             icon={Plus}
-            title={kind === 'folder' ? 'Stage folder' : section === 'conflicts' ? 'Stage (mark resolved)' : 'Stage'}
+            title={kind === 'folder' ? t('Stage folder') : section === 'conflicts' ? t('Stage (mark resolved)') : t('Stage')}
             disabled={bulkBusy}
             onClick={() => void stage(paths)}
           />
@@ -419,7 +420,7 @@ export function SourceControl({ workspaceId }: { workspaceId: string }) {
           notices={notices}
         />
 
-        {status === null && <p className="px-3 text-xs text-muted-foreground">Loading…</p>}
+        {status === null && <p className="px-3 text-xs text-muted-foreground">{t('Loading…')}</p>}
 
         {sections.map((section) => (
           <section key={section.id} data-section={section.id}>
@@ -457,15 +458,15 @@ export function SourceControl({ workspaceId }: { workspaceId: string }) {
         ))}
 
         {status && sections.length === 0 && !showBranchSection && (
-          <p className="px-3 pt-3 text-xs text-muted-foreground">{normalizedFilter ? 'No files match the filter.' : 'No changes.'}</p>
+          <p className="px-3 pt-3 text-xs text-muted-foreground">{normalizedFilter ? t('No files match the filter.') : t('No changes.')}</p>
         )}
 
         {showBranchSection && compareSummary && (
           <section data-section="branch">
             <SectionHeader
-              label="Committed on Branch"
+              label={t('Committed on Branch')}
               count={branchEntries.length}
-              countTitle={`${branchEntries.length} file${branchEntries.length === 1 ? '' : 's'} changed vs ${compareSummary.baseRef}`}
+              countTitle={t(branchEntries.length === 1 ? '{n} file changed vs {ref}' : '{n} files changed vs {ref}', { n: branchEntries.length, ref: compareSummary.baseRef })}
               collapsed={collapsed.has('branch')}
               onToggle={() => setCollapsed((prev) => toggled(prev, 'branch'))}
             />

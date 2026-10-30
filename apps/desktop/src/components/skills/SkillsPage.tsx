@@ -28,6 +28,7 @@ import {
   sourceKindLabel,
   type SkillsFilterState
 } from './skills-filter'
+import { t } from '@/i18n/i18n'
 
 // Orca's Skills page (components/skills/SkillsPage.tsx and its header, filter toolbar and states).
 // The scan runs on one daemon host at a time — the active workspace's by default — so WSL and SSH
@@ -124,20 +125,20 @@ export function SkillsPage() {
         <div className={cn(COLUMN, 'flex items-center gap-2 py-3')}>
           <Tooltip>
             <TooltipTrigger asChild>
-              <Button variant="ghost" size="icon" className="size-7 shrink-0 rounded-full" onClick={close} aria-label="Close skills">
+              <Button variant="ghost" size="icon" className="size-7 shrink-0 rounded-full" onClick={close} aria-label={t('Close skills')}>
                 <X className="size-4" />
               </Button>
             </TooltipTrigger>
             <TooltipContent side="bottom" sideOffset={6}>
-              Close · Esc
+              {t('Close · Esc')}
             </TooltipContent>
           </Tooltip>
           <div className="mx-1 h-5 w-px bg-border/50" aria-hidden />
           <BookOpen className="size-4 shrink-0 text-muted-foreground" />
           <div className="min-w-0 flex-1">
-            <h1 className="truncate text-sm font-semibold">Skills</h1>
+            <h1 className="truncate text-sm font-semibold">{t('Skills')}</h1>
             <div className="flex min-w-0 items-center gap-1.5 text-xs text-muted-foreground">
-              <span className="shrink-0">{countLabel(skills.length, 'skill', 'skills')}</span>
+              <span className="shrink-0">{countLabel(skills.length, '{n} skill', '{n} skills')}</span>
               {result && result.sources.length > 0 ? (
                 <>
                   <span aria-hidden>·</span>
@@ -150,7 +151,7 @@ export function SkillsPage() {
           </div>
           {connectedHosts.length > 1 ? (
             <Select value={hostId} onValueChange={setPickedHost}>
-              <SelectTrigger className="h-8 w-[180px]" aria-label="Host">
+              <SelectTrigger className="h-8 w-[180px]" aria-label={t('Host')}>
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -173,18 +174,18 @@ export function SkillsPage() {
               <Input
                 value={filters.query}
                 onChange={(event) => setFilters({ ...filters, query: event.target.value })}
-                placeholder="Search skills"
-                aria-label="Search skills"
+                placeholder={t('Search skills')}
+                aria-label={t('Search skills')}
                 className="h-8 pl-8 text-sm"
                 data-skills-search
               />
             </div>
             <Select value={filters.agent} onValueChange={(agent) => setFilters({ ...filters, agent })}>
-              <SelectTrigger className="h-8 w-[170px]" aria-label="Filter by agent">
+              <SelectTrigger className="h-8 w-[170px]" aria-label={t('Filter by agent')}>
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">All agents</SelectItem>
+                <SelectItem value="all">{t('All agents')}</SelectItem>
                 {agentOptions.map((option) => (
                   <SelectItem key={option.id} value={option.id}>
                     {option.label} <span className="text-muted-foreground">{option.count}</span>
@@ -201,13 +202,13 @@ export function SkillsPage() {
                   className="shrink-0 border border-border/50 bg-transparent hover:bg-muted/50"
                   disabled={loading}
                   onClick={() => void load()}
-                  aria-label="Refresh"
+                  aria-label={t('Refresh')}
                 >
                   <RefreshCw className={loading ? 'animate-spin' : undefined} />
                 </Button>
               </TooltipTrigger>
               <TooltipContent side="bottom" sideOffset={6}>
-                Refresh
+                {t('Refresh')}
               </TooltipContent>
             </Tooltip>
           </div>
@@ -222,10 +223,10 @@ export function SkillsPage() {
               onValueChange={(value) =>
                 setFilters({ ...filters, sourceKind: SKILL_SOURCE_KINDS.find((k) => k === value) ?? 'all' })
               }
-              aria-label="Filter by source"
+              aria-label={t('Filter by source')}
             >
               <ToggleGroupItem value="all" className="gap-1.5 rounded-full px-2.5 text-xs">
-                All
+                {t('All')}
                 <span className="text-muted-foreground tabular-nums">{skills.length}</span>
               </ToggleGroupItem>
               {SKILL_SOURCE_KINDS.map((kind) => (
@@ -237,11 +238,11 @@ export function SkillsPage() {
             </ToggleGroup>
             <div className="ml-auto flex items-center gap-2 text-xs text-muted-foreground">
               <span role="status" aria-live="polite">
-                {countLabel(visible.length, 'result', 'results')}
+                {countLabel(visible.length, '{n} result', '{n} results')}
               </span>
               {filtered ? (
                 <Button type="button" variant="ghost" size="xs" onClick={() => setFilters(NO_SKILL_FILTERS)}>
-                  Clear filters
+                  {t('Clear filters')}
                 </Button>
               ) : null}
             </div>
@@ -253,42 +254,42 @@ export function SkillsPage() {
         <div className="border-b border-destructive/30 bg-destructive/10">
           <div className={cn(COLUMN, 'flex flex-wrap items-center justify-between gap-3 py-2')}>
             <div className="min-w-0 flex-1" role="alert">
-              <p className="text-xs font-medium text-destructive">Could not scan skills</p>
+              <p className="text-xs font-medium text-destructive">{t('Could not scan skills')}</p>
               <p className="text-xs leading-snug break-words whitespace-pre-line text-destructive">{current.error}</p>
             </div>
             <Button type="button" variant="outline" size="xs" disabled={loading} onClick={() => void load()}>
-              Retry
+              {t('Retry')}
             </Button>
           </div>
         </div>
       ) : null}
 
       <section className="scrollbar-sleek min-h-0 flex-1 overflow-y-auto">
-        <div className={cn(COLUMN, 'py-2')} role="listbox" aria-label="Skills" data-skills-list>
+        <div className={cn(COLUMN, 'py-2')} role="listbox" aria-label={t('Skills')} data-skills-list>
           {loading && skills.length === 0 ? (
             <SkillsListSkeleton />
           ) : visible.length > 0 ? (
             visible.map((skill) => <SkillRow key={skill.id} skill={skill} actions={actionsFor(skill)} onOpenDetail={() => setDetail(skill)} />)
           ) : skills.length > 0 ? (
             <div className="flex flex-col items-center gap-2 px-2 py-12 text-center">
-              <p className="text-sm font-semibold">No matches</p>
-              <p className="max-w-sm text-xs leading-5 text-muted-foreground">No skill matches the current search and filters.</p>
+              <p className="text-sm font-semibold">{t('No matches')}</p>
+              <p className="max-w-sm text-xs leading-5 text-muted-foreground">{t('No skill matches the current search and filters.')}</p>
               <Button variant="outline" size="sm" className="mt-1" onClick={() => setFilters(NO_SKILL_FILTERS)}>
-                Clear filters
+                {t('Clear filters')}
               </Button>
             </div>
           ) : result ? (
             <div className="flex flex-col items-center gap-3 px-2 py-12 text-center">
               <BookOpen className="size-7 text-muted-foreground" />
               <div className="space-y-1">
-                <h2 className="text-sm font-semibold">No skills found</h2>
+                <h2 className="text-sm font-semibold">{t('No skills found')}</h2>
                 <p className="max-w-sm text-xs leading-5 text-muted-foreground">
-                  The scanned skill folders on {hostLabel} are empty. Refresh after adding a skill.
+                  {t('The scanned skill folders on {host} are empty. Refresh after adding a skill.', { host: hostLabel })}
                 </p>
               </div>
               <Button variant="ghost" size="sm" onClick={() => void load()}>
                 <RefreshCw className="size-4" />
-                Refresh
+                {t('Refresh')}
               </Button>
             </div>
           ) : null}
@@ -326,7 +327,7 @@ function SkillsListSkeleton() {
   return (
     <div>
       <p className="px-2 py-2 text-xs text-muted-foreground" role="status" aria-live="polite">
-        Scanning skills
+        {t('Scanning skills')}
       </p>
       {SKELETON_ROWS.map((row) => (
         <div key={row} className="flex items-start gap-3 border-b border-border/50 px-2 py-2.5">
@@ -351,13 +352,13 @@ function SourcesPopover({ result }: { result: SkillDiscoveryResult }) {
     <Popover>
       <PopoverTrigger asChild>
         <Button type="button" variant="link" className="h-auto gap-0.5 p-0 text-xs font-normal has-[>svg]:px-0 text-muted-foreground hover:text-foreground">
-          {countLabel(scanned.length, 'source', 'sources')}
+          {countLabel(scanned.length, '{n} source', '{n} sources')}
           <ChevronDown className="size-3" />
         </Button>
       </PopoverTrigger>
       <PopoverContent align="start" className="w-96 p-0">
         <p className="border-b border-border px-3 py-2 text-[11px] font-semibold tracking-[0.05em] text-muted-foreground uppercase">
-          Skill folders
+          {t('Skill folders')}
         </p>
         <div className="scrollbar-sleek max-h-80 overflow-y-auto py-1">
           {result.sources.map((source) => (
@@ -365,7 +366,7 @@ function SourcesPopover({ result }: { result: SkillDiscoveryResult }) {
               <div className="flex items-baseline gap-2">
                 <span className="min-w-0 flex-1 truncate text-xs font-medium">{source.label}</span>
                 <span className="shrink-0 text-[11px] text-muted-foreground tabular-nums">
-                  {source.exists ? (counts.get(source.path) ?? 0) : 'Folder not found'}
+                  {source.exists ? (counts.get(source.path) ?? 0) : t('Folder not found')}
                 </span>
               </div>
               <p className="truncate font-mono text-[11px] text-muted-foreground" title={source.path}>
@@ -411,19 +412,19 @@ function DeleteSkillDialog({
     <Dialog open onOpenChange={(open) => !open && !busy && onClose(false)}>
       <DialogContent className="max-w-md" data-skill-delete>
         <DialogHeader>
-          <DialogTitle>Delete {skill.name}?</DialogTitle>
+          <DialogTitle>{t('Delete {name}?', { name: skill.name })}</DialogTitle>
           <DialogDescription>
-            Moves the skill folder on {hostLabel} to the trash, so every agent that reads it stops seeing the skill.
+            {t('Moves the skill folder on {host} to the trash, so every agent that reads it stops seeing the skill.', { host: hostLabel })}
           </DialogDescription>
         </DialogHeader>
         <p className="font-mono text-xs break-all text-muted-foreground">{skill.directoryPath}</p>
         {error ? <p className="text-xs text-destructive">{error}</p> : null}
         <DialogFooter>
           <Button variant="ghost" size="sm" disabled={busy} onClick={() => onClose(false)}>
-            Cancel
+            {t('Cancel')}
           </Button>
           <Button variant="destructive" size="sm" disabled={busy} onClick={() => void confirm()}>
-            Delete skill
+            {t('Delete skill')}
           </Button>
         </DialogFooter>
       </DialogContent>

@@ -12,6 +12,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
+import { t } from '@/i18n/i18n'
 
 // Starts a comparison: one task through the chosen saved workflows, a few trials each.
 
@@ -71,7 +72,7 @@ export function WorkflowCompareDialog({
       upsertWorkflowExperiment(hostId, experiment)
       onStarted(experiment)
     } catch (error) {
-      toast.error('Could not start the comparison', { description: String(error) })
+      toast.error(t('Could not start the comparison'), { description: String(error) })
     } finally {
       setBusy(false)
     }
@@ -81,18 +82,18 @@ export function WorkflowCompareDialog({
     <Dialog open onOpenChange={(open) => !open && onClose()}>
       <DialogContent className="max-h-[85vh] overflow-y-auto sm:max-w-lg" data-workflow-compare-dialog>
         <DialogHeader>
-          <DialogTitle>Compare workflows</DialogTitle>
+          <DialogTitle>{t('Compare workflows')}</DialogTitle>
           <DialogDescription>
-            The same task through each workflow, a few times each, side by side. In a git project each run gets a worktree of its own.
+            {t('The same task through each workflow, a few times each, side by side. In a git project each run gets a worktree of its own.')}
           </DialogDescription>
         </DialogHeader>
         <div className="space-y-4">
           <div className="space-y-1.5">
-            <Label className="text-xs">Task</Label>
-            <Textarea value={task} onChange={(e) => setTask(e.target.value)} className="min-h-24 text-xs" placeholder="What every run is asked to do" />
+            <Label className="text-xs">{t('Task')}</Label>
+            <Textarea value={task} onChange={(e) => setTask(e.target.value)} className="min-h-24 text-xs" placeholder={t('What every run is asked to do')} />
           </div>
           <div className="space-y-1.5">
-            <Label className="text-xs">Workflows</Label>
+            <Label className="text-xs">{t('Workflows')}</Label>
             <div className="space-y-1">
               {workflows.map((w) => {
                 const skills = picked.includes(w.id) ? skillTokens(w.id) : null
@@ -111,7 +112,7 @@ export function WorkflowCompareDialog({
                           checked={withoutSkills.includes(w.id)}
                           onCheckedChange={(on) => setWithoutSkills((all) => (on === true ? [...all, w.id] : all.filter((id) => id !== w.id)))}
                         />
-                        Also without skills ({formatTokens(skills.tokens)} tokens a turn, used {skills.used}× in its last run)
+                        {t('Also without skills ({tokens} tokens a turn, used {used}× in its last run)', { tokens: formatTokens(skills.tokens), used: skills.used })}
                       </label>
                     )}
                   </div>
@@ -119,39 +120,42 @@ export function WorkflowCompareDialog({
               })}
             </div>
             <p className="text-[11px] text-muted-foreground">
-              Only saved workflows run. Make a variant with “Duplicate as a variant”, or apply a suggestion as one, and change one thing.
+              {t('Only saved workflows run. Make a variant with “Duplicate as a variant”, or apply a suggestion as one, and change one thing.')}
             </p>
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1.5">
-              <Label className="text-xs">Trials each</Label>
+              <Label className="text-xs">{t('Trials each')}</Label>
               <Input type="number" min={1} max={10} value={trials} onChange={(e) => setTrials(Math.min(10, Math.max(1, Number(e.target.value) || 1)))} className="h-8" />
             </div>
             <div className="space-y-1.5">
-              <Label className="text-xs">Runs at once</Label>
+              <Label className="text-xs">{t('Runs at once')}</Label>
               <Input type="number" min={1} max={4} value={parallel} onChange={(e) => setParallel(Math.min(4, Math.max(1, Number(e.target.value) || 1)))} className="h-8" />
             </div>
           </div>
           <label className="flex items-start gap-2">
             <Checkbox className="mt-0.5" checked={autoApprove} onCheckedChange={(on) => setAutoApprove(on === true)} data-workflow-compare-auto />
             <span className="space-y-0.5">
-              <span className="block text-sm">Approve the steps' commands and edits automatically</span>
+              <span className="block text-sm">{t("Approve the steps' commands and edits automatically")}</span>
               <span className="block text-[11px] text-muted-foreground">
-                Otherwise each run waits for you at its first command. Refused for workflows that work in the main checkout or the starting chat's
-                chat. A run that would wait for your answer ends instead.
+                {t(
+                  "Otherwise each run waits for you at its first command. Refused for workflows that work in the main checkout or the starting chat's chat. A run that would wait for your answer ends instead."
+                )}
               </span>
             </span>
           </label>
           <p className="text-[11px] text-muted-foreground">
-            {runs} run{runs === 1 ? '' : 's'}. One trial says little: differences of a few points need many runs to tell from luck.
+            {runs === 1
+              ? t('{n} run. One trial says little: differences of a few points need many runs to tell from luck.', { n: runs })
+              : t('{n} runs. One trial says little: differences of a few points need many runs to tell from luck.', { n: runs })}
           </p>
         </div>
         <DialogFooter>
           <Button variant="outline" onClick={onClose}>
-            Cancel
+            {t('Cancel')}
           </Button>
           <Button onClick={() => void start()} disabled={busy || !task.trim() || picked.length === 0} data-workflow-compare-start>
-            Start {runs} run{runs === 1 ? '' : 's'}
+            {runs === 1 ? t('Start {n} run', { n: runs }) : t('Start {n} runs', { n: runs })}
           </Button>
         </DialogFooter>
       </DialogContent>

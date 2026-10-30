@@ -1,4 +1,5 @@
 import type { GitHistoryGraphColorId, GitHistoryItem, GitHistoryItemRef } from '@acp-harness/protocol'
+import { t } from '@/i18n/i18n'
 
 // Swimlane layout for the commit graph, ported from Orca's shared/git-history-graph.ts and
 // git-history-boundary-rows.ts (itself VS Code's SCM graph model).
@@ -215,7 +216,7 @@ function addIncomingRow(viewModels: GitHistoryItemViewModel[], remoteRef: GitHis
     }
   }
   viewModels.splice(afterIndex, 0, {
-    historyItem: { id: INCOMING_ID, parentIds: [mergeBase], author: remoteRef.name, subject: 'Incoming Changes', message: '' },
+    historyItem: { id: INCOMING_ID, parentIds: [mergeBase], author: remoteRef.name, subject: t('Incoming Changes'), message: '' },
     kind: 'incoming-changes',
     inputSwimlanes,
     outputSwimlanes
@@ -229,7 +230,7 @@ function addOutgoingRow(viewModels: GitHistoryItemViewModel[], currentRef: GitHi
   if (index === -1) return
   const inputSwimlanes = viewModels[index]!.inputSwimlanes.map(cloneNode)
   viewModels.splice(index, 0, {
-    historyItem: { id: OUTGOING_ID, parentIds: [revision], author: currentRef.name, subject: 'Outgoing Changes', message: '' },
+    historyItem: { id: OUTGOING_ID, parentIds: [revision], author: currentRef.name, subject: t('Outgoing Changes'), message: '' },
     kind: 'outgoing-changes',
     inputSwimlanes,
     outputSwimlanes: inputSwimlanes.concat({ id: revision, color: GIT_HISTORY_REF_COLOR })

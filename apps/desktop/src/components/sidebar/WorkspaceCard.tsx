@@ -23,6 +23,7 @@ import type { WorktreeStatus } from '@/lib/worktree-status'
 import { openWorkflows } from '@/stores/workflows-store'
 import { cn } from '@/lib/utils'
 import { keepTextUnselected } from '@/stores/list-selection'
+import { t } from '@/i18n/i18n'
 
 // Markup follows Orca's worktree-card-surface / worktree-card-header / worktree-card-meta-row, with the
 // compact layout folding agent rows into a badge (worktree-card-compact-agents).
@@ -134,14 +135,14 @@ export function WorkspaceCard({
         <div className="flex min-w-0 flex-1 items-center gap-1.5">
           <StatusIndicator status={CARD_STATUS[workspaceStatus(sessions)]} />
           <div className={cn('min-w-0 truncate text-[13px] leading-5', unread && 'font-semibold')}>{title}</div>
-          {workspace.pinned && <Pin className="size-3 shrink-0 fill-amber-400 text-amber-400" aria-label="Pinned" />}
+          {workspace.pinned && <Pin className="size-3 shrink-0 fill-amber-400 text-amber-400" aria-label={t('Pinned')} />}
           {hostBadge && (
             <span className="shrink-0 rounded border border-worktree-sidebar-border px-1 text-[10px] leading-4 text-muted-foreground" data-workspace-host={hostId}>
               {hostBadge}
             </span>
           )}
-          {poppedOut && <AppWindow className="size-3 shrink-0 text-muted-foreground" aria-label="Open in its own window" />}
-          {unread && <span className="size-1.5 shrink-0 rounded-full bg-agent-question" aria-label="Unread" />}
+          {poppedOut && <AppWindow className="size-3 shrink-0 text-muted-foreground" aria-label={t('Open in its own window')} />}
+          {unread && <span className="size-1.5 shrink-0 rounded-full bg-agent-question" aria-label={t('Unread')} />}
         </div>
         <div className="flex shrink-0 items-center gap-1">
           {compact && badges}
@@ -151,7 +152,7 @@ export function WorkspaceCard({
             <DropdownMenuTrigger asChild>
               <button
                 type="button"
-                aria-label={`Workspace actions for ${title}`}
+                aria-label={t('Workspace actions for {name}', { name: title })}
                 className={cn(
                   'flex size-5 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent/70 hover:text-foreground',
                   menuOpen ? 'opacity-100' : 'opacity-0 group-hover/card:opacity-100'

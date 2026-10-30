@@ -5,6 +5,7 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/component
 import { NativeChatDiffView } from './NativeChatDiffView'
 import { NativeChatExpandable } from './NativeChatExpandable'
 import type { TurnDiff, TurnDiffFile } from './native-chat-transcript-model'
+import { t } from '@/i18n/i18n'
 
 // Ported from Orca's NativeChatTurnDiffRollup and DiffLineCounts.
 
@@ -33,7 +34,7 @@ function TurnDiffFileRow({ file, onReveal }: { file: TurnDiffFile; onReveal: (pa
         <Button
           variant="ghost"
           size="icon-xs"
-          aria-label={open ? 'Hide diff' : 'Show diff'}
+          aria-label={open ? t('Hide diff') : t('Show diff')}
           title={file.path}
           aria-expanded={open}
           onClick={() => setOpen(!open)}
@@ -58,7 +59,7 @@ export function NativeChatTurnDiffRollup({ diff, onReveal }: { diff: TurnDiff; o
       <CollapsibleTrigger asChild>
         <Button variant="ghost" size="xs" className="group w-full min-w-0 justify-start gap-1.5">
           <span className="min-w-0 truncate">
-            {diff.files.length === 1 ? '1 changed file' : `${diff.files.length} changed files`}
+            {diff.files.length === 1 ? t('1 changed file') : t('{n} changed files', { n: diff.files.length })}
           </span>
           <DiffLineCounts added={diff.added} removed={diff.removed} />
           <ChevronRight

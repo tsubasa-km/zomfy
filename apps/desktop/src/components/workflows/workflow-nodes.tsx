@@ -6,6 +6,7 @@ import { cn } from '@/lib/utils'
 import { TuiAgentIcon } from '@/components/terminal/TuiAgentIcon'
 import { CycleNode, PHASE_CLASSES, PHASE_LETTERS, phaseOf } from './workflow-cycles'
 import { DataNode } from './workflow-data-canvas'
+import { t } from '@/i18n/i18n'
 
 // One card per step: its kind's icon and colour, the label, and the line that matters for that kind
 // (the role, the command, the round limit). Edges are routed by workflow-canvas-layout; the handles
@@ -55,7 +56,7 @@ export const STEP_ACCENTS: Record<WorkflowNodeKind, string> = {
   custom: 'text-primary'
 }
 
-const JOIN_LABELS = { all: 'all', majority: 'majority', any: 'any one', first: 'first done' } as const
+const JOIN_LABELS = { all: t('all'), majority: t('majority'), any: t('any one'), first: t('first done') } as const
 
 /** The agent a step's sessions run on (steps run in the starting chat are Claude); null for steps that are not sessions. */
 function stepAgent(node: WorkflowNode): string | null {
@@ -69,23 +70,23 @@ function detail(node: WorkflowNode): string {
   switch (node.kind) {
     case 'agent':
       return c.runBy === 'lead'
-        ? 'Your chat'
-        : [c.role, c.workspace === 'run-worktree' ? 'own worktree' : 'main workspace'].filter(Boolean).join(' · ')
+        ? t('Your chat')
+        : [c.role, c.workspace === 'run-worktree' ? t('own worktree') : t('main workspace')].filter(Boolean).join(' · ')
     case 'review':
-      return `${c.runBy === 'lead' ? 'Your chat' : (c.role ?? 'Reviewer')}${c.maxRounds ? ` · up to ${c.maxRounds} rounds` : ''}`
+      return `${c.runBy === 'lead' ? t('Your chat') : (c.role ?? t('Reviewer'))}${c.maxRounds ? ` · ${t('up to {n} rounds', { n: c.maxRounds })}` : ''}`
     case 'check':
-      return `${c.command?.trim() ? c.command : 'No command yet'}${c.maxRounds ? ` · up to ${c.maxRounds} tries` : ''}`
+      return `${c.command?.trim() ? c.command : t('No command yet')}${c.maxRounds ? ` · ${t('up to {n} tries', { n: c.maxRounds })}` : ''}`
     case 'human':
-      return `${c.askLeadFirst ? 'Your chat first, then you' : 'Asks you'}${c.question?.trim() ? ` · ${c.question}` : ''}`
+      return `${c.askLeadFirst ? t('Your chat first, then you') : t('Asks you')}${c.question?.trim() ? ` · ${c.question}` : ''}`
     case 'end':
-      return c.result === 'failed' ? 'Ends as failed' : 'Ends as done'
+      return c.result === 'failed' ? t('Ends as failed') : t('Ends as done')
     case 'custom': {
       const fields = c.fields?.length ?? 0
-      const runner = c.runner === 'command' ? c.command?.trim() || 'Command' : c.role || 'Agent'
-      return `${runner}${fields > 0 ? ` · ${fields} field${fields > 1 ? 's' : ''}` : ''}`
+      const runner = c.runner === 'command' ? c.command?.trim() || t('Command') : c.role || t('Agent')
+      return `${runner}${fields > 0 ? ` · ${fields > 1 ? t('{n} fields', { n: fields }) : t('{n} field', { n: fields })}` : ''}`
     }
     default:
-      return 'Where a run begins'
+      return t('Where a run begins')
   }
 }
 
@@ -127,7 +128,7 @@ function StepNode({ data, selected, type }: NodeProps<WorkflowCanvasNode>) {
           {phase && (
             <span
               className={cn('flex size-4 shrink-0 items-center justify-center rounded text-[10px] font-bold', PHASE_CLASSES[phase])}
-              title={`${phase[0]!.toUpperCase()}${phase.slice(1)} in its cycle`}
+              title={t('{phase} in its cycle', { phase: t(`${phase[0]!.toUpperCase()}${phase.slice(1)}`) })}
               data-workflow-phase={phase}
             >
               {PHASE_LETTERS[phase]}
@@ -138,7 +139,7 @@ function StepNode({ data, selected, type }: NodeProps<WorkflowCanvasNode>) {
           {parallel && (
             <span
               className="shrink-0 rounded bg-accent px-1 text-[10px] font-medium text-accent-foreground tabular-nums"
-              title={`${parallel.count} sessions at once; ${JOIN_LABELS[parallel.join]} decides`}
+              title={t('{n} sessions at once; {join} decides', { n: parallel.count, join: JOIN_LABELS[parallel.join] })}
               data-workflow-parallel={parallel.count}
             >
               ×{parallel.count}
@@ -147,7 +148,11 @@ function StepNode({ data, selected, type }: NodeProps<WorkflowCanvasNode>) {
           {helpers > 0 && (
             <span
               className="flex shrink-0 items-center gap-0.5 rounded bg-accent px-1 text-[10px] font-medium text-accent-foreground tabular-nums"
-              title={`Its agent may spawn up to ${helpers} helper agent${helpers > 1 ? 's' : ''} at once`}
+              title={
+                helpers > 1
+                  ? t('Its agent may spawn up to {n} helper agents at once', { n: helpers })
+                  : t('Its agent may spawn up to {n} helper agent at once', { n: helpers })
+              }
               data-workflow-max-agents={helpers}
             >
               <Users className="size-2.5" />≤{helpers}
@@ -155,25 +160,25 @@ function StepNode({ data, selected, type }: NodeProps<WorkflowCanvasNode>) {
           )}
           {issue && (
             <span
-              aria-label={issue === 'error' ? 'Has problems' : 'Has warnings'}
+              aria-label={issue === 'error' ? t('Has problems') : t('Has warnings')}
               className={cn('size-1.5 shrink-0 rounded-full', issue === 'error' ? 'bg-destructive' : 'bg-status-warning')}
             />
           )}
           {type === 'end' && node.config.result !== 'failed' && <CircleCheckBig className="size-3.5 shrink-0 text-status-success" />}
           {held && (
-            <span className="flex shrink-0 items-center" title="Works with local-only data; its results stay with local agents and you" data-workflow-held>
+            <span className="flex shrink-0 items-center" title={t('Works with local-only data; its results stay with local agents and you')} data-workflow-held>
               <Lock className="size-3 text-status-warning" />
             </span>
           )}
           {node.config.local && node.config.runBy !== 'lead' && (
-            <span className="flex shrink-0 items-center" title="Its agent runs on a local model" data-workflow-local>
+            <span className="flex shrink-0 items-center" title={t('Its agent runs on a local model')} data-workflow-local>
               <HardDrive className="size-3 text-muted-foreground" />
             </span>
           )}
           {agent && (
             <span
               className="flex shrink-0 items-center"
-              title={node.config.runBy === 'lead' ? "Runs in the chat that started the run (Claude)" : `Runs on ${chatAgentLabel(agent)}`}
+              title={node.config.runBy === 'lead' ? t('Runs in the chat that started the run (Claude)') : t('Runs on {agent}', { agent: chatAgentLabel(agent) })}
               data-workflow-node-agent={agent}
             >
               <TuiAgentIcon agent={agent} size={14} />
@@ -193,10 +198,10 @@ function StepNode({ data, selected, type }: NodeProps<WorkflowCanvasNode>) {
         {run && (run.visits > 0 || run.now) && (
           <div className="mt-1 truncate pl-6 text-[11px] font-medium" data-step-visits={run.visits}>
             {run.now === 'running'
-              ? 'Working…'
+              ? t('Working…')
               : run.now === 'waiting'
-                ? 'Waiting for you'
-                : `${run.visits}× · ${run.lastOutcome ?? (run.failed ? 'failed' : '—')}`}
+                ? t('Waiting for you')
+                : `${run.visits}× · ${run.lastOutcome ?? (run.failed ? t('failed') : '—')}`}
           </div>
         )}
         {type !== 'end' && <Handle id="out" type="source" position={Position.Right} className="!size-2.5 !border-border !bg-background" />}

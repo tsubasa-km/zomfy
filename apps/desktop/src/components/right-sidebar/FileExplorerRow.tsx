@@ -10,6 +10,7 @@ import {
 } from '@/components/ui/context-menu'
 import { cn } from '@/lib/utils'
 import { REVEAL_LABEL, parentDir } from './explorer-paths'
+import { t } from '@/i18n/i18n'
 
 // Orca's FileExplorerRow and file-explorer-row-context-menu: 16px indent per level, git decoration
 // colour on the name and letter on the right, the same menu items in the same order.
@@ -136,33 +137,33 @@ export function FileExplorerRow({
       <ContextMenuContent className="w-64" onCloseAutoFocus={(e) => e.preventDefault()}>
         <ContextMenuItem onSelect={() => actions.onStartNew('file', targetDir)}>
           <FilePlus />
-          New File
+          {t('New File')}
         </ContextMenuItem>
         <ContextMenuItem onSelect={() => actions.onStartNew('folder', targetDir)}>
           <FolderPlus />
-          New Folder
+          {t('New Folder')}
         </ContextMenuItem>
         <ContextMenuSeparator />
         <ContextMenuItem onSelect={() => actions.onCopyPaths('absolute')}>
           <Copy />
-          {many ? 'Copy Paths' : 'Copy Path'}
+          {many ? t('Copy Paths') : t('Copy Path')}
           <ContextMenuShortcut>{EXPLORER_SHORTCUTS.copyPath}</ContextMenuShortcut>
         </ContextMenuItem>
         <ContextMenuItem onSelect={() => actions.onCopyPaths('relative')}>
           <Copy />
-          {many ? 'Copy Relative Paths' : 'Copy Relative Path'}
+          {many ? t('Copy Relative Paths') : t('Copy Relative Path')}
           <ContextMenuShortcut>{EXPLORER_SHORTCUTS.copyRelativePath}</ContextMenuShortcut>
         </ContextMenuItem>
         {!isDir && (
           <ContextMenuItem onSelect={() => actions.onDuplicate(entry)}>
             <Files />
-            Duplicate
+            {t('Duplicate')}
           </ContextMenuItem>
         )}
         {isDir && (
           <ContextMenuItem onSelect={() => actions.onFindInFolder(entry)}>
             <Search />
-            Find in Folder
+            {t('Find in Folder')}
             <ContextMenuShortcut>{EXPLORER_SHORTCUTS.findInFolder}</ContextMenuShortcut>
           </ContextMenuItem>
         )}
@@ -173,12 +174,12 @@ export function FileExplorerRow({
         <ContextMenuSeparator />
         <ContextMenuItem onSelect={() => actions.onStartRename(entry)}>
           <Pencil />
-          Rename
+          {t('Rename')}
           <ContextMenuShortcut>{EXPLORER_SHORTCUTS.rename}</ContextMenuShortcut>
         </ContextMenuItem>
         <ContextMenuItem variant="destructive" onSelect={actions.onDelete}>
           <Trash2 />
-          Delete
+          {t('Delete')}
           <ContextMenuShortcut>{EXPLORER_SHORTCUTS.delete}</ContextMenuShortcut>
         </ContextMenuItem>
       </ContextMenuContent>

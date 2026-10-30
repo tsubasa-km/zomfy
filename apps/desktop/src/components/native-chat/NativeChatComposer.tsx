@@ -43,6 +43,7 @@ import { linkOf } from '@/stores/project-links-store'
 import { upsertWorkflowRun } from '@/stores/workflow-runs-store'
 import { confirmWorkflowStart } from '@/components/workflows/WorkflowStartConfirm'
 import { allWorkspaces, getState, hostLabel, useStore } from '@/session-store'
+import { t } from '@/i18n/i18n'
 
 // Layout and classes follow Orca's NativeChatComposer, NativeChatComposerField and
 // NativeChatComposerActions.
@@ -221,7 +222,7 @@ export function NativeChatComposer({
           setCaret(0)
         })
         .catch((error: unknown) =>
-          toast.error('The workflow did not start', { description: error instanceof Error ? error.message : String(error) })
+          toast.error(t('The workflow did not start'), { description: error instanceof Error ? error.message : String(error) })
         )
       return
     }
@@ -295,7 +296,7 @@ export function NativeChatComposer({
           ) : null}
           {offline ? (
             <p className="mb-1.5 px-1 text-xs text-muted-foreground" data-composer-offline>
-              Reconnecting to {hostLabel(session.hostId)}… You can keep writing; sending waits until it is back.
+              {t('Reconnecting to {host}… You can keep writing; sending waits until it is back.', { host: hostLabel(session.hostId) })}
             </p>
           ) : null}
           <div
@@ -321,17 +322,17 @@ export function NativeChatComposer({
             }}
           >
             {draftImages.length > 0 ? (
-              <div className="flex flex-wrap gap-2 px-1 pt-1.5 pb-1" aria-label="Attachments">
+              <div className="flex flex-wrap gap-2 px-1 pt-1.5 pb-1" aria-label={t('Attachments')}>
                 {draftImages.map((image, index) => (
                   <div key={index} className="relative size-14 shrink-0" data-native-chat-attachment>
                     <img
                       src={`data:${image.mimeType};base64,${image.data}`}
-                      alt={`Image ${index + 1}`}
+                      alt={t('Image {n}', { n: index + 1 })}
                       className="size-full rounded-md border border-border bg-chat-canvas object-cover"
                     />
                     <button
                       type="button"
-                      aria-label="Remove image"
+                      aria-label={t('Remove image')}
                       onClick={() =>
                         patchChatSession(session.id, (c) => ({ draftImages: c.draftImages.filter((_, i) => i !== index) }))
                       }
@@ -348,22 +349,22 @@ export function NativeChatComposer({
               value={draft}
               placeholder={
                 offline
-                  ? `Reconnecting to ${hostLabel(session.hostId)}… sending waits until it is back`
+                  ? t('Reconnecting to {host}… sending waits until it is back', { host: hostLabel(session.hostId) })
                   : workflow
-                    ? `The task for "${workflow.name}"`
+                    ? t('The task for "{name}"', { name: workflow.name })
                     : working
-                      ? 'Queue a follow-up'
-                      : (suggestion ?? 'Message the agent')
+                      ? t('Queue a follow-up')
+                      : (suggestion ?? t('Message the agent'))
               }
               contentAttributes={{
-                'aria-label': 'Message the agent',
+                'aria-label': t('Message the agent'),
                 'aria-multiline': 'true',
                 role: 'combobox',
                 'aria-expanded': String(autocomplete !== null),
                 'aria-controls': autocomplete ? listboxId : undefined,
                 'aria-activedescendant': autocomplete && optionCount > 0 ? `${listboxId}-option-${selected}` : undefined,
                 'data-native-chat-input': '',
-                'aria-description': suggestion ? `Suggestion: ${suggestion}. Press Tab to use it.` : undefined
+                'aria-description': suggestion ? t('Suggestion: {suggestion}. Press Tab to use it.', { suggestion }) : undefined
               }}
               onChange={(value) => {
                 setDraft(value)
@@ -424,7 +425,7 @@ export function NativeChatComposer({
                       <NativeChatAgentModelPicker model={slots.model} effort={slots.effort} onChange={changeAgentOption} />
                     ) : agentState?.phase === 'starting' ? (
                       <span className="px-1 text-xs" data-agent-phase="starting">
-                        Starting…
+                        {t('Starting…')}
                       </span>
                     ) : null
                   ) : options ? (
@@ -451,7 +452,7 @@ export function NativeChatComposer({
                         <Button
                           type="button"
                           data-native-chat-critical-action={working ? 'stop' : undefined}
-                          aria-label={working ? 'Stop the agent' : 'Send'}
+                          aria-label={working ? t('Stop the agent') : t('Send')}
                           onMouseDown={(event) => event.preventDefault()}
                           onClick={(event) => {
                             // A double-click lands after the first send started; it must not stop the new turn.
@@ -470,10 +471,10 @@ export function NativeChatComposer({
                     </TooltipTrigger>
                     <TooltipContent side="top" sideOffset={4} data-native-chat-send-hint>
                       {offline
-                        ? `Reconnecting to ${hostLabel(session.hostId)}…`
+                        ? t('Reconnecting to {host}…', { host: hostLabel(session.hostId) })
                         : working
-                          ? 'Stop the agent'
-                          : `Send (${SEND_LABEL[sendKey]})`}
+                          ? t('Stop the agent')
+                          : t('Send ({key})', { key: SEND_LABEL[sendKey] })}
                     </TooltipContent>
                   </Tooltip>
                 </div>

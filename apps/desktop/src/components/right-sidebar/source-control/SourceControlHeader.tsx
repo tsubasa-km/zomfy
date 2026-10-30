@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button'
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { cn } from '@/lib/utils'
+import { t } from '@/i18n/i18n'
 
 // Orca's source-control/panel: header-toolbar.tsx, header-overflow-menu.tsx and
 // branch-context-row.tsx (stacked "head / → base" with commit counts against the base).
@@ -48,7 +49,7 @@ export function SourceControlHeader({
     inputRef.current?.focus()
     inputRef.current?.select()
   }, [filterExpanded])
-  const filterTitle = normalized ? `Filter: ${filterQuery}` : 'Filter files by name'
+  const filterTitle = normalized ? t('Filter: {query}', { query: filterQuery }) : t('Filter files by name')
   const displayedBase = compareSummary?.baseRef ?? baseRef
 
   return (
@@ -70,8 +71,8 @@ export function SourceControlHeader({
                     onFilterExpandedChange(false)
                   }
                 }}
-                placeholder="Filter files…"
-                aria-label="Filter files…"
+                placeholder={t('Filter files…')}
+                aria-label={t('Filter files…')}
                 className="w-full min-w-0 flex-1 bg-transparent text-xs text-foreground outline-none placeholder:text-muted-foreground/60"
               />
             </div>
@@ -80,8 +81,8 @@ export function SourceControlHeader({
               variant="ghost"
               size="icon-xs"
               className="size-7 shrink-0 text-muted-foreground hover:text-foreground"
-              aria-label="Clear and close filter"
-              title="Clear and close filter"
+              aria-label={t('Clear and close filter')}
+              title={t('Clear and close filter')}
               onClick={() => {
                 onFilterQueryChange('')
                 onFilterExpandedChange(false)
@@ -116,7 +117,7 @@ export function SourceControlHeader({
                         variant="ghost"
                         size="icon-xs"
                         className="size-7 text-muted-foreground hover:text-foreground"
-                        aria-label="More source control actions"
+                        aria-label={t('More source control actions')}
                       >
                         <MoreHorizontal className="size-3.5" />
                       </Button>
@@ -124,22 +125,22 @@ export function SourceControlHeader({
                   </span>
                 </TooltipTrigger>
                 <TooltipContent side="bottom" sideOffset={6}>
-                  More source control actions
+                  {t('More source control actions')}
                 </TooltipContent>
               </Tooltip>
               <DropdownMenuContent align="end" className="min-w-[180px]">
                 <DropdownMenuItem onSelect={onToggleViewMode}>
                   {viewMode === 'tree' ? <List className="size-3.5" /> : <ListTree className="size-3.5" />}
-                  {viewMode === 'tree' ? 'View as list' : 'View as tree'}
+                  {viewMode === 'tree' ? t('View as list') : t('View as tree')}
                 </DropdownMenuItem>
                 <DropdownMenuItem onSelect={onChangeBaseRef}>
                   <Settings2 className="size-3.5" />
-                  Change Base Ref…
+                  {t('Change Base Ref…')}
                 </DropdownMenuItem>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem onSelect={onRefresh}>
                   <RefreshCw className="size-3.5" />
-                  Refresh
+                  {t('Refresh')}
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
@@ -155,7 +156,7 @@ export function SourceControlHeader({
                 <span
                   className="block max-w-full min-w-0 truncate rounded-sm font-mono text-[10.5px] font-medium text-foreground/90 outline-none focus-visible:ring-1 focus-visible:ring-ring"
                   tabIndex={0}
-                  aria-label={`Current branch: ${branch}`}
+                  aria-label={t('Current branch: {branch}', { branch })}
                   data-source-control-branch
                 >
                   {branch}
@@ -177,23 +178,23 @@ export function SourceControlHeader({
                   type="button"
                   className="max-w-full min-w-0 truncate rounded-sm border-0 bg-transparent p-0 text-left font-mono text-[10.5px] font-medium text-foreground/90 underline decoration-border underline-offset-2 hover:text-foreground hover:decoration-foreground"
                   onClick={onChangeBaseRef}
-                  title={`Change base ref (${displayedBase})`}
-                  aria-label={`Change base ref: ${displayedBase}`}
+                  title={t('Change base ref ({ref})', { ref: displayedBase })}
+                  aria-label={t('Change base ref: {ref}', { ref: displayedBase })}
                 >
                   {displayedBase}
                 </button>
               </span>
               {compareSummary?.status === 'ready' && (compareSummary.commitsAhead ?? 0) > 0 && (
-                <Stat label={`↑${compareSummary.commitsAhead}`} title={`${compareSummary.commitsAhead} commit${compareSummary.commitsAhead === 1 ? '' : 's'} ahead of ${displayedBase}`} />
+                <Stat label={`↑${compareSummary.commitsAhead}`} title={t(compareSummary.commitsAhead === 1 ? '{n} commit ahead of {ref}' : '{n} commits ahead of {ref}', { n: compareSummary.commitsAhead, ref: displayedBase })} />
               )}
               {compareSummary?.status === 'ready' && (compareSummary.commitsBehind ?? 0) > 0 && (
-                <Stat label={`↓${compareSummary.commitsBehind}`} title={`${compareSummary.commitsBehind} commit${compareSummary.commitsBehind === 1 ? '' : 's'} behind ${displayedBase}`} />
+                <Stat label={`↓${compareSummary.commitsBehind}`} title={t(compareSummary.commitsBehind === 1 ? '{n} commit behind {ref}' : '{n} commits behind {ref}', { n: compareSummary.commitsBehind, ref: displayedBase })} />
               )}
             </div>
           )}
           {compareSummary && compareSummary.status !== 'ready' && (
             <span className={cn('min-w-0 truncate', branch && 'pl-4')} title={compareSummary.errorMessage}>
-              {compareSummary.errorMessage ?? 'Branch compare unavailable'}
+              {compareSummary.errorMessage ?? t('Branch compare unavailable')}
             </span>
           )}
         </div>

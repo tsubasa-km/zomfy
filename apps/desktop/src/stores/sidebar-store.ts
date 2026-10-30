@@ -2,6 +2,7 @@ import { useSyncExternalStore } from 'react'
 import { nextSelection, type Gesture } from './list-selection'
 import type { WorkspaceStatusId, WorkspaceSummary } from '@acp-harness/protocol'
 import type { HostId } from '@/session-store'
+import { t } from '@/i18n/i18n'
 
 // Sidebar-only view state (Orca's workspace filters, card layout, selection, board). The daemon owns
 // workspaces; this keeps how one window looks at them.
@@ -27,11 +28,11 @@ export type CardLayout = 'detailed' | 'compact'
 export type CardProperty = 'branch' | 'changes' | 'sync' | 'agents' | 'notes'
 
 export const CARD_PROPERTIES: { id: CardProperty; label: string }[] = [
-  { id: 'branch', label: 'Branch' },
-  { id: 'changes', label: 'Changes (+/-)' },
-  { id: 'sync', label: 'Ahead / behind' },
-  { id: 'agents', label: 'Agent activity' },
-  { id: 'notes', label: 'Notes' }
+  { id: 'branch', label: t('Branch') },
+  { id: 'changes', label: t('Changes (+/-)') },
+  { id: 'sync', label: t('Ahead / behind') },
+  { id: 'agents', label: t('Agent activity') },
+  { id: 'notes', label: t('Notes') }
 ]
 
 export const EMPTY_FILTERS: SidebarFilters = {

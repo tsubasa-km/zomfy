@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { cn } from '@/lib/utils'
 import { CHECK_COLOR, CHECK_ICON, checkDuration, checkStatusLabel, openExternal } from './review-presentation'
+import { t } from '@/i18n/i18n'
 
 // Orca's checks-panel/checks-list.tsx: a collapsible pass/fail/pending summary over the check rows.
 
@@ -47,25 +48,25 @@ export function ChecksList({
           {passing > 0 && (
             <span className="flex items-center gap-1">
               <CircleCheck className="size-3 text-emerald-500" />
-              {passing} passing
+              {t('{n} passing', { n: passing })}
             </span>
           )}
           {failing > 0 && (
             <span className="flex items-center gap-1">
               <CircleX className="size-3 text-rose-500" />
-              {failing} failing
+              {t('{n} failing', { n: failing })}
             </span>
           )}
           {pending > 0 && (
             <span className="flex items-center gap-1">
               <LoaderCircle className="size-3 text-amber-500" />
-              {pending} pending
+              {t('{n} pending', { n: pending })}
             </span>
           )}
           {neutral > 0 && (
             <span className="flex items-center gap-1">
               <CircleDashed className="size-3 text-muted-foreground" />
-              {neutral} skipped
+              {t('{n} skipped', { n: neutral })}
             </span>
           )}
           <span className="flex-1" />
@@ -82,7 +83,7 @@ export function ChecksList({
           {error}
         </div>
       ) : list.length === 0 ? (
-        <div className="px-4 py-8 text-[11px] text-muted-foreground">{checks ? 'No checks configured' : ''}</div>
+        <div className="px-4 py-8 text-[11px] text-muted-foreground">{checks ? t('No checks configured') : ''}</div>
       ) : !expanded ? null : (
         <div className="border-b border-border py-1">
           {list.map((check, index) => {
@@ -114,14 +115,14 @@ export function ChecksList({
                           variant="ghost"
                           size="icon-xs"
                           className="size-6 text-muted-foreground hover:text-foreground"
-                          aria-label="Open check details"
+                          aria-label={t('Open check details')}
                           onClick={() => openExternal(check.url!)}
                         >
                           <ExternalLink className="size-3" />
                         </Button>
                       </TooltipTrigger>
                       <TooltipContent side="left" sideOffset={4}>
-                        Open check details
+                        {t('Open check details')}
                       </TooltipContent>
                     </Tooltip>
                   )}

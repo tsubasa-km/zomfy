@@ -64,6 +64,8 @@ export interface AppSettings {
   onboardingDone: boolean
   /** The guided tour was finished or ended; the command palette and settings start it again. */
   tourDone: boolean
+  /** UI language: 'system' follows the OS. Read once per window load (i18n.ts). */
+  language: 'system' | 'en' | 'ja'
   /** Windows: closing the window hides it to the tray instead of quitting (Orca's minimizeToTrayOnClose). */
   minimizeToTrayOnClose: boolean
   /** Composer dictation, sent only to the transcription endpoint configured below. */
@@ -116,6 +118,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
   defaultHost: 'auto',
   onboardingDone: false,
   tourDone: false,
+  language: 'system',
   minimizeToTrayOnClose: false,
   voiceDictationEnabled: false,
   dictationEndpoint: '',
@@ -128,7 +131,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
 
 export type SettingKey = keyof AppSettings
 
-const STORAGE_KEY = 'acp-harness.settings.v1'
+export const STORAGE_KEY = 'acp-harness.settings.v1'
 
 function readSaved(): AppSettings {
   try {

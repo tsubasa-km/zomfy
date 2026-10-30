@@ -31,6 +31,7 @@ import { openAddProjectDialog } from '@/lib/project-dialogs'
 import { suggestWorkspaceName } from '@/lib/workspace-name-suggestion'
 import { IS_MAC } from '@/keybindings/keybinding-chords'
 import { ProjectCombobox } from '@/components/sidebar/ProjectCombobox'
+import { t } from '@/i18n/i18n'
 
 // Orca's NewWorkspaceComposerModal: name, agent and first prompt up front; branch name override,
 // base branch or an existing branch, parent workspace, note and the setup script under Advanced.
@@ -147,7 +148,7 @@ export function NewWorkspaceDialog({ request, onClose }: { request: NewWorkspace
   async function create() {
     if (!project) return
     if (startFrom === 'existing-branch' && isGit && !existingBranch) {
-      setError('Pick the branch to check out')
+      setError(t('Pick the branch to check out'))
       return
     }
     setBusy(true)
@@ -195,13 +196,13 @@ export function NewWorkspaceDialog({ request, onClose }: { request: NewWorkspace
     <Dialog open={request !== null} onOpenChange={(open) => !open && onClose()}>
       <DialogContent className="flex max-h-[calc(100vh-2rem)] flex-col sm:max-w-lg" data-new-workspace-dialog>
         <DialogHeader>
-          <DialogTitle>{isGit ? 'Create Workspace' : 'Create Folder Workspace'}</DialogTitle>
+          <DialogTitle>{isGit ? t('Create Workspace') : t('Create Folder Workspace')}</DialogTitle>
           <DialogDescription>
             {isGit
               ? request?.parent
-                ? `A child of ${workspaceLabel(request.parent)} in ${label}.`
-                : `A new git worktree and branch in ${label}.`
-              : `A new workspace in ${label}. Folder workspaces share the folder.`}
+                ? t('A child of {parent} in {project}.', { parent: workspaceLabel(request.parent), project: label })
+                : t('A new git worktree and branch in {project}.', { project: label })
+              : t('A new workspace in {project}. Folder workspaces share the folder.', { project: label })}
           </DialogDescription>
         </DialogHeader>
         <form
@@ -218,7 +219,7 @@ export function NewWorkspaceDialog({ request, onClose }: { request: NewWorkspace
           }}
         >
           <div className="space-y-1.5">
-            <Label className={fieldLabel}>Project</Label>
+            <Label className={fieldLabel}>{t('Project')}</Label>
             <ProjectCombobox
               value={project}
               onChange={changeProject}
@@ -232,7 +233,7 @@ export function NewWorkspaceDialog({ request, onClose }: { request: NewWorkspace
           <div className="space-y-1.5">
             <div className="flex items-center justify-between gap-2">
               <Label htmlFor="workspace-name" className={fieldLabel}>
-                Name
+                {t('Name')}
               </Label>
               {isGit && project && <WorkItemPicker project={project} onPick={linkWorkItem} />}
             </div>
@@ -244,13 +245,13 @@ export function NewWorkspaceDialog({ request, onClose }: { request: NewWorkspace
                 <span className="shrink-0 font-medium">{workItemLabel(workItem)}</span>
                 <span className="min-w-0 flex-1 truncate text-muted-foreground">{workItem.title}</span>
                 {workItem.kind === 'review' && workItem.headRefName && (
-                  <span className="max-w-32 shrink-0 truncate font-mono text-[10px] text-muted-foreground" title="Checks out the review's head">
+                  <span className="max-w-32 shrink-0 truncate font-mono text-[10px] text-muted-foreground" title={t("Checks out the review's head")}>
                     {workItem.headRefName}
                   </span>
                 )}
                 <button
                   type="button"
-                  aria-label="Unlink"
+                  aria-label={t('Unlink')}
                   className="shrink-0 text-muted-foreground hover:text-foreground"
                   onClick={() => {
                     if (prompt === buildWorkItemPrompt(workItem)) setPrompt('')
@@ -264,7 +265,7 @@ export function NewWorkspaceDialog({ request, onClose }: { request: NewWorkspace
             <Input
               id="workspace-name"
               autoFocus
-              placeholder={startFrom === 'existing-branch' && isGit ? 'Defaults to the branch name' : suggestedName || 'fix-login-bug'}
+              placeholder={startFrom === 'existing-branch' && isGit ? t('Defaults to the branch name') : suggestedName || 'fix-login-bug'}
               value={name}
               onChange={(e) => setName(e.target.value)}
             />
@@ -272,7 +273,7 @@ export function NewWorkspaceDialog({ request, onClose }: { request: NewWorkspace
 
           <div className="grid grid-cols-[8rem_1fr] items-start gap-3">
             <div className="space-y-1.5">
-              <Label className={fieldLabel}>Agent</Label>
+              <Label className={fieldLabel}>{t('Agent')}</Label>
               <Select value={agent} onValueChange={(v) => setAgent(isChatAgentId(v) ? v : 'none')}>
                 <SelectTrigger className="w-full" data-agent-select>
                   <SelectValue />
@@ -284,13 +285,13 @@ export function NewWorkspaceDialog({ request, onClose }: { request: NewWorkspace
                       {a.label}
                     </SelectItem>
                   ))}
-                  <SelectItem value="none">No agent</SelectItem>
+                  <SelectItem value="none">{t('No agent')}</SelectItem>
                 </SelectContent>
               </Select>
             </div>
             <div className="space-y-1.5">
               <Label htmlFor="workspace-prompt" className={fieldLabel}>
-                First prompt
+                {t('First prompt')}
               </Label>
               <textarea
                 id="workspace-prompt"
@@ -298,7 +299,7 @@ export function NewWorkspaceDialog({ request, onClose }: { request: NewWorkspace
                 disabled={agent === 'none'}
                 value={prompt}
                 onChange={(e) => setPrompt(e.target.value)}
-                placeholder={agent === 'none' ? 'No agent will start' : 'What should the agent do? (optional)'}
+                placeholder={agent === 'none' ? t('No agent will start') : t('What should the agent do? (optional)')}
                 className={cn(textareaClass, 'max-h-40 disabled:opacity-50')}
               />
             </div>
@@ -312,7 +313,7 @@ export function NewWorkspaceDialog({ request, onClose }: { request: NewWorkspace
             onClick={() => setAdvanced(!advanced)}
           >
             <ChevronRight className={cn('size-3.5 transition-transform', advanced && 'rotate-90')} />
-            Advanced
+            {t('Advanced')}
           </button>
 
           {advanced && (
@@ -327,10 +328,10 @@ export function NewWorkspaceDialog({ request, onClose }: { request: NewWorkspace
                     onValueChange={(v) => v && setStartFrom(v === 'existing-branch' ? 'existing-branch' : 'new-branch')}
                   >
                     <ToggleGroupItem value="new-branch" data-start-from="new-branch" className="px-3 text-xs">
-                      New branch
+                      {t('New branch')}
                     </ToggleGroupItem>
                     <ToggleGroupItem value="existing-branch" data-start-from="existing-branch" className="px-3 text-xs">
-                      Existing branch
+                      {t('Existing branch')}
                     </ToggleGroupItem>
                   </ToggleGroup>
 
@@ -338,32 +339,32 @@ export function NewWorkspaceDialog({ request, onClose }: { request: NewWorkspace
                     <>
                       <div className="space-y-1.5">
                         <Label htmlFor="workspace-base" className={fieldLabel}>
-                          Base branch
+                          {t('Base branch')}
                         </Label>
                         <BranchCombobox
                           id="workspace-base"
                           value={baseRef}
-                          placeholder={`Default (${branches?.defaultBaseRef ?? 'origin/HEAD, main or master'})`}
+                          placeholder={t('Default ({ref})', { ref: branches?.defaultBaseRef ?? t('origin/HEAD, main or master') })}
                           onChange={setBaseRef}
                           groups={[
                             {
-                              heading: 'Local',
+                              heading: t('Local'),
                               options: (branches?.branches ?? []).map((b) => ({
                                 value: b,
-                                hint: b === branches?.current ? 'current' : undefined
+                                hint: b === branches?.current ? t('current') : undefined
                               }))
                             },
-                            { heading: 'Remote', options: (branches?.remoteBranches ?? []).map((b) => ({ value: b })) }
+                            { heading: t('Remote'), options: (branches?.remoteBranches ?? []).map((b) => ({ value: b })) }
                           ]}
                         />
                       </div>
                       <div className="space-y-1.5">
                         <Label htmlFor="workspace-branch-name" className={fieldLabel}>
-                          Branch name
+                          {t('Branch name')}
                         </Label>
                         <Input
                           id="workspace-branch-name"
-                          placeholder="Defaults to <git user>/<name>"
+                          placeholder={t('Defaults to <git user>/<name>')}
                           value={branchName}
                           onChange={(e) => setBranchName(e.target.value)}
                           className="font-mono text-xs"
@@ -373,20 +374,20 @@ export function NewWorkspaceDialog({ request, onClose }: { request: NewWorkspace
                   ) : (
                     <div className="space-y-1.5">
                       <Label htmlFor="workspace-existing" className={fieldLabel}>
-                        Branch to check out
+                        {t('Branch to check out')}
                       </Label>
                       <BranchCombobox
                         id="workspace-existing"
                         value={existingBranch}
-                        placeholder="Pick a branch"
+                        placeholder={t('Pick a branch')}
                         onChange={setExistingBranch}
                         groups={[
                           {
-                            heading: 'Local',
+                            heading: t('Local'),
                             options: (branches?.branches ?? []).map((b) => ({
                               value: b,
                               disabled: checkedOut.has(b),
-                              hint: checkedOut.has(b) ? 'checked out' : undefined
+                              hint: checkedOut.has(b) ? t('checked out') : undefined
                             }))
                           }
                         ]}
@@ -395,13 +396,13 @@ export function NewWorkspaceDialog({ request, onClose }: { request: NewWorkspace
                   )}
 
                   <div className="space-y-1.5">
-                    <Label className={fieldLabel}>Parent workspace</Label>
+                    <Label className={fieldLabel}>{t('Parent workspace')}</Label>
                     <Select value={parentId} onValueChange={setParentId}>
                       <SelectTrigger className="w-full" data-parent-select>
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value={NO_PARENT}>None</SelectItem>
+                        <SelectItem value={NO_PARENT}>{t('None')}</SelectItem>
                         {siblings.map((w) => (
                           <SelectItem key={w.id} value={w.id}>
                             {workspaceLabel(w)}
@@ -415,14 +416,14 @@ export function NewWorkspaceDialog({ request, onClose }: { request: NewWorkspace
 
               <div className="space-y-1.5">
                 <Label htmlFor="workspace-note" className={fieldLabel}>
-                  Note
+                  {t('Note')}
                 </Label>
                 <textarea
                   id="workspace-note"
                   rows={1}
                   value={note}
                   onChange={(e) => setNote(e.target.value)}
-                  placeholder="Write a note"
+                  placeholder={t('Write a note')}
                   className={cn(textareaClass, 'max-h-40')}
                 />
               </div>
@@ -434,20 +435,20 @@ export function NewWorkspaceDialog({ request, onClose }: { request: NewWorkspace
             {isGit && setupScript && (
               <div className="space-y-2" data-setup-section>
                 <div className="flex items-center justify-between gap-2">
-                  <span className={fieldLabel}>Setup script</span>
+                  <span className={fieldLabel}>{t('Setup script')}</span>
                   <span className="rounded border border-border/50 bg-muted/30 px-1.5 py-0.5 font-mono text-[10px] text-muted-foreground">
                     {hooks?.file && hooks.localHooks.setup
-                      ? `${hooks.file} + local`
+                      ? t('{file} + local', { file: hooks.file })
                       : hooks?.fileHooks.setup
                         ? hooks.file
-                        : 'local settings'}
+                        : t('local settings')}
                   </span>
                 </div>
                 <pre className="max-h-28 overflow-auto rounded-md border border-border/60 bg-muted/25 px-2 py-1.5 font-mono text-[11px] whitespace-pre-wrap">
                   {setupScript}
                 </pre>
                 <label className="flex items-center justify-between gap-3 rounded-md border border-border/60 bg-muted/25 p-2.5">
-                  <span className="text-xs font-medium text-foreground">Run setup script in a terminal</span>
+                  <span className="text-xs font-medium text-foreground">{t('Run setup script in a terminal')}</span>
                   <Switch checked={runSetup} onCheckedChange={setRunSetup} data-run-setup />
                 </label>
               </div>
@@ -456,10 +457,10 @@ export function NewWorkspaceDialog({ request, onClose }: { request: NewWorkspace
           {error && <p className="text-sm break-words text-destructive">{error}</p>}
           <DialogFooter>
             <Button type="button" variant="outline" onClick={onClose}>
-              Cancel
+              {t('Cancel')}
             </Button>
             <Button type="submit" disabled={busy} title={IS_MAC ? '⌘Enter' : 'Ctrl+Enter'}>
-              {busy ? 'Creating…' : 'Create'}
+              {busy ? t('Creating…') : t('Create')}
             </Button>
           </DialogFooter>
         </form>

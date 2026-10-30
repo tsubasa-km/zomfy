@@ -18,6 +18,7 @@ import { returnToMainWindow, workspaceWindowTitle } from '@/lib/workspace-window
 import { installTheme } from '@/lib/theme'
 import { installUiZoom } from '@/lib/ui-zoom'
 import '@/assets/main.css'
+import { t } from '@/i18n/i18n'
 
 installTheme()
 installUiZoom()
@@ -60,11 +61,11 @@ export default function WorkspaceWindow() {
           {known ? (
             <WorkspaceTabs
               workspaceId={workspaceId}
-              emptyHint="No tabs yet. Use + in the tab bar to start Claude in this workspace."
+              emptyHint={t('No tabs yet. Use + in the tab bar to start Claude in this workspace.')}
               trailing={
                 <div className="flex items-center gap-0.5 pr-1">
                   {!rightOpen && (
-                    <Button size="icon-xs" variant="ghost" aria-label="Show right sidebar" onClick={() => setRightSidebar({ open: true })}>
+                    <Button size="icon-xs" variant="ghost" aria-label={t('Show right sidebar')} onClick={() => setRightSidebar({ open: true })}>
                       <PanelRightOpen className="size-3.5" />
                     </Button>
                   )}
@@ -72,8 +73,8 @@ export default function WorkspaceWindow() {
                     <Button
                       size="icon-xs"
                       variant="ghost"
-                      aria-label="Back to the main window"
-                      title="Back to the main window"
+                      aria-label={t('Back to the main window')}
+                      title={t('Back to the main window')}
                       onClick={() => void returnToMainWindow(workspaceId)}
                     >
                       <Undo2 className="size-3.5" />
@@ -83,7 +84,7 @@ export default function WorkspaceWindow() {
               }
             />
           ) : (
-            <div className="m-auto text-sm text-muted-foreground">Connecting…</div>
+            <div className="m-auto text-sm text-muted-foreground">{t('Connecting…')}</div>
           )}
         </main>
         {known && <RightSidebar workspaceId={workspaceId} />}

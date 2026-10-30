@@ -11,6 +11,7 @@ import {
 } from '@/stores/terminal-pane-store'
 import { cn } from '@/lib/utils'
 import { focusPaneTerminal } from './terminal-pane-commands'
+import { t } from '@/i18n/i18n'
 
 // Orca's split terminal panes: panes are laid out absolutely from the tree so splitting or closing
 // one never remounts the others' xterm (their screens and scroll stay put).
@@ -109,7 +110,7 @@ function Pane({ terminalId, rect, active, dimmed, hidden, tabId }: { terminalId:
       onFocusCapture={() => setActivePane(tabId, terminalId)}
       onPointerDown={() => setActivePane(tabId, terminalId)}
     >
-      {terminal ? <TerminalView terminal={terminal} /> : <div className="m-auto text-xs text-muted-foreground">Starting terminal…</div>}
+      {terminal ? <TerminalView terminal={terminal} /> : <div className="m-auto text-xs text-muted-foreground">{t('Starting terminal…')}</div>}
     </div>
   )
 }

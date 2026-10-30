@@ -3,7 +3,7 @@ import { ArrowLeft, CalendarClock, MessageSquare, Pencil, Play, Plus, Trash2 } f
 import {
   HARNESS_METHODS,
   chatAgentLabel,
-  describeAutomationSchedule,
+  automationScheduleFields,
   type AutomationRunStatus,
   type AutomationTrigger
 } from '@acp-harness/protocol'
@@ -25,25 +25,44 @@ import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Switch } from '@/components/ui/switch'
 import { cn } from '@/lib/utils'
+import { t } from '@/i18n/i18n'
 
 // Orca's Automations page (AutomationsPage.tsx, AutomationsListPanel, AutomationsDetailPane,
 // AutomationRunHistory): the list on the left, the selected automation and its runs on the right.
 
 const STATUS_LABEL: Record<AutomationRunStatus, string> = {
-  dispatched: 'Running',
-  completed: 'Completed',
-  failed: 'Failed',
-  dispatch_failed: 'Could not start',
-  skipped_missed: 'Skipped (missed)',
-  skipped_unavailable: 'Skipped (workspace gone)'
+  dispatched: t('Running'),
+  completed: t('Completed'),
+  failed: t('Failed'),
+  dispatch_failed: t('Could not start'),
+  skipped_missed: t('Skipped (missed)'),
+  skipped_unavailable: t('Skipped (workspace gone)')
+}
+
+const DAY_NAMES = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'] as const
+
+/** The protocol's describeAutomationSchedule, in the window's language. */
+function describeSchedule(rrule: string): string {
+  const fields = automationScheduleFields(rrule)
+  if (!fields) return t('Custom schedule')
+  const minute = String(fields.minute).padStart(2, '0')
+  const time = `${String(fields.hour).padStart(2, '0')}:${minute}`
+  if (fields.preset === 'hourly') return t('Hourly at :{minute}', { minute })
+  if (fields.preset === 'daily') return t('Daily at {time}', { time })
+  if (fields.preset === 'weekdays') return t('Weekdays at {time}', { time })
+  return t('{day}s at {time}', { day: t(DAY_NAMES[fields.dayOfWeek] ?? 'Monday'), time })
 }
 
 export function triggerLabel(trigger: AutomationTrigger, names: Map<string, string>): string {
-  if (trigger.kind === 'schedule') return describeAutomationSchedule(trigger.rrule)
+  if (trigger.kind === 'schedule') return describeSchedule(trigger.rrule)
   if (trigger.kind === 'workspace-created') {
-    return `When a workspace is created in ${trigger.projectId ? (names.get(trigger.projectId) ?? 'a removed project') : 'any project'}`
+    return t('When a workspace is created in {project}', {
+      project: trigger.projectId ? (names.get(trigger.projectId) ?? t('a removed project')) : t('any project')
+    })
   }
-  return `When an agent finishes in ${trigger.workspaceId ? (names.get(trigger.workspaceId) ?? 'a removed workspace') : 'any workspace'}`
+  return t('When an agent finishes in {workspace}', {
+    workspace: trigger.workspaceId ? (names.get(trigger.workspaceId) ?? t('a removed workspace')) : t('any workspace')
+  })
 }
 
 function formatTime(ms: number | null): string {
@@ -86,12 +105,12 @@ export function AutomationsPage() {
       }}
     >
       <div className="flex h-11 shrink-0 items-center gap-2 border-b border-border px-3">
-        <Button size="icon-xs" variant="ghost" aria-label="Back" onClick={() => setAutomationsPageOpen(false)}>
+        <Button size="icon-xs" variant="ghost" aria-label={t('Back')} onClick={() => setAutomationsPageOpen(false)}>
           <ArrowLeft />
         </Button>
         <CalendarClock className="size-4 text-muted-foreground" />
-        <h1 className="text-[13px] font-semibold">Automations</h1>
-        <span className="text-[11px] text-muted-foreground">Run on each host's daemon, even with this window closed</span>
+        <h1 className="text-[13px] font-semibold">{t('Automations')}</h1>
+        <span className="text-[11px] text-muted-foreground">{t("Run on each host's daemon, even with this window closed")}</span>
         <Button
           size="sm"
           className="ml-auto"
@@ -99,14 +118,14 @@ export function AutomationsPage() {
           onClick={() => setEditor({ open: true, existing: null })}
         >
           <Plus />
-          New automation
+          {t('New automation')}
         </Button>
       </div>
       <div className="flex min-h-0 flex-1">
         <div className="scrollbar-sleek flex w-[320px] shrink-0 flex-col gap-1 overflow-y-auto border-r border-border p-2">
           {automations.length === 0 ? (
             <p className="px-2 py-6 text-center text-xs text-muted-foreground">
-              No automations yet. Create one to run a prompt on a schedule or when something happens.
+              {t('No automations yet. Create one to run a prompt on a schedule or when something happens.')}
             </p>
           ) : null}
           {automations.map((automation) => (
@@ -169,13 +188,13 @@ function AutomationRow({
         <span className="truncate text-[11px] text-muted-foreground">{label}</span>
         <span className="truncate text-[11px] text-muted-foreground">
           {hostLabel}
-          {automation.enabled && automation.nextRunAt !== null ? ` · next ${formatTime(automation.nextRunAt)}` : ''}
-          {!automation.enabled ? ' · paused' : ''}
+          {automation.enabled && automation.nextRunAt !== null ? t(' · next {time}', { time: formatTime(automation.nextRunAt) }) : ''}
+          {!automation.enabled ? t(' · paused') : ''}
         </span>
       </button>
       <Switch
         checked={automation.enabled}
-        aria-label={automation.enabled ? 'Disable automation' : 'Enable automation'}
+        aria-label={automation.enabled ? t('Disable automation') : t('Enable automation')}
         data-automation-enabled={automation.id}
         onCheckedChange={(enabled) => void setEnabled(automation, enabled)}
       />
@@ -218,7 +237,7 @@ function AutomationDetail({
           <h2 className="truncate text-lg font-semibold">{automation.name}</h2>
           <p className="text-xs text-muted-foreground">
             {triggerLabel(automation.trigger, names)}
-            {automation.workspaceId ? ` · ${names.get(automation.workspaceId) ?? 'removed workspace'}` : ''} ·{' '}
+            {automation.workspaceId ? ` · ${names.get(automation.workspaceId) ?? t('removed workspace')}` : ''} ·{' '}
             {chatAgentLabel(automation.agent)}
             {automation.effort ? ` (${automation.effort})` : ''}
           </p>
@@ -227,7 +246,7 @@ function AutomationDetail({
           size="sm"
           variant="outline"
           disabled={!runTarget}
-          title={runTarget ? undefined : 'Select a workspace on this host to run it in'}
+          title={runTarget ? undefined : t('Select a workspace on this host to run it in')}
           data-automation-run-now
           onClick={() =>
             void act(() =>
@@ -240,39 +259,40 @@ function AutomationDetail({
           }
         >
           <Play />
-          Run now
+          {t('Run now')}
         </Button>
         <Button size="sm" variant="outline" onClick={onEdit}>
           <Pencil />
-          Edit
+          {t('Edit')}
         </Button>
-        <Button size="sm" variant="ghost" aria-label="Delete automation" data-automation-delete onClick={() => setConfirmDelete(true)}>
+        <Button size="sm" variant="ghost" aria-label={t('Delete automation')} data-automation-delete onClick={() => setConfirmDelete(true)}>
           <Trash2 />
         </Button>
       </div>
       {error ? <p className="text-xs text-destructive">{error}</p> : null}
       <section className="grid gap-2">
-        <h3 className="text-xs font-semibold tracking-[0.05em] text-muted-foreground uppercase">Prompt</h3>
+        <h3 className="text-xs font-semibold tracking-[0.05em] text-muted-foreground uppercase">{t('Prompt')}</h3>
         <pre className="rounded-lg border border-border bg-muted/30 p-3 font-sans text-sm whitespace-pre-wrap">
           {automation.prompt}
         </pre>
       </section>
       <section className="grid gap-2">
         <h3 className="text-xs font-semibold tracking-[0.05em] text-muted-foreground uppercase">
-          Run history{runs.length > 0 ? ` (${runs.length})` : ''}
+          {t('Run history')}
+          {runs.length > 0 ? ` (${runs.length})` : ''}
         </h3>
         {runs.length === 0 ? (
-          <p className="text-xs text-muted-foreground">No runs yet.</p>
+          <p className="text-xs text-muted-foreground">{t('No runs yet.')}</p>
         ) : (
           <div className="overflow-hidden rounded-lg border border-border">
             <table className="w-full text-left text-xs" data-automation-runs>
               <thead className="bg-muted/40 text-muted-foreground">
                 <tr>
-                  <th className="px-3 py-2 font-medium">Run</th>
-                  <th className="px-3 py-2 font-medium">Status</th>
-                  <th className="px-3 py-2 font-medium">Trigger</th>
-                  <th className="px-3 py-2 font-medium">Started</th>
-                  <th className="px-3 py-2 font-medium">Workspace</th>
+                  <th className="px-3 py-2 font-medium">{t('Run')}</th>
+                  <th className="px-3 py-2 font-medium">{t('Status')}</th>
+                  <th className="px-3 py-2 font-medium">{t('Trigger')}</th>
+                  <th className="px-3 py-2 font-medium">{t('Started')}</th>
+                  <th className="px-3 py-2 font-medium">{t('Workspace')}</th>
                   <th className="px-3 py-2" />
                 </tr>
               </thead>
@@ -288,12 +308,12 @@ function AutomationDetail({
       <Dialog open={confirmDelete} onOpenChange={setConfirmDelete}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
-            <DialogTitle>Delete “{automation.name}”?</DialogTitle>
-            <DialogDescription>Its schedule stops and its run history goes. Chats its runs opened stay open.</DialogDescription>
+            <DialogTitle>{t('Delete “{name}”?', { name: automation.name })}</DialogTitle>
+            <DialogDescription>{t('Its schedule stops and its run history goes. Chats its runs opened stay open.')}</DialogDescription>
           </DialogHeader>
           <DialogFooter>
             <Button variant="outline" onClick={() => setConfirmDelete(false)}>
-              Cancel
+              {t('Cancel')}
             </Button>
             <Button
               variant="destructive"
@@ -304,7 +324,7 @@ function AutomationDetail({
                 void act(() => harnessRequest(HARNESS_METHODS.automationDelete, { id: automation.id }, automation.hostId))
               }}
             >
-              Delete
+              {t('Delete')}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -333,7 +353,7 @@ function RunRow({ run, workspace }: { run: HostedAutomationRun; workspace: strin
         </span>
         {run.error ? <span className="block truncate text-[11px] text-muted-foreground">{run.error}</span> : null}
       </td>
-      <td className="px-3 py-2 capitalize">{run.trigger}</td>
+      <td className="px-3 py-2 capitalize">{t(run.trigger)}</td>
       <td className="px-3 py-2 tabular-nums">{formatTime(run.startedAt ?? run.scheduledFor)}</td>
       <td className="max-w-[160px] truncate px-3 py-2">{workspace}</td>
       <td className="px-3 py-2 text-right">
@@ -348,7 +368,7 @@ function RunRow({ run, workspace }: { run: HostedAutomationRun; workspace: strin
             }}
           >
             <MessageSquare />
-            Open chat
+            {t('Open chat')}
           </Button>
         ) : null}
       </td>

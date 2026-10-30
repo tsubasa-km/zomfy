@@ -18,6 +18,7 @@ import {
   DropdownMenuTrigger
 } from '@/components/ui/dropdown-menu'
 import { cn } from '@/lib/utils'
+import { t } from '@/i18n/i18n'
 
 // A trial of the layout being considered: one app-wide grid of chats from different projects, each pane
 // with a drawer under its tab strip that holds the project's terminals and browsers. Data is unchanged.
@@ -59,7 +60,7 @@ export function installProjectGridPreview(): void {
   registerKeybindingDefinitions([
     {
       id: 'layoutPreview.projectGrid',
-      title: 'Try Multi-Project Layout (Preview)',
+      title: t('Try Multi-Project Layout (Preview)'),
       group: 'Global',
       keywords: ['layout', 'grid', 'split', 'projects', 'preview', 'drawer'],
       defaultBindings: []
@@ -73,11 +74,11 @@ export function ProjectGridPreview() {
   return (
     <div className="flex min-w-0 flex-1 flex-col" data-project-grid-preview>
       <div className="flex h-7 shrink-0 items-center gap-2 border-b border-border px-3 text-xs text-muted-foreground">
-        <span>Multi-project layout · preview</span>
-        <span className="text-muted-foreground/70">Hover just under a tab bar to pull down the project's terminals and browsers.</span>
+        <span>{t('Multi-project layout · preview')}</span>
+        <span className="text-muted-foreground/70">{t("Hover just under a tab bar to pull down the project's terminals and browsers.")}</span>
         <Button variant="ghost" size="sm" className="ml-auto h-6 px-2 text-xs" onClick={toggleProjectGridPreview}>
           <X className="size-3.5" />
-          Exit preview
+          {t('Exit preview')}
         </Button>
       </div>
       <div className="grid min-h-0 flex-1 grid-cols-2 grid-rows-2 gap-px bg-border">
@@ -108,13 +109,13 @@ function WorkspacePicker({ index, current }: { index: number; current: string | 
           className="flex min-w-0 shrink-0 items-center gap-1 rounded-md px-1.5 py-1 text-xs font-medium hover:bg-accent/50"
           data-preview-picker
         >
-          <span className="max-w-32 truncate">{here ? here.project : 'Pick a project'}</span>
+          <span className="max-w-32 truncate">{here ? here.project : t('Pick a project')}</span>
           {here?.branch && <span className="max-w-24 truncate font-normal text-muted-foreground">{here.branch}</span>}
           <ChevronDown className="size-3 text-muted-foreground" />
         </button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="start" className="max-h-80 overflow-y-auto">
-        <DropdownMenuLabel>Show in this pane</DropdownMenuLabel>
+        <DropdownMenuLabel>{t('Show in this pane')}</DropdownMenuLabel>
         <DropdownMenuSeparator />
         {list.map((w) => (
           <DropdownMenuItem key={w.id} onSelect={() => setPane(index, w.id)}>
@@ -134,7 +135,7 @@ function PreviewPane({ index, workspaceId }: { index: number; workspaceId: strin
         <header className="flex h-9 shrink-0 items-center border-b border-border px-1.5">
           <WorkspacePicker index={index} current={null} />
         </header>
-        <div className="flex flex-1 items-center justify-center text-sm text-muted-foreground">Empty pane</div>
+        <div className="flex flex-1 items-center justify-center text-sm text-muted-foreground">{t('Empty pane')}</div>
       </section>
     )
   }
@@ -165,7 +166,7 @@ function WorkspacePane({ index, workspaceId }: { index: number; workspaceId: str
                 c.id === chat?.id ? 'bg-accent text-foreground' : 'text-muted-foreground hover:bg-accent/50'
               )}
             >
-              {c.title || 'Chat'}
+              {c.title || t('Chat')}
             </button>
           ))}
         </div>
@@ -174,7 +175,7 @@ function WorkspacePane({ index, workspaceId }: { index: number; workspaceId: str
         {chat ? (
           <ThreadView key={chat.id} session={chat} />
         ) : (
-          <div className="flex h-full items-center justify-center text-sm text-muted-foreground">No chats in this workspace</div>
+          <div className="flex h-full items-center justify-center text-sm text-muted-foreground">{t('No chats in this workspace')}</div>
         )}
         <ToolDrawer workspaceId={workspaceId} />
       </div>

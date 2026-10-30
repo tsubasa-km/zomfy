@@ -13,6 +13,7 @@ import {
   DropdownMenuTrigger
 } from '@/components/ui/dropdown-menu'
 import { cn } from '@/lib/utils'
+import { t } from '@/i18n/i18n'
 
 // Orca's project group header: a collapsible folder row; projects dropped on it join the group.
 export function GroupHeader({
@@ -59,27 +60,27 @@ export function GroupHeader({
       >
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <Button size="icon-xs" variant="ghost" aria-label={`Group actions for ${group.name}`}>
+            <Button size="icon-xs" variant="ghost" aria-label={t('Group actions for {name}', { name: group.name })}>
               <MoreHorizontal className="size-3.5" />
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="start" className="w-48">
             <DropdownMenuItem data-group-action="rename" onSelect={() => actions.renameGroup(hostId, group)}>
               <Pencil className="size-3.5" />
-              Rename Group…
+              {t('Rename Group…')}
             </DropdownMenuItem>
             <DropdownMenuSeparator />
             <DropdownMenuItem
               data-group-action="delete"
               variant="destructive"
               onSelect={() => {
-                if (window.confirm(`Delete the group "${group.name}"? Its projects stay in the sidebar.`)) {
+                if (window.confirm(t('Delete the group "{name}"? Its projects stay in the sidebar.', { name: group.name }))) {
                   void harnessRequest(HARNESS_METHODS.projectGroupRemove, { groupId: group.id }, hostId)
                 }
               }}
             >
               <Trash2 className="size-3.5" />
-              Delete Group
+              {t('Delete Group')}
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>

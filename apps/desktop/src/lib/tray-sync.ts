@@ -4,6 +4,7 @@ import { isPermissionGranted, sendNotification } from '@tauri-apps/plugin-notifi
 import { getState, onSessionTransition } from '@/session-store'
 import { getSetting, onSettingsChange } from '@/stores/settings-store'
 import { runCommand } from '@/keybindings/keybinding-registry'
+import { t } from '@/i18n/i18n'
 
 // Feeds the native tray (src-tauri/src/tray.rs): Orca's attention dot while the window is hidden,
 // the number of agents waiting on the user, and the minimize-to-tray preference.
@@ -43,7 +44,7 @@ export function installTraySync(): void {
       return
     }
     // Once only, as Orca does: closing hid the window, the app and its daemons still run.
-    if (await isPermissionGranted()) sendNotification({ title: 'Zomfy', body: 'Zomfy is still running in the system tray' })
+    if (await isPermissionGranted()) sendNotification({ title: 'Zomfy', body: t('Zomfy is still running in the system tray') })
   })
   void listen('tray-jump-needs-you', () => runCommand('agent.jumpToNeedsYou'))
 }

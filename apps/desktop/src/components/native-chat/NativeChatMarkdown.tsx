@@ -8,6 +8,7 @@ import { MENTION_TITLE, parseChatMentions, type ChatMention } from '@/lib/chat-m
 import { openChatMention } from '@/lib/chat-attachments'
 import { NativeChatCodeBlock } from './NativeChatCodeBlock'
 import { NativeChatMarkdownRowKeyContext } from './native-chat-disclosure-store'
+import { t } from '@/i18n/i18n'
 import './native-chat-markdown.css'
 
 // Classes follow Orca's document-variant renderers (sidebar/comment-markdown-element-renderers.tsx);
@@ -91,7 +92,7 @@ function MentionChip({ mention }: { mention: ChatMention }) {
       role="button"
       tabIndex={0}
       className="chat-mention-chip"
-      title={`${MENTION_TITLE[mention.kind]}: click to open`}
+      title={t('{kind}: click to open', { kind: MENTION_TITLE[mention.kind] })}
       onClick={(event) => {
         const workspaceId = event.currentTarget.closest<HTMLElement>('[data-link-workspace-id]')?.dataset.linkWorkspaceId ?? null
         openChatMention(mention, workspaceId)

@@ -8,6 +8,7 @@ import { setTasks } from '@/stores/tasks-store'
 import { defaultChatAgent } from '@/lib/default-chat-agent'
 import { addTarget, confirmNonGitFolder } from '@/lib/project-dialogs'
 import { linkProjects } from '@/stores/project-links-store'
+import { t } from '@/i18n/i18n'
 
 // Orca's repo-add-actions + finishProjectAddWithDefaultCheckout: toast, then land in the project's
 // own checkout; a new folder project also starts a chat with the default agent.
@@ -22,9 +23,11 @@ export async function completeProjectAdd(hostId: HostId, add: () => Promise<Proj
   if (target) {
     // "Add Workspace on Another Host": the folder joins that project instead of standing alone.
     await linkProjects({ hostId: target.hostId, projectId: target.projectId }, { hostId, projectId: project.id })
-    toast.success(`Added to ${target.name}`, { description: `${name} on ${getState().hosts[hostId]?.label ?? hostId}` })
-  } else if (alreadyAdded) toast.info('Project already added', { description: name })
-  else toast.success(project.kind === 'git' ? 'Project added' : 'Folder added', { description: name })
+    toast.success(t('Added to {name}', { name: target.name }), {
+      description: t('{name} on {host}', { name, host: getState().hosts[hostId]?.label ?? hostId })
+    })
+  } else if (alreadyAdded) toast.info(t('Project already added'), { description: name })
+  else toast.success(project.kind === 'git' ? t('Project added') : t('Folder added'), { description: name })
 
   // The state broadcast may trail the reply; the primary workspace must be known to select it.
   const state = await harnessRequest(HARNESS_METHODS.stateGet, {}, hostId).catch(() => null)

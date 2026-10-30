@@ -7,6 +7,7 @@ import { mentionText, type ChatMention } from '@/lib/chat-mentions'
 import { terminalScreenText } from '@/lib/terminal-screen-text'
 import { flashWhenShown } from '@/lib/flash-element'
 import { toast } from 'sonner'
+import { t } from '@/i18n/i18n'
 
 /** Adds a mention to the draft after a space (not a new line), and puts the caret in the composer. */
 export function insertMention(chatId: string, mention: string): void {
@@ -71,7 +72,7 @@ export function openChatMention(mention: Pick<ChatMention, 'kind' | 'path' | 'so
   if (mention.kind === 'chat') {
     const session = state.sessions.find((s) => s.id === mention.sourceId)
     if (!session) {
-      toast.info('That chat is closed. The message still carries its snapshot.')
+      toast.info(t('That chat is closed. The message still carries its snapshot.'))
       return
     }
     selectTab(session.workspaceId, session.id)
@@ -80,7 +81,7 @@ export function openChatMention(mention: Pick<ChatMention, 'kind' | 'path' | 'so
   }
   const terminal = state.terminals.find((t) => t.id === mention.sourceId)
   if (!terminal) {
-    toast.info('That terminal is closed. The message still carries its snapshot.')
+    toast.info(t('That terminal is closed. The message still carries its snapshot.'))
     return
   }
   if (!terminal.inline) {

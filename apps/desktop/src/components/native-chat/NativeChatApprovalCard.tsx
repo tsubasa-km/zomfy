@@ -4,6 +4,7 @@ import type { ThreadItem } from '@/session-store'
 import { cn } from '@/lib/utils'
 import { NativeChatMarkdown } from './NativeChatMarkdown'
 import { shortenPaths } from './native-chat-transcript-model'
+import { t } from '@/i18n/i18n'
 
 type Permission = Extract<ThreadItem, { kind: 'permission' }>
 
@@ -32,7 +33,7 @@ export function NativeChatApprovalCard({ permission, cwd }: { permission: Permis
             <Icon className="mt-0.5 size-4 shrink-0 text-muted-foreground" />
             <div className="min-w-0 flex-1">
               <p className="line-clamp-2 text-sm font-semibold break-words text-foreground">
-                {plan ? permission.title : `Allow ${shortenPaths(permission.title, cwd)}?`}
+                {plan ? permission.title : t('Allow {action}?', { action: shortenPaths(permission.title, cwd) })}
               </p>
             </div>
           </div>

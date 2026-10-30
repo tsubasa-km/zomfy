@@ -1,5 +1,6 @@
 import { TriangleAlert } from 'lucide-react'
 import { Button } from '@/components/ui/button'
+import { t } from '@/i18n/i18n'
 
 // Orca's ExternalFileChangeBanner: shown when another process (usually an agent) rewrites a
 // file while the tab holds unsaved edits, so the next save does not silently clobber it.
@@ -21,23 +22,23 @@ export function ExternalFileChangeBanner({
           <TriangleAlert className="size-3.5 shrink-0 text-status-warning" />
           <span className="min-w-0 font-medium text-foreground">
             {deleted
-              ? 'This file was deleted on disk while you have unsaved edits. Saving will recreate it.'
-              : 'This file changed on disk while you have unsaved edits. Saving will overwrite the newer disk content.'}
+              ? t('This file was deleted on disk while you have unsaved edits. Saving will recreate it.')
+              : t('This file changed on disk while you have unsaved edits. Saving will overwrite the newer disk content.')}
           </span>
         </div>
         <div className="flex shrink-0 items-center gap-1">
           {onCompare && !deleted && (
             <Button type="button" size="xs" variant="outline" onClick={onCompare}>
-              Compare
+              {t('Compare')}
             </Button>
           )}
           {!deleted && (
             <Button type="button" size="xs" variant="outline" onClick={onReload}>
-              Reload from Disk
+              {t('Reload from Disk')}
             </Button>
           )}
           <Button type="button" size="xs" variant="ghost" onClick={onKeepEdits}>
-            Keep My Edits
+            {t('Keep My Edits')}
           </Button>
         </div>
       </div>

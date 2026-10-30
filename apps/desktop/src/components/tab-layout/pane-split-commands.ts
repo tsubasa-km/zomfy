@@ -11,6 +11,7 @@ import {
   splitTerminalPane
 } from '@/components/terminal/terminal-pane-commands'
 import { splitTabTo } from './tab-group-commands'
+import { t } from '@/i18n/i18n'
 
 // Orca's Terminal Panes shortcuts (shared/keybindings definitions-core-3/4) and its native-chat split
 // (native-chat-split-shortcut.ts, native-chat-layout-actions.ts): the split keys split the focused
@@ -91,7 +92,7 @@ export function closeActivePane(): boolean {
 registerKeybindingDefinitions([
   {
     id: 'terminal.splitRight',
-    title: 'Split terminal right',
+    title: t('Split terminal right'),
     group: 'Terminal Panes',
     keywords: ['pane', 'split', 'right', 'chat'],
     defaultBindings: { mac: ['Mod+D'], other: ['Mod+Shift+D'] },
@@ -100,7 +101,7 @@ registerKeybindingDefinitions([
   },
   {
     id: 'terminal.splitDown',
-    title: 'Split terminal down',
+    title: t('Split terminal down'),
     group: 'Terminal Panes',
     keywords: ['pane', 'split', 'down', 'chat'],
     defaultBindings: { mac: ['Mod+Shift+D'], other: ['Alt+Shift+D'] },
@@ -109,7 +110,7 @@ registerKeybindingDefinitions([
   },
   {
     id: 'terminal.closePane',
-    title: 'Close active pane',
+    title: t('Close active pane'),
     group: 'Terminal Panes',
     keywords: ['pane', 'close'],
     defaultBindings: ['Mod+W'],
@@ -118,7 +119,7 @@ registerKeybindingDefinitions([
   },
   {
     id: 'terminal.focusNextPane',
-    title: 'Focus next pane',
+    title: t('Focus next pane'),
     group: 'Terminal Panes',
     keywords: ['pane', 'focus', 'next'],
     defaultBindings: ['Mod+BracketRight'],
@@ -127,7 +128,7 @@ registerKeybindingDefinitions([
   },
   {
     id: 'terminal.focusPreviousPane',
-    title: 'Focus previous pane',
+    title: t('Focus previous pane'),
     group: 'Terminal Panes',
     keywords: ['pane', 'focus', 'previous'],
     defaultBindings: ['Mod+BracketLeft'],
@@ -136,7 +137,7 @@ registerKeybindingDefinitions([
   },
   {
     id: 'terminal.equalizePaneSizes',
-    title: 'Equalize pane sizes',
+    title: t('Equalize pane sizes'),
     group: 'Terminal Panes',
     keywords: ['pane', 'split', 'equalize', 'resize', 'balance', 'size'],
     defaultBindings: [],
@@ -145,7 +146,7 @@ registerKeybindingDefinitions([
   },
   {
     id: 'terminal.expandPane',
-    title: 'Expand / collapse pane',
+    title: t('Expand / collapse pane'),
     group: 'Terminal Panes',
     keywords: ['pane', 'expand', 'collapse', 'zoom'],
     defaultBindings: ['Mod+Shift+Enter'],

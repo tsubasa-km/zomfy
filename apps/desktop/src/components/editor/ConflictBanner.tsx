@@ -2,6 +2,7 @@ import { ChevronDown, ChevronUp, CircleCheck, TriangleAlert } from 'lucide-react
 import { Button } from '@/components/ui/button'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { cn } from '@/lib/utils'
+import { t } from '@/i18n/i18n'
 
 /** Orca's ConflictBanner: unresolved count with previous/next, or the resolved-locally state. */
 export function ConflictBanner({
@@ -36,7 +37,7 @@ export function ConflictBanner({
             <CircleCheck className="size-3.5 shrink-0 text-status-success" />
           )}
           <span className="min-w-0 truncate font-medium text-foreground">
-            {isUnresolved ? 'Unresolved conflict · Resolve the conflict markers' : 'Resolved locally'}
+            {isUnresolved ? t('Unresolved conflict · Resolve the conflict markers') : t('Resolved locally')}
           </span>
           {isUnresolved && (
             <span className="shrink-0 px-1 text-[11px] tabular-nums text-muted-foreground">
@@ -48,22 +49,22 @@ export function ConflictBanner({
           {isUnresolved ? (
             <>
               <Button type="button" size="xs" variant="outline" onClick={() => onAcceptAll('current')}>
-                Accept All Current
+                {t('Accept All Current')}
               </Button>
               <Button type="button" size="xs" variant="outline" onClick={() => onAcceptAll('incoming')}>
-                Accept All Incoming
+                {t('Accept All Incoming')}
               </Button>
-              <NavButton label="Previous conflict" onClick={() => onJump('previous')}>
+              <NavButton label={t('Previous conflict')} onClick={() => onJump('previous')}>
                 <ChevronUp className="size-3.5" />
               </NavButton>
-              <NavButton label="Next conflict" onClick={() => onJump('next')}>
+              <NavButton label={t('Next conflict')} onClick={() => onJump('next')}>
                 <ChevronDown className="size-3.5" />
               </NavButton>
             </>
           ) : (
             onMarkResolved && (
               <Button type="button" size="xs" variant="outline" onClick={onMarkResolved}>
-                Mark as Resolved
+                {t('Mark as Resolved')}
               </Button>
             )
           )}
@@ -71,7 +72,7 @@ export function ConflictBanner({
       </div>
       {!isUnresolved && (
         <div className="mt-1 text-muted-foreground">
-          No conflict markers remain. Save, then stage the file to tell Git the conflict is resolved.
+          {t('No conflict markers remain. Save, then stage the file to tell Git the conflict is resolved.')}
         </div>
       )}
     </div>

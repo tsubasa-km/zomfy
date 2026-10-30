@@ -8,6 +8,7 @@ import { harnessRequest } from '@/daemon-connection'
 import { openEditorTab } from '@/session-store'
 import { NativeChatHighlightedCode } from '@/components/native-chat/NativeChatHighlightedCode'
 import { imageMimeType } from './editor-file-kind'
+import { t } from '@/i18n/i18n'
 import './markdown-preview.css'
 
 /** Resolves a link or image path in a markdown file to a workspace-relative path, or null for URLs. */
@@ -56,7 +57,7 @@ function CodeBlock({ language, code }: { language?: string; code: string }): Rea
       <button
         type="button"
         className="code-block-copy-btn"
-        aria-label="Copy code"
+        aria-label={t('Copy code')}
         onClick={() =>
           void navigator.clipboard.writeText(code).then(() => {
             setCopied(true)

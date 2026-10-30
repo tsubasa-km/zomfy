@@ -2,6 +2,7 @@ import { setRightSidebar } from '@/session-store'
 import { useReviewPolling, useWorkspaceReview } from '@/stores/hosting-store'
 import { Button } from '@/components/ui/button'
 import { HostedReviewIcon, reviewShortLabel } from '../checks/review-presentation'
+import { t } from '@/i18n/i18n'
 
 // Orca's header-toolbar HostedReviewToolbarLink / CreatePrHeaderButton: the branch's PR/MR (or a
 // Create button) in the source-control toolbar, both leading to the Checks tab.
@@ -31,7 +32,7 @@ export function SourceControlReviewLink({ workspaceId, branch }: { workspaceId: 
     return (
       <div className="flex min-w-0 flex-1 items-center">
         <Button type="button" size="xs" variant="outline" onClick={openChecks} data-source-control-create-review>
-          Create {reviewShortLabel(availability.provider)}
+          {t('Create {kind}', { kind: reviewShortLabel(availability.provider) })}
         </Button>
       </div>
     )

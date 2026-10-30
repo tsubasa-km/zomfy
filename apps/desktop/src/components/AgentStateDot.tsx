@@ -7,6 +7,7 @@ import {
   StateIndicatorTooltip,
   type StateIndicatorTooltipSide
 } from '@/components/StateIndicatorTooltip'
+import { t } from '@/i18n/i18n'
 
 // Why: shared state-indicator primitive so the dashboard and the sidebar's
 // agent hover share a single state vocabulary. Most states render as a dot;
@@ -49,27 +50,27 @@ export type AgentDotState =
 export function agentStateLabel(state: AgentDotState): string {
   switch (state) {
     case 'working':
-      return 'Working'
+      return t('Working')
     case 'monitoring':
-      return 'Monitoring background tasks'
+      return t('Monitoring background tasks')
     case 'blocked':
-      return 'Blocked'
+      return t('Blocked')
     case 'waiting':
-      return 'Waiting for input'
+      return t('Waiting for input')
     case 'interrupted':
-      return 'Interrupted'
+      return t('Interrupted')
     case 'failed':
-      return 'Failed'
+      return t('Failed')
     case 'done':
-      return 'Done'
+      return t('Done')
     case 'idle':
-      return 'Idle'
+      return t('Idle')
     case 'unverifiable':
-      return 'No recent update'
+      return t('No recent update')
     case 'unconfirmed':
-      return 'Couldn’t confirm'
+      return t('Couldn’t confirm')
     case 'permission':
-      return 'Needs attention'
+      return t('Needs attention')
   }
 }
 

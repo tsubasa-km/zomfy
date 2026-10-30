@@ -16,6 +16,7 @@ import {
 import { NATIVE_CHAT_QUOTE_SOURCE_PROPS } from './NativeChatSelectionQuote'
 import { NativeChatWorkflowRunCard } from './NativeChatWorkflowRunCard'
 import { type TranscriptRowModel } from './native-chat-transcript-model'
+import { t } from '@/i18n/i18n'
 
 // Rows follow Orca's NativeChatUserMessageRow, NativeChatAssistantMessageRow,
 // NativeChatReasoningRow, NativeChatToolRun and NativeChatNoticeRow.
@@ -67,7 +68,7 @@ export function NativeChatTranscriptRow({
                   <img
                     key={index}
                     src={`data:${image.mimeType};base64,${image.data}`}
-                    alt={`Image ${index + 1}`}
+                    alt={t('Image {n}', { n: index + 1 })}
                     className="max-h-40 max-w-60 rounded-md border border-border object-contain"
                   />
                 ))}
@@ -82,7 +83,7 @@ export function NativeChatTranscriptRow({
             ) : null}
             {messageId && actions.onForkFrom ? (
               <MetaActionButton
-                label={actions.forkUnavailable ?? 'Fork from here'}
+                label={actions.forkUnavailable ?? t('Fork from here')}
                 data-native-chat-fork-from
                 disabled={actions.forkUnavailable !== undefined}
                 onClick={() => actions.onForkFrom?.(messageId)}
@@ -119,7 +120,7 @@ export function NativeChatTranscriptRow({
     case 'decision':
       return <NativeChatDecisionLine title={row.title} outcome={row.outcome} cwd={actions.cwd} />
     case 'compaction': {
-      const label = row.status === 'completed' ? 'Context compacted' : row.status === 'in_progress' ? 'Compacting context…' : 'Compaction failed'
+      const label = row.status === 'completed' ? t('Context compacted') : row.status === 'in_progress' ? t('Compacting context…') : t('Compaction failed')
       return (
         <div role="separator" aria-label={label} className="flex items-center gap-3 py-2 text-xs text-chat-foreground-faint">
           <span className="h-px flex-1 bg-border" />
@@ -167,7 +168,7 @@ export function NativeChatTranscriptRow({
 
 function RewindButton({ onRewind }: { onRewind: () => void }) {
   return (
-    <MetaActionButton label="Rewind to here" data-native-chat-rewind onClick={onRewind}>
+    <MetaActionButton label={t('Rewind to here')} data-native-chat-rewind onClick={onRewind}>
       <Undo2 className="size-3.5" />
     </MetaActionButton>
   )
@@ -224,7 +225,7 @@ function ReasoningRow({ markdown, rowKey }: { markdown: string; rowKey: string }
               <BrainGlyph />
             </span>
             <span className="min-w-0 truncate text-sm leading-relaxed text-chat-foreground-faint transition-colors group-hover/reasoning:text-chat-foreground">
-              Thinking
+              {t('Thinking')}
             </span>
             <ChevronRight className="size-3.5 shrink-0 text-chat-foreground-faint transition-all group-hover/reasoning:opacity-100 group-data-[state=open]/reasoning:rotate-90 group-data-[state=open]/reasoning:opacity-100 motion-reduce:transition-none can-hover:opacity-0" />
           </button>

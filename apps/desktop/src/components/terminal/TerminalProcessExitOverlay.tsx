@@ -1,5 +1,6 @@
 import { RotateCw, X } from 'lucide-react'
 import { Button } from '@/components/ui/button'
+import { t } from '@/i18n/i18n'
 
 /** Ported from Orca's TerminalProcessExitOverlay: the output stays readable behind it. */
 export function TerminalProcessExitOverlay({
@@ -19,19 +20,19 @@ export function TerminalProcessExitOverlay({
         className="pointer-events-auto flex w-full max-w-md flex-col gap-3 rounded-lg border border-border bg-card p-4 text-card-foreground shadow-xs"
       >
         <div className="space-y-1">
-          <div className="text-sm font-medium text-foreground">Terminal exited</div>
+          <div className="text-sm font-medium text-foreground">{t('Terminal exited')}</div>
           <div className="text-xs text-muted-foreground">
-            The shell process ended with exit code {exitCode}. Its output is preserved.
+            {t('The shell process ended with exit code {code}. Its output is preserved.', { code: exitCode })}
           </div>
         </div>
         <div className="flex justify-end gap-2">
           <Button type="button" variant="ghost" size="sm" onClick={onClose}>
             <X />
-            Close
+            {t('Close')}
           </Button>
           <Button type="button" size="sm" onClick={onRestart} data-terminal-restart>
             <RotateCw />
-            Restart
+            {t('Restart')}
           </Button>
         </div>
       </div>

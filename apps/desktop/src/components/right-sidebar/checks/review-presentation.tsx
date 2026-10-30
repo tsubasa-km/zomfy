@@ -13,6 +13,7 @@ import {
 } from 'lucide-react'
 import type { HostedCheck, HostedChecksStatus, HostedReview, HostedReviewDecision, HostingProviderId } from '@acp-harness/protocol'
 import { cn } from '@/lib/utils'
+import { t } from '@/i18n/i18n'
 
 // Orca's check-presentation.tsx and hosted-review-header-chrome.tsx: icons, state badges, tones.
 
@@ -65,9 +66,25 @@ export function prStateColor(state: HostedReview['state']): string {
   }
 }
 
+/** The review's state word as shown; the English keys are the lowercase enum values. */
+export function reviewStateLabel(state: HostedReview['state']): string {
+  switch (state) {
+    case 'open':
+      return t('open')
+    case 'merged':
+      return t('merged')
+    case 'closed':
+      return t('closed')
+    case 'draft':
+      return t('draft')
+  }
+}
+
 export function ReviewStateBadge({ state }: { state: HostedReview['state'] }) {
   return (
-    <span className={cn('rounded border px-1.5 py-0.5 text-[9px] font-semibold tracking-wider uppercase', prStateColor(state))}>{state}</span>
+    <span className={cn('rounded border px-1.5 py-0.5 text-[9px] font-semibold tracking-wider uppercase', prStateColor(state))}>
+      {reviewStateLabel(state)}
+    </span>
   )
 }
 
@@ -111,9 +128,9 @@ export function HostedReviewIcon({
 }
 
 export const REVIEW_DECISION_LABEL: Record<HostedReviewDecision, string> = {
-  APPROVED: 'Approved',
-  CHANGES_REQUESTED: 'Changes requested',
-  REVIEW_REQUIRED: 'Review required'
+  APPROVED: t('Approved'),
+  CHANGES_REQUESTED: t('Changes requested'),
+  REVIEW_REQUIRED: t('Review required')
 }
 
 export function reviewDecisionClass(decision: HostedReviewDecision): string {
@@ -122,8 +139,8 @@ export function reviewDecisionClass(decision: HostedReviewDecision): string {
   return 'text-muted-foreground'
 }
 
-/** Orca's getCheckStatusLabel. */
-export function checkStatusLabel(check: HostedCheck): string {
+/** Orca's getCheckStatusLabel, in English: agent prompts quote it. */
+export function checkStatusText(check: HostedCheck): string {
   const conclusion = check.conclusion ?? 'pending'
   const labels: Record<string, string> = {
     success: 'Successful',
@@ -138,6 +155,11 @@ export function checkStatusLabel(check: HostedCheck): string {
   if (check.status === 'queued') return 'Queued'
   if (check.status === 'in_progress') return 'In progress'
   return 'Pending'
+}
+
+/** The check's status as shown in the window's language. */
+export function checkStatusLabel(check: HostedCheck): string {
+  return t(checkStatusText(check))
 }
 
 /** "1m 12s" between start and finish (or now, while running). */
@@ -158,12 +180,12 @@ export function relativeTime(iso: string | null | undefined, now = Date.now()): 
   const then = Date.parse(iso)
   if (Number.isNaN(then)) return ''
   const minutes = Math.round((now - then) / 60_000)
-  if (minutes < 1) return 'just now'
-  if (minutes < 60) return `${minutes}m ago`
+  if (minutes < 1) return t('just now')
+  if (minutes < 60) return t('{n}m ago', { n: minutes })
   const hours = Math.round(minutes / 60)
-  if (hours < 24) return `${hours}h ago`
+  if (hours < 24) return t('{n}h ago', { n: hours })
   const days = Math.round(hours / 24)
-  if (days < 30) return `${days}d ago`
+  if (days < 30) return t('{n}d ago', { n: days })
   return new Date(then).toLocaleDateString()
 }
 

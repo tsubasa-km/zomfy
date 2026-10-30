@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button'
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { HostedReviewIcon } from '@/components/right-sidebar/checks/review-presentation'
+import { t } from '@/i18n/i18n'
 
 // Orca's smart workspace source tabs (SmartWorkspaceSourceTabs): search the project's open issues
 // and PRs/MRs from the new-workspace composer and link one.
@@ -30,7 +31,7 @@ export function WorkItemPicker({ project, onPick }: { project: HostedProject; on
       void Promise.all([ask('issue'), ask('review')]).then(
         ([issues, reviews]) => {
           if (cancelled) return
-          setMessage(issues.availability.state === 'ready' ? null : (issues.availability.message ?? 'No GitHub or GitLab remote'))
+          setMessage(issues.availability.state === 'ready' ? null : (issues.availability.message ?? t('No GitHub or GitLab remote')))
           setResults({ issues: issues.items, reviews: reviews.items })
         },
         (e) => !cancelled && setMessage(e instanceof Error ? e.message : String(e))
@@ -46,19 +47,19 @@ export function WorkItemPicker({ project, onPick }: { project: HostedProject; on
     setOpen(false)
     onPick(item)
   }
-  const reviewHeading = results?.reviews[0]?.provider === 'gitlab' ? 'Merge requests' : 'Pull requests'
+  const reviewHeading = results?.reviews[0]?.provider === 'gitlab' ? t('Merge requests') : t('Pull requests')
 
   return (
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
         <Button type="button" size="xs" variant="ghost" className="h-5 text-muted-foreground" data-link-work-item>
           <Link2 />
-          Issue or PR
+          {t('Issue or PR')}
         </Button>
       </PopoverTrigger>
       <PopoverContent align="end" className="w-96 p-0">
         <Command shouldFilter={false}>
-          <CommandInput placeholder="Search open issues and PRs, or #1234" value={query} onValueChange={setQuery} />
+          <CommandInput placeholder={t('Search open issues and PRs, or #1234')} value={query} onValueChange={setQuery} />
           <CommandList>
             {!results && !message && (
               <div className="flex justify-center py-4">
@@ -66,9 +67,9 @@ export function WorkItemPicker({ project, onPick }: { project: HostedProject; on
               </div>
             )}
             {message && <div className="px-3 py-3 text-xs break-words text-muted-foreground">{message}</div>}
-            {results && !message && <CommandEmpty>No open issues or PRs match.</CommandEmpty>}
+            {results && !message && <CommandEmpty>{t('No open issues or PRs match.')}</CommandEmpty>}
             {results && results.issues.length > 0 && (
-              <CommandGroup heading="Issues">
+              <CommandGroup heading={t('Issues')}>
                 {results.issues.map((item) => (
                   <CommandItem key={`i${item.number}`} value={`issue-${item.number}`} onSelect={() => pick(item)} data-work-item-option={`issue-${item.number}`}>
                     <CircleDot className="size-3.5 text-emerald-500" />

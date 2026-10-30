@@ -3,13 +3,14 @@ import { getVersion } from '@tauri-apps/api/app'
 import { check, type Update } from '@tauri-apps/plugin-updater'
 import { relaunch } from '@tauri-apps/plugin-process'
 import { toast } from 'sonner'
-import { busyWork } from '@/lib/close-guard'
+import { busyParts, busyWork } from '@/lib/close-guard'
 import { createExternalStore } from '@/stores/external-store'
 import { WINDOW_ROLE } from '@/lib/window-role'
 import { registerKeybindingDefinitions } from '@/keybindings/keybinding-definitions'
 import { registerCommandHandler } from '@/keybindings/keybinding-registry'
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
+import { t } from '@/i18n/i18n'
 
 // Releases are GitHub Releases of tsubasa-km/zomfy (tauri.conf.json); an update downloads in the
 // background and installs when the person restarts. The new build replaces every host's daemon itself.
@@ -59,16 +60,16 @@ export async function checkForUpdate(manual = false): Promise<void> {
     await update.download()
     pending = update
     patch({ phase: 'ready', next: update.version })
-    toast(`Zomfy ${update.version} is ready`, {
+    toast(t('Zomfy {version} is ready', { version: update.version }), {
       id: 'app-update',
-      description: 'Restart to update.',
+      description: t('Restart to update.'),
       duration: Infinity,
-      action: { label: 'Restart', onClick: () => restartToUpdate() }
+      action: { label: t('Restart'), onClick: () => restartToUpdate() }
     })
   } catch (error) {
     if (ready) return
     patch({ phase: 'error', error: error instanceof Error ? error.message : String(error) })
-    if (manual) toast.error("Couldn't check for updates", { description: store.get().error ?? undefined })
+    if (manual) toast.error(t("Couldn't check for updates"), { description: store.get().error ?? undefined })
   }
 }
 
@@ -87,7 +88,7 @@ async function apply(): Promise<void> {
     await pending.install()
     await relaunch()
   } catch (error) {
-    toast.error("Couldn't install the update", { description: error instanceof Error ? error.message : String(error) })
+    toast.error(t("Couldn't install the update"), { description: error instanceof Error ? error.message : String(error) })
   }
 }
 
@@ -111,17 +112,15 @@ export function UpdateConfirmDialog() {
     <Dialog open onOpenChange={(o) => !o && confirmStore.set(false)}>
       <DialogContent className="sm:max-w-md" data-update-confirm>
         <DialogHeader>
-          <DialogTitle>Restart to update?</DialogTitle>
+          <DialogTitle>{t('Restart to update?')}</DialogTitle>
           <DialogDescription>
-            {[now.chats > 0 && `${now.chats} chat${now.chats > 1 ? 's' : ''} working or waiting for you`, now.runs > 0 && `${now.runs} workflow run${now.runs > 1 ? 's' : ''} going`]
-              .filter(Boolean)
-              .join(' and ')}
-            . Restarting stops them on every host.
+            {busyParts(now).join(t(' and '))}
+            {t('. Restarting stops them on every host.')}
           </DialogDescription>
         </DialogHeader>
         <DialogFooter>
           <Button variant="outline" onClick={() => confirmStore.set(false)}>
-            Later
+            {t('Later')}
           </Button>
           <Button
             onClick={() => {
@@ -129,7 +128,7 @@ export function UpdateConfirmDialog() {
               void apply()
             }}
           >
-            Restart and update
+            {t('Restart and update')}
           </Button>
         </DialogFooter>
       </DialogContent>

@@ -9,6 +9,7 @@ import {
   pickCommandShell,
   runnableCommandLines
 } from './native-chat-command-run'
+import { t } from '@/i18n/i18n'
 
 export type CommandRunRequest = { shellId: string; input: string; title: string }
 
@@ -34,7 +35,7 @@ export function NativeChatRunCommandButton({
   const lines = useMemo(() => (family ? runnableCommandLines(code, language) : []), [code, language, family])
   if (!runner || !family || lines.length === 0) return null
   const shell = pickCommandShell(family, runner.shells)
-  const label = shell ? `Run in terminal (${shell.label})` : missingShellReason(family)
+  const label = shell ? t('Run in terminal ({shell})', { shell: shell.label }) : missingShellReason(family)
   return (
     <button
       type="button"

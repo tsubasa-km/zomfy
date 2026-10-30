@@ -28,6 +28,7 @@ import {
 } from '@/components/ui/dropdown-menu'
 import { QuickCommandIcon } from '@/components/terminal/QuickCommandsButton'
 import { TERMINAL_SHORTCUT_LABELS } from '@/lib/terminal-shortcuts'
+import { t, tc } from '@/i18n/i18n'
 
 // Ported from Orca's TerminalContextMenu.tsx and TerminalQuickCommandsSubmenu.tsx.
 
@@ -82,33 +83,33 @@ export function TerminalContextMenu({
       >
         <DropdownMenuItem onSelect={actions.onCopy}>
           <Copy />
-          Copy
+          {t('Copy')}
           <DropdownMenuShortcut>{TERMINAL_SHORTCUT_LABELS.copy}</DropdownMenuShortcut>
         </DropdownMenuItem>
         <DropdownMenuItem onSelect={actions.onSelectAll}>
           <TextSelect />
-          Select All
+          {t('Select All')}
           <DropdownMenuShortcut>{TERMINAL_SHORTCUT_LABELS.selectAll}</DropdownMenuShortcut>
         </DropdownMenuItem>
         <DropdownMenuItem onSelect={actions.onPaste}>
           <Clipboard />
-          Paste
+          {t('Paste')}
           <DropdownMenuShortcut>{TERMINAL_SHORTCUT_LABELS.paste}</DropdownMenuShortcut>
         </DropdownMenuItem>
         <DropdownMenuItem onSelect={actions.onFind}>
           <Search />
-          Find
+          {t('Find')}
           <DropdownMenuShortcut>{TERMINAL_SHORTCUT_LABELS.search}</DropdownMenuShortcut>
         </DropdownMenuItem>
         <DropdownMenuSub>
           <DropdownMenuSubTrigger data-quick-commands-submenu>
             <Play fill="currentColor" strokeWidth={0} />
-            Quick Commands
+            {t('Quick Commands')}
           </DropdownMenuSubTrigger>
           <DropdownMenuSubContent className="w-60">
             {project.length + global.length === 0 ? (
               <DropdownMenuItem disabled className="text-muted-foreground">
-                No quick commands
+                {t('No quick commands')}
               </DropdownMenuItem>
             ) : (
               <>
@@ -119,7 +120,7 @@ export function TerminalContextMenu({
                 {project.length > 0 && global.length > 0 && (
                   <>
                     <DropdownMenuSeparator />
-                    <DropdownMenuLabel>Global</DropdownMenuLabel>
+                    <DropdownMenuLabel>{tc('Global', 'scope')}</DropdownMenuLabel>
                   </>
                 )}
                 {global.map((command) => (
@@ -136,7 +137,7 @@ export function TerminalContextMenu({
               }}
             >
               <Plus />
-              Add Quick Command…
+              {t('Add Quick Command…')}
             </DropdownMenuItem>
           </DropdownMenuSubContent>
         </DropdownMenuSub>
@@ -145,11 +146,11 @@ export function TerminalContextMenu({
             <DropdownMenuSeparator />
             <DropdownMenuItem className="whitespace-nowrap" onSelect={() => actions.onSplit?.('right')}>
               <PanelRightClose />
-              Split Terminal Right
+              {t('Split Terminal Right')}
             </DropdownMenuItem>
             <DropdownMenuItem className="whitespace-nowrap" onSelect={() => actions.onSplit?.('down')}>
               <PanelBottomClose />
-              Split Terminal Down
+              {t('Split Terminal Down')}
             </DropdownMenuItem>
           </>
         ) : null}
@@ -161,36 +162,36 @@ export function TerminalContextMenu({
           }}
         >
           <Pencil />
-          Set Title…
+          {t('Set Title…')}
         </DropdownMenuItem>
         {actions.onClearTitle && (
           <DropdownMenuItem onSelect={actions.onClearTitle}>
             <Eraser />
-            Clear Title
+            {t('Clear Title')}
           </DropdownMenuItem>
         )}
         <DropdownMenuItem onSelect={actions.onCopyTerminalId}>
           <Copy />
-          Copy Terminal ID
+          {t('Copy Terminal ID')}
         </DropdownMenuItem>
         <DropdownMenuSeparator />
         <DropdownMenuItem variant="destructive" onSelect={actions.onClose}>
           <X />
-          Close Terminal
+          {t('Close Terminal')}
         </DropdownMenuItem>
         <DropdownMenuSeparator />
         <DropdownMenuItem onSelect={actions.onClearScreen}>
           <Eraser />
-          Clear Screen
+          {t('Clear Screen')}
           <DropdownMenuShortcut>{TERMINAL_SHORTCUT_LABELS.clear}</DropdownMenuShortcut>
         </DropdownMenuItem>
         <DropdownMenuItem onSelect={actions.onResetTerminal}>
           <RotateCcw />
-          Reset Terminal
+          {t('Reset Terminal')}
         </DropdownMenuItem>
         <DropdownMenuItem onSelect={actions.onRestart}>
           <RotateCw />
-          Restart Terminal
+          {t('Restart Terminal')}
         </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>
@@ -203,7 +204,7 @@ function QuickCommandRow({ command, onRun }: { command: QuickCommand; onRun: (co
       <QuickCommandIcon command={command} size={14} />
       <span className="min-w-0 flex-1 truncate">{command.label}</span>
       {command.action === 'terminal-command' && !command.appendEnter && (
-        <DropdownMenuShortcut className="shrink-0">Insert</DropdownMenuShortcut>
+        <DropdownMenuShortcut className="shrink-0">{t('Insert')}</DropdownMenuShortcut>
       )}
     </DropdownMenuItem>
   )

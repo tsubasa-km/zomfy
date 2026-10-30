@@ -3,6 +3,7 @@ import { CaseSensitive, ChevronDown, ChevronUp, Regex, X } from 'lucide-react'
 import type { ISearchOptions, SearchAddon } from '@xterm/addon-search'
 import { Button } from '@/components/ui/button'
 import { ImeInput } from '@/lib/ime-text-field'
+import { t } from '@/i18n/i18n'
 
 // Ported from Orca's TerminalSearch.tsx: the find bar over a terminal pane.
 
@@ -87,7 +88,7 @@ export function TerminalSearch({
   const status = !term
     ? '0/0'
     : results.resultCount === 0
-      ? 'No results'
+      ? t('No results')
       : results.resultIndex === -1
         ? `${results.resultCount}+`
         : `${results.resultIndex + 1}/${results.resultCount}`
@@ -109,7 +110,7 @@ export function TerminalSearch({
         type="text"
         value={query}
         onChange={(e) => setQuery(e.target.value)}
-        placeholder="Search..."
+        placeholder={t('Search...')}
         className="min-w-0 flex-1 border-none bg-transparent text-sm text-popover-foreground outline-none placeholder:text-muted-foreground"
       />
       <Button
@@ -119,7 +120,7 @@ export function TerminalSearch({
         aria-pressed={caseSensitive}
         onClick={() => setCaseSensitive((v) => !v)}
         className="shrink-0"
-        title="Case sensitive"
+        title={t('Case sensitive')}
       >
         <CaseSensitive size={14} />
       </Button>
@@ -130,7 +131,7 @@ export function TerminalSearch({
         aria-pressed={regex}
         onClick={() => setRegex((v) => !v)}
         className="shrink-0"
-        title="Regex"
+        title={t('Regex')}
       >
         <Regex size={14} />
       </Button>
@@ -138,14 +139,14 @@ export function TerminalSearch({
         {status}
       </span>
       <div className="mx-0.5 h-4 w-px bg-border" />
-      <Button type="button" variant="ghost" size="icon-xs" onClick={findPrevious} className="shrink-0" title="Previous match">
+      <Button type="button" variant="ghost" size="icon-xs" onClick={findPrevious} className="shrink-0" title={t('Previous match')}>
         <ChevronUp size={14} />
       </Button>
-      <Button type="button" variant="ghost" size="icon-xs" onClick={findNext} className="shrink-0" title="Next match">
+      <Button type="button" variant="ghost" size="icon-xs" onClick={findNext} className="shrink-0" title={t('Next match')}>
         <ChevronDown size={14} />
       </Button>
       <div className="mx-0.5 h-4 w-px bg-border" />
-      <Button type="button" variant="ghost" size="icon-xs" onClick={onClose} className="shrink-0" title="Close">
+      <Button type="button" variant="ghost" size="icon-xs" onClick={onClose} className="shrink-0" title={t('Close')}>
         <X size={14} />
       </Button>
     </div>

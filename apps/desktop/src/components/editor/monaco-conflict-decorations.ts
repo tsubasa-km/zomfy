@@ -1,4 +1,5 @@
 import type { editor, IRange } from 'monaco-editor'
+import { t } from '@/i18n/i18n'
 
 // Ported from Orca's monaco-conflict-decorations.ts; the accept actions are this port's addition.
 
@@ -103,10 +104,10 @@ export function buildGitConflictDecorations(content: string): editor.IModelDelta
     ]
     for (const decoration of sections) if (decoration) decorations.push(decoration)
     decorations.push(
-      makeMarkerDecoration(block.startLine, block.startText, 'Current change'),
-      ...(block.baseLine ? [makeMarkerDecoration(block.baseLine, block.baseText ?? '', 'Common ancestor')] : []),
-      makeMarkerDecoration(block.separatorLine, '=======', 'Incoming change'),
-      makeMarkerDecoration(block.endLine, block.endText, 'End conflict')
+      makeMarkerDecoration(block.startLine, block.startText, t('Current change')),
+      ...(block.baseLine ? [makeMarkerDecoration(block.baseLine, block.baseText ?? '', t('Common ancestor'))] : []),
+      makeMarkerDecoration(block.separatorLine, '=======', t('Incoming change')),
+      makeMarkerDecoration(block.endLine, block.endText, t('End conflict'))
     )
   }
   return decorations

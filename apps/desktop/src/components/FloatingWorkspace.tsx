@@ -18,6 +18,7 @@ import {
   type PanelBounds
 } from '@/components/floating-workspace/floating-workspace-panel-bounds'
 import { cn } from '@/lib/utils'
+import { t } from '@/i18n/i18n'
 
 // Orca's floating workspace (floating-terminal/*, app-shell/use-floating-workspace-panel.ts): a panel
 // dragged by its tab row, resized from any edge, maximized from its controls or a double-click, and
@@ -81,7 +82,7 @@ function FloatingWorkspacePanel({ workspaceId, open, maximized }: { workspaceId:
     // the border on an inner one; both on one rounded node made corners look stubby.
     <div
       role="dialog"
-      aria-label="Floating workspace"
+      aria-label={t('Floating workspace')}
       aria-hidden={!open}
       data-floating-workspace
       data-maximized={maximized ? 'true' : 'false'}
@@ -125,7 +126,7 @@ function FloatingWorkspacePanel({ workspaceId, open, maximized }: { workspaceId:
       <div className="relative flex h-full min-h-0 w-full flex-col overflow-hidden rounded-lg border border-black/14 bg-card dark:border-white/14">
         <WorkspaceTabs
           workspaceId={workspaceId}
-          emptyHint={`Floating workspace in ${path}. Use + to start Claude here.`}
+          emptyHint={t('Floating workspace in {path}. Use + to start Claude here.', { path })}
           trailing={
             <FloatingWorkspaceWindowControls
               workspaceId={workspaceId}

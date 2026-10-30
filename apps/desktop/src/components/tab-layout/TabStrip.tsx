@@ -14,6 +14,7 @@ import { QuickCommandsButton } from '@/components/terminal/QuickCommandsButton'
 import { TabItem } from './TabItem'
 import { closeGroup } from './tab-group-commands'
 import type { WorkspaceTab } from './workspace-tab-model'
+import { t } from '@/i18n/i18n'
 
 // Orca's tab-bar-surface.tsx + tab-strip-overflow-navigation.ts: tabs shrink to their floor, then
 // the strip scrolls (wheel, chevrons) with fading edges and keeps the active tab in view.
@@ -77,7 +78,7 @@ function useStripOverflow(tabCount: number) {
 }
 
 function ScrollButton({ direction, disabled, onClick }: { direction: 'start' | 'end'; disabled: boolean; onClick: () => void }) {
-  const label = direction === 'start' ? 'Scroll tabs left' : 'Scroll tabs right'
+  const label = direction === 'start' ? t('Scroll tabs left') : t('Scroll tabs right')
   return (
     <Button
       variant="ghost"
@@ -99,8 +100,8 @@ function PaneActionsMenu({ onCloseGroup }: { onCloseGroup: () => void }) {
       <DropdownMenuTrigger asChild>
         <button
           type="button"
-          aria-label="Pane Actions"
-          title="Pane Actions"
+          aria-label={t('Pane Actions')}
+          title={t('Pane Actions')}
           className="my-auto flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-muted-foreground hover:bg-accent/50 hover:text-foreground focus-visible:ring-2 focus-visible:ring-accent focus-visible:outline-none"
         >
           <Ellipsis className="size-4" />
@@ -109,7 +110,7 @@ function PaneActionsMenu({ onCloseGroup }: { onCloseGroup: () => void }) {
       <DropdownMenuContent align="end" side="bottom" sideOffset={4}>
         <DropdownMenuItem variant="destructive" data-menu-action="close-pane" onSelect={onCloseGroup}>
           <X className="size-4" />
-          Close split pane
+          {t('Close split pane')}
         </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>

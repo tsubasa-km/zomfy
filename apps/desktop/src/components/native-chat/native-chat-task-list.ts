@@ -1,3 +1,4 @@
+import { t } from '@/i18n/i18n'
 // Ported from Orca's shared/native-chat-task-list.ts (TodoWrite only; Claude has no update_plan).
 
 export type NativeChatTaskStatus = 'pending' | 'in_progress' | 'completed'
@@ -46,17 +47,17 @@ export function nativeChatTaskLabel(task: NativeChatTask): string {
 export function nativeChatTaskChangeLabel(change: NativeChatTaskChange): string {
   switch (change.kind) {
     case 'added':
-      return `Added ${change.task.content}`
+      return t('Added {task}', { task: change.task.content })
     case 'removed':
-      return `Removed ${change.task.content}`
+      return t('Removed {task}', { task: change.task.content })
     case 'started':
-      return `Started ${change.task.content}`
+      return t('Started {task}', { task: change.task.content })
     case 'completed':
-      return `Completed ${change.task.content}`
+      return t('Completed {task}', { task: change.task.content })
     case 'pending':
-      return `Marked pending: ${change.task.content}`
+      return t('Marked pending: {task}', { task: change.task.content })
     case 'updated':
-      return `Updated ${nativeChatTaskLabel(change.task)}`
+      return t('Updated {task}', { task: nativeChatTaskLabel(change.task) })
   }
 }
 

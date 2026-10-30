@@ -7,6 +7,7 @@ import { projectLabel, workspaceLabel } from '@/components/sidebar/workspace-vis
 import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
+import { t } from '@/i18n/i18n'
 
 // Orca's merged-worktree cleanup: worktrees whose commits are all in the base branch and that have no
 // uncommitted changes, offered for deletion together with their branches.
@@ -59,14 +60,16 @@ export function CleanupMergedDialog({ project, onClose }: { project: HostedProje
     <Dialog open={project !== null} onOpenChange={(o) => !o && onClose()}>
       <DialogContent className="sm:max-w-md" data-cleanup-dialog>
         <DialogHeader>
-          <DialogTitle>Clean Up Merged Workspaces</DialogTitle>
+          <DialogTitle>{t('Clean Up Merged Workspaces')}</DialogTitle>
           <DialogDescription>
-            Workspaces in {project ? projectLabel(project) : ''} with no commits beyond the base branch and no
-            uncommitted changes. Their worktrees and branches are deleted.
+            {t(
+              'Workspaces in {project} with no commits beyond the base branch and no uncommitted changes. Their worktrees and branches are deleted.',
+              { project: project ? projectLabel(project) : '' }
+            )}
           </DialogDescription>
         </DialogHeader>
         {candidates.length === 0 ? (
-          <p className="text-sm text-muted-foreground">Nothing to clean up.</p>
+          <p className="text-sm text-muted-foreground">{t('Nothing to clean up.')}</p>
         ) : (
           <ul className="max-h-60 space-y-1.5 overflow-y-auto">
             {candidates.map((w) => (
@@ -90,14 +93,14 @@ export function CleanupMergedDialog({ project, onClose }: { project: HostedProje
         )}
         <DialogFooter>
           <Button variant="outline" onClick={onClose}>
-            Cancel
+            {t('Cancel')}
           </Button>
           <Button
             variant="destructive"
             disabled={busy || candidates.every((c) => !checked.includes(c.id))}
             onClick={() => void cleanUp()}
           >
-            {busy ? 'Deleting…' : `Delete ${candidates.filter((c) => checked.includes(c.id)).length}`}
+            {busy ? t('Deleting…') : t('Delete {n}', { n: candidates.filter((c) => checked.includes(c.id)).length })}
           </Button>
         </DialogFooter>
       </DialogContent>

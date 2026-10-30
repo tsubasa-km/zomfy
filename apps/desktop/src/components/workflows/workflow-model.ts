@@ -11,27 +11,28 @@ import {
   type WorkflowNodeKind,
   type WorkflowOutcome
 } from '@acp-harness/protocol'
+import { t } from '@/i18n/i18n'
 
 // The editor's model of a workflow: what each step kind is, the starting template, and the checks
 // a graph must pass before the harness can run it.
 
 export const NODE_KINDS: { kind: WorkflowNodeKind; label: string; hint: string }[] = [
-  { kind: 'agent', label: 'Agent', hint: 'A session does a piece of work' },
-  { kind: 'review', label: 'Review', hint: 'A session approves or sends back' },
-  { kind: 'check', label: 'Check', hint: 'A command passes or fails (tests, lint)' },
-  { kind: 'human', label: 'Ask the person', hint: 'Waits for your answer' },
-  { kind: 'custom', label: 'Custom', hint: 'Your own fields and outcomes' },
-  { kind: 'end', label: 'End', hint: 'The run is done (or failed)' }
+  { kind: 'agent', label: t('Agent'), hint: t('A session does a piece of work') },
+  { kind: 'review', label: t('Review'), hint: t('A session approves or sends back') },
+  { kind: 'check', label: t('Check'), hint: t('A command passes or fails (tests, lint)') },
+  { kind: 'human', label: t('Ask the person'), hint: t('Waits for your answer') },
+  { kind: 'custom', label: t('Custom'), hint: t('Your own fields and outcomes') },
+  { kind: 'end', label: t('End'), hint: t('The run is done (or failed)') }
 ]
 
 const BUILTIN_LABELS: Record<BuiltinWorkflowOutcome, string> = {
-  next: 'Then',
-  approve: 'Approved',
-  changes: 'Changes requested',
-  pass: 'Passed',
-  fail: 'Failed',
-  answered: 'Answered',
-  ask: 'Has a question'
+  next: t('Then'),
+  approve: t('Approved'),
+  changes: t('Changes requested'),
+  pass: t('Passed'),
+  fail: t('Failed'),
+  answered: t('Answered'),
+  ask: t('Has a question')
 }
 
 function isBuiltin(outcome: WorkflowOutcome): outcome is BuiltinWorkflowOutcome {
@@ -286,36 +287,36 @@ export function validateWorkflow(workflow: Workflow, agents: WorkflowAgentProfil
   const issues: WorkflowIssue[] = [...workflowAccessIssues(workflow, agents)]
   const byId = new Map(workflow.nodes.map((n) => [n.id, n]))
   const starts = workflow.nodes.filter((n) => n.kind === 'start')
-  if (starts.length !== 1) issues.push({ level: 'error', message: 'A workflow needs exactly one Start.' })
-  if (!workflow.nodes.some((n) => n.kind === 'end')) issues.push({ level: 'error', message: 'Add an End step.' })
+  if (starts.length !== 1) issues.push({ level: 'error', message: t('A workflow needs exactly one Start.') })
+  if (!workflow.nodes.some((n) => n.kind === 'end')) issues.push({ level: 'error', message: t('Add an End step.') })
 
   for (const node of workflow.nodes) {
     const out = workflow.edges.filter((e) => e.from === node.id)
     for (const outcome of requiredOutcomes(node)) {
       if (!out.some((e) => e.outcome === outcome)) {
-        issues.push({ level: 'error', nodeId: node.id, message: `"${node.label}" needs a "${outcomeLabel(outcome)}" edge.` })
+        issues.push({ level: 'error', nodeId: node.id, message: t('"{label}" needs a "{outcome}" edge.', { label: node.label, outcome: outcomeLabel(outcome) }) })
       }
     }
     const seen = new Set<WorkflowOutcome>()
     for (const edge of out) {
       if (!workflowOutcomes(node).includes(edge.outcome)) {
-        issues.push({ level: 'error', edgeId: edge.id, message: `"${node.label}" cannot end in "${outcomeLabel(edge.outcome)}".` })
+        issues.push({ level: 'error', edgeId: edge.id, message: t('"{label}" cannot end in "{outcome}".', { label: node.label, outcome: outcomeLabel(edge.outcome) }) })
       } else if (seen.has(edge.outcome)) {
-        issues.push({ level: 'error', edgeId: edge.id, message: `"${node.label}" has two "${outcomeLabel(edge.outcome)}" edges.` })
+        issues.push({ level: 'error', edgeId: edge.id, message: t('"{label}" has two "{outcome}" edges.', { label: node.label, outcome: outcomeLabel(edge.outcome) }) })
       }
       seen.add(edge.outcome)
     }
     if ((node.kind === 'check' || (node.kind === 'custom' && node.config.runner === 'command')) && !node.config.command?.trim()) {
-      issues.push({ level: 'error', nodeId: node.id, message: `"${node.label}" has no command.` })
+      issues.push({ level: 'error', nodeId: node.id, message: t('"{label}" has no command.', { label: node.label }) })
     }
     const keys = (node.config.fields ?? []).map((f) => f.key.trim())
     if (keys.some((k) => !/^[A-Za-z_][\w-]*$/.test(k))) {
-      issues.push({ level: 'error', nodeId: node.id, message: `"${node.label}" has a field without a valid key (letters, digits, _ or -).` })
+      issues.push({ level: 'error', nodeId: node.id, message: t('"{label}" has a field without a valid key (letters, digits, _ or -).', { label: node.label }) })
     } else if (new Set(keys).size !== keys.length) {
-      issues.push({ level: 'error', nodeId: node.id, message: `"${node.label}" has two fields with the same key.` })
+      issues.push({ level: 'error', nodeId: node.id, message: t('"{label}" has two fields with the same key.', { label: node.label }) })
     }
     if (node.kind === 'human' && !node.config.question?.trim()) {
-      issues.push({ level: 'warning', nodeId: node.id, message: `"${node.label}" has no question; the step's reason is shown instead.` })
+      issues.push({ level: 'warning', nodeId: node.id, message: t("\"{label}\" has no question; the step's reason is shown instead.", { label: node.label }) })
     }
   }
 
@@ -330,16 +331,19 @@ export function validateWorkflow(workflow: Workflow, agents: WorkflowAgentProfil
       issues.push({
         level: 'error',
         edgeId: edge.id,
-        message: `"${from.label}" → "${to.label}" continues the chat, so both must be agent steps run by one session each (not your chat, not parallel).`
+        message: t('"{from}" → "{to}" continues the chat, so both must be agent steps run by one session each (not your chat, not parallel).', {
+          from: from.label,
+          to: to.label
+        })
       })
     } else if ((from.config.agent ?? 'claude') !== (to.config.agent ?? 'claude')) {
-      issues.push({ level: 'error', edgeId: edge.id, message: `"${from.label}" → "${to.label}" continues the chat, so both steps must run on the same agent.` })
+      issues.push({ level: 'error', edgeId: edge.id, message: t('"{from}" → "{to}" continues the chat, so both steps must run on the same agent.', { from: from.label, to: to.label }) })
     } else {
       if (to.kind === 'review') {
         issues.push({
           level: 'warning',
           edgeId: edge.id,
-          message: `"${to.label}" reviews in the chat that did the work, so it is not an independent review.`
+          message: t('"{label}" reviews in the chat that did the work, so it is not an independent review.', { label: to.label })
         })
       }
       // Other agents load MCP servers when their chat opens; a chat carried on keeps the first step's.
@@ -348,7 +352,11 @@ export function validateWorkflow(workflow: Workflow, agents: WorkflowAgentProfil
         issues.push({
           level: 'warning',
           edgeId: edge.id,
-          message: `"${to.label}" keeps the MCP servers "${from.label}" started with: ${to.config.agent} cannot change them in a chat it carries on.`
+          message: t('"{to}" keeps the MCP servers "{from}" started with: {agent} cannot change them in a chat it carries on.', {
+            to: to.label,
+            from: from.label,
+            agent: to.config.agent
+          })
         })
       }
     }
@@ -368,7 +376,7 @@ export function validateWorkflow(workflow: Workflow, agents: WorkflowAgentProfil
       }
     }
     for (const node of workflow.nodes) {
-      if (!reached.has(node.id)) issues.push({ level: 'warning', nodeId: node.id, message: `"${node.label}" is never reached from Start.` })
+      if (!reached.has(node.id)) issues.push({ level: 'warning', nodeId: node.id, message: t('"{label}" is never reached from Start.', { label: node.label }) })
     }
   }
 

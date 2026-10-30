@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button'
 import { ContextMenu, ContextMenuContent, ContextMenuItem, ContextMenuTrigger } from '@/components/ui/context-menu'
 import { cn } from '@/lib/utils'
 import { copyText } from './explorer-paths'
+import { t } from '@/i18n/i18n'
 
 // Orca's SearchResultItems (ToggleButton, FileResultRow, MatchResultRow), plus VS Code's replace
 // preview: the hit struck through with its replacement beside it, and per-row replace buttons.
@@ -96,7 +97,7 @@ export function FileResultRow({
             </div>
             {onReplaceAll && (
               <span className="hidden group-hover:flex">
-                <RowAction label="Replace All in File" onClick={onReplaceAll}>
+                <RowAction label={t('Replace All in File')} onClick={onReplaceAll}>
                   <ReplaceAll className="size-3" />
                 </RowAction>
               </span>
@@ -107,7 +108,7 @@ export function FileResultRow({
         <ContextMenuContent>
           <ContextMenuItem onSelect={() => copyText(path)}>
             <Copy className="size-3.5" />
-            Copy Path
+            {t('Copy Path')}
           </ContextMenuItem>
         </ContextMenuContent>
       </ContextMenu>
@@ -166,7 +167,7 @@ export function MatchResultRow({
           </span>
           {onReplace && (
             <span className="hidden group-hover:flex">
-              <RowAction label="Replace" onClick={onReplace}>
+              <RowAction label={t('Replace')} onClick={onReplace}>
                 <Replace className="size-3" />
               </RowAction>
             </span>
@@ -176,7 +177,7 @@ export function MatchResultRow({
       <ContextMenuContent>
         <ContextMenuItem onSelect={() => copyText(`${path}#L${match.line}`)}>
           <Copy className="size-3.5" />
-          Copy Line Path
+          {t('Copy Line Path')}
         </ContextMenuItem>
       </ContextMenuContent>
     </ContextMenu>

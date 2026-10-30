@@ -2,6 +2,7 @@ import { useEffect, useRef } from 'react'
 import { DiffEditor, type DiffOnMount } from '@monaco-editor/react'
 import { monaco } from '@/lib/monaco-setup'
 import { EDITOR_FONT_FAMILY, useDarkClass } from './use-dark-class'
+import { t } from '@/i18n/i18n'
 
 type DiffEditorInstance = Parameters<DiffOnMount>[0]
 
@@ -62,7 +63,7 @@ export function MonacoDiffView({
     // Scoped to this editor; addCommand would rebind Ctrl+S for every editor in the window.
     modifiedEditor.addAction({
       id: 'acpHarness.save',
-      label: 'Save',
+      label: t('Save'),
       keybindings: [monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyS],
       run: () => onSaveRef.current?.(modifiedEditor.getValue())
     })

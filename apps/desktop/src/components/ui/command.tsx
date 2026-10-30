@@ -9,6 +9,7 @@ import * as DialogPrimitive from 'radix-ui/dialog'
 import { cn } from '@/lib/utils'
 import { handleImeOverlayEscape } from '@/lib/ime-overlay-escape'
 import { useImeTextFieldProps } from '@/lib/ime-text-field'
+import { t } from '@/i18n/i18n'
 
 const commandVariants = cva('flex h-full w-full flex-col overflow-hidden rounded-md', {
   variants: {
@@ -42,8 +43,8 @@ function Command({
 
 function CommandDialog({
   children,
-  title = 'Command Palette',
-  description = 'Search for a command to run...',
+  title = t('Command Palette'),
+  description = t('Search for a command to run...'),
   shouldFilter,
   onOpenAutoFocus,
   onCloseAutoFocus,

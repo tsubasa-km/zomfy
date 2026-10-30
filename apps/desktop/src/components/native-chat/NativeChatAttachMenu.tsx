@@ -13,6 +13,7 @@ import {
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { attachChat, attachTerminal } from '@/lib/chat-attachments'
 import { allWorkspaces, useStore, type Session } from '@/session-store'
+import { t } from '@/i18n/i18n'
 
 /** Chats and terminals offered, newest first; the rest stay reachable by dragging their tabs in. */
 const MENU_LIMIT = 30
@@ -52,13 +53,13 @@ export function NativeChatAttachMenu({
       <Tooltip>
         <TooltipTrigger asChild>
           <DropdownMenuTrigger asChild>
-            <Button type="button" variant="ghost" size="icon-sm" aria-label="Attach" data-native-chat-attach>
+            <Button type="button" variant="ghost" size="icon-sm" aria-label={t('Attach')} data-native-chat-attach>
               <Plus className="size-4" />
             </Button>
           </DropdownMenuTrigger>
         </TooltipTrigger>
         <TooltipContent side="top" sideOffset={4}>
-          Attach
+          {t('Attach')}
         </TooltipContent>
       </Tooltip>
       <DropdownMenuContent
@@ -70,19 +71,19 @@ export function NativeChatAttachMenu({
       >
         <DropdownMenuItem onSelect={onPickImages}>
           <ImagePlus />
-          Image…
+          {t('Image…')}
         </DropdownMenuItem>
         <DropdownMenuItem onSelect={onMentionFile}>
           <AtSign />
-          File in this workspace…
+          {t('File in this workspace…')}
         </DropdownMenuItem>
         <DropdownMenuSub>
           <DropdownMenuSubTrigger>
             <MessageSquare />
-            Chat
+            {t('Chat')}
           </DropdownMenuSubTrigger>
           <DropdownMenuSubContent className="max-h-80 w-72 overflow-y-auto">
-            {chats.length === 0 ? <DropdownMenuItem disabled>No other chats</DropdownMenuItem> : null}
+            {chats.length === 0 ? <DropdownMenuItem disabled>{t('No other chats')}</DropdownMenuItem> : null}
             {chats.map((chat) => (
               <DropdownMenuItem key={chat.id} data-attach-chat={chat.id} onSelect={() => attach(() => attachChat(session, chat.id))}>
                 <span className="min-w-0 flex-1 truncate">{chat.title}</span>
@@ -94,10 +95,10 @@ export function NativeChatAttachMenu({
         <DropdownMenuSub>
           <DropdownMenuSubTrigger>
             <SquareTerminal />
-            Terminal
+            {t('Terminal')}
           </DropdownMenuSubTrigger>
           <DropdownMenuSubContent className="max-h-80 w-72 overflow-y-auto">
-            {shells.length === 0 ? <DropdownMenuItem disabled>No terminals open</DropdownMenuItem> : null}
+            {shells.length === 0 ? <DropdownMenuItem disabled>{t('No terminals open')}</DropdownMenuItem> : null}
             {shells.map((terminal) => (
               <DropdownMenuItem
                 key={terminal.id}
@@ -106,7 +107,7 @@ export function NativeChatAttachMenu({
               >
                 <span className="min-w-0 flex-1 truncate">{terminal.customTitle || terminal.title}</span>
                 <span className="max-w-24 shrink-0 truncate text-xs text-muted-foreground">
-                  {terminal.inline ? 'Run in chat' : workspaceName(terminal.workspaceId)}
+                  {terminal.inline ? t('Run in chat') : workspaceName(terminal.workspaceId)}
                 </span>
               </DropdownMenuItem>
             ))}

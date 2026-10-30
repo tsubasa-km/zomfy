@@ -5,6 +5,7 @@ import { LOCAL_HOST, useStore } from '@/session-store'
 import { createExternalStore } from '@/stores/external-store'
 import { registerKeybindingDefinitions, unregisterKeybindingDefinitions } from '@/keybindings/keybinding-definitions'
 import { hasCommandHandler, registerCommandHandler, runCommand } from '@/keybindings/keybinding-registry'
+import { t } from '@/i18n/i18n'
 
 // Enabled plugins' contributions, wired into the app: palette commands and keybindings (Orca's
 // plugin-command-registry + plugin-quick-actions) and right-sidebar panels (plugin-panels store).
@@ -37,9 +38,9 @@ const ALIASABLE_ACTIONS = new Set([
 
 /** Why a contributed command cannot run here, or null when it can. */
 export function pluginCommandUnavailableReason(action: string | undefined): string | null {
-  if (!action) return 'Needs a plugin worker, which acp-harness does not run'
-  if (!ALIASABLE_ACTIONS.has(action)) return `${action} is not an action plugins may alias`
-  if (!hasCommandHandler(action)) return `${action} is not available in acp-harness`
+  if (!action) return t('Needs a plugin worker, which acp-harness does not run')
+  if (!ALIASABLE_ACTIONS.has(action)) return t('{action} is not an action plugins may alias', { action })
+  if (!hasCommandHandler(action)) return t('{action} is not available in acp-harness', { action })
   return null
 }
 

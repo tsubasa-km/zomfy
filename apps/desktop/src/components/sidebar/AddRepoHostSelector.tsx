@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button'
 import { Command, CommandItem, CommandList } from '@/components/ui/command'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { cn } from '@/lib/utils'
+import { t } from '@/i18n/i18n'
 
 // Orca's AddRepoHostSelector: which machine the project goes on. Hosts that are not connected
 // offer Connect; WSL distros the app has not started yet are listed too.
@@ -24,16 +25,16 @@ function hostRows(hosts: Record<HostId, HostEntry>, distros: string[]): HostRow[
     .map((h) => ({
       id: h.id,
       label: h.label,
-      detail: h.id === LOCAL_HOST ? 'This computer' : h.id.startsWith('wsl:') ? 'WSL distro' : 'SSH host',
+      detail: h.id === LOCAL_HOST ? t('This computer') : h.id.startsWith('wsl:') ? t('WSL distro') : t('SSH host'),
       state: h.connection.kind
     }))
   for (const distro of distros) {
-    if (!hosts[`wsl:${distro}`]) rows.push({ id: `wsl:${distro}`, label: `WSL: ${distro}`, detail: 'WSL distro', state: 'offline' })
+    if (!hosts[`wsl:${distro}`]) rows.push({ id: `wsl:${distro}`, label: `WSL: ${distro}`, detail: t('WSL distro'), state: 'offline' })
   }
   return rows
 }
 
-const STATE_LABEL: Record<HostRow['state'], string> = { connected: 'Connected', connecting: 'Connecting', offline: 'Not connected' }
+const STATE_LABEL: Record<HostRow['state'], string> = { connected: t('Connected'), connecting: t('Connecting'), offline: t('Not connected') }
 
 export function AddRepoHostSelector({
   hostId,
@@ -52,7 +53,7 @@ export function AddRepoHostSelector({
 
   return (
     <div className="flex items-center gap-2 text-xs" data-add-repo-host>
-      <span className="font-medium text-muted-foreground">Host</span>
+      <span className="font-medium text-muted-foreground">{t('Host')}</span>
       <Popover
         open={open}
         onOpenChange={(o) => {
@@ -68,7 +69,7 @@ export function AddRepoHostSelector({
             aria-expanded={open}
             className="h-7 max-w-[18rem] min-w-0 gap-1.5 rounded-md border border-border bg-muted/30 px-2 text-xs font-medium text-foreground hover:bg-accent hover:text-accent-foreground"
           >
-            <span className="min-w-0 truncate">{selected?.label ?? 'This computer'}</span>
+            <span className="min-w-0 truncate">{selected?.label ?? t('This computer')}</span>
             {selected && selected.state !== 'connected' ? (
               <span className="shrink-0 text-[11px] font-normal text-muted-foreground">{STATE_LABEL[selected.state]}</span>
             ) : null}
@@ -89,8 +90,8 @@ export function AddRepoHostSelector({
               >
                 <Plus className="mt-0.5 size-3 shrink-0" />
                 <span className="min-w-0 flex-1">
-                  <span className="block truncate font-medium">Connect SSH host…</span>
-                  <span className="mt-0.5 block truncate text-[11px] text-muted-foreground">Use an existing machine over SSH.</span>
+                  <span className="block truncate font-medium">{t('Connect SSH host…')}</span>
+                  <span className="mt-0.5 block truncate text-[11px] text-muted-foreground">{t('Use an existing machine over SSH.')}</span>
                 </span>
               </CommandItem>
               {rows.map((row) => (
@@ -127,7 +128,7 @@ export function AddRepoHostSelector({
                       }}
                     >
                       {row.state === 'connecting' ? <Loader2 className="size-3 animate-spin" /> : null}
-                      {row.state === 'connecting' ? 'Connecting' : 'Connect'}
+                      {row.state === 'connecting' ? t('Connecting') : t('Connect')}
                     </Button>
                   ) : null}
                 </CommandItem>

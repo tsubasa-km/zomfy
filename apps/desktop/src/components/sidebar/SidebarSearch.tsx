@@ -6,6 +6,7 @@ import { STATUS_FILTERS } from '@/components/sidebar/SidebarFilterMenu'
 import { projectLabel } from '@/components/sidebar/workspace-visibility'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+import { t } from '@/i18n/i18n'
 
 // Orca's WorkspaceKanbanSearchField (counter + clear, Escape clears), with the active filters below
 // it as removable chips so a narrowed list never looks complete.
@@ -22,8 +23,8 @@ export function SidebarSearch({ matchCount, totalCount }: { matchCount: number; 
         <Input
           ref={inputRef}
           value={query}
-          aria-label="Search workspaces"
-          placeholder="Search workspaces"
+          aria-label={t('Search workspaces')}
+          placeholder={t('Search workspaces')}
           data-sidebar-search
           className="h-7 border-worktree-sidebar-border bg-background pr-16 pl-7 text-xs"
           onChange={(e) => setFilters({ query: e.target.value })}
@@ -45,7 +46,7 @@ export function SidebarSearch({ matchCount, totalCount }: { matchCount: number; 
               type="button"
               variant="ghost"
               size="icon-xs"
-              aria-label="Clear search"
+              aria-label={t('Clear search')}
               onMouseDown={(e) => e.preventDefault()}
               onClick={() => {
                 setFilters({ query: '' })
@@ -71,7 +72,7 @@ function Chip({ id, children, onRemove }: { id: string; children: ReactNode; onR
       <span className="min-w-0 truncate">{children}</span>
       <button
         type="button"
-        aria-label="Remove filter"
+        aria-label={t('Remove filter')}
         onClick={onRemove}
         className="flex size-4 shrink-0 items-center justify-center rounded-full text-muted-foreground hover:bg-muted hover:text-foreground"
       >
@@ -85,11 +86,11 @@ function ActiveFilterChips() {
   const f = useSidebarStore((s) => s.filters)
   const hosts = useStore((s) => s.hosts)
   const chips: ReactNode[] = []
-  if (f.agentRunning) chips.push(<Chip key="a" id="agent-running" onRemove={() => setFilters({ agentRunning: false })}>Agent running</Chip>)
-  if (f.needsYou) chips.push(<Chip key="n" id="needs-you" onRemove={() => setFilters({ needsYou: false })}>Needs you</Chip>)
-  if (f.unread) chips.push(<Chip key="u" id="unread" onRemove={() => setFilters({ unread: false })}>Unread</Chip>)
+  if (f.agentRunning) chips.push(<Chip key="a" id="agent-running" onRemove={() => setFilters({ agentRunning: false })}>{t('Agent running')}</Chip>)
+  if (f.needsYou) chips.push(<Chip key="n" id="needs-you" onRemove={() => setFilters({ needsYou: false })}>{t('Needs you')}</Chip>)
+  if (f.unread) chips.push(<Chip key="u" id="unread" onRemove={() => setFilters({ unread: false })}>{t('Unread')}</Chip>)
   if (f.hidePrimary) {
-    chips.push(<Chip key="p" id="hide-primary" onRemove={() => setFilters({ hidePrimary: false })}>No default branch</Chip>)
+    chips.push(<Chip key="p" id="hide-primary" onRemove={() => setFilters({ hidePrimary: false })}>{t('No default branch')}</Chip>)
   }
   for (const status of f.statuses) {
     const label = STATUS_FILTERS.find((s) => s.id === status)?.label ?? status

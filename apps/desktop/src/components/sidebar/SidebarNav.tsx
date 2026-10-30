@@ -16,6 +16,7 @@ import { ContextMenu, ContextMenuTrigger } from '@/components/ui/context-menu'
 import { cn } from '@/lib/utils'
 import { SetupChecklistSidebarEntry } from './SetupChecklistSidebarEntry'
 import { HideSidebarMenu } from './sidebar-nav-controls'
+import { t } from '@/i18n/i18n'
 
 // Orca's SidebarNav (sidebar/SidebarNav.tsx, SidebarTaskNavButton, AgentDashboardSidebarEntry): the
 // rows above the workspace list. Optional rows hide from their context menu or Settings › Appearance.
@@ -74,12 +75,12 @@ function SearchRow() {
     <button
       type="button"
       onClick={() => setCommandPalette(true, 'workspaces')}
-      aria-label="Search workspaces"
+      aria-label={t('Search workspaces')}
       data-sidebar-nav="search"
       className="group flex w-full items-center gap-2 rounded-md bg-worktree-sidebar-foreground/5 px-2 py-1.5 text-left text-[13px] font-medium tracking-tight text-worktree-sidebar-foreground/60 transition-colors hover:bg-worktree-sidebar-foreground/8"
     >
       <Search className="size-4 shrink-0 text-worktree-sidebar-foreground/30" strokeWidth={1.75} />
-      <span className="flex-1">Search</span>
+      <span className="flex-1">{t('Search')}</span>
       {keys ? (
         <span className="pointer-events-none hidden shrink-0 items-center gap-1 group-focus-within:flex group-hover:flex">
           <ShortcutKeyCombo
@@ -95,8 +96,8 @@ function SearchRow() {
 }
 
 const PROVIDER_SHORTCUTS: { provider: HostingProviderId; label: string; icon: LucideIcon }[] = [
-  { provider: 'github', label: 'Open GitHub tasks', icon: Github },
-  { provider: 'gitlab', label: 'Open GitLab tasks', icon: Gitlab }
+  { provider: 'github', label: t('Open GitHub tasks'), icon: Github },
+  { provider: 'gitlab', label: t('Open GitLab tasks'), icon: Gitlab }
 ]
 
 /** Opens Tasks on a project hosted by `provider`, keeping the current project when it already is. */
@@ -136,7 +137,7 @@ function TasksRow() {
             onClick={() => openTasksPage(!active)}
           >
             <List className={cn('size-4 shrink-0', !active && 'text-worktree-sidebar-foreground/30')} strokeWidth={active ? 2.25 : 1.75} />
-            <span className="flex-1">Tasks</span>
+            <span className="flex-1">{t('Tasks')}</span>
           </button>
           <span className="pointer-events-none absolute top-1/2 right-2 flex -translate-y-1/2 items-center gap-1 opacity-0 group-focus-within:pointer-events-auto group-focus-within:opacity-100 group-hover:pointer-events-auto group-hover:opacity-100">
             {providers.map(({ provider, label, icon: Icon }) => (
@@ -175,9 +176,9 @@ function DashboardCounts() {
   })
   const [attention, working, done] = counts.split(':').map(Number)
   const buckets = [
-    { id: 'attention', label: 'Needs You', count: attention ?? 0 },
-    { id: 'working', label: 'Working', count: working ?? 0 },
-    { id: 'done', label: 'Done', count: done ?? 0 }
+    { id: 'attention', label: t('Needs You'), count: attention ?? 0 },
+    { id: 'working', label: t('Working'), count: working ?? 0 },
+    { id: 'done', label: t('Done'), count: done ?? 0 }
   ].filter((b) => b.count > 0)
   if (buckets.length === 0) return null
   return (
@@ -219,7 +220,7 @@ export const SidebarNav = memo(function SidebarNav() {
       {showNewChat ? (
         <NavRow
           icon={SquarePen}
-          label="New chat"
+          label={t('New chat')}
           data="new-chat"
           active={quickStartShown && !boardOpen && !tasksOpen}
           onClick={() => {
@@ -236,7 +237,7 @@ export const SidebarNav = memo(function SidebarNav() {
       {showSkills ? (
         <NavRow
           icon={BookOpen}
-          label="Skills"
+          label={t('Skills')}
           data="skills"
           active={skillsOpen}
           onClick={() => setSkillsPageOpen(!skillsOpen)}
@@ -246,7 +247,7 @@ export const SidebarNav = memo(function SidebarNav() {
       {showWorkflows ? (
         <NavRow
           icon={Workflow}
-          label="Workflows"
+          label={t('Workflows')}
           data="workflows"
           active={workflowsOpen}
           onClick={() => (workflowsOpen ? openWorkflows(null) : openWorkflowsHere())}
@@ -256,7 +257,7 @@ export const SidebarNav = memo(function SidebarNav() {
       {showAutomations ? (
         <NavRow
           icon={CalendarClock}
-          label="Automations"
+          label={t('Automations')}
           data="automations"
           active={automationsOpen}
           onClick={() => setAutomationsPageOpen(!automationsOpen)}
@@ -266,7 +267,7 @@ export const SidebarNav = memo(function SidebarNav() {
       {showDashboard ? (
         <NavRow
           icon={LayoutDashboard}
-          label="Agent Dashboard"
+          label={t('Agent Dashboard')}
           data="dashboard"
           active={dashboardOpen}
           onClick={() => {

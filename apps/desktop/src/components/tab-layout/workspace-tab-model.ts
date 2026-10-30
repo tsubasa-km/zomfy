@@ -39,6 +39,7 @@ import {
 } from '@/stores/tab-layout-store'
 import { forgetPanes, isSecondaryPane, useTerminalPaneState } from '@/stores/terminal-pane-store'
 import { tabPaneTerminalIds } from '@/components/terminal/terminal-pane-commands'
+import { t } from '@/i18n/i18n'
 
 /** Every kind of tab a workspace's tab groups hold, in one shape. */
 export type WorkspaceTab =
@@ -150,7 +151,7 @@ export function closeWorkspaceTabs(workspaceId: string, tabs: WorkspaceTab[]): b
   const dirty = tabs.filter((t) => t.kind === 'editor' && t.editor.dirty)
   if (dirty.length > 0) {
     const names = dirty.map((t) => (t.kind === 'editor' ? t.editor.path : '')).join('\n')
-    if (!window.confirm(`Discard unsaved changes?\n\n${names}`)) return false
+    if (!window.confirm(t('Discard unsaved changes?\n\n{names}', { names }))) return false
   }
 
   const layout = layoutFor(workspaceId)

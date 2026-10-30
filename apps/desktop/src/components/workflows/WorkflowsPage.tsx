@@ -81,6 +81,7 @@ import {
   withoutSteps,
   type WorkflowIssue
 } from './workflow-model'
+import { t } from '@/i18n/i18n'
 
 // A project's agent workflows, drawn as a graph (React Flow): steps are cards, edges carry the
 // outcome that takes a run along them. The harness walks this graph; the editor only shapes it.
@@ -137,14 +138,14 @@ export function WorkflowsPage({ target }: { target: WorkflowsPageTarget }) {
       .catch((error: unknown) => {
         if (!live) return
         setSaved([])
-        toast.error('Could not load workflows', { description: String(error) })
+        toast.error(t('Could not load workflows'), { description: String(error) })
       })
     return () => {
       live = false
     }
   }, [target.hostId, target.projectId])
 
-  const confirmDiscard = () => !dirty || window.confirm('Discard the unsaved changes to this workflow?')
+  const confirmDiscard = () => !dirty || window.confirm(t('Discard the unsaved changes to this workflow?'))
 
   const pick = (workflow: Workflow) => {
     if (workflow.id === draft?.id || !confirmDiscard()) return
@@ -186,7 +187,7 @@ export function WorkflowsPage({ target }: { target: WorkflowsPageTarget }) {
       setCompareWith([next.id, variant.id])
     } catch (error) {
       setDirty(true)
-      toast.error('Could not save the variant', { description: String(error) })
+      toast.error(t('Could not save the variant'), { description: String(error) })
     }
   }
 
@@ -204,9 +205,9 @@ export function WorkflowsPage({ target }: { target: WorkflowsPageTarget }) {
       const list = await harnessRequest(HARNESS_METHODS.workflowSave, { workflow: draft }, target.hostId)
       setSaved(list)
       setDirty(false)
-      toast.success('Workflow saved', { description: draft.name })
+      toast.success(t('Workflow saved'), { description: draft.name })
     } catch (error) {
-      toast.error('Could not save the workflow', { description: String(error) })
+      toast.error(t('Could not save the workflow'), { description: String(error) })
     } finally {
       setBusy(false)
     }
@@ -230,7 +231,7 @@ export function WorkflowsPage({ target }: { target: WorkflowsPageTarget }) {
       setViewRunId(run.id)
       return true
     } catch (error) {
-      toast.error('The workflow did not start', { description: error instanceof Error ? error.message : String(error) })
+      toast.error(t('The workflow did not start'), { description: error instanceof Error ? error.message : String(error) })
       return false
     }
   }
@@ -238,7 +239,7 @@ export function WorkflowsPage({ target }: { target: WorkflowsPageTarget }) {
   const remove = async () => {
     if (!draft) return
     const stored = saved?.some((w) => w.id === draft.id)
-    if (!window.confirm(`Delete the workflow "${draft.name}"?`)) return
+    if (!window.confirm(t('Delete the workflow "{name}"?', { name: draft.name }))) return
     const list = stored
       ? await harnessRequest(HARNESS_METHODS.workflowRemove, { projectId: target.projectId, workflowId: draft.id }, target.hostId)
       : (saved ?? [])
@@ -267,18 +268,18 @@ export function WorkflowsPage({ target }: { target: WorkflowsPageTarget }) {
     >
       <div className="flex h-10 shrink-0 items-center gap-2 border-b border-border px-3">
         <WorkflowIcon className="size-4 text-muted-foreground" />
-        <div className="text-sm font-medium">Workflows</div>
+        <div className="text-sm font-medium">{t('Workflows')}</div>
         <div className="text-sm text-muted-foreground">· {target.projectName}</div>
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <Button variant="ghost" size="sm" className="ml-2 h-7 gap-1" disabled={!draft}>
-              <span className="max-w-56 truncate">{draft?.name ?? 'Loading…'}</span>
-              {dirty && <span className="size-1.5 rounded-full bg-status-warning" aria-label="Unsaved changes" />}
+              <span className="max-w-56 truncate">{draft?.name ?? t('Loading…')}</span>
+              {dirty && <span className="size-1.5 rounded-full bg-status-warning" aria-label={t('Unsaved changes')} />}
               <ChevronDown className="size-3.5" />
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="start" className="w-64">
-            {saved && saved.length > 0 && <DropdownMenuLabel className="text-xs text-muted-foreground">Saved</DropdownMenuLabel>}
+            {saved && saved.length > 0 && <DropdownMenuLabel className="text-xs text-muted-foreground">{t('Saved')}</DropdownMenuLabel>}
             {saved?.map((w) => (
               <DropdownMenuItem key={w.id} onSelect={() => pick(w)}>
                 {w.name}
@@ -287,15 +288,15 @@ export function WorkflowsPage({ target }: { target: WorkflowsPageTarget }) {
             {saved && saved.length > 0 && <DropdownMenuSeparator />}
             <DropdownMenuItem onSelect={duplicate} disabled={!draft} data-workflow-duplicate>
               <Copy className="size-3.5" />
-              Duplicate as a variant
+              {t('Duplicate as a variant')}
             </DropdownMenuItem>
             <DropdownMenuSeparator />
-            <DropdownMenuLabel className="text-xs text-muted-foreground">New from a template</DropdownMenuLabel>
-            {WORKFLOW_TEMPLATES.map((t) => (
-              <DropdownMenuItem key={t.name} onSelect={() => startNew(t.make)} data-workflow-template={t.name}>
+            <DropdownMenuLabel className="text-xs text-muted-foreground">{t('New from a template')}</DropdownMenuLabel>
+            {WORKFLOW_TEMPLATES.map((template) => (
+              <DropdownMenuItem key={template.name} onSelect={() => startNew(template.make)} data-workflow-template={template.name}>
                 <Plus className="size-3.5" />
-                <span className="min-w-0 flex-1 truncate">{t.name}</span>
-                <span className="text-[11px] text-muted-foreground">{t.hint}</span>
+                <span className="min-w-0 flex-1 truncate">{t(template.name)}</span>
+                <span className="text-[11px] text-muted-foreground">{t(template.hint)}</span>
               </DropdownMenuItem>
             ))}
           </DropdownMenuContent>
@@ -303,20 +304,20 @@ export function WorkflowsPage({ target }: { target: WorkflowsPageTarget }) {
         <div className="ml-auto flex items-center gap-2">
           {draft && (
             <span className={cn('text-xs', errors > 0 ? 'text-destructive' : 'text-status-success')} data-workflow-status>
-              {errors > 0 ? `${errors} problem${errors > 1 ? 's' : ''}` : 'Ready to run'}
+              {errors > 0 ? (errors > 1 ? t('{n} problems', { n: errors }) : t('{n} problem', { n: errors })) : t('Ready to run')}
             </span>
           )}
           <Button
             variant="ghost"
             size="sm"
             className="h-7 gap-1"
-            title="Changes Claude proposes from this workflow's last runs"
+            title={t("Changes Claude proposes from this workflow's last runs")}
             onClick={() => setSuggesting(true)}
             disabled={!draft || !saved?.some((w) => w.id === draft.id) || !runs.some((r) => r.workflowId === draft.id && r.status !== 'running')}
             data-workflow-suggest
           >
             <Sparkles className="size-3.5" />
-            Suggest
+            {t('Suggest')}
           </Button>
           <Button
             variant="ghost"
@@ -327,45 +328,45 @@ export function WorkflowsPage({ target }: { target: WorkflowsPageTarget }) {
             data-workflow-compare
           >
             <FlaskConical className="size-3.5" />
-            Compare
+            {t('Compare')}
           </Button>
           {(draftRuns.length > 0 || experiments.length > 0) && (
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button variant="ghost" size="sm" className="h-7 gap-1" data-workflow-history>
                   <History className="size-3.5" />
-                  History
+                  {t('History')}
                   {draftRuns.some((r) => r.status === 'waiting') && (
-                    <span className="size-1.5 rounded-full bg-agent-question" aria-label="A run is waiting for you" />
+                    <span className="size-1.5 rounded-full bg-agent-question" aria-label={t('A run is waiting for you')} />
                   )}
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" className="max-h-[70vh] w-80 overflow-y-auto">
-                {draftRuns.length > 0 && <DropdownMenuLabel className="text-xs text-muted-foreground">Runs of this workflow</DropdownMenuLabel>}
+                {draftRuns.length > 0 && <DropdownMenuLabel className="text-xs text-muted-foreground">{t('Runs of this workflow')}</DropdownMenuLabel>}
                 {draftRuns.map((r) => (
                   <DropdownMenuItem key={r.id} onSelect={() => setViewRunId(r.id)} data-workflow-run-item={r.status}>
-                    <span className="w-16 shrink-0 text-[11px] text-muted-foreground">{r.status}</span>
+                    <span className="w-16 shrink-0 text-[11px] text-muted-foreground">{t(r.status)}</span>
                     <span className="min-w-0 flex-1 truncate">{r.task}</span>
                   </DropdownMenuItem>
                 ))}
                 {draftRuns.length > 0 && experiments.length > 0 && <DropdownMenuSeparator />}
-                {experiments.length > 0 && <DropdownMenuLabel className="text-xs text-muted-foreground">Comparisons</DropdownMenuLabel>}
+                {experiments.length > 0 && <DropdownMenuLabel className="text-xs text-muted-foreground">{t('Comparisons')}</DropdownMenuLabel>}
                 {experiments.map((e) => (
                   <DropdownMenuItem key={e.id} onSelect={() => setViewExperimentId(e.id)} data-workflow-experiment-item={e.status}>
-                    <span className="w-16 shrink-0 text-[11px] text-muted-foreground">{e.status}</span>
+                    <span className="w-16 shrink-0 text-[11px] text-muted-foreground">{t(e.status)}</span>
                     <span className="min-w-0 flex-1 truncate">{e.task}</span>
-                    <span className="text-[11px] text-muted-foreground">{e.arms.length} workflows</span>
+                    <span className="text-[11px] text-muted-foreground">{t('{n} workflows', { n: e.arms.length })}</span>
                   </DropdownMenuItem>
                 ))}
               </DropdownMenuContent>
             </DropdownMenu>
           )}
-          <Button variant="ghost" size="sm" className="h-7" onClick={() => void remove()} disabled={!draft} aria-label="Delete workflow">
+          <Button variant="ghost" size="sm" className="h-7" onClick={() => void remove()} disabled={!draft} aria-label={t('Delete workflow')}>
             <Trash2 className="size-3.5" />
           </Button>
           <Button variant="outline" size="sm" className="h-7" onClick={() => void save()} disabled={!draft || !dirty || busy}>
             <Save className="size-3.5" />
-            Save
+            {t('Save')}
           </Button>
           <Button
             size="sm"
@@ -374,21 +375,21 @@ export function WorkflowsPage({ target }: { target: WorkflowsPageTarget }) {
             disabled={!draft || errors > 0 || busy || needsChat}
             title={
               errors > 0
-                ? 'Fix the problems first'
+                ? t('Fix the problems first')
                 : needsChat
-                  ? 'A step runs in the chat that starts the run: start it from a chat (the workflow button under the message box)'
-                  : 'Start a run of this workflow'
+                  ? t('A step runs in the chat that starts the run: start it from a chat (the workflow button under the message box)')
+                  : t('Start a run of this workflow')
             }
             data-workflow-run
           >
             <Play className="size-3.5" />
-            Run
+            {t('Run')}
           </Button>
           <Button
             variant="ghost"
             size="icon"
             className="size-7"
-            aria-label="Close workflows"
+            aria-label={t('Close workflows')}
             onClick={() => {
               if (confirmDiscard()) openWorkflows(null)
             }}
@@ -432,7 +433,7 @@ export function WorkflowsPage({ target }: { target: WorkflowsPageTarget }) {
           />
         </ReactFlowProvider>
       ) : (
-        <div className="m-auto text-sm text-muted-foreground">Loading workflows…</div>
+        <div className="m-auto text-sm text-muted-foreground">{t('Loading workflows…')}</div>
       )}
       {suggesting && draft && saved?.some((w) => w.id === draft.id) && (
         <WorkflowSuggestDialog
@@ -817,12 +818,12 @@ function WorkflowCanvas({
             <div className="flex flex-wrap gap-1 rounded-lg border border-border bg-card p-1 shadow-xs" data-workflow-palette>
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
-                  <Button variant="ghost" size="sm" className="h-7" title="Add: an agent does the work or reviews it" data-workflow-add-agent>
+                  <Button variant="ghost" size="sm" className="h-7" title={t('Add: an agent does the work or reviews it')} data-workflow-add-agent>
                     {(() => {
                       const Icon = STEP_ICONS.agent
                       return <Icon className={STEP_ACCENTS.agent} />
                     })()}
-                    Agent
+                    {t('Agent')}
                     <ChevronDown className="size-3 text-muted-foreground" />
                   </Button>
                 </DropdownMenuTrigger>
@@ -832,21 +833,21 @@ function WorkflowCanvas({
                     return (
                       <DropdownMenuItem key={kind} onSelect={() => addStep(kind)} data-workflow-add-kind={kind}>
                         <Icon className={STEP_ACCENTS[kind]} />
-                        <span className="flex-1">{kind === 'agent' ? 'Developer' : 'Reviewer'}</span>
-                        <span className="text-[11px] text-muted-foreground">{kind === 'agent' ? 'does the work' : 'approves or sends back'}</span>
+                        <span className="flex-1">{kind === 'agent' ? t('Developer') : t('Reviewer')}</span>
+                        <span className="text-[11px] text-muted-foreground">{kind === 'agent' ? t('does the work') : t('approves or sends back')}</span>
                       </DropdownMenuItem>
                     )
                   })}
                   {agents.length > 0 && (
                     <>
                       <DropdownMenuSeparator />
-                      <DropdownMenuLabel className="text-xs text-muted-foreground">Your agents</DropdownMenuLabel>
+                      <DropdownMenuLabel className="text-xs text-muted-foreground">{t('Your agents')}</DropdownMenuLabel>
                       {agents.map((a) => (
                         <DropdownMenuItem key={a.id} onSelect={() => addStep(a.kind, a)} data-workflow-add-profile={a.name}>
                           <TuiAgentIcon agent={a.agent ?? 'claude'} size={14} />
                           <span className="min-w-0 flex-1 truncate">{a.name}</span>
-                          {a.local && <HardDrive className="size-3 text-muted-foreground" aria-label="Local model" />}
-                          <span className="text-[11px] text-muted-foreground">{a.kind === 'review' ? 'reviews' : 'works'}</span>
+                          {a.local && <HardDrive className="size-3 text-muted-foreground" aria-label={t('Local model')} />}
+                          <span className="text-[11px] text-muted-foreground">{a.kind === 'review' ? t('reviews') : t('works')}</span>
                         </DropdownMenuItem>
                       ))}
                     </>
@@ -857,12 +858,12 @@ function WorkflowCanvas({
                     data-workflow-new-agent
                   >
                     <Plus className="size-3.5" />
-                    New agent…
+                    {t('New agent…')}
                   </DropdownMenuItem>
                   {agents.length > 0 && (
                     <DropdownMenuItem onSelect={() => setAgentList(true)} data-workflow-manage-agents>
                       <Pencil className="size-3.5" />
-                      Manage agents…
+                      {t('Manage agents…')}
                     </DropdownMenuItem>
                   )}
                 </DropdownMenuContent>
@@ -870,15 +871,15 @@ function WorkflowCanvas({
               {NODE_KINDS.filter((k) => k.kind !== 'agent' && k.kind !== 'review').map((k) => {
                 const Icon = STEP_ICONS[k.kind]
                 return (
-                  <Button key={k.kind} variant="ghost" size="sm" className="h-7" title={`Add: ${k.hint}`} onClick={() => addStep(k.kind)}>
+                  <Button key={k.kind} variant="ghost" size="sm" className="h-7" title={t('Add: {hint}', { hint: k.hint })} onClick={() => addStep(k.kind)}>
                     <Icon className={STEP_ACCENTS[k.kind]} />
                     {k.label}
                   </Button>
                 )
               })}
-              <Button variant="ghost" size="sm" className="h-7" title="Add: a file or folder steps may be given" onClick={addData} data-workflow-add-data>
+              <Button variant="ghost" size="sm" className="h-7" title={t('Add: a file or folder steps may be given')} onClick={addData} data-workflow-add-data>
                 <Database className="text-muted-foreground" />
-                Data
+                {t('Data')}
               </Button>
             </div>
           </Panel>

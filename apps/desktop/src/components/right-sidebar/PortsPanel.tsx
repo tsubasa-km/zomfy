@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { cn } from '@/lib/utils'
 import { PortSection } from './port-row'
+import { t } from '@/i18n/i18n'
 
 // Orca's LocalWorkspacePortsPanel: the daemon host's listeners in Active Workspace, Other
 // Workspaces and External sections, rescanned on an interval while the panel is open.
@@ -65,7 +66,7 @@ export function PortsPanel({ workspaceId }: { workspaceId: string }) {
   const other = ports.filter((p) => p.workspaceId !== null && p.workspaceId !== workspaceId)
   const external = ports.filter((p) => p.workspaceId === null)
   const ownerName = (port: ListeningPort) =>
-    port.workspaceId ? (workspaceNames.get(port.workspaceId) ?? 'Workspace') : 'Unassigned'
+    port.workspaceId ? (workspaceNames.get(port.workspaceId) ?? t('Workspace')) : t('Unassigned')
   const sectionProps = (id: string) => ({
     collapsed: collapsed[id] ?? false,
     onToggle: () => setCollapsed((c) => ({ ...c, [id]: !c[id] })),
@@ -76,7 +77,7 @@ export function PortsPanel({ workspaceId }: { workspaceId: string }) {
   return (
     <div className="scrollbar-sleek flex min-h-0 flex-1 flex-col overflow-y-auto" data-ports-panel="">
       <div className="flex items-center justify-between border-b border-border px-3 py-2">
-        <span className="text-[11px] font-semibold tracking-wider text-muted-foreground uppercase">Ports</span>
+        <span className="text-[11px] font-semibold tracking-wider text-muted-foreground uppercase">{t('Ports')}</span>
         <Tooltip>
           <TooltipTrigger asChild>
             <Button
@@ -84,7 +85,7 @@ export function PortsPanel({ workspaceId }: { workspaceId: string }) {
               variant="ghost"
               size="icon-xs"
               className="text-muted-foreground hover:text-foreground"
-              aria-label="Refresh Ports"
+              aria-label={t('Refresh Ports')}
               disabled={refreshing}
               onClick={() => void refresh()}
             >
@@ -92,32 +93,32 @@ export function PortsPanel({ workspaceId }: { workspaceId: string }) {
             </Button>
           </TooltipTrigger>
           <TooltipContent side="top" sideOffset={4}>
-            Refresh Ports
+            {t('Refresh Ports')}
           </TooltipContent>
         </Tooltip>
       </div>
       {(error || scan?.unavailableReason) && (
         <div role="alert" className="border-b border-border px-3 py-2 text-xs break-words text-muted-foreground">
-          {error ?? `Port scan unavailable on ${scan?.platform}: ${scan?.unavailableReason}`}
+          {error ?? t('Port scan unavailable on {platform}: {reason}', { platform: scan?.platform, reason: scan?.unavailableReason })}
         </div>
       )}
       {!scan?.unavailableReason && (
         <>
           <PortSection
             id="active"
-            title="Active Workspace"
+            title={t('Active Workspace')}
             ports={active}
-            emptyText={scan ? 'No ports detected' : 'Scanning...'}
+            emptyText={scan ? t('No ports detected') : t('Scanning...')}
             {...sectionProps('active')}
           />
-          <PortSection id="other" title="Other Workspaces" ports={other} {...sectionProps('other')} />
-          <PortSection id="external" title="External" ports={external} {...sectionProps('external')} />
+          <PortSection id="other" title={t('Other Workspaces')} ports={other} {...sectionProps('other')} />
+          <PortSection id="external" title={t('External')} ports={external} {...sectionProps('external')} />
         </>
       )}
       {scan && !scan.unavailableReason && ports.length === 0 && (
         <div className="flex flex-1 flex-col items-center justify-center px-4 text-center text-muted-foreground">
           <Server size={32} className="mb-3 opacity-50" />
-          <p className="text-sm">No local ports detected</p>
+          <p className="text-sm">{t('No local ports detected')}</p>
         </div>
       )}
     </div>

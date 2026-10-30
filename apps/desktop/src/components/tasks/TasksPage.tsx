@@ -18,6 +18,7 @@ import {
   reviewDecisionClass
 } from '@/components/right-sidebar/checks/review-presentation'
 import { cn } from '@/lib/utils'
+import { LANGUAGE, t } from '@/i18n/i18n'
 import { useWorkItems } from './use-work-items'
 import { WorkItemDetail } from './WorkItemDetail'
 
@@ -27,25 +28,28 @@ import { WorkItemDetail } from './WorkItemDetail'
 const PAGE = 30
 const MAX = 100
 
+/** "Open" here is a state, which other languages word apart from the verb the shared 'Open' key holds. */
+const OPEN_STATE = LANGUAGE === 'en' ? 'Open' : t('Open (state)')
+
 /** Orca's task-page-localized-options presets per source and kind. */
 export function presetsFor(provider: HostingProviderId, kind: WorkItemKind): { id: WorkItemPreset; label: string }[] {
   if (kind === 'issue') {
     return [
-      { id: 'open', label: 'Open' },
-      { id: 'assigned', label: 'Assigned to me' }
+      { id: 'open', label: OPEN_STATE },
+      { id: 'assigned', label: t('Assigned to me') }
     ]
   }
   return provider === 'gitlab'
     ? [
-        { id: 'open', label: 'Open' },
-        { id: 'merged', label: 'Merged' },
-        { id: 'closed', label: 'Closed' },
-        { id: 'all', label: 'All' }
+        { id: 'open', label: OPEN_STATE },
+        { id: 'merged', label: t('Merged') },
+        { id: 'closed', label: t('Closed') },
+        { id: 'all', label: t('All') }
       ]
     : [
-        { id: 'open', label: 'Open' },
-        { id: 'mine', label: 'Mine' },
-        { id: 'review-requested', label: 'Needs review' }
+        { id: 'open', label: OPEN_STATE },
+        { id: 'mine', label: t('Mine') },
+        { id: 'review-requested', label: t('Needs review') }
       ]
 }
 
@@ -96,14 +100,14 @@ export function TasksPage() {
   }, [availability, presets, tasks.preset])
 
   const start = (item: HostedWorkItem) => project && openNewWorkspace({ project, workItem: item })
-  const reviewWord = provider === 'gitlab' ? 'Merge requests' : 'Pull requests'
+  const reviewWord = provider === 'gitlab' ? t('Merge requests') : t('Pull requests')
 
   return (
     <div className="relative flex min-h-0 min-w-0 flex-1 flex-col bg-background text-foreground" data-tasks-page>
       <div className="mx-auto flex min-h-0 w-full min-w-0 flex-1 flex-col px-5 pt-2 pb-4 md:px-8">
         <div className="flex shrink-0 flex-wrap items-center gap-2 py-1.5">
           <List className="size-4 text-muted-foreground" />
-          <h1 className="text-[13px] font-semibold">Tasks</h1>
+          <h1 className="text-[13px] font-semibold">{t('Tasks')}</h1>
           <Select
             value={project?.id ?? ''}
             onValueChange={(projectId) => {
@@ -113,7 +117,7 @@ export function TasksPage() {
             }}
           >
             <SelectTrigger size="sm" className="h-7 min-w-40 text-xs" data-tasks-project>
-              <SelectValue placeholder="Pick a project" />
+              <SelectValue placeholder={t('Pick a project')} />
             </SelectTrigger>
             <SelectContent>
               {projects.map((p) => (
@@ -142,27 +146,27 @@ export function TasksPage() {
             }}
           >
             <ToggleGroupItem value="issue" className="px-3 text-xs" data-tasks-kind="issue">
-              Issues
+              {t('Issues')}
             </ToggleGroupItem>
             <ToggleGroupItem value="review" className="px-3 text-xs" data-tasks-kind="review">
               {reviewWord}
             </ToggleGroupItem>
           </ToggleGroup>
           <div className="flex-1" />
-          <Button size="xs" variant="ghost" className="text-muted-foreground" aria-label="Close tasks" onClick={() => setTasks({ open: false })}>
+          <Button size="xs" variant="ghost" className="text-muted-foreground" aria-label={t('Close tasks')} onClick={() => setTasks({ open: false })}>
             <X />
-            Close · Esc
+            {t('Close')} · Esc
           </Button>
         </div>
 
         {!project ? (
-          <Empty title="No git projects" description="Add a git project with a GitHub or GitLab remote to browse its issues and reviews." />
+          <Empty title={t('No git projects')} description={t('Add a git project with a GitHub or GitLab remote to browse its issues and reviews.')} />
         ) : selected ? (
           <WorkItemDetail project={project} item={selected} onBack={() => setSelected(null)} onStart={start} />
         ) : availability && availability.state !== 'ready' ? (
           <Empty title={unavailableTitle(availability.state, availability.provider)} description={availability.message ?? ''}>
             <Button size="xs" variant="outline" className="mt-3" onClick={reload}>
-              Retry
+              {t('Retry')}
             </Button>
           </Empty>
         ) : (
@@ -194,7 +198,9 @@ export function TasksPage() {
                   <Search className="size-3.5 shrink-0 text-muted-foreground" />
                   <input
                     className="min-w-0 flex-1 bg-transparent text-xs outline-none placeholder:text-muted-foreground"
-                    placeholder={`Search ${providerName(provider)} ${tasks.kind === 'issue' ? 'issues' : provider === 'gitlab' ? 'MRs' : 'PRs'}...`}
+                    placeholder={t(tasks.kind === 'issue' ? 'Search {provider} issues...' : provider === 'gitlab' ? 'Search {provider} MRs...' : 'Search {provider} PRs...', {
+                      provider: providerName(provider)
+                    })}
                     value={searchInput}
                     onChange={(e) => setSearchInput(e.target.value)}
                     onKeyDown={(e) => {
@@ -208,7 +214,7 @@ export function TasksPage() {
                   {searchInput && (
                     <button
                       type="button"
-                      aria-label="Clear search"
+                      aria-label={t('Clear search')}
                       className="text-muted-foreground hover:text-foreground"
                       onClick={() => {
                         setSearchInput('')
@@ -219,9 +225,9 @@ export function TasksPage() {
                     </button>
                   )}
                 </div>
-                <Button size="xs" variant="outline" disabled={loading} onClick={reload} aria-label={`Refresh ${providerName(provider)} work`}>
+                <Button size="xs" variant="outline" disabled={loading} onClick={reload} aria-label={t('Refresh {provider} work', { provider: providerName(provider) })}>
                   <RefreshCw className={cn(loading && 'animate-spin')} />
-                  Refresh
+                  {t('Refresh')}
                 </Button>
               </div>
             </div>
@@ -235,9 +241,9 @@ export function TasksPage() {
                   )}
                 >
                   <span>ID</span>
-                  <span>Title / Context</span>
-                  <span>{tasks.kind === 'issue' ? 'Status' : 'Checks / Review'}</span>
-                  <span>Updated</span>
+                  <span>{t('Title / Context')}</span>
+                  <span>{tasks.kind === 'issue' ? t('Status') : t('Checks / Review')}</span>
+                  <span>{t('Updated')}</span>
                   <span />
                 </div>
                 {error && <div className="border-b border-border px-4 py-4 text-sm text-destructive">{error}</div>}
@@ -246,14 +252,14 @@ export function TasksPage() {
                     <LoaderCircle className="size-5 animate-spin text-muted-foreground" />
                   </div>
                 )}
-                {items && items.length === 0 && !error && <div className="px-4 py-8 text-center text-sm text-muted-foreground">Nothing matches this view.</div>}
+                {items && items.length === 0 && !error && <div className="px-4 py-8 text-center text-sm text-muted-foreground">{t('Nothing matches this view.')}</div>}
                 {items?.map((item) => (
                   <WorkItemRow key={`${item.kind}-${item.number}`} item={item} onOpen={() => setSelected(item)} onStart={() => start(item)} />
                 ))}
                 {items && items.length >= limit && limit < MAX && (
                   <div className="flex justify-center border-t border-border/50 py-2">
                     <Button size="xs" variant="ghost" disabled={loading} onClick={() => setLimit((l) => Math.min(MAX, l + PAGE))}>
-                      {loading ? 'Loading…' : 'Load more'}
+                      {loading ? t('Loading…') : t('Load more')}
                     </Button>
                   </div>
                 )}
@@ -267,10 +273,10 @@ export function TasksPage() {
 }
 
 function unavailableTitle(state: string, provider: HostingProviderId | null): string {
-  const name = provider ? providerName(provider) : 'GitHub or GitLab'
-  if (state === 'cli-missing') return `${name} CLI is not installed`
-  if (state === 'unauthenticated') return `Not signed in to ${name}`
-  return `No ${name} source detected`
+  const name = provider ? providerName(provider) : t('GitHub or GitLab')
+  if (state === 'cli-missing') return t('{name} CLI is not installed', { name })
+  if (state === 'unauthenticated') return t('Not signed in to {name}', { name })
+  return t('No {name} source detected', { name })
 }
 
 function Empty({ title, description, children }: { title: string; description: string; children?: React.ReactNode }) {
@@ -334,10 +340,10 @@ function WorkItemRow({ item, onOpen, onStart }: { item: HostedWorkItem; onOpen: 
             e.stopPropagation()
             onStart()
           }}
-          title={item.kind === 'issue' ? 'Start workspace from issue' : `Start workspace from ${item.provider === 'gitlab' ? 'MR' : 'PR'}`}
+          title={item.kind === 'issue' ? t('Start workspace from issue') : t('Start workspace from {kind}', { kind: item.provider === 'gitlab' ? 'MR' : 'PR' })}
           data-work-item-start
         >
-          Start
+          {t('Start')}
         </Button>
       </span>
     </div>

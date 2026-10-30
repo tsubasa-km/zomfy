@@ -9,15 +9,16 @@ import {
   DropdownMenuTrigger
 } from '@/components/ui/dropdown-menu'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
+import { t } from '@/i18n/i18n'
 
 // Ported from Orca's NativeChatPermissionModePicker and native-chat-permission-mode-labels, with
 // Claude's Plan mode added (Orca's ask/accept-edits/auto/full-access are default/acceptEdits/auto/bypassPermissions).
 const MODE_COPY: Record<ChatPermissionMode, { label: string; description: string; icon: LucideIcon }> = {
-  plan: { label: 'Plan', description: 'Explores and plans; changes nothing until you approve the plan', icon: NotebookPen },
-  default: { label: 'Ask for approval', description: "Asks before edits and commands your settings don't allow", icon: Hand },
-  acceptEdits: { label: 'Accept edits', description: 'Approves file edits and file commands; asks for the rest', icon: FilePenLine },
-  auto: { label: 'Auto', description: "Claude Code's auto mode: reviews approval requests for you", icon: ShieldCheck },
-  bypassPermissions: { label: 'Full access', description: 'Never asks before edits or commands', icon: ShieldAlert }
+  plan: { label: t('Plan'), description: t('Explores and plans; changes nothing until you approve the plan'), icon: NotebookPen },
+  default: { label: t('Ask for approval'), description: t("Asks before edits and commands your settings don't allow"), icon: Hand },
+  acceptEdits: { label: t('Accept edits'), description: t('Approves file edits and file commands; asks for the rest'), icon: FilePenLine },
+  auto: { label: t('Auto'), description: t("Claude Code's auto mode: reviews approval requests for you"), icon: ShieldCheck },
+  bypassPermissions: { label: t('Full access'), description: t('Never asks before edits or commands'), icon: ShieldAlert }
 }
 
 /** Picker order: least to most access. */
@@ -54,7 +55,7 @@ export function NativeChatPermissionModePicker({
   onSelect: (mode: ChatPermissionMode) => void
 }) {
   const modes = MODES.filter((mode) => mode !== 'auto' || autoAvailable || current === 'auto')
-  const title = 'Permissions'
+  const title = t('Permissions')
   return (
     <DropdownMenu>
       <Tooltip>

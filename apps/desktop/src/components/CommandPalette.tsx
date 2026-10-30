@@ -9,6 +9,7 @@ import { ShortcutKeyCombo } from '@/components/ShortcutKeyCombo'
 import { AgentStateDot } from '@/components/AgentStateDot'
 import { canSplitActiveChat, splitActiveChat } from '@/components/tab-layout/pane-split-commands'
 import { CommandDialog, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command'
+import { t } from '@/i18n/i18n'
 
 // Ctrl/Cmd+Shift+P and Ctrl/Cmd+J: Orca's Cmd+J palette (switch workspace, quick actions) merged
 // with a command list drawn from the keybinding registry, so every command shows its shortcut.
@@ -34,19 +35,19 @@ export function CommandPalette() {
     <CommandDialog
       open={open}
       onOpenChange={setCommandPalette}
-      title="Command Palette"
-      description="Run a command or switch workspace"
+      title={t('Command Palette')}
+      description={t('Run a command or switch workspace')}
       onCloseAutoFocus={(e) => e.preventDefault()}
       commandProps={{ loop: true }}
     >
       <CommandInput
-        placeholder={workspacesOnly ? 'Search workspaces...' : 'Type a command or workspace name...'}
+        placeholder={workspacesOnly ? t('Search workspaces...') : t('Type a command or workspace name...')}
         className="!h-9 !py-2"
       />
       <CommandList className="max-h-[420px] p-2" data-command-palette-list>
-        <CommandEmpty>{workspacesOnly ? 'No matching workspaces.' : 'No matching commands or workspaces.'}</CommandEmpty>
+        <CommandEmpty>{workspacesOnly ? t('No matching workspaces.') : t('No matching commands or workspaces.')}</CommandEmpty>
         {workspaces.length > 0 ? (
-          <CommandGroup heading="Workspaces">
+          <CommandGroup heading={t('Workspaces')}>
             {workspaces.map((workspace) => {
               const name = workspace.displayName ?? workspace.name
               const status = workspaceStatus(sessions.filter((s) => s.workspaceId === workspace.id))
@@ -79,7 +80,7 @@ export function CommandPalette() {
           </CommandGroup>
         ) : null}
         {chatSplit ? (
-          <CommandGroup heading="Quick Actions">
+          <CommandGroup heading={t('Quick Actions')}>
             {([
               { direction: 'right', title: 'Split Chat Right', description: 'Open the active chat in a split pane to the right.', icon: PanelRightClose },
               { direction: 'down', title: 'Split Chat Down', description: 'Open the active chat in a split pane below.', icon: PanelBottomClose }
@@ -95,20 +96,20 @@ export function CommandPalette() {
                 data-quick-action={`split-chat-${direction}`}
               >
                 <Icon className="size-3.5 shrink-0 text-muted-foreground" />
-                <span className="min-w-0 truncate">{title}</span>
-                <span className="min-w-0 truncate text-xs text-muted-foreground">{description}</span>
+                <span className="min-w-0 truncate">{t(title)}</span>
+                <span className="min-w-0 truncate text-xs text-muted-foreground">{t(description)}</span>
               </CommandItem>
             ))}
           </CommandGroup>
         ) : null}
         {workspacesOnly ? null : (
-          <CommandGroup heading="Commands">
+          <CommandGroup heading={t('Commands')}>
             {commands.map((definition) => {
               const first = effectiveBindings(definition, overrides)[0]
               return (
                 <CommandItem
                   key={definition.id}
-                  value={`command ${definition.id} ${definition.title} ${definition.group} ${(definition.keywords ?? []).join(' ')}`}
+                  value={`command ${definition.id} ${definition.title} ${t(definition.title)} ${definition.group} ${(definition.keywords ?? []).join(' ')}`}
                   onSelect={() => {
                     close()
                     // After the dialog closes, so focus-sensitive commands see the app, not the palette.
@@ -117,7 +118,7 @@ export function CommandPalette() {
                   className="!py-1.5"
                 >
                   <Terminal className="size-3.5 shrink-0 text-muted-foreground" />
-                  <span className="min-w-0 truncate">{definition.title}</span>
+                  <span className="min-w-0 truncate">{t(definition.title)}</span>
                   {first ? <ShortcutKeyCombo keys={formatChord(first)} className="ml-auto shrink-0" /> : null}
                 </CommandItem>
               )

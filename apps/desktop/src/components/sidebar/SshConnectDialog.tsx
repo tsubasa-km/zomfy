@@ -1,5 +1,6 @@
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { SshHostPicker } from '@/components/ssh/SshHostPicker'
+import { t } from '@/i18n/i18n'
 
 /** The sidebar's "Connect SSH host…"; the host then appears as its own section, connecting. */
 export function SshConnectDialog({
@@ -16,8 +17,8 @@ export function SshConnectDialog({
     <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
       <DialogContent className="sm:max-w-md" data-ssh-connect-dialog>
         <DialogHeader>
-          <DialogTitle>Connect SSH Host</DialogTitle>
-          <DialogDescription>Runs a daemon on the host and reaches it through an SSH tunnel.</DialogDescription>
+          <DialogTitle>{t('Connect SSH Host')}</DialogTitle>
+          <DialogDescription>{t('Runs a daemon on the host and reaches it through an SSH tunnel.')}</DialogDescription>
         </DialogHeader>
         <SshHostPicker
           onConnect={(hostId) => {

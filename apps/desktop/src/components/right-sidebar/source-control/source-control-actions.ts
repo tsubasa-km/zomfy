@@ -1,4 +1,5 @@
 import type { GitUpstreamStatus } from '@acp-harness/protocol'
+import { t } from '@/i18n/i18n'
 
 // Orca's commit-area split button: the primary action ladder (shared/source-control-primary-action-decision.ts)
 // and the chevron dropdown (source-control-dropdown-*-items.ts). Every dropdown row always renders,
@@ -33,49 +34,56 @@ export interface ActionInputs {
 }
 
 const OP_LABEL: Record<RemoteOpKind, string> = {
-  push: 'Push',
-  force_push: 'Force Push',
-  pull: 'Pull',
-  fast_forward: 'Fast-forward',
-  sync: 'Sync',
-  fetch: 'Fetch',
-  publish: 'Publish Branch'
+  push: t('Push'),
+  force_push: t('Force Push'),
+  pull: t('Pull'),
+  fast_forward: t('Fast-forward'),
+  sync: t('Sync'),
+  fetch: t('Fetch'),
+  publish: t('Publish Branch')
 }
 
-const plural = (n: number, word: string) => `${n} ${word}${n === 1 ? '' : 's'}`
+/** One key per count form, so each language words the number its own way. */
+const counted = (n: number, one: string, many: string, values: Record<string, unknown> = {}) =>
+  t(n === 1 ? one : many, { n, ...values })
 const countLabel = (base: string, n: number) => (n > 0 ? `${base} (${n})` : base)
 const shouldForcePush = (u: GitUpstreamStatus | null | undefined) =>
   Boolean(u?.hasUpstream && u.ahead > 0 && u.behind > 0 && u.behindArePatchEquivalent)
 
 export function resolvePrimaryAction(i: ActionInputs): PrimaryAction {
-  const commit = (title: string, disabled: boolean): PrimaryAction => ({ kind: 'commit', label: 'Commit', title, disabled })
-  if (i.isCommitting) return commit('Commit in progress…', true)
+  const commit = (title: string, disabled: boolean): PrimaryAction => ({ kind: 'commit', label: t('Commit'), title, disabled })
+  if (i.isCommitting) return commit(t('Commit in progress…'), true)
   if (i.remoteOp) {
-    return { kind: i.remoteOp, label: OP_LABEL[i.remoteOp], title: `${OP_LABEL[i.remoteOp]} in progress…`, disabled: true }
+    return { kind: i.remoteOp, label: OP_LABEL[i.remoteOp], title: t('{op} in progress…', { op: OP_LABEL[i.remoteOp] }), disabled: true }
   }
-  if (i.hasConflicts) return commit('Resolve conflicts before committing', true)
-  if (i.stagedCount > 0) return commit(i.hasMessage ? 'Commit staged changes' : 'Enter a commit message to commit', !i.hasMessage)
-  if (i.hasStageableChanges) return { kind: 'stage', label: 'Stage All', title: 'Stage all changes', disabled: false }
+  if (i.hasConflicts) return commit(t('Resolve conflicts before committing'), true)
+  if (i.stagedCount > 0) return commit(i.hasMessage ? t('Commit staged changes') : t('Enter a commit message to commit'), !i.hasMessage)
+  if (i.hasStageableChanges) return { kind: 'stage', label: t('Stage All'), title: t('Stage all changes'), disabled: false }
   const u = i.upstream
-  if (u === undefined || !i.hasCommits) return commit('Stage at least one file to commit', true)
+  if (u === undefined || !i.hasCommits) return commit(t('Stage at least one file to commit'), true)
   if (!i.hasBranch || u === null) {
-    return { kind: 'publish', label: 'Publish Branch', title: 'Check out a branch before publishing commits.', disabled: true }
+    return { kind: 'publish', label: t('Publish Branch'), title: t('Check out a branch before publishing commits.'), disabled: true }
   }
-  if (!u.hasUpstream) return { kind: 'publish', label: 'Publish Branch', title: 'Publish this branch to origin', disabled: false }
+  if (!u.hasUpstream) return { kind: 'publish', label: t('Publish Branch'), title: t('Publish this branch to origin'), disabled: false }
   if (u.ahead > 0 && u.behind > 0) {
     if (shouldForcePush(u)) {
       return {
         kind: 'force_push',
-        label: 'Force Push',
-        title: `Remote only has older copies of local commits. Force push ${plural(u.ahead, 'branch commit')} with lease to update ${u.upstreamName ?? 'the remote branch'}.`,
+        label: t('Force Push'),
+        title: counted(
+          u.ahead,
+          'Remote only has older copies of local commits. Force push {n} branch commit with lease to update {upstream}.',
+          'Remote only has older copies of local commits. Force push {n} branch commits with lease to update {upstream}.',
+          { upstream: u.upstreamName ?? t('the remote branch') }
+        ),
         disabled: false
       }
     }
-    return { kind: 'sync', label: 'Sync', title: `Pull ${u.behind}, push ${u.ahead}`, disabled: false }
+    return { kind: 'sync', label: t('Sync'), title: t('Pull {behind}, push {ahead}', { behind: u.behind, ahead: u.ahead }), disabled: false }
   }
-  if (u.behind > 0) return { kind: 'pull', label: 'Pull', title: `Pull ${plural(u.behind, 'commit')}`, disabled: false }
-  if (u.ahead > 0) return { kind: 'push', label: 'Push', title: `Push ${plural(u.ahead, 'commit')}`, disabled: false }
-  return commit('Nothing to commit. Branch is up to date.', true)
+  if (u.behind > 0) return { kind: 'pull', label: t('Pull'), title: counted(u.behind, 'Pull {n} commit', 'Pull {n} commits'), disabled: false }
+  if (u.ahead > 0) return { kind: 'push', label: t('Push'), title: counted(u.ahead, 'Push {n} commit', 'Push {n} commits'), disabled: false }
+  return commit(t('Nothing to commit. Branch is up to date.'), true)
 }
 
 export function resolveDropdownItems(i: ActionInputs): DropdownEntry[] {
@@ -90,148 +98,166 @@ export function resolveDropdownItems(i: ActionInputs): DropdownEntry[] {
   const upstreamName = u?.upstreamName
 
   const commitBlocked = busy
-    ? 'Operation in progress…'
+    ? t('Operation in progress…')
     : i.hasConflicts
-      ? 'Resolve conflicts before committing'
+      ? t('Resolve conflicts before committing')
       : i.stagedCount === 0
-        ? 'Stage at least one file to commit'
+        ? t('Stage at least one file to commit')
         : !i.hasMessage
-          ? 'Enter a commit message to commit'
+          ? t('Enter a commit message to commit')
           : null
 
   const commitPushTitle = loading
-    ? 'Checking branch status…'
+    ? t('Checking branch status…')
     : detached
-      ? 'Check out a branch before pushing commits'
+      ? t('Check out a branch before pushing commits')
       : !hasUpstream
-        ? 'Publish the branch first to push commits'
+        ? t('Publish the branch first to push commits')
         : (commitBlocked ??
           (forcePush
-            ? 'Commit staged changes and force push with lease'
+            ? t('Commit staged changes and force push with lease')
             : behind > 0
-              ? 'Commit staged changes and try to push'
-              : 'Commit staged changes and push'))
+              ? t('Commit staged changes and try to push')
+              : t('Commit staged changes and push')))
   const commitSyncTitle = loading
-    ? 'Checking branch status…'
+    ? t('Checking branch status…')
     : detached
-      ? 'Check out a branch before syncing commits'
+      ? t('Check out a branch before syncing commits')
       : !hasUpstream
-        ? 'Publish the branch first to sync commits'
+        ? t('Publish the branch first to sync commits')
         : forcePush
-          ? (commitBlocked ?? 'Use Commit & Force Push — remote only has older copies of local commits')
-          : (commitBlocked ?? 'Commit, then pull and push')
+          ? (commitBlocked ?? t('Use Commit & Force Push — remote only has older copies of local commits'))
+          : (commitBlocked ?? t('Commit, then pull and push'))
 
-  const pullTitle = (verb: string) =>
-    loading
-      ? 'Checking branch status…'
+  const pullTitle = (verb: 'Pull' | 'Fast-forward') => {
+    const pull = verb === 'Pull'
+    return loading
+      ? t('Checking branch status…')
       : detached
-        ? `Check out a branch before ${verb === 'Pull' ? 'pulling commits' : 'fast-forwarding'}`
+        ? pull
+          ? t('Check out a branch before pulling commits')
+          : t('Check out a branch before fast-forwarding')
         : !hasUpstream
-          ? `Publish the branch first to ${verb === 'Pull' ? 'pull commits' : 'fast-forward'}`
+          ? pull
+            ? t('Publish the branch first to pull commits')
+            : t('Publish the branch first to fast-forward')
           : forcePush
-            ? `Nothing new to ${verb.toLowerCase()} — remote only has older copies of local commits`
+            ? pull
+              ? t('Nothing new to pull — remote only has older copies of local commits')
+              : t('Nothing new to fast-forward — remote only has older copies of local commits')
             : behind === 0
-              ? `Nothing to ${verb.toLowerCase()}`
-              : verb === 'Fast-forward' && ahead > 0
-                ? 'Try a fast-forward pull; git may reject local commits'
-                : `${verb} ${plural(behind, 'commit')}`
+              ? pull
+                ? t('Nothing to pull')
+                : t('Nothing to fast-forward')
+              : !pull && ahead > 0
+                ? t('Try a fast-forward pull; git may reject local commits')
+                : pull
+                  ? counted(behind, 'Pull {n} commit', 'Pull {n} commits')
+                  : counted(behind, 'Fast-forward {n} commit', 'Fast-forward {n} commits')
+  }
 
   return [
-    { kind: 'commit', label: 'Commit', title: commitBlocked ?? 'Commit staged changes', disabled: commitBlocked !== null },
+    { kind: 'commit', label: t('Commit'), title: commitBlocked ?? t('Commit staged changes'), disabled: commitBlocked !== null },
     {
       kind: 'commit_push',
-      label: forcePush ? 'Commit & Force Push' : 'Commit & Push',
+      label: forcePush ? t('Commit & Force Push') : t('Commit & Push'),
       title: commitPushTitle,
       disabled: loading || detached || !hasUpstream || commitBlocked !== null
     },
     {
       kind: 'commit_sync',
-      label: 'Commit & Sync',
+      label: t('Commit & Sync'),
       title: commitSyncTitle,
       disabled: loading || detached || !hasUpstream || forcePush || commitBlocked !== null
     },
     {
       kind: 'amend',
-      label: 'Commit (Amend)',
+      label: t('Commit (Amend)'),
       title: busy
-        ? 'Operation in progress…'
+        ? t('Operation in progress…')
         : !i.hasCommits
-          ? 'There is no commit to amend yet'
+          ? t('There is no commit to amend yet')
           : i.hasConflicts
-            ? 'Resolve conflicts before committing'
+            ? t('Resolve conflicts before committing')
             : i.hasMessage
-              ? 'Amend the last commit with the staged changes and this message'
-              : 'Amend the last commit with the staged changes, keeping its message',
+              ? t('Amend the last commit with the staged changes and this message')
+              : t('Amend the last commit with the staged changes, keeping its message'),
       disabled: busy || !i.hasCommits || i.hasConflicts
     },
     { kind: 'separator', id: 'before-remote' },
     {
       kind: 'push',
-      label: countLabel('Push', ahead),
+      label: countLabel(t('Push'), ahead),
       title: detached
-        ? 'Check out a branch before pushing commits'
+        ? t('Check out a branch before pushing commits')
         : !hasUpstream
-          ? 'Push this branch and set an upstream if needed'
+          ? t('Push this branch and set an upstream if needed')
           : forcePush
-            ? 'Try a regular push; git may require force push'
+            ? t('Try a regular push; git may require force push')
             : behind > 0 && ahead > 0
-              ? 'Push local commits; git may require syncing first'
+              ? t('Push local commits; git may require syncing first')
               : ahead === 0
-                ? `Nothing to push${upstreamName ? ` to ${upstreamName}` : ''}`
-                : `Push ${plural(ahead, 'commit')}`,
+                ? upstreamName
+                  ? t('Nothing to push to {upstream}', { upstream: upstreamName })
+                  : t('Nothing to push')
+                : counted(ahead, 'Push {n} commit', 'Push {n} commits'),
       disabled: busy || detached || loading
     },
     {
       kind: 'force_push',
-      label: countLabel('Force Push', ahead),
+      label: countLabel(t('Force Push'), ahead),
       title: detached
-        ? 'Check out a branch before force pushing commits'
+        ? t('Check out a branch before force pushing commits')
         : !hasUpstream
-          ? 'Publish this branch, replacing any remote branch of the same name'
+          ? t('Publish this branch, replacing any remote branch of the same name')
           : ahead === 0
-            ? `Nothing to force push${upstreamName ? ` to ${upstreamName}` : ''}`
-            : `Force push ${plural(ahead, 'commit')} with lease to ${upstreamName ?? 'the remote branch'}`,
+            ? upstreamName
+              ? t('Nothing to force push to {upstream}', { upstream: upstreamName })
+              : t('Nothing to force push')
+            : counted(ahead, 'Force push {n} commit with lease to {upstream}', 'Force push {n} commits with lease to {upstream}', {
+                upstream: upstreamName ?? t('the remote branch')
+              }),
       disabled: busy || detached || loading
     },
     {
       kind: 'pull',
-      label: countLabel('Pull', behind),
+      label: countLabel(t('Pull'), behind),
       title: pullTitle('Pull'),
       disabled: busy || loading || detached || !hasUpstream
     },
     {
       kind: 'fast_forward',
-      label: countLabel('Fast-forward', behind),
+      label: countLabel(t('Fast-forward'), behind),
       title: pullTitle('Fast-forward'),
       disabled: busy || loading || detached || !hasUpstream
     },
     {
       kind: 'sync',
-      label: ahead === 0 && behind === 0 ? 'Sync' : `Sync (↓${behind} ↑${ahead})`,
+      label: ahead === 0 && behind === 0 ? t('Sync') : `${t('Sync')} (↓${behind} ↑${ahead})`,
       title: loading
-        ? 'Checking branch status…'
+        ? t('Checking branch status…')
         : detached
-          ? 'Check out a branch before syncing commits'
+          ? t('Check out a branch before syncing commits')
           : !hasUpstream
-            ? 'Publish the branch first to sync commits'
+            ? t('Publish the branch first to sync commits')
             : forcePush
-              ? 'Use Force Push — remote only has older copies of local commits'
+              ? t('Use Force Push — remote only has older copies of local commits')
               : ahead === 0 && behind === 0
-                ? 'Branch is up to date'
-                : `Pull ${behind}, push ${ahead}`,
+                ? t('Branch is up to date')
+                : t('Pull {behind}, push {ahead}', { behind, ahead }),
       disabled: busy || loading || detached || !hasUpstream || forcePush
     },
-    { kind: 'fetch', label: 'Fetch', title: 'Fetch from remote without merging', disabled: busy },
+    { kind: 'fetch', label: t('Fetch'), title: t('Fetch from remote without merging'), disabled: busy },
     {
       kind: 'publish',
-      label: detached ? 'No Branch' : 'Publish Branch',
+      label: detached ? t('No Branch') : t('Publish Branch'),
       title: loading
-        ? 'Checking branch status…'
+        ? t('Checking branch status…')
         : detached
-          ? 'Check out a branch before publishing commits'
+          ? t('Check out a branch before publishing commits')
           : hasUpstream
-            ? `Already published to ${upstreamName}`
-            : 'Publish this branch to origin',
+            ? t('Already published to {upstream}', { upstream: upstreamName })
+            : t('Publish this branch to origin'),
       disabled: busy || loading || detached || hasUpstream
     }
   ]

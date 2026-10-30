@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { cn } from '@/lib/utils'
 import { joinHostPath, projectFolderName, repoFolderName } from '@/lib/project-target-path'
+import { t } from '@/i18n/i18n'
 
 // Orca's AddRepoCloneStep, AddRepoCreateStep and server-path step: each shows where the project will
 // land on the chosen host before anything runs there.
@@ -56,7 +57,7 @@ function ParentField({
         data-add-repo-parent
       />
       {onPick ? (
-        <Button type="button" variant="outline" size="sm" className="h-8 shrink-0 px-2" onClick={onPick} disabled={busy} title="Choose folder" aria-label="Choose folder">
+        <Button type="button" variant="outline" size="sm" className="h-8 shrink-0 px-2" onClick={onPick} disabled={busy} title={t('Choose folder')} aria-label={t('Choose folder')}>
           <Folder className="size-3.5" />
         </Button>
       ) : null}
@@ -93,12 +94,12 @@ export function AddRepoCloneStep({
   return (
     <>
       <DialogHeader>
-        <DialogTitle>Clone from URL</DialogTitle>
-        <DialogDescription>Enter the Git URL and choose where to clone it on {hostLabel}.</DialogDescription>
+        <DialogTitle>{t('Clone from URL')}</DialogTitle>
+        <DialogDescription>{t('Enter the Git URL and choose where to clone it on {host}.', { host: hostLabel })}</DialogDescription>
       </DialogHeader>
       <div className="min-w-0 space-y-3 pt-1" data-add-repo-step="clone">
         <div className="space-y-1">
-          <label className={fieldLabel}>Git URL</label>
+          <label className={fieldLabel}>{t('Git URL')}</label>
           <Input
             value={url}
             onChange={(e) => onUrlChange(e.target.value)}
@@ -112,7 +113,7 @@ export function AddRepoCloneStep({
           />
         </div>
         <div className="space-y-1">
-          <label className={fieldLabel}>Parent folder</label>
+          <label className={fieldLabel}>{t('Parent folder')}</label>
           <ParentField value={parent} placeholder="/path/to/destination" busy={busy} onChange={onParentChange} onPick={onPickParent} onEnter={enter} />
           {target ? (
             <p className="truncate font-mono text-[11px] text-muted-foreground" title={target} data-add-repo-target>
@@ -120,10 +121,10 @@ export function AddRepoCloneStep({
             </p>
           ) : null}
         </div>
-        {gitAvailable === false ? <p className="text-[11px] text-destructive">Git is required to clone a repository.</p> : null}
+        {gitAvailable === false ? <p className="text-[11px] text-destructive">{t('Git is required to clone a repository.')}</p> : null}
         <ErrorText error={error} />
         <Button onClick={onClone} disabled={!canClone} className="w-full">
-          {busy ? 'Cloning…' : 'Clone'}
+          {busy ? t('Cloning…') : t('Clone')}
         </Button>
       </div>
     </>
@@ -164,13 +165,13 @@ export function AddRepoCreateStep({
   return (
     <>
       <DialogHeader>
-        <DialogTitle>Create a new project</DialogTitle>
-        <DialogDescription>Name it and Zomfy will create a Git repository with a first commit.</DialogDescription>
+        <DialogTitle>{t('Create a new project')}</DialogTitle>
+        <DialogDescription>{t('Name it and Zomfy will create a Git repository with a first commit.')}</DialogDescription>
       </DialogHeader>
       <div className="min-w-0 space-y-3.5 pt-1" data-add-repo-step="create">
         <div className="space-y-1">
           <label htmlFor="create-project-name" className={fieldLabel}>
-            Name
+            {t('Name')}
           </label>
           <Input
             id="create-project-name"
@@ -198,27 +199,27 @@ export function AddRepoCreateStep({
               <GitBranch className="size-3.5" />
             </span>
             <div className="min-w-0 flex-1">
-              <p className="truncate text-sm font-medium">Git repository in {parent.trim() || 'location not selected'}</p>
+              <p className="truncate text-sm font-medium">{t('Git repository in {location}', { location: parent.trim() || t('location not selected') })}</p>
               {defaultsPending ? (
                 <p className="mt-0.5 flex items-center gap-1.5 text-[11px] text-muted-foreground">
                   <Loader2 className="size-3 animate-spin" />
-                  Checking Git on this host...
+                  {t('Checking Git on this host...')}
                 </p>
               ) : gitAvailable === false ? (
-                <p className="mt-0.5 text-[11px] text-destructive">Git is required to create a project.</p>
+                <p className="mt-0.5 text-[11px] text-destructive">{t('Git is required to create a project.')}</p>
               ) : target ? (
                 <p className="mt-0.5 truncate font-mono text-[11px] text-muted-foreground" title={target} data-add-repo-target>
                   {target}
                 </p>
               ) : (
-                <p className="mt-0.5 text-[11px] text-muted-foreground">Choose or enter a parent folder before creating.</p>
+                <p className="mt-0.5 text-[11px] text-muted-foreground">{t('Choose or enter a parent folder before creating.')}</p>
               )}
             </div>
             <ChevronDown className={cn('size-4 shrink-0 self-center text-muted-foreground transition-transform', locationOpen && 'rotate-180')} />
           </button>
           {locationOpen ? (
             <div className="space-y-1 border-t border-border px-3 py-3">
-              <span className={fieldLabel}>Location</span>
+              <span className={fieldLabel}>{t('Location')}</span>
               <ParentField value={parent} placeholder="/home/user/projects" busy={busy} onChange={onParentChange} onPick={onPickParent} onEnter={enter} />
             </div>
           ) : null}
@@ -226,7 +227,7 @@ export function AddRepoCreateStep({
 
         <ErrorText error={error} />
         <Button onClick={onCreate} disabled={!canCreate} size="lg" className="w-full">
-          {busy ? 'Creating…' : 'Create project'}
+          {busy ? t('Creating…') : t('Create project')}
         </Button>
       </div>
     </>
@@ -252,12 +253,12 @@ export function AddRepoPathStep({
   return (
     <>
       <DialogHeader>
-        <DialogTitle>Add folder on {hostLabel}</DialogTitle>
-        <DialogDescription>Enter the path of an existing Git repository or folder on the host.</DialogDescription>
+        <DialogTitle>{t('Add folder on {host}', { host: hostLabel })}</DialogTitle>
+        <DialogDescription>{t('Enter the path of an existing Git repository or folder on the host.')}</DialogDescription>
       </DialogHeader>
       <div className="min-w-0 space-y-3 pt-1" data-add-repo-step="path">
         <div className="space-y-1">
-          <label className={fieldLabel}>Folder path on the host</label>
+          <label className={fieldLabel}>{t('Folder path on the host')}</label>
           <Input
             value={path}
             onChange={(e) => onPathChange(e.target.value)}
@@ -272,7 +273,7 @@ export function AddRepoPathStep({
         </div>
         <ErrorText error={error} />
         <Button onClick={onAdd} disabled={!canAdd} className="w-full">
-          {busy ? 'Adding…' : 'Add project'}
+          {busy ? t('Adding…') : t('Add project')}
         </Button>
       </div>
     </>

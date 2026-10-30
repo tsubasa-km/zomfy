@@ -1,10 +1,11 @@
 import type { SessionStatus } from '@acp-harness/protocol'
 import type { ChatSessionState } from './chat-store'
+import { t } from '@/i18n/i18n'
 
 /** What a chat's follow-up queue does when the host reports the chat's new status. */
 export type QueueOnStatus = { kind: 'send' } | { kind: 'pause'; reason: string } | null
 
-export const QUEUE_PAUSED_BY_FAILURE = 'The last turn failed'
+export const QUEUE_PAUSED_BY_FAILURE = t('The last turn failed')
 
 export function queueOnStatus(chat: Pick<ChatSessionState, 'queue' | 'queuePaused'>, to: SessionStatus): QueueOnStatus {
   if (chat.queue.length === 0 || chat.queuePaused) return null

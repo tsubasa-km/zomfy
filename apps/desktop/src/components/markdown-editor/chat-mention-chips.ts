@@ -2,6 +2,7 @@ import { RangeSetBuilder } from '@codemirror/state'
 import { Decoration, EditorView, ViewPlugin, WidgetType, type DecorationSet, type ViewUpdate } from '@codemirror/view'
 import { MENTION_ICON_SVG, MENTION_TITLE, parseChatMentions, type ChatMention } from '@/lib/chat-mentions'
 import { openChatMention } from '@/lib/chat-attachments'
+import { t } from '@/i18n/i18n'
 
 class MentionChip extends WidgetType {
   constructor(readonly mention: ChatMention) {
@@ -16,7 +17,7 @@ class MentionChip extends WidgetType {
     const chip = document.createElement('span')
     chip.className = 'chat-mention-chip'
     chip.dataset.mentionKind = this.mention.kind
-    chip.title = `${MENTION_TITLE[this.mention.kind]}: click to open`
+    chip.title = t('{kind}: click to open', { kind: MENTION_TITLE[this.mention.kind] })
     chip.innerHTML = MENTION_ICON_SVG[this.mention.kind]
     const label = document.createElement('span')
     label.textContent = this.mention.label

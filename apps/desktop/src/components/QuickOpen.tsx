@@ -6,6 +6,7 @@ import { findWorkspace, floatingWorkspaceId, openEditorTab, setFloating, useStor
 import { setQuickOpen, useAppOverlays, closeSettings } from '@/stores/app-overlay-store'
 import { CommandDialog, CommandEmpty, CommandInput, CommandItem, CommandList } from '@/components/ui/command'
 import { indexPaths, rankPaths, type IndexedPath } from '@/lib/quick-open-ranking'
+import { t } from '@/i18n/i18n'
 
 // Orca's QuickOpen (components/QuickOpen.tsx): Ctrl/Cmd+P lists the active workspace's files from
 // its host's daemon (ripgrep `--files`), ranked as you type; Enter opens it in an editor tab.
@@ -70,25 +71,25 @@ export function QuickOpen() {
         if (!next) setQuickOpen(null)
       }}
       shouldFilter={false}
-      title="Go to file"
-      description="Search for a file to open"
+      title={t('Go to file')}
+      description={t('Search for a file to open')}
       onCloseAutoFocus={(e) => e.preventDefault()}
     >
       <CommandInput
-        placeholder={workspaceName ? `Go to file in ${workspaceName}...` : 'Go to file...'}
+        placeholder={workspaceName ? t('Go to file in {name}...', { name: workspaceName }) : t('Go to file...')}
         value={query}
         onValueChange={setQuery}
         className="!h-9 !py-2"
       />
       <CommandList className="p-2" data-quick-open-list>
         {!workspaceId ? (
-          <div className="py-6 text-center text-sm text-muted-foreground">Select a workspace to search its files.</div>
+          <div className="py-6 text-center text-sm text-muted-foreground">{t('Select a workspace to search its files.')}</div>
         ) : error ? (
           <div className="px-4 py-6 text-center text-sm whitespace-pre-wrap text-muted-foreground">{error}</div>
         ) : !files ? (
-          <div className="py-6 text-center text-sm text-muted-foreground">Loading files...</div>
+          <div className="py-6 text-center text-sm text-muted-foreground">{t('Loading files...')}</div>
         ) : results.length === 0 ? (
-          <CommandEmpty>No matching files.</CommandEmpty>
+          <CommandEmpty>{t('No matching files.')}</CommandEmpty>
         ) : (
           results.map((item) => {
             const { directory, filename } = splitPath(item.path)
@@ -105,18 +106,18 @@ export function QuickOpen() {
         )}
         {listing?.truncated && files ? (
           <div className="px-3 py-2 text-center text-xs text-muted-foreground">
-            More matches may be available. Refine your search to narrow the results.
+            {t('More matches may be available. Refine your search to narrow the results.')}
           </div>
         ) : null}
       </CommandList>
       <div className="flex items-center justify-end border-t border-border/60 px-3.5 py-2.5 text-[11px] text-muted-foreground/80">
         <div className="flex items-center gap-2">
           <FooterKey>Enter</FooterKey>
-          <span>Open</span>
+          <span>{t('Open')}</span>
           <FooterKey>Esc</FooterKey>
-          <span>Close</span>
+          <span>{t('Close')}</span>
           <FooterKey>↑↓</FooterKey>
-          <span>Move</span>
+          <span>{t('Move')}</span>
         </div>
       </div>
     </CommandDialog>

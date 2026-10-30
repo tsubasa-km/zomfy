@@ -5,6 +5,7 @@ import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip
 import { cn } from '@/lib/utils'
 import { clearQueue, removeQueued, resumeQueue, steerQueued } from '@/chat-actions'
 import { useChatSession } from '@/stores/chat-store'
+import { t } from '@/i18n/i18n'
 
 // Ported from Orca's NativeChatQueuedMessageList: follow-ups typed while a turn runs stack
 // between the transcript and the composer, never in the transcript, until they are sent.
@@ -40,25 +41,25 @@ export function NativeChatQueuedMessageList({ sessionId, working }: { sessionId:
             )}
           >
             <p className={cn('truncate', queuePaused && 'font-medium text-foreground')}>
-              {queuePaused ? (queuePauseReason ? `Paused · ${queuePauseReason}` : 'Paused') : 'Queued'}
+              {queuePaused ? (queuePauseReason ? t('Paused · {reason}', { reason: queuePauseReason }) : t('Paused')) : t('Queued')}
             </p>
             <span aria-hidden>·</span>
             <span className="min-w-0 flex-1 tabular-nums">{queue.length}</span>
             {queuePaused ? (
               <>
                 <Button type="button" variant="ghost" size="xs" onClick={() => clearQueue(sessionId)}>
-                  Clear all
+                  {t('Clear all')}
                 </Button>
                 <Button type="button" variant="ghost" size="xs" onClick={() => resumeQueue(sessionId)}>
-                  Resume
+                  {t('Resume')}
                 </Button>
               </>
             ) : null}
-            <IconAction label={expanded ? 'Collapse' : 'Expand'} onClick={() => setExpanded(!expanded)}>
+            <IconAction label={expanded ? t('Collapse') : t('Expand')} onClick={() => setExpanded(!expanded)}>
               {expanded ? <ChevronDown className="size-3.5" /> : <ChevronRight className="size-3.5" />}
             </IconAction>
           </div>
-          <ul hidden={!expanded} aria-label="Queued messages" className="scrollbar-sleek max-h-40 divide-y divide-border overflow-y-auto">
+          <ul hidden={!expanded} aria-label={t('Queued messages')} className="scrollbar-sleek max-h-40 divide-y divide-border overflow-y-auto">
             {queue.map((message) => (
               <li key={message.id} className="flex items-start gap-2 py-1.5 pr-1 pl-2.5" data-queued-message={message.id}>
                 <p className="line-clamp-3 min-w-0 flex-1 text-sm break-words whitespace-pre-wrap text-foreground">
@@ -72,12 +73,12 @@ export function NativeChatQueuedMessageList({ sessionId, working }: { sessionId:
                 </p>
                 <div className="flex shrink-0 items-center">
                   <IconAction
-                    label={working ? 'Send now (interrupts the agent)' : 'Send now'}
+                    label={working ? t('Send now (interrupts the agent)') : t('Send now')}
                     onClick={() => steerQueued(sessionId, message.id)}
                   >
                     <Play className="size-3.5" />
                   </IconAction>
-                  <IconAction label="Delete" onClick={() => removeQueued(sessionId, message.id)}>
+                  <IconAction label={t('Delete')} onClick={() => removeQueued(sessionId, message.id)}>
                     <Trash2 className="size-3.5" />
                   </IconAction>
                 </div>

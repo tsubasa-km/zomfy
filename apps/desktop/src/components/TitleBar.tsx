@@ -5,6 +5,7 @@ import { RefreshCw } from 'lucide-react'
 import { restartToUpdate, useAppUpdate } from '@/lib/app-update'
 import { WINDOW_ROLE } from '@/lib/window-role'
 import { cn } from '@/lib/utils'
+import { t } from '@/i18n/i18n'
 
 /** On Windows the main window drops the OS title bar (title_bar.rs) so the update button can sit beside ＿ □ ✕, as in Orca. */
 export const OWN_TITLE_BAR = isTauri() && WINDOW_ROLE === 'main' && navigator.userAgent.includes('Windows')
@@ -21,7 +22,7 @@ function UpdateButton() {
       className="mr-2 flex h-6 items-center gap-1.5 rounded-md bg-highlight/15 px-2 text-xs font-medium text-highlight transition-colors hover:bg-highlight/25"
     >
       <RefreshCw className="size-3.5" />
-      Restart to update {next}
+      {t('Restart to update {version}', { version: next })}
     </button>
   )
 }
@@ -54,14 +55,14 @@ export function TitleBar() {
       <div data-tauri-drag-region className="flex-1 self-stretch" />
       <UpdateButton />
       <div className="flex h-full">
-        <button type="button" aria-label="Minimize" className={cn(CONTROL, 'hover:bg-foreground/10')} onClick={() => void win.minimize()}>
+        <button type="button" aria-label={t('Minimize')} className={cn(CONTROL, 'hover:bg-foreground/10')} onClick={() => void win.minimize()}>
           <svg width="10" height="10" viewBox="0 0 10 10" aria-hidden>
             <path d="M0 5h10v1H0z" fill="currentColor" />
           </svg>
         </button>
         <button
           type="button"
-          aria-label={maximized ? 'Restore' : 'Maximize'}
+          aria-label={maximized ? t('Restore') : t('Maximize')}
           className={cn(CONTROL, 'hover:bg-foreground/10')}
           onClick={() => void win.toggleMaximize()}
         >
@@ -76,7 +77,7 @@ export function TitleBar() {
           )}
         </button>
         {/* close() goes through CloseRequested, so minimize-to-tray still applies. */}
-        <button type="button" aria-label="Close" className={cn(CONTROL, 'hover:bg-[#c42b1c] hover:text-white')} onClick={() => void win.close()}>
+        <button type="button" aria-label={t('Close')} className={cn(CONTROL, 'hover:bg-[#c42b1c] hover:text-white')} onClick={() => void win.close()}>
           <svg width="10" height="10" viewBox="0 0 10 10" aria-hidden>
             <path d="M1 0L0 1l4 4-4 4 1 1 4-4 4 4 1-1-4-4 4-4-1-1-4 4-4-4z" fill="currentColor" />
           </svg>

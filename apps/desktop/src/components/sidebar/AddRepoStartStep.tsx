@@ -4,6 +4,7 @@ import { DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/di
 import { Button } from '@/components/ui/button'
 import { ShortcutKeyCombo } from '@/components/ShortcutKeyCombo'
 import { cn } from '@/lib/utils'
+import { t } from '@/i18n/i18n'
 
 // Orca's AddRepoLocalStartStep + add-repo-local-start-actions: Browse first, then "Other ways to
 // add". The ⏎ chip follows keyboard focus, so Enter always runs the highlighted row; ↑/↓ move it.
@@ -47,13 +48,13 @@ export function AddRepoStartStep({
   const primary: StartAction = {
     kind: 'browse',
     icon: FolderOpen,
-    title: 'Browse folder',
-    description: typedPath ? 'Existing Git repository or folder on this host' : 'Local project, Git repo, or folder',
+    title: t('Browse folder'),
+    description: typedPath ? t('Existing Git repository or folder on this host') : t('Local project, Git repo, or folder'),
     onClick: onBrowse
   }
   const secondary: StartAction[] = [
-    { kind: 'clone', icon: Globe, title: 'Clone from URL', description: 'Clone a remote Git repository', onClick: onClone },
-    { kind: 'create', icon: Plus, title: 'Create new project', description: 'Start from an empty folder', onClick: onCreate }
+    { kind: 'clone', icon: Globe, title: t('Clone from URL'), description: t('Clone a remote Git repository'), onClick: onClone },
+    { kind: 'create', icon: Plus, title: t('Create new project'), description: t('Start from an empty folder'), onClick: onCreate }
   ]
   const [selectedKind, setSelectedKind] = useState<StartAction['kind'] | null>('browse')
   const visibleSelected = unavailable ? null : selectedKind
@@ -75,11 +76,11 @@ export function AddRepoStartStep({
   return (
     <>
       <DialogHeader>
-        <DialogTitle>{linkTo ? `Add a workspace to ${linkTo}` : 'Add a project'}</DialogTitle>
+        <DialogTitle>{linkTo ? t('Add a workspace to {project}', { project: linkTo }) : t('Add a project')}</DialogTitle>
         {linkTo ? (
-          <DialogDescription>A folder or repository on any host; it lists under {linkTo} with its host's name.</DialogDescription>
+          <DialogDescription>{t("A folder or repository on any host; it lists under {project} with its host's name.", { project: linkTo })}</DialogDescription>
         ) : firstProject ? (
-          <DialogDescription>Add a project to get started with Zomfy.</DialogDescription>
+          <DialogDescription>{t('Add a project to get started with Zomfy.')}</DialogDescription>
         ) : null}
       </DialogHeader>
 
@@ -101,7 +102,7 @@ export function AddRepoStartStep({
           onFocus={() => setSelectedKind('browse')}
         />
         <div className="space-y-1.5">
-          <p className="text-xs font-medium tracking-wider text-muted-foreground uppercase">Other ways to add</p>
+          <p className="text-xs font-medium tracking-wider text-muted-foreground uppercase">{t('Other ways to add')}</p>
           <div className="overflow-hidden rounded-md border border-input bg-background">
             {secondary.map((action, index) => (
               <SecondaryAction
@@ -118,7 +119,7 @@ export function AddRepoStartStep({
         {busy ? (
           <div className="flex items-center gap-2 rounded-md border border-border bg-muted px-3 py-2 text-xs text-muted-foreground">
             <Loader2 className="size-3.5 shrink-0 animate-spin" />
-            <span className="min-w-0 flex-1">Adding project…</span>
+            <span className="min-w-0 flex-1">{t('Adding project…')}</span>
           </div>
         ) : null}
         <div className="flex justify-end">
@@ -128,7 +129,7 @@ export function AddRepoStartStep({
             data-add-repo-orca-import
             onClick={onImportOrca}
           >
-            Import from Orca…
+            {t('Import from Orca…')}
           </button>
         </div>
       </div>

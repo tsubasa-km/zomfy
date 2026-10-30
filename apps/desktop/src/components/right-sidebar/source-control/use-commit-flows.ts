@@ -2,17 +2,18 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { HARNESS_METHODS } from '@acp-harness/protocol'
 import { harnessRequest } from '@/daemon-connection'
 import type { DropdownActionKind, PrimaryActionKind, RemoteOpKind } from './source-control-actions'
+import { t } from '@/i18n/i18n'
 
 const errorText = (e: unknown) => (e instanceof Error ? e.message : String(e))
 
 const OP_FAILURE: Record<RemoteOpKind, string> = {
-  push: 'Push failed',
-  force_push: 'Force push failed',
-  pull: 'Pull failed',
-  fast_forward: 'Fast-forward failed',
-  sync: 'Sync failed',
-  fetch: 'Fetch failed',
-  publish: 'Publish failed'
+  push: t('Push failed'),
+  force_push: t('Force push failed'),
+  pull: t('Pull failed'),
+  fast_forward: t('Fast-forward failed'),
+  sync: t('Sync failed'),
+  fetch: t('Fetch failed'),
+  publish: t('Publish failed')
 }
 
 /**
@@ -123,7 +124,7 @@ export function useCommitFlows({
       const { message: generated } = await harnessRequest(HARNESS_METHODS.gitGenerateCommitMessage, { workspaceId })
       if (seq === generationSeq.current) setMessage(generated)
     } catch (e) {
-      if (seq === generationSeq.current) setGenerateError(`Couldn't generate a commit message: ${errorText(e)}`)
+      if (seq === generationSeq.current) setGenerateError(t("Couldn't generate a commit message: {error}", { error: errorText(e) }))
     } finally {
       if (seq === generationSeq.current) setGenerating(false)
     }

@@ -9,6 +9,7 @@ import { Label } from '@/components/ui/label'
 import { loadChecks, setReviewAfterCreate } from '@/stores/hosting-store'
 import { cn } from '@/lib/utils'
 import { reviewShortLabel } from './review-presentation'
+import { t } from '@/i18n/i18n'
 
 // Orca's CreateHostedReviewComposer(+Fields): title, description, base and draft, inline in the
 // Checks panel; "Push & Create" publishes the branch first.
@@ -81,39 +82,45 @@ export function CreateReviewComposer({
   const sameAsBranch = base === branch
   return (
     <div className="space-y-2.5" data-create-review>
-      <Input aria-label={`${label} title`} value={title} disabled={locked} onChange={(e) => setTitle(e.target.value)} placeholder="Title" className={cn(FIELD, 'font-medium')} />
+      <Input aria-label={t('{kind} title', { kind: label })} value={title} disabled={locked} onChange={(e) => setTitle(e.target.value)} placeholder={t('Title')} className={cn(FIELD, 'font-medium')} />
       <textarea
-        aria-label={`${label} description`}
+        aria-label={t('{kind} description', { kind: label })}
         rows={6}
         value={body}
         disabled={locked}
         onChange={(e) => setBody(e.target.value)}
-        placeholder="Description (optional)"
+        placeholder={t('Description (optional)')}
         className={cn(TEXTAREA, 'min-h-[7rem] resize-y')}
       />
       <div className="space-y-1">
-        <span className="text-[11px] text-muted-foreground">Base branch</span>
+        <span className="text-[11px] text-muted-foreground">{t('Base branch')}</span>
         <BranchCombobox
           value={base}
-          placeholder="Pick a base branch"
+          placeholder={t('Pick a base branch')}
           onChange={setBase}
-          groups={[{ heading: 'Remote branches', options: (defaults?.bases ?? []).map((value) => ({ value })) }]}
+          groups={[{ heading: t('Remote branches'), options: (defaults?.bases ?? []).map((value) => ({ value })) }]}
         />
-        {sameAsBranch && <p className="text-[11px] text-destructive">The base must differ from {branch}.</p>}
+        {sameAsBranch && <p className="text-[11px] text-destructive">{t('The base must differ from {branch}.', { branch })}</p>}
       </div>
       <div className="flex items-center gap-2">
         <Checkbox id={draftId} checked={draft} disabled={locked} onCheckedChange={(v) => setDraft(v === true)} />
         <Label htmlFor={draftId} className="text-xs">
-          Create as draft
+          {t('Create as draft')}
         </Label>
       </div>
       {defaults && defaults.commitCount === 0 && !error && (
-        <p className="text-[11px] text-muted-foreground">No commits ahead of {defaults.base} yet.</p>
+        <p className="text-[11px] text-muted-foreground">{t('No commits ahead of {base} yet.', { base: defaults.base })}</p>
       )}
       {blockedReason && <p className="text-[11px] break-words text-destructive">{blockedReason}</p>}
       {error && <p className="text-[11px] break-words text-destructive">{error}</p>}
       <Button size="xs" disabled={locked || !title.trim() || !base || sameAsBranch || !!blockedReason || defaults?.commitCount === 0} onClick={() => void create()} data-create-review-submit>
-        {busy === 'push' ? 'Pushing…' : busy === 'create' ? 'Creating…' : needsPush ? `Push & Create ${label}` : `Create ${label}`}
+        {busy === 'push'
+          ? t('Pushing…')
+          : busy === 'create'
+            ? t('Creating…')
+            : needsPush
+              ? t('Push & Create {kind}', { kind: label })
+              : t('Create {kind}', { kind: label })}
       </Button>
     </div>
   )

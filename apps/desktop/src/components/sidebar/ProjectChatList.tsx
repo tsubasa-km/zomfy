@@ -5,6 +5,7 @@ import { SessionRow } from '@/components/sidebar/SessionRow'
 import { workspaceLabel } from '@/components/sidebar/workspace-visibility'
 import { useSidebarStore } from '@/stores/sidebar-store'
 import { cn } from '@/lib/utils'
+import { t } from '@/i18n/i18n'
 
 // A project as a list of its chats: where each one works (its worktree) is a small tag on the row,
 // not a card of its own. Chats that need the person, then working ones, come first. A workflow's
@@ -110,7 +111,7 @@ export function ProjectChatList({
             w.id === activeWorkspaceId && 'text-foreground'
           )}
         >
-          <span className="min-w-0 flex-1 truncate italic">No chats yet</span>
+          <span className="min-w-0 flex-1 truncate italic">{t('No chats yet')}</span>
           {!w.isPrimary && <span className="max-w-24 shrink-0 truncate font-mono text-[10px]">{placeOf(w)}</span>}
         </button>
       ))}

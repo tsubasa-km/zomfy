@@ -5,6 +5,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Switch } from '@/components/ui/switch'
 import { Textarea } from '@/components/ui/textarea'
+import { t } from '@/i18n/i18n'
 
 // The side panel for a data source (what it is, who may see it) and for one step's use of it.
 
@@ -24,63 +25,65 @@ export function WorkflowDataPanel({
   return (
     <div className="space-y-4" data-workflow-inspector="data">
       <div className="space-y-1.5">
-        <Label className="text-xs">Name</Label>
+        <Label className="text-xs">{t('Name')}</Label>
         <Input value={source.name} onChange={(e) => onChange({ name: e.target.value })} className="h-8" />
       </div>
       <div className="space-y-1.5">
-        <Label className="text-xs">Path</Label>
+        <Label className="text-xs">{t('Path')}</Label>
         <Input
           value={source.path}
-          placeholder="C:\data\customers or docs/specs"
+          placeholder={t('C:\\data\\customers or docs/specs')}
           onChange={(e) => onChange({ path: e.target.value })}
           className="h-8 font-mono text-xs"
         />
-        <p className="text-[11px] text-muted-foreground">A file or folder: absolute, or relative to the step's workspace.</p>
+        <p className="text-[11px] text-muted-foreground">{t("A file or folder: absolute, or relative to the step's workspace.")}</p>
       </div>
       <div className="flex items-start justify-between gap-3" data-workflow-data-local-only>
         <div className="space-y-0.5">
           <div className="flex items-center gap-1 text-xs font-medium">
             <Lock className="size-3 text-status-warning" />
-            Local only
+            {t('Local only')}
           </div>
           <p className="text-[11px] text-muted-foreground">
-            Only agents on a local model may use it, and what they learn from it goes on only to local agents and you, never to a
-            cloud agent or the chat that started the run.
+            {t(
+              'Only agents on a local model may use it, and what they learn from it goes on only to local agents and you, never to a cloud agent or the chat that started the run.'
+            )}
           </p>
         </div>
-        <Switch checked={source.localOnly === true} onCheckedChange={(on) => onChange({ localOnly: on || undefined })} aria-label="Local only" />
+        <Switch checked={source.localOnly === true} onCheckedChange={(on) => onChange({ localOnly: on || undefined })} aria-label={t('Local only')} />
       </div>
       <div className="space-y-1.5">
-        <Label className="text-xs">Note</Label>
+        <Label className="text-xs">{t('Note')}</Label>
         <Textarea
           value={source.note ?? ''}
-          placeholder="What it holds, how to use it"
+          placeholder={t('What it holds, how to use it')}
           onChange={(e) => onChange({ note: e.target.value || undefined })}
           className="min-h-16 text-xs"
         />
-        <p className="text-[11px] text-muted-foreground">Told to the steps that use it.</p>
+        <p className="text-[11px] text-muted-foreground">{t('Told to the steps that use it.')}</p>
       </div>
       <div className="space-y-1.5">
-        <Label className="text-xs">Used by</Label>
+        <Label className="text-xs">{t('Used by')}</Label>
         {steps.length === 0 ? (
-          <p className="text-[11px] text-muted-foreground">No step yet. Drag from the card's bottom handle onto a step.</p>
+          <p className="text-[11px] text-muted-foreground">{t("No step yet. Drag from the card's bottom handle onto a step.")}</p>
         ) : (
           <ul className="space-y-0.5 text-xs">
             {steps.map((l) => (
               <li key={l.id}>
-                {label(l.nodeId)} <span className="text-muted-foreground">({l.write ? 'reads and writes' : 'reads'})</span>
+                {label(l.nodeId)} <span className="text-muted-foreground">({l.write ? t('reads and writes') : t('reads')})</span>
               </li>
             ))}
           </ul>
         )}
         <p className="text-[11px] text-muted-foreground">
-          Other steps may not use it: Zomfy refuses Claude steps the files. Other agents are simply not told of it, so keep sensitive
-          data outside the project.
+          {t(
+            'Other steps may not use it: Zomfy refuses Claude steps the files. Other agents are simply not told of it, so keep sensitive data outside the project.'
+          )}
         </p>
       </div>
       <Button variant="outline" size="sm" onClick={onDelete}>
         <Trash2 className="size-3.5" />
-        Delete data
+        {t('Delete data')}
       </Button>
     </div>
   )
@@ -102,19 +105,31 @@ export function WorkflowDataLinkPanel({
   return (
     <div className="space-y-4" data-workflow-inspector="data-link">
       <p className="text-xs text-muted-foreground">
-        <span className="font-medium text-foreground">{step?.label}</span> uses{' '}
-        <span className="font-medium text-foreground">{source?.name}</span>
+        {(() => {
+          const [before, between, after] = t('{step} uses {data}').split(/\{(?:step|data)\}/)
+          return (
+            <>
+              {before}
+              <span className="font-medium text-foreground">{step?.label}</span>
+              {between}
+              <span className="font-medium text-foreground">{source?.name}</span>
+              {after}
+            </>
+          )
+        })()}
       </p>
       <div className="flex items-start justify-between gap-3">
         <div className="space-y-0.5">
-          <div className="text-xs font-medium">May change it</div>
-          <p className="text-[11px] text-muted-foreground">Off: read only. Claude steps are refused edits through their file tools; a shell command can still change it.</p>
+          <div className="text-xs font-medium">{t('May change it')}</div>
+          <p className="text-[11px] text-muted-foreground">
+            {t('Off: read only. Claude steps are refused edits through their file tools; a shell command can still change it.')}
+          </p>
         </div>
-        <Switch checked={link.write === true} onCheckedChange={(on) => onChange({ write: on || undefined })} aria-label="May change it" />
+        <Switch checked={link.write === true} onCheckedChange={(on) => onChange({ write: on || undefined })} aria-label={t('May change it')} />
       </div>
       <Button variant="outline" size="sm" onClick={onDelete}>
         <Trash2 className="size-3.5" />
-        Remove access
+        {t('Remove access')}
       </Button>
     </div>
   )

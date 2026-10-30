@@ -5,6 +5,7 @@ import { connectHost } from '@/daemon-connection'
 import { useStore } from '@/session-store'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+import { t } from '@/i18n/i18n'
 
 // VS Code Remote-SSH's "Connect to Host…": the aliases from ~/.ssh/config, or user@host[:port].
 // The system ssh does the login, so keys, agent and ProxyJump from the user's config all apply.
@@ -19,8 +20,8 @@ interface SshConfigHost {
 /** Shape check only; the desktop side validates the destination before running ssh. */
 export function sshTargetError(input: string): string | null {
   const target = input.trim().replace(/^ssh:\/\//, '').replace(/\/+$/, '')
-  if (!target) return 'Enter an alias or user@host[:port]'
-  if (target.startsWith('-') || /[\s"'`$;&|<>(),\\%^!]/.test(target)) return 'Not a valid SSH destination'
+  if (!target) return t('Enter an alias or user@host[:port]')
+  if (target.startsWith('-') || /[\s"'`$;&|<>(),\\%^!]/.test(target)) return t('Not a valid SSH destination')
   return null
 }
 
@@ -56,11 +57,11 @@ export function SshHostPicker({ onConnect }: { onConnect?: (hostId: string) => v
   return (
     <div className="space-y-3" data-ssh-host-picker>
       <div className="space-y-1">
-        <p className="text-xs font-medium text-muted-foreground">From ~/.ssh/config</p>
+        <p className="text-xs font-medium text-muted-foreground">{t('From ~/.ssh/config')}</p>
         {configHosts === null ? (
-          <p className="text-xs text-muted-foreground">Reading ~/.ssh/config…</p>
+          <p className="text-xs text-muted-foreground">{t('Reading ~/.ssh/config…')}</p>
         ) : configHosts.length === 0 ? (
-          <p className="text-xs text-muted-foreground">No Host aliases found.</p>
+          <p className="text-xs text-muted-foreground">{t('No Host aliases found.')}</p>
         ) : (
           <div className="max-h-56 space-y-0.5 overflow-y-auto">
             {configHosts.map((host) => {
@@ -78,7 +79,7 @@ export function SshHostPicker({ onConnect }: { onConnect?: (hostId: string) => v
                   <Server className="size-3.5 shrink-0 text-muted-foreground" />
                   <span className="truncate">{host.alias}</span>
                   <span className="ml-auto truncate text-xs text-muted-foreground">
-                    {kind === 'connected' ? 'Connected' : kind === 'connecting' ? 'Connecting…' : describe(host)}
+                    {kind === 'connected' ? t('Connected') : kind === 'connecting' ? t('Connecting…') : describe(host)}
                   </span>
                 </button>
               )
@@ -98,7 +99,7 @@ export function SshHostPicker({ onConnect }: { onConnect?: (hostId: string) => v
           }
         }}
       >
-        <p className="text-xs font-medium text-muted-foreground">Other host</p>
+        <p className="text-xs font-medium text-muted-foreground">{t('Other host')}</p>
         <div className="flex gap-2">
           <Input
             value={typed}
@@ -107,18 +108,28 @@ export function SshHostPicker({ onConnect }: { onConnect?: (hostId: string) => v
               setError(null)
             }}
             placeholder="user@host:22"
-            aria-label="SSH destination"
+            aria-label={t('SSH destination')}
             className="font-mono text-xs"
           />
           <Button type="submit" variant="outline" disabled={!typed.trim()}>
-            Connect
+            {t('Connect')}
           </Button>
         </div>
         {error ? <p className="text-xs text-destructive">{error}</p> : null}
       </form>
       <p className="text-xs text-muted-foreground">
-        Uses your OpenSSH setup and never asks for passwords: <code className="font-mono">ssh &lt;host&gt;</code> must connect without a prompt (key auth or
-        ssh-agent). Linux x64 and arm64 hosts are supported.
+        {(() => {
+          const [before, after] = t(
+            'Uses your OpenSSH setup and never asks for passwords: {command} must connect without a prompt (key auth or ssh-agent). Linux x64 and arm64 hosts are supported.'
+          ).split('{command}')
+          return (
+            <>
+              {before}
+              <code className="font-mono">ssh &lt;host&gt;</code>
+              {after}
+            </>
+          )
+        })()}
       </p>
     </div>
   )

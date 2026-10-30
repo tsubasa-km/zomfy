@@ -4,6 +4,7 @@ import { cn } from '@/lib/utils'
 import { NativeChatMarkdown } from './NativeChatMarkdown'
 import { NativeChatToolLine } from './NativeChatToolLine'
 import type { ToolNode } from './native-chat-transcript-model'
+import { t } from '@/i18n/i18n'
 
 type SubagentState = 'working' | 'completed' | 'failed'
 
@@ -15,9 +16,9 @@ const STATE_DOT_CLASS: Record<SubagentState, string> = {
 }
 
 const STATE_LABEL: Record<SubagentState, string> = {
-  working: 'Working',
-  completed: 'Done',
-  failed: 'Failed'
+  working: t('Working'),
+  completed: t('Done'),
+  failed: t('Failed')
 }
 
 function stateOf(status: string): SubagentState {
@@ -37,7 +38,7 @@ export function NativeChatSubagentRun({ node, rowKey, cwd }: { node: ToolNode; r
   const { tool, children } = node
   const state = stateOf(tool.status)
   const working = state === 'working'
-  const headline = field(tool.input, 'description') ?? 'Subagent'
+  const headline = field(tool.input, 'description') ?? t('Subagent')
   const agentType = field(tool.input, 'subagent_type')
   const calls = children.length
 
@@ -67,7 +68,7 @@ export function NativeChatSubagentRun({ node, rowKey, cwd }: { node: ToolNode; r
         ) : null}
         <span className="ml-auto shrink-0 font-sans text-xs text-chat-foreground-faint tabular-nums">
           {STATE_LABEL[state]}
-          {calls > 0 ? ` · ${calls} ${calls === 1 ? 'call' : 'calls'}` : null}
+          {calls > 0 ? (calls === 1 ? t(' · {n} call', { n: calls }) : t(' · {n} calls', { n: calls })) : null}
         </span>
         <ChevronRight
           className={cn(

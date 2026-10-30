@@ -13,6 +13,7 @@ import {
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { cn } from '@/lib/utils'
 import { copyText } from './explorer-paths'
+import { t } from '@/i18n/i18n'
 
 // Orca's local-port-section and local-port-row: a collapsible section per owner group; each row
 // shows :port, process, address and owner, with open / copy / stop on hover and in its menu.
@@ -78,7 +79,7 @@ export function PortSection({
 
 function PortRow({ port, owner, onStop }: { port: ListeningPort; owner: string; onStop: (port: ListeningPort) => void }) {
   const address = addressForPort(port)
-  const processLabel = port.processName ?? (port.pid ? `PID ${port.pid}` : 'Unknown process')
+  const processLabel = port.processName ?? (port.pid ? `PID ${port.pid}` : t('Unknown process'))
   const canStop = port.workspaceId !== null && port.pid !== null
   return (
     <ContextMenu>
@@ -86,7 +87,7 @@ function PortRow({ port, owner, onStop }: { port: ListeningPort; owner: string; 
         <ContextMenuTrigger asChild>
           <div
             tabIndex={0}
-            aria-label={`Port ${port.port} menu`}
+            aria-label={t('Port {port} menu', { port: port.port })}
             className="flex min-w-0 flex-1 items-center gap-2 rounded focus:outline-none focus-visible:ring-1 focus-visible:ring-ring"
           >
             <div className="flex size-5 shrink-0 items-center justify-center text-muted-foreground">
@@ -109,14 +110,14 @@ function PortRow({ port, owner, onStop }: { port: ListeningPort; owner: string; 
           </div>
         </ContextMenuTrigger>
         <div className="flex items-center gap-0.5 opacity-0 transition-opacity group-focus-within:opacity-100 group-hover:opacity-100">
-          <RowButton label="Open in Browser" onClick={() => openPortInBrowser(port)}>
+          <RowButton label={t('Open in Browser')} onClick={() => openPortInBrowser(port)}>
             <ExternalLink size={13} />
           </RowButton>
-          <RowButton label={`Copy ${address}`} onClick={() => copyText(address)}>
+          <RowButton label={t('Copy {address}', { address })} onClick={() => copyText(address)}>
             <Copy size={13} />
           </RowButton>
           {canStop && (
-            <RowButton label="Stop Process" destructive onClick={() => onStop(port)}>
+            <RowButton label={t('Stop Process')} destructive onClick={() => onStop(port)}>
               <Trash2 size={13} />
             </RowButton>
           )}
@@ -126,20 +127,20 @@ function PortRow({ port, owner, onStop }: { port: ListeningPort; owner: string; 
         <ContextMenuLabel className="px-2 py-1 text-[11px] font-semibold text-muted-foreground">{`:${port.port}`}</ContextMenuLabel>
         <ContextMenuItem onSelect={() => openPortInBrowser(port)}>
           <ExternalLink size={13} />
-          Open in Browser
+          {t('Open in Browser')}
         </ContextMenuItem>
         <ContextMenuItem onSelect={() => copyText(address)}>
           <Copy size={13} />
-          Copy Address
+          {t('Copy Address')}
         </ContextMenuItem>
         <ContextMenuItem onSelect={() => copyText(JSON.stringify(port, null, 2))}>
           <Copy size={13} />
-          Copy Details
+          {t('Copy Details')}
         </ContextMenuItem>
         <ContextMenuSeparator />
         <ContextMenuItem variant="destructive" disabled={!canStop} onSelect={() => onStop(port)}>
           <Trash2 size={13} />
-          Stop Process
+          {t('Stop Process')}
         </ContextMenuItem>
       </ContextMenuContent>
     </ContextMenu>

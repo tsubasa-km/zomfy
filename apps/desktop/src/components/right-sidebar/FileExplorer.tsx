@@ -23,6 +23,7 @@ import { PermanentDeleteDialog } from './file-explorer-delete-dialog'
 import { absolutePath, ancestorsOf, baseName, copyText, isWithin, joinPath, parentDir, revealInFileManager } from './explorer-paths'
 import { useExplorerKeys } from './use-explorer-keys'
 import { requestFindInFolder } from './search-requests'
+import { t } from '@/i18n/i18n'
 
 // Orca's FileExplorer (toolbar, rows, inline input, keys, drag-drop move, auto-reveal), rendered
 // as one flat list of visible rows so keyboard navigation walks the same order the eye does.
@@ -375,7 +376,7 @@ export function FileExplorer({ workspaceId, rootName }: { workspaceId: string; r
       preview: (
         <DragChip
           icon={entry.kind === 'dir' ? <Folder className="size-3" /> : <File className="size-3" />}
-          label={paths.length > 1 ? `${paths.length} items` : entry.name}
+          label={paths.length > 1 ? t('{n} items', { n: paths.length }) : entry.name}
         />
       )
     })
@@ -400,11 +401,11 @@ export function FileExplorer({ workspaceId, rootName }: { workspaceId: string; r
         <span className="min-w-0 flex-1 truncate text-xs font-medium text-foreground" title={rootName}>
           {rootName}
         </span>
-        <ToolbarButton label="Collapse All" disabled={expanded.size <= 1} onClick={() => setExpanded(new Set(['']))}>
+        <ToolbarButton label={t('Collapse All')} disabled={expanded.size <= 1} onClick={() => setExpanded(new Set(['']))}>
           <ListCollapse className="size-3" />
         </ToolbarButton>
         <ToolbarButton
-          label="Refresh Explorer"
+          label={t('Refresh Explorer')}
           onClick={() => {
             setRefreshing(true)
             void reloadOpen().finally(() => setRefreshing(false))
@@ -421,31 +422,31 @@ export function FileExplorer({ workspaceId, rootName }: { workspaceId: string; r
                   variant="ghost"
                   size="icon-xs"
                   className="text-muted-foreground hover:text-foreground"
-                  aria-label="More Explorer Actions"
+                  aria-label={t('More Explorer Actions')}
                 >
                   <Ellipsis className="size-3" />
                 </Button>
               </DropdownMenuTrigger>
             </TooltipTrigger>
             <TooltipContent side="bottom" sideOffset={4}>
-              More Explorer Actions
+              {t('More Explorer Actions')}
             </TooltipContent>
           </Tooltip>
           <DropdownMenuContent align="end" className="min-w-[12rem]" onCloseAutoFocus={(e) => e.preventDefault()}>
             <DropdownMenuItem onSelect={() => startNew('file', '')}>
               <FilePlus />
-              New File
+              {t('New File')}
             </DropdownMenuItem>
             <DropdownMenuItem onSelect={() => startNew('folder', '')}>
               <FolderPlus />
-              New Folder
+              {t('New Folder')}
             </DropdownMenuItem>
             {hostId && (
               <>
                 <DropdownMenuSeparator />
-                <DropdownMenuItem onSelect={() => openWorkspaceIn('vscode', hostId, workspacePath)}>Open in VS Code</DropdownMenuItem>
-                <DropdownMenuItem onSelect={() => openWorkspaceIn('explorer', hostId, workspacePath)}>Open in File Manager</DropdownMenuItem>
-                <DropdownMenuItem onSelect={() => openWorkspaceIn('terminal', hostId, workspacePath)}>Open in Terminal</DropdownMenuItem>
+                <DropdownMenuItem onSelect={() => openWorkspaceIn('vscode', hostId, workspacePath)}>{t('Open in VS Code')}</DropdownMenuItem>
+                <DropdownMenuItem onSelect={() => openWorkspaceIn('explorer', hostId, workspacePath)}>{t('Open in File Manager')}</DropdownMenuItem>
+                <DropdownMenuItem onSelect={() => openWorkspaceIn('terminal', hostId, workspacePath)}>{t('Open in Terminal')}</DropdownMenuItem>
               </>
             )}
           </DropdownMenuContent>
@@ -454,7 +455,7 @@ export function FileExplorer({ workspaceId, rootName }: { workspaceId: string; r
       {error && (
         <div role="alert" className="flex items-start gap-1 border-b border-border px-3 py-1.5 text-xs break-words text-destructive">
           <span className="min-w-0 flex-1">{error}</span>
-          <button type="button" aria-label="Dismiss" className="shrink-0 text-muted-foreground hover:text-foreground" onClick={() => setError(null)}>
+          <button type="button" aria-label={t('Dismiss')} className="shrink-0 text-muted-foreground hover:text-foreground" onClick={() => setError(null)}>
             <X className="size-3" />
           </button>
         </div>
@@ -471,7 +472,7 @@ export function FileExplorer({ workspaceId, rootName }: { workspaceId: string; r
           >
             {rootState === 'loading' || rootState === undefined ? (
               <div className="flex items-center gap-1.5 px-3 py-2 text-xs text-muted-foreground">
-                <Loader2 className="size-3 animate-spin" /> Loading…
+                <Loader2 className="size-3 animate-spin" /> {t('Loading…')}
               </div>
             ) : null}
             {rows.map((row) => {
@@ -511,18 +512,18 @@ export function FileExplorer({ workspaceId, rootName }: { workspaceId: string; r
               )
             })}
             {Array.isArray(rootState) && rootState.length === 0 && !inline && (
-              <div className="px-3 py-2 text-xs text-muted-foreground">This folder is empty</div>
+              <div className="px-3 py-2 text-xs text-muted-foreground">{t('This folder is empty')}</div>
             )}
           </div>
         </ContextMenuTrigger>
         <ContextMenuContent className="w-48" onCloseAutoFocus={(e) => e.preventDefault()}>
           <ContextMenuItem onSelect={() => startNew('file', '')}>
             <FilePlus />
-            New File
+            {t('New File')}
           </ContextMenuItem>
           <ContextMenuItem onSelect={() => startNew('folder', '')}>
             <FolderPlus />
-            New Folder
+            {t('New Folder')}
           </ContextMenuItem>
         </ContextMenuContent>
       </ContextMenu>

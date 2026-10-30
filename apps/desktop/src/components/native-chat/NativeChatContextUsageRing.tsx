@@ -3,6 +3,7 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { Progress } from '@/components/ui/progress'
 import { cn } from '@/lib/utils'
 import type { ContextUsage } from '@/stores/chat-store'
+import { t } from '@/i18n/i18n'
 
 // Ported from Orca's NativeChatContextUsageRing and native-chat-context-usage-summary.
 
@@ -64,7 +65,7 @@ export function NativeChatContextUsageRing({ usage }: { usage: ContextUsage }) {
   const critical = percentage >= CRITICAL_PERCENTAGE
   const used = formatContextTokenCount(usage.used)
   const window = formatContextTokenCount(usage.size)
-  const label = `Context ${used} of ${window} tokens, ${percentage}% used`
+  const label = t('Context {used} of {window} tokens, {percentage}% used', { used, window, percentage })
   const { open, setOpen, setOpenAfterHover } = useContextCardOpen()
   const rows = usage.categories
     .filter((row) => row.tokens > 0)
@@ -122,7 +123,7 @@ export function NativeChatContextUsageRing({ usage }: { usage: ContextUsage }) {
         >
           <div className="p-4">
             <div className="flex items-baseline justify-between gap-3 text-sm">
-              <span className="font-medium text-foreground">Context</span>
+              <span className="font-medium text-foreground">{t('Context')}</span>
               <span className="text-muted-foreground tabular-nums">
                 {used}/{window}
               </span>
@@ -139,9 +140,9 @@ export function NativeChatContextUsageRing({ usage }: { usage: ContextUsage }) {
               </ul>
             ) : null}
             {usage.costUsd !== null ? (
-              <p className="mt-3 text-xs text-muted-foreground tabular-nums">Session cost ${usage.costUsd.toFixed(2)}</p>
+              <p className="mt-3 text-xs text-muted-foreground tabular-nums">{t('Session cost ${cost}', { cost: usage.costUsd.toFixed(2) })}</p>
             ) : null}
-            {usage.estimated ? <p className="mt-3 text-2xs text-muted-foreground">Estimated from the last response.</p> : null}
+            {usage.estimated ? <p className="mt-3 text-2xs text-muted-foreground">{t('Estimated from the last response.')}</p> : null}
           </div>
         </PopoverContent>
       </Popover>

@@ -6,6 +6,7 @@ import { TuiAgentIcon } from '@/components/terminal/TuiAgentIcon'
 import { requestAgentLaunchDialog } from '@/components/terminal/AgentLaunchDialog'
 import { loadDetectedAgents, useDetectedAgents } from '@/lib/detected-agents'
 import { LOCAL_HOST, allWorkspaces, useStore } from '@/session-store'
+import { t } from '@/i18n/i18n'
 
 /** The "+" menu's agent section (Orca's QuickLaunchAgentMenuItems), listing CLIs found on the workspace's host. */
 export function AgentLaunchMenuItems({ workspaceId }: { workspaceId: string }) {
@@ -15,14 +16,14 @@ export function AgentLaunchMenuItems({ workspaceId }: { workspaceId: string }) {
   return (
     <>
       <DropdownMenuSeparator />
-      <DropdownMenuLabel className="text-xs text-muted-foreground">Agents</DropdownMenuLabel>
+      <DropdownMenuLabel className="text-xs text-muted-foreground">{t('Agents')}</DropdownMenuLabel>
       {agents.length === 0 && (
         <DropdownMenuItem disabled className="text-muted-foreground">
           {detected.kind === 'loading'
-            ? 'Looking for agents…'
+            ? t('Looking for agents…')
             : detected.kind === 'failed'
-              ? 'Can’t reach this workspace’s host to list its agents'
-              : 'No agents detected'}
+              ? t('Can’t reach this workspace’s host to list its agents')
+              : t('No agents detected')}
         </DropdownMenuItem>
       )}
       {agents.map((agent) => {
@@ -31,7 +32,7 @@ export function AgentLaunchMenuItems({ workspaceId }: { workspaceId: string }) {
           <DropdownMenuItem
             key={agent}
             data-launch-agent={agent}
-            title={`Launch ${label} in a new terminal`}
+            title={t('Launch {agent} in a new terminal', { agent: label })}
             onSelect={() => void launchAgentTerminal(workspaceId, agent)}
           >
             <TuiAgentIcon agent={agent} size={14} />
@@ -42,7 +43,7 @@ export function AgentLaunchMenuItems({ workspaceId }: { workspaceId: string }) {
       {agents.length > 0 && (
         <DropdownMenuItem data-launch-agent-prompt onSelect={() => requestAgentLaunchDialog(workspaceId)}>
           <MessageSquarePlus />
-          Launch Agent with Prompt…
+          {t('Launch Agent with Prompt…')}
         </DropdownMenuItem>
       )}
       <DropdownMenuItem
@@ -54,7 +55,7 @@ export function AgentLaunchMenuItems({ workspaceId }: { workspaceId: string }) {
         }}
       >
         <RefreshCw />
-        Refresh Agents
+        {t('Refresh Agents')}
       </DropdownMenuItem>
     </>
   )

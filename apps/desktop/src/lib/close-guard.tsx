@@ -7,6 +7,7 @@ import { createExternalStore } from '@/stores/external-store'
 import { WINDOW_ROLE } from '@/lib/window-role'
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
+import { t } from '@/i18n/i18n'
 
 // Quitting stops every host's daemon (src-tauri/src/lib.rs), so closing the main window while agents
 // work or runs go on asks first, offering the tray, where they keep going.
@@ -23,6 +24,13 @@ export function busyWork(): Busy {
   const chats = getState().sessions.filter((s) => s.status === 'working' || s.status === 'needs-you').length
   const runs = getWorkflowRuns().filter((r) => r.status === 'running' || r.status === 'waiting').length
   return { chats, runs }
+}
+
+/** What would stop, as phrases for a confirmation ("2 chats working or waiting for you"). */
+export function busyParts(busy: Busy): string[] {
+  const chats = busy.chats > 1 ? t('{n} chats working or waiting for you', { n: busy.chats }) : t('{n} chat working or waiting for you', { n: busy.chats })
+  const runs = busy.runs > 1 ? t('{n} workflow runs going', { n: busy.runs }) : t('{n} workflow run going', { n: busy.runs })
+  return [busy.chats > 0 ? chats : null, busy.runs > 0 ? runs : null].filter((part): part is string => part !== null)
 }
 
 export function installCloseGuard(): void {
@@ -44,19 +52,20 @@ export function installCloseGuard(): void {
 export function CloseGuardDialog() {
   const ask = store.use((a) => a)
   if (!ask) return null
-  const parts = [ask.chats > 0 && `${ask.chats} chat${ask.chats > 1 ? 's' : ''} working or waiting for you`, ask.runs > 0 && `${ask.runs} workflow run${ask.runs > 1 ? 's' : ''} going`].filter(Boolean)
+  const parts = busyParts(ask)
   return (
     <Dialog open onOpenChange={(open) => !open && store.set(null)}>
       <DialogContent className="sm:max-w-md" data-close-guard>
         <DialogHeader>
-          <DialogTitle>Quit Zomfy?</DialogTitle>
+          <DialogTitle>{t('Quit Zomfy?')}</DialogTitle>
           <DialogDescription>
-            {parts.join(' and ')}. Quitting stops them on every host. Hidden in the tray, Zomfy keeps them going.
+            {parts.join(t(' and '))}
+            {t('. Quitting stops them on every host. Hidden in the tray, Zomfy keeps them going.')}
           </DialogDescription>
         </DialogHeader>
         <DialogFooter>
           <Button variant="outline" onClick={() => store.set(null)}>
-            Cancel
+            {t('Cancel')}
           </Button>
           <Button
             variant="outline"
@@ -65,7 +74,7 @@ export function CloseGuardDialog() {
               void getCurrentWindow().destroy()
             }}
           >
-            Quit and stop them
+            {t('Quit and stop them')}
           </Button>
           <Button
             onClick={() => {
@@ -73,7 +82,7 @@ export function CloseGuardDialog() {
               void getCurrentWindow().hide()
             }}
           >
-            Hide to tray
+            {t('Hide to tray')}
           </Button>
         </DialogFooter>
       </DialogContent>

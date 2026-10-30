@@ -13,6 +13,7 @@ import {
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
+import { t } from '@/i18n/i18n'
 
 // The composer pickers for an external ACP agent's own session options, laid out as Claude's are
 // (NativeChatSessionOptionPicker, NativeChatPermissionModePicker): its mode on the left, its model
@@ -117,15 +118,15 @@ export function NativeChatAgentModelPicker({
         collisionPadding={8}
         className="flex w-96 max-w-(--radix-popover-content-available-width) flex-col p-0 select-none"
       >
-        <Command surface="inline" density="menu" label="Search models…" filter={modelChoiceFilter} defaultValue={model.currentValue}>
-          <CommandInput ref={search} placeholder="Search models…" />
+        <Command surface="inline" density="menu" label={t('Search models…')} filter={modelChoiceFilter} defaultValue={model.currentValue}>
+          <CommandInput ref={search} placeholder={t('Search models…')} />
           <CommandList
             onMouseDown={(event) => {
               event.preventDefault()
               search.current?.focus()
             }}
           >
-            <CommandEmpty>No models match your search.</CommandEmpty>
+            <CommandEmpty>{t('No models match your search.')}</CommandEmpty>
             <CommandGroup>
               {model.choices.map((choice) => {
                 const selected = choice.value === model.currentValue

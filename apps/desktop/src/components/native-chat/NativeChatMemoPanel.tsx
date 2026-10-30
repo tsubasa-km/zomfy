@@ -5,6 +5,7 @@ import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip
 import { cn } from '@/lib/utils'
 import { MarkdownEditor, type MarkdownEditorHandle } from '@/components/markdown-editor/MarkdownEditor'
 import { editChatMemo, flushChatMemo, setChatMemoOpen, useChatMemo } from '@/stores/chat-memo-store'
+import { t } from '@/i18n/i18n'
 
 // Experimental chat memo: notes for one chat, in the composer's markdown editor, opening above
 // the composer. The session's host stores it (see stores/chat-memo-store.ts).
@@ -13,7 +14,7 @@ export function NativeChatMemoButton({ sessionId }: { sessionId: string }) {
   const memo = useChatMemo(sessionId)
   if (!memo || memo.status === 'unavailable') return null
   const hasContent = memo.text.trim().length > 0
-  const label = memo.open ? 'Close chat memo' : 'Chat memo'
+  const label = memo.open ? t('Close chat memo') : t('Chat memo')
   return (
     <Tooltip>
       <TooltipTrigger asChild>
@@ -40,7 +41,7 @@ export function NativeChatMemoButton({ sessionId }: { sessionId: string }) {
         </Button>
       </TooltipTrigger>
       <TooltipContent side="top" sideOffset={4}>
-        {hasContent && !memo.open ? 'Chat memo (has notes)' : label}
+        {hasContent && !memo.open ? t('Chat memo (has notes)') : label}
       </TooltipContent>
     </Tooltip>
   )
@@ -57,29 +58,29 @@ export function NativeChatMemoPanel({ sessionId, onClose }: { sessionId: string;
   }, [sessionId])
 
   if (!memo || memo.status === 'unavailable') return null
-  const status = memo.status === 'loading' ? 'Loading…' : memo.error ? 'Not saved' : memo.saving || memo.dirty ? 'Saving…' : 'Saved'
+  const status = memo.status === 'loading' ? t('Loading…') : memo.error ? t('Not saved') : memo.saving || memo.dirty ? t('Saving…') : t('Saved')
   return (
     <section
-      aria-label="Chat memo"
+      aria-label={t('Chat memo')}
       data-native-chat-memo
       className="mb-2 animate-in rounded-xl border border-chat-composer-border bg-chat-composer-surface shadow-xs duration-150 fade-in-0 slide-in-from-bottom-2 select-none"
     >
       <header className="flex items-center gap-1.5 py-1 pr-1 pl-3 text-xs text-chat-foreground-faint">
         <NotebookPen aria-hidden className="size-3.5" />
-        <span className="font-medium text-chat-foreground">Memo</span>
+        <span className="font-medium text-chat-foreground">{t('Memo')}</span>
         <span aria-hidden>·</span>
         <span className="min-w-0 flex-1 truncate" title={memo.error ?? undefined} aria-live="polite">
           {status}
         </span>
-        <Button type="button" variant="ghost" size="icon-xs" aria-label="Close memo" onClick={onClose}>
+        <Button type="button" variant="ghost" size="icon-xs" aria-label={t('Close memo')} onClick={onClose}>
           <X className="size-3.5" />
         </Button>
       </header>
       <MarkdownEditor
         ref={editorRef}
         value={memo.text}
-        placeholder={memo.status === 'loading' ? '' : 'Notes for this chat. Markdown works; only you see them.'}
-        contentAttributes={{ 'aria-label': 'Chat memo', 'aria-multiline': 'true' }}
+        placeholder={memo.status === 'loading' ? '' : t('Notes for this chat. Markdown works; only you see them.')}
+        contentAttributes={{ 'aria-label': t('Chat memo'), 'aria-multiline': 'true' }}
         onChange={(text) => editChatMemo(sessionId, text)}
         onKeyDown={(event) => {
           if (event.key !== 'Escape') return false

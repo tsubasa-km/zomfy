@@ -6,6 +6,7 @@ import { attachTerminal } from '@/lib/chat-attachments'
 import { getState, useStore } from '@/session-store'
 import { TerminalView } from '@/components/TerminalView'
 import { NativeChatCommandRunContext } from './NativeChatRunCommandButton'
+import { t } from '@/i18n/i18n'
 
 const ACTION_CLASS =
   'flex size-6 shrink-0 items-center justify-center rounded-md text-chat-foreground-faint transition-colors hover:bg-accent hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-50'
@@ -35,7 +36,7 @@ export function NativeChatInlineTerminal({ blockKey }: { blockKey: string }) {
         <SquareTerminal className="size-3.5 shrink-0 text-chat-foreground-faint" />
         <span className="min-w-0 flex-1 truncate font-sans text-xs text-chat-foreground-faint">
           {terminal.title}
-          {terminal.exitCode === null ? '' : terminal.endedWithHost ? ' · ended when the app closed' : ` · exited ${terminal.exitCode}`}
+          {terminal.exitCode === null ? '' : terminal.endedWithHost ? t(' · ended when the app closed') : t(' · exited {code}', { code: terminal.exitCode })}
         </span>
         <div className="-mr-1 flex items-center gap-0.5">
           <button
@@ -43,8 +44,8 @@ export function NativeChatInlineTerminal({ blockKey }: { blockKey: string }) {
             className={ACTION_CLASS}
             disabled={adding}
             onClick={addToChat}
-            aria-label="Attach output to message"
-            title="Attach output to message as a file (the agent reads it only after you send)"
+            aria-label={t('Attach output to message')}
+            title={t('Attach output to message as a file (the agent reads it only after you send)')}
           >
             <MessageSquarePlus className="size-3.5" />
           </button>
@@ -52,8 +53,8 @@ export function NativeChatInlineTerminal({ blockKey }: { blockKey: string }) {
             type="button"
             className={ACTION_CLASS}
             onClick={() => void openInlineTerminalAsTab(terminal.id).catch(() => undefined)}
-            aria-label="Open as tab"
-            title="Open as tab"
+            aria-label={t('Open as tab')}
+            title={t('Open as tab')}
           >
             <SquareArrowOutUpRight className="size-3.5" />
           </button>
@@ -61,8 +62,8 @@ export function NativeChatInlineTerminal({ blockKey }: { blockKey: string }) {
             type="button"
             className={ACTION_CLASS}
             onClick={() => closeTerminal(terminal.id)}
-            aria-label="Close terminal"
-            title="Close terminal"
+            aria-label={t('Close terminal')}
+            title={t('Close terminal')}
           >
             <X className="size-3.5" />
           </button>

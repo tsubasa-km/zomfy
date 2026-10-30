@@ -15,6 +15,7 @@ import { hideChats, removeTabsFromLayout, useTabLayout } from '@/stores/tab-layo
 import { chatSelection, gestureOf, keepTextUnselected } from '@/stores/list-selection'
 import { beginSidebarDrag, type DragItem } from '@/components/sidebar/sidebar-drag'
 import { toggleChatExpanded } from '@/stores/sidebar-store'
+import { t } from '@/i18n/i18n'
 
 const SCOPE = 'sidebar'
 
@@ -40,8 +41,11 @@ function closeChatTabs(ids: string[]): void {
 }
 
 function deleteChats(sessions: Session[]): void {
-  const what = sessions.length === 1 ? `"${sessions[0]!.title}"` : `${sessions.length} chats`
-  if (!window.confirm(`Delete ${what}? Their conversations are removed for good.`)) return
+  const question =
+    sessions.length === 1
+      ? t('Delete "{title}"? Their conversations are removed for good.', { title: sessions[0]!.title })
+      : t('Delete {n} chats? Their conversations are removed for good.', { n: sessions.length })
+  if (!window.confirm(question)) return
   chatSelection.reset()
   for (const s of sessions) void closeSession(s.id)
 }
@@ -102,7 +106,7 @@ export function SessionRow({
       data-session-open={open || undefined}
       data-session-archived={session.archived || undefined}
       data-session-child={child || undefined}
-      title={session.archived ? 'Archived: click to open it' : tabClosed ? 'Tab closed: click to open it again' : undefined}
+      title={session.archived ? t('Archived: click to open it') : tabClosed ? t('Tab closed: click to open it again') : undefined}
       className={cn(
         'relative flex min-w-0 cursor-pointer items-center gap-1.5 rounded-md py-0.5 pr-1 text-[12px] text-muted-foreground hover:bg-worktree-sidebar-accent/60 hover:text-foreground',
         child ? 'pl-[36px]' : 'pl-[22px]',
@@ -129,7 +133,7 @@ export function SessionRow({
       {fold && (
         <button
           type="button"
-          aria-label={fold.expanded ? 'Hide chats under this one' : 'Show chats under this one'}
+          aria-label={fold.expanded ? t('Hide chats under this one') : t('Show chats under this one')}
           aria-expanded={fold.expanded}
           data-chat-fold
           className="absolute left-[5px] flex size-4 items-center justify-center rounded-sm text-muted-foreground/70 hover:bg-worktree-sidebar-accent hover:text-foreground"
@@ -147,7 +151,7 @@ export function SessionRow({
         <Input
           autoFocus
           data-session-rename-input
-          aria-label={`Rename chat ${session.title}`}
+          aria-label={t('Rename chat {title}', { title: session.title })}
           value={renaming}
           onChange={(e) => setRenaming(e.target.value)}
           onBlur={commitRename}
@@ -175,7 +179,7 @@ export function SessionRow({
       )}
       {session.archived && renaming === null && (
         <span className="shrink-0 text-[10px] text-muted-foreground/80" data-session-archived-tag>
-          Archived
+          {t('Archived')}
         </span>
       )}
       {place && (
@@ -186,7 +190,7 @@ export function SessionRow({
       {fold && !fold.expanded && (
         <span
           className="flex shrink-0 items-center gap-1 text-[10px] text-muted-foreground/80 tabular-nums"
-          title={`${fold.count} chat${fold.count === 1 ? '' : 's'} under this one`}
+          title={fold.count === 1 ? t('{n} chat under this one', { n: fold.count }) : t('{n} chats under this one', { n: fold.count })}
           data-chat-children={fold.count}
         >
           {fold.count}
@@ -208,7 +212,7 @@ export function SessionRow({
         {selected ? (
           <>
             <ContextMenuItem data-chat-action="open-selected" onSelect={() => targets().forEach((s) => selectSession(s.id))}>
-              Open {targets().length} chats
+              {t('Open {n} chats', { n: targets().length })}
             </ContextMenuItem>
             <ContextMenuItem
               data-chat-action="close-selected"
@@ -217,37 +221,37 @@ export function SessionRow({
                 chatSelection.reset()
               }}
             >
-              Close {targets().length} tabs
+              {t('Close {n} tabs', { n: targets().length })}
             </ContextMenuItem>
             {targets().some((s) => !s.archived) ? (
               <ContextMenuItem data-chat-action="archive-selected" onSelect={() => archiveAll(true)}>
-                Archive {targets().length} chats
+                {t('Archive {n} chats', { n: targets().length })}
               </ContextMenuItem>
             ) : (
               <ContextMenuItem data-chat-action="unarchive-selected" onSelect={() => archiveAll(false)}>
-                Unarchive {targets().length} chats
+                {t('Unarchive {n} chats', { n: targets().length })}
               </ContextMenuItem>
             )}
             <ContextMenuSeparator />
             <ContextMenuItem variant="destructive" data-chat-action="delete-selected" onSelect={() => deleteChats(targets())}>
-              Delete {targets().length} chats…
+              {t('Delete {n} chats…', { n: targets().length })}
             </ContextMenuItem>
           </>
         ) : (
           <>
-            <ContextMenuItem onSelect={() => selectSession(session.id)}>Open</ContextMenuItem>
+            <ContextMenuItem onSelect={() => selectSession(session.id)}>{t('Open')}</ContextMenuItem>
             <ContextMenuItem data-chat-action="rename" onSelect={() => (renameAfterClose.current = true)}>
-              Rename…
+              {t('Rename…')}
             </ContextMenuItem>
             <ContextMenuItem
               data-chat-action={session.archived ? 'unarchive' : 'archive'}
               onSelect={() => void setChatArchived(session.id, !session.archived)}
             >
-              {session.archived ? 'Unarchive' : 'Archive'}
+              {session.archived ? t('Unarchive') : t('Archive')}
             </ContextMenuItem>
             <ContextMenuSeparator />
             <ContextMenuItem variant="destructive" onSelect={() => deleteChats([session])}>
-              Delete chat…
+              {t('Delete chat…')}
             </ContextMenuItem>
           </>
         )}

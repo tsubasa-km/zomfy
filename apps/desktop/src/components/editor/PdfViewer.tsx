@@ -5,6 +5,7 @@ import { EventBus, PDFFindController, PDFLinkService, PDFViewer as PdfJsViewer }
 import 'pdfjs-dist/web/pdf_viewer.css'
 import workerUrl from 'pdfjs-dist/build/pdf.worker.min.mjs?url'
 import { getPinchZoomFactor, shouldHandleImageZoomWheel } from './image-viewer-zoom'
+import { t } from '@/i18n/i18n'
 
 pdfjsLib.GlobalWorkerOptions.workerSrc = workerUrl
 
@@ -76,7 +77,7 @@ export function PdfViewer({ base64, filePath }: { base64: string; filePath: stri
     try {
       bytes = decodeBase64(base64)
     } catch {
-      setError('Failed to decode PDF content')
+      setError(t('Failed to decode PDF content'))
       return () => abort.abort()
     }
     const task = pdfjsLib.getDocument({ data: bytes })
@@ -90,7 +91,7 @@ export function PdfViewer({ base64, filePath }: { base64: string; filePath: stri
       },
       (e: unknown) => {
         if (!disposed) {
-          setError(e instanceof Error && e.name === 'PasswordException' ? 'This PDF is password-protected' : 'Failed to load PDF preview')
+          setError(e instanceof Error && e.name === 'PasswordException' ? t('This PDF is password-protected') : t('Failed to load PDF preview'))
         }
       }
     )
@@ -150,8 +151,8 @@ export function PdfViewer({ base64, filePath }: { base64: string; filePath: stri
             className="rounded p-1 hover:bg-accent hover:text-foreground disabled:opacity-50"
             onClick={() => stepZoom('out')}
             disabled={scale <= MIN_SCALE}
-            title="Zoom out"
-            aria-label="Zoom out"
+            title={t('Zoom out')}
+            aria-label={t('Zoom out')}
           >
             <ZoomOut size={14} />
           </button>
@@ -161,8 +162,8 @@ export function PdfViewer({ base64, filePath }: { base64: string; filePath: stri
             onClick={() => {
               if (viewerRef.current) viewerRef.current.currentScaleValue = 'page-width'
             }}
-            title="Fit to width"
-            aria-label="Fit to width"
+            title={t('Fit to width')}
+            aria-label={t('Fit to width')}
           >
             <RotateCcw size={14} />
           </button>
@@ -171,8 +172,8 @@ export function PdfViewer({ base64, filePath }: { base64: string; filePath: stri
             className="rounded p-1 hover:bg-accent hover:text-foreground disabled:opacity-50"
             onClick={() => stepZoom('in')}
             disabled={scale >= MAX_SCALE}
-            title="Zoom in"
-            aria-label="Zoom in"
+            title={t('Zoom in')}
+            aria-label={t('Zoom in')}
           >
             <ZoomIn size={14} />
           </button>
@@ -184,15 +185,15 @@ export function PdfViewer({ base64, filePath }: { base64: string; filePath: stri
           type="button"
           className="rounded p-1 hover:bg-accent hover:text-foreground"
           onClick={() => setFindOpen(true)}
-          title="Find in PDF (Ctrl+F)"
-          aria-label="Find in PDF"
+          title={t('Find in PDF (Ctrl+F)')}
+          aria-label={t('Find in PDF')}
         >
           <Search size={14} />
         </button>
         <span className="min-w-0 truncate" title={filename}>
           {filename}
         </span>
-        <span data-pdf-pages>{pages > 0 ? `${pages} page${pages === 1 ? '' : 's'} · PDF preview` : 'PDF preview'}</span>
+        <span data-pdf-pages>{pages > 0 ? (pages === 1 ? t('{n} page · PDF preview', { n: pages }) : t('{n} pages · PDF preview', { n: pages })) : t('PDF preview')}</span>
       </div>
     </div>
   )
@@ -242,8 +243,8 @@ function PdfFind({ eventBus, onClose }: { eventBus: EventBus | null; onClose: ()
       <input
         autoFocus
         value={query}
-        placeholder="Find in PDF"
-        aria-label="Find in PDF"
+        placeholder={t('Find in PDF')}
+        aria-label={t('Find in PDF')}
         className="h-6 w-48 bg-transparent text-xs text-foreground outline-none"
         onChange={(event) => setQuery(event.target.value)}
         onKeyDown={(event) => {
@@ -253,15 +254,15 @@ function PdfFind({ eventBus, onClose }: { eventBus: EventBus | null; onClose: ()
         }}
       />
       <span className="min-w-12 text-right text-[11px] tabular-nums text-muted-foreground">
-        {query ? (counts && counts.total > 0 ? `${counts.current} of ${counts.total}` : 'No results') : ''}
+        {query ? (counts && counts.total > 0 ? t('{current} of {total}', { current: counts.current, total: counts.total }) : t('No results')) : ''}
       </span>
-      <button type="button" aria-label="Previous match" className="rounded p-1 text-muted-foreground hover:bg-accent hover:text-foreground" onClick={() => find('again', true)}>
+      <button type="button" aria-label={t('Previous match')} className="rounded p-1 text-muted-foreground hover:bg-accent hover:text-foreground" onClick={() => find('again', true)}>
         <ChevronUp size={14} />
       </button>
-      <button type="button" aria-label="Next match" className="rounded p-1 text-muted-foreground hover:bg-accent hover:text-foreground" onClick={() => find('again')}>
+      <button type="button" aria-label={t('Next match')} className="rounded p-1 text-muted-foreground hover:bg-accent hover:text-foreground" onClick={() => find('again')}>
         <ChevronDown size={14} />
       </button>
-      <button type="button" aria-label="Close find" className="rounded p-1 text-muted-foreground hover:bg-accent hover:text-foreground" onClick={onClose}>
+      <button type="button" aria-label={t('Close find')} className="rounded p-1 text-muted-foreground hover:bg-accent hover:text-foreground" onClick={onClose}>
         <X size={14} />
       </button>
     </div>

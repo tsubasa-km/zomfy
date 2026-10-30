@@ -1,3 +1,4 @@
+import { t } from '@/i18n/i18n'
 // Status vocabulary and labels from Orca's lib/worktree-status.ts (MIT); the title heuristics stay in Orca.
 export type WorktreeStatus =
   | 'active'
@@ -11,15 +12,15 @@ export type WorktreeStatus =
   | 'inactive'
 
 const STATUS_LABELS: Record<WorktreeStatus, string> = {
-  active: 'Active',
-  working: 'Working',
-  monitoring: 'Monitoring background tasks',
-  permission: 'Needs permission',
-  failed: 'Failed',
-  interrupted: 'Interrupted',
-  unconfirmed: 'Couldn’t confirm',
-  done: 'Done',
-  inactive: 'Inactive'
+  active: t('Active'),
+  working: t('Working'),
+  monitoring: t('Monitoring background tasks'),
+  permission: t('Needs permission'),
+  failed: t('Failed'),
+  interrupted: t('Interrupted'),
+  unconfirmed: t('Couldn’t confirm'),
+  done: t('Done'),
+  inactive: t('Inactive')
 }
 
 export function getWorktreeStatusLabel(status: WorktreeStatus): string {

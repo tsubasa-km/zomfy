@@ -10,6 +10,7 @@ import {
 } from '@/components/ui/dropdown-menu'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { findWorkspace } from '@/session-store'
+import { t } from '@/i18n/i18n'
 import './editor-panel.css'
 
 export function absoluteEditorPath(workspaceId: string, path: string): string {
@@ -67,7 +68,7 @@ export function EditorPanelHeader({
             <span className="editor-header-path-file">{display.fileName}</span>
           </button>
           <span className={`editor-header-copy-toast${copied ? ' is-visible' : ''}`} aria-live="polite">
-            File path copied
+            {t('File path copied')}
           </span>
           {status}
         </div>
@@ -77,18 +78,18 @@ export function EditorPanelHeader({
         <Tooltip>
           <TooltipTrigger asChild>
             <DropdownMenuTrigger asChild>
-              <Button variant="ghost" size="icon-xs" aria-label="File actions" data-editor-actions-menu>
+              <Button variant="ghost" size="icon-xs" aria-label={t('File actions')} data-editor-actions-menu>
                 <MoreHorizontal />
               </Button>
             </DropdownMenuTrigger>
           </TooltipTrigger>
           <TooltipContent side="bottom" sideOffset={4}>
-            File actions
+            {t('File actions')}
           </TooltipContent>
         </Tooltip>
         <DropdownMenuContent align="end" sideOffset={4} className="min-w-48">
-          <DropdownMenuItem onSelect={() => copy(absolute)}>Copy Path</DropdownMenuItem>
-          <DropdownMenuItem onSelect={() => copy(path)}>Copy Relative Path</DropdownMenuItem>
+          <DropdownMenuItem onSelect={() => copy(absolute)}>{t('Copy Path')}</DropdownMenuItem>
+          <DropdownMenuItem onSelect={() => copy(path)}>{t('Copy Relative Path')}</DropdownMenuItem>
           {menuItems && <DropdownMenuSeparator />}
           {menuItems}
         </DropdownMenuContent>

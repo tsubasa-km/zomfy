@@ -2,6 +2,7 @@ import { MarkerType, type Edge } from '@xyflow/react'
 import type { Workflow, WorkflowOutcome } from '@acp-harness/protocol'
 import { outcomeLabel } from './workflow-model'
 import type { EdgeRoute } from './workflow-canvas-layout'
+import { t } from '@/i18n/i18n'
 
 // Edges as the canvas draws them, in the editor and in a run's view alike.
 
@@ -44,7 +45,7 @@ export function canvasEdges(
       type: 'route',
       data: route ? { route } : {},
       // A chat that carries on is marked on the arrow, as a loop is.
-      label: `${outcomeLabel(edge.outcome)}${edge.session === 'continue' ? ' · same chat' : ''}${loop ? ` ${loop}` : ''}`,
+      label: `${outcomeLabel(edge.outcome)}${edge.session === 'continue' ? ` · ${t('same chat')}` : ''}${loop ? ` ${loop}` : ''}`,
       selected,
       markerEnd: { type: MarkerType.ArrowClosed, color, width: 16, height: 16 },
       style: {

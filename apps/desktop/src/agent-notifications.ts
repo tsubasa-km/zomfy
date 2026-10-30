@@ -1,6 +1,7 @@
 import { isPermissionGranted, requestPermission, sendNotification } from '@tauri-apps/plugin-notification'
 import { allWorkspaces, getState, isFloating, onSessionTransition, type Session } from './session-store'
 import { getSettings } from './stores/settings-store'
+import { t } from '@/i18n/i18n'
 
 // Like Orca's agent-hook-completion-notifications: a desktop notification when an agent finishes
 // or asks for approval, unless the user is already looking at that session.
@@ -27,13 +28,13 @@ export function installAgentNotifications(): void {
     const wanted = (to === 'needs-you' && settings.notifyAgentNeedsYou) || (finished && settings.notifyAgentFinished)
     if (!settings.notificationsEnabled || !wanted) return
     if (settings.notifySuppressWhenFocused && isOnScreen(session)) return
-    const workspace = allWorkspaces().find((w) => w.id === session.workspaceId)?.name ?? 'workspace'
+    const workspace = allWorkspaces().find((w) => w.id === session.workspaceId)?.name ?? t('workspace')
     const title =
       to === 'needs-you'
-        ? `Claude needs you · ${workspace}`
+        ? t('Claude needs you · {workspace}', { workspace })
         : to === 'error'
-          ? `Claude stopped with an error · ${workspace}`
-          : `Claude finished · ${workspace}`
+          ? t('Claude stopped with an error · {workspace}', { workspace })
+          : t('Claude finished · {workspace}', { workspace })
     void ensurePermission().then((granted) => {
       if (granted) sendNotification({ title, body: session.title })
     })
@@ -44,8 +45,8 @@ export function installAgentNotifications(): void {
 export function notifyAutoResumed(sessionId: string): void {
   const session = getState().sessions.find((s) => s.id === sessionId)
   if (!session || !getSettings().notificationsEnabled) return
-  const workspace = allWorkspaces().find((w) => w.id === session.workspaceId)?.name ?? 'workspace'
+  const workspace = allWorkspaces().find((w) => w.id === session.workspaceId)?.name ?? t('workspace')
   void ensurePermission().then((granted) => {
-    if (granted) sendNotification({ title: `Usage limit reset: resumed · ${workspace}`, body: session.title })
+    if (granted) sendNotification({ title: t('Usage limit reset: resumed · {workspace}', { workspace }), body: session.title })
   })
 }

@@ -11,6 +11,7 @@ import { registerKeybindingDefinitions } from '@/keybindings/keybinding-definiti
 import { registerCommandHandler } from '@/keybindings/keybinding-registry'
 import { cn } from '@/lib/utils'
 import { TOUR_STEPS } from './tour-steps'
+import { t } from '@/i18n/i18n'
 
 // A guided tour over the live window: one part at a time is lit, the rest dimmed, with a card beside
 // it. Shown once after setup; the command palette and Settings › General start it again.
@@ -164,7 +165,7 @@ function GuidedTour() {
   const position = cardPosition(target, cardHeight)
   const chapterStops = TOUR_STEPS.filter((s) => s.chapter === step.chapter)
   return (
-    <div className="fixed inset-0 z-[90]" data-tour role="dialog" aria-modal aria-label="Zomfy tour">
+    <div className="fixed inset-0 z-[90]" data-tour role="dialog" aria-modal aria-label={t('Zomfy tour')}>
       {/* Takes the clicks: the lit part is shown, not used, while the tour is on. */}
       <div className={cn('absolute inset-0', !target && 'bg-black/45')} />
       {target && (
@@ -202,13 +203,13 @@ function GuidedTour() {
         )}
         <div className="mt-4 flex items-center justify-between">
           <button type="button" className="text-xs text-muted-foreground hover:text-foreground" onClick={endTour} data-tour-skip>
-            {last ? 'Close' : 'End tour'}
+            {last ? t('Close') : t('End tour')}
           </button>
           <div className="flex items-center gap-1.5">
             {index > 0 && (
               <button
                 type="button"
-                aria-label="Back"
+                aria-label={t('Back')}
                 className="flex size-7 items-center justify-center rounded-md border border-border text-muted-foreground hover:bg-muted hover:text-foreground"
                 onClick={() => go(-1)}
                 data-tour-back
@@ -223,7 +224,7 @@ function GuidedTour() {
               onClick={() => go(1)}
               data-tour-next
             >
-              {last ? 'Done' : index === 0 ? 'Start' : 'Next'}
+              {last ? t('Done') : index === 0 ? t('Start') : t('Next')}
               {!last && <ChevronRight className="size-3.5" />}
             </button>
           </div>

@@ -3,6 +3,7 @@ import { emitTo, listen } from '@tauri-apps/api/event'
 import { getCurrentWindow } from '@tauri-apps/api/window'
 import { WebviewWindow } from '@tauri-apps/api/webviewWindow'
 import { allProjects, findWorkspace, getState, onPoppedOutSelect, openInColumn, selectWorkspace, setPoppedOut } from '@/session-store'
+import { t } from '@/i18n/i18n'
 
 // A workspace popped out into a window of its own (`?window=workspace&workspace=<id>`), so two
 // projects can sit on separate monitors. The main window keeps the workspace out of its own view
@@ -17,7 +18,7 @@ const labelFor = (workspaceId: string) => `workspace-${workspaceId.replace(/[^a-
 export function workspaceWindowTitle(workspaceId: string): string {
   const workspace = findWorkspace(workspaceId)
   const project = allProjects().find((p) => p.id === workspace?.projectId)
-  const name = workspace?.displayName ?? workspace?.name ?? 'Workspace'
+  const name = workspace?.displayName ?? workspace?.name ?? t('Workspace')
   return `${project ? `${project.displayName ?? project.name} · ` : ''}${name} — Zomfy`
 }
 

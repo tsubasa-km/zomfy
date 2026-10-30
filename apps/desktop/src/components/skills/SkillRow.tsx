@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button'
 import { ContextMenu, ContextMenuContent, ContextMenuItem, ContextMenuTrigger } from '@/components/ui/context-menu'
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
 import { PROVIDER_LABELS, sourceKindLabel } from './skills-filter'
+import { t } from '@/i18n/i18n'
 
 // Orca's SkillRow.tsx / SkillRowActions.tsx, without sharing (Orca's cloud links) or selection mode.
 
@@ -29,17 +30,17 @@ export function skillRowActions(handlers: {
   onDelete: () => void
 }): SkillRowAction[] {
   return [
-    { key: 'details', label: 'View details', icon: <Info />, onSelect: handlers.onOpenDetail },
-    { key: 'reveal', label: 'Reveal file', icon: <FolderOpen />, onSelect: handlers.onReveal },
+    { key: 'details', label: t('View details'), icon: <Info />, onSelect: handlers.onOpenDetail },
+    { key: 'reveal', label: t('Reveal file'), icon: <FolderOpen />, onSelect: handlers.onReveal },
     {
       key: 'copy-path',
-      label: 'Copy path',
+      label: t('Copy path'),
       icon: <ClipboardCopy />,
       onSelect: () => void navigator.clipboard.writeText(handlers.skill.skillFilePath)
     },
     {
       key: 'delete',
-      label: 'Delete…',
+      label: t('Delete…'),
       icon: <Trash2 />,
       destructive: true,
       disabled: handlers.deleteBlockedReason !== null,
@@ -87,10 +88,10 @@ export function SkillRow({
               </span>
               <span className="hidden sm:inline">{skill.providers.map((p) => PROVIDER_LABELS[p]).join(', ')}</span>
               <span aria-hidden>·</span>
-              <span className="tabular-nums">{skill.updatedAt ? dateFormatter.format(new Date(skill.updatedAt)) : 'No date'}</span>
+              <span className="tabular-nums">{skill.updatedAt ? dateFormatter.format(new Date(skill.updatedAt)) : t('No date')}</span>
             </span>
             <p className="col-start-1 min-w-0 truncate text-xs leading-5 text-muted-foreground">
-              {skill.description ?? 'No description found.'}
+              {skill.description ?? t('No description found.')}
             </p>
           </div>
           <div
@@ -99,7 +100,7 @@ export function SkillRow({
           >
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button type="button" variant="ghost" size="icon-sm" aria-label={`Actions for ${skill.name}`}>
+                <Button type="button" variant="ghost" size="icon-sm" aria-label={t('Actions for {name}', { name: skill.name })}>
                   <MoreHorizontal />
                 </Button>
               </DropdownMenuTrigger>

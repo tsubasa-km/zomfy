@@ -1,5 +1,6 @@
 import { openWorkspaceIn } from '@/components/sidebar/WorkspaceMenu'
 import type { HostId } from '@/session-store'
+import { t } from '@/i18n/i18n'
 
 // Workspace-relative explorer paths are '/'-separated; absolute ones use the host's own separator.
 
@@ -42,10 +43,10 @@ const platform = navigator.userAgent
 
 /** Orca's getRevealInFileManagerLabel. */
 export const REVEAL_LABEL = platform.includes('Mac')
-  ? 'Reveal in Finder'
+  ? t('Reveal in Finder')
   : platform.includes('Windows')
-    ? 'Reveal in File Explorer'
-    : 'Open Containing Folder'
+    ? t('Reveal in File Explorer')
+    : t('Open Containing Folder')
 
 /** Opens the folder that holds an entry (or the folder itself) in the host's file manager. */
 export function revealInFileManager(hostId: HostId, workspacePath: string, relative: string, isDir: boolean): void {

@@ -13,6 +13,7 @@ import {
 } from '@/components/ui/context-menu'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { cn } from '@/lib/utils'
+import { t } from '@/i18n/i18n'
 
 // Row chrome follows Orca's source-control/listing: section-header.tsx, uncommitted-entry-row.tsx,
 // tree-directory-rows.tsx, action-button.tsx, diff-line-counts.tsx and entry-context-menu.tsx.
@@ -140,23 +141,23 @@ function ChangeContextMenu({
       <ContextMenuContent className="w-52">
         <ContextMenuItem onSelect={onOpenDiff}>
           <Eye className="size-3.5" />
-          Open Changes
+          {t('Open Changes')}
         </ContextMenuItem>
         <ContextMenuItem
           disabled={!exists}
           onSelect={() => openEditorTab({ workspaceId, kind: 'file', path: entry.path, staged: false })}
         >
           <FileText className="size-3.5" />
-          Open File
+          {t('Open File')}
         </ContextMenuItem>
         <ContextMenuSeparator />
         <ContextMenuItem disabled={!absolutePath} onSelect={() => absolutePath && void navigator.clipboard.writeText(absolutePath)}>
           <Copy className="size-3.5" />
-          Copy Path
+          {t('Copy Path')}
         </ContextMenuItem>
         <ContextMenuItem onSelect={() => void navigator.clipboard.writeText(entry.path)}>
           <Copy className="size-3.5" />
-          Copy Relative Path
+          {t('Copy Relative Path')}
         </ContextMenuItem>
         <ContextMenuSeparator />
         <ContextMenuItem
@@ -167,11 +168,11 @@ function ChangeContextMenu({
           }}
         >
           <SquareArrowOutUpRight className="size-3.5" />
-          Reveal in File Explorer
+          {t('Reveal in File Explorer')}
         </ContextMenuItem>
         <ContextMenuItem onSelect={() => setRightSidebar({ open: true, tab: 'explorer' })}>
           <FolderSearch className="size-3.5" />
-          Open in Explorer Panel
+          {t('Open in Explorer Panel')}
         </ContextMenuItem>
       </ContextMenuContent>
     </ContextMenu>

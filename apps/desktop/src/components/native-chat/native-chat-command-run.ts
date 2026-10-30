@@ -1,4 +1,5 @@
 import type { ShellOption } from '@acp-harness/protocol'
+import { t } from '@/i18n/i18n'
 
 // Which code fences a chat can run in a terminal, in which of the host's shells, and what gets
 // typed. Kept free of React and the store so the parsing is testable.
@@ -89,11 +90,11 @@ export function pickCommandShell(family: CommandShellFamily, shells: readonly Sh
 export function missingShellReason(family: CommandShellFamily): string {
   switch (family) {
     case 'powershell':
-      return 'PowerShell is not available on this host'
+      return t('PowerShell is not available on this host')
     case 'cmd':
-      return 'Command Prompt is only available on Windows hosts'
+      return t('Command Prompt is only available on Windows hosts')
     case 'posix':
-      return 'No POSIX shell on this host (install Git for Windows for Git Bash)'
+      return t('No POSIX shell on this host (install Git for Windows for Git Bash)')
   }
 }
 

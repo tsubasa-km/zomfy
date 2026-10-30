@@ -9,6 +9,7 @@ import { useWorkflowRuns, type HostedWorkflowRun } from '@/stores/workflow-runs-
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 import { formatDuration, formatTokens } from './WorkflowRunScorecard'
+import { t } from '@/i18n/i18n'
 
 // A comparison's results: one row per workflow with its runs' scorecards averaged, and every run
 // below to open on its own.
@@ -49,7 +50,7 @@ export function WorkflowExperimentView({
     const slots = experiment.runs.filter((s) => s.armId === arm.id)
     const runs = slots.flatMap((s) => all.filter((r) => r.id === s.runId)).sort((a, b) => a.createdAt - b.createdAt)
     // Arms saved before labels carried the workflow's id.
-    const name = arm.label !== arm.workflowId ? arm.label : (workflows.find((w) => w.id === arm.workflowId)?.name ?? runs[0]?.workflow.name ?? 'Deleted workflow')
+    const name = arm.label !== arm.workflowId ? arm.label : (workflows.find((w) => w.id === arm.workflowId)?.name ?? runs[0]?.workflow.name ?? t('Deleted workflow'))
     return {
       armId: arm.id,
       name,
@@ -65,7 +66,7 @@ export function WorkflowExperimentView({
   const stop = async () => {
     setBusy(true)
     await harnessRequest(HARNESS_METHODS.workflowExperimentStop, { id: experiment.id }, experiment.hostId).catch((error: unknown) =>
-      toast.error('Could not stop the comparison', { description: String(error) })
+      toast.error(t('Could not stop the comparison'), { description: String(error) })
     )
     setBusy(false)
   }
@@ -77,7 +78,7 @@ export function WorkflowExperimentView({
       setProjectExperiments(experiment.hostId, experiment.projectId, list)
       onBack()
     } catch (error) {
-      toast.error('Could not delete the comparison', { description: String(error) })
+      toast.error(t('Could not delete the comparison'), { description: String(error) })
       setBusy(false)
     }
   }
@@ -92,25 +93,25 @@ export function WorkflowExperimentView({
       <div className="flex items-center gap-2 border-b border-border px-4 py-2">
         <Button variant="ghost" size="sm" className="-ml-2 h-7" onClick={onBack}>
           <ArrowLeft className="size-3.5" />
-          Editor
+          {t('Editor')}
         </Button>
-        <div className="min-w-0 flex-1 truncate text-sm font-medium">Comparison · {experiment.trials} trial{experiment.trials > 1 ? 's' : ''} each</div>
-        <span className="text-xs text-muted-foreground">{experiment.status}</span>
+        <div className="min-w-0 flex-1 truncate text-sm font-medium">{experiment.trials > 1 ? t('Comparison · {n} trials each', { n: experiment.trials }) : t('Comparison · {n} trial each', { n: experiment.trials })}</div>
+        <span className="text-xs text-muted-foreground">{t(experiment.status)}</span>
         {experiment.status === 'running' && (
           <Button variant="outline" size="sm" className="h-7" disabled={busy} onClick={() => void stop()}>
             <CircleStop className="size-3.5" />
-            Stop
+            {t('Stop')}
           </Button>
         )}
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <Button variant="ghost" size="sm" className="h-7" disabled={busy} aria-label="Delete comparison" data-workflow-experiment-delete>
+            <Button variant="ghost" size="sm" className="h-7" disabled={busy} aria-label={t('Delete comparison')} data-workflow-experiment-delete>
               <Trash2 className="size-3.5" />
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="w-72">
-            <DropdownMenuItem onSelect={() => void remove(true)}>Delete it, and the worktrees and branches its runs made</DropdownMenuItem>
-            <DropdownMenuItem onSelect={() => void remove(false)}>Delete it, keep the worktrees</DropdownMenuItem>
+            <DropdownMenuItem onSelect={() => void remove(true)}>{t('Delete it, and the worktrees and branches its runs made')}</DropdownMenuItem>
+            <DropdownMenuItem onSelect={() => void remove(false)}>{t('Delete it, keep the worktrees')}</DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
       </div>
@@ -119,16 +120,16 @@ export function WorkflowExperimentView({
         <table className="w-full text-xs" data-workflow-experiment-table>
           <thead className="text-[11px] text-muted-foreground">
             <tr className="border-b border-border">
-              <th className="px-2 py-1.5 text-left font-medium">Workflow</th>
-              <th className="px-2 py-1.5 text-right font-medium" title="Runs that ended done, of those finished (planned). The other columns average the done runs.">
-                Done
+              <th className="px-2 py-1.5 text-left font-medium">{t('Workflow')}</th>
+              <th className="px-2 py-1.5 text-right font-medium" title={t('Runs that ended done, of those finished (planned). The other columns average the done runs.')}>
+                {t('Done')}
               </th>
-              <th className="px-2 py-1.5 text-right font-medium">Time</th>
-              <th className="px-2 py-1.5 text-right font-medium" title="Input and output tokens, where the agents report them">Tokens</th>
-              <th className="px-2 py-1.5 text-right font-medium">Cost</th>
-              <th className="px-2 py-1.5 text-right font-medium" title="Reviews that sent work back, plus failed checks">Rounds</th>
-              <th className="px-2 py-1.5 text-right font-medium" title="Share of file reads that re-read what an earlier step had read">Re-read</th>
-              <th className="px-2 py-1.5 text-right font-medium" title="Commands an earlier step had already run">Re-run</th>
+              <th className="px-2 py-1.5 text-right font-medium">{t('Time')}</th>
+              <th className="px-2 py-1.5 text-right font-medium" title={t('Input and output tokens, where the agents report them')}>{t('Tokens')}</th>
+              <th className="px-2 py-1.5 text-right font-medium">{t('Cost')}</th>
+              <th className="px-2 py-1.5 text-right font-medium" title={t('Reviews that sent work back, plus failed checks')}>{t('Rounds')}</th>
+              <th className="px-2 py-1.5 text-right font-medium" title={t('Share of file reads that re-read what an earlier step had read')}>{t('Re-read')}</th>
+              <th className="px-2 py-1.5 text-right font-medium" title={t('Commands an earlier step had already run')}>{t('Re-run')}</th>
             </tr>
           </thead>
           <tbody>
@@ -142,7 +143,7 @@ export function WorkflowExperimentView({
                   <Cell value={avg(row, (c) => c.usage.inputTokens + c.usage.outputTokens, (n) => formatTokens(Math.round(n)))} />
                   <Cell
                     value={row.cards.some((c) => c.usage.costUsd !== undefined) ? avg(row, (c) => c.usage.costUsd ?? 0, (n) => `$${n.toFixed(2)}`) : '—'}
-                    title="Claude steps only"
+                    title={t('Claude steps only')}
                   />
                   <Cell value={avg(row, (c) => c.sentBack + c.checksFailed, (n) => n.toFixed(1))} />
                   <Cell value={avg(row, (c) => (c.reads ? c.rereadAfterHandoff / c.reads : 0), (n) => `${Math.round(n * 100)}%`)} />
@@ -153,8 +154,9 @@ export function WorkflowExperimentView({
           </tbody>
         </table>
         <p className="text-[11px] text-muted-foreground">
-          Averages over the runs that ended done. With a handful of trials only large differences mean much; open the runs to see why they
-          differ.
+          {t(
+            'Averages over the runs that ended done. With a handful of trials only large differences mean much; open the runs to see why they differ.'
+          )}
         </p>
         {all.some((r) => r.status === 'failed' && r.endReason) && (
           <ul className="space-y-0.5 text-xs text-muted-foreground" data-workflow-experiment-failures>
@@ -197,7 +199,7 @@ export function WorkflowExperimentView({
                     data-workflow-experiment-run={run.status}
                     title={run.endReason}
                   >
-                    #{i + 1} {run.status}
+                    #{i + 1} {t(run.status)}
                   </button>
                 ))}
               </div>

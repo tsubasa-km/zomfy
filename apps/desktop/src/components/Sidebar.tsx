@@ -21,6 +21,7 @@ import { CleanupMergedDialog } from '@/components/sidebar/CleanupMergedDialog'
 import { useWorkspaceSummaries } from '@/components/sidebar/use-workspace-summaries'
 import { useCardReviewSummaries } from '@/stores/hosting-store'
 import { projectLabel, workspaceMatches } from '@/components/sidebar/workspace-visibility'
+import { t } from '@/i18n/i18n'
 
 // Markup and classes follow Orca's sidebar (sidebar/index.tsx, SidebarHeader, WorktreeList); the
 // sections, cards and dialogs live in components/sidebar/.
@@ -69,7 +70,7 @@ export function Sidebar() {
     renameGroup: (hostId, group) => setGroupName({ mode: 'rename', hostId, group }),
     cleanUp: setCleanUp,
     removeProject: (project) => {
-      if (window.confirm(`Remove ${projectLabel(project)} from acp-harness? Its folders and worktrees on disk are kept.`)) {
+      if (window.confirm(t('Remove {name} from acp-harness? Its folders and worktrees on disk are kept.', { name: projectLabel(project) }))) {
         void harnessRequest(HARNESS_METHODS.projectRemove, { projectId: project.id }, project.hostId)
       }
     }
@@ -90,7 +91,7 @@ export function Sidebar() {
             <div className="flex h-7 min-w-0 items-center gap-1.5 pt-1 pr-1 pl-2">
               <span className="block size-1.5 shrink-0 rounded-full bg-agent-question" />
               <div className="min-w-0 truncate text-[13px] leading-none font-semibold text-agent-question-text">
-                Waiting for you
+                {t('Waiting for you')}
               </div>
               <span className="text-[11px] text-muted-foreground tabular-nums">{waiting.length}</span>
               <button
@@ -98,7 +99,7 @@ export function Sidebar() {
                 className="ml-auto text-[11px] text-muted-foreground hover:text-foreground"
                 onClick={() => setInboxOpen(true)}
               >
-                Inbox
+                {t('Inbox')}
               </button>
             </div>
             {waiting.map((s) => (
@@ -109,7 +110,7 @@ export function Sidebar() {
         <ProjectList actions={actions} />
         {hasActiveFilters(filters) && counts.matched === 0 && counts.total > 0 && (
           <p className="px-3 pt-3 text-center text-xs text-muted-foreground" data-no-matches>
-            No workspaces match the filters.
+            {t('No workspaces match the filters.')}
           </p>
         )}
       </div>

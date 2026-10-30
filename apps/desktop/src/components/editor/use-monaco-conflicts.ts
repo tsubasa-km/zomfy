@@ -8,6 +8,7 @@ import {
   type ConflictBlock,
   type ConflictChoice
 } from './monaco-conflict-decorations'
+import { t } from '@/i18n/i18n'
 
 const ACCEPT_CONFLICT_COMMAND = 'acpHarness.acceptConflict'
 let conflictActionsRegistered = false
@@ -38,9 +39,9 @@ function ensureConflictActions(): void {
           command: { id: ACCEPT_CONFLICT_COMMAND, title, arguments: [uri, block.startLine, choice] }
         })
         return [
-          lens('Accept Current Change', 'current'),
-          lens('Accept Incoming Change', 'incoming'),
-          lens('Accept Both Changes', 'both')
+          lens(t('Accept Current Change'), 'current'),
+          lens(t('Accept Incoming Change'), 'incoming'),
+          lens(t('Accept Both Changes'), 'both')
         ]
       })
       return { lenses, dispose: () => undefined }

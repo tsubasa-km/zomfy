@@ -9,6 +9,7 @@ import { TuiAgentIcon } from '@/components/terminal/TuiAgentIcon'
 import { Button } from '@/components/ui/button'
 import { formatDuration, formatTokens } from '@/components/workflows/WorkflowRunScorecard'
 import { cn } from '@/lib/utils'
+import { t } from '@/i18n/i18n'
 
 // The Agent tab: for the chat in front, what fills its context (and whether this chat used it),
 // what it has done, and the workflow run it belongs to or the project's recent runs.
@@ -17,7 +18,7 @@ import { cn } from '@/lib/utils'
 const NOTABLE_TOKENS = 300
 
 type ItemKind = ContextUsage['items'][number]['kind']
-const KIND_LABELS: Record<ItemKind, string> = { skill: 'Skill', mcp: 'MCP', memory: 'Memory', agent: 'Agent' }
+const KIND_LABELS: Record<ItemKind, string> = { skill: t('Skill'), mcp: 'MCP', memory: t('Memory'), agent: t('Agent') }
 
 /** The chat in front in this workspace; the last one shown while a terminal or file is in front. */
 function useFrontChat(workspaceId: string): Session | null {
@@ -85,7 +86,7 @@ export function AgentPanel({ workspaceId }: { workspaceId: string }) {
   }, [hostId, projectId])
 
   if (!session) {
-    return <p className="p-4 text-xs text-muted-foreground">Open a chat to see its agent, context and activity.</p>
+    return <p className="p-4 text-xs text-muted-foreground">{t('Open a chat to see its agent, context and activity.')}</p>
   }
 
   const agent = session.agent ?? 'claude'
@@ -111,11 +112,11 @@ export function AgentPanel({ workspaceId }: { workspaceId: string }) {
 
       <ContextSection usage={usage} agent={agent} used={activity.used} />
 
-      <Section title="This chat">
+      <Section title={t('This chat')}>
         <div className="grid grid-cols-3 gap-2">
-          <Figure label="Turns" value={String(activity.turns)} />
-          <Figure label="Tool calls" value={String(activity.tools.reduce((n, [, c]) => n + c, 0))} />
-          <Figure label="Last turn" value={usage?.costUsd != null ? `$${usage.costUsd.toFixed(2)}` : '—'} hint="What the last turn cost, as Claude reports it." />
+          <Figure label={t('Turns')} value={String(activity.turns)} />
+          <Figure label={t('Tool calls')} value={String(activity.tools.reduce((n, [, c]) => n + c, 0))} />
+          <Figure label={t('Last turn')} value={usage?.costUsd != null ? `$${usage.costUsd.toFixed(2)}` : '—'} hint={t('What the last turn cost, as Claude reports it.')} />
         </div>
         {activity.tools.length > 0 && (
           <ul className="space-y-0.5" data-agent-tools>
@@ -131,7 +132,7 @@ export function AgentPanel({ workspaceId }: { workspaceId: string }) {
 
       {projectId && (
         <Section
-          title="Workflow run"
+          title={t('Workflow run')}
           aside={
             <Button
               variant="ghost"
@@ -139,14 +140,14 @@ export function AgentPanel({ workspaceId }: { workspaceId: string }) {
               className="h-6 px-1.5 text-[11px]"
               onClick={() => openWorkflows({ hostId, projectId, projectName })}
             >
-              Workflows
+              {t('Workflows')}
             </Button>
           }
         >
           {run ? (
             <RunSummary run={run} sessionId={session.id} onOpen={() => openRun(run)} />
           ) : (
-            <p className="text-muted-foreground">This chat is not a step of a workflow run. The project's runs are under Workflows.</p>
+            <p className="text-muted-foreground">{t("This chat is not a step of a workflow run. The project's runs are under Workflows.")}</p>
           )}
         </Section>
       )}
@@ -174,9 +175,11 @@ function ContextSection({
 }) {
   if (!usage) {
     return (
-      <Section title="Context">
+      <Section title={t('Context')}>
         <p className="text-muted-foreground">
-          {agent === 'claude' ? 'Shown after the chat’s first turn.' : `${chatAgentLabel(agent)} does not report what fills its context.`}
+          {agent === 'claude'
+            ? t('Shown after the chat’s first turn.')
+            : t('{agent} does not report what fills its context.', { agent: chatAgentLabel(agent) })}
         </p>
       </Section>
     )
@@ -188,12 +191,12 @@ function ContextSection({
   const idleTokens = usage.items.filter((i) => idle(i.kind, i.name, i.tokens)).reduce((n, i) => n + i.tokens, 0)
   const items = [...usage.items].sort((a, b) => b.tokens - a.tokens)
   return (
-    <Section title="Context" aside={<span className="text-[11px] text-muted-foreground tabular-nums">{share}%</span>}>
+    <Section title={t('Context')} aside={<span className="text-[11px] text-muted-foreground tabular-nums">{share}%</span>}>
       <div className="space-y-1">
         <Bar value={usage.used} max={usage.size} warn={share >= 80} />
         <div className="text-[11px] text-muted-foreground tabular-nums">
-          {formatTokens(usage.used)} of {formatTokens(usage.size)}
-          {usage.estimated ? ' (estimated)' : ''}
+          {t('{used} of {size}', { used: formatTokens(usage.used), size: formatTokens(usage.size) })}
+          {usage.estimated ? ` ${t('(estimated)')}` : ''}
         </div>
       </div>
       {usage.categories.length > 0 && (
@@ -214,8 +217,10 @@ function ContextSection({
       {items.length > 0 && (
         <div className="space-y-1">
           <div className="text-[11px] text-muted-foreground">
-            Loaded every turn
-            {idleTokens > 0 && <span className="text-status-warning"> · {formatTokens(idleTokens)} unused in this chat</span>}
+            {t('Loaded every turn')}
+            {idleTokens > 0 && (
+              <span className="text-status-warning"> · {t('{tokens} unused in this chat', { tokens: formatTokens(idleTokens) })}</span>
+            )}
           </div>
           <ul className="max-h-64 space-y-0.5 overflow-y-auto" data-agent-context-items>
             {items.map((i) => {
@@ -229,7 +234,7 @@ function ContextSection({
                   <span className="w-11 shrink-0 text-[11px] text-muted-foreground">{KIND_LABELS[i.kind]}</span>
                   <span className="min-w-0 flex-1 truncate">{i.kind === 'memory' ? i.name.split(/[\\/]/).slice(-2).join('/') : i.name}</span>
                   <span className="shrink-0 tabular-nums">{formatTokens(i.tokens)}</span>
-                  <span className="w-8 shrink-0 text-right text-[11px] text-muted-foreground tabular-nums" title="Calls in this chat">
+                  <span className="w-8 shrink-0 text-right text-[11px] text-muted-foreground tabular-nums" title={t('Calls in this chat')}>
                     {count === null ? '—' : `×${count}`}
                   </span>
                 </li>
@@ -250,17 +255,17 @@ function RunSummary({ run, sessionId, onOpen }: { run: HostedWorkflowRun; sessio
       <div>
         <div className="truncate font-medium">{run.workflow.name}</div>
         <div className="truncate text-[11px] text-muted-foreground">
-          {run.status} · this chat ran {[...new Set(step)].join(', ')}
+          {run.status} · {t('this chat ran {steps}', { steps: [...new Set(step)].join(', ') })}
         </div>
       </div>
       <div className="grid grid-cols-3 gap-2">
-        <Figure label="Time" value={formatDuration(card.durationMs)} />
-        <Figure label="Tokens" value={formatTokens(card.usage.inputTokens + card.usage.outputTokens)} />
-        <Figure label="Rounds" value={String(card.sentBack + card.checksFailed)} hint="Reviews that sent work back, plus failed checks." />
+        <Figure label={t('Time')} value={formatDuration(card.durationMs)} />
+        <Figure label={t('Tokens')} value={formatTokens(card.usage.inputTokens + card.usage.outputTokens)} />
+        <Figure label={t('Rounds')} value={String(card.sentBack + card.checksFailed)} hint={t('Reviews that sent work back, plus failed checks.')} />
       </div>
       <Button variant="outline" size="sm" className="h-7 w-full" onClick={onOpen}>
         <ExternalLink className="size-3.5" />
-        Open the run
+        {t('Open the run')}
       </Button>
     </div>
   )

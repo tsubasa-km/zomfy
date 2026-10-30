@@ -8,6 +8,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group'
 import { NativeChatMarkdown } from '@/components/native-chat/NativeChatMarkdown'
 import { skillAgentLabel, skillAgents, sourceKindLabel } from './skills-filter'
+import { t } from '@/i18n/i18n'
 
 // Orca's SkillDetailDialog.tsx, plus the SKILL.md itself (read on the skill's host) so a skill can
 // be checked without leaving the app.
@@ -79,11 +80,11 @@ export function SkillDetailDialog({
         </DialogHeader>
 
         <div className="scrollbar-sleek max-h-[65vh] space-y-4 overflow-y-auto px-5 py-4">
-          <p className="text-sm leading-6 whitespace-pre-wrap">{skill.description ?? 'No description found.'}</p>
+          <p className="text-sm leading-6 whitespace-pre-wrap">{skill.description ?? t('No description found.')}</p>
           <dl className="grid grid-cols-[auto_minmax(0,1fr)] gap-x-4 gap-y-2 border-t border-border pt-4 text-xs">
-            {agents.length > 0 ? <DetailRow label="Agents">{agents.join(', ')}</DetailRow> : null}
-            <DetailRow label="Updated">{skill.updatedAt ? updatedFormatter.format(new Date(skill.updatedAt)) : 'No date'}</DetailRow>
-            <DetailRow label="Path">
+            {agents.length > 0 ? <DetailRow label={t('Agents')}>{agents.join(', ')}</DetailRow> : null}
+            <DetailRow label={t('Updated')}>{skill.updatedAt ? updatedFormatter.format(new Date(skill.updatedAt)) : t('No date')}</DetailRow>
+            <DetailRow label={t('Path')}>
               <span className="flex min-w-0 items-start gap-2">
                 <span className="min-w-0 flex-1 font-mono break-all">{skill.skillFilePath}</span>
                 <Button
@@ -94,7 +95,7 @@ export function SkillDetailDialog({
                   onClick={() => void navigator.clipboard.writeText(skill.skillFilePath)}
                 >
                   <ClipboardCopy />
-                  Copy
+                  {t('Copy')}
                 </Button>
               </span>
             </DetailRow>
@@ -109,18 +110,18 @@ export function SkillDetailDialog({
                 spacing={1}
                 value={view}
                 onValueChange={(value) => value && setView(value === 'source' ? 'source' : 'preview')}
-                aria-label="SKILL.md view"
+                aria-label={t('SKILL.md view')}
               >
                 <ToggleGroupItem value="preview" className="rounded-full px-2.5 text-xs">
-                  Preview
+                  {t('Preview')}
                 </ToggleGroupItem>
                 <ToggleGroupItem value="source" className="rounded-full px-2.5 text-xs">
-                  Source
+                  {t('Source')}
                 </ToggleGroupItem>
               </ToggleGroup>
             </div>
             {markdown.status === 'loading' ? (
-              <p className="text-xs text-muted-foreground">Loading…</p>
+              <p className="text-xs text-muted-foreground">{t('Loading…')}</p>
             ) : markdown.status === 'error' ? (
               <p className="text-xs text-destructive">{markdown.message}</p>
             ) : (
@@ -130,7 +131,7 @@ export function SkillDetailDialog({
                 ) : (
                   <NativeChatMarkdown content={stripFrontmatter(markdown.content)} className="text-sm" />
                 )}
-                {markdown.truncated ? <p className="mt-2 text-[11px] text-muted-foreground">Showing the first 256 KB.</p> : null}
+                {markdown.truncated ? <p className="mt-2 text-[11px] text-muted-foreground">{t('Showing the first 256 KB.')}</p> : null}
               </div>
             )}
           </section>
@@ -139,7 +140,7 @@ export function SkillDetailDialog({
         <DialogFooter className="border-t border-border px-5 py-3">
           <Button type="button" variant="ghost" size="sm" onClick={onReveal}>
             <FolderOpen className="size-3.5" />
-            Reveal file
+            {t('Reveal file')}
           </Button>
           <span className="mr-auto inline-flex" title={deleteBlockedReason ?? undefined}>
             <Button
@@ -151,11 +152,11 @@ export function SkillDetailDialog({
               onClick={onDelete}
             >
               <Trash2 className="size-3.5" />
-              Delete…
+              {t('Delete…')}
             </Button>
           </span>
           <Button type="button" size="sm" onClick={() => onOpenChange(false)}>
-            Done
+            {t('Done')}
           </Button>
         </DialogFooter>
       </DialogContent>

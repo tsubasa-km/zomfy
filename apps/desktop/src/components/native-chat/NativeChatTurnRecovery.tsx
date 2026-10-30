@@ -4,6 +4,7 @@ import type { AutoResumeState, TurnResumeKind } from '@acp-harness/protocol'
 import { Button } from '@/components/ui/button'
 import { Switch } from '@/components/ui/switch'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
+import { t } from '@/i18n/i18n'
 
 // Picking a chat back up: Continue on a reply that was stopped (Orca's NativeChatInterruptedContinue),
 // Retry on a failed turn, and the usage-limit banner with Resume and the daemon's automatic resume.
@@ -11,14 +12,14 @@ import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip
 /** Continue, on the row that says the reply was stopped: the one action that picks it back up. */
 export function NativeChatInterruptedContinueButton({ onContinue }: { onContinue: () => void }) {
   const explanationId = useId()
-  const explanation = 'Continue, and the agent first checks whether its last step finished.'
+  const explanation = t('Continue, and the agent first checks whether its last step finished.')
   return (
     <>
       <Tooltip>
         <TooltipTrigger asChild>
           <Button type="button" size="xs" data-native-chat-continue aria-describedby={explanationId} onClick={onContinue}>
             <Play />
-            Continue
+            {t('Continue')}
           </Button>
         </TooltipTrigger>
         <TooltipContent side="top" sideOffset={4}>
@@ -36,17 +37,17 @@ export function NativeChatRetryButton({ onRetry }: { onRetry: () => void }) {
   return (
     <Button type="button" size="xs" variant="outline" data-native-chat-retry onClick={onRetry}>
       <RotateCw />
-      Retry
+      {t('Retry')}
     </Button>
   )
 }
 
 const RESUMED_LABELS: Record<TurnResumeKind, string> = {
-  continue: 'Continued',
-  retry: 'Retried',
-  resume: 'Resumed after the usage limit',
-  auto: 'Resumed automatically after the usage limit reset',
-  moved: 'Continued in the new workspace'
+  continue: t('Continued'),
+  retry: t('Retried'),
+  resume: t('Resumed after the usage limit'),
+  auto: t('Resumed automatically after the usage limit reset'),
+  moved: t('Continued in the new workspace')
 }
 
 /** A recovery prompt is not something the user typed, so it reads as a divider, not a bubble. */
@@ -76,8 +77,8 @@ export function formatCountdown(ms: number): string {
   const minutes = Math.floor((total % 3600) / 60)
   const seconds = total % 60
   const pad = (n: number) => String(n).padStart(2, '0')
-  if (hours >= 24) return `${Math.floor(hours / 24)}d ${hours % 24}h`
-  return hours > 0 ? `${hours}h ${pad(minutes)}m` : `${minutes}:${pad(seconds)}`
+  if (hours >= 24) return t('{d}d {h}h', { d: Math.floor(hours / 24), h: hours % 24 })
+  return hours > 0 ? t('{h}h {m}m', { h: hours, m: pad(minutes) }) : `${minutes}:${pad(seconds)}`
 }
 
 function formatClock(at: number, now: number): string {
@@ -109,14 +110,14 @@ export function NativeChatUsageLimitBanner({
   const status = autoResume
     ? autoResume.fireAt > now
       ? autoResume.resetKnown
-        ? `Resuming automatically in ${formatCountdown(autoResume.fireAt - now)}`
-        : `Reset time unknown: trying again in ${formatCountdown(autoResume.fireAt - now)} (every 15–60 min)`
-      : 'Resuming…'
+        ? t('Resuming automatically in {time}', { time: formatCountdown(autoResume.fireAt - now) })
+        : t('Reset time unknown: trying again in {time} (every 15–60 min)', { time: formatCountdown(autoResume.fireAt - now) })
+      : t('Resuming…')
     : resetsAt !== null
       ? resetsAt > now
-        ? `Resets at ${formatClock(resetsAt, now)} (in ${formatCountdown(resetsAt - now)})`
-        : 'The limit should have reset by now'
-      : 'Claude did not say when the limit resets'
+        ? t('Resets at {clock} (in {time})', { clock: formatClock(resetsAt, now), time: formatCountdown(resetsAt - now) })
+        : t('The limit should have reset by now')
+      : t('Claude did not say when the limit resets')
   return (
     <div className="shrink-0 bg-chat-canvas" data-native-chat-usage-limit>
       <div className="mx-auto w-full max-w-(--chat-content-max-width) px-3 pt-2 pb-1 sm:px-4">
@@ -128,14 +129,14 @@ export function NativeChatUsageLimitBanner({
               <CircleAlert className="mt-0.5 size-4 shrink-0 text-muted-foreground" />
             )}
             <div className="min-w-0 flex-1">
-              <p className="text-sm font-semibold text-foreground">Claude usage limit reached</p>
+              <p className="text-sm font-semibold text-foreground">{t('Claude usage limit reached')}</p>
               <p className="text-xs text-muted-foreground tabular-nums" data-native-chat-usage-limit-status>
                 {status}
               </p>
             </div>
             <Button type="button" size="xs" data-native-chat-resume onClick={onResume}>
               <Play />
-              Resume
+              {t('Resume')}
             </Button>
           </div>
           <label htmlFor={switchId} className="flex cursor-pointer items-center gap-2 text-xs text-muted-foreground select-none">
@@ -145,7 +146,7 @@ export function NativeChatUsageLimitBanner({
               checked={autoResume !== null}
               onCheckedChange={onAutoResumeChange}
             />
-            Resume automatically when the limit resets
+            {t('Resume automatically when the limit resets')}
           </label>
         </div>
       </div>

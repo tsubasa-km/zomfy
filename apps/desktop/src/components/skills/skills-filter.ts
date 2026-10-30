@@ -1,4 +1,5 @@
 import type { DiscoveredSkill, SkillDiscoveryResult, SkillSourceKind } from '@acp-harness/protocol'
+import { t } from '@/i18n/i18n'
 
 // Orca's skills-filter.ts, skill-agent-filter.ts and skill-display-labels.ts.
 
@@ -17,7 +18,7 @@ export const SKILL_SOURCE_KINDS: SkillSourceKind[] = ['home', 'repo', 'bundled',
 const SHARED_SKILL_AGENT = 'shared'
 
 const AGENT_LABELS: Record<string, string> = {
-  [SHARED_SKILL_AGENT]: 'Shared (.agents)',
+  [SHARED_SKILL_AGENT]: t('Shared (.agents)'),
   claude: 'Claude Code',
   codex: 'Codex',
   cursor: 'Cursor',
@@ -46,13 +47,14 @@ export function skillAgentLabel(agentId: string): string {
 
 // 'repo' roots also come from folder projects, so Orca calls them "Workspace".
 export function sourceKindLabel(kind: SkillSourceKind): string {
-  return { home: 'Home', repo: 'Workspace', bundled: 'Bundled', plugin: 'Plugin' }[kind]
+  return { home: t('Home'), repo: t('Workspace'), bundled: t('Bundled'), plugin: t('Plugin') }[kind]
 }
 
 export const PROVIDER_LABELS = { codex: 'Codex', claude: 'Claude', 'agent-skills': 'Agent Skills' } as const
 
+/** `one` and `other` are t() keys with an `{n}` placeholder, such as '{n} skill' and '{n} skills'. */
 export function countLabel(count: number, one: string, other: string): string {
-  return `${count} ${count === 1 ? one : other}`
+  return t(count === 1 ? one : other, { n: count })
 }
 
 /** Discovery tags most roots as `agent-skills`; the owning agent comes from the root. */
@@ -105,7 +107,7 @@ export function countSkillsBySource(skills: readonly DiscoveredSkill[]): Record<
 
 /** Orca refuses these: bundled skills come back, plugin skills belong to their plugin. */
 export function skillDeleteBlockReason(skill: DiscoveredSkill): string | null {
-  if (skill.sourceKind === 'bundled') return 'Bundled with the agent — it would be restored'
-  if (skill.sourceKind === 'plugin') return 'Installed by a plugin — remove the plugin instead'
+  if (skill.sourceKind === 'bundled') return t('Bundled with the agent — it would be restored')
+  if (skill.sourceKind === 'plugin') return t('Installed by a plugin — remove the plugin instead')
   return null
 }

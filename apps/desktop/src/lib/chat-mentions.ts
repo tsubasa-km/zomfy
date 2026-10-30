@@ -1,3 +1,4 @@
+import { t } from '@/i18n/i18n'
 // Mentions in a message: `@path` for a workspace file (the composer's @ menu), and `@…/attachments/…`
 // for a snapshot of a terminal or another chat saved on the chat's host. Both travel as text; the
 // composer and the transcript draw them as chips that lead back to what they name.
@@ -53,7 +54,7 @@ export const MENTION_ICON_SVG: Record<ChatMentionKind, string> = {
 }
 
 export const MENTION_TITLE: Record<ChatMentionKind, string> = {
-  file: 'File in this workspace',
-  terminal: 'Terminal snapshot',
-  chat: 'Chat transcript snapshot'
+  file: t('File in this workspace'),
+  terminal: t('Terminal snapshot'),
+  chat: t('Chat transcript snapshot')
 }

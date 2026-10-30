@@ -2,13 +2,14 @@ import { registerKeybindingDefinitions } from '@/keybindings/keybinding-definiti
 import { registerCommandHandler } from '@/keybindings/keybinding-registry'
 import { getState } from '@/session-store'
 import { forkChat } from '@/chat-actions'
+import { t } from '@/i18n/i18n'
 
 /** Chat commands for the palette and shortcuts editor; they act on the active workspace's chat tab. */
 export function installChatCommands(): void {
   registerKeybindingDefinitions([
     {
       id: 'chat.fork',
-      title: 'Fork Chat',
+      title: t('Fork Chat'),
       group: 'Chat',
       keywords: ['fork', 'branch', 'copy', 'duplicate', 'conversation', 'session'],
       defaultBindings: []

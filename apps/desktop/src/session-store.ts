@@ -15,6 +15,7 @@ import { WINDOW_ROLE } from '@/lib/window-role'
 import { showChat } from '@/stores/tab-layout-store'
 import { openWorkflows } from '@/stores/workflows-store'
 import { forgetHostSnapshot, saveHostSnapshot } from '@/lib/host-snapshots'
+import { t } from '@/i18n/i18n'
 
 export type { SessionStatus }
 
@@ -296,7 +297,7 @@ export function upsertHost(id: HostId, change: Partial<HostEntry>): void {
 }
 
 export function hostLabel(id: HostId): string {
-  if (id === LOCAL_HOST) return 'This computer'
+  if (id === LOCAL_HOST) return t('This computer')
   return id.replace(/^wsl:/, 'WSL: ').replace(/^ssh:/, 'SSH: ')
 }
 
@@ -459,7 +460,7 @@ export function mergeSessions(hostId: HostId, list: SessionInfo[]): void {
     // The turn just ended: draw Orca's settled status line under it.
     if (old?.loaded && old.turnStartedAt !== null && info.turnStartedAt === null) {
       const seconds = Math.max(1, Math.round((Date.now() - old.turnStartedAt) / 1000))
-      items = [...items, { kind: 'notice', text: `Worked for ${seconds}s` }]
+      items = [...items, { kind: 'notice', text: t('Worked for {seconds}s', { seconds }) }]
     }
     const session: Session = { ...info, hostId, workspaceId: info.workspaceId, items, loaded: old?.loaded ?? false }
     sessions.push(session)
@@ -530,7 +531,7 @@ export function upsertTool(
       const item: ThreadItem = {
         kind: 'tool',
         id: toolId,
-        title: 'Tool',
+        title: t('Tool'),
         toolKind: 'other',
         status: 'pending',
         input: null,

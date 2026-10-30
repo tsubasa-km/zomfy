@@ -12,6 +12,7 @@ import {
   PANEL_MESSAGE_RATE_LIMIT,
   panelTheme
 } from '@/plugins/plugin-panel-shell'
+import { t } from '@/i18n/i18n'
 
 // Orca's right-sidebar PluginPanel + plugin-panel-bridge-host: the panel, served by the local daemon,
 // in an opaque-origin sandboxed frame, answering the panel-callable host API the harness implements. Each call is
@@ -72,7 +73,7 @@ export function PluginPanel({ panel, workspaceId }: { panel: ActivePluginPanel; 
     setEntry({ status: 'loading' })
     const connection = getState().hosts[LOCAL_HOST]?.connection
     if (connection?.kind !== 'connected') {
-      setEntry({ status: 'error', message: 'This computer’s daemon is not connected' })
+      setEntry({ status: 'error', message: t('This computer’s daemon is not connected') })
       return
     }
     harnessRequest(HARNESS_METHODS.pluginPanelRead, { pluginKey: panel.pluginKey, panelId: panel.id, theme: panelTheme() }, LOCAL_HOST).then(
@@ -127,7 +128,7 @@ export function PluginPanel({ panel, workspaceId }: { panel: ActivePluginPanel; 
   if (entry.status !== 'ready') {
     return (
       <div className="flex min-h-0 flex-1 items-center justify-center p-6 text-center text-sm text-muted-foreground">
-        {entry.status === 'loading' ? 'Loading panel…' : entry.message}
+        {entry.status === 'loading' ? t('Loading panel…') : entry.message}
       </div>
     )
   }

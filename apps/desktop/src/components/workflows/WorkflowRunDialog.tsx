@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button'
 import { Textarea } from '@/components/ui/textarea'
 import { Label } from '@/components/ui/label'
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
+import { t } from '@/i18n/i18n'
 
 /** The Workflows page's own start: the task the run works on, as a chat message would give it. */
 export function WorkflowRunDialog({
@@ -32,20 +33,20 @@ export function WorkflowRunDialog({
     <Dialog open onOpenChange={(open) => !open && onClose()}>
       <DialogContent className="sm:max-w-lg" data-workflow-run-dialog>
         <DialogHeader>
-          <DialogTitle>Run “{name}”</DialogTitle>
+          <DialogTitle>{t('Run “{name}”', { name })}</DialogTitle>
           <DialogDescription>
-            Say what the run should do. You follow it here; its questions come to you in the Inbox.
-            {unsaved ? ' Your changes are saved first.' : ''}
+            {t('Say what the run should do. You follow it here; its questions come to you in the Inbox.')}
+            {unsaved ? t(' Your changes are saved first.') : ''}
           </DialogDescription>
         </DialogHeader>
         <div className="space-y-1.5">
-          <Label htmlFor="workflow-run-task">Task</Label>
+          <Label htmlFor="workflow-run-task">{t('Task')}</Label>
           <Textarea
             id="workflow-run-task"
             autoFocus
             rows={4}
             value={task}
-            placeholder="e.g. Add a --verbose flag to the CLI and cover it with a test"
+            placeholder={t('e.g. Add a --verbose flag to the CLI and cover it with a test')}
             onChange={(e) => setTask(e.target.value)}
             onKeyDown={(e) => {
               if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) void start()
@@ -54,11 +55,11 @@ export function WorkflowRunDialog({
         </div>
         <DialogFooter>
           <Button variant="outline" onClick={onClose}>
-            Cancel
+            {t('Cancel')}
           </Button>
           <Button onClick={() => void start()} disabled={!task.trim() || busy} data-workflow-run-start>
             <Play className="size-3.5" />
-            Run
+            {t('Run')}
           </Button>
         </DialogFooter>
       </DialogContent>

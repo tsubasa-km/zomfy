@@ -4,6 +4,7 @@ import type { WorkflowNodeKind, WorkflowOutcome } from '@acp-harness/protocol'
 import { cn } from '@/lib/utils'
 import { NODE_KINDS, outcomeLabel } from './workflow-model'
 import { STEP_ACCENTS, STEP_ICONS } from './workflow-nodes'
+import { t } from '@/i18n/i18n'
 
 // Shown where a dragged edge was let go: which outcome takes the run along it, and, when it was let
 // go on empty canvas, which step to add there.
@@ -50,15 +51,24 @@ export function WorkflowConnectMenu({
       <div className="absolute inset-0 z-40" onPointerDown={onClose} aria-hidden />
       <div
         role="dialog"
-        aria-label="Connect"
+        aria-label={t('Connect')}
         data-workflow-connect-menu
         className="absolute z-50 w-60 rounded-lg border border-border bg-popover p-2 text-popover-foreground shadow-md"
         style={{ left: pending.x + 8, top: pending.y + 8 }}
       >
         <div className="px-1 pb-1.5 text-[11px] text-muted-foreground">
-          When <span className="font-medium text-foreground">{fromLabel}</span> ends in
+          {(() => {
+            const [before, after] = t('When {step} ends in').split('{step}')
+            return (
+              <>
+                {before}
+                <span className="font-medium text-foreground">{fromLabel}</span>
+                {after}
+              </>
+            )
+          })()}
         </div>
-        <div className="flex flex-col gap-0.5" role="listbox" aria-label="Outcome">
+        <div className="flex flex-col gap-0.5" role="listbox" aria-label={t('Outcome')}>
           {outcomes.map((o) => (
             <button
               key={o}
@@ -73,14 +83,14 @@ export function WorkflowConnectMenu({
               onClick={() => (pending.to ? onPick(o, null) : setOutcome(o))}
             >
               <span className="flex-1">{outcomeLabel(o)}</span>
-              {used.has(o) && <span className="text-[10px] text-muted-foreground">already used</span>}
+              {used.has(o) && <span className="text-[10px] text-muted-foreground">{t('already used')}</span>}
               {outcome === o && pending.to === null && <Check className="size-3.5" />}
             </button>
           ))}
         </div>
         {pending.to === null && (
           <>
-            <div className="mt-2 border-t border-border px-1 pt-2 pb-1 text-[11px] text-muted-foreground">Add a step here</div>
+            <div className="mt-2 border-t border-border px-1 pt-2 pb-1 text-[11px] text-muted-foreground">{t('Add a step here')}</div>
             <div className="grid grid-cols-2 gap-1">
               {NODE_KINDS.map((k) => {
                 const Icon = STEP_ICONS[k.kind]

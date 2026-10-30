@@ -4,6 +4,7 @@ import { RefreshCw } from 'lucide-react'
 import type { WorkflowCycle, WorkflowNode, WorkflowPhase } from '@acp-harness/protocol'
 import { cn } from '@/lib/utils'
 import { LOOP_TINTS } from './workflow-loop-view'
+import { t } from '@/i18n/i18n'
 
 // Cycles (PDCA loops) drawn as frames around their steps (boxes from workflow-canvas-layout), so
 // nesting reads at a glance: the dev ⇄ review cycle inside the plan ⇄ check cycle. The graph makes them:
@@ -64,9 +65,9 @@ function CycleFrame({ data, selected, width, height }: NodeProps<CycleCanvasNode
     >
       <div className="flex h-6 items-center gap-1.5 px-2.5 text-[11px] font-medium text-primary">
         <RefreshCw className="size-3" />
-        <span className="truncate">{cycle.label || 'Cycle'}</span>
+        <span className="truncate">{cycle.label || t('Cycle')}</span>
         <span className="font-normal text-muted-foreground">
-          {round ?? (cycle.maxRounds ? `up to ${cycle.maxRounds} rounds` : 'no round limit')}
+          {round ?? (cycle.maxRounds ? t('up to {n} rounds', { n: cycle.maxRounds }) : t('no round limit'))}
         </span>
       </div>
     </div>

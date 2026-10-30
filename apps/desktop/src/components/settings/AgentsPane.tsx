@@ -18,23 +18,24 @@ import {
   useClaudeCliStatus,
   useClaudeCliUpdating
 } from '@/stores/claude-cli-store'
+import { t } from '@/i18n/i18n'
 
 function ClaudeCommandRow({ host }: { host: HostEntry }) {
   const settings = useHostSettings(host.id)
   if (!settings) {
     return (
       <SettingsRow
-        label={`Claude Code command · ${host.label}`}
+        label={t('Claude Code command · {host}', { host: host.label })}
         keywords={['claude', 'path', 'executable', 'cli']}
-        control={<span className="text-xs text-muted-foreground">{host.connection.kind === 'connected' ? 'Loading…' : 'Host offline'}</span>}
+        control={<span className="text-xs text-muted-foreground">{host.connection.kind === 'connected' ? t('Loading…') : t('Host offline')}</span>}
       />
     )
   }
   return (
     <>
       <TextField
-        label={`Claude Code command · ${host.label}`}
-        description="Path to the CLI agent turns run on this host. Empty finds `claude` on PATH."
+        label={t('Claude Code command · {host}', { host: host.label })}
+        description={t('Path to the CLI agent turns run on this host. Empty finds `claude` on PATH.')}
         keywords={['claude', 'path', 'executable', 'cli']}
         value={settings.claudeExecutablePath ?? ''}
         placeholder="claude"
@@ -53,15 +54,15 @@ function ClaudeVersionRow({ host }: { host: HostEntry }) {
   const busy = useClaudeCliUpdating(host.id)
   if (!status) return null
   const description = !status.path
-    ? 'No `claude` command found; chats use the copy bundled with Zomfy, without your login.'
+    ? t('No `claude` command found; chats use the copy bundled with Zomfy, without your login.')
     : status.version === null
-      ? `\`${status.path} --version\` did not run.`
+      ? t('`{path} --version` did not run.', { path: status.path })
       : status.outdated
         ? claudeCliWarning(status)
-        : `Up to date for Zomfy (built for ${status.expected}).`
+        : t('Up to date for Zomfy (built for {version}).', { version: status.expected })
   return (
     <SettingsRow
-      label={`Claude Code version · ${host.label}`}
+      label={t('Claude Code version · {host}', { host: host.label })}
       description={description}
       keywords={['claude', 'version', 'update', 'cli']}
       control={
@@ -71,7 +72,7 @@ function ClaudeVersionRow({ host }: { host: HostEntry }) {
           </span>
           {status.path && (
             <Button size="sm" variant="outline" disabled={busy} onClick={() => void updateClaudeCliOn(host.id)}>
-              {busy ? 'Updating…' : 'Update'}
+              {busy ? t('Updating…') : t('Update')}
             </Button>
           )}
         </div>
@@ -87,7 +88,7 @@ function DefaultAgentSelect() {
   const options = ready.some((a) => a.id === 'claude') ? ready : [{ id: 'claude' as const, label: 'Claude' }, ...ready]
   return (
     <Select value={value} onValueChange={(v) => setSetting('defaultChatAgent', v)}>
-      <SelectTrigger className="h-8 w-48" aria-label="Default agent" data-default-agent>
+      <SelectTrigger className="h-8 w-48" aria-label={t('Default agent')} data-default-agent>
         <SelectValue />
       </SelectTrigger>
       <SelectContent>
@@ -106,7 +107,7 @@ function DefaultPermissionSelect() {
   const value = useSetting('defaultPermissionMode')
   return (
     <Select value={value} onValueChange={(v) => setSetting('defaultPermissionMode', PERMISSION_MODES.find((m) => m === v) ?? 'auto')}>
-      <SelectTrigger className="h-8 w-48" aria-label="Default permissions" data-default-permission-mode>
+      <SelectTrigger className="h-8 w-48" aria-label={t('Default permissions')} data-default-permission-mode>
         <SelectValue />
       </SelectTrigger>
       <SelectContent>
@@ -125,17 +126,17 @@ export function AgentsPane() {
   return (
     <div className="space-y-8">
       <div className="space-y-2 not-has-[[data-setting-row]]:hidden">
-        <SettingsSubsectionHeader title="Default agent" description="New workspaces start a chat with this agent; the + menu starts any of them." />
-        <SettingsRow label="Default agent" keywords={['claude', 'agent']} control={<DefaultAgentSelect />} />
+        <SettingsSubsectionHeader title={t('Default agent')} description={t('New workspaces start a chat with this agent; the + menu starts any of them.')} />
+        <SettingsRow label={t('Default agent')} keywords={['claude', 'agent']} control={<DefaultAgentSelect />} />
         <SettingsRow
-          label="Default permissions"
-          description="The mode new Claude chats start in; each chat can still change it."
+          label={t('Default permissions')}
+          description={t('The mode new Claude chats start in; each chat can still change it.')}
           keywords={['permission', 'auto', 'approval', 'mode']}
           control={<DefaultPermissionSelect />}
         />
       </div>
       <div className="space-y-2 not-has-[[data-setting-row]]:hidden">
-        <SettingsSubsectionHeader title="Claude Code" description="Each host's daemon runs its own CLI with that host's login and settings." />
+        <SettingsSubsectionHeader title="Claude Code" description={t("Each host's daemon runs its own CLI with that host's login and settings.")} />
         <div className="divide-y divide-border/40">
           {sortedHosts(hosts).map((host) => (
             <ClaudeCommandRow key={host.id} host={host} />
@@ -144,8 +145,8 @@ export function AgentsPane() {
       </div>
       <div className="space-y-2">
         <SettingsSubsectionHeader
-          title="Chat agents"
-          description="Agents each host can run as chats. Other agents run their own ACP server on the host, with that host’s login, command and variables."
+          title={t('Chat agents')}
+          description={t('Agents each host can run as chats. Other agents run their own ACP server on the host, with that host’s login, command and variables.')}
         />
         {sortedHosts(hosts)
           .filter((host) => host.connection.kind === 'connected')

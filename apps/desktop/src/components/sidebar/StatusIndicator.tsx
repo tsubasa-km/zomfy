@@ -9,6 +9,7 @@ import {
   type StateIndicatorTooltipSide
 } from '@/components/StateIndicatorTooltip'
 import { getWorktreeStatusLabel, type WorktreeStatus } from '@/lib/worktree-status'
+import { t } from '@/i18n/i18n'
 
 // Why: re-export WorktreeStatus under the existing `Status` alias so the
 // sidebar component and the canonical lib share one source of truth — the
@@ -40,7 +41,7 @@ const StatusIndicator = React.memo(function StatusIndicator({
   ...rest
 }: StatusIndicatorProps) {
   const tooltipLabel =
-    showTooltip && AGENT_STATUS_TOOLTIP_STATUSES.has(status) ? getWorktreeStatusLabel(status) : null
+    showTooltip && AGENT_STATUS_TOOLTIP_STATUSES.has(status) ? t(getWorktreeStatusLabel(status)) : null
   let indicator: React.JSX.Element
 
   if (status === 'working') {

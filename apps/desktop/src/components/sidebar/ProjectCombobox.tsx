@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button'
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList, CommandSeparator } from '@/components/ui/command'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { cn } from '@/lib/utils'
+import { t } from '@/i18n/i18n'
 
 // Orca's ProjectCombobox: every project, by host when there are several, and "Add project…" last.
 
@@ -39,7 +40,7 @@ export function ProjectCombobox({
         >
           <span className="flex min-w-0 items-center gap-1.5">
             <FolderGit2 className="size-3.5 shrink-0 text-muted-foreground" />
-            <span className={cn('truncate text-sm', !value && 'text-muted-foreground')}>{value ? projectLabel(value) : 'Choose project'}</span>
+            <span className={cn('truncate text-sm', !value && 'text-muted-foreground')}>{value ? projectLabel(value) : t('Choose project')}</span>
             {value && byHost.length > 1 ? (
               <span className="shrink-0 truncate text-xs text-muted-foreground">{hosts[value.hostId]?.label}</span>
             ) : null}
@@ -49,9 +50,9 @@ export function ProjectCombobox({
       </PopoverTrigger>
       <PopoverContent className="w-[var(--radix-popover-trigger-width)] p-0" align="start">
         <Command>
-          <CommandInput placeholder="Search projects..." className="h-8 text-xs" />
+          <CommandInput placeholder={t('Search projects...')} className="h-8 text-xs" />
           <CommandList className="max-h-60">
-            <CommandEmpty className="py-4 text-xs">No projects match</CommandEmpty>
+            <CommandEmpty className="py-4 text-xs">{t('No projects match')}</CommandEmpty>
             {byHost.map(({ host, projects: list }) => (
               <CommandGroup key={host.id} heading={byHost.length > 1 ? host.label : undefined}>
                 {list.map((p) => (
@@ -66,7 +67,7 @@ export function ProjectCombobox({
                     className="text-xs"
                   >
                     <span className="min-w-0 flex-1 truncate">{projectLabel(p)}</span>
-                    {p.kind === 'folder' ? <span className="shrink-0 text-[10px] text-muted-foreground">folder</span> : null}
+                    {p.kind === 'folder' ? <span className="shrink-0 text-[10px] text-muted-foreground">{t('folder')}</span> : null}
                     {isSelected(p) ? <Check className="size-3 shrink-0" /> : null}
                   </CommandItem>
                 ))}
@@ -84,7 +85,7 @@ export function ProjectCombobox({
                 className="text-xs text-muted-foreground"
               >
                 <FolderPlus className="size-3.5" />
-                Add project…
+                {t('Add project…')}
               </CommandItem>
             </CommandGroup>
           </CommandList>

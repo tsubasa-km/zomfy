@@ -4,6 +4,7 @@ import { Label } from '@/components/ui/label'
 import { Switch } from '@/components/ui/switch'
 import { cn } from '@/lib/utils'
 import { SearchableSetting } from './SettingsSection'
+import { t } from '@/i18n/i18n'
 
 // Orca's settings row grammar (components/settings/SettingsFormControls.tsx): label and
 // description on the left, a shrink-0 control on the right. Rows take part in settings search.
@@ -174,7 +175,7 @@ export function NumberField({
         description || defaultValue !== undefined ? (
           <>
             {description}
-            {defaultValue !== undefined ? <span className="ml-1 text-muted-foreground/70">· Default: {defaultValue}</span> : null}
+            {defaultValue !== undefined ? <span className="ml-1 text-muted-foreground/70">{t('· Default: {value}', { value: defaultValue })}</span> : null}
           </>
         ) : undefined
       }

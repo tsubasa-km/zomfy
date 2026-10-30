@@ -8,6 +8,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger
 } from '@/components/ui/dropdown-menu'
+import { t } from '@/i18n/i18n'
 
 // Orca's FloatingTerminalIconContextMenu: right-click the toggle to move it between the floating
 // button and the status bar, or hide the floating workspace.
@@ -28,8 +29,8 @@ export function FloatingWorkspaceTriggerMenu({
   const frame = useRef<number | null>(null)
   const move =
     currentLocation === 'floating-button'
-      ? { icon: <PanelBottom className="size-3.5" />, label: 'Move to Status Bar', location: 'status-bar' as const }
-      : { icon: <PanelTop className="size-3.5" />, label: 'Move to Floating Button', location: 'floating-button' as const }
+      ? { icon: <PanelBottom className="size-3.5" />, label: t('Move to Status Bar'), location: 'status-bar' as const }
+      : { icon: <PanelTop className="size-3.5" />, label: t('Move to Floating Button'), location: 'floating-button' as const }
 
   return (
     <>
@@ -64,7 +65,7 @@ export function FloatingWorkspaceTriggerMenu({
           <DropdownMenuSeparator />
           <DropdownMenuItem className="whitespace-nowrap" data-floating-trigger-hide onSelect={() => setSetting('floatingWorkspaceEnabled', false)}>
             <EyeOff className="size-3.5" />
-            Hide Floating Workspace
+            {t('Hide Floating Workspace')}
           </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>

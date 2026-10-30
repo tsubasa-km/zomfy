@@ -23,6 +23,7 @@ import {
   reviewNumberLabel,
   reviewShortLabel
 } from './review-presentation'
+import { t } from '@/i18n/i18n'
 
 // Orca's right-sidebar ChecksPanel: the branch's PR/MR header, CI checks, changed files and
 // comments; with no review yet, the create composer (checks-panel/empty-content.tsx).
@@ -39,18 +40,18 @@ function EmptyState({ title, description, children }: { title: string; descripti
 
 /** Orca's Landing/checks copy for a host that cannot reach GitHub or GitLab yet. */
 function unavailableCopy(availability: HostingAvailability): { title: string; description: string } {
-  const name = availability.provider ? providerName(availability.provider) : 'GitHub or GitLab'
+  const name = availability.provider ? providerName(availability.provider) : t('GitHub or GitLab')
   switch (availability.state) {
     case 'cli-missing':
-      return { title: `${name} CLI is not installed`, description: availability.message ?? '' }
+      return { title: t('{name} CLI is not installed', { name }), description: availability.message ?? '' }
     case 'unauthenticated':
-      return { title: `Not signed in to ${name}`, description: availability.message ?? '' }
+      return { title: t('Not signed in to {name}', { name }), description: availability.message ?? '' }
     case 'no-remote':
-      return { title: 'No remote', description: availability.message ?? 'This repository has no remote.' }
+      return { title: t('No remote'), description: availability.message ?? t('This repository has no remote.') }
     case 'unsupported-remote':
-      return { title: 'Checks unavailable', description: availability.message ?? 'The remote is not a GitHub or GitLab repository.' }
+      return { title: t('Checks unavailable'), description: availability.message ?? t('The remote is not a GitHub or GitLab repository.') }
     default:
-      return { title: 'Checks unavailable', description: availability.message ?? 'Checks require a Git branch and hosted review context' }
+      return { title: t('Checks unavailable'), description: availability.message ?? t('Checks require a Git branch and hosted review context') }
   }
 }
 
@@ -65,7 +66,7 @@ export function ChecksPanel({ workspaceId }: { workspaceId: string }) {
   const { status } = useGitStatus(isFolder ? null : workspaceId)
 
   if (isFolder) {
-    return <EmptyState title="Checks unavailable" description="Checks require a Git branch and hosted review context" />
+    return <EmptyState title={t('Checks unavailable')} description={t('Checks require a Git branch and hosted review context')} />
   }
   const { availability, review, branch } = entry
   const refresh = () => {
@@ -73,16 +74,16 @@ export function ChecksPanel({ workspaceId }: { workspaceId: string }) {
   }
   const retry = (
     <Button size="xs" variant="outline" className="mt-3" disabled={entry.loading} onClick={refresh}>
-      {entry.loading ? 'Refreshing…' : 'Retry'}
+      {entry.loading ? t('Refreshing…') : t('Retry')}
     </Button>
   )
 
   if (entry.fetchedAt === 0 || (entry.loading && !availability)) {
-    return <EmptyState title="Checking review status" description="Looking for a pull or merge request on this branch." />
+    return <EmptyState title={t('Checking review status')} description={t('Looking for a pull or merge request on this branch.')} />
   }
   if (entry.error && !review) {
     return (
-      <EmptyState title="Could not check review status" description={entry.error}>
+      <EmptyState title={t('Could not check review status')} description={entry.error}>
         {retry}
       </EmptyState>
     )
@@ -96,12 +97,12 @@ export function ChecksPanel({ workspaceId }: { workspaceId: string }) {
     )
   }
   if (!branch) {
-    return <EmptyState title="Detached HEAD" description="Check out a branch to see its pull or merge request." />
+    return <EmptyState title={t('Detached HEAD')} description={t('Check out a branch to see its pull or merge request.')} />
   }
   if (!review) {
     const provider = availability?.provider ?? 'github'
     const short = reviewShortLabel(provider)
-    const long = provider === 'gitlab' ? 'merge request' : 'pull request'
+    const long = provider === 'gitlab' ? t('merge request') : t('pull request')
     const upstream = status?.upstream
     const needsPush = !upstream?.hasUpstream || (upstream.ahead ?? 0) > 0
     // Pushing would update that other branch, and the host would see no head to review.
@@ -111,12 +112,12 @@ export function ChecksPanel({ workspaceId }: { workspaceId: string }) {
         : null
     return (
       <div className="flex-1 overflow-auto">
-        <EmptyState title={`No ${long} found`} description={`Create a ${long} to start checks and review.`}>
+        <EmptyState title={t('No {kind} found', { kind: long })} description={t('Create a {kind} to start checks and review.', { kind: long })}>
           <div className="mt-4 border-t border-border pt-3">
-            <CreateReviewComposer key={`${workspaceId}:${branch}`} workspaceId={workspaceId} provider={provider} branch={branch} needsPush={needsPush} blockedReason={trackedElsewhere ? `${branch} tracks ${trackedElsewhere}; publish it under its own name before creating a ${long}.` : null} />
+            <CreateReviewComposer key={`${workspaceId}:${branch}`} workspaceId={workspaceId} provider={provider} branch={branch} needsPush={needsPush} blockedReason={trackedElsewhere ? t('{branch} tracks {upstream}; publish it under its own name before creating a {kind}.', { branch, upstream: trackedElsewhere, kind: long }) : null} />
           </div>
-          <Button size="xs" variant="outline" className="mt-3" disabled={entry.loading} onClick={refresh} aria-label={`Refresh ${short} status`}>
-            {entry.loading ? 'Refreshing…' : 'Refresh'}
+          <Button size="xs" variant="outline" className="mt-3" disabled={entry.loading} onClick={refresh} aria-label={t('Refresh {kind} status', { kind: short })}>
+            {entry.loading ? t('Refreshing…') : t('Refresh')}
           </Button>
         </EmptyState>
       </div>
@@ -138,7 +139,7 @@ function ActiveReview({ workspaceId, review }: { workspaceId: string; review: Ho
           <button
             type="button"
             className="rounded px-0.5 text-[12px] font-semibold text-foreground underline decoration-border underline-offset-2 hover:decoration-foreground focus-visible:ring-1 focus-visible:ring-ring focus-visible:outline-none"
-            title={`Open on ${providerName(review.provider)}`}
+            title={t('Open on {provider}', { provider: providerName(review.provider) })}
             onClick={() => openExternal(review.url)}
             data-review-link
           >
@@ -149,8 +150,8 @@ function ActiveReview({ workspaceId, review }: { workspaceId: string; review: Ho
           <button
             type="button"
             className="rounded p-1 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground disabled:opacity-50"
-            title="Refresh"
-            aria-label="Refresh"
+            title={t('Refresh')}
+            aria-label={t('Refresh')}
             disabled={refreshing}
             onClick={() => void loadReview(workspaceId, true).then(() => loadChecks(workspaceId, true))}
           >
@@ -158,18 +159,18 @@ function ActiveReview({ workspaceId, review }: { workspaceId: string; review: Ho
           </button>
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button type="button" variant="ghost" size="icon-xs" aria-label={`More ${short} actions`} className="text-muted-foreground hover:text-foreground">
+              <Button type="button" variant="ghost" size="icon-xs" aria-label={t('More {kind} actions', { kind: short })} className="text-muted-foreground hover:text-foreground">
                 <Ellipsis className="size-3.5" />
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="w-52">
               <DropdownMenuItem onSelect={() => openExternal(review.url)}>
                 <ExternalLink className="size-3.5" />
-                Open on {providerName(review.provider)}
+                {t('Open on {provider}', { provider: providerName(review.provider) })}
               </DropdownMenuItem>
               <DropdownMenuItem onSelect={() => void navigator.clipboard.writeText(review.url)}>
                 <Copy className="size-3.5" />
-                Copy link
+                {t('Copy link')}
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
@@ -183,7 +184,12 @@ function ActiveReview({ workspaceId, review }: { workspaceId: string; review: Ho
           <span className="min-w-0 truncate font-mono">{review.headRefName}</span>
         </div>
         <div className="text-[11px] text-muted-foreground">
-          {[review.author && `by ${review.author}`, review.updatedAt && `Updated ${relativeTime(review.updatedAt)}`].filter(Boolean).join(' · ')}
+          {[
+            review.author && t('by {author}', { author: review.author }),
+            review.updatedAt && t('Updated {time}', { time: relativeTime(review.updatedAt) })
+          ]
+            .filter(Boolean)
+            .join(' · ')}
         </div>
         {review.reviewDecision && (
           <div className={cn('text-[11px] font-medium', reviewDecisionClass(review.reviewDecision))} data-review-decision>
@@ -196,13 +202,13 @@ function ActiveReview({ workspaceId, review }: { workspaceId: string; review: Ho
         <div className="flex items-center gap-2 border-b border-border bg-rose-500/5 px-3 py-2 text-[11px]" data-triage-strip>
           <Wrench className="size-3.5 shrink-0 text-rose-500" />
           <span className="min-w-0 flex-1 text-foreground">
-            {broken.length} failing {broken.length === 1 ? 'check' : 'checks'}
+            {broken.length === 1 ? t('{n} failing check', { n: broken.length }) : t('{n} failing checks', { n: broken.length })}
           </span>
           <SendToAgentMenu
             workspaceId={workspaceId}
             count={broken.length}
-            label="Fix with AI"
-            tooltip="Send the failing checks to an agent"
+            label={t('Fix with AI')}
+            tooltip={t('Send the failing checks to an agent')}
             buildPrompt={() => buildFixBrokenChecksPrompt(review, entry.checks ?? [])}
           />
         </div>

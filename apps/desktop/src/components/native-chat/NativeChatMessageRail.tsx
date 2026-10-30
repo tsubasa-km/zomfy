@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { cn } from '@/lib/utils'
+import { t } from '@/i18n/i18n'
 
 // Ported from Orca's NativeChatMessageRail: a column of ticks down the right edge of the
 // transcript, one per user message; each previews its message and jumps to it.
@@ -82,7 +83,7 @@ export function NativeChatMessageRail({
       ref={railRef}
       role="toolbar"
       data-native-chat-rail
-      aria-label="Your messages"
+      aria-label={t('Your messages')}
       aria-orientation="vertical"
       onKeyDown={(event) => {
         const next = railKeyStep(event.key, items.findIndex((item) => item.id === tabId), items.length)
@@ -105,7 +106,7 @@ export function NativeChatMessageRail({
             <button
               type="button"
               tabIndex={item.id === tabId ? 0 : -1}
-              aria-label={item.text || 'Message'}
+              aria-label={item.text || t('Message')}
               aria-current={item.id === activeId ? 'true' : undefined}
               onClick={() => jump(item.id)}
               // Padding, not a gap, so the pointer never falls between two ticks.
@@ -124,7 +125,7 @@ export function NativeChatMessageRail({
             </button>
           </TooltipTrigger>
           <TooltipContent side="left" sideOffset={8} className="max-w-72">
-            <p className="line-clamp-2 text-xs leading-snug">{item.text || 'Message'}</p>
+            <p className="line-clamp-2 text-xs leading-snug">{item.text || t('Message')}</p>
           </TooltipContent>
         </Tooltip>
       ))}

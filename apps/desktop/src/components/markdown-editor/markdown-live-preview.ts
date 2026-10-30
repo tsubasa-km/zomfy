@@ -1,6 +1,7 @@
 import { syntaxTree } from '@codemirror/language'
 import type { EditorState, Range } from '@codemirror/state'
 import { Decoration, EditorView, ViewPlugin, WidgetType, type DecorationSet, type ViewUpdate } from '@codemirror/view'
+import { t } from '@/i18n/i18n'
 
 // Obsidian-style live preview: the source stays verbatim (prompts must round-trip exactly) while
 // decorations style it, and syntax markers hide on every line the caret is not on.
@@ -46,7 +47,7 @@ class TaskWidget extends WidgetType {
     box.tabIndex = -1
     box.className = 'cm-md-task-box'
     box.dataset.mdTask = ''
-    box.setAttribute('aria-label', this.checked ? 'Completed task' : 'Task')
+    box.setAttribute('aria-label', this.checked ? t('Completed task') : t('Task'))
     return box
   }
   ignoreEvent(): boolean {

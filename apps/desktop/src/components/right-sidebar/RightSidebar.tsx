@@ -15,6 +15,7 @@ import { PluginPanel } from './PluginPanel'
 import { useActivePluginPanels } from '@/plugins/plugin-registry'
 import { resolvePluginPanelIcon } from '@/plugins/plugin-panel-icons'
 import { cn } from '@/lib/utils'
+import { t } from '@/i18n/i18n'
 
 // Frame and top activity bar follow Orca's right sidebar (right-sidebar/index.tsx,
 // right-sidebar-top-activity-bar.tsx, activity-bar-buttons.tsx).
@@ -30,13 +31,13 @@ export function RightSidebar({ workspaceId }: { workspaceId: string }) {
   const { status } = useGitStatus(open ? null : workspaceId)
   const changeCount = (status?.staged.length ?? 0) + (status?.unstaged.length ?? 0)
 
-  const explorerLabel = withShortcut('Explorer', useShortcutLabel('sidebar.explorer.toggle'))
-  const searchLabel = withShortcut('Search', useShortcutLabel('sidebar.search.toggle'))
-  const sourceControlLabel = withShortcut('Source Control', useShortcutLabel('sidebar.sourceControl.toggle'))
-  const portsLabel = withShortcut('Ports', useShortcutLabel('sidebar.ports.toggle'))
-  const checksLabel = withShortcut('Checks', useShortcutLabel('sidebar.checks.toggle'))
+  const explorerLabel = withShortcut(t('Explorer'), useShortcutLabel('sidebar.explorer.toggle'))
+  const searchLabel = withShortcut(t('Search'), useShortcutLabel('sidebar.search.toggle'))
+  const sourceControlLabel = withShortcut(t('Source Control'), useShortcutLabel('sidebar.sourceControl.toggle'))
+  const portsLabel = withShortcut(t('Ports'), useShortcutLabel('sidebar.ports.toggle'))
+  const checksLabel = withShortcut(t('Checks'), useShortcutLabel('sidebar.checks.toggle'))
   const checksStatus = useChecksDot(workspaceId)
-  const sideChatLabel = withShortcut('Side chat', useShortcutLabel('sidebar.sideChat.toggle'))
+  const sideChatLabel = withShortcut(t('Side chat'), useShortcutLabel('sidebar.sideChat.toggle'))
   // Enabled plugins' panels join the activity bar after the built-in tabs, as in Orca.
   const pluginPanels = useActivePluginPanels()
   const activePluginPanel = pluginPanels.find((p) => p.tab === tab)
@@ -64,7 +65,7 @@ export function RightSidebar({ workspaceId }: { workspaceId: string }) {
           label={sideChatLabel}
           onClick={() => setRightSidebar({ open: true, tab: 'side-chat' })}
         />
-        <ActivityButton icon={Bot} label="Agent" onClick={() => setRightSidebar({ open: true, tab: 'agent' })} />
+        <ActivityButton icon={Bot} label={t('Agent')} onClick={() => setRightSidebar({ open: true, tab: 'agent' })} />
         {pluginPanels.map((panel) => (
           <ActivityButton
             key={panel.tab}
@@ -124,7 +125,7 @@ export function RightSidebar({ workspaceId }: { workspaceId: string }) {
           active={tab === 'side-chat'}
           onClick={() => setRightSidebar({ tab: 'side-chat' })}
         />
-        <ActivityButton top icon={Bot} label="Agent" active={tab === 'agent'} onClick={() => setRightSidebar({ tab: 'agent' })} />
+        <ActivityButton top icon={Bot} label={t('Agent')} active={tab === 'agent'} onClick={() => setRightSidebar({ tab: 'agent' })} />
         {pluginPanels.map((panel) => (
           <ActivityButton
             key={panel.tab}
@@ -136,7 +137,7 @@ export function RightSidebar({ workspaceId }: { workspaceId: string }) {
           />
         ))}
         <div className="ml-auto pr-1">
-          <ActivityButton top icon={PanelRightClose} label="Close sidebar" onClick={() => setRightSidebar({ open: false })} />
+          <ActivityButton top icon={PanelRightClose} label={t('Close sidebar')} onClick={() => setRightSidebar({ open: false })} />
         </div>
       </div>
       {tab === 'explorer' ? (

@@ -13,6 +13,7 @@ import {
   shouldReconcileTriggerPosition,
   type TriggerPosition
 } from './floating-workspace-trigger-position'
+import { t } from '@/i18n/i18n'
 
 // Orca's FloatingTerminalToggleButton: a draggable launcher that stays above the open panel (a
 // click then minimizes it), with an amber dot while the minimized workspace has unread activity.
@@ -62,7 +63,7 @@ export function FloatingWorkspaceToggleButton({
     return () => window.removeEventListener('resize', reconcile)
   }, [reconcile])
 
-  const label = open ? 'Minimize floating workspace' : showAttentionDot ? 'Show floating workspace, new activity' : 'Show floating workspace'
+  const label = open ? t('Minimize floating workspace') : showAttentionDot ? t('Show floating workspace, new activity') : t('Show floating workspace')
 
   return (
     <FloatingWorkspaceTriggerMenu currentLocation="floating-button" className="fixed z-[46]" style={{ left: position.left, top: position.top }}>
@@ -124,7 +125,7 @@ export function FloatingWorkspaceToggleButton({
           </Button>
         </TooltipTrigger>
         <TooltipContent side="left" sideOffset={6}>
-          {`${open ? 'Minimize' : 'Show'} floating workspace${shortcut ? ` (${shortcut})` : ''}`}
+          {`${open ? t('Minimize floating workspace') : t('Show floating workspace')}${shortcut ? ` (${shortcut})` : ''}`}
         </TooltipContent>
       </Tooltip>
     </FloatingWorkspaceTriggerMenu>

@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { MonacoDiffView } from './MonacoDiffView'
 import { useEditorPreferences } from './editor-preferences'
+import { t } from '@/i18n/i18n'
 
 /** Orca's ExternalFileChangeCompareDialog: the newer disk content against the tab's unsaved buffer. */
 export function ExternalFileChangeCompareDialog({
@@ -36,8 +37,8 @@ export function ExternalFileChangeCompareDialog({
     <Dialog open onOpenChange={(open) => !open && onClose()}>
       <DialogContent className="flex h-[80vh] max-w-[90vw] flex-col gap-3 sm:max-w-[90vw]">
         <DialogHeader>
-          <DialogTitle>Compare with Disk</DialogTitle>
-          <DialogDescription>Left is the newer content on disk; right is your unsaved edits.</DialogDescription>
+          <DialogTitle>{t('Compare with Disk')}</DialogTitle>
+          <DialogDescription>{t('Left is the newer content on disk; right is your unsaved edits.')}</DialogDescription>
         </DialogHeader>
         <div className="min-h-0 flex-1 overflow-hidden rounded-md border border-border">
           {error && <p className="p-3 text-xs text-destructive">{error}</p>}
@@ -63,7 +64,7 @@ export function ExternalFileChangeCompareDialog({
               onReload()
             }}
           >
-            Reload from Disk
+            {t('Reload from Disk')}
           </Button>
           <Button
             size="sm"
@@ -72,7 +73,7 @@ export function ExternalFileChangeCompareDialog({
               onKeepEdits()
             }}
           >
-            Keep My Edits
+            {t('Keep My Edits')}
           </Button>
         </DialogFooter>
       </DialogContent>

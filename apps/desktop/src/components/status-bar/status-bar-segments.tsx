@@ -22,6 +22,7 @@ import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip
 import { HostsMenu } from './HostsMenu'
 import { cn } from '@/lib/utils'
 import { registerStatusBarItem } from './status-bar-registry'
+import { t } from '@/i18n/i18n'
 
 // Built-in segments, styled like Orca's (SshStatusSegment, the floating-terminal toggle):
 // compact text-xs buttons with a hover wash, each with a tooltip.
@@ -64,11 +65,11 @@ function BranchSegment() {
   const workspace = workspaceId ? findWorkspace(workspaceId) : null
   const label = useShortcutLabel('sidebar.sourceControl.toggle')
   if (!workspace) return null
-  const text = workspace.branch ?? (workspace.projectId ? 'detached' : 'folder')
+  const text = workspace.branch ?? (workspace.projectId ? t('detached') : t('folder'))
   return (
     <Segment
-      label={`Branch ${text}`}
-      tooltip={`${workspace.displayName ?? workspace.name} · Source Control${label ? ` (${label})` : ''}`}
+      label={t('Branch {name}', { name: text })}
+      tooltip={`${workspace.displayName ?? workspace.name} · ${t('Source Control')}${label ? ` (${label})` : ''}`}
       onClick={() => setRightSidebar({ open: true, tab: 'source-control' })}
     >
       <GitBranch className="size-3" />
@@ -88,11 +89,11 @@ function AgentsSegment() {
   if (total === 0) return null
   return (
     <Segment
-      label="Agents"
+      label={t('Agents')}
       tooltip={
         waiting > 0
-          ? `${waiting} waiting on you · click to jump${jump ? ` (${jump})` : ''}`
-          : `${total} agent session${total === 1 ? '' : 's'} · open dashboard${dashboard ? ` (${dashboard})` : ''}`
+          ? `${t('{n} waiting on you · click to jump', { n: waiting })}${jump ? ` (${jump})` : ''}`
+          : `${t(total === 1 ? '{n} agent session · open dashboard' : '{n} agent sessions · open dashboard', { n: total })}${dashboard ? ` (${dashboard})` : ''}`
       }
       onClick={() => {
         if (!jumpToAgentNeedingYou()) setDashboardOpen(!getState().dashboardOpen)
@@ -107,7 +108,7 @@ function AgentsSegment() {
         ) : null}
         <span className="inline-flex items-center gap-1">
           {working > 0 ? <AgentWorkingSpinner className="size-2.5" /> : <span className="inline-block size-2 rounded-full bg-muted-foreground/40" />}
-          {working > 0 ? `${working} working` : `${total} idle`}
+          {working > 0 ? t('{n} working', { n: working }) : t('{n} idle', { n: total })}
         </span>
       </span>
     </Segment>
@@ -119,7 +120,7 @@ function ZoomSegment() {
   const reset = useShortcutLabel('zoom.reset')
   if (level === 0) return null
   return (
-    <Segment label="UI zoom" tooltip={`Reset zoom${reset ? ` (${reset})` : ''}`} onClick={() => setSetting('uiZoomLevel', 0)}>
+    <Segment label={t('UI zoom')} tooltip={`${t('Reset zoom')}${reset ? ` (${reset})` : ''}`} onClick={() => setSetting('uiZoomLevel', 0)}>
       <ZoomIn className="size-3" />
       {zoomPercent(level)}%
     </Segment>
@@ -142,7 +143,7 @@ function FloatingWorkspaceSegment() {
         <TooltipTrigger asChild>
           <button
             type="button"
-            aria-label={attention ? 'Floating workspace, new activity' : 'Floating workspace'}
+            aria-label={attention ? t('Floating workspace, new activity') : t('Floating workspace')}
             aria-pressed={open}
             onClick={() => setFloating({ open: !open })}
             className="relative inline-flex size-5 cursor-pointer items-center justify-center rounded border border-border bg-secondary text-secondary-foreground shadow-xs transition-colors hover:bg-accent hover:text-accent-foreground"
@@ -152,7 +153,8 @@ function FloatingWorkspaceSegment() {
           </button>
         </TooltipTrigger>
         <TooltipContent side="top" sideOffset={6}>
-          Floating workspace{label ? ` (${label})` : ''}
+          {t('Floating workspace')}
+          {label ? ` (${label})` : ''}
         </TooltipContent>
       </Tooltip>
     </FloatingWorkspaceTriggerMenu>
@@ -162,15 +164,15 @@ function FloatingWorkspaceSegment() {
 function SettingsSegment() {
   const label = useShortcutLabel('app.settings')
   return (
-    <Segment label="Settings" tooltip={`Settings${label ? ` (${label})` : ''}`} onClick={() => openSettings()}>
+    <Segment label={t('Settings')} tooltip={`${t('Settings')}${label ? ` (${label})` : ''}`} onClick={() => openSettings()}>
       <Settings className="size-3.5" />
     </Segment>
   )
 }
 
-registerStatusBarItem({ id: 'hosts', label: 'Hosts', side: 'left', order: 0, render: () => <HostsMenu /> })
-registerStatusBarItem({ id: 'branch', label: 'Branch', side: 'left', order: 10, render: () => <BranchSegment /> })
-registerStatusBarItem({ id: 'agents', label: 'Agent activity', side: 'left', order: 20, render: () => <AgentsSegment /> })
-registerStatusBarItem({ id: 'zoom', label: 'UI zoom', side: 'right', order: 80, render: () => <ZoomSegment /> })
-registerStatusBarItem({ id: 'floating-workspace', label: 'Floating workspace', side: 'right', order: 90, render: () => <FloatingWorkspaceSegment /> })
-registerStatusBarItem({ id: 'settings', label: 'Settings', side: 'right', order: 100, pinned: true, render: () => <SettingsSegment /> })
+registerStatusBarItem({ id: 'hosts', label: t('Hosts'), side: 'left', order: 0, render: () => <HostsMenu /> })
+registerStatusBarItem({ id: 'branch', label: t('Branch'), side: 'left', order: 10, render: () => <BranchSegment /> })
+registerStatusBarItem({ id: 'agents', label: t('Agent activity'), side: 'left', order: 20, render: () => <AgentsSegment /> })
+registerStatusBarItem({ id: 'zoom', label: t('UI zoom'), side: 'right', order: 80, render: () => <ZoomSegment /> })
+registerStatusBarItem({ id: 'floating-workspace', label: t('Floating workspace'), side: 'right', order: 90, render: () => <FloatingWorkspaceSegment /> })
+registerStatusBarItem({ id: 'settings', label: t('Settings'), side: 'right', order: 100, pinned: true, render: () => <SettingsSegment /> })

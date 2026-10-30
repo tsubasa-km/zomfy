@@ -14,6 +14,7 @@ import {
 import { SendToAgentMenu } from '@/components/SendToAgentMenu'
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
 import { cn } from '@/lib/utils'
+import { t } from '@/i18n/i18n'
 
 // Orca's source-control notes shelf (notes-shelf.tsx, diff-comments-list.tsx): every review note in
 // the workspace, grouped by file, with send / copy / clear.
@@ -62,11 +63,11 @@ export function ReviewNotesShelf({ workspaceId }: { workspaceId: string }) {
           className="flex min-w-0 flex-1 items-center gap-1.5 text-left text-xs text-muted-foreground transition-colors hover:text-foreground"
           onClick={() => setExpanded((v) => !v)}
           aria-expanded={expanded}
-          title={expanded ? 'Collapse notes' : 'Expand notes'}
+          title={expanded ? t('Collapse notes') : t('Expand notes')}
         >
           <ChevronDown className={cn('size-3 shrink-0 transition-transform', !expanded && '-rotate-90')} />
           <MessageSquare className="size-3.5 shrink-0" />
-          <span>Notes</span>
+          <span>{t('Notes')}</span>
           <span className="text-[11px] leading-none text-muted-foreground tabular-nums">{notes.length}</span>
         </button>
         <SendToAgentMenu
@@ -79,12 +80,12 @@ export function ReviewNotesShelf({ workspaceId }: { workspaceId: string }) {
           }}
           onSent={() => markReviewNotesSent(workspaceId, handedOver.current)}
         />
-        <button type="button" className={ICON_BUTTON} aria-label="Copy all notes to clipboard" title="Copy all notes" onClick={() => copy('all', formatReviewNotes(notes))}>
+        <button type="button" className={ICON_BUTTON} aria-label={t('Copy all notes to clipboard')} title={t('Copy all notes')} onClick={() => copy('all', formatReviewNotes(notes))}>
           {copied === 'all' ? <Check className="size-3.5" /> : <Copy className="size-3.5" />}
         </button>
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <button type="button" className={ICON_BUTTON} aria-label="More note actions">
+            <button type="button" className={ICON_BUTTON} aria-label={t('More note actions')}>
               <MoreHorizontal className="size-3.5" />
             </button>
           </DropdownMenuTrigger>
@@ -92,11 +93,11 @@ export function ReviewNotesShelf({ workspaceId }: { workspaceId: string }) {
             <DropdownMenuItem
               className="text-destructive focus:text-destructive"
               onSelect={() => {
-                if (window.confirm(`Clear all ${notes.length} notes in this workspace?`)) clearReviewNotes(workspaceId)
+                if (window.confirm(t('Clear all {n} notes in this workspace?', { n: notes.length }))) clearReviewNotes(workspaceId)
               }}
             >
               <Trash2 className="size-3.5" />
-              Clear all notes...
+              {t('Clear all notes...')}
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
@@ -117,8 +118,8 @@ export function ReviewNotesShelf({ workspaceId }: { workspaceId: string }) {
                 <button
                   type="button"
                   className="shrink-0 rounded p-0.5 text-muted-foreground opacity-0 transition-opacity group-hover/file:opacity-100 hover:text-destructive"
-                  title="Clear notes in this file"
-                  aria-label={`Clear notes in ${filePath}`}
+                  title={t('Clear notes in this file')}
+                  aria-label={t('Clear notes in {file}', { file: filePath })}
                   onClick={() => clearReviewNotes(workspaceId, filePath)}
                 >
                   <Trash2 className="size-3" />
@@ -127,16 +128,16 @@ export function ReviewNotesShelf({ workspaceId }: { workspaceId: string }) {
               <ul className="mt-1 space-y-1">
                 {fileNotes.map((note) => (
                   <li key={note.id} className="group flex items-center gap-1.5 rounded px-1 py-0.5 hover:bg-accent/40" data-review-note-row>
-                    <button type="button" className="flex min-w-0 flex-1 items-center gap-1.5 text-left" title="Open in diff" onClick={() => openNote(note)}>
+                    <button type="button" className="flex min-w-0 flex-1 items-center gap-1.5 text-left" title={t('Open in diff')} onClick={() => openNote(note)}>
                       <span className="shrink-0 rounded bg-muted px-1 py-0.5 text-[10px] leading-none text-muted-foreground tabular-nums">{lineLabel(note)}</span>
-                      {note.sentAt && <span className="shrink-0 rounded bg-muted/70 px-1 py-0.5 text-[10px] leading-none text-muted-foreground">Sent</span>}
+                      {note.sentAt && <span className="shrink-0 rounded bg-muted/70 px-1 py-0.5 text-[10px] leading-none text-muted-foreground">{t('Sent')}</span>}
                       <span className="block min-w-0 flex-1 text-[11px] leading-snug break-words whitespace-pre-wrap text-foreground">{note.body}</span>
                     </button>
                     <button
                       type="button"
                       className="shrink-0 rounded p-0.5 text-muted-foreground opacity-0 transition-opacity group-hover:opacity-100 hover:text-foreground"
-                      title="Copy note"
-                      aria-label="Copy note"
+                      title={t('Copy note')}
+                      aria-label={t('Copy note')}
                       onClick={() => copy(note.id, formatReviewNote(note))}
                     >
                       {copied === note.id ? <Check className="size-3" /> : <Copy className="size-3" />}
@@ -144,8 +145,8 @@ export function ReviewNotesShelf({ workspaceId }: { workspaceId: string }) {
                     <button
                       type="button"
                       className="shrink-0 rounded p-0.5 text-muted-foreground opacity-0 transition-opacity group-hover:opacity-100 hover:text-destructive"
-                      title="Delete note"
-                      aria-label="Delete note"
+                      title={t('Delete note')}
+                      aria-label={t('Delete note')}
                       onClick={() => deleteReviewNote(workspaceId, note.id)}
                     >
                       <Trash className="size-3" />

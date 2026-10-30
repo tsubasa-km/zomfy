@@ -1,6 +1,7 @@
 import * as acp from "@agentclientprotocol/sdk";
 import { createWebSocketStream } from "@agentclientprotocol/sdk/experimental/ws-client";
 import { invoke, isTauri } from "@tauri-apps/api/core";
+import { t } from "@/i18n/i18n";
 import {
   AUTOMATION_NOTIFICATIONS,
   HARNESS_METHODS,
@@ -120,7 +121,7 @@ function scheduleReconnect(hostId: HostId): void {
 
 function describeError(error: unknown): string {
   if (error instanceof Error) return error.message;
-  if (typeof Event !== "undefined" && error instanceof Event) return "Could not reach the daemon";
+  if (typeof Event !== "undefined" && error instanceof Event) return t("Could not reach the daemon");
   return String(error);
 }
 
@@ -148,7 +149,7 @@ function daemonInfo(hostId: HostId): Promise<string> {
     // Browser preview (scripts/preview.ts): its own daemon, handed over at build time; no WSL.
     const preview = import.meta.env.VITE_HARNESS_DAEMON as string | undefined;
     if (hostId === LOCAL_HOST && preview) return Promise.resolve(preview);
-    return Promise.reject(new Error(`${hostId} needs the desktop app`));
+    return Promise.reject(new Error(t("{host} needs the desktop app", { host: hostId })));
   }
   if (hostId === LOCAL_HOST) return invoke<string>("ensure_local_daemon");
   if (hostId.startsWith("wsl:")) return invoke<string>("start_wsl_daemon", { distro: hostId.slice(4) });
@@ -297,7 +298,7 @@ async function openConnection(hostId: HostId): Promise<void> {
     upsertHost(hostId, {
       connection: {
         kind: "offline",
-        reason: "Lost contact with the daemon; it may still be running there",
+        reason: t("Lost contact with the daemon; it may still be running there"),
         daemon: hostId === LOCAL_HOST ? undefined : "unverifiable",
       },
     });
@@ -316,7 +317,7 @@ async function openConnection(hostId: HostId): Promise<void> {
     connections.set(hostId, opened);
     upsertHost(hostId, {
       notice: info.previousExited
-        ? "The daemon there had exited (its terminals and agent turns ended); a new one was started."
+        ? t("The daemon there had exited (its terminals and agent turns ended); a new one was started.")
         : undefined,
     });
     setHarnessState(hostId, await opened.agent.request<HarnessState>(HARNESS_METHODS.stateGet, {}));
@@ -351,7 +352,7 @@ async function requireConnection(hostId: HostId): Promise<acp.ClientConnection> 
   // A WSL daemon that was still starting fails the first attempt; one retry covers that window.
   if (!connections.has(hostId)) await connectHost(hostId);
   const conn = connections.get(hostId);
-  if (!conn) throw new Error(`Not connected to ${hostLabel(hostId)}`);
+  if (!conn) throw new Error(t("Not connected to {host}", { host: hostLabel(hostId) }));
   return conn;
 }
 
@@ -558,7 +559,7 @@ export async function sendPrompt(sessionId: string, text: string, images: ChatIm
       ...s,
       status: before,
       turnStartedAt: null,
-      items: [...s.items, { kind: "notice", text: `${describeError(error)}: not sent. Your message is back in the box.`, severity: "error" }],
+      items: [...s.items, { kind: "notice", text: t("{error}: not sent. Your message is back in the box.", { error: describeError(error) }), severity: "error" }],
     }));
     return false;
   }
@@ -626,7 +627,7 @@ async function requestPermission(
       {
         kind: "permission",
         requestId,
-        title: params.toolCall.title ?? "Tool call",
+        title: params.toolCall.title ?? t("Tool call"),
         input: params.toolCall.rawInput ?? null,
         options: params.options,
         chosen: null,

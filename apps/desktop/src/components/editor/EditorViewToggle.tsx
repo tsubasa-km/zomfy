@@ -2,13 +2,14 @@ import { Code, Columns2, Eye, type LucideIcon } from 'lucide-react'
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import type { MarkdownViewMode } from './editor-preferences'
+import { t } from '@/i18n/i18n'
 
 // Orca's segmented Source / Rich / Preview control; the rich editor is not ported, so its slot is Split.
 // The tooltip trigger overwrites data-state, so the pressed look keys off aria-checked as in Orca.
 const VIEW_MODE_METADATA: Record<MarkdownViewMode, { label: string; icon: LucideIcon }> = {
-  source: { label: 'Source', icon: Code },
-  split: { label: 'Source and Preview', icon: Columns2 },
-  preview: { label: 'Preview', icon: Eye }
+  source: { label: t('Source'), icon: Code },
+  split: { label: t('Source and Preview'), icon: Columns2 },
+  preview: { label: t('Preview'), icon: Eye }
 }
 
 export function EditorViewToggle({

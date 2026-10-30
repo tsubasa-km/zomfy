@@ -9,6 +9,7 @@ import { cn } from '@/lib/utils'
 import { DiffLineCounts } from './change-rows'
 import { buildDefaultGitHistoryColorMap, buildGitHistoryViewModels, dedupeRemoteTrackingRefs, isBoundaryRow, type GitHistoryItemViewModel } from './git-history-graph'
 import { GitHistoryGraphSvg, graphColor } from './GitHistoryGraphSvg'
+import { t } from '@/i18n/i18n'
 
 // Orca's source-control/sync: git-history-panel.tsx, git-history-row.tsx,
 // git-history-commit-files.tsx and git-history-commit-context-menu.tsx.
@@ -85,7 +86,7 @@ export function GitHistoryPanel({
       loadCommitFiles(item).then(
         (changes) => setFiles((prev) => ({ ...prev, [item.id]: { status: 'ready', changes } })),
         (error: unknown) =>
-          setFiles((prev) => ({ ...prev, [item.id]: { status: 'error', error: error instanceof Error ? error.message : 'Failed to load commit files' } }))
+          setFiles((prev) => ({ ...prev, [item.id]: { status: 'error', error: error instanceof Error ? error.message : t('Failed to load commit files') } }))
       )
     },
     [expanded, files, loadCommitFiles]
@@ -119,7 +120,7 @@ export function GitHistoryPanel({
       {!collapsed && (
         <div
           role="separator"
-          aria-label="Resize commits"
+          aria-label={t('Resize commits')}
           aria-orientation="horizontal"
           aria-valuemin={MIN_HEIGHT}
           aria-valuemax={MAX_HEIGHT}
@@ -148,7 +149,7 @@ export function GitHistoryPanel({
             aria-expanded={!collapsed}
           >
             <ChevronDown className={cn('size-3 shrink-0 transition-transform', collapsed && '-rotate-90')} />
-            <span>Commits</span>
+            <span>{t('Commits')}</span>
             {result && <span className="text-[10px] font-medium tabular-nums">{result.items.length}</span>}
             {result?.hasMore && <span className="text-[10px] font-medium">+</span>}
           </button>
@@ -159,7 +160,7 @@ export function GitHistoryPanel({
                 variant="ghost"
                 size="icon-xs"
                 className="my-auto h-auto w-auto p-0.5 text-muted-foreground hover:bg-transparent hover:text-muted-foreground dark:hover:bg-transparent"
-                aria-label="Refresh commits"
+                aria-label={t('Refresh commits')}
                 onClick={(e) => {
                   e.stopPropagation()
                   if (collapsed) onToggle()
@@ -170,7 +171,7 @@ export function GitHistoryPanel({
               </Button>
             </TooltipTrigger>
             <TooltipContent side="bottom" sideOffset={6}>
-              Refresh commits
+              {t('Refresh commits')}
             </TooltipContent>
           </Tooltip>
         </div>
@@ -183,12 +184,12 @@ export function GitHistoryPanel({
       {!collapsed && loading && !result && (
         <div className="flex items-start gap-2 px-6 py-2 text-[11px] text-muted-foreground" style={bodyStyle}>
           <RefreshCw className="size-3 animate-spin" />
-          <span>Loading graph...</span>
+          <span>{t('Loading graph...')}</span>
         </div>
       )}
       {!collapsed && result && viewModels.length === 0 && (
         <div className="px-6 py-2 text-[11px] text-muted-foreground" style={bodyStyle}>
-          No commits yet
+          {t('No commits yet')}
         </div>
       )}
       {!collapsed && viewModels.length > 0 && (
@@ -215,11 +216,11 @@ export function GitHistoryPanel({
                     <ContextMenuContent className="w-56">
                       <ContextMenuItem onSelect={() => void navigator.clipboard.writeText(item.id)}>
                         <Hash className="size-3.5" />
-                        Copy commit hash
+                        {t('Copy commit hash')}
                       </ContextMenuItem>
                       <ContextMenuItem onSelect={() => void navigator.clipboard.writeText(item.message || item.subject)}>
                         <Copy className="size-3.5" />
-                        Copy commit message
+                        {t('Copy commit message')}
                       </ContextMenuItem>
                     </ContextMenuContent>
                   </ContextMenu>
@@ -316,7 +317,7 @@ function HistoryRow({
       type="button"
       className={className}
       aria-expanded={expanded}
-      aria-label={`${expanded ? 'Hide' : 'Show'} files in commit ${item.displayId ?? item.id}: ${item.subject}`}
+      aria-label={t(expanded ? 'Hide files in commit {id}: {subject}' : 'Show files in commit {id}: {subject}', { id: item.displayId ?? item.id, subject: item.subject })}
       data-git-history-row
       onClick={onToggle}
     >
@@ -345,14 +346,14 @@ function CommitFiles({
       {state.status === 'loading' ? (
         <div className="flex items-center gap-2 py-1 pr-3 pl-9 text-[11px] text-muted-foreground">
           <RefreshCw className="size-3 animate-spin" />
-          <span>Loading files…</span>
+          <span>{t('Loading files…')}</span>
         </div>
       ) : state.status === 'error' ? (
         <div className="py-1 pr-3 pl-9 text-[11px] text-destructive" title={state.error}>
           {state.error}
         </div>
       ) : state.changes.entries.length === 0 ? (
-        <div className="py-1 pr-3 pl-9 text-[11px] text-muted-foreground">No file changes in this commit</div>
+        <div className="py-1 pr-3 pl-9 text-[11px] text-muted-foreground">{t('No file changes in this commit')}</div>
       ) : (
         state.changes.entries.map((entry) => {
           const slash = entry.path.lastIndexOf('/')

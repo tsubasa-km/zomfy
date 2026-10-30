@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { cn } from '@/lib/utils'
 import { SETTINGS_NAV_GROUPS, type SettingsNavSection } from './settings-navigation'
+import { t } from '@/i18n/i18n'
 
 // Orca's SettingsSidebar: back button, search field, then grouped section links.
 
@@ -40,7 +41,7 @@ export function SettingsSidebar({
       <div className="border-b border-worktree-sidebar-border px-3 py-3">
         <Button variant="ghost" size="sm" onClick={onBack} className="w-full justify-start gap-2 text-[13px] text-muted-foreground">
           <ArrowLeft className="size-4" />
-          Back to app
+          {t('Back to app')}
         </Button>
       </div>
 
@@ -52,8 +53,8 @@ export function SettingsSidebar({
             autoFocus
             value={query}
             onChange={(event) => onQueryChange(event.target.value)}
-            placeholder="Search settings"
-            aria-label="Search settings"
+            placeholder={t('Search settings')}
+            aria-label={t('Search settings')}
             data-settings-search
             className="bg-background/60 pr-14 pl-9 text-[13px]"
           />
@@ -65,7 +66,7 @@ export function SettingsSidebar({
         </div>
       </div>
 
-      <nav className="min-h-0 flex-1 overflow-y-auto px-3 py-4" aria-label="Settings sections">
+      <nav className="min-h-0 flex-1 overflow-y-auto px-3 py-4" aria-label={t('Settings sections')}>
         <div className="space-y-5">
           {SETTINGS_NAV_GROUPS.map((group) => {
             const groupSections = sections.filter((s) => s.group === group.id)
@@ -95,7 +96,7 @@ export function SettingsSidebar({
               </div>
             )
           })}
-          {sections.length === 0 ? <p className="px-3 text-xs text-muted-foreground">No matching settings.</p> : null}
+          {sections.length === 0 ? <p className="px-3 text-xs text-muted-foreground">{t('No matching settings.')}</p> : null}
         </div>
       </nav>
     </aside>

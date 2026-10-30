@@ -17,6 +17,7 @@ import { cn } from '@/lib/utils'
 import { FileResultRow, MatchResultRow, ToggleButton } from './search-result-rows'
 import { hitCount, matchParts, replacementFor, searchPattern } from './search-match-preview'
 import { onFindInFolder, takeFindInFolder } from './search-requests'
+import { t } from '@/i18n/i18n'
 
 // Orca's explorer search (SearchQueryRow, SearchFilters, SearchResultsPane): query row with
 // case/word/regex toggles, include/exclude globs, results grouped by file with counts. Replace
@@ -51,6 +52,23 @@ const EMPTY: SearchForm = {
 const savedForms = new Map<string, SearchForm>()
 
 type ReplaceTarget = { paths: string[]; line?: number; count: number }
+
+function resultSummary(total: number, files: number): string {
+  if (total === 1) return files === 1 ? t('{total} result in {files} file', { total, files }) : t('{total} result in {files} files', { total, files })
+  return files === 1 ? t('{total} results in {files} file', { total, files }) : t('{total} results in {files} files', { total, files })
+}
+
+function replaceQuestion(count: number | undefined, files: number | undefined, replacement: string): string {
+  const values = { count, files, replacement }
+  if (count === 1) {
+    return files === 1
+      ? t('Replace {count} occurrence across {files} file with "{replacement}"?', values)
+      : t('Replace {count} occurrence across {files} files with "{replacement}"?', values)
+  }
+  return files === 1
+    ? t('Replace {count} occurrences across {files} file with "{replacement}"?', values)
+    : t('Replace {count} occurrences across {files} files with "{replacement}"?', values)
+}
 
 export function SearchPanel({ workspaceId }: { workspaceId: string }) {
   const [form, setForm] = useState<SearchForm>(() => {
@@ -150,8 +168,8 @@ export function SearchPanel({ workspaceId }: { workspaceId: string }) {
         <div className="flex items-start gap-1">
           <button
             type="button"
-            aria-label="Toggle Replace"
-            title="Toggle Replace"
+            aria-label={t('Toggle Replace')}
+            title={t('Toggle Replace')}
             aria-expanded={form.showReplace}
             className="flex h-7 w-4 shrink-0 items-center justify-center rounded-sm text-muted-foreground hover:bg-muted hover:text-foreground"
             onClick={() => update({ showReplace: !form.showReplace })}
@@ -164,8 +182,8 @@ export function SearchPanel({ workspaceId }: { workspaceId: string }) {
               <ImeInput
                 ref={queryRef}
                 autoFocus
-                aria-label="Search files"
-                placeholder="Search"
+                aria-label={t('Search files')}
+                placeholder={t('Search')}
                 spellCheck={false}
                 value={form.query}
                 onChange={(e) => update({ query: e.target.value })}
@@ -177,25 +195,25 @@ export function SearchPanel({ workspaceId }: { workspaceId: string }) {
               />
               {searching && <Loader2 className="size-3 shrink-0 animate-spin text-muted-foreground" />}
               {form.query && (
-                <ToggleButton active={false} title="Clear search" onClick={() => update({ query: '' })}>
+                <ToggleButton active={false} title={t('Clear search')} onClick={() => update({ query: '' })}>
                   <X className="size-3" />
                 </ToggleButton>
               )}
-              <ToggleButton active={form.caseSensitive} title="Match Case" onClick={() => update({ caseSensitive: !form.caseSensitive })}>
+              <ToggleButton active={form.caseSensitive} title={t('Match Case')} onClick={() => update({ caseSensitive: !form.caseSensitive })}>
                 <CaseSensitive className="size-3.5" />
               </ToggleButton>
-              <ToggleButton active={form.wholeWord} title="Match Whole Word" onClick={() => update({ wholeWord: !form.wholeWord })}>
+              <ToggleButton active={form.wholeWord} title={t('Match Whole Word')} onClick={() => update({ wholeWord: !form.wholeWord })}>
                 <WholeWord className="size-3.5" />
               </ToggleButton>
-              <ToggleButton active={form.regex} title="Use Regular Expression" onClick={() => update({ regex: !form.regex })}>
+              <ToggleButton active={form.regex} title={t('Use Regular Expression')} onClick={() => update({ regex: !form.regex })}>
                 <Regex className="size-3.5" />
               </ToggleButton>
             </div>
             {form.showReplace && (
               <div className="flex items-center gap-1">
                 <ImeInput
-                  aria-label="Replace"
-                  placeholder="Replace"
+                  aria-label={t('Replace')}
+                  placeholder={t('Replace')}
                   spellCheck={false}
                   value={form.replacement}
                   onChange={(e) => update({ replacement: e.target.value })}
@@ -203,7 +221,7 @@ export function SearchPanel({ workspaceId }: { workspaceId: string }) {
                 />
                 <ToggleButton
                   active={false}
-                  title="Replace All"
+                  title={t('Replace All')}
                   onClick={() => total > 0 && setConfirm({ paths: [...byFile.keys()], count: total })}
                 >
                   <ReplaceAll className="size-3.5" />
@@ -213,20 +231,20 @@ export function SearchPanel({ workspaceId }: { workspaceId: string }) {
           </div>
         </div>
         <label className="flex flex-col gap-0.5">
-          <span className="text-[10px] tracking-wide text-muted-foreground uppercase">Files To Include</span>
+          <span className="text-[10px] tracking-wide text-muted-foreground uppercase">{t('Files To Include')}</span>
           <ImeInput
             spellCheck={false}
-            placeholder="files to include (e.g. *.ts, src/**)"
+            placeholder={t('files to include (e.g. *.ts, src/**)')}
             value={form.include}
             onChange={(e) => update({ include: e.target.value })}
             className={INPUT_CLASS}
           />
         </label>
         <label className="flex flex-col gap-0.5">
-          <span className="text-[10px] tracking-wide text-muted-foreground uppercase">Files To Exclude</span>
+          <span className="text-[10px] tracking-wide text-muted-foreground uppercase">{t('Files To Exclude')}</span>
           <ImeInput
             spellCheck={false}
-            placeholder="files to exclude (e.g. *.min.js, dist/**)"
+            placeholder={t('files to exclude (e.g. *.min.js, dist/**)')}
             value={form.exclude}
             onChange={(e) => update({ exclude: e.target.value })}
             className={INPUT_CLASS}
@@ -236,12 +254,12 @@ export function SearchPanel({ workspaceId }: { workspaceId: string }) {
       {!error && result && (result.matches.length > 0 || result.truncated) && (
         <div className="flex items-center border-b border-border px-2 py-1 text-[10px] text-muted-foreground">
           <span className="min-w-0 flex-1 truncate" data-search-summary="">
-            {total} result{total !== 1 ? 's' : ''} in {byFile.size} file{byFile.size !== 1 ? 's' : ''}
-            {result.truncated && ' (results truncated)'}
+            {resultSummary(total, byFile.size)}
+            {result.truncated && ` ${t('(results truncated)')}`}
           </span>
           <ToggleButton
             active={false}
-            title={allCollapsed ? 'Expand All' : 'Collapse All'}
+            title={allCollapsed ? t('Expand All') : t('Collapse All')}
             onClick={() => setCollapsed(allCollapsed ? new Set() : new Set(byFile.keys()))}
           >
             {allCollapsed ? <ChevronsUpDown className="size-3" /> : <ChevronsDownUp className="size-3" />}
@@ -255,10 +273,10 @@ export function SearchPanel({ workspaceId }: { workspaceId: string }) {
           </div>
         )}
         {!error && result && result.matches.length === 0 && !searching && (
-          <div className="flex h-32 items-center justify-center text-xs text-muted-foreground">No results found</div>
+          <div className="flex h-32 items-center justify-center text-xs text-muted-foreground">{t('No results found')}</div>
         )}
         {!form.query && (
-          <div className="flex h-32 items-center justify-center text-xs text-muted-foreground">Type to search in files</div>
+          <div className="flex h-32 items-center justify-center text-xs text-muted-foreground">{t('Type to search in files')}</div>
         )}
         {!error &&
           [...byFile.entries()].map(([path, matches]) => {
@@ -301,18 +319,17 @@ export function SearchPanel({ workspaceId }: { workspaceId: string }) {
       <Dialog open={confirm !== null} onOpenChange={(open) => !open && setConfirm(null)}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
-            <DialogTitle>Replace All</DialogTitle>
+            <DialogTitle>{t('Replace All')}</DialogTitle>
             <DialogDescription className="break-words">
-              Replace {confirm?.count} occurrence{confirm?.count !== 1 ? 's' : ''} across {confirm?.paths.length} file
-              {confirm?.paths.length !== 1 ? 's' : ''} with "{form.replacement}"?
+              {replaceQuestion(confirm?.count, confirm?.paths.length, form.replacement)}
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>
             <Button variant="outline" onClick={() => setConfirm(null)}>
-              Cancel
+              {t('Cancel')}
             </Button>
             <Button autoFocus onClick={() => confirm && void replace(confirm)}>
-              Replace
+              {t('Replace')}
             </Button>
           </DialogFooter>
         </DialogContent>

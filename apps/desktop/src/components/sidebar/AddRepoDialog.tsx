@@ -14,6 +14,7 @@ import { AddRepoHostSelector } from '@/components/sidebar/AddRepoHostSelector'
 import { AddRepoStartStep } from '@/components/sidebar/AddRepoStartStep'
 import { AddRepoCloneStep, AddRepoCreateStep, AddRepoPathStep } from '@/components/sidebar/AddRepoLocationSteps'
 import { SshConnectDialog } from '@/components/sidebar/SshConnectDialog'
+import { t } from '@/i18n/i18n'
 
 // Orca's AddRepoDialog: one "Add a project" dialog whose start step picks the host and the way in
 // (Browse, Clone, Create); each way is a step with Back. SSH hosts have no picker, so Browse there
@@ -116,7 +117,7 @@ export function AddRepoDialog() {
   async function browse() {
     if (!canPickOn(hostId)) return goTo('path')
     const home = hostDefaults ? hostDefaults.cloneParent.replace(/[\\/][^\\/]+$/, '') : ''
-    const picked = await pickFolder('Add a project folder or git repository', home)
+    const picked = await pickFolder(t('Add a project folder or git repository'), home)
     if (!picked) return
     setBusy(true)
     try {
@@ -124,14 +125,14 @@ export function AddRepoDialog() {
       await addPickedProject(picked.hostId, picked.path)
       closeAddProjectDialog()
     } catch (e) {
-      toast.error('Failed to add project', { description: message(e) })
+      toast.error(t('Failed to add project'), { description: message(e) })
     } finally {
       setBusy(false)
     }
   }
 
   async function pickParent(setParents: typeof setCloneParents, current: string) {
-    const picked = await pickFolder('Choose the parent folder', current)
+    const picked = await pickFolder(t('Choose the parent folder'), current)
     if (!picked) return
     setHostId(picked.hostId)
     setParents((all) => ({ ...all, [picked.hostId]: picked.path }))
@@ -176,7 +177,7 @@ export function AddRepoDialog() {
                 data-add-repo-back
               >
                 <ArrowLeft className="size-3" />
-                Back
+                {t('Back')}
               </button>
             </div>
           ) : null}

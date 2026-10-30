@@ -9,15 +9,16 @@ import { cn } from '@/lib/utils'
 import { buildReviewCommentsPrompt } from './review-agent-prompts'
 import { openExternal, relativeTime } from './review-presentation'
 import { openReviewFileDiff } from './ReviewFilesSection'
+import { t } from '@/i18n/i18n'
 
 // Orca's checks-panel comments-list.tsx: conversation, review verdicts and line comments, with
 // selected comments handed to an agent ("Resolve with AI").
 
 const REVIEW_STATE_LABEL: Record<string, string> = {
-  APPROVED: 'approved',
-  CHANGES_REQUESTED: 'requested changes',
-  COMMENTED: 'reviewed',
-  DISMISSED: 'dismissed'
+  APPROVED: t('approved'),
+  CHANGES_REQUESTED: t('requested changes'),
+  COMMENTED: t('reviewed'),
+  DISMISSED: t('dismissed')
 }
 
 export function ReviewCommentsSection({ workspaceId, review }: { workspaceId: string; review: HostedReview }) {
@@ -67,14 +68,14 @@ export function ReviewCommentsSection({ workspaceId, review }: { workspaceId: st
         >
           <ChevronDown className={cn('size-3 shrink-0 transition-transform', !expanded && '-rotate-90')} />
           <MessageSquare className="size-3.5 shrink-0" />
-          <span>Comments</span>
+          <span>{t('Comments')}</span>
           {comments && <span className="tabular-nums">{comments.length}</span>}
         </button>
         <SendToAgentMenu
           workspaceId={workspaceId}
           count={selected.size}
-          tooltip={`Send selected ${kindLabel} comments to an agent`}
-          disabledTooltip="Select comments to send to an agent"
+          tooltip={t('Send selected {kind} comments to an agent', { kind: kindLabel })}
+          disabledTooltip={t('Select comments to send to an agent')}
           buildPrompt={() => {
             const picked = (comments ?? []).filter((c) => selected.has(c.id))
             if (picked.length === 0) return null
@@ -86,8 +87,8 @@ export function ReviewCommentsSection({ workspaceId, review }: { workspaceId: st
         <button
           type="button"
           className="rounded p-1 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground disabled:opacity-50"
-          title="Refresh comments"
-          aria-label="Refresh comments"
+          title={t('Refresh comments')}
+          aria-label={t('Refresh comments')}
           disabled={loading}
           onClick={load}
         >
@@ -102,7 +103,7 @@ export function ReviewCommentsSection({ workspaceId, review }: { workspaceId: st
             </div>
           )}
           {error && <div className="px-3 pb-2 text-[11px] break-words text-destructive">{error}</div>}
-          {comments && comments.length === 0 && <div className="px-6 pb-2 text-[11px] text-muted-foreground">No comments yet</div>}
+          {comments && comments.length === 0 && <div className="px-6 pb-2 text-[11px] text-muted-foreground">{t('No comments yet')}</div>}
           {comments?.map((comment) => (
             <CommentRow
               key={comment.id}
@@ -133,19 +134,19 @@ function CommentRow({
   const verdict = comment.kind === 'review' && comment.reviewState ? REVIEW_STATE_LABEL[comment.reviewState] ?? comment.reviewState.toLowerCase() : null
   return (
     <div className={cn('group flex gap-2 px-3 py-1.5 hover:bg-accent/30', selected && 'bg-accent/25')} data-review-comment={comment.kind}>
-      <Checkbox className="mt-0.5" checked={selected} onCheckedChange={onToggle} aria-label="Select comment" />
+      <Checkbox className="mt-0.5" checked={selected} onCheckedChange={onToggle} aria-label={t('Select comment')} />
       <div className="min-w-0 flex-1">
         <div className="flex min-w-0 items-center gap-1.5 text-[11px]">
-          <span className="truncate font-semibold text-foreground">{comment.author ?? 'unknown'}</span>
+          <span className="truncate font-semibold text-foreground">{comment.author ?? t('unknown')}</span>
           {verdict && <span className="shrink-0 text-muted-foreground">{verdict}</span>}
-          {comment.resolved && <span className="shrink-0 rounded bg-muted px-1 text-[10px] text-muted-foreground">resolved</span>}
+          {comment.resolved && <span className="shrink-0 rounded bg-muted px-1 text-[10px] text-muted-foreground">{t('resolved')}</span>}
           <span className="shrink-0 text-muted-foreground">{relativeTime(comment.createdAt)}</span>
           <span className="flex-1" />
           {comment.url && (
             <button
               type="button"
               className="shrink-0 rounded p-0.5 text-muted-foreground opacity-0 transition-opacity group-hover:opacity-100 hover:text-foreground"
-              aria-label="Open comment"
+              aria-label={t('Open comment')}
               onClick={() => openExternal(comment.url!)}
             >
               <ExternalLink className="size-3" />
@@ -163,7 +164,7 @@ function CommentRow({
           </button>
         )}
         {comment.body.trim() && (
-          <button type="button" className="block w-full text-left" onClick={() => setFull((v) => !v)} title={full ? 'Show less' : 'Show more'}>
+          <button type="button" className="block w-full text-left" onClick={() => setFull((v) => !v)} title={full ? t('Show less') : t('Show more')}>
             <span className={cn('block text-[12px] leading-snug break-words whitespace-pre-wrap text-foreground', !full && 'line-clamp-4')}>
               {comment.body.trim()}
             </span>

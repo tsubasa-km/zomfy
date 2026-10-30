@@ -8,12 +8,13 @@ import {
   type NativeChatTask,
   type NativeChatTaskList as TaskList
 } from './native-chat-task-list'
+import { t, tc } from '@/i18n/i18n'
 
 // Ported from Orca's NativeChatTaskList (inline and composer presentations).
 
 function statusLabel(task: NativeChatTask): string {
-  if (task.status === 'completed') return 'Completed'
-  return task.status === 'in_progress' ? 'In progress' : 'Pending'
+  if (task.status === 'completed') return t('Completed')
+  return task.status === 'in_progress' ? t('In progress') : tc('Pending', 'task')
 }
 
 function TaskRow({ task, label }: { task: NativeChatTask; label?: string }) {
@@ -31,9 +32,9 @@ function TaskRow({ task, label }: { task: NativeChatTask; label?: string }) {
 
 function Checklist({ list }: { list: TaskList }) {
   return list.tasks.length === 0 ? (
-    <p className="text-xs">No tasks</p>
+    <p className="text-xs">{t('No tasks')}</p>
   ) : (
-    <ul aria-label="Tasks" className="space-y-1 py-1">
+    <ul aria-label={t('Tasks')} className="space-y-1 py-1">
       {list.tasks.map((task, index) => (
         <TaskRow key={`${task.content}:${index}`} task={task} />
       ))}
@@ -44,7 +45,7 @@ function Checklist({ list }: { list: TaskList }) {
 function Progress({ list }: { list: TaskList }) {
   const completed = list.tasks.filter((task) => task.status === 'completed').length
   return (
-    <span className="tabular-nums" aria-label={`${completed} of ${list.tasks.length} tasks completed`}>
+    <span className="tabular-nums" aria-label={t('{completed} of {total} tasks completed', { completed, total: list.tasks.length })}>
       {completed}/{list.tasks.length}
     </span>
   )
@@ -64,7 +65,7 @@ export function NativeChatTaskList({
       <Collapsible className="rounded-md border border-border bg-muted/30">
         <CollapsibleTrigger className="group flex w-full items-center gap-1.5 rounded-md px-3 py-2 text-left text-xs text-muted-foreground hover:bg-accent hover:text-accent-foreground focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none">
           <ListChecks aria-hidden className="size-4 shrink-0" />
-          <span className="flex-1 font-medium">Tasks</span>
+          <span className="flex-1 font-medium">{t('Tasks')}</span>
           <Progress list={list} />
           <ChevronRight aria-hidden className="size-3.5 group-data-[state=open]:rotate-90" />
         </CollapsibleTrigger>
@@ -81,7 +82,7 @@ export function NativeChatTaskList({
     <div className="space-y-1 py-1 text-sm text-chat-foreground-faint">
       <div className="flex items-center gap-1.5 text-xs text-chat-foreground-faint">
         <ListChecks aria-hidden className="size-4 shrink-0" />
-        <span className="font-medium">Tasks</span>
+        <span className="font-medium">{t('Tasks')}</span>
         <Progress list={list} />
       </div>
       {changes ? (
@@ -93,7 +94,7 @@ export function NativeChatTaskList({
               ))}
             </ul>
           ) : (
-            <p className="text-xs text-chat-foreground-faint">Tasks unchanged</p>
+            <p className="text-xs text-chat-foreground-faint">{t('Tasks unchanged')}</p>
           )}
           <Collapsible>
             <CollapsibleTrigger asChild>
@@ -102,7 +103,7 @@ export function NativeChatTaskList({
                 className="group flex items-center gap-1 rounded py-0.5 text-xs text-chat-foreground-faint hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
               >
                 <ChevronRight aria-hidden className="size-3.5 group-data-[state=open]:rotate-90" />
-                Full task list
+                {t('Full task list')}
               </button>
             </CollapsibleTrigger>
             <CollapsibleContent>

@@ -5,6 +5,7 @@ import { harnessRequest } from '@/daemon-connection'
 import { openEditorTab } from '@/session-store'
 import { cn } from '@/lib/utils'
 import { reviewNumberLabel, reviewShortLabel } from './review-presentation'
+import { t } from '@/i18n/i18n'
 
 // Orca's PullRequestPage "Files changed": each file opens in the editor's diff tab, comparing the
 // review's merge base with its head.
@@ -65,7 +66,7 @@ export function ReviewFilesSection({ workspaceId, review }: { workspaceId: strin
       >
         <ChevronDown className={cn('size-3 shrink-0 transition-transform', !expanded && '-rotate-90')} />
         <FileDiff className="size-3.5 shrink-0" />
-        <span>Files changed</span>
+        <span>{t('Files changed')}</span>
         {loaded && <span className="tabular-nums">{loaded.files.length}</span>}
         <span className="flex-1" />
         {expanded && !loaded && !error && <LoaderCircle className="size-3 animate-spin" />}
@@ -73,7 +74,7 @@ export function ReviewFilesSection({ workspaceId, review }: { workspaceId: strin
       {expanded && error && <div className="px-3 pb-2 text-[11px] break-words text-destructive">{error}</div>}
       {expanded && loaded && (
         <ul className="pb-1">
-          {loaded.files.length === 0 && <li className="px-6 py-1 text-[11px] text-muted-foreground">No changed files</li>}
+          {loaded.files.length === 0 && <li className="px-6 py-1 text-[11px] text-muted-foreground">{t('No changed files')}</li>}
           {loaded.files.map((file) => {
             const slash = file.path.lastIndexOf('/')
             const status = STATUS_LETTER[file.status]

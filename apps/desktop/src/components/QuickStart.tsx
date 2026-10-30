@@ -13,6 +13,7 @@ import { defaultHostId } from '@/lib/default-host'
 import { Button } from '@/components/ui/button'
 import { Textarea } from '@/components/ui/textarea'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { t } from '@/i18n/i18n'
 
 // The empty main view, as in the Claude apps: type and go. The chat starts in its own scratch
 // folder and its agent moves it into a project when the work needs one (move_chat).
@@ -41,7 +42,7 @@ export function QuickStart() {
       submitPrompt(sessionId, text, [])
       setDraft('')
     } catch (error) {
-      toast.error('Could not start the chat', { description: error instanceof Error ? error.message : String(error) })
+      toast.error(t('Could not start the chat'), { description: error instanceof Error ? error.message : String(error) })
     } finally {
       setBusy(false)
     }
@@ -58,9 +59,9 @@ export function QuickStart() {
   return (
     <div className="m-auto flex w-full max-w-xl flex-col gap-4 px-6" data-quick-start>
       <div className="space-y-1 text-center">
-        <h1 className="text-lg font-medium text-foreground">What should we work on?</h1>
+        <h1 className="text-lg font-medium text-foreground">{t('What should we work on?')}</h1>
         <p className="text-xs text-muted-foreground">
-          Starts right away in a fresh folder. The agent moves the chat into a project when the work needs one.
+          {t('Starts right away in a fresh folder. The agent moves the chat into a project when the work needs one.')}
         </p>
       </div>
       <div className="rounded-xl border border-input bg-card p-1.5 shadow-xs focus-within:border-ring">
@@ -70,14 +71,14 @@ export function QuickStart() {
           disabled={busy}
           onChange={(e) => setDraft(e.target.value)}
           onKeyDown={onKeyDown}
-          placeholder="Ask anything, or describe a task"
-          aria-label="Start a chat"
+          placeholder={t('Ask anything, or describe a task')}
+          aria-label={t('Start a chat')}
           className="max-h-60 min-h-20 resize-none border-0 bg-transparent shadow-none focus-visible:ring-0 dark:bg-transparent"
         />
         <div className="flex items-center justify-between gap-2 px-1 pt-1">
           {connected.length > 1 ? (
             <Select value={target} onValueChange={setHostId}>
-              <SelectTrigger size="sm" className="h-7 w-auto border-0 text-xs shadow-none" aria-label="Host">
+              <SelectTrigger size="sm" className="h-7 w-auto border-0 text-xs shadow-none" aria-label={t('Host')}>
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -95,7 +96,7 @@ export function QuickStart() {
             size="icon"
             className="size-7 rounded-full"
             disabled={!draft.trim() || busy}
-            aria-label={`Start chat (${sendKey === 'enter' ? '↵' : SUBMIT_SHORTCUT_LABEL})`}
+            aria-label={t('Start chat ({key})', { key: sendKey === 'enter' ? '↵' : SUBMIT_SHORTCUT_LABEL })}
             onClick={() => void start()}
           >
             <ArrowUp className="size-4" />
@@ -105,7 +106,7 @@ export function QuickStart() {
       <div className="flex justify-center gap-2">
         <Button variant="ghost" size="sm" className="text-muted-foreground" onClick={() => openAddProjectDialog({ hostId: target })}>
           <FolderPlus className="size-4" />
-          Add a project
+          {t('Add a project')}
         </Button>
         <Button
           variant="ghost"
@@ -114,7 +115,7 @@ export function QuickStart() {
           onClick={() => openAddProjectDialog({ hostId: target, step: 'clone' })}
         >
           <GitBranch className="size-4" />
-          Clone a repository
+          {t('Clone a repository')}
         </Button>
       </div>
     </div>

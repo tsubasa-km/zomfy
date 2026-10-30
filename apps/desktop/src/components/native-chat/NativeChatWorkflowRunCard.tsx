@@ -11,16 +11,17 @@ import { Textarea } from '@/components/ui/textarea'
 import { cn } from '@/lib/utils'
 import { outcomeLabel } from '@/components/workflows/workflow-model'
 import { WorkflowRunMerge } from '@/components/workflows/WorkflowRunMerge'
+import { t } from '@/i18n/i18n'
 
 // A workflow run started from this chat, live: where it is, each step's outcome, and the person's
 // part (an answer, Stop) right here; the full graph opens in the Workflows page.
 
 const STATUS: Record<WorkflowRun['status'], { label: string; tone: string }> = {
-  running: { label: 'Running', tone: 'text-primary' },
-  waiting: { label: 'Waiting for you', tone: 'text-agent-question-text' },
-  done: { label: 'Done', tone: 'text-status-success' },
-  failed: { label: 'Failed', tone: 'text-destructive' },
-  stopped: { label: 'Stopped', tone: 'text-chat-foreground-faint' }
+  running: { label: t('Running'), tone: 'text-primary' },
+  waiting: { label: t('Waiting for you'), tone: 'text-agent-question-text' },
+  done: { label: t('Done'), tone: 'text-status-success' },
+  failed: { label: t('Failed'), tone: 'text-destructive' },
+  stopped: { label: t('Stopped'), tone: 'text-chat-foreground-faint' }
 }
 
 export function NativeChatWorkflowRunCard({
@@ -43,7 +44,7 @@ export function NativeChatWorkflowRunCard({
   }, [run, hostId, projectId])
 
   if (!run) {
-    return <div className="rounded-lg border border-border px-3 py-2 text-xs text-chat-foreground-faint">Loading the workflow run…</div>
+    return <div className="rounded-lg border border-border px-3 py-2 text-xs text-chat-foreground-faint">{t('Loading the workflow run…')}</div>
   }
   const current = run.workflow.nodes.find((n) => n.id === run.currentNodeId)
   const live = run.status === 'running' || run.status === 'waiting'
@@ -57,7 +58,7 @@ export function NativeChatWorkflowRunCard({
         setAnswer('')
       }
     } catch (error) {
-      toast.error('The run did not take that', { description: String(error) })
+      toast.error(t('The run did not take that'), { description: String(error) })
     } finally {
       setBusy(false)
     }
@@ -97,7 +98,7 @@ export function NativeChatWorkflowRunCard({
           <Textarea
             value={answer}
             onChange={(e) => setAnswer(e.target.value)}
-            placeholder={run.waiting.reason === 'limit' ? 'A note for the next round, or "stop"' : 'Your answer'}
+            placeholder={run.waiting.reason === 'limit' ? t('A note for the next round, or "stop"') : t('Your answer')}
             className="min-h-16 text-xs"
             onKeyDown={(e) => {
               if (e.key === 'Enter' && (e.ctrlKey || e.metaKey) && answer.trim()) void act(false)
@@ -105,7 +106,7 @@ export function NativeChatWorkflowRunCard({
           />
           <Button size="sm" className="h-7" disabled={busy || !answer.trim()} onClick={() => void act(false)}>
             <Send className="size-3.5" />
-            Answer
+            {t('Answer')}
           </Button>
         </div>
       )}
@@ -118,12 +119,12 @@ export function NativeChatWorkflowRunCard({
           onClick={() => projectId && openWorkflows({ hostId: run.hostId, projectId, projectName, runId: run.id })}
         >
           <ExternalLink className="size-3.5" />
-          Open the run
+          {t('Open the run')}
         </Button>
         {live && (
           <Button variant="ghost" size="sm" className="h-7 px-2 text-xs" disabled={busy} onClick={() => void act(true)}>
             <CircleStop className="size-3.5" />
-            Stop
+            {t('Stop')}
           </Button>
         )}
       </div>

@@ -18,19 +18,20 @@ import { BrowserTabView } from './BrowserTabView'
 import { newTerminalTab, tabTitle, useWorkspaceTabs, type WorkspaceTab } from './workspace-tab-model'
 import { useTabLayout } from '@/stores/tab-layout-store'
 import { cn } from '@/lib/utils'
+import { t } from '@/i18n/i18n'
 
 const OPEN_DELAY_MS = 250
 const CLOSE_DELAY_MS = 400
 
 // The right sidebar's panels, in its order.
 const PANELS = [
-  { id: 'panel:explorer', label: 'Explorer', icon: Files },
-  { id: 'panel:search', label: 'Search', icon: Search },
-  { id: 'panel:source-control', label: 'Source Control', icon: GitCompare },
-  { id: 'panel:checks', label: 'Checks', icon: ListChecks },
-  { id: 'panel:ports', label: 'Ports', icon: Plug },
-  { id: 'panel:side-chat', label: 'Side chat', icon: MessagesSquare },
-  { id: 'panel:agent', label: 'Agent', icon: Bot }
+  { id: 'panel:explorer', label: t('Explorer'), icon: Files },
+  { id: 'panel:search', label: t('Search'), icon: Search },
+  { id: 'panel:source-control', label: t('Source Control'), icon: GitCompare },
+  { id: 'panel:checks', label: t('Checks'), icon: ListChecks },
+  { id: 'panel:ports', label: t('Ports'), icon: Plug },
+  { id: 'panel:side-chat', label: t('Side chat'), icon: MessagesSquare },
+  { id: 'panel:agent', label: t('Agent'), icon: Bot }
 ] as const
 
 function PanelBody({ id, workspaceId }: { id: string; workspaceId: string }) {
@@ -109,7 +110,7 @@ export function ToolDrawer({ workspaceId, exclude }: { workspaceId: string; excl
       <div
         className="group pointer-events-auto mx-auto flex h-3 w-24 shrink-0 justify-center pt-1"
         data-drawer-handle
-        title={`${terminals} terminal${terminals === 1 ? '' : 's'} · ${browsers} browser${browsers === 1 ? '' : 's'}`}
+        title={`${terminals === 1 ? t('{n} terminal', { n: terminals }) : t('{n} terminals', { n: terminals })} · ${browsers === 1 ? t('{n} browser', { n: browsers }) : t('{n} browsers', { n: browsers })}`}
         onPointerEnter={() => later(true, OPEN_DELAY_MS)}
         onPointerLeave={() => !shown && clearTimeout(timer.current)}
       >
@@ -154,7 +155,7 @@ export function ToolDrawer({ workspaceId, exclude }: { workspaceId: string; excl
               <DropdownMenuTrigger asChild>
                 <button
                   type="button"
-                  title="New terminal or browser"
+                  title={t('New terminal or browser')}
                   data-drawer-new
                   className="flex size-6 shrink-0 items-center justify-center rounded-md text-muted-foreground hover:bg-accent/50 hover:text-foreground"
                 >
@@ -165,11 +166,11 @@ export function ToolDrawer({ workspaceId, exclude }: { workspaceId: string; excl
               <DropdownMenuContent align="start">
                 <DropdownMenuItem onSelect={() => void newTerminalTab(workspaceId, undefined, { select: false })}>
                   <SquareTerminal className="size-3.5" />
-                  Terminal
+                  {t('Terminal')}
                 </DropdownMenuItem>
                 <DropdownMenuItem onSelect={() => addBrowserTab(workspaceId)}>
                   <Globe className="size-3.5" />
-                  Browser
+                  {t('Browser')}
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
@@ -193,7 +194,7 @@ export function ToolDrawer({ workspaceId, exclude }: { workspaceId: string; excl
             ))}
             <button
               type="button"
-              title={pinned ? 'Unpin' : 'Keep open'}
+              title={pinned ? t('Unpin') : t('Keep open')}
               onClick={() => {
                 setPinned(!pinned)
                 setOpen(true)

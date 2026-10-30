@@ -16,6 +16,7 @@ import { SkillsPane } from './SkillsPane'
 import { PluginsPane } from './PluginsPane'
 import { VoicePane } from './VoicePane'
 import { TerminalPane } from './TerminalPane'
+import { t } from '@/i18n/i18n'
 
 // Orca's settings page (settings-page-renderer.tsx): it replaces the app view, with a section
 // sidebar on the left and one section at a time on the right.
@@ -92,7 +93,7 @@ export function SettingsPage() {
         <div className={cn('mx-auto flex w-full flex-col gap-10 px-8 pt-10 pb-24', isShortcuts ? 'max-w-5xl' : 'max-w-4xl')}>
           {!active ? (
             <div className="flex min-h-[24rem] items-center justify-center rounded-2xl border border-dashed border-border/60 bg-card/30 text-sm text-muted-foreground">
-              No settings found for "{query.trim()}"
+              {t('No settings found for "{query}"', { query: query.trim() })}
             </div>
           ) : (
             <SettingsSearchProvider value={{ query, showAll: showAll || isShortcuts }}>

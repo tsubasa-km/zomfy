@@ -5,6 +5,7 @@ import { ContextMenu, ContextMenuTrigger } from '@/components/ui/context-menu'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { cn } from '@/lib/utils'
 import { HideSidebarMenu } from './sidebar-nav-controls'
+import { t } from '@/i18n/i18n'
 
 // Orca's SetupGuideSidebarEntry and SetupGuideProgressRing: an "Onboarding checklist" row with a
 // progress ring, shown until the core setup steps are done or the user hides it.
@@ -28,7 +29,7 @@ function SetupProgressRing({ done, total }: { done: number; total: number }) {
       <TooltipTrigger asChild>
         <span
           className="relative flex size-4 shrink-0 items-center justify-center text-muted-foreground"
-          aria-label={`${bounded} of ${total} setup steps complete`}
+          aria-label={t('{done} of {total} setup steps complete', { done: bounded, total })}
         >
           <svg className="size-4 -rotate-90" viewBox="0 0 20 20" aria-hidden>
             <circle cx={10} cy={10} r={radius} fill="none" stroke="currentColor" strokeWidth={2} className="opacity-25" />
@@ -76,7 +77,7 @@ export function SetupChecklistSidebarEntry() {
         >
           <SetupProgressRing done={progress.done} total={progress.total} />
           <span className="flex min-w-0 flex-1 flex-col">
-            <span className="truncate">Onboarding checklist</span>
+            <span className="truncate">{t('Onboarding checklist')}</span>
           </span>
         </button>
       </ContextMenuTrigger>

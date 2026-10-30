@@ -11,6 +11,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { cn } from '@/lib/utils'
+import { t } from '@/i18n/i18n'
 
 // Orca's repository settings pane: display name, default base branch, worktree location and the
 // setup/archive scripts that run alongside orca.yaml's.
@@ -47,7 +48,7 @@ export function ProjectSettingsDialog({ project, onClose }: { project: HostedPro
   }, [project])
 
   async function browse() {
-    const folder = await open({ directory: true, title: 'Folder for new worktrees' })
+    const folder = await open({ directory: true, title: t('Folder for new worktrees') })
     if (typeof folder === 'string') setWorktreeRoot(hostForPath(folder).path)
   }
 
@@ -76,7 +77,7 @@ export function ProjectSettingsDialog({ project, onClose }: { project: HostedPro
     <Dialog open={project !== null} onOpenChange={(o) => !o && onClose()}>
       <DialogContent className="flex max-h-[calc(100vh-2rem)] flex-col sm:max-w-lg" data-project-settings-dialog>
         <DialogHeader>
-          <DialogTitle>Project Settings</DialogTitle>
+          <DialogTitle>{t('Project Settings')}</DialogTitle>
           <DialogDescription className="break-all">{project?.path}</DialogDescription>
         </DialogHeader>
         <form
@@ -88,7 +89,7 @@ export function ProjectSettingsDialog({ project, onClose }: { project: HostedPro
         >
           <div className="space-y-1.5">
             <Label htmlFor="project-display-name" className={fieldLabel}>
-              Display name
+              {t('Display name')}
             </Label>
             <Input id="project-display-name" value={displayName} onChange={(e) => setDisplayName(e.target.value)} />
           </div>
@@ -96,66 +97,66 @@ export function ProjectSettingsDialog({ project, onClose }: { project: HostedPro
             <>
               <div className="space-y-1.5">
                 <Label htmlFor="project-base-ref" className={fieldLabel}>
-                  Default base branch
+                  {t('Default base branch')}
                 </Label>
                 <div className="flex gap-2">
                   <div className="min-w-0 flex-1">
                     <BranchCombobox
                       id="project-base-ref"
                       value={baseRef}
-                      placeholder="Automatic (origin/HEAD, main or master)"
+                      placeholder={t('Automatic (origin/HEAD, main or master)')}
                       onChange={setBaseRef}
                       groups={[
-                        { heading: 'Local', options: (branches?.branches ?? []).map((b) => ({ value: b })) },
-                        { heading: 'Remote', options: (branches?.remoteBranches ?? []).map((b) => ({ value: b })) }
+                        { heading: t('Local'), options: (branches?.branches ?? []).map((b) => ({ value: b })) },
+                        { heading: t('Remote'), options: (branches?.remoteBranches ?? []).map((b) => ({ value: b })) }
                       ]}
                     />
                   </div>
                   {baseRef && (
                     <Button type="button" variant="ghost" size="sm" onClick={() => setBaseRef('')}>
-                      Reset
+                      {t('Reset')}
                     </Button>
                   )}
                 </div>
               </div>
               <div className="space-y-1.5">
                 <Label htmlFor="project-finish-with" className={fieldLabel}>
-                  When a chat's work is done
+                  {t("When a chat's work is done")}
                 </Label>
                 <Select value={finishWith} onValueChange={(v) => setFinishWith(v === 'pull-request' ? 'pull-request' : 'merge')}>
                   <SelectTrigger id="project-finish-with" data-project-finish-with>
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="merge">Merge into the main checkout, then remove the worktree</SelectItem>
-                    <SelectItem value="pull-request">Push and open a pull request, keep the worktree</SelectItem>
+                    <SelectItem value="merge">{t('Merge into the main checkout, then remove the worktree')}</SelectItem>
+                    <SelectItem value="pull-request">{t('Push and open a pull request, keep the worktree')}</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
               <div className="space-y-1.5">
                 <Label htmlFor="project-worktree-root" className={fieldLabel}>
-                  Worktree location
+                  {t('Worktree location')}
                 </Label>
                 <div className="flex gap-2">
                   <Input
                     id="project-worktree-root"
                     value={worktreeRoot}
                     onChange={(e) => setWorktreeRoot(e.target.value)}
-                    placeholder="Default (the harness workspaces folder)"
+                    placeholder={t('Default (the harness workspaces folder)')}
                     className="font-mono text-xs"
                   />
                   {isTauri() && (
                     <Button type="button" variant="outline" onClick={() => void browse()}>
-                      Browse…
+                      {t('Browse…')}
                     </Button>
                   )}
                 </div>
-                <p className="text-[11px] text-muted-foreground">New worktrees go in a folder named after the project here.</p>
+                <p className="text-[11px] text-muted-foreground">{t('New worktrees go in a folder named after the project here.')}</p>
               </div>
               <HookField
                 id="project-setup"
-                label="Setup script"
-                hint="Runs in a terminal after a worktree is created."
+                label={t('Setup script')}
+                hint={t('Runs in a terminal after a worktree is created.')}
                 fileScript={hooks?.fileHooks.setup}
                 file={hooks?.file ?? null}
                 value={setup}
@@ -163,8 +164,8 @@ export function ProjectSettingsDialog({ project, onClose }: { project: HostedPro
               />
               <HookField
                 id="project-archive"
-                label="Archive script"
-                hint="Runs before a worktree is deleted."
+                label={t('Archive script')}
+                hint={t('Runs before a worktree is deleted.')}
                 fileScript={hooks?.fileHooks.archive}
                 file={hooks?.file ?? null}
                 value={archive}
@@ -175,9 +176,9 @@ export function ProjectSettingsDialog({ project, onClose }: { project: HostedPro
           {error && <p className="text-sm break-words text-destructive">{error}</p>}
           <DialogFooter>
             <Button type="button" variant="outline" onClick={onClose}>
-              Cancel
+              {t('Cancel')}
             </Button>
-            <Button type="submit">Save</Button>
+            <Button type="submit">{t('Save')}</Button>
           </DialogFooter>
         </form>
       </DialogContent>
@@ -209,7 +210,7 @@ function HookField({
       </Label>
       {fileScript && (
         <div className="space-y-1">
-          <p className="text-[11px] text-muted-foreground">From {file}, runs first:</p>
+          <p className="text-[11px] text-muted-foreground">{t('From {file}, runs first:', { file })}</p>
           <pre className="max-h-24 overflow-auto rounded-md border border-border/60 bg-muted/25 px-2 py-1.5 font-mono text-[11px] whitespace-pre-wrap">
             {fileScript}
           </pre>
@@ -219,11 +220,11 @@ function HookField({
         id={id}
         value={value}
         onChange={(e) => onChange(e.target.value)}
-        placeholder={fileScript ? 'Additional local commands' : 'One command per line, e.g. pnpm install'}
+        placeholder={fileScript ? t('Additional local commands') : t('One command per line, e.g. pnpm install')}
         className={cn(textareaClass)}
       />
       <p className="text-[11px] text-muted-foreground">
-        {hint} On Windows the script runs with cmd unless it starts with #!, which runs it in Git Bash.
+        {hint} {t('On Windows the script runs with cmd unless it starts with #!, which runs it in Git Bash.')}
       </p>
     </div>
   )

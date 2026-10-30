@@ -15,6 +15,7 @@ import {
 } from '@/lib/quick-commands'
 import { cn } from '@/lib/utils'
 import { LOCAL_HOST, allWorkspaces, useStore } from '@/session-store'
+import { t } from '@/i18n/i18n'
 
 // Ported from Orca's TabBarQuickCommandsButton / TabBarQuickCommandsMenu / TabBarQuickCommandItem.
 
@@ -88,14 +89,14 @@ export function QuickCommandsButton({ workspaceId }: { workspaceId: string }) {
             onClick={add}
             data-quick-commands-add
             className="my-auto ml-1 flex h-7 shrink-0 items-center gap-1 rounded-md px-1.5 text-muted-foreground hover:bg-accent/50 hover:text-foreground focus-visible:ring-2 focus-visible:ring-accent focus-visible:outline-none"
-            aria-label="Add quick command"
+            aria-label={t('Add quick command')}
           >
             <Play className="size-3.5" />
-            <span className="text-[12px] font-medium">Command</span>
+            <span className="text-[12px] font-medium">{t('Command')}</span>
           </button>
         </TooltipTrigger>
         <TooltipContent side="bottom" sideOffset={6}>
-          Save a quick command for this {projectId ? 'project' : 'workspace'}
+          {projectId ? t('Save a quick command for this project') : t('Save a quick command for this workspace')}
         </TooltipContent>
       </Tooltip>
     )
@@ -125,7 +126,7 @@ export function QuickCommandsButton({ workspaceId }: { workspaceId: string }) {
       </span>
       <span
         role="group"
-        aria-label="Quick command actions"
+        aria-label={t('Quick command actions')}
         className="flex shrink-0 items-center gap-0.5 transition-opacity can-hover:opacity-0 group-hover/qc:opacity-100 group-data-[selected=true]/qc:opacity-100"
       >
         <button
@@ -141,7 +142,7 @@ export function QuickCommandsButton({ workspaceId }: { workspaceId: string }) {
             requestQuickCommandEditor({ workspaceId, hostId, mode: 'edit', command })
           }}
           className="cursor-pointer rounded p-1 text-muted-foreground hover:bg-accent hover:text-foreground"
-          aria-label={`Edit ${command.label}`}
+          aria-label={t('Edit {label}', { label: command.label })}
         >
           <Pencil className="size-3" />
         </button>
@@ -157,7 +158,7 @@ export function QuickCommandsButton({ workspaceId }: { workspaceId: string }) {
             void removeQuickCommand(hostId, command.id)
           }}
           className="cursor-pointer rounded p-1 text-muted-foreground hover:bg-accent hover:text-destructive"
-          aria-label={`Remove ${command.label}`}
+          aria-label={t('Remove {label}', { label: command.label })}
         >
           <Trash2 className="size-3" />
         </button>
@@ -174,16 +175,16 @@ export function QuickCommandsButton({ workspaceId }: { workspaceId: string }) {
             onClick={() => mostRecent && run(mostRecent)}
             data-quick-commands-run
             className={cn(innerButton, 'gap-1.5 rounded-l-md rounded-r-none px-1.5')}
-            aria-label={mostRecent ? `Run quick command: ${mostRecent.label}` : 'Run quick command'}
+            aria-label={mostRecent ? t('Run quick command: {label}', { label: mostRecent.label }) : t('Run quick command')}
           >
             <Play className="size-3 shrink-0" fill="currentColor" strokeWidth={0} />
-            <span className="max-w-[160px] truncate text-[12px] font-medium">{mostRecent?.label ?? 'Run'}</span>
+            <span className="max-w-[160px] truncate text-[12px] font-medium">{mostRecent?.label ?? t('Run')}</span>
           </button>
         </TooltipTrigger>
         <TooltipContent side="bottom" sideOffset={6}>
           {mostRecent?.action === 'agent-prompt'
-            ? `Start ${tuiAgentSpec(mostRecent.agent)?.label ?? mostRecent.agent}: ${mostRecent.prompt}`
-            : `Run: ${mostRecent ? commandBody(mostRecent) : ''}`}
+            ? t('Start {agent}: {prompt}', { agent: tuiAgentSpec(mostRecent.agent)?.label ?? mostRecent.agent, prompt: mostRecent.prompt })
+            : t('Run: {command}', { command: mostRecent ? commandBody(mostRecent) : '' })}
         </TooltipContent>
       </Tooltip>
       <DropdownMenu
@@ -199,7 +200,7 @@ export function QuickCommandsButton({ workspaceId }: { workspaceId: string }) {
             type="button"
             data-quick-commands-menu
             className={cn(innerButton, 'justify-center rounded-l-none rounded-r-md border-l border-border/60 px-1')}
-            aria-label="More quick commands"
+            aria-label={t('More quick commands')}
           >
             <ChevronDown className="size-3" strokeWidth={2.5} />
           </button>
@@ -209,7 +210,7 @@ export function QuickCommandsButton({ workspaceId }: { workspaceId: string }) {
             {all.length >= SEARCH_THRESHOLD && (
               <CommandInput
                 autoFocus
-                placeholder="Search quick commands..."
+                placeholder={t('Search quick commands...')}
                 value={query}
                 onValueChange={setQuery}
                 className="h-9 py-2 text-[12px]"
@@ -220,7 +221,7 @@ export function QuickCommandsButton({ workspaceId }: { workspaceId: string }) {
             <CommandList className="max-h-72 py-1">
               {shownProject.length + shownGlobal.length === 0 && (
                 <CommandEmpty className="py-4 text-center text-[11px]">
-                  {query.trim() ? 'No commands match' : 'No commands'}
+                  {query.trim() ? t('No commands match') : t('No commands')}
                 </CommandEmpty>
               )}
               {shownProject.map(renderItem)}
@@ -237,7 +238,7 @@ export function QuickCommandsButton({ workspaceId }: { workspaceId: string }) {
                 className="flex w-full cursor-pointer items-center gap-2 rounded-[5px] px-2 py-1.5 text-[12px] text-muted-foreground hover:bg-muted hover:text-foreground focus-visible:ring-1 focus-visible:ring-ring focus-visible:outline-none"
               >
                 <Plus className="size-3.5" />
-                Command
+                {t('Command')}
               </button>
             </div>
           </Command>

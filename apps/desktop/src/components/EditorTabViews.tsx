@@ -19,6 +19,7 @@ import { useFileDiskWatch } from '@/components/editor/use-file-disk-watch'
 import { DiffReviewNotes } from '@/components/editor/DiffReviewNotes'
 import { SendToAgentMenu } from '@/components/SendToAgentMenu'
 import { formatReviewNotes, getReviewNotes, markReviewNotesSent, useReviewNotes } from '@/stores/review-notes-store'
+import { t } from '@/i18n/i18n'
 
 type DiffEditorInstance = Parameters<DiffOnMount>[0]
 
@@ -181,7 +182,7 @@ export function DiffTabView({ tab }: { tab: EditorTab }) {
         path={tab.path}
         status={
           <>
-            <span className="shrink-0 text-xs text-muted-foreground">{tab.compare?.label ?? (tab.staged ? 'Staged' : 'Working tree')}</span>
+            <span className="shrink-0 text-xs text-muted-foreground">{tab.compare?.label ?? (tab.staged ? t('Staged') : t('Working tree'))}</span>
             {error && (
               <span className="min-w-0 truncate text-xs text-destructive" title={error}>
                 {error}
@@ -193,7 +194,7 @@ export function DiffTabView({ tab }: { tab: EditorTab }) {
           <>
             {isText && !showMarkdownPreview && <DiffNotesSendButton workspaceId={tab.workspaceId} path={tab.path} />}
             <EditorHeaderButton
-              label="Open file"
+              label={t('Open file')}
               disabled={!canOpenFile}
               onClick={() => openEditorTab({ workspaceId: tab.workspaceId, kind: 'file', path: tab.path, staged: false })}
             >
@@ -201,7 +202,7 @@ export function DiffTabView({ tab }: { tab: EditorTab }) {
             </EditorHeaderButton>
             {!showMarkdownPreview && content?.kind !== 'binary' && (
               <EditorHeaderButton
-                label={sideBySide ? 'Switch to inline diff' : 'Switch to side-by-side diff'}
+                label={sideBySide ? t('Switch to inline diff') : t('Switch to side-by-side diff')}
                 onClick={() => updateEditorPreferences({ diffSideBySide: !sideBySide })}
               >
                 {sideBySide ? <Rows2 size={14} /> : <Columns2 size={14} />}
@@ -209,10 +210,10 @@ export function DiffTabView({ tab }: { tab: EditorTab }) {
             )}
             {isText && !showMarkdownPreview && (
               <>
-                <EditorHeaderButton label="Previous change" disabled={changeCount === 0} onClick={() => diffEditor?.goToDiff('previous')}>
+                <EditorHeaderButton label={t('Previous change')} disabled={changeCount === 0} onClick={() => diffEditor?.goToDiff('previous')}>
                   <ArrowUp size={14} />
                 </EditorHeaderButton>
-                <EditorHeaderButton label="Next change" disabled={changeCount === 0} onClick={() => diffEditor?.goToDiff('next')}>
+                <EditorHeaderButton label={t('Next change')} disabled={changeCount === 0} onClick={() => diffEditor?.goToDiff('next')}>
                   <ArrowDown size={14} />
                 </EditorHeaderButton>
               </>
@@ -222,19 +223,19 @@ export function DiffTabView({ tab }: { tab: EditorTab }) {
         }
         menuItems={
           <>
-            <DropdownMenuItem onSelect={reload}>Reload</DropdownMenuItem>
+            <DropdownMenuItem onSelect={reload}>{t('Reload')}</DropdownMenuItem>
             <DropdownMenuSeparator />
             <DropdownMenuCheckboxItem
               checked={prefs.diffWordWrap}
               onCheckedChange={() => updateEditorPreferences({ diffWordWrap: !prefs.diffWordWrap })}
             >
-              Word Wrap
+              {t('Word Wrap')}
             </DropdownMenuCheckboxItem>
             <DropdownMenuCheckboxItem
               checked={prefs.diffShowWhitespace}
               onCheckedChange={() => updateEditorPreferences({ diffShowWhitespace: !prefs.diffShowWhitespace })}
             >
-              Show Whitespace
+              {t('Show Whitespace')}
             </DropdownMenuCheckboxItem>
             <DropdownMenuCheckboxItem
               checked={prefs.diffCollapseUnchangedRegions}
@@ -242,7 +243,7 @@ export function DiffTabView({ tab }: { tab: EditorTab }) {
                 updateEditorPreferences({ diffCollapseUnchangedRegions: !prefs.diffCollapseUnchangedRegions })
               }
             >
-              Collapse Unchanged Regions
+              {t('Collapse Unchanged Regions')}
             </DropdownMenuCheckboxItem>
           </>
         }
@@ -260,12 +261,12 @@ export function DiffTabView({ tab }: { tab: EditorTab }) {
         />
       )}
       <div className="flex min-h-0 flex-1 flex-col">
-        {!content && !error && <div className="flex h-full items-center justify-center text-sm text-muted-foreground">Loading diff...</div>}
+        {!content && !error && <div className="flex h-full items-center justify-center text-sm text-muted-foreground">{t('Loading diff...')}</div>}
         {content?.kind === 'binary' && (
           <div className="flex h-full items-center justify-center px-6 text-center">
             <div className="space-y-2">
-              <div className="text-sm font-medium text-foreground">Binary file changed</div>
-              <div className="text-xs text-muted-foreground">Text diff is unavailable for this file.</div>
+              <div className="text-sm font-medium text-foreground">{t('Binary file changed')}</div>
+              <div className="text-xs text-muted-foreground">{t('Text diff is unavailable for this file.')}</div>
             </div>
           </div>
         )}
@@ -281,7 +282,7 @@ export function DiffTabView({ tab }: { tab: EditorTab }) {
         {content?.kind === 'text' && showMarkdownPreview && (
           <>
             <div className="shrink-0 border-b border-border/60 bg-muted/40 px-3 py-2 text-xs text-muted-foreground">
-              Previewing the modified version of this diff. Switch to source mode to inspect changes.
+              {t('Previewing the modified version of this diff. Switch to source mode to inspect changes.')}
             </div>
             <div className="min-h-0 flex-1">
               <MarkdownPreview content={liveModified} workspaceId={tab.workspaceId} filePath={tab.path} />
@@ -325,8 +326,8 @@ function DiffNotesSendButton({ workspaceId, path }: { workspaceId: string; path:
     <SendToAgentMenu
       workspaceId={workspaceId}
       count={unsent.length}
-      disabledTooltip={notes.some((n) => n.filePath === path) ? 'All notes sent' : 'Hover a line and press + to add a note'}
-      tooltip="Send this file's notes to an agent"
+      disabledTooltip={notes.some((n) => n.filePath === path) ? t('All notes sent') : t('Hover a line and press + to add a note')}
+      tooltip={t("Send this file's notes to an agent")}
       buildPrompt={() => {
         const pending = getReviewNotes(workspaceId).filter((n) => n.filePath === path && !n.sentAt)
         handedOver.current = pending.map((n) => n.id)

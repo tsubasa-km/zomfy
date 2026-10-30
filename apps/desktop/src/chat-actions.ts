@@ -19,6 +19,7 @@ import {
   type QueuedMessage
 } from '@/stores/chat-store'
 import { queueOnStatus } from '@/stores/prompt-queue'
+import { t } from '@/i18n/i18n'
 
 function session(sessionId: string): Session | undefined {
   return getState().sessions.find((s) => s.id === sessionId)
@@ -152,7 +153,7 @@ export async function setAgentOption(sessionId: string, optionId: string, value:
     updateSession(sessionId, (s) => ({
       ...s,
       agentState: previous,
-      items: [...s.items, { kind: 'notice', text: `Couldn't change that option: ${String(error)}`, severity: 'error' }]
+      items: [...s.items, { kind: 'notice', text: t("Couldn't change that option: {error}", { error: String(error) }), severity: 'error' }]
     }))
   }
 }
@@ -193,7 +194,7 @@ function openSession(info: SessionInfo, hostId: string): void {
 
 /** Why a chat cannot fork, or null: ACP has no stable fork, so other agents' chats go without (as in Orca). */
 export function forkUnavailableReason(s: Pick<Session, 'agent'>): string | null {
-  return isExternalAgentSession(s) ? 'Forking works in Claude chats only' : null
+  return isExternalAgentSession(s) ? t('Forking works in Claude chats only') : null
 }
 
 /** A new tab continuing a copy of the conversation; `fromMessageId` ends the copy with that prompt's exchange. */
@@ -213,7 +214,7 @@ export async function forkChat(sessionId: string, fromMessageId?: string): Promi
     )
     openSession(info, source.hostId)
   } catch (error) {
-    const text = `Couldn't fork this chat: ${error instanceof Error ? error.message : String(error)}`
+    const text = t("Couldn't fork this chat: {error}", { error: error instanceof Error ? error.message : String(error) })
     updateSession(sessionId, (s) => ({ ...s, items: [...s.items, { kind: 'notice', text, severity: 'error' }] }))
   }
 }
@@ -257,7 +258,7 @@ export async function resumeTurn(sessionId: string, kind: Exclude<TurnResumeKind
     await harnessRequest(HARNESS_METHODS.sessionResumeTurn, { sessionId, kind }, target.hostId)
   } catch (error) {
     updateSession(sessionId, (s) => ({ ...s, status: target.status, turnStartedAt: null }))
-    noteFailure(sessionId, "Couldn't pick this chat back up", error)
+    noteFailure(sessionId, t("Couldn't pick this chat back up"), error)
   }
 }
 
@@ -268,6 +269,6 @@ export async function setAutoResume(sessionId: string, enabled: boolean, resetsA
   try {
     await harnessRequest(HARNESS_METHODS.sessionSetAutoResume, { sessionId, enabled, resetsAt }, target.hostId)
   } catch (error) {
-    noteFailure(sessionId, "Couldn't change automatic resume", error)
+    noteFailure(sessionId, t("Couldn't change automatic resume"), error)
   }
 }

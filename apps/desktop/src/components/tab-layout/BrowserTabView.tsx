@@ -11,6 +11,7 @@ import {
   stepBrowserHistory,
   type BrowserTab
 } from '@/stores/browser-tab-store'
+import { t } from '@/i18n/i18n'
 
 // Orca's browser chrome (browser-navigation-control-row.tsx): back, forward, reload, address bar.
 // The page is an iframe, so history covers addresses typed here, not links clicked inside a
@@ -45,7 +46,7 @@ export function BrowserTabView({ tab }: { tab: BrowserTab }) {
           size="icon"
           variant="ghost"
           className="h-7 w-7"
-          aria-label="Back"
+          aria-label={t('Back')}
           disabled={tab.historyIndex === 0}
           onClick={() => stepBrowserHistory(tab.id, -1)}
         >
@@ -55,7 +56,7 @@ export function BrowserTabView({ tab }: { tab: BrowserTab }) {
           size="icon"
           variant="ghost"
           className="h-7 w-7"
-          aria-label="Forward"
+          aria-label={t('Forward')}
           disabled={tab.historyIndex >= tab.history.length - 1}
           onClick={() => stepBrowserHistory(tab.id, 1)}
         >
@@ -65,7 +66,7 @@ export function BrowserTabView({ tab }: { tab: BrowserTab }) {
           size="icon"
           variant="ghost"
           className="h-7 w-7"
-          aria-label="Reload"
+          aria-label={t('Reload')}
           disabled={url === BLANK_URL}
           onClick={() => reloadBrowserTab(tab.id)}
         >
@@ -76,9 +77,9 @@ export function BrowserTabView({ tab }: { tab: BrowserTab }) {
           <input
             ref={input}
             data-browser-address
-            aria-label="Address"
+            aria-label={t('Address')}
             value={address}
-            placeholder="Search or enter URL"
+            placeholder={t('Search or enter URL')}
             spellCheck={false}
             className="h-full min-w-0 flex-1 bg-transparent text-sm outline-none placeholder:text-muted-foreground/60"
             onChange={(e) => setAddress(e.target.value)}
@@ -98,8 +99,8 @@ export function BrowserTabView({ tab }: { tab: BrowserTab }) {
           size="icon"
           variant="ghost"
           className="h-7 w-7"
-          aria-label="Open In Browser"
-          title="Open In Browser"
+          aria-label={t('Open In Browser')}
+          title={t('Open In Browser')}
           disabled={!/^https?:/.test(url)}
           onClick={() => window.open(url, '_blank', 'noopener')}
         >
@@ -108,8 +109,7 @@ export function BrowserTabView({ tab }: { tab: BrowserTab }) {
       </div>
       {url === BLANK_URL ? (
         <div className="m-auto max-w-sm text-center text-sm text-muted-foreground">
-          Type an address or a search above. Sites that refuse to be embedded stay blank here; open
-          them in your browser instead.
+          {t('Type an address or a search above. Sites that refuse to be embedded stay blank here; open them in your browser instead.')}
         </div>
       ) : (
         <iframe

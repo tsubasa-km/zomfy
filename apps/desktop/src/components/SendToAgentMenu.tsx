@@ -16,6 +16,7 @@ import {
 } from '@/components/ui/dropdown-menu'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { cn } from '@/lib/utils'
+import { t } from '@/i18n/i18n'
 
 // Orca's NotesSendMenu: hands a prompt (review notes, PR comments) to one of the workspace's agents
 // or a new one. A busy agent queues it behind its running turn.
@@ -36,8 +37,8 @@ export function SendToAgentMenu({
   workspaceId,
   buildPrompt,
   count,
-  disabledTooltip = 'All notes sent',
-  tooltip = 'Send notes to an agent',
+  disabledTooltip = t('All notes sent'),
+  tooltip = t('Send notes to an agent'),
   label,
   onSent,
   className
@@ -90,7 +91,7 @@ export function SendToAgentMenu({
         </TooltipContent>
       </Tooltip>
       <DropdownMenuContent align="end" className="w-60">
-        <DropdownMenuLabel className="text-xs text-muted-foreground">Send {count === 1 ? '1 item' : `${count} items`} to</DropdownMenuLabel>
+        <DropdownMenuLabel className="text-xs text-muted-foreground">{count === 1 ? t('Send 1 item to') : t('Send {n} items to', { n: count })}</DropdownMenuLabel>
         {sessions.map((s) => (
           <DropdownMenuItem key={s.id} onSelect={() => deliver(s.id)} data-send-target={s.id}>
             <ClaudeIcon size={14} />
@@ -101,7 +102,7 @@ export function SendToAgentMenu({
         {sessions.length > 0 && <DropdownMenuSeparator />}
         <DropdownMenuItem onSelect={() => deliver(null)} data-send-target="new">
           <Plus className="size-4" />
-          New Claude session
+          {t('New Claude session')}
         </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>

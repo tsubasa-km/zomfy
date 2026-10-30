@@ -15,9 +15,20 @@ import {
 } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { t } from '@/i18n/i18n'
 
 // Shaped after Orca's DeleteWorktreeDialog (with its dirty-change hint) and WorktreeMetaDialog.
 // The new-workspace composer lives in sidebar/NewWorkspaceDialog.
+
+function lossText(modified: number, untracked: number): string {
+  if (modified > 0 && untracked > 0) {
+    return t('{modified} modified and {untracked} untracked files will be lost.', { modified, untracked })
+  }
+  if (modified > 0) {
+    return modified === 1 ? t('{n} modified file will be lost.', { n: modified }) : t('{n} modified files will be lost.', { n: modified })
+  }
+  return untracked === 1 ? t('{n} untracked file will be lost.', { n: untracked }) : t('{n} untracked files will be lost.', { n: untracked })
+}
 
 export function DeleteWorkspaceDialog({
   workspace,
@@ -61,11 +72,11 @@ export function DeleteWorkspaceDialog({
     <Dialog open={workspace !== null} onOpenChange={(open) => !open && onClose()}>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
-          <DialogTitle>Delete Workspace</DialogTitle>
+          <DialogTitle>{t('Delete Workspace')}</DialogTitle>
           <DialogDescription className="break-all">
             {workspace?.scratch
-              ? `Moves the quick chat's folder ${workspace.path} to the trash and closes its chats.`
-              : `Removes the worktree at ${workspace?.path}.`}
+              ? t("Moves the quick chat's folder {path} to the trash and closes its chats.", { path: workspace.path })
+              : t('Removes the worktree at {path}.', { path: workspace?.path })}
           </DialogDescription>
         </DialogHeader>
         {(dirty || !!inspection?.unpushedCommits) && (
@@ -76,18 +87,15 @@ export function DeleteWorkspaceDialog({
             <TriangleAlert className="mt-px size-3.5 shrink-0 text-destructive" />
             <div className="space-y-0.5">
               {dirty && (
-                <p>
-                  {inspection!.modifiedFiles > 0 && `${inspection!.modifiedFiles} modified`}
-                  {inspection!.modifiedFiles > 0 && inspection!.untrackedFiles > 0 && ' and '}
-                  {inspection!.untrackedFiles > 0 && `${inspection!.untrackedFiles} untracked`}
-                  {' '}
-                  {inspection!.modifiedFiles + inspection!.untrackedFiles === 1 ? 'file' : 'files'} will be lost.
-                </p>
+                <p>{lossText(inspection!.modifiedFiles, inspection!.untrackedFiles)}</p>
               )}
               {!!inspection?.unpushedCommits && (
                 <p>
-                  {inspection.unpushedCommits} {inspection.unpushedCommits === 1 ? 'commit is' : 'commits are'} not on
-                  upstream or the base branch; the branch keeps them unless it is deleted.
+                  {inspection.unpushedCommits === 1
+                    ? t('{n} commit is not on upstream or the base branch; the branch keeps them unless it is deleted.', { n: 1 })
+                    : t('{n} commits are not on upstream or the base branch; the branch keeps them unless it is deleted.', {
+                        n: inspection.unpushedCommits
+                      })}
                 </p>
               )}
             </div>
@@ -96,25 +104,34 @@ export function DeleteWorkspaceDialog({
         {workspace?.branch && (
           <label className="flex items-center gap-2 text-sm">
             <Checkbox checked={deleteBranch} onCheckedChange={(v) => setDeleteBranch(v === true)} />
-            Also delete branch <code className="font-mono text-xs">{workspace.branch}</code> if merged
+            {(() => {
+              const [before, after] = t('Also delete branch {branch} if merged').split('{branch}')
+              return (
+                <>
+                  {before}
+                  <code className="font-mono text-xs">{workspace.branch}</code>
+                  {after}
+                </>
+              )
+            })()}
           </label>
         )}
         {error && (
           <p className="text-sm break-words text-destructive">
-            {error} Force delete discards uncommitted changes.
+            {error} {t('Force delete discards uncommitted changes.')}
           </p>
         )}
         <DialogFooter>
           <Button variant="outline" onClick={onClose}>
-            Cancel
+            {t('Cancel')}
           </Button>
           {error || dirty ? (
             <Button variant="destructive" disabled={busy} onClick={() => void remove(true)}>
-              Force Delete
+              {t('Force Delete')}
             </Button>
           ) : (
             <Button variant="destructive" disabled={busy} onClick={() => void remove(false)}>
-              Delete Workspace
+              {t('Delete Workspace')}
             </Button>
           )}
         </DialogFooter>
@@ -162,7 +179,7 @@ export function UpdateWorkspaceDialog({
     <Dialog open={workspace !== null} onOpenChange={(open) => !open && onClose()}>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
-          <DialogTitle>Workspace details</DialogTitle>
+          <DialogTitle>{t('Workspace details')}</DialogTitle>
           <DialogDescription className="break-all">{workspace?.path}</DialogDescription>
         </DialogHeader>
         <form
@@ -174,7 +191,7 @@ export function UpdateWorkspaceDialog({
         >
           <div className="space-y-1.5">
             <Label htmlFor="workspace-display-name" className="text-xs font-medium text-muted-foreground">
-              Display name
+              {t('Display name')}
             </Label>
             <Input
               id="workspace-display-name"
@@ -185,22 +202,22 @@ export function UpdateWorkspaceDialog({
           </div>
           <div className="space-y-1.5">
             <Label htmlFor="workspace-comment" className="text-xs font-medium text-muted-foreground">
-              Notes
+              {t('Notes')}
             </Label>
             <textarea
               id="workspace-comment"
               value={comment}
               onChange={(e) => setComment(e.target.value)}
-              placeholder="What is this workspace for?"
+              placeholder={t('What is this workspace for?')}
               className="min-h-20 w-full resize-y rounded-md border border-input bg-background px-2.5 py-1.5 text-sm shadow-xs outline-none focus-visible:border-ring focus-visible:ring-1 focus-visible:ring-ring dark:bg-input/30"
             />
           </div>
           {error && <p className="text-sm text-destructive">{error}</p>}
           <DialogFooter>
             <Button type="button" variant="outline" onClick={onClose}>
-              Cancel
+              {t('Cancel')}
             </Button>
-            <Button type="submit">Save</Button>
+            <Button type="submit">{t('Save')}</Button>
           </DialogFooter>
         </form>
       </DialogContent>

@@ -4,18 +4,20 @@ import { NativeChatToolLine } from './NativeChatToolLine'
 import { NativeChatSubagentRun } from './NativeChatSubagentRun'
 import { useNativeChatDisclosure } from './native-chat-disclosure-store'
 import { isSubagentTool, shortenPaths, type ApprovalOutcome, type ToolNode } from './native-chat-transcript-model'
+import { t } from '@/i18n/i18n'
 
 // A run of tool calls folds into one line, as the Claude app shows "Ran 4 commands": the reader
 // opens it for the calls; while one is still going, that call shows under the line.
 
-const KIND_PHRASES: Record<string, [string, string, string]> = {
-  execute: ['Ran', 'command', 'commands'],
-  read: ['Read', 'file', 'files'],
-  edit: ['Edited', 'file', 'files'],
-  delete: ['Deleted', 'file', 'files'],
-  move: ['Moved', 'file', 'files'],
-  search: ['Searched', 'time', 'times'],
-  fetch: ['Fetched', 'page', 'pages']
+// One phrase for one call and one for several, lowercase; the summary capitalizes its first letter.
+const KIND_PHRASES: Record<string, [string, string]> = {
+  execute: ['ran {n} command', 'ran {n} commands'],
+  read: ['read {n} file', 'read {n} files'],
+  edit: ['edited {n} file', 'edited {n} files'],
+  delete: ['deleted {n} file', 'deleted {n} files'],
+  move: ['moved {n} file', 'moved {n} files'],
+  search: ['searched {n} time', 'searched {n} times'],
+  fetch: ['fetched {n} page', 'fetched {n} pages']
 }
 
 /** "Ran 2 commands, edited 1 file" from the calls' kinds, in the order they first appear. */
@@ -26,16 +28,16 @@ export function toolRunSummary(tools: ToolNode[]): string {
     counts.set(kind, (counts.get(kind) ?? 0) + 1)
   }
   const parts = [...counts].map(([kind, n]) => {
-    if (kind === 'agent') return `ran ${n} agent${n > 1 ? 's' : ''}`
-    if (kind === 'other') return `${n} other step${n > 1 ? 's' : ''}`
-    const [verb, one, many] = KIND_PHRASES[kind]!
-    return `${verb.toLowerCase()} ${n} ${n > 1 ? many : one}`
+    if (kind === 'agent') return n > 1 ? t('ran {n} agents', { n }) : t('ran {n} agent', { n })
+    if (kind === 'other') return n > 1 ? t('{n} other steps', { n }) : t('{n} other step', { n })
+    const [one, many] = KIND_PHRASES[kind]!
+    return t(n > 1 ? many : one, { n })
   })
-  const text = parts.join(', ')
+  const text = parts.join(t(', '))
   return text.charAt(0).toUpperCase() + text.slice(1)
 }
 
-const OUTCOME_LABELS: Record<ApprovalOutcome, string> = { allowed: 'Allowed', rejected: 'Rejected', expired: 'Expired' }
+const OUTCOME_LABELS: Record<ApprovalOutcome, string> = { allowed: t('Allowed'), rejected: t('Rejected'), expired: t('Expired') }
 
 export function NativeChatDecisionLine({ title, outcome, cwd }: { title: string; outcome: ApprovalOutcome; cwd: string }) {
   return (
@@ -83,7 +85,7 @@ export function NativeChatToolGroup({ tools, rowKey, cwd }: { tools: ToolNode[];
         className="group/tool-run flex min-h-6.5 w-full items-center gap-1.5 rounded-md text-left text-sm text-chat-foreground-faint hover:text-chat-foreground focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none focus-visible:ring-inset"
       >
         <span className="min-w-0 truncate">{toolRunSummary(tools)}</span>
-        {failed > 0 ? <span className="shrink-0 text-xs text-destructive/80">{failed} failed</span> : null}
+        {failed > 0 ? <span className="shrink-0 text-xs text-destructive/80">{t('{n} failed', { n: failed })}</span> : null}
         <ChevronRight aria-hidden className={cn('size-3.5 shrink-0 transition-transform', open && 'rotate-90')} />
       </button>
       {open ? (

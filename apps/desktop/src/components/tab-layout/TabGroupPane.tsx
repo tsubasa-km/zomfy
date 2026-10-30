@@ -12,6 +12,7 @@ import { resolveTabDropTarget, setInsertionMark, tabDrag, type DropZone } from '
 import { focusGroup, moveTabTo, splitTabTo } from './tab-group-commands'
 import './pane-split-commands'
 import type { WorkspaceTab } from './workspace-tab-model'
+import { t } from '@/i18n/i18n'
 
 const OVERLAY_RECT: Record<DropZone, React.CSSProperties> = {
   up: { top: 0, left: 0, width: '100%', height: '50%' },
@@ -111,7 +112,7 @@ export function TabGroupPane({
         <div aria-hidden data-tab-drop-zone={zone} className="tab-drop-overlay" style={OVERLAY_RECT[zone]}>
           {zone !== 'center' && (
             <span className="tab-drop-overlay__label pointer-events-none absolute bottom-2 left-2 rounded-sm px-1.5 py-0.5 font-medium">
-              New split
+              {t('New split')}
             </span>
           )}
         </div>

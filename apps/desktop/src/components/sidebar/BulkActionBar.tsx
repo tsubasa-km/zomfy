@@ -18,6 +18,7 @@ import {
   DropdownMenuTrigger
 } from '@/components/ui/dropdown-menu'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
+import { t } from '@/i18n/i18n'
 
 // Actions for several multi-selected workspaces (Orca's multi-select context menu and the
 // source-control bulk-action-bar).
@@ -67,17 +68,17 @@ export function BulkActionBar() {
         className="mx-2 mb-2 flex items-center gap-0.5 rounded-lg border border-worktree-sidebar-border bg-background px-1.5 py-1 shadow-sm"
         data-bulk-bar
       >
-        <span className="min-w-0 flex-1 truncate pl-1 text-xs font-medium tabular-nums">{selected.length} selected</span>
+        <span className="min-w-0 flex-1 truncate pl-1 text-xs font-medium tabular-nums">{t('{n} selected', { n: selected.length })}</span>
         <DropdownMenu>
           <Tooltip>
             <TooltipTrigger asChild>
               <DropdownMenuTrigger asChild>
-                <Button size="icon-xs" variant="ghost" aria-label="Set status" data-bulk-action="status">
+                <Button size="icon-xs" variant="ghost" aria-label={t('Set status')} data-bulk-action="status">
                   <CircleDashed className="size-3.5" />
                 </Button>
               </DropdownMenuTrigger>
             </TooltipTrigger>
-            <TooltipContent side="top">Set status</TooltipContent>
+            <TooltipContent side="top">{t('Set status')}</TooltipContent>
           </Tooltip>
           <DropdownMenuContent side="top" align="start">
             {WORKSPACE_STATUSES.map((s) => (
@@ -87,31 +88,31 @@ export function BulkActionBar() {
                 onSelect={() => each((w) => updateWorkspace(w.id, { status: s.id }))}
               >
                 <WorkspaceStatusIcon status={s.id} />
-                {s.label}
+                {t(s.label)}
               </DropdownMenuItem>
             ))}
             <DropdownMenuSeparator />
             <DropdownMenuItem onSelect={() => each((w) => updateWorkspace(w.id, { status: null }))}>
-              Clear status
+              {t('Clear status')}
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
         {action(
-          allPinned ? 'Unpin' : 'Pin',
+          allPinned ? t('Unpin') : t('Pin'),
           allPinned ? <PinOff className="size-3.5" /> : <Pin className="size-3.5" />,
           () => each((w) => updateWorkspace(w.id, { pinned: !allPinned })),
           'pin'
         )}
-        {action('Mark Read', <MailOpen className="size-3.5" />, () => each((w) => markWorkspaceRead(w.id, true)), 'read')}
-        {action('Mark Unread', <Mail className="size-3.5" />, () => each((w) => markWorkspaceRead(w.id, false)), 'unread')}
-        {action('Sleep', <Moon className="size-3.5" />, () => each((w) => sleepWorkspace(w.id)), 'sleep')}
+        {action(t('Mark Read'), <MailOpen className="size-3.5" />, () => each((w) => markWorkspaceRead(w.id, true)), 'read')}
+        {action(t('Mark Unread'), <Mail className="size-3.5" />, () => each((w) => markWorkspaceRead(w.id, false)), 'unread')}
+        {action(t('Sleep'), <Moon className="size-3.5" />, () => each((w) => sleepWorkspace(w.id)), 'sleep')}
         {action(
-          'Delete',
+          t('Delete'),
           <Trash2 className="size-3.5 text-destructive" />,
           () => setDeleting(selected.filter((w) => !w.isPrimary)),
           'delete'
         )}
-        {action('Clear selection', <X className="size-3.5" />, clearSelection, 'clear')}
+        {action(t('Clear selection'), <X className="size-3.5" />, clearSelection, 'clear')}
       </div>
       {deleting && <BulkDeleteDialog workspaces={deleting} onClose={() => setDeleting(null)} />}
     </>
@@ -121,7 +122,7 @@ export function BulkActionBar() {
 /** Deletes several workspaces in turn; failures (usually uncommitted changes) are listed for a forced retry. */
 export function BulkDeleteDialog({
   workspaces,
-  title = `Delete ${workspaces.length} Workspaces`,
+  title = t('Delete {n} Workspaces', { n: workspaces.length }),
   onClose
 }: {
   workspaces: Workspace[]
@@ -162,8 +163,8 @@ export function BulkDeleteDialog({
           <DialogTitle>{title}</DialogTitle>
           <DialogDescription>
             {workspaces.length === 0
-              ? "A project's own checkout cannot be deleted."
-              : 'Removes these worktrees from disk. Folder workspaces are only forgotten.'}
+              ? t("A project's own checkout cannot be deleted.")
+              : t('Removes these worktrees from disk. Folder workspaces are only forgotten.')}
           </DialogDescription>
         </DialogHeader>
         <ul className="max-h-48 space-y-1 overflow-y-auto text-sm">
@@ -179,19 +180,19 @@ export function BulkDeleteDialog({
         </ul>
         <label className="flex items-center gap-2 text-sm">
           <Checkbox checked={deleteBranches} onCheckedChange={(v) => setDeleteBranches(v === true)} />
-          Also delete their branches if merged
+          {t('Also delete their branches if merged')}
         </label>
         <DialogFooter>
           <Button variant="outline" onClick={onClose}>
-            Cancel
+            {t('Cancel')}
           </Button>
           {failed.length > 0 ? (
             <Button variant="destructive" disabled={busy} onClick={() => void run(true)}>
-              Force Delete {failed.length}
+              {t('Force Delete {n}', { n: failed.length })}
             </Button>
           ) : (
             <Button variant="destructive" disabled={busy || targets.length === 0} onClick={() => void run(false)}>
-              {busy ? 'Deleting…' : 'Delete'}
+              {busy ? t('Deleting…') : t('Delete')}
             </Button>
           )}
         </DialogFooter>

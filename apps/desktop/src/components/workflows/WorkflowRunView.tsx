@@ -20,16 +20,17 @@ import { canvasLayout } from './workflow-canvas-layout'
 import { WORKFLOW_EDGE_TYPES } from './workflow-route-edge'
 import { LoopViewPanel, loopDecor, useLoopView } from './workflow-loop-view'
 import { outcomeLabel } from './workflow-model'
+import { t } from '@/i18n/i18n'
 
 // A run of a workflow: the graph as it was when the run started, with where the run is now, how
 // often each step ran and which edges it took; beside it, the steps' log and the person's part.
 
 const STATUS_LABELS: Record<WorkflowRun['status'], string> = {
-  running: 'Running',
-  waiting: 'Waiting for you',
-  done: 'Done',
-  failed: 'Failed',
-  stopped: 'Stopped'
+  running: t('Running'),
+  waiting: t('Waiting for you'),
+  done: t('Done'),
+  failed: t('Failed'),
+  stopped: t('Stopped')
 }
 
 const STATUS_CLASSES: Record<WorkflowRun['status'], string> = {
@@ -73,7 +74,7 @@ function stepStates(run: WorkflowRun, asking: Set<string>): Map<string, StepRunS
     states.set(node.id, {
       now: (here && run.status === 'waiting') || needsYou ? 'waiting' : here && run.status === 'running' && open ? 'running' : null,
       visits: reached ? 1 : done.length,
-      lastOutcome: reached ? 'Reached' : last?.outcome ? outcomeLabel(last.outcome) : null,
+      lastOutcome: reached ? t('Reached') : last?.outcome ? outcomeLabel(last.outcome) : null,
       failed: !!last?.error
     })
   }
@@ -116,8 +117,10 @@ export function WorkflowRunView({ run, onBack }: { run: HostedWorkflowRun; onBac
   const visited = new Set(run.steps.map((s) => s.nodeId))
   const roundOf = (cycle: WorkflowCycle) =>
     cycle.nodeIds.some((id) => visited.has(id))
-      ? `round ${(run.rounds[`cycle:${cycle.id}`] ?? 0) + 1}${cycle.maxRounds ? ` of ${cycle.maxRounds}` : ''}`
-      : 'not reached'
+      ? cycle.maxRounds
+        ? t('round {n} of {max}', { n: (run.rounds[`cycle:${cycle.id}`] ?? 0) + 1, max: cycle.maxRounds })
+        : t('round {n}', { n: (run.rounds[`cycle:${cycle.id}`] ?? 0) + 1 })
+      : t('not reached')
   const decor = loopDecor(loopView, cycles, roundOf)
   const held = localOnlySteps(run.workflow)
   const dataNodes = dataCanvasNodes(run.workflow, null, () => null, sizes).map((n) => ({ ...n, draggable: false, selectable: false }))
@@ -210,7 +213,7 @@ function RunPanel({ run, focusNode, onBack }: { run: HostedWorkflowRun; focusNod
         setAnswer('')
       } else await harnessRequest(method, { runId: run.id }, run.hostId)
     } catch (error) {
-      toast.error('The run did not take that', { description: String(error) })
+      toast.error(t('The run did not take that'), { description: String(error) })
     } finally {
       setBusy(false)
     }
@@ -222,7 +225,7 @@ function RunPanel({ run, focusNode, onBack }: { run: HostedWorkflowRun; focusNod
         <div className="flex items-center gap-2">
           <Button variant="ghost" size="sm" className="-ml-2 h-7" onClick={onBack}>
             <ArrowLeft className="size-3.5" />
-            Editor
+            {t('Editor')}
           </Button>
           <span className={cn('ml-auto rounded-full bg-muted px-2 py-0.5 text-[11px] font-medium', STATUS_CLASSES[run.status])} data-run-status={run.status}>
             {STATUS_LABELS[run.status]}
@@ -230,7 +233,7 @@ function RunPanel({ run, focusNode, onBack }: { run: HostedWorkflowRun; focusNod
           {live && (
             <Button variant="outline" size="sm" className="h-7" disabled={busy} onClick={() => void act(HARNESS_METHODS.workflowRunStop)}>
               <CircleStop className="size-3.5" />
-              Stop
+              {t('Stop')}
             </Button>
           )}
         </div>
@@ -241,7 +244,7 @@ function RunPanel({ run, focusNode, onBack }: { run: HostedWorkflowRun; focusNod
             {run.endReason}
           </p>
         )}
-        <p className="text-[11px] text-muted-foreground">Started {new Date(run.createdAt).toLocaleString()}</p>
+        <p className="text-[11px] text-muted-foreground">{t('Started {time}', { time: new Date(run.createdAt).toLocaleString() })}</p>
       </div>
       <div className="border-b border-border p-4">
         <WorkflowRunScorecard card={workflowScorecard(run)} />
@@ -250,13 +253,13 @@ function RunPanel({ run, focusNode, onBack }: { run: HostedWorkflowRun; focusNod
       {run.status === 'waiting' && run.waiting && (
         <div className="space-y-2 border-b border-border bg-agent-question/5 p-4" data-run-waiting={run.waiting.reason}>
           <div className="text-xs font-medium text-agent-question-text">
-            {run.waiting.reason === 'limit' ? 'A loop needs your direction' : run.waiting.reason === 'ask' ? 'A step has a question' : 'Your turn'}
+            {run.waiting.reason === 'limit' ? t('A loop needs your direction') : run.waiting.reason === 'ask' ? t('A step has a question') : t('Your turn')}
           </div>
           <p className="text-xs whitespace-pre-wrap">{run.waiting.question}</p>
           <Textarea
             value={answer}
             onChange={(e) => setAnswer(e.target.value)}
-            placeholder={run.waiting.reason === 'limit' ? 'How the loop should go on' : 'Your answer'}
+            placeholder={run.waiting.reason === 'limit' ? t('How the loop should go on') : t('Your answer')}
             className="min-h-20 text-xs"
             onKeyDown={(e) => {
               if (e.key === 'Enter' && (e.ctrlKey || e.metaKey) && answer.trim()) void act(HARNESS_METHODS.workflowRunAnswer, answer)
@@ -264,14 +267,14 @@ function RunPanel({ run, focusNode, onBack }: { run: HostedWorkflowRun; focusNod
           />
           <Button size="sm" className="h-7" disabled={busy || !answer.trim()} onClick={() => void act(HARNESS_METHODS.workflowRunAnswer, answer)}>
             <Send className="size-3.5" />
-            Answer
+            {t('Answer')}
           </Button>
         </div>
       )}
 
       <div className="min-h-0 flex-1 space-y-2 overflow-y-auto p-4" data-run-steps>
-        {focusNode && <p className="text-[11px] text-muted-foreground">Showing one step; click the canvas to see all.</p>}
-        {steps.length === 0 && <p className="text-xs text-muted-foreground">No steps yet.</p>}
+        {focusNode && <p className="text-[11px] text-muted-foreground">{t('Showing one step; click the canvas to see all.')}</p>}
+        {steps.length === 0 && <p className="text-xs text-muted-foreground">{t('No steps yet.')}</p>}
         {steps.map((step) => (
           <div key={step.id} className="space-y-1 rounded-md border border-border p-2" data-run-step={step.nodeId}>
             <div className="flex items-center gap-2 text-xs">
@@ -279,10 +282,10 @@ function RunPanel({ run, focusNode, onBack }: { run: HostedWorkflowRun; focusNod
               {step.outcome && <span className="rounded bg-accent px-1 text-[10px] text-accent-foreground">{outcomeLabel(step.outcome)}</span>}
               {step.endedAt === null && !step.error && asking.has(step.id) && (
                 <span className="text-[10px] font-medium text-status-warning" data-step-needs-you>
-                  waiting for your approval
+                  {t('waiting for your approval')}
                 </span>
               )}
-              {step.endedAt === null && !step.error && !asking.has(step.id) && <span className="text-[10px] text-primary">running</span>}
+              {step.endedAt === null && !step.error && !asking.has(step.id) && <span className="text-[10px] text-primary">{t('running')}</span>}
               <span className="text-[10px] text-muted-foreground tabular-nums">{duration(step)}</span>
             </div>
             {step.error && <p className="text-[11px] text-destructive">{step.error}</p>}
@@ -306,7 +309,7 @@ function RunPanel({ run, focusNode, onBack }: { run: HostedWorkflowRun; focusNod
                     }}
                   >
                     <MessageSquare className="size-3" />
-                    {step.sessionIds.length > 1 ? `Chat ${i + 1}` : 'Open chat'}
+                    {step.sessionIds.length > 1 ? t('Chat {n}', { n: i + 1 }) : t('Open chat')}
                   </Button>
                 ))}
               </div>
@@ -315,7 +318,7 @@ function RunPanel({ run, focusNode, onBack }: { run: HostedWorkflowRun; focusNod
         ))}
         {!focusNode && followUps.length > 0 && (
           <div className="space-y-1 rounded-md border border-dashed border-border p-2" data-run-follow-ups>
-            <div className="text-xs font-medium">Left for later ({followUps.length})</div>
+            <div className="text-xs font-medium">{t('Left for later ({n})', { n: followUps.length })}</div>
             <ul className="list-disc space-y-0.5 pl-4 text-[11px] text-muted-foreground">
               {followUps.map((f, i) => (
                 <li key={i}>

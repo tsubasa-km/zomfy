@@ -4,6 +4,7 @@ import type { WorkflowCycle } from '@acp-harness/protocol'
 import { createExternalStore } from '@/stores/external-store'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { cn } from '@/lib/utils'
+import { t } from '@/i18n/i18n'
 
 // How the canvas shows loops (cycles): several ways side by side, picked on the canvas and kept per
 // window, so they can be compared on real workflows. Only the drawing changes; the harness counts
@@ -12,11 +13,11 @@ import { cn } from '@/lib/utils'
 export type LoopView = 'frames' | 'tint' | 'arrows' | 'badge' | 'none'
 
 export const LOOP_VIEWS: { value: LoopView; label: string; hint: string }[] = [
-  { value: 'frames', label: 'Frames', hint: 'A dashed frame with its name around each loop' },
-  { value: 'tint', label: 'Tinted areas', hint: 'A coloured area per loop, named in a legend' },
-  { value: 'arrows', label: 'Loop arrows', hint: 'The arrows going back carry the loop and its rounds' },
-  { value: 'badge', label: 'Badge on loop start', hint: 'The step a loop comes back to says so' },
-  { value: 'none', label: 'None', hint: 'Steps and arrows only' }
+  { value: 'frames', label: t('Frames'), hint: t('A dashed frame with its name around each loop') },
+  { value: 'tint', label: t('Tinted areas'), hint: t('A coloured area per loop, named in a legend') },
+  { value: 'arrows', label: t('Loop arrows'), hint: t('The arrows going back carry the loop and its rounds') },
+  { value: 'badge', label: t('Badge on loop start'), hint: t('The step a loop comes back to says so') },
+  { value: 'none', label: t('None'), hint: t('Steps and arrows only') }
 ]
 
 const KEY = 'acp-harness.workflow-loop-view.v1'
@@ -65,7 +66,7 @@ export function loopDecor(view: LoopView, cycles: WorkflowCycle[], rounds?: (cyc
   const edges = new Map<string, string>()
   const nodes = new Map<string, string>()
   if (view === 'arrows') for (const c of cycles) for (const id of c.backEdgeIds) edges.set(id, `↻ ${roundText(c)}`)
-  if (view === 'badge') for (const c of cycles) nodes.set(c.id, `${c.label} · ${rounds ? (rounds(c) ?? 'not reached') : c.maxRounds ? `up to ${c.maxRounds} rounds` : 'no round limit'}`)
+  if (view === 'badge') for (const c of cycles) nodes.set(c.id, `${c.label} · ${rounds ? (rounds(c) ?? t('not reached')) : c.maxRounds ? t('up to {n} rounds', { n: c.maxRounds }) : t('no round limit')}`)
   return { areas: view === 'frames' || view === 'tint' ? view : null, edges, nodes }
 }
 
@@ -78,10 +79,10 @@ export function LoopViewPanel({ cycles, rounds }: { cycles: WorkflowCycle[]; rou
       <div className="w-52 space-y-2 rounded-lg border border-border bg-card p-2 shadow-xs" data-workflow-loop-view={view}>
         <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
           <RefreshCw className="size-3" />
-          Loops
+          {t('Loops')}
         </div>
         <Select value={view} onValueChange={(v) => setLoopView(LOOP_VIEWS.find((x) => x.value === v)?.value ?? 'frames')}>
-          <SelectTrigger size="sm" className="h-7 w-full text-xs" aria-label="How loops are shown">
+          <SelectTrigger size="sm" className="h-7 w-full text-xs" aria-label={t('How loops are shown')}>
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
