@@ -14,6 +14,7 @@ export interface WorkflowsPageTarget {
 const store = createExternalStore<WorkflowsPageTarget | null>(null)
 
 export const useWorkflowsPage = () => store.use((target) => target)
+export const getWorkflowsPage = store.get
 
 export function openWorkflows(target: WorkflowsPageTarget | null): void {
   store.set(target)
