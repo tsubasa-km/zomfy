@@ -56,6 +56,15 @@ function PanelBody({ id, workspaceId }: { id: string; workspaceId: string }) {
   }
 }
 
+/** The pull tab's outline: sides slope in to a rounded bottom, the top open onto the edge it hangs from. */
+function TabShape({ className }: { className?: string }) {
+  return (
+    <svg width="44" height="16" viewBox="0 0 44 16" aria-hidden className="absolute inset-0">
+      <path d="M0.5 0 L6 12.6 Q7.3 15.5 10.4 15.5 H33.6 Q36.7 15.5 38 12.6 L43.5 0" className={cn('transition-colors', className)} />
+    </svg>
+  )
+}
+
 /**
  * The project's terminals, browsers and the right sidebar's panels, pulled down from under a tab strip:
  * hovering the handle opens it, leaving it closes it unless pinned. `exclude` is the pane's own active tab.
@@ -114,35 +123,26 @@ export function ToolDrawer({ workspaceId, exclude }: { workspaceId: string; excl
         onPointerEnter={() => later(true, OPEN_DELAY_MS)}
         onPointerLeave={() => !shown && clearTimeout(timer.current)}
       >
-        <svg
-          width="40"
-          height="14"
-          viewBox="0 0 40 14"
-          aria-hidden
-          className={cn(
-            'text-muted-foreground/60 transition-[color,opacity] group-hover:text-foreground/80',
-            shown && 'opacity-0'
-          )}
-        >
-          {/* Sides slope in to a rounded bottom; the top stays open onto the tab strip's edge. */}
-          <path
-            d="M0.5 0 L5.6 11.2 Q6.8 13.5 9.4 13.5 H30.6 Q33.2 13.5 34.4 11.2 L39.5 0"
-            className="fill-muted stroke-border transition-colors group-hover:fill-accent"
-          />
-          <path d="M16.5 5 H23.5 L20 9.5 Z" fill="currentColor" />
-        </svg>
+        <span className={cn('relative flex h-4 w-11 justify-center text-muted-foreground/60 transition-[color,opacity] group-hover:text-foreground/80', shown && 'opacity-0')}>
+          <TabShape className="fill-muted stroke-border group-hover:fill-accent" />
+          <svg width="8" height="5" viewBox="0 0 8 5" aria-hidden className="relative mt-[5px]">
+            <path d="M0.5 0 H7.5 L4 4.5 Z" fill="currentColor" />
+          </svg>
+        </span>
       </div>
       <div
         data-drawer={shown ? 'open' : 'closed'}
         onPointerEnter={() => shown && clearTimeout(timer.current)}
         onPointerLeave={() => !pinned && later(false, CLOSE_DELAY_MS)}
+        // The band at the bottom holds the pin tab, so the drawer and its tab are one thing to light and leave.
         className={cn(
-          'absolute inset-x-1.5 top-0 flex h-3/5 min-h-48 flex-col overflow-hidden rounded-b-lg border border-t-0 border-border bg-background shadow-lg transition-[clip-path,visibility] duration-200 ease-out',
-          shown ? 'pointer-events-auto' : 'invisible'
+          'absolute inset-x-1.5 top-0 flex h-3/5 min-h-48 flex-col pb-4 transition-[clip-path,visibility] duration-200 ease-out',
+          !shown && 'invisible'
         )}
         // Unrolls from the tab strip down, and rolls back up; the sides and bottom leave room for the shadow.
         style={{ clipPath: shown ? 'inset(0 -24px -24px -24px)' : 'inset(0 -24px 100% -24px)' }}
       >
+        <div className={cn('flex min-h-0 flex-1 flex-col overflow-hidden rounded-b-lg border border-t-0 border-border bg-background shadow-lg', shown && 'pointer-events-auto')}>
         <div className="flex h-8 shrink-0 items-center gap-0.5 border-b border-border bg-muted/40 px-1">
           <div className="flex min-w-0 items-center gap-0.5 overflow-hidden">
             {tools.map((t) => (
@@ -206,26 +206,6 @@ export function ToolDrawer({ workspaceId, exclude }: { workspaceId: string; excl
               </button>
             ))}
           </div>
-          {/* Set apart and worded, so it does not read as one more panel. */}
-          <div className="ml-1 flex shrink-0 items-center border-l border-border pl-1">
-            <button
-              type="button"
-              title={pinned ? t('Unpin') : t('Keep open')}
-              aria-pressed={pinned}
-              onClick={() => {
-                setPinned(!pinned)
-                setOpen(true)
-              }}
-              className={cn(
-                'flex h-6 shrink-0 items-center gap-1 rounded-md px-1.5 text-xs',
-                pinned ? 'bg-highlight/15 text-highlight hover:bg-highlight/25' : 'text-muted-foreground hover:bg-accent/50 hover:text-foreground'
-              )}
-              data-drawer-pin
-            >
-              <Pin className={cn('size-3.5', pinned && 'fill-current')} />
-              {pinned ? t('Pinned') : t('Pin')}
-            </button>
-          </div>
         </div>
         <div className="relative min-h-0 flex-1">
           {tools.map((t) => (
@@ -243,6 +223,27 @@ export function ToolDrawer({ workspaceId, exclude }: { workspaceId: string; excl
             </div>
           )}
         </div>
+        </div>
+        {/* The tab that pulled the drawer down now hangs under it and pins it open. */}
+        <button
+          type="button"
+          title={pinned ? t('Unpin') : t('Keep open')}
+          aria-label={pinned ? t('Unpin') : t('Keep open')}
+          aria-pressed={pinned}
+          onClick={() => {
+            setPinned(!pinned)
+            setOpen(true)
+          }}
+          className={cn(
+            'group/pin absolute bottom-[1px] left-1/2 flex h-4 w-11 -translate-x-1/2 justify-center',
+            shown && 'pointer-events-auto',
+            pinned ? 'text-white' : 'text-muted-foreground/70 hover:text-foreground'
+          )}
+          data-drawer-pin
+        >
+          <TabShape className={pinned ? 'fill-highlight stroke-highlight' : 'fill-background stroke-border group-hover/pin:fill-accent'} />
+          <Pin className={cn('relative mt-[3px] size-2.5', pinned && 'fill-current')} />
+        </button>
       </div>
     </div>
   )

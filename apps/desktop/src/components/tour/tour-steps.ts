@@ -84,18 +84,18 @@ export const TOUR_STEPS: TourStep[] = [
   {
     chapter: t('Layout'),
     title: t('The pull-down drawer'),
-    body: t('Each pane has a small bar under its tab strip. It pulls down the workspace’s terminals, browsers and panels.'),
+    body: t('Each pane has a small tab under its tab strip. It pulls down the workspace’s terminals, browsers and panels.'),
     target: '[data-drawer-handle]',
     optional: true,
-    action: { prompt: t('Point at the bar and wait a moment.'), on: 'hover' }
+    action: { prompt: t('Point at the tab and wait a moment.'), on: 'hover' }
   },
   {
     chapter: t('Layout'),
     title: t('Keep it open'),
-    body: t('The drawer closes when the pointer leaves it. The pin keeps it open while you work in it.'),
+    body: t('The drawer closes when the pointer leaves it. The same tab, now under the drawer, pins it open.'),
     target: DRAWER,
     optional: true,
-    action: { prompt: t('Click the pin at the top right. (If the drawer closed, point at the bar again.)'), on: 'click', within: '[data-drawer-pin]' }
+    action: { prompt: t('Click the tab under the drawer. (If the drawer closed, point at the tab again.)'), on: 'click', within: '[data-drawer-pin]' }
   },
   {
     chapter: t('Layout'),
@@ -103,7 +103,7 @@ export const TOUR_STEPS: TourStep[] = [
     body: t('Unpinned, it slides away as soon as the pointer moves off it.'),
     target: DRAWER,
     optional: true,
-    action: { prompt: t('Click the pin again, then move away.'), on: 'click', within: '[data-drawer-pin]' }
+    action: { prompt: t('Click the tab again, then move away.'), on: 'click', within: '[data-drawer-pin]' }
   },
   {
     chapter: t('Layout'),
