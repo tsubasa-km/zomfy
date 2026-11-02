@@ -21,6 +21,8 @@ import './markdown-editor.css'
 
 export interface MarkdownEditorHandle {
   focus(): void
+  /** Focuses with the caret after the last character. */
+  focusEnd(): void
   getValue(): string
   /** Replaces [from, to) and leaves the caret after the inserted text. */
   replaceRange(from: number, to: number, insert: string): void
@@ -170,6 +172,12 @@ export function MarkdownEditor({
     ref,
     () => ({
       focus: () => viewRef.current?.focus(),
+      focusEnd: () => {
+        const view = viewRef.current
+        if (!view) return
+        view.dispatch({ selection: EditorSelection.cursor(view.state.doc.length), scrollIntoView: true })
+        view.focus()
+      },
       getValue: () => viewRef.current?.state.doc.toString() ?? value,
       replaceRange: (from, to, insert) => {
         const view = viewRef.current

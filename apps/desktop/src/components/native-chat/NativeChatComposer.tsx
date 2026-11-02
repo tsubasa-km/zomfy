@@ -65,6 +65,8 @@ function readImage(file: File): Promise<ChatImage | null> {
 }
 
 const SEND_LABEL = { 'mod-enter': SUBMIT_SHORTCUT_LABEL, enter: '↵' } as const
+// What a press in the composer box keeps for itself instead of moving the caret.
+const COMPOSER_CONTROLS = 'button, a, input, select, textarea, label, [role="button"], [role="menuitem"], [role="option"], .cm-content, [data-native-chat-attachment]'
 
 export function NativeChatComposer({
   session,
@@ -304,7 +306,7 @@ export function NativeChatComposer({
             data-native-chat-composer
             data-chat-composer-drop
             className={cn(
-              'rounded-xl border border-chat-composer-border bg-chat-composer-surface p-1.5 shadow-xs [contain:paint] data-[tab-drop-hover]:border-ring data-[tab-drop-hover]:ring-2 data-[tab-drop-hover]:ring-ring/30',
+              'cursor-text rounded-xl border border-chat-composer-border [&_button]:cursor-default bg-chat-composer-surface p-1.5 shadow-xs [contain:paint] data-[tab-drop-hover]:border-ring data-[tab-drop-hover]:ring-2 data-[tab-drop-hover]:ring-ring/30',
               dragging && 'border-ring'
             )}
             onDragOver={(event) => {
@@ -312,6 +314,17 @@ export function NativeChatComposer({
                 event.preventDefault()
                 setDragging(true)
               }
+            }}
+            // The whole box is the input: a press on its padding, below the text or between the controls
+            // puts the caret at the end, as if the text box filled it.
+            onMouseDown={(event) => {
+              if (event.button !== 0 || !(event.target instanceof HTMLElement)) return
+              const target = event.target
+              if (target.closest(COMPOSER_CONTROLS)) return
+              // A press on a scrollbar scrolls.
+              if (event.nativeEvent.offsetX > target.clientWidth || event.nativeEvent.offsetY > target.clientHeight) return
+              event.preventDefault()
+              editorRef.current?.focusEnd()
             }}
             onDragLeave={() => setDragging(false)}
             onDrop={(event) => {

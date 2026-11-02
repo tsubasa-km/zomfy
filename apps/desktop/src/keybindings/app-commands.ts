@@ -38,6 +38,7 @@ const APP_COMMAND_HANDLERS: Record<string, CommandHandler> = {
     if (!floatingWorkspaceId() || !getSetting('floatingWorkspaceEnabled')) return false
     setFloating({ open: !getState().floating.open })
   },
+  'sidebar.left.toggle': () => setSetting('sidebarVisible', !getSetting('sidebarVisible')),
   'sidebar.right.toggle': () => setRightSidebar({ open: !getState().rightSidebar.open }),
   'sidebar.explorer.toggle': () => toggleRightSidebarTab('explorer'),
   'sidebar.search.toggle': () => toggleRightSidebarTab('search'),

@@ -22,6 +22,7 @@ import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip
 import { HostsMenu } from './HostsMenu'
 import { cn } from '@/lib/utils'
 import { registerStatusBarItem } from './status-bar-registry'
+import { OWN_TITLE_BAR } from '@/components/TitleBar'
 import { t } from '@/i18n/i18n'
 
 // Built-in segments, styled like Orca's (SshStatusSegment, the floating-terminal toggle):
@@ -175,4 +176,5 @@ registerStatusBarItem({ id: 'branch', label: t('Branch'), side: 'left', order: 1
 registerStatusBarItem({ id: 'agents', label: t('Agent activity'), side: 'left', order: 20, render: () => <AgentsSegment /> })
 registerStatusBarItem({ id: 'zoom', label: t('UI zoom'), side: 'right', order: 80, render: () => <ZoomSegment /> })
 registerStatusBarItem({ id: 'floating-workspace', label: t('Floating workspace'), side: 'right', order: 90, render: () => <FloatingWorkspaceSegment /> })
-registerStatusBarItem({ id: 'settings', label: t('Settings'), side: 'right', order: 100, pinned: true, render: () => <SettingsSegment /> })
+// Where the window draws its own title bar, Settings sits there instead.
+if (!OWN_TITLE_BAR) registerStatusBarItem({ id: 'settings', label: t('Settings'), side: 'right', order: 100, pinned: true, render: () => <SettingsSegment /> })

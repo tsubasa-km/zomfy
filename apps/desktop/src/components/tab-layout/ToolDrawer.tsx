@@ -59,8 +59,8 @@ function PanelBody({ id, workspaceId }: { id: string; workspaceId: string }) {
 /** The pull tab's outline: sides slope in to a rounded bottom, the top open onto the edge it hangs from. */
 function TabShape({ className }: { className?: string }) {
   return (
-    <svg width="44" height="16" viewBox="0 0 44 16" aria-hidden className="absolute inset-0">
-      <path d="M0.5 0 L6 12.6 Q7.3 15.5 10.4 15.5 H33.6 Q36.7 15.5 38 12.6 L43.5 0" className={cn('transition-colors', className)} />
+    <svg viewBox="0 0 52 20" aria-hidden className="absolute inset-0 size-full">
+      <path d="M0.5 0 L6.5 16 Q8 19.5 11.5 19.5 H40.5 Q44 19.5 45.5 16 L51.5 0" className={cn('transition-colors', className)} />
     </svg>
   )
 }
@@ -117,15 +117,15 @@ export function ToolDrawer({ workspaceId, exclude }: { workspaceId: string; excl
     <div ref={rootRef} className="pointer-events-none absolute inset-0 z-10 flex flex-col">
       {/* A small pull tab hanging off the tab strip, its arrow pointing the way the drawer comes. */}
       <div
-        className="group pointer-events-auto mx-auto flex h-4 w-24 shrink-0 justify-center"
+        className="group pointer-events-auto mx-auto flex h-5 w-24 shrink-0 justify-center"
         data-drawer-handle
         title={`${terminals === 1 ? t('{n} terminal', { n: terminals }) : t('{n} terminals', { n: terminals })} · ${browsers === 1 ? t('{n} browser', { n: browsers }) : t('{n} browsers', { n: browsers })}`}
         onPointerEnter={() => later(true, OPEN_DELAY_MS)}
         onPointerLeave={() => !shown && clearTimeout(timer.current)}
       >
-        <span className={cn('relative flex h-4 w-11 justify-center text-muted-foreground/60 transition-[color,opacity] group-hover:text-foreground/80', shown && 'opacity-0')}>
+        <span className={cn('relative flex h-5 w-[52px] justify-center text-muted-foreground/60 transition-[color,opacity] group-hover:text-foreground/80', shown && 'opacity-0')}>
           <TabShape className="fill-muted stroke-border group-hover:fill-accent" />
-          <svg width="8" height="5" viewBox="0 0 8 5" aria-hidden className="relative mt-[5px]">
+          <svg width="8" height="5" viewBox="0 0 8 5" aria-hidden className="relative mt-[6px]">
             <path d="M0.5 0 H7.5 L4 4.5 Z" fill="currentColor" />
           </svg>
         </span>
@@ -136,7 +136,7 @@ export function ToolDrawer({ workspaceId, exclude }: { workspaceId: string; excl
         onPointerLeave={() => !pinned && later(false, CLOSE_DELAY_MS)}
         // The band at the bottom holds the pin tab, so the drawer and its tab are one thing to light and leave.
         className={cn(
-          'absolute inset-x-1.5 top-0 flex h-3/5 min-h-48 flex-col pb-4 transition-[clip-path,visibility] duration-200 ease-out',
+          'absolute inset-x-1.5 top-0 flex h-3/5 max-h-full min-h-48 flex-col pb-5 transition-[clip-path,visibility] duration-200 ease-out',
           !shown && 'invisible'
         )}
         // Unrolls from the tab strip down, and rolls back up; the sides and bottom leave room for the shadow.
@@ -235,14 +235,14 @@ export function ToolDrawer({ workspaceId, exclude }: { workspaceId: string; excl
             setOpen(true)
           }}
           className={cn(
-            'group/pin absolute bottom-[1px] left-1/2 flex h-4 w-11 -translate-x-1/2 justify-center',
+            'group/pin absolute bottom-[1px] left-1/2 flex h-5 w-[52px] -translate-x-1/2 justify-center',
             shown && 'pointer-events-auto',
-            pinned ? 'text-white' : 'text-muted-foreground/70 hover:text-foreground'
+            pinned ? 'text-white' : 'text-highlight'
           )}
           data-drawer-pin
         >
-          <TabShape className={pinned ? 'fill-highlight stroke-highlight' : 'fill-background stroke-border group-hover/pin:fill-accent'} />
-          <Pin className={cn('relative mt-[3px] size-2.5', pinned && 'fill-current')} />
+          <TabShape className={pinned ? 'fill-highlight stroke-highlight' : 'fill-background stroke-highlight/70 group-hover/pin:fill-accent'} />
+          <Pin className={cn('relative mt-[3px] size-3', pinned && 'fill-current')} />
         </button>
       </div>
     </div>

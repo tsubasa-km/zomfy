@@ -37,6 +37,8 @@ export interface AppSettings {
   notifyAgentNeedsYou: boolean
   notifySuppressWhenFocused: boolean
   statusBarVisible: boolean
+  /** The project sidebar on the left; the title bar's toggle hides it. */
+  sidebarVisible: boolean
   /** Status bar item ids the user hid from its context menu. */
   statusBarHiddenItems: string[]
   /** Keybinding overrides by command id; an empty list disables the command's shortcut. */
@@ -102,6 +104,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
   notifyAgentNeedsYou: true,
   notifySuppressWhenFocused: true,
   statusBarVisible: true,
+  sidebarVisible: true,
   statusBarHiddenItems: [],
   keybindings: {},
   showSkillsButton: false,

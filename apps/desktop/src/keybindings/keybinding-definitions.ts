@@ -132,6 +132,8 @@ const APP_DEFINITIONS: KeybindingDefinition[] = [
     defaultBindings: [],
     allowInTerminal: true
   },
+  // No default: Mod+B is bold in the composer.
+  { id: 'sidebar.left.toggle', title: 'Toggle Sidebar', group: 'Global', keywords: ['sidebar', 'projects', 'hide'], defaultBindings: [] },
   { id: 'sidebar.right.toggle', title: 'Toggle Right Sidebar', group: 'Global', keywords: ['sidebar', 'panel'], defaultBindings: ['Mod+L'] },
   { id: 'sidebar.explorer.toggle', title: 'Show Explorer', group: 'Global', keywords: ['files', 'tree'], defaultBindings: ['Mod+Shift+E'], allowInTerminal: true },
   { id: 'sidebar.search.toggle', title: 'Show Search', group: 'Global', keywords: ['find', 'grep'], defaultBindings: ['Mod+Shift+F'], allowInTerminal: true },
