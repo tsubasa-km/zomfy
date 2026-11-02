@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { Bot, Files, GitCompare, Globe, ListChecks, MessagesSquare, Pin, PinOff, Plug, Plus, Search, SquareTerminal } from 'lucide-react'
+import { Bot, Files, GitCompare, Globe, ListChecks, MessagesSquare, Pin, Plug, Plus, Search, SquareTerminal } from 'lucide-react'
 import { allWorkspaces, useStore } from '@/session-store'
 import { TerminalTabBody } from '@/components/terminal/TerminalPaneTree'
 import { FileExplorer } from '@/components/right-sidebar/FileExplorer'
@@ -106,29 +106,42 @@ export function ToolDrawer({ workspaceId, exclude }: { workspaceId: string; excl
 
   return (
     <div ref={rootRef} className="pointer-events-none absolute inset-0 z-10 flex flex-col">
-      {/* A thin grab bar, not a box: one sits under every pane's tab strip, so it stays out of the way. */}
+      {/* A small pull tab hanging off the tab strip, its arrow pointing the way the drawer comes. */}
       <div
-        className="group pointer-events-auto mx-auto flex h-3 w-24 shrink-0 justify-center pt-1"
+        className="group pointer-events-auto mx-auto flex h-4 w-24 shrink-0 justify-center"
         data-drawer-handle
         title={`${terminals === 1 ? t('{n} terminal', { n: terminals }) : t('{n} terminals', { n: terminals })} · ${browsers === 1 ? t('{n} browser', { n: browsers }) : t('{n} browsers', { n: browsers })}`}
         onPointerEnter={() => later(true, OPEN_DELAY_MS)}
         onPointerLeave={() => !shown && clearTimeout(timer.current)}
       >
-        <div
+        <svg
+          width="40"
+          height="14"
+          viewBox="0 0 40 14"
+          aria-hidden
           className={cn(
-            'h-1 w-8 rounded-full bg-muted-foreground/30 transition-[background-color,opacity] group-hover:bg-muted-foreground/60',
+            'text-muted-foreground/60 transition-[color,opacity] group-hover:text-foreground/80',
             shown && 'opacity-0'
           )}
-        />
+        >
+          {/* Sides slope in to a rounded bottom; the top stays open onto the tab strip's edge. */}
+          <path
+            d="M0.5 0 L5.6 11.2 Q6.8 13.5 9.4 13.5 H30.6 Q33.2 13.5 34.4 11.2 L39.5 0"
+            className="fill-muted stroke-border transition-colors group-hover:fill-accent"
+          />
+          <path d="M16.5 5 H23.5 L20 9.5 Z" fill="currentColor" />
+        </svg>
       </div>
       <div
         data-drawer={shown ? 'open' : 'closed'}
         onPointerEnter={() => shown && clearTimeout(timer.current)}
         onPointerLeave={() => !pinned && later(false, CLOSE_DELAY_MS)}
         className={cn(
-          'absolute inset-x-1.5 top-0 flex h-3/5 min-h-48 flex-col overflow-hidden rounded-b-lg border border-t-0 border-border bg-background shadow-lg transition-[transform,opacity] duration-150',
-          shown ? 'pointer-events-auto translate-y-0 opacity-100' : 'invisible -translate-y-3 opacity-0'
+          'absolute inset-x-1.5 top-0 flex h-3/5 min-h-48 flex-col overflow-hidden rounded-b-lg border border-t-0 border-border bg-background shadow-lg transition-[clip-path,visibility] duration-200 ease-out',
+          shown ? 'pointer-events-auto' : 'invisible'
         )}
+        // Unrolls from the tab strip down, and rolls back up; the sides and bottom leave room for the shadow.
+        style={{ clipPath: shown ? 'inset(0 -24px -24px -24px)' : 'inset(0 -24px 100% -24px)' }}
       >
         <div className="flex h-8 shrink-0 items-center gap-0.5 border-b border-border bg-muted/40 px-1">
           <div className="flex min-w-0 items-center gap-0.5 overflow-hidden">
@@ -192,17 +205,25 @@ export function ToolDrawer({ workspaceId, exclude }: { workspaceId: string; excl
                 <Icon className="size-3.5" />
               </button>
             ))}
+          </div>
+          {/* Set apart and worded, so it does not read as one more panel. */}
+          <div className="ml-1 flex shrink-0 items-center border-l border-border pl-1">
             <button
               type="button"
               title={pinned ? t('Unpin') : t('Keep open')}
+              aria-pressed={pinned}
               onClick={() => {
                 setPinned(!pinned)
                 setOpen(true)
               }}
-              className="flex size-6 shrink-0 items-center justify-center rounded-md text-muted-foreground hover:bg-accent/50 hover:text-foreground"
+              className={cn(
+                'flex h-6 shrink-0 items-center gap-1 rounded-md px-1.5 text-xs',
+                pinned ? 'bg-highlight/15 text-highlight hover:bg-highlight/25' : 'text-muted-foreground hover:bg-accent/50 hover:text-foreground'
+              )}
               data-drawer-pin
             >
-              {pinned ? <PinOff className="size-3.5" /> : <Pin className="size-3.5" />}
+              <Pin className={cn('size-3.5', pinned && 'fill-current')} />
+              {pinned ? t('Pinned') : t('Pin')}
             </button>
           </div>
         </div>
