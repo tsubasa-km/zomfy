@@ -179,7 +179,7 @@
   --orca-security-ring: #a1a1a1;
   --background: #ffffff;
   --editor-surface: #ffffff;
-  --foreground: #141413;
+  --foreground: #141414;
   --chat-canvas-mix: 0%;
   --chat-foreground-mix: 82%;
   --chat-strong-mix: 92%;
@@ -195,22 +195,22 @@
   --chat-composer-base: var(--chat-canvas);
   --chat-composer-border-mix: 13%;
   --chat-content-max-width: 46rem;
-  --chat-user-base: #f0eee6;
+  --chat-user-base: #f0f0f0;
   --card: #ffffff;
-  --card-foreground: #141413;
+  --card-foreground: #141414;
   --popover: #ffffff;
-  --popover-foreground: #141413;
-  --primary: #1f1e1d;
-  --primary-foreground: #faf9f5;
-  --secondary: #f5f4ef;
-  --secondary-foreground: #1f1e1d;
-  --muted: #f5f4ef;
-  --muted-foreground: #73726c;
-  --accent: #f0eee6;
-  --accent-foreground: #1f1e1d;
-  --border: #e8e6dc;
-  --input: #dedcd1;
-  --ring: #b0aea5;
+  --popover-foreground: #141414;
+  --primary: #1f1f1f;
+  --primary-foreground: #fafafa;
+  --secondary: #f5f5f5;
+  --secondary-foreground: #1f1f1f;
+  --muted: #f5f5f5;
+  --muted-foreground: #737373;
+  --accent: #f0f0f0;
+  --accent-foreground: #1f1f1f;
+  --border: #e7e7e7;
+  --input: #dedede;
+  --ring: #a3a3a3;
   --terminal-pane-locate: var(--color-blue-600);
   --mention-foreground: var(--color-blue-600);
   --ai-action-accent: var(--color-violet-500);
@@ -232,20 +232,20 @@
   --chart-3: var(--color-blue-600);
   --chart-4: var(--color-blue-700);
   --chart-5: var(--color-blue-800);
-  --worktree-sidebar: #f8f7f3;
-  --worktree-sidebar-foreground: #141413;
-  --worktree-sidebar-accent: #edebe4;
-  --worktree-sidebar-accent-foreground: #141413;
-  --worktree-sidebar-border: #e8e6dc;
-  --worktree-sidebar-ring: #b0aea5;
-  --sidebar: #faf9f5;
-  --sidebar-foreground: #141413;
-  --sidebar-primary: #1f1e1d;
-  --sidebar-primary-foreground: #faf9f5;
-  --sidebar-accent: #f0eee6;
-  --sidebar-accent-foreground: #1f1e1d;
-  --sidebar-border: #e8e6dc;
-  --sidebar-ring: #b0aea5;
+  --worktree-sidebar: #f8f8f8;
+  --worktree-sidebar-foreground: #141414;
+  --worktree-sidebar-accent: #ececec;
+  --worktree-sidebar-accent-foreground: #141414;
+  --worktree-sidebar-border: #e7e7e7;
+  --worktree-sidebar-ring: #a3a3a3;
+  --sidebar: #fafafa;
+  --sidebar-foreground: #141414;
+  --sidebar-primary: #1f1f1f;
+  --sidebar-primary-foreground: #fafafa;
+  --sidebar-accent: #f0f0f0;
+  --sidebar-accent-foreground: #1f1f1f;
+  --sidebar-border: #e7e7e7;
+  --sidebar-ring: #a3a3a3;
   --terminal-pane-title-on-dark-fg: rgb(255 255 255 / 0.52);
   --terminal-pane-title-on-dark-input-fg: rgb(255 255 255 / 0.7);
   --terminal-pane-title-on-dark-placeholder: rgb(255 255 255 / 0.38);
@@ -274,8 +274,8 @@
   /* Why: tab-group splits use a dedicated divider — `--border` is too faint on
      card/editor surfaces when panes are side-by-side or stacked. Default must
      meet >=3:1 against `--card`, not only the hover/drag strong state. */
-  --tab-group-split-divider: #dedcd1;
-  --tab-group-split-divider-strong: #b0aea5;
+  --tab-group-split-divider: #dedede;
+  --tab-group-split-divider-strong: #a3a3a3;
 }
 
 /* ── Dark Mode ───────────────────────────────────────── */
@@ -298,9 +298,9 @@
   --orca-security-border: rgb(255 255 255 / 0.07);
   --orca-security-input: rgb(255 255 255 / 0.15);
   --orca-security-ring: #737373;
-  --background: #262624;
+  --background: #262626;
   --editor-surface: #1e1e1e;
-  --foreground: #faf9f5;
+  --foreground: #fafafa;
   --chat-canvas-mix: 0%;
   --chat-foreground-mix: 78%;
   --chat-strong-mix: 90%;
@@ -313,25 +313,25 @@
   --chat-inline-code-base: transparent;
   --chat-inline-code-border-mix: 8%;
   --chat-composer-mix: 0%;
-  --chat-composer-base: #30302e;
+  --chat-composer-base: #303030;
   --chat-composer-border-mix: 12%;
   --chat-content-max-width: 46rem;
-  --chat-user-base: #141413;
-  --card: #30302e;
-  --card-foreground: #faf9f5;
-  --popover: #30302e;
-  --popover-foreground: #faf9f5;
-  --primary: #faf9f5;
-  --primary-foreground: #1f1e1d;
-  --secondary: #30302e;
-  --secondary-foreground: #faf9f5;
-  --muted: #30302e;
-  --muted-foreground: #a6a39a;
-  --accent: #3d3d3a;
-  --accent-foreground: #faf9f5;
-  --border: rgb(222 220 209 / 0.12);
-  --input: rgb(222 220 209 / 0.2);
-  --ring: #73726c;
+  --chat-user-base: #161616;
+  --card: #303030;
+  --card-foreground: #fafafa;
+  --popover: #303030;
+  --popover-foreground: #fafafa;
+  --primary: #fafafa;
+  --primary-foreground: #1f1f1f;
+  --secondary: #303030;
+  --secondary-foreground: #fafafa;
+  --muted: #303030;
+  --muted-foreground: #a3a3a3;
+  --accent: #3b3b3b;
+  --accent-foreground: #fafafa;
+  --border: rgb(255 255 255 / 0.1);
+  --input: rgb(255 255 255 / 0.16);
+  --ring: #737373;
   --terminal-pane-locate: var(--color-blue-400);
   --mention-foreground: var(--color-blue-400);
   --ai-action-accent: var(--color-violet-400);
@@ -348,22 +348,22 @@
   --chart-5: var(--color-blue-800);
   /* Why: light mode sets worktree-sidebar to secondary (#f5f5f5); mirror that
      lift in dark mode so the panel reads clearly above #0a0a0a canvas. */
-  --worktree-sidebar: #1f1e1d;
-  --worktree-sidebar-foreground: #faf9f5;
-  --worktree-sidebar-accent: #30302e;
-  --worktree-sidebar-accent-foreground: #faf9f5;
+  --worktree-sidebar: #1f1f1f;
+  --worktree-sidebar-foreground: #fafafa;
+  --worktree-sidebar-accent: #303030;
+  --worktree-sidebar-accent-foreground: #fafafa;
   /* Match --border / --sidebar-border (7%) so the left sidebar's divider lines
      aren't brighter than the rest of the UI in dark mode (#5906). */
-  --worktree-sidebar-border: rgb(222 220 209 / 0.1);
-  --worktree-sidebar-ring: #73726c;
-  --sidebar: #1f1e1d;
-  --sidebar-foreground: #faf9f5;
+  --worktree-sidebar-border: rgb(255 255 255 / 0.08);
+  --worktree-sidebar-ring: #737373;
+  --sidebar: #1f1f1f;
+  --sidebar-foreground: #fafafa;
   --sidebar-primary: #1447e6;
   --sidebar-primary-foreground: #fafafa;
-  --sidebar-accent: #30302e;
-  --sidebar-accent-foreground: #faf9f5;
-  --sidebar-border: rgb(222 220 209 / 0.1);
-  --sidebar-ring: #73726c;
+  --sidebar-accent: #303030;
+  --sidebar-accent-foreground: #fafafa;
+  --sidebar-border: rgb(255 255 255 / 0.08);
+  --sidebar-ring: #737373;
   --terminal-pane-title-on-dark-fg: rgb(255 255 255 / 0.52);
   --terminal-pane-title-on-dark-input-fg: rgb(255 255 255 / 0.7);
   --terminal-pane-title-on-dark-placeholder: rgb(255 255 255 / 0.38);
@@ -390,8 +390,8 @@
   --markdown-search-match: #facc15;
   --markdown-search-match-active: #fb923c;
   /* Brighter than terminal defaults so the always-visible line clears 3:1 on `--card`. */
-  --tab-group-split-divider: rgb(222 220 209 / 0.16);
-  --tab-group-split-divider-strong: #73726c;
+  --tab-group-split-divider: rgb(255 255 255 / 0.14);
+  --tab-group-split-divider-strong: #737373;
 }
 
 

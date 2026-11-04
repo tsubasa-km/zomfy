@@ -3,11 +3,11 @@
    A file, not an inline <style>: an inline one makes Tauri add a nonce to style-src, which turns off
    'unsafe-inline' and drops the styles CodeMirror, sonner and xterm insert at runtime. */
 html, body { margin: 0; height: 100%; background: #fff; }
-html.dark, html.dark body { background: #262624; }
+html.dark, html.dark body { background: #262626; }
 #boot { position: fixed; inset: 0; display: flex; font: 13px 'Segoe UI', -apple-system, sans-serif; }
-#boot-sidebar { width: 280px; background: #f8f7f3; border-right: 1px solid #e8e6dc; }
-#boot-main { flex: 1; display: flex; align-items: center; justify-content: center; gap: 10px; color: #73726c; }
+#boot-sidebar { width: 280px; background: #f8f8f8; border-right: 1px solid #e7e7e7; }
+#boot-main { flex: 1; display: flex; align-items: center; justify-content: center; gap: 10px; color: #737373; }
 #boot-spinner { width: 14px; height: 14px; border-radius: 50%; border: 2px solid currentColor; border-right-color: transparent; animation: boot-spin 0.8s linear infinite; }
-html.dark #boot-sidebar { background: #1f1e1d; border-right-color: rgb(222 220 209 / 0.1); }
-html.dark #boot-main { color: #a6a39a; }
+html.dark #boot-sidebar { background: #1f1f1f; border-right-color: rgb(255 255 255 / 0.08); }
+html.dark #boot-main { color: #a3a3a3; }
 @keyframes boot-spin { to { transform: rotate(360deg); } }
