@@ -306,7 +306,7 @@ export function NativeChatComposer({
             data-native-chat-composer
             data-chat-composer-drop
             className={cn(
-              'cursor-text rounded-xl border border-chat-composer-border [&_button]:cursor-default bg-chat-composer-surface p-1.5 shadow-xs [contain:paint] data-[tab-drop-hover]:border-ring data-[tab-drop-hover]:ring-2 data-[tab-drop-hover]:ring-ring/30',
+              'cursor-text rounded-2xl border border-chat-composer-border bg-chat-composer-surface p-2 shadow-[0_2px_10px_rgb(0_0_0/0.04)] [contain:paint] data-[tab-drop-hover]:border-ring data-[tab-drop-hover]:ring-2 data-[tab-drop-hover]:ring-ring/30',
               dragging && 'border-ring'
             )}
             onDragOver={(event) => {
@@ -476,7 +476,7 @@ export function NativeChatComposer({
                           disabled={offline || (!working && !canSend)}
                           variant={working ? 'secondary' : 'default'}
                           size="icon"
-                          className="size-8 rounded-full"
+                          className={cn('size-8 rounded-full', !working && 'bg-highlight text-white hover:bg-highlight/90')}
                         >
                           {working ? <Square className="size-3.5 fill-current" /> : <ArrowUp className="size-4" />}
                         </Button>

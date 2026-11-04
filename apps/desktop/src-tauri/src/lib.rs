@@ -85,7 +85,7 @@ fn show_main_once<R: tauri::Runtime>(window: &tauri::WebviewWindow<R>, dark: Opt
     }
     // Same colours as the boot screen (index.html), so a resize the page lags behind never flashes.
     if let Some(dark) = dark {
-        let color = if dark { Color(10, 10, 10, 255) } else { Color(255, 255, 255, 255) };
+        let color = if dark { Color(38, 38, 36, 255) } else { Color(255, 255, 255, 255) };
         let _ = window.set_background_color(Some(color));
     }
     if !presize_maximized(window) {

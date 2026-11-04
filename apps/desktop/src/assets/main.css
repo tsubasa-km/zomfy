@@ -159,7 +159,7 @@
   --font-mono:
     'SF Mono', SFMono-Regular, ui-monospace, 'Cascadia Code', Menlo, Consolas, 'Liberation Mono',
     monospace;
-  --radius: 0.625rem;
+  --radius: 0.75rem;
   --orca-security-background: #fff;
   --orca-security-foreground: #0a0a0a;
   --orca-security-card: #fff;
@@ -177,15 +177,15 @@
   --orca-security-border: #e5e5e5;
   --orca-security-input: #e5e5e5;
   --orca-security-ring: #a1a1a1;
-  --background: #fff;
+  --background: #ffffff;
   --editor-surface: #ffffff;
-  --foreground: #0a0a0a;
+  --foreground: #141413;
   --chat-canvas-mix: 0%;
   --chat-foreground-mix: 82%;
   --chat-strong-mix: 92%;
   --chat-faint-mix: 100%;
-  --chat-user-mix: 4%;
-  --chat-user-border-mix: 7%;
+  --chat-user-mix: 0%;
+  --chat-user-border-mix: 0%;
   --chat-code-mix: 2%;
   --chat-code-base: var(--chat-canvas);
   --chat-inline-code-mix: 4%;
@@ -193,23 +193,24 @@
   --chat-inline-code-border-mix: 9%;
   --chat-composer-mix: 0%;
   --chat-composer-base: var(--chat-canvas);
-  --chat-composer-border-mix: 11%;
+  --chat-composer-border-mix: 13%;
   --chat-content-max-width: 46rem;
-  --card: #fff;
-  --card-foreground: #0a0a0a;
-  --popover: #fff;
-  --popover-foreground: #0a0a0a;
-  --primary: #171717;
-  --primary-foreground: #fafafa;
-  --secondary: #f5f5f5;
-  --secondary-foreground: #171717;
-  --muted: #f5f5f5;
-  --muted-foreground: #737373;
-  --accent: #f5f5f5;
-  --accent-foreground: #171717;
-  --border: #e5e5e5;
-  --input: #e5e5e5;
-  --ring: #a1a1a1;
+  --chat-user-base: #f0eee6;
+  --card: #ffffff;
+  --card-foreground: #141413;
+  --popover: #ffffff;
+  --popover-foreground: #141413;
+  --primary: #1f1e1d;
+  --primary-foreground: #faf9f5;
+  --secondary: #f5f4ef;
+  --secondary-foreground: #1f1e1d;
+  --muted: #f5f4ef;
+  --muted-foreground: #73726c;
+  --accent: #f0eee6;
+  --accent-foreground: #1f1e1d;
+  --border: #e8e6dc;
+  --input: #dedcd1;
+  --ring: #b0aea5;
   --terminal-pane-locate: var(--color-blue-600);
   --mention-foreground: var(--color-blue-600);
   --ai-action-accent: var(--color-violet-500);
@@ -231,20 +232,20 @@
   --chart-3: var(--color-blue-600);
   --chart-4: var(--color-blue-700);
   --chart-5: var(--color-blue-800);
-  --worktree-sidebar: #f5f5f5;
-  --worktree-sidebar-foreground: #0a0a0a;
-  --worktree-sidebar-accent: #eaeaea;
-  --worktree-sidebar-accent-foreground: #171717;
-  --worktree-sidebar-border: #e5e5e5;
-  --worktree-sidebar-ring: #a1a1a1;
-  --sidebar: #fafafa;
-  --sidebar-foreground: #0a0a0a;
-  --sidebar-primary: #171717;
-  --sidebar-primary-foreground: #fafafa;
-  --sidebar-accent: #f5f5f5;
-  --sidebar-accent-foreground: #171717;
-  --sidebar-border: #e5e5e5;
-  --sidebar-ring: #a1a1a1;
+  --worktree-sidebar: #f8f7f3;
+  --worktree-sidebar-foreground: #141413;
+  --worktree-sidebar-accent: #edebe4;
+  --worktree-sidebar-accent-foreground: #141413;
+  --worktree-sidebar-border: #e8e6dc;
+  --worktree-sidebar-ring: #b0aea5;
+  --sidebar: #faf9f5;
+  --sidebar-foreground: #141413;
+  --sidebar-primary: #1f1e1d;
+  --sidebar-primary-foreground: #faf9f5;
+  --sidebar-accent: #f0eee6;
+  --sidebar-accent-foreground: #1f1e1d;
+  --sidebar-border: #e8e6dc;
+  --sidebar-ring: #b0aea5;
   --terminal-pane-title-on-dark-fg: rgb(255 255 255 / 0.52);
   --terminal-pane-title-on-dark-input-fg: rgb(255 255 255 / 0.7);
   --terminal-pane-title-on-dark-placeholder: rgb(255 255 255 / 0.38);
@@ -273,8 +274,8 @@
   /* Why: tab-group splits use a dedicated divider — `--border` is too faint on
      card/editor surfaces when panes are side-by-side or stacked. Default must
      meet >=3:1 against `--card`, not only the hover/drag strong state. */
-  --tab-group-split-divider: #868690;
-  --tab-group-split-divider-strong: #71717a;
+  --tab-group-split-divider: #dedcd1;
+  --tab-group-split-divider-strong: #b0aea5;
 }
 
 /* ── Dark Mode ───────────────────────────────────────── */
@@ -297,39 +298,40 @@
   --orca-security-border: rgb(255 255 255 / 0.07);
   --orca-security-input: rgb(255 255 255 / 0.15);
   --orca-security-ring: #737373;
-  --background: #0a0a0a;
+  --background: #262624;
   --editor-surface: #1e1e1e;
-  --foreground: #fafafa;
-  --chat-canvas-mix: 5%;
+  --foreground: #faf9f5;
+  --chat-canvas-mix: 0%;
   --chat-foreground-mix: 78%;
   --chat-strong-mix: 90%;
   --chat-faint-mix: 83%;
-  --chat-user-mix: 7%;
-  --chat-user-border-mix: 6%;
+  --chat-user-mix: 0%;
+  --chat-user-border-mix: 0%;
   --chat-code-mix: 3.5%;
   --chat-code-base: transparent;
   --chat-inline-code-mix: 6%;
   --chat-inline-code-base: transparent;
   --chat-inline-code-border-mix: 8%;
-  --chat-composer-mix: 4%;
-  --chat-composer-base: transparent;
-  --chat-composer-border-mix: 9%;
+  --chat-composer-mix: 0%;
+  --chat-composer-base: #30302e;
+  --chat-composer-border-mix: 12%;
   --chat-content-max-width: 46rem;
-  --card: #171717;
-  --card-foreground: #fafafa;
-  --popover: #171717;
-  --popover-foreground: #fafafa;
-  --primary: #e5e5e5;
-  --primary-foreground: #171717;
-  --secondary: #262626;
-  --secondary-foreground: #fafafa;
-  --muted: #262626;
-  --muted-foreground: #a1a1a1;
-  --accent: #404040;
-  --accent-foreground: #fafafa;
-  --border: rgb(255 255 255 / 0.07);
-  --input: rgb(255 255 255 / 0.15);
-  --ring: #737373;
+  --chat-user-base: #141413;
+  --card: #30302e;
+  --card-foreground: #faf9f5;
+  --popover: #30302e;
+  --popover-foreground: #faf9f5;
+  --primary: #faf9f5;
+  --primary-foreground: #1f1e1d;
+  --secondary: #30302e;
+  --secondary-foreground: #faf9f5;
+  --muted: #30302e;
+  --muted-foreground: #a6a39a;
+  --accent: #3d3d3a;
+  --accent-foreground: #faf9f5;
+  --border: rgb(222 220 209 / 0.12);
+  --input: rgb(222 220 209 / 0.2);
+  --ring: #73726c;
   --terminal-pane-locate: var(--color-blue-400);
   --mention-foreground: var(--color-blue-400);
   --ai-action-accent: var(--color-violet-400);
@@ -346,22 +348,22 @@
   --chart-5: var(--color-blue-800);
   /* Why: light mode sets worktree-sidebar to secondary (#f5f5f5); mirror that
      lift in dark mode so the panel reads clearly above #0a0a0a canvas. */
-  --worktree-sidebar: #2a2a2a;
-  --worktree-sidebar-foreground: #fafafa;
-  --worktree-sidebar-accent: #353535;
-  --worktree-sidebar-accent-foreground: #fafafa;
+  --worktree-sidebar: #1f1e1d;
+  --worktree-sidebar-foreground: #faf9f5;
+  --worktree-sidebar-accent: #30302e;
+  --worktree-sidebar-accent-foreground: #faf9f5;
   /* Match --border / --sidebar-border (7%) so the left sidebar's divider lines
      aren't brighter than the rest of the UI in dark mode (#5906). */
-  --worktree-sidebar-border: rgb(255 255 255 / 0.07);
-  --worktree-sidebar-ring: #737373;
-  --sidebar: #171717;
-  --sidebar-foreground: #fafafa;
+  --worktree-sidebar-border: rgb(222 220 209 / 0.1);
+  --worktree-sidebar-ring: #73726c;
+  --sidebar: #1f1e1d;
+  --sidebar-foreground: #faf9f5;
   --sidebar-primary: #1447e6;
   --sidebar-primary-foreground: #fafafa;
-  --sidebar-accent: #262626;
-  --sidebar-accent-foreground: #fafafa;
-  --sidebar-border: rgb(255 255 255 / 0.07);
-  --sidebar-ring: #525252;
+  --sidebar-accent: #30302e;
+  --sidebar-accent-foreground: #faf9f5;
+  --sidebar-border: rgb(222 220 209 / 0.1);
+  --sidebar-ring: #73726c;
   --terminal-pane-title-on-dark-fg: rgb(255 255 255 / 0.52);
   --terminal-pane-title-on-dark-input-fg: rgb(255 255 255 / 0.7);
   --terminal-pane-title-on-dark-placeholder: rgb(255 255 255 / 0.38);
@@ -388,8 +390,8 @@
   --markdown-search-match: #facc15;
   --markdown-search-match-active: #fb923c;
   /* Brighter than terminal defaults so the always-visible line clears 3:1 on `--card`. */
-  --tab-group-split-divider: #71717a;
-  --tab-group-split-divider-strong: #a1a1aa;
+  --tab-group-split-divider: rgb(222 220 209 / 0.16);
+  --tab-group-split-divider-strong: #73726c;
 }
 
 
@@ -425,7 +427,7 @@
   --chat-user-surface: color-mix(
     in srgb,
     var(--chat-source-foreground) var(--chat-user-mix),
-    var(--chat-canvas)
+    var(--chat-user-base, var(--chat-canvas))
   );
   --chat-user-border: color-mix(
     in srgb,
@@ -759,3 +761,26 @@ html[data-pointer-dragging] * {
   --diff-removed-gutter: color-mix(in srgb, var(--git-decoration-deleted) 32%, transparent);
 }
 
+
+/* Slim rounded scrollbars with no arrow buttons, as in Claude. Pseudo-elements, not scrollbar-width:
+   Windows draws arrows on a thin standard scrollbar. The terminal and editor draw their own. */
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+::-webkit-scrollbar-button {
+  display: none;
+}
+::-webkit-scrollbar-track,
+::-webkit-scrollbar-corner {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  border: 3px solid transparent;
+  border-radius: 9999px;
+  background-clip: content-box;
+  background-color: color-mix(in srgb, var(--foreground) 18%, transparent);
+}
+::-webkit-scrollbar-thumb:hover {
+  background-color: color-mix(in srgb, var(--foreground) 32%, transparent);
+}

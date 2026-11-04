@@ -61,7 +61,7 @@ export function NativeChatTranscriptRow({
           data-native-chat-user-row={rowKey}
           data-native-chat-message-text={item.text}
         >
-          <div className="max-w-[80%] rounded-xl border border-chat-user-border bg-chat-user-surface px-3.5 py-2.5 text-sm text-chat-foreground-strong">
+          <div className="max-w-[80%] rounded-2xl bg-chat-user-surface px-4 py-2.5 text-sm text-chat-foreground-strong">
             {item.images?.length ? (
               <div className="mb-1.5 flex flex-wrap justify-end gap-2">
                 {item.images.map((image, index) => (
