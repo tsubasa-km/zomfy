@@ -100,6 +100,13 @@ export function ToolDrawer({ workspaceId, tabId, exclude }: { workspaceId: strin
   }, [toolIds])
 
   const shown = open || pinned
+  // The pull tab slides down out of the tab strip once the tab is on show, and back up under it while the drawer is out.
+  const [entered, setEntered] = useState(false)
+  useEffect(() => {
+    // Two frames, so the tab is first laid out tucked away and the slide has somewhere to start from.
+    let frame = requestAnimationFrame(() => (frame = requestAnimationFrame(() => setEntered(true))))
+    return () => cancelAnimationFrame(frame)
+  }, [])
   // Keys must not keep going to a terminal nobody can see.
   useEffect(() => {
     const focused = document.activeElement
@@ -125,13 +132,19 @@ export function ToolDrawer({ workspaceId, tabId, exclude }: { workspaceId: strin
     <div ref={rootRef} className="pointer-events-none absolute inset-0 z-10 flex flex-col">
       {/* A small pull tab hanging off the tab strip, its arrow pointing the way the drawer comes. */}
       <div
-        className="group pointer-events-auto mx-auto flex h-5 w-24 shrink-0 justify-center"
+        className="group pointer-events-auto mx-auto flex h-5 w-24 shrink-0 justify-center overflow-hidden"
         data-drawer-handle
         title={`${terminals === 1 ? t('{n} terminal', { n: terminals }) : t('{n} terminals', { n: terminals })} · ${browsers === 1 ? t('{n} browser', { n: browsers }) : t('{n} browsers', { n: browsers })}`}
         onPointerEnter={() => later(true, OPEN_DELAY_MS)}
-        onPointerLeave={() => !shown && clearTimeout(timer.current)}
+        // Leaving the tab for anywhere but the drawer lets an unpinned drawer close; going onto the drawer keeps it.
+        onPointerLeave={() => (shown ? !pinned && later(false, CLOSE_DELAY_MS) : clearTimeout(timer.current))}
       >
-        <span className={cn('relative flex h-5 w-[52px] justify-center text-muted-foreground/60 transition-[color,opacity] group-hover:text-foreground/80', shown && 'opacity-0')}>
+        <span
+          className={cn(
+            'relative flex h-5 w-[52px] justify-center text-muted-foreground/60 transition-[color,translate] duration-200 ease-out group-hover:text-foreground/80',
+            (!entered || shown) && '-translate-y-full'
+          )}
+        >
           <TabShape className="fill-muted stroke-border group-hover:fill-accent" />
           <svg width="8" height="5" viewBox="0 0 8 5" aria-hidden className="relative mt-[6px]">
             <path d="M0.5 0 H7.5 L4 4.5 Z" fill="currentColor" />
