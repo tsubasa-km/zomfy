@@ -8,7 +8,6 @@ import { OWN_TITLE_BAR, TitleBar } from '@/components/TitleBar'
 import { PointerDragLayer } from '@/components/PointerDragLayer'
 import { Toaster } from '@/components/ui/sonner'
 import { WorkflowStartConfirmDialog } from '@/components/workflows/WorkflowStartConfirm'
-import { RightSidebar } from '@/components/right-sidebar/RightSidebar'
 import { AgentDashboard } from '@/components/AgentDashboard'
 import { SettingsPage } from '@/components/settings/SettingsPage'
 import { AutomationsPage } from '@/components/automations/AutomationsPage'
@@ -64,7 +63,6 @@ installWorkflowsCommands()
 installProjectGridPreview()
 
 export default function App() {
-  const activeWorkspaceId = useStore((s) => s.activeWorkspaceId)
   const dashboardOpen = useStore((s) => s.dashboardOpen)
   const settingsOpen = useAppOverlays((s) => s.settings.open)
   const automationsOpen = useAutomationState((s) => s.pageOpen)
@@ -113,7 +111,6 @@ export default function App() {
               <WorkspaceMain />
             )}
           </main>
-          {activeWorkspaceId && !gridPreview && !workflowsPage && !dashboardOpen && !boardOpen && !tasksOpen && <RightSidebar workspaceId={activeWorkspaceId} />}
           {/* Orca's settings replace the app view; the views stay mounted underneath to keep their state. */}
           {automationsOpen && (
             <div className="absolute inset-0 z-20 flex">

@@ -1,10 +1,10 @@
 import { useEffect, useState } from 'react'
 import { invoke, isTauri } from '@tauri-apps/api/core'
 import { getCurrentWindow } from '@tauri-apps/api/window'
-import { PanelLeft, PanelRight, RefreshCw, Settings, type LucideIcon } from 'lucide-react'
+import { PanelLeft, PanelTop, RefreshCw, Settings, type LucideIcon } from 'lucide-react'
 import { restartToUpdate, useAppUpdate } from '@/lib/app-update'
 import { WINDOW_ROLE } from '@/lib/window-role'
-import { getState, setRightSidebar, useStore } from '@/session-store'
+import { toggleDrawer } from '@/session-store'
 import { getSetting, setSetting, useSetting } from '@/stores/settings-store'
 import { openSettings } from '@/stores/app-overlay-store'
 import { useShortcutLabel } from '@/keybindings/keybinding-registry'
@@ -76,7 +76,6 @@ export function TitleBar() {
   }, [])
 
   const sidebarVisible = useSetting('sidebarVisible')
-  const rightSidebarOpen = useStore((s) => s.rightSidebar.open)
   const win = getCurrentWindow()
   return (
     <div data-tauri-drag-region data-title-bar className="flex h-8 shrink-0 items-center border-b border-border bg-worktree-sidebar select-none">
@@ -93,13 +92,7 @@ export function TitleBar() {
       <div data-tauri-drag-region className="flex-1 self-stretch" />
       <UpdateButton />
       <div className="mr-1.5 flex items-center gap-0.5">
-        <BarButton
-          icon={PanelRight}
-          label={t('Toggle right sidebar')}
-          command="sidebar.right.toggle"
-          pressed={rightSidebarOpen}
-          onClick={() => setRightSidebar({ open: !getState().rightSidebar.open })}
-        />
+        <BarButton icon={PanelTop} label={t('Toggle drawer')} command="sidebar.right.toggle" onClick={() => toggleDrawer()} />
         <BarButton icon={Settings} label={t('Settings')} command="app.settings" onClick={() => openSettings()} />
       </div>
       <div className="flex h-full">

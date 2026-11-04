@@ -1,11 +1,10 @@
 import { useEffect } from 'react'
 import { isTauri } from '@tauri-apps/api/core'
 import { Window, getCurrentWindow } from '@tauri-apps/api/window'
-import { PanelRightOpen, Undo2 } from 'lucide-react'
+import { Undo2 } from 'lucide-react'
 import { connectAllHosts } from '@/daemon-connection'
-import { getState, selectWorkspace, setRightSidebar, useStore } from '@/session-store'
+import { getState, selectWorkspace, useStore } from '@/session-store'
 import { WorkspaceTabs } from '@/components/WorkspaceTabs'
-import { RightSidebar } from '@/components/right-sidebar/RightSidebar'
 import { PointerDragLayer } from '@/components/PointerDragLayer'
 import { Toaster } from '@/components/ui/sonner'
 import { WorkflowStartConfirmDialog } from '@/components/workflows/WorkflowStartConfirm'
@@ -25,11 +24,10 @@ installUiZoom()
 installChatCommands()
 if (WINDOW_WORKSPACE_ID) selectWorkspace(WINDOW_WORKSPACE_ID)
 
-/** Root of a workspace popped out into its own window: its tabs and right sidebar, no app chrome. */
+/** Root of a workspace popped out into its own window: its tabs, each with its drawer, and no app chrome. */
 export default function WorkspaceWindow() {
   const workspaceId = WINDOW_WORKSPACE_ID
   const known = useStore((s) => Object.values(s.hosts).some((h) => h.harness?.workspaces.some((w) => w.id === workspaceId)))
-  const rightOpen = useStore((s) => s.rightSidebar.open)
 
   useEffect(() => {
     document.getElementById('boot')?.remove()
@@ -64,11 +62,6 @@ export default function WorkspaceWindow() {
               emptyHint={t('No tabs yet. Use + in the tab bar to start Claude in this workspace.')}
               trailing={
                 <div className="flex items-center gap-0.5 pr-1">
-                  {!rightOpen && (
-                    <Button size="icon-xs" variant="ghost" aria-label={t('Show right sidebar')} onClick={() => setRightSidebar({ open: true })}>
-                      <PanelRightOpen className="size-3.5" />
-                    </Button>
-                  )}
                   {isTauri() && (
                     <Button
                       size="icon-xs"
@@ -87,7 +80,6 @@ export default function WorkspaceWindow() {
             <div className="m-auto text-sm text-muted-foreground">{t('Connecting…')}</div>
           )}
         </main>
-        {known && <RightSidebar workspaceId={workspaceId} />}
       </div>
       <PointerDragLayer />
       <Toaster />

@@ -67,15 +67,6 @@ export const TOUR_STEPS: TourStep[] = [
     target: '[data-native-chat-composer]'
   },
   {
-    chapter: t('Chats'),
-    title: t('Side chat'),
-    body: t('Ask a quick question about the workspace without adding to the main chat. It sees the main chat’s last few messages and leaves that conversation untouched.'),
-    // The label this stop finds is shown in the window's language.
-    target: `[data-right-sidebar] [aria-label^="${t('Side chat')}"]`,
-    optional: true,
-    action: { prompt: t('Click it to open the side chat panel.'), on: 'click' }
-  },
-  {
     chapter: t('Layout'),
     title: t('Side by side'),
     body: t('Drag a chat or a project from the sidebar onto the left or right edge of this area to open its workspace beside the one shown. Three or more fill two rows; drag the dividers to resize them.'),
@@ -84,7 +75,7 @@ export const TOUR_STEPS: TourStep[] = [
   {
     chapter: t('Layout'),
     title: t('The pull-down drawer'),
-    body: t('The open tab has a small tab under the tab strip. It pulls down the workspace’s terminals, browsers and panels.'),
+    body: t('The open tab has a small tab under the tab strip. It pulls down the workspace’s terminals, browsers and panels: files, search, source control, checks, ports, the side chat and the agent’s details.'),
     target: '[data-drawer-handle]',
     optional: true,
     action: { prompt: t('Point at the tab and wait a moment.'), on: 'hover' }
@@ -99,18 +90,19 @@ export const TOUR_STEPS: TourStep[] = [
   },
   {
     chapter: t('Layout'),
+    title: t('Side chat'),
+    body: t('Ask a quick question about the workspace without adding to the main chat. It sees the main chat’s last few messages and leaves that conversation untouched.'),
+    target: '[data-drawer="open"] [data-drawer-panel="panel:side-chat"]',
+    optional: true,
+    action: { prompt: t('Click it to open the side chat panel.'), on: 'click' }
+  },
+  {
+    chapter: t('Layout'),
     title: t('Let it close'),
     body: t('Unpinned, it slides away as soon as the pointer moves off it.'),
     target: DRAWER,
     optional: true,
     action: { prompt: t('Click the tab again, then move away.'), on: 'click', within: '[data-drawer-pin]' }
-  },
-  {
-    chapter: t('Layout'),
-    title: t('Right sidebar'),
-    body: t('Files, search, source control, checks, ports, the side chat and the agent’s details, for the workspace in focus.'),
-    target: '[data-right-sidebar]',
-    optional: true
   },
   {
     chapter: t('Layout'),

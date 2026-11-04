@@ -17,6 +17,7 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import { BrowserTabView } from './BrowserTabView'
 import { newTerminalTab, tabTitle, useWorkspaceTabs, type WorkspaceTab } from './workspace-tab-model'
 import { useTabLayout } from '@/stores/tab-layout-store'
+import { takeDrawerRequest, useDrawerRequest } from '@/stores/drawer-request-store'
 import { cn } from '@/lib/utils'
 import { t } from '@/i18n/i18n'
 
@@ -69,11 +70,22 @@ function TabShape({ className }: { className?: string }) {
 const remembered = new Map<string, { pinned: boolean; activeId: string | null }>()
 
 /**
- * The project's terminals, browsers and the right sidebar's panels, pulled down from under a tab strip:
- * hovering the handle opens it, leaving it closes it unless pinned. `tabId` is the tab it hangs from,
- * whose pin and choice it remembers; `exclude` is the pane's own active tab.
+ * The project's terminals, browsers and panels (explorer, search, source control, checks, ports, side
+ * chat, agent), pulled down from under a tab strip: hovering the handle opens it, leaving it closes it
+ * unless pinned. `tabId` is the tab it hangs from, whose pin and choice it remembers; `exclude` is the
+ * pane's own active tab. The focused pane's drawer also answers what opens a panel from elsewhere.
  */
-export function ToolDrawer({ workspaceId, tabId, exclude }: { workspaceId: string; tabId?: string; exclude?: string | null }) {
+export function ToolDrawer({
+  workspaceId,
+  tabId,
+  exclude,
+  focused = false
+}: {
+  workspaceId: string
+  tabId?: string
+  exclude?: string | null
+  focused?: boolean
+}) {
   const tabs = useWorkspaceTabs(workspaceId)
   const tools = tabs.flatMap((t): Extract<WorkspaceTab, { kind: 'terminal' | 'browser' }>[] =>
     (t.kind === 'terminal' || t.kind === 'browser') && t.id !== exclude ? [t] : []
@@ -127,6 +139,25 @@ export function ToolDrawer({ workspaceId, tabId, exclude }: { workspaceId: strin
     clearTimeout(timer.current)
     timer.current = setTimeout(() => setOpen(next), ms)
   }
+
+  // A shortcut, a side chat or a checks badge asks for a panel; it stays open (pinned) until put away.
+  const request = useDrawerRequest((r) => r)
+  const showing = activePanel ?? activeTool?.id ?? null
+  useEffect(() => {
+    if (!request || !focused || request.workspaceId !== workspaceId) return
+    takeDrawerRequest(request)
+    clearTimeout(timer.current)
+    const hide = request.action === 'hide' || (request.action === 'toggle' && shown && (!request.panel || request.panel === showing))
+    if (hide) {
+      setPinned(false)
+      setOpen(false)
+      return
+    }
+    if (request.panel) setActiveId(request.panel)
+    setPinned(true)
+    setOpen(true)
+    // Only a new request acts; what the drawer shows when it arrives is read, not watched.
+  }, [request, focused, workspaceId])
 
   return (
     <div ref={rootRef} className="pointer-events-none absolute inset-0 z-10 flex flex-col">

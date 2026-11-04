@@ -1,4 +1,4 @@
-import { getState, setDashboardOpen, setFloating, setRightSidebar, floatingWorkspaceId, type RightSidebarTab } from '@/session-store'
+import { getState, setDashboardOpen, setFloating, toggleDrawer, floatingWorkspaceId, type RightSidebarTab } from '@/session-store'
 import { getAppOverlays, openSettings, setCommandPalette, setQuickOpen } from '@/stores/app-overlay-store'
 import { getSetting, setSetting } from '@/stores/settings-store'
 import { stepZoom } from '@/lib/ui-zoom'
@@ -7,10 +7,9 @@ import { focusedWorkspaceId, jumpToAgentNeedingYou, selectWorkspaceByIndex, step
 import { openNewWorkspaceDialog } from '@/lib/project-dialogs'
 import { registerCommandHandler, type CommandHandler } from './keybinding-registry'
 
-/** Orca's right sidebar toggles: open on that tab, or close when it is already showing. */
+/** Orca's right sidebar toggles, now on the focused pane's drawer: open on that panel, or close when it shows it. */
 function toggleRightSidebarTab(tab: RightSidebarTab): void {
-  const current = getState().rightSidebar
-  setRightSidebar(current.open && current.tab === tab ? { open: false } : { open: true, tab })
+  toggleDrawer(tab)
 }
 
 const APP_COMMAND_HANDLERS: Record<string, CommandHandler> = {
@@ -39,7 +38,7 @@ const APP_COMMAND_HANDLERS: Record<string, CommandHandler> = {
     setFloating({ open: !getState().floating.open })
   },
   'sidebar.left.toggle': () => setSetting('sidebarVisible', !getSetting('sidebarVisible')),
-  'sidebar.right.toggle': () => setRightSidebar({ open: !getState().rightSidebar.open }),
+  'sidebar.right.toggle': () => toggleDrawer(),
   'sidebar.explorer.toggle': () => toggleRightSidebarTab('explorer'),
   'sidebar.search.toggle': () => toggleRightSidebarTab('search'),
   'sidebar.sourceControl.toggle': () => toggleRightSidebarTab('source-control'),

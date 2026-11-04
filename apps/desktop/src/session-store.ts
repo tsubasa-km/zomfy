@@ -14,6 +14,7 @@ import type {
 import { WINDOW_ROLE } from '@/lib/window-role'
 import { showChat } from '@/stores/tab-layout-store'
 import { openWorkflows } from '@/stores/workflows-store'
+import { requestDrawer } from '@/stores/drawer-request-store'
 import { forgetHostSnapshot, saveHostSnapshot } from '@/lib/host-snapshots'
 import { t } from '@/i18n/i18n'
 
@@ -571,9 +572,10 @@ export function handleSessionPicks(handler: (sessionId: string) => void): void {
 export function selectSession(sessionId: string): void {
   if (sessionPickHandler) return sessionPickHandler(sessionId)
   const session = state.sessions.find((s) => s.id === sessionId)
-  // A side chat has no tab; it shows in its workspace's right sidebar.
+  // A side chat has no tab; it shows in its workspace's drawer.
   if (session?.sideOf) {
-    set({ ...state, activeWorkspaceId: session.workspaceId, rightSidebar: { open: true, tab: 'side-chat' } })
+    set({ ...state, activeWorkspaceId: session.workspaceId })
+    setRightSidebar({ open: true, tab: 'side-chat' })
   } else if (session) focusTab(session.workspaceId, sessionId)
   if (state.dashboardOpen) set({ ...state, dashboardOpen: false })
 }
@@ -656,8 +658,26 @@ function focusTab(workspaceId: string, tabId: string): void {
   )
 }
 
+/** The drawer panel (ToolDrawer) that shows what a right sidebar tab did. */
+function drawerPanel(tab: RightSidebarTab): string {
+  return tab.startsWith('plugin:') ? `plugin:${tab}` : `panel:${tab}`
+}
+
+/**
+ * The right sidebar's panels live in each pane's pull-down drawer now, so this shows (with `tab`)
+ * or hides the active workspace's drawer; `toggleDrawer` flips it.
+ */
 export function setRightSidebar(change: Partial<StoreState['rightSidebar']>): void {
   set({ ...state, rightSidebar: { ...state.rightSidebar, ...change } })
+  const workspaceId = state.activeWorkspaceId
+  if (!workspaceId) return
+  requestDrawer(workspaceId, change.tab ? drawerPanel(change.tab) : null, change.open === false ? 'hide' : 'show')
+}
+
+/** Shows the active workspace's drawer on `tab`, or hides it when it already shows that (or, without `tab`, anything). */
+export function toggleDrawer(tab?: RightSidebarTab): void {
+  const workspaceId = state.activeWorkspaceId
+  if (workspaceId) requestDrawer(workspaceId, tab ? drawerPanel(tab) : null, 'toggle')
 }
 
 export function markSeen(sessionId: string): void {
