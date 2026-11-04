@@ -16,6 +16,22 @@ import { showChat } from '@/stores/tab-layout-store'
 import { openWorkflows } from '@/stores/workflows-store'
 import { requestDrawer } from '@/stores/drawer-request-store'
 import { forgetHostSnapshot, saveHostSnapshot } from '@/lib/host-snapshots'
+import {
+  appendPane,
+  insertPane,
+  isLeaf,
+  keepPanes,
+  movePane,
+  paneLeaves,
+  panesFromColumns,
+  readPaneTree,
+  removePane,
+  replacePane,
+  resizePanes,
+  swapPanes,
+  type PaneNode,
+  type PaneSide
+} from '@/lib/pane-tree'
 import { t } from '@/i18n/i18n'
 
 export type { SessionStatus }
@@ -143,10 +159,10 @@ export interface StoreState {
   /** Sessions whose latest turn ended (or asked for approval) since the user last looked. */
   unread: Record<string, true>
   dashboardOpen: boolean
-  /** Workspaces shown side by side (two or more), empty for one; activeWorkspaceId is the focused column. */
+  /** How the workspaces shown together are split (lib/pane-tree); null for one. */
+  paneTree: PaneNode | null
+  /** Its panes in reading order, empty for one; activeWorkspaceId is the focused pane. */
   columns: string[]
-  /** Relative column widths (flex-grow) by workspace id; 1 when unset. */
-  columnWidths: Record<string, number>
   /** Workspaces open in a window of their own (lib/workspace-window), kept out of this window's view. */
   poppedOut: string[]
 }
@@ -172,11 +188,13 @@ type SavedLayout = Pick<
   | 'rightSidebar'
   | 'rememberedHosts'
   | 'sidebarView'
-  | 'columns'
-  | 'columnWidths'
+  | 'paneTree'
 >
 
-function readLayout(): Partial<SavedLayout> {
+/** What layouts saved before the pane tree held. */
+type LegacyLayout = { columns?: string[]; columnWidths?: Record<string, number> }
+
+function readLayout(): Partial<SavedLayout> & LegacyLayout {
   try {
     return JSON.parse(localStorage.getItem(LAYOUT_KEY) ?? '{}')
   } catch {
@@ -185,6 +203,7 @@ function readLayout(): Partial<SavedLayout> {
 }
 
 const saved = readLayout()
+const initialTree = saved.paneTree !== undefined ? readPaneTree(saved.paneTree) : panesFromColumns(saved.columns ?? [], saved.columnWidths)
 let state: StoreState = {
   hosts: {},
   sessions: [],
@@ -198,8 +217,8 @@ let state: StoreState = {
   rememberedHosts: saved.rememberedHosts ?? [],
   unread: {},
   dashboardOpen: false,
-  columns: saved.columns ?? [],
-  columnWidths: saved.columnWidths ?? {},
+  paneTree: initialTree,
+  columns: paneLeaves(initialTree),
   poppedOut: []
 }
 const listeners = new Set<() => void>()
@@ -243,8 +262,7 @@ function publish(next: StoreState): void {
       rightSidebar: next.rightSidebar,
       rememberedHosts: next.rememberedHosts,
       sidebarView: next.sidebarView,
-      columns: next.columns,
-      columnWidths: next.columnWidths
+      paneTree: next.paneTree
     }
     localStorage.setItem(LAYOUT_KEY, JSON.stringify(layout))
   } catch {
@@ -334,12 +352,10 @@ export function setHarnessState(hostId: HostId, harness: HarnessState): void {
   const allListed = Object.values(hosts).every((h) => h.harness || h.connection.kind === 'offline')
   const keep = (id: string) => known.has(id) || !allListed
   const activeWorkspaceId = state.activeWorkspaceId && keep(state.activeWorkspaceId) ? state.activeWorkspaceId : null
-  const kept = state.columns.filter(keep)
-  const columns = kept.length > 1 ? kept : []
   // Tabs of a deleted workspace go with it; their daemon sessions are left idle.
   const sessions = state.sessions.filter((s) => s.hostId !== hostId || known.has(s.workspaceId))
   const editorTabs = state.editorTabs.filter((t) => keep(t.workspaceId))
-  set({ ...state, hosts, activeWorkspaceId, sessions, editorTabs, columns })
+  set(withPanes({ ...state, hosts, activeWorkspaceId, sessions, editorTabs }, keepPanes(state.paneTree, keep)))
 }
 
 /** Every project, tagged with the host whose daemon owns it. */
@@ -381,40 +397,63 @@ export function selectWorkspace(workspaceId: string): void {
   set({ ...state, activeWorkspaceId: workspaceId })
 }
 
+/** The state with `tree` as its layout, `columns` listing its panes. */
+function withPanes(next: StoreState, tree: PaneNode | null): StoreState {
+  return { ...next, paneTree: tree, columns: paneLeaves(tree) }
+}
+
 /**
- * With columns showing, a newly active workspace takes over the focused column (as an editor group
- * in VS Code) unless it already has a column of its own.
+ * With panes showing, a newly active workspace takes over the focused pane (as an editor group
+ * in VS Code) unless it already has a pane of its own.
  */
 function placeInColumns(next: StoreState, prev: StoreState): StoreState {
   const active = next.activeWorkspaceId
-  if (next.columns.length === 0 || !active || next.columns.includes(active)) return next
-  const at = prev.activeWorkspaceId ? next.columns.indexOf(prev.activeWorkspaceId) : -1
-  const columns = [...next.columns]
-  columns[at === -1 ? columns.length - 1 : at] = active
-  return { ...next, columns }
+  if (!next.paneTree || !active || next.columns.includes(active)) return next
+  const at = prev.activeWorkspaceId && next.columns.includes(prev.activeWorkspaceId) ? prev.activeWorkspaceId : next.columns.at(-1)!
+  return withPanes(next, replacePane(next.paneTree, at, active))
 }
 
-/** Shows `workspaceId` in a column of its own at `index` (default: last), or focuses its column. */
-export function openInColumn(workspaceId: string, index?: number): void {
+/** The layout to change: the panes showing, or the one workspace shown alone. */
+function currentPanes(): PaneNode | null {
+  return state.paneTree ?? (state.activeWorkspaceId ? { leaf: state.activeWorkspaceId } : null)
+}
+
+/** Shows `workspaceId` in a pane of its own at the right end, or focuses its pane. */
+export function openInColumn(workspaceId: string): void {
   if (state.poppedOut.includes(workspaceId)) return selectWorkspace(workspaceId)
-  const current =
-    state.columns.length > 0 ? state.columns : state.activeWorkspaceId ? [state.activeWorkspaceId] : []
-  const columns = current.filter((id) => id !== workspaceId)
-  columns.splice(Math.min(index ?? columns.length, columns.length), 0, workspaceId)
-  set({ ...state, columns: columns.length > 1 ? columns : [], activeWorkspaceId: workspaceId, dashboardOpen: false })
+  if (state.columns.includes(workspaceId)) return set({ ...state, activeWorkspaceId: workspaceId, dashboardOpen: false })
+  const base = currentPanes()
+  const tree = base && !(isLeaf(base) && base.leaf === workspaceId) ? appendPane(base, workspaceId) : null
+  set(withPanes({ ...state, activeWorkspaceId: workspaceId, dashboardOpen: false }, keepPanes(tree, () => true)))
+}
+
+/** Puts `workspaceId` on `side` of the pane showing `target`, taking it from its old place if it had one. */
+export function placePane(workspaceId: string, target: string, side: PaneSide): void {
+  if (state.poppedOut.includes(workspaceId) || workspaceId === target) return selectWorkspace(workspaceId)
+  const base = currentPanes()
+  if (!base) return selectWorkspace(workspaceId)
+  const tree = paneLeaves(base).includes(workspaceId) ? movePane(base, workspaceId, target, side) : insertPane(base, target, workspaceId, side)
+  set(withPanes({ ...state, activeWorkspaceId: workspaceId, dashboardOpen: false }, keepPanes(tree, () => true)))
+}
+
+/** Two panes trade places. */
+export function swapPanePlaces(a: string, b: string): void {
+  if (!state.paneTree || !state.columns.includes(a) || !state.columns.includes(b)) return
+  set(withPanes({ ...state, activeWorkspaceId: a }, swapPanes(state.paneTree, a, b)))
 }
 
 export function closeColumn(workspaceId: string): void {
   const at = state.columns.indexOf(workspaceId)
   if (at === -1) return
-  const columns = state.columns.filter((id) => id !== workspaceId)
-  const active =
-    state.activeWorkspaceId === workspaceId ? (columns[Math.max(0, at - 1)] ?? null) : state.activeWorkspaceId
-  set({ ...state, columns: columns.length > 1 ? columns : [], activeWorkspaceId: active })
+  const tree = removePane(state.paneTree, workspaceId)
+  const rest = state.columns.filter((id) => id !== workspaceId)
+  const active = state.activeWorkspaceId === workspaceId ? (rest[Math.max(0, at - 1)] ?? null) : state.activeWorkspaceId
+  set(withPanes({ ...state, activeWorkspaceId: active }, tree))
 }
 
-export function setColumnWidths(widths: Record<string, number>): void {
-  set({ ...state, columnWidths: { ...state.columnWidths, ...widths } })
+/** The split at `path` in the pane tree takes new relative sizes (its dividers were dragged). */
+export function setPaneSizes(path: number[], sizes: number[]): void {
+  if (state.paneTree) set(withPanes(state, resizePanes(state.paneTree, path, sizes)))
 }
 
 /** Takes a workspace out of this window's view while another window shows it. */
@@ -423,12 +462,12 @@ export function setPoppedOut(workspaceId: string, popped: boolean): void {
     ? [...state.poppedOut.filter((id) => id !== workspaceId), workspaceId]
     : state.poppedOut.filter((id) => id !== workspaceId)
   if (!popped) return set({ ...state, poppedOut })
-  const columns = state.columns.filter((id) => id !== workspaceId)
+  const rest = state.columns.filter((id) => id !== workspaceId)
   const active =
     state.activeWorkspaceId === workspaceId
-      ? (columns[Math.max(0, state.columns.indexOf(workspaceId) - 1)] ?? null)
+      ? (rest[Math.max(0, state.columns.indexOf(workspaceId) - 1)] ?? null)
       : state.activeWorkspaceId
-  set({ ...state, poppedOut, columns: columns.length > 1 ? columns : [], activeWorkspaceId: active })
+  set(withPanes({ ...state, poppedOut, activeWorkspaceId: active }, removePane(state.paneTree, workspaceId)))
 }
 
 /** No workspace selected: the main view shows the quick start (components/QuickStart). */

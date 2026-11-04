@@ -1,11 +1,13 @@
 import { useEffect } from 'react'
 import { isTauri } from '@tauri-apps/api/core'
 import { Window, getCurrentWindow } from '@tauri-apps/api/window'
-import { Undo2 } from 'lucide-react'
+import { AppWindow, Undo2 } from 'lucide-react'
 import { connectAllHosts } from '@/daemon-connection'
 import { getState, selectWorkspace, useStore } from '@/session-store'
 import { WorkspaceTabs } from '@/components/WorkspaceTabs'
-import { PointerDragLayer } from '@/components/PointerDragLayer'
+import { DragChip, PointerDragLayer } from '@/components/PointerDragLayer'
+import { usePaneTitle } from '@/components/WorkspaceColumns'
+import { paneDrag } from '@/components/pane-drop'
 import { Toaster } from '@/components/ui/sonner'
 import { WorkflowStartConfirmDialog } from '@/components/workflows/WorkflowStartConfirm'
 import { Button } from '@/components/ui/button'
@@ -13,7 +15,7 @@ import { TooltipProvider } from '@/components/ui/tooltip'
 import { installKeybindingDispatcher } from '@/keybindings/keybinding-registry'
 import { installChatCommands } from '@/components/native-chat/native-chat-commands'
 import { WINDOW_WORKSPACE_ID } from '@/lib/window-role'
-import { returnToMainWindow, workspaceWindowTitle } from '@/lib/workspace-window'
+import { returnByDrop, returnToMainWindow, workspaceWindowTitle } from '@/lib/workspace-window'
 import { installTheme } from '@/lib/theme'
 import { installUiZoom } from '@/lib/ui-zoom'
 import '@/assets/main.css'
@@ -55,7 +57,8 @@ export default function WorkspaceWindow() {
   return (
     <TooltipProvider delayDuration={300}>
       <div className="flex h-full w-full overflow-hidden bg-background text-foreground">
-        <main className="flex min-w-0 flex-1">
+        <main className="flex min-w-0 flex-1 flex-col">
+          {known && <WindowPaneHeader workspaceId={workspaceId} />}
           {known ? (
             <WorkspaceTabs
               workspaceId={workspaceId}
@@ -85,5 +88,28 @@ export default function WorkspaceWindow() {
       <Toaster />
       <WorkflowStartConfirmDialog />
     </TooltipProvider>
+  )
+}
+
+/** The pane's name, as in the main window; dropped on the main window, the workspace goes back into the pane under it. */
+function WindowPaneHeader({ workspaceId }: { workspaceId: string }) {
+  const { title, detail } = usePaneTitle(workspaceId)
+  return (
+    <div
+      data-column-header
+      title={t('Drag onto the main window to put this workspace back there')}
+      className="flex h-7 shrink-0 cursor-grab items-center gap-1.5 border-b border-border px-2.5 text-xs select-none active:cursor-grabbing"
+      onPointerDown={(event) => {
+        if (!isTauri()) return
+        paneDrag.begin(event, {
+          payload: () => ({ workspaceId }),
+          preview: <DragChip label={title} icon={<AppWindow className="size-3.5" />} />,
+          onDropOutside: (_item, screen) => void returnByDrop(workspaceId, screen)
+        })
+      }}
+    >
+      <span className="shrink-0 font-medium text-foreground">{title}</span>
+      {detail && <span className="min-w-0 truncate text-muted-foreground">{detail}</span>}
+    </div>
   )
 }

@@ -193,6 +193,8 @@ export const SHELL: Record<string, string> = {
   'Open beside': '横に開く',
   'Quick chat': 'クイックチャット',
   'Open in new window': '新しいウィンドウで開く',
+  'Drag to move this pane; drop it outside the window to open it in a window of its own': 'ドラッグで画面を移動。ウィンドウの外で離すと別ウィンドウで開きます',
+  'Drag onto the main window to put this workspace back there': 'メインウィンドウへドラッグすると、そこへ戻せます',
   'Close column': '列を閉じる',
 
   // components/WorkspaceTabs.tsx

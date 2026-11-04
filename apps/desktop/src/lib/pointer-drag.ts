@@ -36,6 +36,8 @@ export interface PointerDragOptions<T> {
   /** Scroll the container under the pointer near its edges, as native drags do. */
   autoScroll?: boolean
   onEnd?: () => void
+  /** Released outside this window, with where on the screen (CSS pixels), e.g. to make a window there. */
+  onDropOutside?: (payload: T, screen: DragPoint) => void
 }
 
 export interface PointerDragChannel<T> {
@@ -237,6 +239,9 @@ export function createPointerDragChannel<T>(delegates: DelegatedDropTarget<T>[] 
         if (found?.target !== current) current?.leave?.()
         current = found?.target ?? null
         if (found) found.target.drop(payload, found.at)
+        else if (point.x < 0 || point.y < 0 || point.x > window.innerWidth || point.y > window.innerHeight) {
+          options.onDropOutside?.(payload, { x: e.screenX, y: e.screenY })
+        }
         current?.leave?.()
         current = null
         swallowNextClick()
