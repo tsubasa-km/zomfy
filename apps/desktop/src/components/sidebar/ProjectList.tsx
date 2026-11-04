@@ -4,7 +4,7 @@ import { MessageSquare } from 'lucide-react'
 import { HARNESS_METHODS, type HarnessState, type ProjectGroup, type ProjectLink, type Workspace } from '@acp-harness/protocol'
 import { harnessRequest } from '@/daemon-connection'
 import { findWorkspace, setSidebarView, useStore, type HostEntry, type HostedProject, type HostId } from '@/session-store'
-import { useSidebarStore, type SidebarFilters } from '@/stores/sidebar-store'
+import { setProjectOrder, useSidebarStore, type SidebarFilters } from '@/stores/sidebar-store'
 import { ProjectSection, type SidebarActions } from '@/components/sidebar/ProjectSection'
 import { WorkspaceCard, type WorkspaceDropHandlers } from '@/components/sidebar/WorkspaceCard'
 import { WorkspaceStatusIcon } from '@/components/sidebar/WorkspaceStatusIcon'
@@ -13,6 +13,7 @@ import { updateWorkspace } from '@/components/sidebar/WorkspaceMenu'
 import { useSidebarDropTarget } from '@/components/sidebar/sidebar-drag'
 import {
   projectLabel,
+  mergeOrder,
   reorderIds,
   sortGroups,
   sortProjects,
@@ -140,21 +141,30 @@ export function ProjectList({ actions }: { actions: SidebarActions }) {
     ? []
     : sources.flatMap((s) => s.harness.workspaces.filter((w) => w.scratch).map((w) => ({ ...w, hostId: s.host.id })))
   const groups = sources.flatMap((s) => sortGroups(s.harness.projectGroups ?? []).map((group) => ({ group, hostId: s.host.id })))
-  // A project linked across hosts lists once, under its main member.
-  const entries = linkedEntries(projects, links)
+  // A project linked across hosts lists once, under its main member, in the person's order across hosts.
+  const projectOrder = useSidebarStore((s) => s.projectOrder)
+  const entryKey = (e: LinkedEntry) => `${e.primary.hostId}:${e.primary.id}`
+  const unordered = linkedEntries(projects, links)
+  const rank = new Map(mergeOrder(unordered.map(entryKey), projectOrder).map((key, i) => [key, i]))
+  const entries = [...unordered].sort((a, b) => rank.get(entryKey(a))! - rank.get(entryKey(b))!)
 
   // Filters hide projects left with nothing to show (Orca's empty-project rows), but never when unfiltered.
   const projectVisible = (projectId: string) =>
     !filtering || (visible.some((w) => w.projectId === projectId) && (filters.projectIds.length === 0 || filters.projectIds.includes(projectId)))
 
-  const projectDrop = (project: HostedProject) => (item: { id: string }, position: 'before' | 'after') => {
-    // Order and groups are each host's own; ProjectSection only accepts drops from the same host.
+  const projectDrop = (project: HostedProject) => (item: { id: string; hostId: HostId }, position: 'before' | 'after') => {
+    // The order across hosts is this window's; each host also keeps its own, and its groups.
+    const across = reorderIds(entries.map(entryKey), `${item.hostId}:${item.id}`, `${project.hostId}:${project.id}`, position)
+    if (across) setProjectOrder(across)
+    const dragged = projects.find((p) => p.hostId === item.hostId && p.id === item.id)
+    // A group is one host's, so a project from another host only lands beside ungrouped ones (ProjectSection).
+    if (dragged && dragged.groupId !== project.groupId) {
+      const groupId = item.hostId === project.hostId ? (project.groupId ?? null) : null
+      void harnessRequest(HARNESS_METHODS.projectUpdate, { projectId: item.id, patch: { groupId } }, item.hostId)
+    }
+    if (item.hostId !== project.hostId) return
     const siblings = projects.filter((p) => p.hostId === project.hostId)
     const order = reorderIds(siblings.map((p) => p.id), item.id, project.id, position)
-    const dragged = siblings.find((p) => p.id === item.id)
-    if (dragged && dragged.groupId !== project.groupId) {
-      void harnessRequest(HARNESS_METHODS.projectUpdate, { projectId: item.id, patch: { groupId: project.groupId ?? null } }, project.hostId)
-    }
     if (order) void harnessRequest(HARNESS_METHODS.projectsReorder, { projectIds: order }, project.hostId)
   }
 

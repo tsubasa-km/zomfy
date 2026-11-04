@@ -84,7 +84,11 @@ export function ProjectSection({
   const label = projectLabel(project)
   const headerDropRef = useSidebarDropTarget(
     `project:${project.id}`,
-    (item) => (item.kind === 'project' && item.hostId === project.hostId && item.id !== project.id ? 'order' : false),
+    // Projects reorder across hosts, but only this host's projects go in among a group's.
+    (item) =>
+      item.kind === 'project' && !(item.hostId === project.hostId && item.id === project.id) && (item.hostId === project.hostId || !project.groupId)
+        ? 'order'
+        : false,
     (item, position) => onProjectDrop(item, position === 'before' ? 'before' : 'after')
   )
   const tree = buildWorkspaceTree(sortWorkspaces(workspaces, view, sessions))

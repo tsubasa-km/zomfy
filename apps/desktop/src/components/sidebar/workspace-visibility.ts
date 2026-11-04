@@ -109,3 +109,23 @@ export function reorderIds(ids: string[], dragged: string, target: string, posit
   rest.splice(position === 'before' ? at : at + 1, 0, dragged)
   return rest.join() === ids.join() ? null : rest
 }
+
+/**
+ * `keys` in the saved order: the saved ones first as saved, then each one not saved yet right after
+ * the key before it in `keys`, so a new project shows up where its host lists it.
+ */
+export function mergeOrder(keys: string[], saved: string[]): string[] {
+  const present = new Set(keys)
+  const result = saved.filter((k) => present.has(k))
+  const placed = new Set(result)
+  let last = -1
+  for (const key of keys) {
+    if (placed.has(key)) {
+      last = result.indexOf(key)
+      continue
+    }
+    result.splice(++last, 0, key)
+    placed.add(key)
+  }
+  return result
+}
