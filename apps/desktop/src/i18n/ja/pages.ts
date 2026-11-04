@@ -1039,7 +1039,7 @@ export const PAGES: Record<string, string> = {
   'Click the tab under the drawer. (If the drawer closed, point at the tab again.)': '引き出しの下のつまみをクリックしてみましょう（閉じてしまったら、もう一度つまみにマウスを乗せてください）。',
   'The drawer closes when the pointer leaves it. The same tab, now under the drawer, pins it open.': '引き出しはマウスが離れると閉じます。引き出しの下に移ったつまみを押すと、開いたまま固定されます。',
   'Point at the tab and wait a moment.': 'つまみにマウスを乗せて、少し待ってみましょう。',
-  'Each pane has a small tab under its tab strip. It pulls down the workspace’s terminals, browsers and panels.': '各ペインのタブ列の下に小さなつまみがあります。ここからワークスペースのターミナル、ブラウザー、パネルを引き出せます。',
+  'The open tab has a small tab under the tab strip. It pulls down the workspace’s terminals, browsers and panels.': '開いているタブには、タブ列の下に小さなつまみがあります。ここからワークスペースのターミナル、ブラウザー、パネルを引き出せます。',
   'Click the arrow to fold or unfold the chats under it.': '矢印をクリックして、下のチャットを開いたり畳んだりしてみましょう。',
   'Click it to open the side chat panel.': 'クリックしてサイドチャットのパネルを開いてみましょう。',
   'Keep it open': '開いたままにする',

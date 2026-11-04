@@ -84,7 +84,7 @@ export const TOUR_STEPS: TourStep[] = [
   {
     chapter: t('Layout'),
     title: t('The pull-down drawer'),
-    body: t('Each pane has a small tab under its tab strip. It pulls down the workspace’s terminals, browsers and panels.'),
+    body: t('The open tab has a small tab under the tab strip. It pulls down the workspace’s terminals, browsers and panels.'),
     target: '[data-drawer-handle]',
     optional: true,
     action: { prompt: t('Point at the tab and wait a moment.'), on: 'hover' }

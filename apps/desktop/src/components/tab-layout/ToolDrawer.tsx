@@ -65,19 +65,27 @@ function TabShape({ className }: { className?: string }) {
   )
 }
 
+// What each tab's drawer was left showing, so coming back to a tab finds its drawer as it was.
+const remembered = new Map<string, { pinned: boolean; activeId: string | null }>()
+
 /**
  * The project's terminals, browsers and the right sidebar's panels, pulled down from under a tab strip:
- * hovering the handle opens it, leaving it closes it unless pinned. `exclude` is the pane's own active tab.
+ * hovering the handle opens it, leaving it closes it unless pinned. `tabId` is the tab it hangs from,
+ * whose pin and choice it remembers; `exclude` is the pane's own active tab.
  */
-export function ToolDrawer({ workspaceId, exclude }: { workspaceId: string; exclude?: string | null }) {
+export function ToolDrawer({ workspaceId, tabId, exclude }: { workspaceId: string; tabId?: string; exclude?: string | null }) {
   const tabs = useWorkspaceTabs(workspaceId)
   const tools = tabs.flatMap((t): Extract<WorkspaceTab, { kind: 'terminal' | 'browser' }>[] =>
     (t.kind === 'terminal' || t.kind === 'browser') && t.id !== exclude ? [t] : []
   )
   const meta = useTabLayout((s) => s.meta)
-  const [open, setOpen] = useState(false)
-  const [pinned, setPinned] = useState(false)
-  const [activeId, setActiveId] = useState<string | null>(null)
+  const kept = tabId ? remembered.get(tabId) : undefined
+  const [pinned, setPinned] = useState(kept?.pinned ?? false)
+  const [open, setOpen] = useState(kept?.pinned ?? false)
+  const [activeId, setActiveId] = useState<string | null>(kept?.activeId ?? null)
+  useEffect(() => {
+    if (tabId) remembered.set(tabId, { pinned, activeId })
+  }, [tabId, pinned, activeId])
   const rootRef = useRef<HTMLDivElement>(null)
   const timer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
   useEffect(() => () => clearTimeout(timer.current), [])

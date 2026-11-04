@@ -106,7 +106,8 @@ export function TabGroupPane({
       />
       <div data-tab-group-body-id={groupId} className="relative flex min-h-0 min-w-0 flex-1 flex-col">
         {active ? <TabBody tab={active} /> : <div className="m-auto px-4 text-center text-sm text-muted-foreground">{emptyHint}</div>}
-        <ToolDrawer workspaceId={workspaceId} exclude={active?.id} />
+        {/* The drawer belongs to the tab on show: none without one, and each tab keeps its own. */}
+        {active && <ToolDrawer key={active.id} workspaceId={workspaceId} tabId={active.id} exclude={active.id} />}
       </div>
       {zone && (
         <div aria-hidden data-tab-drop-zone={zone} className="tab-drop-overlay" style={OVERLAY_RECT[zone]}>
