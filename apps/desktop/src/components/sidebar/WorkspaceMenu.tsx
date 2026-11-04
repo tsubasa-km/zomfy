@@ -30,7 +30,7 @@ import {
   type WorkspaceStatusId
 } from '@acp-harness/protocol'
 import { cancelTurn, closeTerminal, harnessRequest, isSshHost } from '@/daemon-connection'
-import { getState, markSeen, openInColumn, type HostId } from '@/session-store'
+import { LOCAL_HOST, getState, markSeen, openInColumn, useStore, type HostId } from '@/session-store'
 import { WINDOW_ROLE } from '@/lib/window-role'
 import { canPopOutWorkspace, popOutWorkspace } from '@/lib/workspace-window'
 import {
@@ -47,8 +47,45 @@ import { t } from '@/i18n/i18n'
 // Items and order follow Orca's WorktreeContextMenuView: Update, status, Open in, Copy Path,
 // Copy Worktree Name, Pin, Mark Read/Unread, Sleep, Delete.
 
-export function openWorkspaceIn(target: 'vscode' | 'explorer' | 'terminal', hostId: HostId, path: string): void {
-  void invoke('open_workspace_in', { target, host: hostId, path }).catch((e: unknown) => window.alert(String(e)))
+/** `shell` is one of the local daemon's shell ids, for a terminal; none is the terminal app's default. */
+export function openWorkspaceIn(target: 'vscode' | 'explorer' | 'terminal', hostId: HostId, path: string, shell?: string): void {
+  void invoke('open_workspace_in', { target, host: hostId, path, shell: shell ?? null }).catch((e: unknown) => window.alert(String(e)))
+}
+
+/**
+ * Opening the folder in an outside terminal. On this machine, with more than one shell, hovering it lists
+ * them (open_in.rs runs the pick in Windows Terminal); WSL and SSH terminals run the host's login shell.
+ */
+export function OpenTerminalItem({ hostId, path, label, icon = true }: { hostId: HostId; path: string; label: string; icon?: boolean }) {
+  const shells = useStore((s) => s.hosts[hostId]?.shells) ?? []
+  const glyph = icon ? <SquareTerminal className="size-3.5" /> : null
+  if (hostId !== LOCAL_HOST || shells.length < 2) {
+    return (
+      <DropdownMenuItem onSelect={() => openWorkspaceIn('terminal', hostId, path)}>
+        {glyph}
+        {label}
+      </DropdownMenuItem>
+    )
+  }
+  return (
+    <DropdownMenuSub>
+      <DropdownMenuSubTrigger data-open-terminal>
+        {glyph}
+        {label}
+      </DropdownMenuSubTrigger>
+      <DropdownMenuSubContent>
+        <DropdownMenuItem data-open-terminal-shell="default" onSelect={() => openWorkspaceIn('terminal', hostId, path)}>
+          {t('Windows Terminal default')}
+        </DropdownMenuItem>
+        <DropdownMenuSeparator />
+        {shells.map((shell) => (
+          <DropdownMenuItem key={shell.id} data-open-terminal-shell={shell.id} onSelect={() => openWorkspaceIn('terminal', hostId, path, shell.id)}>
+            {t(shell.label)}
+          </DropdownMenuItem>
+        ))}
+      </DropdownMenuSubContent>
+    </DropdownMenuSub>
+  )
 }
 
 export function OpenInSubmenu({ hostId, path }: { hostId: HostId; path: string }) {
@@ -70,10 +107,7 @@ export function OpenInSubmenu({ hostId, path }: { hostId: HostId; path: string }
             {t('File Explorer')}
           </DropdownMenuItem>
         )}
-        <DropdownMenuItem onSelect={() => openWorkspaceIn('terminal', hostId, path)}>
-          <SquareTerminal className="size-3.5" />
-          {t('Terminal')}
-        </DropdownMenuItem>
+        <OpenTerminalItem hostId={hostId} path={path} label={t('Terminal')} />
       </DropdownMenuSubContent>
     </DropdownMenuSub>
   )

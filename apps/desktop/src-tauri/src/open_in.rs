@@ -45,8 +45,22 @@ fn open_ssh(target: &str, ssh: &str, path: &str) -> Result<(), String> {
     }
 }
 
-/// `host` is `local`, `wsl:<distro>` or `ssh:<target>`; `path` is the host's own path.
-pub fn open_in(target: &str, host: &str, path: &str) -> Result<(), String> {
+/// What Windows Terminal runs for one of the daemon's local shell ids (terminal-manager.ts detectShells);
+/// none leaves it to Windows Terminal's default profile.
+fn local_shell_argv(shell: Option<&str>) -> Result<Vec<&'static str>, String> {
+    Ok(match shell {
+        None => vec![],
+        Some("pwsh") => vec!["pwsh.exe", "-NoLogo"],
+        Some("powershell") => vec!["powershell.exe", "-NoLogo"],
+        Some("cmd") => vec!["cmd.exe"],
+        Some("git-bash") => vec![r"C:\Program Files\Git\bin\bash.exe", "--login", "-i"],
+        Some(other) => return Err(format!("Unknown shell {other}")),
+    })
+}
+
+/// `host` is `local`, `wsl:<distro>` or `ssh:<target>`; `path` is the host's own path. `shell` picks the
+/// local terminal's shell by the daemon's shell id; WSL and SSH terminals run the host's login shell.
+pub fn open_in(target: &str, host: &str, path: &str, shell: Option<&str>) -> Result<(), String> {
     if let Some(ssh) = host.strip_prefix("ssh:") {
         return open_ssh(target, ssh, path);
     }
@@ -63,7 +77,11 @@ pub fn open_in(target: &str, host: &str, path: &str) -> Result<(), String> {
             let unc = format!(r"\\wsl.localhost\{d}{}", path.replace('/', r"\"));
             spawn("explorer", &[&unc])
         }
-        ("terminal", None) if cfg!(windows) => spawn("wt", &["-d", path]),
+        ("terminal", None) if cfg!(windows) => {
+            let mut args = vec!["-d", path];
+            args.extend(local_shell_argv(shell)?);
+            spawn("wt", &args)
+        }
         ("terminal", Some(d)) => spawn("wt", &["wsl.exe", "-d", d, "--cd", path]),
         ("terminal", None) => Err("Open in terminal is only wired up on Windows so far".into()),
         _ => Err(format!("Unknown open target {target}")),
@@ -73,6 +91,13 @@ pub fn open_in(target: &str, host: &str, path: &str) -> Result<(), String> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn local_shells_map_to_programs() {
+        assert!(local_shell_argv(None).unwrap().is_empty());
+        assert_eq!(local_shell_argv(Some("cmd")).unwrap(), ["cmd.exe"]);
+        assert!(local_shell_argv(Some("zsh")).is_err());
+    }
 
     #[test]
     fn ssh_terminal_starts_in_the_folder() {

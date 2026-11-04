@@ -16,7 +16,7 @@ import {
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { DragChip } from '@/components/PointerDragLayer'
 import { filePathDrag } from '@/lib/file-path-drag'
-import { openWorkspaceIn } from '@/components/sidebar/WorkspaceMenu'
+import { OpenTerminalItem, openWorkspaceIn } from '@/components/sidebar/WorkspaceMenu'
 import { FileExplorerRow, type FileExplorerRowActions } from './FileExplorerRow'
 import { InlineInputRow, type InlineInput } from './file-explorer-inline-input'
 import { PermanentDeleteDialog } from './file-explorer-delete-dialog'
@@ -446,7 +446,7 @@ export function FileExplorer({ workspaceId, rootName }: { workspaceId: string; r
                 <DropdownMenuSeparator />
                 <DropdownMenuItem onSelect={() => openWorkspaceIn('vscode', hostId, workspacePath)}>{t('Open in VS Code')}</DropdownMenuItem>
                 <DropdownMenuItem onSelect={() => openWorkspaceIn('explorer', hostId, workspacePath)}>{t('Open in File Manager')}</DropdownMenuItem>
-                <DropdownMenuItem onSelect={() => openWorkspaceIn('terminal', hostId, workspacePath)}>{t('Open in Terminal')}</DropdownMenuItem>
+                <OpenTerminalItem hostId={hostId} path={workspacePath} label={t('Open in Terminal')} icon={false} />
               </>
             )}
           </DropdownMenuContent>

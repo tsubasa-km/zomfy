@@ -998,6 +998,8 @@ export const SHELL: Record<string, string> = {
   'Open in VS Code': 'VS Code で開く',
   'Open in File Manager': 'ファイル マネージャーで開く',
   'Open in Terminal': 'ターミナルで開く',
+  'Windows Terminal default': 'Windows Terminal の既定',
+  'Command Prompt': 'コマンド プロンプト',
   Dismiss: '閉じる',
   'This folder is empty': 'このフォルダーは空です',
 

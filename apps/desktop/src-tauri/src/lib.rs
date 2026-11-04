@@ -59,8 +59,8 @@ async fn disconnect_ssh_host(target: String) -> Result<(), String> {
 }
 
 #[tauri::command]
-fn open_workspace_in(target: String, host: String, path: String) -> Result<(), String> {
-    open_in::open_in(&target, &host, &path)
+fn open_workspace_in(target: String, host: String, path: String, shell: Option<String>) -> Result<(), String> {
+    open_in::open_in(&target, &host, &path, shell.as_deref())
 }
 
 /// Tray attention dot (window hidden and an agent finished or needs the user) and waiting count.
