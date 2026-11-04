@@ -3,8 +3,8 @@
 //! launched detached from the app, so it outlives the app and also keeps the distro awake (Orca's
 //! "distro holder"); the desktop connects over WSL's localhost forwarding.
 
-use std::process::Command;
-use std::sync::Mutex;
+use std::process::{Command, Stdio};
+use std::sync::{Mutex, mpsc};
 use std::time::Duration;
 
 use crate::daemon_process::{built_binary, hidden, port_of, reachable, spawn_detached, stamp, wait_for};
@@ -19,8 +19,31 @@ fn wsl() -> Command {
     hidden("wsl.exe")
 }
 
+/// How long one wsl.exe call may take. Just after sign-in, while the WSL service is still coming up,
+/// wsl.exe can hang; a hung call would hold STARTING and stall every retry until the app restarts.
+const CALL_LIMIT: Duration = Duration::from_secs(60);
+/// Copying a new daemon binary into the distro takes longer than a plain call.
+const INSTALL_LIMIT: Duration = Duration::from_secs(180);
+const READ_LIMIT: Duration = Duration::from_secs(15);
+
 fn run(command: &mut Command) -> Result<String, String> {
-    let output = command.output().map_err(|e| format!("wsl.exe: {e}"))?;
+    run_within(command, CALL_LIMIT)
+}
+
+/// Runs `command` to the end, or gives up after `limit` and kills it (and what it started).
+fn run_within(command: &mut Command, limit: Duration) -> Result<String, String> {
+    command.stdin(Stdio::null()).stdout(Stdio::piped()).stderr(Stdio::piped());
+    let child = command.spawn().map_err(|e| format!("wsl.exe: {e}"))?;
+    let pid = child.id();
+    let (done, outcome) = mpsc::channel();
+    std::thread::spawn(move || {
+        let _ = done.send(child.wait_with_output());
+    });
+    let Ok(result) = outcome.recv_timeout(limit) else {
+        let _ = hidden("taskkill").args(["/PID", &pid.to_string(), "/T", "/F"]).stdout(Stdio::null()).stderr(Stdio::null()).status();
+        return Err(format!("WSL did not answer within {} seconds; it may still be starting", limit.as_secs()));
+    };
+    let output = result.map_err(|e| format!("wsl.exe: {e}"))?;
     if !output.status.success() {
         return Err(String::from_utf8_lossy(&output.stderr).trim().to_string());
     }
@@ -55,12 +78,12 @@ fn install(distro: &str) -> Result<bool, String> {
          cp \"$1\" \"$target.new\"; chmod +x \"$target.new\"; pkill -f \"$target --port\" || true; \
          mv -f \"$target.new\" \"$target\"; echo \"$2\" > \"$target.stamp\"; echo upgraded; fi"
     );
-    let out = run(wsl().args(["-d", distro, "--exec", "sh", "-c", &script, "sh", &linux_path, &build]))?;
+    let out = run_within(wsl().args(["-d", distro, "--exec", "sh", "-c", &script, "sh", &linux_path, &build]), INSTALL_LIMIT)?;
     Ok(out.contains("upgraded"))
 }
 
 fn read_info(distro: &str) -> Option<String> {
-    run(wsl().args(["-d", distro, "--exec", "sh", "-c", "cat \"$HOME/.acp-harness/daemon.json\""]))
+    run_within(wsl().args(["-d", distro, "--exec", "sh", "-c", "cat \"$HOME/.acp-harness/daemon.json\""]), READ_LIMIT)
         .ok()
         .filter(|s| s.starts_with('{'))
 }
@@ -100,4 +123,23 @@ pub fn ensure(distro: &str) -> Result<String, String> {
     command.args(["-d", distro, "--exec", "bash", "-lc", &script]);
     spawn_detached(command)?;
     wait_for(Duration::from_secs(30), || read_info(distro))
+}
+
+#[cfg(all(test, windows))]
+mod tests {
+    use super::*;
+    use std::time::Instant;
+
+    #[test]
+    fn a_call_that_hangs_is_given_up_on() {
+        let started = Instant::now();
+        let result = run_within(hidden("ping").args(["-n", "10", "127.0.0.1"]), Duration::from_secs(1));
+        assert!(result.is_err());
+        assert!(started.elapsed() < Duration::from_secs(5));
+    }
+
+    #[test]
+    fn a_quick_call_returns_its_output() {
+        assert_eq!(run_within(hidden("cmd").args(["/C", "echo hi"]), Duration::from_secs(10)).unwrap(), "hi");
+    }
 }
