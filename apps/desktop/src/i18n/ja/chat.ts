@@ -162,6 +162,7 @@ export const CHAT: Record<string, string> = {
   // components/native-chat/NativeChatCopyButton.tsx
   Copied: 'コピーしました',
   'Copy message': 'メッセージをコピー',
+  'Copy as Markdown': 'Markdown としてコピー',
 
   // components/native-chat/NativeChatDictationButton.tsx
   'Microphone unavailable': 'マイクを使用できません',

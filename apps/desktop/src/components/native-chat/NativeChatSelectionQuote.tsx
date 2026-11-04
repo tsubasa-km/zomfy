@@ -1,8 +1,9 @@
 import { useEffect, useMemo, useRef, useState, type RefObject } from 'react'
-import { MessagesSquare, Quote } from 'lucide-react'
+import { FileText, MessagesSquare, Quote } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Popover, PopoverAnchor, PopoverContent } from '@/components/ui/popover'
 import { t } from '@/i18n/i18n'
+import { rangeMarkdown } from './selection-markdown'
 
 // Ported from Orca's NativeChatSelectionQuote and native-chat-quote-selection.
 
@@ -31,7 +32,7 @@ export function formatNativeChatQuote(text: string): string {
   return `${lines.map((line) => (line.trim() ? `> ${line}` : '>')).join('\n')}\n\n`
 }
 
-type QuoteRequest = { text: string; anchor: { getBoundingClientRect: () => DOMRect } }
+type QuoteRequest = { text: string; markdown: string; anchor: { getBoundingClientRect: () => DOMRect } }
 
 /** Offers "Add to chat" (and, in a main chat, "Ask in side chat") beside a selection in an agent's reply. */
 export function NativeChatSelectionQuote({
@@ -74,6 +75,7 @@ export function NativeChatSelectionQuote({
         const dy = (point?.y ?? end.top) - held.top
         setRequest({
           text,
+          markdown: rangeMarkdown(range),
           anchor: {
             getBoundingClientRect: () => {
               const now = range.getBoundingClientRect()
@@ -146,6 +148,18 @@ export function NativeChatSelectionQuote({
                 {t('Ask in side chat')}
               </Button>
             ) : null}
+            <Button
+              variant="ghost"
+              size="xs"
+              data-native-chat-copy-markdown
+              onClick={() => {
+                void navigator.clipboard.writeText(request.markdown)
+                setRequest(null)
+              }}
+            >
+              <FileText />
+              {t('Copy as Markdown')}
+            </Button>
           </div>
         </PopoverContent>
       ) : null}

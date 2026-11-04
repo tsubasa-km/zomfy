@@ -1,5 +1,5 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
-import { Copy, CornerDownLeft, GitFork, MessagesSquare, Quote, Search, TextSelect } from 'lucide-react'
+import { Copy, CornerDownLeft, FileText, GitFork, MessagesSquare, Quote, Search, TextSelect } from 'lucide-react'
 import { markSeen, openEditorTab, useStore, type Session, type ThreadItem } from '@/session-store'
 import { projectOfSession } from '@/lib/session-project'
 import { linkOf } from '@/stores/project-links-store'
@@ -47,6 +47,7 @@ import { NativeChatJumpToLatest } from '@/components/native-chat/NativeChatJumpT
 import { NativeChatMessageRail, type RailItem } from '@/components/native-chat/NativeChatMessageRail'
 import { NativeChatQueuedMessageList } from '@/components/native-chat/NativeChatQueuedMessageList'
 import { NativeChatSelectionQuote, formatNativeChatQuote } from '@/components/native-chat/NativeChatSelectionQuote'
+import { selectionMarkdown } from '@/components/native-chat/selection-markdown'
 import { NativeChatTranscriptRow } from '@/components/native-chat/NativeChatTranscriptRow'
 import { buildTranscript } from '@/components/native-chat/native-chat-transcript-model'
 import { useNativeChatFind } from '@/components/native-chat/use-native-chat-find'
@@ -69,7 +70,11 @@ export function ThreadView({ session, onSendToMain }: { session: Session; onSend
   const composerRef = useRef<MarkdownEditorHandle>(null)
   const stick = useRef(true)
   const [atBottom, setAtBottom] = useState(true)
-  const [menuTarget, setMenuTarget] = useState<{ selection: string; message: string | null }>({ selection: '', message: null })
+  const [menuTarget, setMenuTarget] = useState<{ selection: string; markdown: string; message: string | null }>({
+    selection: '',
+    markdown: '',
+    message: null
+  })
   const [rewindTarget, setRewindTarget] = useState<string | null>(null)
   const working = isWorking(session)
   // ACP has no stable fork or rewind, so other agents' chats go without (as in Orca).
@@ -168,6 +173,7 @@ export function ThreadView({ session, onSendToMain }: { session: Session; onSend
                 const row = event.target instanceof Element ? event.target.closest('[data-native-chat-message-text]') : null
                 setMenuTarget({
                   selection: window.getSelection()?.toString() ?? '',
+                  markdown: selectionMarkdown(),
                   message: row?.getAttribute('data-native-chat-message-text') ?? null
                 })
               }}
@@ -208,6 +214,12 @@ export function ThreadView({ session, onSendToMain }: { session: Session; onSend
                   <Copy />
                   {t('Copy')}
                 </ContextMenuItem>
+                {menuTarget.markdown ? (
+                  <ContextMenuItem data-native-chat-copy-markdown onSelect={() => void navigator.clipboard.writeText(menuTarget.markdown)}>
+                    <FileText />
+                    {t('Copy as Markdown')}
+                  </ContextMenuItem>
+                ) : null}
                 <ContextMenuItem onSelect={() => quote(formatNativeChatQuote(menuTarget.selection))}>
                   <Quote />
                   {t('Add selection to chat')}
