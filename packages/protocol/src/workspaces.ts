@@ -198,6 +198,7 @@ export const WORKSPACE_METHODS = {
   floatingCwdSet: '_harness/floating/cwd/set',
   orcaProjects: '_harness/import/orca',
   projectUpdate: '_harness/projects/update',
+  projectRelocate: '_harness/projects/relocate',
   projectsReorder: '_harness/projects/reorder',
   projectHooks: '_harness/projects/hooks',
   projectClone: '_harness/projects/clone',
@@ -228,6 +229,12 @@ export interface WorkspaceRequests {
   [WORKSPACE_METHODS.floatingCwdSet]: { params: { path: string }; result: Workspace }
   [WORKSPACE_METHODS.orcaProjects]: { params: Record<string, never>; result: OrcaProject[] }
   [WORKSPACE_METHODS.projectUpdate]: { params: { projectId: string; patch: ProjectPatch }; result: Project }
+  /**
+   * Points the project at another folder on its host (it was moved or renamed on disk); nothing is
+   * moved on disk. Chats in its main checkout follow; `waiting` of them move once their turn ends.
+   * Newer daemons only.
+   */
+  [WORKSPACE_METHODS.projectRelocate]: { params: { projectId: string; path: string }; result: { project: Project; waiting: number } }
   [WORKSPACE_METHODS.projectsReorder]: { params: { projectIds: string[] }; result: Record<string, never> }
   [WORKSPACE_METHODS.projectHooks]: { params: { projectId: string }; result: ProjectHookInfo }
   /** Without `parentPath`, the host's ProjectCreationDefaults apply (an older daemon requires it). */

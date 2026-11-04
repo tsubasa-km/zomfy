@@ -1,7 +1,7 @@
 import { existsSync } from 'node:fs'
 import { mkdir, readdir, readFile, realpath, rm, writeFile, stat } from 'node:fs/promises'
 import { homedir } from 'node:os'
-import { basename, join, resolve } from 'node:path'
+import { basename, dirname, join, resolve } from 'node:path'
 import type {
   BranchList,
   CreateWorkspaceParams,
@@ -37,9 +37,12 @@ export class WorkspaceManager {
   private state: PersistedState = { projects: [], workspaces: [], projectGroups: [], floatingCwd: '' }
   private readonly listeners = new Set<(state: HarnessState) => void>()
 
+  /** `statePath` is for tests, which must never write the person's own state. */
+  constructor(private readonly statePath = STATE_PATH) {}
+
   async load(): Promise<void> {
     try {
-      this.state = { ...this.state, ...JSON.parse(await readFile(STATE_PATH, 'utf8')) }
+      this.state = { ...this.state, ...JSON.parse(await readFile(this.statePath, 'utf8')) }
     } catch {
       // First run: nothing saved yet.
     }
@@ -137,6 +140,39 @@ export class WorkspaceManager {
     }
     await this.save()
     return project
+  }
+
+  /**
+   * Points a project at another folder on this host (moved or renamed on disk); nothing moves on disk.
+   * Its main checkout follows; worktrees elsewhere stay. Returns that checkout, now at the new path.
+   */
+  async relocateProject(projectId: string, path: string): Promise<{ project: Project; primary: Workspace | null }> {
+    const project = this.requireProject(projectId)
+    const absolute = await realpath(resolve(path)).catch(() => resolve(path))
+    const isDirectory = await stat(absolute).then((s) => s.isDirectory(), () => false)
+    if (!isDirectory) throw new Error(`${absolute} is not a folder on this host`)
+    const isGit = await isGitRepository(absolute)
+    const root = isGit ? resolve(absolute, await git(absolute, ['rev-parse', '--show-toplevel'])) : absolute
+    const other = this.state.projects.find((p) => p.id !== projectId && samePath(p.path, root))
+    if (other) throw new Error(`${root} is already the project ${other.displayName ?? other.name}`)
+    const primary = this.state.workspaces.find((w) => w.projectId === projectId && w.isPrimary) ?? null
+    if (samePath(project.path, root)) return { project, primary }
+    const oldName = project.name
+    project.path = root
+    project.name = basename(root).replace(/\.git$/, '')
+    project.kind = isGit ? 'git' : 'folder'
+    if (primary) {
+      primary.path = root
+      if (primary.name === oldName) primary.name = project.name
+      primary.branch = isGit ? await currentBranch(root) : null
+    }
+    // A repository that moved leaves its worktrees pointing at the old place, and they at it; git relinks both.
+    if (isGit) {
+      const worktrees = this.state.workspaces.filter((w) => w.projectId === projectId && !w.isPrimary && existsSync(w.path)).map((w) => w.path)
+      await git(root, ['worktree', 'repair', ...worktrees], { quiet: true }).catch(() => '')
+    }
+    await this.save()
+    return { project, primary }
   }
 
   async removeProject(projectId: string): Promise<void> {
@@ -421,8 +457,8 @@ export class WorkspaceManager {
   }
 
   private async save(): Promise<void> {
-    await mkdir(HARNESS_HOME, { recursive: true })
-    await writeFile(STATE_PATH, JSON.stringify(this.state, null, 2))
+    await mkdir(dirname(this.statePath), { recursive: true })
+    await writeFile(this.statePath, JSON.stringify(this.state, null, 2))
     const snapshot = await this.snapshot()
     for (const listener of this.listeners) listener(snapshot)
   }

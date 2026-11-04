@@ -6,7 +6,7 @@ import { inspectWorkspace, workspaceSummary } from "../workspace-git-summary.ts"
 import { log } from "../log.ts";
 import type { HandlerContext } from "./handler-context.ts";
 
-export function registerWorkspaceHandlers({ handle, workspaces, sessions, terminals }: HandlerContext): void {
+export function registerWorkspaceHandlers({ handle, workspaces, sessions, terminals, followFolder }: HandlerContext): void {
   handle(HARNESS_METHODS.stateGet, () => workspaces.snapshot());
   handle(HARNESS_METHODS.projectAdd, (p) =>
     workspaces.addProject(expandHome(p.path), { requireGit: p.requireGit === true }),
@@ -59,6 +59,16 @@ export function registerWorkspaceHandlers({ handle, workspaces, sessions, termin
   handle(HARNESS_METHODS.floatingCwdSet, (p) => workspaces.setFloatingCwd(p.path));
   handle(HARNESS_METHODS.orcaProjects, () => readOrcaProjects());
   handle(HARNESS_METHODS.projectUpdate, (p) => workspaces.updateProject(p.projectId, p.patch));
+  handle(HARNESS_METHODS.projectRelocate, async (p) => {
+    const { project, primary } = await workspaces.relocateProject(p.projectId, expandHome(p.path));
+    let waiting = 0;
+    if (primary) {
+      for (const session of sessions.all().filter((s) => s.workspaceId === primary.id)) {
+        if (await followFolder(session.id, primary.path)) waiting++;
+      }
+    }
+    return { project, waiting };
+  });
   handle(HARNESS_METHODS.projectsReorder, async (p) => {
     await workspaces.reorderProjects(p.projectIds);
     return {};

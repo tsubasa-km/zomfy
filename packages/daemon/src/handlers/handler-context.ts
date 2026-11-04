@@ -72,6 +72,8 @@ export interface HandlerContext {
   }>;
   /** Moves a chat to another workspace, or when its running turn ends. */
   moveSession(params: MoveSessionParams): Promise<MoveSessionResult>;
+  /** A chat follows its workspace to a new folder (a relocated project); true when it waits for its turn to end. */
+  followFolder(sessionId: string, cwd: string): Promise<boolean>;
   /** Serves a step-only harness tool here instead of routing it to a window, to the sessions it is offered to. */
   serveTool(tool: ManagerToolName, route: ManagerRoute, offeredTo: (sessionId: string) => boolean): void;
 }

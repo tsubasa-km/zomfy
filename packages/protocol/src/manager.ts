@@ -168,6 +168,21 @@ export const MANAGER_TOOLS = [
     selfOnly: true
   },
   {
+    name: 'relocate_project',
+    description:
+      "Points a project at another folder on its host, e.g. after its repository was moved or renamed on disk, or when the person asks to change the project's path. It moves nothing on disk: move the folder first if it has not moved yet. The project keeps its id, chats, workflows and settings; chats in its main checkout continue in the new folder (one that is working, this chat too, moves when its turn ends). Worktrees elsewhere stay where they are.",
+    inputSchema: {
+      type: 'object',
+      properties: {
+        projectId: str('Project (from list_workspaces).'),
+        path: str("Absolute path of the folder on the project's host.")
+      },
+      required: ['projectId', 'path']
+    },
+    readOnly: false,
+    managerAllowed: true
+  },
+  {
     name: 'wait_for_session',
     description:
       'Waits until any of the sessions stops working (finished, needs the person, failed) or the timeout passes, then reports each one\'s status and last reply. A timeout or "unverifiable" is a checkpoint, not a failure: wait again or inspect.',

@@ -68,6 +68,8 @@ function dispatch({ tool, args, callerSessionId }: ManagerCallParams): Promise<u
       return startWorkspace(args)
     case 'move_chat':
       return moveChat(args, callerSessionId)
+    case 'relocate_project':
+      return relocateProject(reqString(args, 'projectId'), reqString(args, 'path'))
     case 'wait_for_session':
       return waitForSessions(reqStringArray(args, 'sessionIds'), clamp(args.timeoutSeconds, 300, 1, 1800), callerSessionId)
     case 'list_approvals':
@@ -377,6 +379,22 @@ async function startWorkspace(args: Record<string, unknown>): Promise<unknown> {
 }
 
 /** Moves the calling chat; a new worktree is made first, on the chat's own host. */
+async function relocateProject(projectId: string, path: string): Promise<unknown> {
+  const project = allProjects().find((p) => p.id === projectId)
+  if (!project) throw new ToolError(`Unknown project ${projectId}; use list_workspaces for ids.`)
+  if (!hostConnected(project.hostId)) throw new ToolError(`${project.hostId} is out of contact; try again once it is back.`)
+  const { project: moved, waiting } = await harnessRequest(HARNESS_METHODS.projectRelocate, { projectId, path }, project.hostId)
+  return {
+    projectId: moved.id,
+    path: moved.path,
+    name: moved.displayName ?? moved.name,
+    next:
+      waiting > 0
+        ? `Relocated. ${waiting} working chat(s) in its main checkout, this one included if it is there, move to the new folder when their turn ends.`
+        : 'Relocated; its chats now run in the new folder.'
+  }
+}
+
 async function moveChat(args: Record<string, unknown>, callerSessionId: string): Promise<unknown> {
   const session = requireSession(callerSessionId)
   requireReachable(session)

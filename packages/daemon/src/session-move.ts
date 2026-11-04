@@ -19,6 +19,8 @@ interface Deps {
 export class SessionMover {
   /** Session id → workspace it moves to once its turn ends. */
   private readonly pending = new Map<string, string>();
+  /** Session id → folder it follows its workspace to (the project was relocated) once its turn ends. */
+  private readonly following = new Map<string, string>();
 
   constructor(private readonly deps: Deps) {}
 
@@ -42,6 +44,27 @@ export class SessionMover {
     return { session: publicInfo(sessions.get(session.id) ?? session), workspaceId: target.id, moved: true };
   }
 
+  /**
+   * The chat's own workspace now lives in `cwd` (its project was pointed at another folder): the chat
+   * and its Claude conversation follow, after the turn when one runs. Returns whether it waits for that.
+   */
+  async follow(sessionId: string, cwd: string): Promise<boolean> {
+    if (this.deps.pendingTurns.has(sessionId)) {
+      this.following.set(sessionId, cwd);
+      return true;
+    }
+    await this.relocate(sessionId, cwd);
+    return false;
+  }
+
+  /** After any turn, however it ended: a chat whose folder moved under it follows now. */
+  async followAfterTurn(sessionId: string): Promise<void> {
+    const cwd = this.following.get(sessionId);
+    if (cwd === undefined) return;
+    this.following.delete(sessionId);
+    await this.relocate(sessionId, cwd);
+  }
+
   /** After a turn: the move it asked for happens now; returns the prompt that carries on there. */
   async turnEnded(sessionId: string): Promise<string | null> {
     const workspaceId = this.pending.get(sessionId);
@@ -55,6 +78,19 @@ export class SessionMover {
 
   forget(sessionId: string): void {
     this.pending.delete(sessionId);
+    this.following.delete(sessionId);
+  }
+
+  private async relocate(sessionId: string, cwd: string): Promise<void> {
+    const { sessions, emit } = this.deps;
+    const session = sessions.get(sessionId);
+    if (!session || session.cwd === cwd) return;
+    if (session.claudeSessionId && (session.agent ?? "claude") === "claude") {
+      await releaseFinishedTurn(sessionId);
+      await moveClaudeConversation(session.claudeSessionId, session.cwd, cwd, (await chatAgentLaunch("claude")).env);
+    }
+    sessions.update(sessionId, { cwd });
+    await emit(sessionId, { sessionUpdate: "notice", severity: "info", title: `The project moved; this chat now runs in ${cwd}` });
   }
 
   private async workspace(workspaceId: string): Promise<Workspace> {

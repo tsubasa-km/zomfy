@@ -386,6 +386,7 @@ export function createHarnessAgent(
       if (pendingTurns.get(session.id) === abort) pendingTurns.delete(session.id);
       claims.release(session.id);
       if (finishing.has(session.id)) void finishAfterTurn(session.id);
+      void mover.followAfterTurn(session.id).catch((error) => log(`${session.id} could not follow its project: ${String(error)}`));
     }
   }
 
@@ -522,6 +523,7 @@ export function createHarnessAgent(
       return stopReason;
     },
     moveSession: (params) => mover.move(params),
+    followFolder: (sessionId, cwd) => mover.follow(sessionId, cwd),
     serveTool: (tool, route, offeredTo) => localTools.set(tool, { route, offeredTo }),
     autoApprove,
     async runStepTurn(sessionId, text, step) {

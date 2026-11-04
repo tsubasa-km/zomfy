@@ -14,13 +14,15 @@ import { cn } from '@/lib/utils'
 import { t } from '@/i18n/i18n'
 
 // Orca's repository settings pane: display name, default base branch, worktree location and the
-// setup/archive scripts that run alongside orca.yaml's.
+// setup/archive scripts that run alongside orca.yaml's. The folder can change too, for a project
+// moved or renamed on disk.
 
 const fieldLabel = 'text-xs font-medium text-muted-foreground'
 const textareaClass =
   'min-h-16 w-full resize-y rounded-md border border-input bg-transparent px-2.5 py-1.5 font-mono text-xs shadow-xs outline-none placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-1 focus-visible:ring-ring dark:bg-input/30'
 
 export function ProjectSettingsDialog({ project, onClose }: { project: HostedProject | null; onClose: () => void }) {
+  const [folder, setFolder] = useState('')
   const [displayName, setDisplayName] = useState('')
   const [baseRef, setBaseRef] = useState('')
   const [worktreeRoot, setWorktreeRoot] = useState('')
@@ -32,6 +34,7 @@ export function ProjectSettingsDialog({ project, onClose }: { project: HostedPro
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
+    setFolder(project?.path ?? '')
     setDisplayName(project?.displayName ?? project?.name ?? '')
     setBaseRef(project?.defaultBaseRef ?? '')
     setWorktreeRoot(project?.worktreeRoot ?? '')
@@ -52,15 +55,32 @@ export function ProjectSettingsDialog({ project, onClose }: { project: HostedPro
     if (typeof folder === 'string') setWorktreeRoot(hostForPath(folder).path)
   }
 
+  async function browseFolder() {
+    const picked = await open({ directory: true, title: t('Project folder') })
+    if (typeof picked !== 'string' || !project) return
+    const where = hostForPath(picked)
+    if (where.hostId !== project.hostId) {
+      setError(t('Pick a folder on the same host as the project.'))
+      return
+    }
+    setError(null)
+    setFolder(where.path)
+  }
+
   async function save() {
     if (!project) return
     try {
+      const moved = folder.trim() !== '' && folder.trim() !== project.path
+      // Pointed at another folder first, so a bad path changes nothing else.
+      if (moved) await harnessRequest(HARNESS_METHODS.projectRelocate, { projectId: project.id, path: folder.trim() }, project.hostId)
+      // An unchanged name follows the folder's new name.
+      const ownName = displayName.trim() === project.name
       await harnessRequest(
         HARNESS_METHODS.projectUpdate,
         {
           projectId: project.id,
           patch: {
-            displayName: displayName.trim() === project.name ? '' : displayName,
+            displayName: ownName ? '' : displayName,
             ...(project.kind === 'git' ? { defaultBaseRef: baseRef, worktreeRoot, hooks: { setup, archive }, finishWith } : {})
           }
         },
@@ -87,6 +107,22 @@ export function ProjectSettingsDialog({ project, onClose }: { project: HostedPro
             void save()
           }}
         >
+          <div className="space-y-1.5">
+            <Label htmlFor="project-folder" className={fieldLabel}>
+              {t('Folder')}
+            </Label>
+            <div className="flex gap-2">
+              <Input id="project-folder" value={folder} onChange={(e) => setFolder(e.target.value)} className="font-mono text-xs" data-project-folder />
+              {isTauri() && (
+                <Button type="button" variant="outline" onClick={() => void browseFolder()}>
+                  {t('Browse…')}
+                </Button>
+              )}
+            </div>
+            <p className="text-[11px] text-muted-foreground">
+              {t('Moved or renamed the folder? Point the project at its new place; its chats, workflows and settings stay. Nothing is moved on disk.')}
+            </p>
+          </div>
           <div className="space-y-1.5">
             <Label htmlFor="project-display-name" className={fieldLabel}>
               {t('Display name')}
