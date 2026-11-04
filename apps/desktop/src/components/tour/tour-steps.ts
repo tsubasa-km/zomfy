@@ -78,7 +78,7 @@ export const TOUR_STEPS: TourStep[] = [
   {
     chapter: t('Layout'),
     title: t('Side by side'),
-    body: t('Drag a chat from the sidebar onto the left or right edge of this area to open its workspace beside the one shown. Three or more fill two rows; drag the dividers to resize them.'),
+    body: t('Drag a chat or a project from the sidebar onto the left or right edge of this area to open its workspace beside the one shown. Three or more fill two rows; drag the dividers to resize them.'),
     target: '[data-workspace-main]'
   },
   {

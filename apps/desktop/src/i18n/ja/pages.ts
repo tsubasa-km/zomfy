@@ -1066,7 +1066,7 @@ export const PAGES: Record<string, string> = {
   'Ask a quick question about the workspace without adding to the main chat. It sees the main chat’s last few messages and leaves that conversation untouched.': 'メインのチャットに追加せずに、ワークスペースについて手早く質問できます。メインのチャットの直近のメッセージを参照し、その会話には手を加えません。',
   Layout: 'レイアウト',
   'Side by side': '並べて表示',
-  'Drag a chat from the sidebar onto the left or right edge of this area to open its workspace beside the one shown. Three or more fill two rows; drag the dividers to resize them.': 'サイドバーのチャットをこの領域の左右の端へドラッグすると、表示中のワークスペースの横に開きます。3 つ以上は 2 段に並び、区切り線をドラッグしてサイズを変えられます。',
+  'Drag a chat or a project from the sidebar onto the left or right edge of this area to open its workspace beside the one shown. Three or more fill two rows; drag the dividers to resize them.': 'サイドバーのチャットやプロジェクトをこの領域の左右の端へドラッグすると、表示中のワークスペースの横に開きます。3 つ以上は 2 段に並び、区切り線をドラッグしてサイズを変えられます。',
   'The pull-down drawer': 'プルダウンドロワー',
   'Right sidebar': '右サイドバー',
   'Files, search, source control, checks, ports, the side chat and the agent’s details, for the workspace in focus.': 'フォーカス中のワークスペースのファイル、検索、ソース管理、チェック、ポート、サイドチャット、エージェントの詳細。',

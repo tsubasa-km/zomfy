@@ -23,10 +23,20 @@ import { t } from '@/i18n/i18n'
 // The main area: one workspace, or several from any project side by side, each with its own tab layout.
 // Two sit as columns; from three on they fill a two-row grid in order. Dragging a workspace from the
 // sidebar onto a pane's left or right quarter opens it beside that pane; onto its middle, it takes it over.
+// A dragged project does the same with its main checkout.
 
 const EMPTY_HINT = t('No tabs yet. Use + in the tab bar to start Claude in this workspace.')
 const MIN_COLUMN_PX = 280
 const MIN_ROW_PX = 160
+
+/** The workspace a sidebar drag opens: a chat's or workspace's own, or a project's main checkout. */
+function draggedWorkspace(item: DragItem): string | null {
+  const id =
+    item.kind === 'workspace'
+      ? item.id
+      : (allWorkspaces().find((w) => w.hostId === item.hostId && w.projectId === item.id && w.isPrimary)?.id ?? null)
+  return id && !getState().poppedOut.includes(id) ? id : null
+}
 
 export function WorkspaceMain() {
   const active = useStore((s) => s.activeWorkspaceId)
@@ -34,7 +44,7 @@ export function WorkspaceMain() {
   const showColumns = active !== null && columns.length > 1 && columns.includes(active)
   const [hint, setHint] = useState<{ left: number; top: number; width: number; height: number; label: string | null } | null>(null)
 
-  const dropAt = useCallback((item: DragItem, point: DragPoint, container: HTMLElement) => {
+  const dropAt = useCallback((workspaceId: string, point: DragPoint, container: HTMLElement) => {
     const bounds = container.getBoundingClientRect()
     const { activeWorkspaceId, columns: current } = getState()
     const shown = current.length > 1 && activeWorkspaceId && current.includes(activeWorkspaceId) ? current : []
@@ -60,23 +70,27 @@ export function WorkspaceMain() {
       apply: () => {
         if (side === 'replace') {
           if (ids[index]) selectWorkspace(ids[index]!)
-          selectWorkspace(item.id)
+          selectWorkspace(workspaceId)
           return
         }
         // openInColumn takes the workspace out of its old place first, which shifts later indexes.
-        const from = ids.indexOf(item.id)
-        openInColumn(item.id, from !== -1 && from < at ? at - 1 : at)
+        const from = ids.indexOf(workspaceId)
+        openInColumn(workspaceId, from !== -1 && from < at ? at - 1 : at)
       }
     }
   }, [])
 
   const dropRef = sidebarDrag.useDropTarget({
-    accepts: (item) => item.kind === 'workspace' && !getState().poppedOut.includes(item.id),
-    over: (item, { point, element }) => setHint(dropAt(item, point, element).hint),
+    accepts: (item) => draggedWorkspace(item) !== null,
+    over: (item, { point, element }) => {
+      const workspaceId = draggedWorkspace(item)
+      setHint(workspaceId ? dropAt(workspaceId, point, element).hint : null)
+    },
     leave: () => setHint(null),
     drop: (item, { point, element }) => {
       setHint(null)
-      dropAt(item, point, element).apply()
+      const workspaceId = draggedWorkspace(item)
+      if (workspaceId) dropAt(workspaceId, point, element).apply()
     }
   })
 
