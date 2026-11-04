@@ -17,7 +17,8 @@ import { AgentLaunchMenuItems } from '@/components/terminal/AgentLaunchMenuItems
 import { TabOmnibox } from './TabOmnibox'
 import { focusGroup } from './tab-group-commands'
 import { shortcutLabel } from './tab-shortcuts'
-import { newTerminalTab, openBrowserTab } from './workspace-tab-model'
+import { newTerminalTab, openBrowserTab, openPanelTab } from './workspace-tab-model'
+import { useWorkspacePanels } from './workspace-panels'
 import { t } from '@/i18n/i18n'
 
 // Orca's "+" menu (tab-bar-static-create-menu.tsx). One section per kind of tab; add a new kind as
@@ -88,6 +89,22 @@ function BrowserSection({ workspaceId }: { workspaceId: string }) {
   )
 }
 
+/** The workspace's panels (files, source control, checks…), each as a tab of its own. */
+function PanelSection({ workspaceId }: { workspaceId: string }) {
+  const panels = useWorkspacePanels()
+  return (
+    <>
+      <DropdownMenuLabel className="text-xs text-muted-foreground">{t('Panels')}</DropdownMenuLabel>
+      {panels.map(({ id, label, icon: Icon }) => (
+        <DropdownMenuItem key={id} data-new-tab={id} onSelect={() => openPanelTab(workspaceId, id)}>
+          <Icon className="size-4" />
+          {label}
+        </DropdownMenuItem>
+      ))}
+    </>
+  )
+}
+
 export function NewTabMenu({ workspaceId, groupId }: { workspaceId: string; groupId: string }) {
   const [open, setOpen] = useState(false)
   const [query, setQuery] = useState('')
@@ -128,6 +145,8 @@ export function NewTabMenu({ workspaceId, groupId }: { workspaceId: string; grou
             <AgentLaunchMenuItems workspaceId={workspaceId} />
             <DropdownMenuSeparator />
             <BrowserSection workspaceId={workspaceId} />
+            <DropdownMenuSeparator />
+            <PanelSection workspaceId={workspaceId} />
           </>
         )}
       </DropdownMenuContent>

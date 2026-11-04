@@ -1,21 +1,11 @@
 import { useEffect, useRef, useState } from 'react'
-import { Bot, Files, GitCompare, Globe, ListChecks, MessagesSquare, Pin, Plug, Plus, Search, SquareTerminal } from 'lucide-react'
-import { allWorkspaces, useStore } from '@/session-store'
+import { Globe, Pin, Plus, SquareArrowOutUpRight, SquareTerminal } from 'lucide-react'
 import { TerminalTabBody } from '@/components/terminal/TerminalPaneTree'
-import { FileExplorer } from '@/components/right-sidebar/FileExplorer'
-import { SearchPanel } from '@/components/right-sidebar/SearchPanel'
-import { SourceControl } from '@/components/right-sidebar/SourceControl'
-import { ChecksPanel } from '@/components/right-sidebar/checks/ChecksPanel'
-import { PortsPanel } from '@/components/right-sidebar/PortsPanel'
-import { SideChatPanel } from '@/components/right-sidebar/SideChatPanel'
-import { AgentPanel } from '@/components/right-sidebar/AgentPanel'
-import { PluginPanel } from '@/components/right-sidebar/PluginPanel'
-import { useActivePluginPanels } from '@/plugins/plugin-registry'
-import { resolvePluginPanelIcon } from '@/plugins/plugin-panel-icons'
 import { addBrowserTab } from '@/stores/browser-tab-store'
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
 import { BrowserTabView } from './BrowserTabView'
-import { newTerminalTab, tabTitle, useWorkspaceTabs, type WorkspaceTab } from './workspace-tab-model'
+import { newTerminalTab, openPanelTab, tabTitle, useWorkspaceTabs, type WorkspaceTab } from './workspace-tab-model'
+import { PANELS, WorkspacePanelView, useWorkspacePanels } from './workspace-panels'
 import { useTabLayout } from '@/stores/tab-layout-store'
 import { takeDrawerRequest, useDrawerRequest } from '@/stores/drawer-request-store'
 import { cn } from '@/lib/utils'
@@ -23,39 +13,6 @@ import { t } from '@/i18n/i18n'
 
 const OPEN_DELAY_MS = 250
 const CLOSE_DELAY_MS = 400
-
-// The right sidebar's panels, in its order.
-const PANELS = [
-  { id: 'panel:explorer', label: t('Explorer'), icon: Files },
-  { id: 'panel:search', label: t('Search'), icon: Search },
-  { id: 'panel:source-control', label: t('Source Control'), icon: GitCompare },
-  { id: 'panel:checks', label: t('Checks'), icon: ListChecks },
-  { id: 'panel:ports', label: t('Ports'), icon: Plug },
-  { id: 'panel:side-chat', label: t('Side chat'), icon: MessagesSquare },
-  { id: 'panel:agent', label: t('Agent'), icon: Bot }
-] as const
-
-function PanelBody({ id, workspaceId }: { id: string; workspaceId: string }) {
-  const name = useStore((s) => allWorkspaces(s).find((w) => w.id === workspaceId)?.name ?? '')
-  switch (id) {
-    case 'panel:explorer':
-      return <FileExplorer workspaceId={workspaceId} rootName={name} />
-    case 'panel:search':
-      return <SearchPanel workspaceId={workspaceId} />
-    case 'panel:source-control':
-      return <SourceControl workspaceId={workspaceId} />
-    case 'panel:checks':
-      return <ChecksPanel workspaceId={workspaceId} />
-    case 'panel:ports':
-      return <PortsPanel workspaceId={workspaceId} />
-    case 'panel:side-chat':
-      return <SideChatPanel workspaceId={workspaceId} />
-    case 'panel:agent':
-      return <AgentPanel workspaceId={workspaceId} />
-    default:
-      return null
-  }
-}
 
 /** The pull tab's outline: sides slope in to a rounded bottom, the top open onto the edge it hangs from. */
 function TabShape({ className }: { className?: string }) {
@@ -125,11 +82,9 @@ export function ToolDrawer({
     if (!shown && focused instanceof HTMLElement && rootRef.current?.contains(focused)) focused.blur()
   }, [shown])
 
-  // Enabled plugins' panels follow the built-in ones, as in the right sidebar.
-  const plugins = useActivePluginPanels()
-  const pluginPanels = plugins.map((p) => ({ id: `plugin:${p.tab}`, label: `${p.title} · ${p.pluginName}`, icon: resolvePluginPanelIcon(p.icon) }))
-  const activePlugin = plugins.find((p) => `plugin:${p.tab}` === activeId)
-  const panel = [...PANELS, ...pluginPanels].find((p) => p.id === activeId)
+  // Enabled plugins' panels follow the built-in ones.
+  const panels = useWorkspacePanels()
+  const panel = panels.find((p) => p.id === activeId)
   const activeTool = panel ? undefined : (tools.find((t) => t.id === activeId) ?? tools[0])
   const activePanel = panel?.id ?? (activeTool ? undefined : PANELS[0].id)
   const terminals = tools.filter((t) => t.kind === 'terminal').length
@@ -241,7 +196,7 @@ export function ToolDrawer({
             </DropdownMenu>
           </div>
           <div className="ml-auto flex shrink-0 items-center gap-0.5 border-l border-border pl-1">
-            {[...PANELS, ...pluginPanels].map(({ id, label, icon: Icon }) => (
+            {panels.map(({ id, label, icon: Icon }) => (
               <button
                 key={id}
                 type="button"
@@ -257,6 +212,23 @@ export function ToolDrawer({
                 <Icon className="size-3.5" />
               </button>
             ))}
+            {activePanel && (
+              // The panel shown here moves into a tab of its own, and the drawer goes back up.
+              <button
+                type="button"
+                title={t('Open as tab')}
+                aria-label={t('Open as tab')}
+                data-drawer-open-tab
+                onClick={() => {
+                  openPanelTab(workspaceId, activePanel)
+                  setPinned(false)
+                  setOpen(false)
+                }}
+                className="ml-0.5 flex size-6 items-center justify-center rounded-md border-l border-border text-muted-foreground hover:bg-accent/50 hover:text-foreground"
+              >
+                <SquareArrowOutUpRight className="size-3.5" />
+              </button>
+            )}
           </div>
         </div>
         <div className="relative min-h-0 flex-1">
@@ -267,11 +239,7 @@ export function ToolDrawer({
           ))}
           {activePanel && (
             <div className="absolute inset-0 flex flex-col overflow-hidden bg-sidebar text-sidebar-foreground">
-              {activePlugin ? (
-                <PluginPanel key={`${activePlugin.tab}:${workspaceId}`} panel={activePlugin} workspaceId={workspaceId} />
-              ) : (
-                <PanelBody key={`${activePanel}:${workspaceId}`} id={activePanel} workspaceId={workspaceId} />
-              )}
+              <WorkspacePanelView key={activePanel} id={activePanel} workspaceId={workspaceId} />
             </div>
           )}
         </div>

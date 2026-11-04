@@ -45,6 +45,7 @@ export type ReopenSpec =
   | { kind: 'editor'; editor: { kind: 'file' | 'diff'; path: string; staged: boolean } }
   | { kind: 'browser'; url: string }
   | { kind: 'chat'; sessionId: string }
+  | { kind: 'panel'; panel: string }
 
 export interface ClosedTab {
   groupId: string

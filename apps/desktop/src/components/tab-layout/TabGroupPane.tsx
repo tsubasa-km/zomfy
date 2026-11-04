@@ -7,6 +7,7 @@ import { FileEditorView } from '@/components/FileEditorView'
 import { cn } from '@/lib/utils'
 import { BrowserTabView } from './BrowserTabView'
 import { ToolDrawer } from './ToolDrawer'
+import { WorkspacePanelView } from './workspace-panels'
 import { TabStrip } from './TabStrip'
 import { resolveTabDropTarget, setInsertionMark, tabDrag, type DropZone } from './tab-drag'
 import { focusGroup, moveTabTo, splitTabTo } from './tab-group-commands'
@@ -36,6 +37,12 @@ function TabBody({ tab }: { tab: WorkspaceTab }) {
       )
     case 'browser':
       return <BrowserTabView key={tab.id} tab={tab.browser} />
+    case 'panel':
+      return (
+        <div key={tab.id} className="flex min-h-0 flex-1 flex-col overflow-hidden bg-sidebar text-sidebar-foreground">
+          <WorkspacePanelView id={tab.panel.panel} workspaceId={tab.panel.workspaceId} />
+        </div>
+      )
   }
 }
 

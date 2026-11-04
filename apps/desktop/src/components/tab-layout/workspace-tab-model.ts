@@ -38,6 +38,8 @@ import {
   type TabMeta
 } from '@/stores/tab-layout-store'
 import { forgetPanes, isSecondaryPane, useTerminalPaneState } from '@/stores/terminal-pane-store'
+import { addPanelTab, panelTabOf, removePanelTabs, usePanelTabs, type PanelTab } from '@/stores/panel-tab-store'
+import { panelLabel } from './workspace-panels'
 import { tabPaneTerminalIds } from '@/components/terminal/terminal-pane-commands'
 import { t } from '@/i18n/i18n'
 
@@ -47,12 +49,14 @@ export type WorkspaceTab =
   | { kind: 'terminal'; id: string; createdAt: number; terminal: TerminalInfo }
   | { kind: 'editor'; id: string; createdAt: number; editor: EditorTab }
   | { kind: 'browser'; id: string; createdAt: number; browser: BrowserTab }
+  | { kind: 'panel'; id: string; createdAt: number; panel: PanelTab }
 
 export function useWorkspaceTabs(workspaceId: string): WorkspaceTab[] {
   const sessions = useStore((s) => s.sessions)
   const terminals = useStore((s) => s.terminals)
   const editorTabs = useStore((s) => s.editorTabs)
   const browserTabs = useBrowserTabs()
+  const panelTabs = usePanelTabs()
   // A split terminal tab is its leader terminal; the other panes are not tabs of their own.
   const panes = useTerminalPaneState()
   const hidden = useTabLayout((s) => s.hidden)
@@ -71,9 +75,12 @@ export function useWorkspaceTabs(workspaceId: string): WorkspaceTab[] {
           .map((editor) => ({ kind: 'editor' as const, id: editor.id, createdAt: editor.createdAt, editor })),
         ...browserTabs
           .filter((t) => t.workspaceId === workspaceId)
-          .map((browser) => ({ kind: 'browser' as const, id: browser.id, createdAt: browser.createdAt, browser }))
+          .map((browser) => ({ kind: 'browser' as const, id: browser.id, createdAt: browser.createdAt, browser })),
+        ...panelTabs
+          .filter((t) => t.workspaceId === workspaceId)
+          .map((panel) => ({ kind: 'panel' as const, id: panel.id, createdAt: panel.createdAt, panel }))
       ].sort((a, b) => a.createdAt - b.createdAt),
-    [sessions, terminals, editorTabs, browserTabs, workspaceId, panes, hidden]
+    [sessions, terminals, editorTabs, browserTabs, panelTabs, workspaceId, panes, hidden]
   )
 }
 
@@ -91,6 +98,8 @@ export function defaultTabTitle(tab: WorkspaceTab): string {
       return `${fileName(tab.editor.path)}${tab.editor.kind === 'diff' ? (tab.editor.staged ? ' (staged)' : ' (diff)') : ''}`
     case 'browser':
       return browserTabTitle(tab.browser)
+    case 'panel':
+      return panelLabel(tab.panel.panel)
   }
 }
 
@@ -141,6 +150,8 @@ function reopenSpec(tab: WorkspaceTab, meta: TabMeta | undefined): ReopenSpec | 
       return { kind: 'browser', url: currentUrl(tab.browser) }
     case 'chat':
       return { kind: 'chat', sessionId: tab.id }
+    case 'panel':
+      return { kind: 'panel', panel: tab.panel.panel }
   }
 }
 
@@ -170,6 +181,7 @@ export function closeWorkspaceTabs(workspaceId: string, tabs: WorkspaceTab[]): b
     else if (tab.kind === 'editor') closeEditorTab(tab.id)
   }
   removeBrowserTabs(tabs.filter((t) => t.kind === 'browser').map((t) => t.id))
+  removePanelTabs(tabs.filter((t) => t.kind === 'panel').map((t) => t.id))
   forgetTabMeta(tabs.filter((t) => t.kind !== 'chat').map((t) => t.id))
   forgetPanes(ids)
   // Session close picks its own fallback; the focused group's MRU choice wins, as in Orca.
@@ -197,6 +209,8 @@ export async function reopenClosedTab(workspaceId: string): Promise<void> {
     if (!getState().sessions.some((s) => s.id === spec.sessionId)) return
     showChat(spec.sessionId)
     id = spec.sessionId
+  } else if (spec.kind === 'panel') {
+    id = addPanelTab(workspaceId, spec.panel).id
   } else {
     id = addBrowserTab(workspaceId, spec.url).id
   }
@@ -208,6 +222,13 @@ export function openBrowserTab(workspaceId: string, url?: string): string {
   const tab = addBrowserTab(workspaceId, url)
   selectTab(workspaceId, tab.id)
   return tab.id
+}
+
+/** Opens a panel as a tab in the focused group, or shows the tab already open on it. */
+export function openPanelTab(workspaceId: string, panel: string): string {
+  const id = panelTabOf(workspaceId, panel)?.id ?? addPanelTab(workspaceId, panel).id
+  selectTab(workspaceId, id)
+  return id
 }
 
 /** Orca's browser "Duplicate Tab": the copy opens right after the original. */
