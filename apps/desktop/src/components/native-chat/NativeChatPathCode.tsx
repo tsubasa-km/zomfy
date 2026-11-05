@@ -1,108 +1,103 @@
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { isTauri } from '@tauri-apps/api/core'
 import { HARNESS_METHODS } from '@acp-harness/protocol'
 import { harnessRequest } from '@/daemon-connection'
-import { LOCAL_HOST, findWorkspace, openEditorTab } from '@/session-store'
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog'
-import { Button } from '@/components/ui/button'
+import { LOCAL_HOST, findWorkspace, type ChatImage } from '@/session-store'
 import { readDroppedImage } from '@/lib/chat-file-drop'
 import { openHref } from '@/lib/link-routing'
-import { isImagePath, workspaceRelativePath } from '@/lib/link-targets'
+import { isImagePath, looksLikeFilePath, workspaceRelativePath } from '@/lib/link-targets'
+import { ToolImages } from './NativeChatToolLine'
 import { t } from '@/i18n/i18n'
 
-// A path an agent wrote as inline code (`out/flow.png`) opens from the chat: an image shows right
-// here, read through the workspace's host, or from this computer when it lies outside the workspace;
-// any other file opens in an editor tab, as a path link does.
-
-type Shown = { path: string; workspaceId: string | null; src: string | null; error: string | null }
+// A path an agent wrote as inline code (`out/flow.png`) opens from the chat like a path link, and an
+// image path also shows the image under the message, as the images tools return do: read through
+// the workspace's host, or from this computer when it lies outside the workspace.
 
 function joinPath(root: string, relative: string): string {
   const sep = root.includes('\\') ? '\\' : '/'
   return `${root.replace(/[\\/]+$/, '')}${sep}${relative.replaceAll(/[\\/]/g, sep)}`
 }
 
-async function imageSource(path: string, workspaceId: string | null): Promise<string> {
+async function readPathImage(path: string, workspaceId: string | null): Promise<ChatImage> {
   const workspace = workspaceId ? findWorkspace(workspaceId) : null
   const relative = workspace ? workspaceRelativePath(path, workspace.path) : null
   const extension = path.split('.').at(-1)!.toLowerCase()
-  const mime = extension === 'jpg' ? 'image/jpeg' : `image/${extension}`
+  const mimeType = extension === 'jpg' ? 'image/jpeg' : `image/${extension}`
   if (workspace && relative !== null) {
     const content = await harnessRequest(HARNESS_METHODS.fsReadBinary, { workspaceId: workspace.id, path: relative }, workspace.hostId)
-    return `data:${mime};base64,${content.base64}`
+    return { mimeType, data: content.base64 }
   }
   // Outside the workspace (a temp folder, say), only this computer's own files can be read.
   if (isTauri() && (!workspace || workspace.hostId === LOCAL_HOST)) {
     const absolute = workspace && !/^([A-Za-z]:[\\/]|[\\/])/.test(path) ? joinPath(workspace.path, path) : path
-    const image = await readDroppedImage(absolute)
-    return `data:${image.mimeType};base64,${image.data}`
+    return readDroppedImage(absolute)
   }
-  throw new Error(t('Only images in the workspace, or on this computer, can be shown here.'))
+  throw new Error('outside the workspace')
 }
 
-export function NativeChatPathCode({ path }: { path: string }) {
-  const [shown, setShown] = useState<Shown | null>(null)
-  const image = isImagePath(path)
+// Read once per window: a message re-rendered (a growing reply, windowing) shows them again at once.
+const images = new Map<string, Promise<ChatImage | null>>()
 
-  const open = (event: React.MouseEvent<HTMLElement>) => {
+function pathImage(path: string, workspaceId: string | null): Promise<ChatImage | null> {
+  const key = `${workspaceId ?? ''}\n${path}`
+  let found = images.get(key)
+  if (!found) {
+    // One that cannot be read is simply not shown; the path stays a link.
+    found = readPathImage(path, workspaceId).catch(() => null)
+    images.set(key, found)
+  }
+  return found
+}
+
+/** Image paths a message names in inline code, each once, in order. */
+export function imagePathsIn(markdown: string): string[] {
+  const found = new Set<string>()
+  // Inline code outside fenced blocks: a fence's content is code, not a reference.
+  const text = markdown.replace(/```[\s\S]*?(```|$)/g, '')
+  for (const match of text.matchAll(/`([^`\n]+)`/g)) {
+    const path = match[1]!.trim()
+    if (looksLikeFilePath(path) && isImagePath(path)) found.add(path.replace(/(?::\d+){1,2}$/, ''))
+  }
+  return [...found]
+}
+
+/** The images a message's paths point at, under it; the chat's workspace is read from the page. */
+export function NativeChatPathImages({ paths }: { paths: string[] }) {
+  const ref = useRef<HTMLDivElement>(null)
+  const [loaded, setLoaded] = useState<ChatImage[]>([])
+  const key = paths.join('\n')
+  useEffect(() => {
+    let cancelled = false
+    const workspaceId = ref.current?.closest<HTMLElement>('[data-link-workspace-id]')?.dataset.linkWorkspaceId ?? null
+    void Promise.all(paths.map((p) => pathImage(p, workspaceId))).then((list) => {
+      if (!cancelled) setLoaded(list.filter((i): i is ChatImage => i !== null))
+    })
+    return () => {
+      cancelled = true
+    }
+    // Keyed on the paths' text: callers pass a fresh array each render.
+  }, [key])
+  return <div ref={ref}>{loaded.length > 0 ? <ToolImages images={loaded} className="ml-0" /> : null}</div>
+}
+
+/** A path in inline code: opens like a path link (an editor tab; an image shows in its viewer). */
+export function NativeChatPathCode({ path }: { path: string }) {
+  const open = (event: React.SyntheticEvent<HTMLElement>) => {
     event.preventDefault()
     const workspaceId = event.currentTarget.closest<HTMLElement>('[data-link-workspace-id]')?.dataset.linkWorkspaceId ?? null
-    if (!image) return openHref(path, { inApp: false, workspaceId })
-    setShown({ path, workspaceId, src: null, error: null })
-    imageSource(path, workspaceId).then(
-      (src) => setShown((s) => (s?.path === path ? { ...s, src } : s)),
-      (error: unknown) => setShown((s) => (s?.path === path ? { ...s, error: error instanceof Error ? error.message : String(error) } : s))
-    )
+    openHref(path, { inApp: false, workspaceId })
   }
-
-  const relative = shown?.workspaceId ? workspaceRelativePath(path, findWorkspace(shown.workspaceId)?.path ?? null) : null
   return (
-    <>
-      <code
-        role="link"
-        tabIndex={0}
-        data-chat-path={path}
-        title={image ? t('Show this image') : t('Open this file')}
-        onClick={open}
-        onKeyDown={(event) => {
-          if (event.key === 'Enter') open(event as unknown as React.MouseEvent<HTMLElement>)
-        }}
-        className="cursor-pointer rounded bg-accent px-1.5 py-0.5 font-mono text-[0.92em] underline decoration-dotted underline-offset-2 [overflow-wrap:anywhere] hover:decoration-solid"
-      >
-        {path}
-      </code>
-      {image ? (
-        <Dialog open={shown !== null} onOpenChange={(o) => !o && setShown(null)}>
-          <DialogContent className="flex max-h-[90vh] max-w-[90vw] flex-col sm:max-w-[90vw]" data-chat-image-preview>
-            <DialogHeader>
-              <DialogTitle className="text-sm">{t('Image')}</DialogTitle>
-              <DialogDescription className="font-mono text-xs break-all">{path}</DialogDescription>
-            </DialogHeader>
-            <div className="flex min-h-0 flex-1 items-center justify-center overflow-auto">
-              {shown?.error ? (
-                <p className="text-sm text-destructive">{shown.error}</p>
-              ) : shown?.src ? (
-                <img src={shown.src} alt={path} className="max-h-[70vh] max-w-full object-contain" />
-              ) : (
-                <p className="text-sm text-muted-foreground">{t('Loading…')}</p>
-              )}
-            </div>
-            {shown?.workspaceId && relative !== null ? (
-              <div className="flex justify-end">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => {
-                    openEditorTab({ workspaceId: shown.workspaceId!, kind: 'file', path: relative, staged: false })
-                    setShown(null)
-                  }}
-                >
-                  {t('Open as tab')}
-                </Button>
-              </div>
-            ) : null}
-          </DialogContent>
-        </Dialog>
-      ) : null}
-    </>
+    <code
+      role="link"
+      tabIndex={0}
+      data-chat-path={path}
+      title={t('Open this file')}
+      onClick={open}
+      onKeyDown={(event) => event.key === 'Enter' && open(event)}
+      className="cursor-pointer rounded bg-accent px-1.5 py-0.5 font-mono text-[0.92em] underline decoration-dotted underline-offset-2 [overflow-wrap:anywhere] hover:decoration-solid"
+    >
+      {path}
+    </code>
   )
 }

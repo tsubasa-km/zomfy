@@ -7,7 +7,7 @@ import { cn } from '@/lib/utils'
 import { MENTION_TITLE, parseChatMentions, type ChatMention } from '@/lib/chat-mentions'
 import { openChatMention } from '@/lib/chat-attachments'
 import { NativeChatCodeBlock } from './NativeChatCodeBlock'
-import { NativeChatPathCode } from './NativeChatPathCode'
+import { NativeChatPathCode, NativeChatPathImages, imagePathsIn } from './NativeChatPathCode'
 import { looksLikeFilePath } from '@/lib/link-targets'
 import { NativeChatMarkdownRowKeyContext } from './native-chat-disclosure-store'
 import { t } from '@/i18n/i18n'
@@ -153,6 +153,7 @@ export function NativeChatMarkdown({
   /** A user's message: its @ mentions show as chips. */
   mentions?: boolean
 }): React.JSX.Element {
+  const imagePaths = imagePathsIn(content)
   return (
     <NativeChatMarkdownRowKeyContext.Provider value={rowKey}>
       <div
@@ -166,6 +167,8 @@ export function NativeChatMarkdown({
         <Markdown remarkPlugins={mentions ? [remarkGfm, remarkChatMentions] : [remarkGfm]} rehypePlugins={[rehypeSanitize]} components={DOCUMENT_COMPONENTS}>
           {content}
         </Markdown>
+        {/* Images the message names by path show under it, as the images tools return do. */}
+        {imagePaths.length > 0 ? <NativeChatPathImages paths={imagePaths} /> : null}
       </div>
     </NativeChatMarkdownRowKeyContext.Provider>
   )
