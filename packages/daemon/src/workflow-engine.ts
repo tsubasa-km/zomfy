@@ -193,7 +193,7 @@ export class WorkflowEngine {
       createdAt: Date.now(),
       endedAt: null,
       ...(options.experimentId ? { experimentId: options.experimentId } : {}),
-      ...(options.autoApprove ? { autoApprove: true } : {}),
+      ...(options.autoApprove !== undefined ? { autoApprove: options.autoApprove } : {}),
       ...(options.without ? { without: options.without } : {}),
       ...(originSessionId && this.deps.sessions.get(originSessionId) ? { originSessionId } : {}),
     };
@@ -431,7 +431,7 @@ export class WorkflowEngine {
       if (live.stopped) throw new RunStopped();
       live.sessions.add(sessionId);
       // The starting chat is the person's: its asks are never answered for them.
-      if (run.autoApprove && node.config.runBy !== "lead") this.deps.autoApprove.add(sessionId);
+      if (run.autoApprove !== false && node.config.runBy !== "lead") this.deps.autoApprove.add(sessionId);
       try {
         const result = await this.deps.runStepTurn(sessionId, prompt, step);
         this.tally(run, result);
@@ -686,7 +686,7 @@ export class WorkflowEngine {
     ].join("\n");
     if (live.stopped) return "Not run: the workflow was stopped.";
     live.sessions.add(record.id);
-    if (run.autoApprove) this.deps.autoApprove.add(record.id);
+    if (run.autoApprove !== false) this.deps.autoApprove.add(record.id);
     try {
       const result = await this.deps.runStepTurn(record.id, text, spawner.step);
       this.tally(run, result);

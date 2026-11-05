@@ -355,7 +355,11 @@ export interface WorkflowRun {
   experimentId?: string
   /** The chat the run was started from: it answers the run's questions and hears how it goes. */
   originSessionId?: string
-  /** Its steps' permission asks are answered "allow" (a comparison's runs, each in a worktree of its own). */
+  /**
+   * Whether its steps' permission asks (a command to run, a file to change) are answered "allow"
+   * rather than waiting on the person, who is not watching the steps' chats. Unset means yes; only a
+   * comparison started with the box unticked sets false. A step run in the starting chat still asks.
+   */
   autoApprove?: boolean
   /** A comparison arm's: what its steps went without. */
   without?: WorkflowContextRemoval
