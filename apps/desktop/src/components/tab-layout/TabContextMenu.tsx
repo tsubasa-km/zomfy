@@ -14,6 +14,7 @@ import {
   ListX,
   PanelLeftClose,
   PanelRightClose,
+  PanelTopOpen,
   Pencil,
   Pin,
   PinOff,
@@ -39,6 +40,7 @@ import {
   canRenameTab,
   closeWorkspaceTabs,
   duplicateBrowserTab,
+  moveToDrawer,
   type WorkspaceTab
 } from './workspace-tab-model'
 import { closeGroup, splitTabTo } from './tab-group-commands'
@@ -150,6 +152,15 @@ export function TabContextMenu({
                 ))}
               </DropdownMenuSubContent>
             </DropdownMenuSub>
+            <DropdownMenuSeparator />
+          </>
+        )}
+        {(tab.kind === 'terminal' || tab.kind === 'browser') && (
+          <>
+            <DropdownMenuItem data-menu-action="move-to-drawer" onSelect={() => moveToDrawer(workspaceId, tab.id)}>
+              <PanelTopOpen className="size-3.5" />
+              {t('Move to Drawer')}
+            </DropdownMenuItem>
             <DropdownMenuSeparator />
           </>
         )}

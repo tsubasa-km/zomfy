@@ -38,6 +38,8 @@ export interface TabMeta {
   color?: string | null
   /** Shell a terminal tab was started with, so reopening starts the same one. */
   shellId?: string
+  /** A terminal or browser kept in the pull-down drawer rather than the tab strip. */
+  drawer?: boolean
 }
 
 export type ReopenSpec =

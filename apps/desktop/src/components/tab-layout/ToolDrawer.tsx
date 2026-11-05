@@ -1,10 +1,18 @@
 import { useEffect, useRef, useState } from 'react'
-import { Globe, PanelTopOpen, Pin, Plus, SquareArrowOutUpRight, SquareTerminal } from 'lucide-react'
+import { ChevronDown, Globe, Pin, Plus, SquareArrowOutUpRight, SquareTerminal, X } from 'lucide-react'
 import { TerminalTabBody } from '@/components/terminal/TerminalPaneTree'
-import { addBrowserTab } from '@/stores/browser-tab-store'
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
 import { BrowserTabView } from './BrowserTabView'
-import { newTerminalTab, openPanelTab, tabTitle, useWorkspaceTabs, type WorkspaceTab } from './workspace-tab-model'
+import {
+  closeWorkspaceTabs,
+  moveToTabStrip,
+  newDrawerBrowser,
+  newTerminalTab,
+  openPanelTab,
+  tabTitle,
+  useWorkspaceTabs,
+  type WorkspaceTab
+} from './workspace-tab-model'
 import { PANELS, WorkspacePanelView, useWorkspacePanels } from './workspace-panels'
 import { useTabLayout } from '@/stores/tab-layout-store'
 import { takeDrawerRequest, useDrawerRequest } from '@/stores/drawer-request-store'
@@ -17,8 +25,8 @@ const CLOSE_DELAY_MS = 400
 /** The pull tab: a filled shape, no outline, whose sides slope in to a rounded bottom. */
 function TabShape({ className }: { className?: string }) {
   return (
-    <svg viewBox="0 0 68 20" aria-hidden className="absolute inset-0 size-full">
-      <path d="M0 0 L6.5 15.5 Q8.4 20 13 20 H55 Q59.6 20 61.5 15.5 L68 0 Z" className={cn('transition-colors', className)} />
+    <svg viewBox="0 0 112 20" aria-hidden className="absolute inset-0 size-full">
+      <path d="M0 0 L7 15.5 Q8.9 20 13.5 20 H98.5 Q103.1 20 105 15.5 L112 0 Z" className={cn('transition-colors', className)} />
     </svg>
   )
 }
@@ -43,7 +51,8 @@ export function ToolDrawer({
   exclude?: string | null
   focused?: boolean
 }) {
-  const tabs = useWorkspaceTabs(workspaceId)
+  // Its own terminals and browsers: opened here, or moved here from the tab strip. The strip's stay there.
+  const tabs = useWorkspaceTabs(workspaceId, 'drawer')
   const tools = tabs.flatMap((t): Extract<WorkspaceTab, { kind: 'terminal' | 'browser' }>[] =>
     (t.kind === 'terminal' || t.kind === 'browser') && t.id !== exclude ? [t] : []
   )
@@ -116,9 +125,9 @@ export function ToolDrawer({
 
   return (
     <div ref={rootRef} className="pointer-events-none absolute inset-0 z-10 flex flex-col">
-      {/* A small pull tab hanging off the tab strip; its icon is a panel opening downward. */}
+      {/* A pull tab hanging off the tab strip; its chevron points the way the drawer comes. */}
       <div
-        className="group pointer-events-auto mx-auto flex h-5 w-24 shrink-0 justify-center overflow-hidden"
+        className="group pointer-events-auto mx-auto flex h-5 w-32 shrink-0 justify-center overflow-hidden"
         data-drawer-handle
         title={`${terminals === 1 ? t('{n} terminal', { n: terminals }) : t('{n} terminals', { n: terminals })} · ${browsers === 1 ? t('{n} browser', { n: browsers }) : t('{n} browsers', { n: browsers })}`}
         onPointerEnter={() => later(true, OPEN_DELAY_MS)}
@@ -127,13 +136,13 @@ export function ToolDrawer({
       >
         <span
           className={cn(
-            'relative flex h-5 w-[68px] justify-center text-muted-foreground transition-[color,translate] duration-200 ease-out group-hover:text-foreground',
+            'relative flex h-5 w-28 justify-center text-muted-foreground transition-[color,translate] duration-200 ease-out group-hover:text-foreground',
             (!entered || shown) && '-translate-y-full'
           )}
         >
           {/* A solid grey a step off the canvas, so the tab reads without an outline in either theme. */}
           <TabShape className="fill-[color-mix(in_srgb,var(--foreground)_9%,var(--background))] group-hover:fill-[color-mix(in_srgb,var(--foreground)_16%,var(--background))]" />
-          <PanelTopOpen className="relative mt-[3px] size-3.5" />
+          <ChevronDown className="relative mt-0.5 size-4" />
         </span>
       </div>
       <div
@@ -151,24 +160,38 @@ export function ToolDrawer({
         <div className={cn('flex min-h-0 flex-1 flex-col overflow-hidden rounded-b-lg border border-t-0 border-border bg-background shadow-lg', shown && 'pointer-events-auto')}>
         <div className="flex h-8 shrink-0 items-center gap-0.5 border-b border-border bg-muted/40 px-1">
           <div className="flex min-w-0 items-center gap-0.5 overflow-hidden">
-            {tools.map((t) => (
-              <button
-                key={t.id}
-                type="button"
-                onClick={() => {
-                  setActiveId(t.id)
-                  // A clicked terminal takes the keys; one shown by hovering leaves them where they were.
-                  if (t.kind === 'terminal')
-                    requestAnimationFrame(() => rootRef.current?.querySelector<HTMLElement>(`[data-drawer-tool="${t.id}"] .xterm-helper-textarea`)?.focus())
-                }}
+            {tools.map((tool) => (
+              <div
+                key={tool.id}
+                data-drawer-tool-tab={tool.id}
                 className={cn(
-                  'flex max-w-40 shrink-0 items-center gap-1 rounded-md px-2 py-1 text-xs',
-                  t.id === activeTool?.id ? 'bg-background text-foreground shadow-sm' : 'text-muted-foreground hover:bg-accent/50'
+                  'group/tool flex max-w-40 shrink-0 items-center rounded-md text-xs',
+                  tool.id === activeTool?.id ? 'bg-background text-foreground shadow-sm' : 'text-muted-foreground hover:bg-accent/50'
                 )}
               >
-                {t.kind === 'terminal' ? <SquareTerminal className="size-3" /> : <Globe className="size-3" />}
-                <span className="truncate">{tabTitle(t, meta[t.id])}</span>
-              </button>
+                <button
+                  type="button"
+                  className="flex min-w-0 items-center gap-1 py-1 pl-2"
+                  onClick={() => {
+                    setActiveId(tool.id)
+                    // A clicked terminal takes the keys; one shown by hovering leaves them where they were.
+                    if (tool.kind === 'terminal')
+                      requestAnimationFrame(() => rootRef.current?.querySelector<HTMLElement>(`[data-drawer-tool="${tool.id}"] .xterm-helper-textarea`)?.focus())
+                  }}
+                >
+                  {tool.kind === 'terminal' ? <SquareTerminal className="size-3" /> : <Globe className="size-3" />}
+                  <span className="truncate">{tabTitle(tool, meta[tool.id])}</span>
+                </button>
+                <button
+                  type="button"
+                  aria-label={tool.kind === 'terminal' ? t('Close terminal') : t('Close browser')}
+                  title={tool.kind === 'terminal' ? t('Close terminal') : t('Close browser')}
+                  className="mr-0.5 ml-0.5 flex size-4 items-center justify-center rounded-sm opacity-0 group-hover/tool:opacity-100 hover:bg-accent"
+                  onClick={() => closeWorkspaceTabs(workspaceId, [tool])}
+                >
+                  <X className="size-3" />
+                </button>
+              </div>
             ))}
   <DropdownMenu>
               <DropdownMenuTrigger asChild>
@@ -181,13 +204,13 @@ export function ToolDrawer({
                   <Plus className="size-3.5" />
                 </button>
               </DropdownMenuTrigger>
-              {/* Opened here, they stay out of the pane's tab: the drawer brings them to the front. */}
+              {/* Opened here, they belong to the drawer, not the tab strip, and come to its front. */}
               <DropdownMenuContent align="start">
-                <DropdownMenuItem onSelect={() => void newTerminalTab(workspaceId, undefined, { select: false })}>
+                <DropdownMenuItem onSelect={() => void newTerminalTab(workspaceId, undefined, { select: false, drawer: true })}>
                   <SquareTerminal className="size-3.5" />
                   {t('Terminal')}
                 </DropdownMenuItem>
-                <DropdownMenuItem onSelect={() => addBrowserTab(workspaceId)}>
+                <DropdownMenuItem onSelect={() => newDrawerBrowser(workspaceId)}>
                   <Globe className="size-3.5" />
                   {t('Browser')}
                 </DropdownMenuItem>
@@ -211,15 +234,16 @@ export function ToolDrawer({
                 <Icon className="size-3.5" />
               </button>
             ))}
-            {activePanel && (
-              // The panel shown here moves into a tab of its own, and the drawer goes back up.
+            {(activePanel || activeTool) && (
+              // What is shown here moves into the tab strip (a panel as a tab of its own), and the drawer goes back up.
               <button
                 type="button"
                 title={t('Open as tab')}
                 aria-label={t('Open as tab')}
                 data-drawer-open-tab
                 onClick={() => {
-                  openPanelTab(workspaceId, activePanel)
+                  if (activePanel) openPanelTab(workspaceId, activePanel)
+                  else if (activeTool) moveToTabStrip(workspaceId, activeTool.id)
                   setPinned(false)
                   setOpen(false)
                 }}
@@ -254,7 +278,7 @@ export function ToolDrawer({
             setOpen(true)
           }}
           className={cn(
-            'group/pin absolute bottom-0 left-1/2 flex h-5 w-[68px] -translate-x-1/2 justify-center',
+            'group/pin absolute bottom-0 left-1/2 flex h-5 w-28 -translate-x-1/2 justify-center',
             shown && 'pointer-events-auto',
             pinned ? 'text-white' : 'text-muted-foreground hover:text-foreground'
           )}

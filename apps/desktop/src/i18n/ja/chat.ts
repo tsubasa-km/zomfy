@@ -202,6 +202,8 @@ export const CHAT: Record<string, string> = {
   'Attach output to message as a file (the agent reads it only after you send)': '出力をファイルとしてメッセージに添付します（エージェントが読むのは送信後です）',
   'Open as tab': 'タブとして開く',
   'Close terminal': 'ターミナルを閉じる',
+  'Close browser': 'ブラウザーを閉じる',
+  'Move to Drawer': '引き出しへ移動',
 
   // components/native-chat/NativeChatJumpToLatest.tsx
   'Jump to latest': '最新へ移動',

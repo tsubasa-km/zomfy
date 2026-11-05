@@ -39,6 +39,7 @@ import {
 } from '@/stores/tab-layout-store'
 import { forgetPanes, isSecondaryPane, useTerminalPaneState } from '@/stores/terminal-pane-store'
 import { addPanelTab, panelTabOf, removePanelTabs, usePanelTabs, type PanelTab } from '@/stores/panel-tab-store'
+import { requestDrawer } from '@/stores/drawer-request-store'
 import { panelLabel } from './workspace-panels'
 import { tabPaneTerminalIds } from '@/components/terminal/terminal-pane-commands'
 import { t } from '@/i18n/i18n'
@@ -51,7 +52,11 @@ export type WorkspaceTab =
   | { kind: 'browser'; id: string; createdAt: number; browser: BrowserTab }
   | { kind: 'panel'; id: string; createdAt: number; panel: PanelTab }
 
-export function useWorkspaceTabs(workspaceId: string): WorkspaceTab[] {
+/**
+ * The workspace's tabs: those of its tab strip, or (`drawer`) the terminals and browsers kept in its
+ * pull-down drawer instead.
+ */
+export function useWorkspaceTabs(workspaceId: string, where: 'strip' | 'drawer' = 'strip'): WorkspaceTab[] {
   const sessions = useStore((s) => s.sessions)
   const terminals = useStore((s) => s.terminals)
   const editorTabs = useStore((s) => s.editorTabs)
@@ -60,6 +65,7 @@ export function useWorkspaceTabs(workspaceId: string): WorkspaceTab[] {
   // A split terminal tab is its leader terminal; the other panes are not tabs of their own.
   const panes = useTerminalPaneState()
   const hidden = useTabLayout((s) => s.hidden)
+  const meta = useTabLayout((s) => s.meta)
   return useMemo(
     () =>
       [
@@ -79,8 +85,10 @@ export function useWorkspaceTabs(workspaceId: string): WorkspaceTab[] {
         ...panelTabs
           .filter((t) => t.workspaceId === workspaceId)
           .map((panel) => ({ kind: 'panel' as const, id: panel.id, createdAt: panel.createdAt, panel }))
-      ].sort((a, b) => a.createdAt - b.createdAt),
-    [sessions, terminals, editorTabs, browserTabs, panelTabs, workspaceId, panes, hidden]
+      ]
+        .filter((tab) => (meta[tab.id]?.drawer === true) === (where === 'drawer'))
+        .sort((a, b) => a.createdAt - b.createdAt),
+    [sessions, terminals, editorTabs, browserTabs, panelTabs, workspaceId, panes, hidden, meta, where]
   )
 }
 
@@ -241,8 +249,32 @@ export function duplicateBrowserTab(workspaceId: string, tabId: string): void {
   syncWorkspaceFocus(workspaceId)
 }
 
-/** `select: false` opens it without switching the pane's tab (the tab drawer's +). */
-export async function newTerminalTab(workspaceId: string, shellId?: string, options: { select?: boolean } = {}): Promise<void> {
-  const id = await createTerminal(workspaceId, shellId, undefined, options)
-  if (shellId) setTabMeta(id, { shellId })
+/** `select: false` opens it without switching the pane's tab; `drawer` keeps it in the pull-down drawer. */
+export async function newTerminalTab(
+  workspaceId: string,
+  shellId?: string,
+  options: { select?: boolean; drawer?: boolean } = {}
+): Promise<string> {
+  const id = await createTerminal(workspaceId, shellId, undefined, { select: options.select })
+  setTabMeta(id, { shellId, drawer: options.drawer || undefined })
+  return id
+}
+
+/** A browser tab kept in the pull-down drawer. */
+export function newDrawerBrowser(workspaceId: string): string {
+  const tab = addBrowserTab(workspaceId)
+  setTabMeta(tab.id, { drawer: true })
+  return tab.id
+}
+
+/** A drawer terminal or browser becomes a tab of the strip, in front. */
+export function moveToTabStrip(workspaceId: string, tabId: string): void {
+  setTabMeta(tabId, { drawer: undefined })
+  selectTab(workspaceId, tabId)
+}
+
+/** A strip terminal or browser goes into the pull-down drawer, which then shows it. */
+export function moveToDrawer(workspaceId: string, tabId: string): void {
+  setTabMeta(tabId, { drawer: true })
+  requestDrawer(workspaceId, tabId, 'show')
 }
