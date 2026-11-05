@@ -7,6 +7,7 @@ import { FileEditorView } from '@/components/FileEditorView'
 import { cn } from '@/lib/utils'
 import { BrowserTabView } from './BrowserTabView'
 import { ToolDrawer } from './ToolDrawer'
+import { EmptyPane } from './EmptyPane'
 import { WorkspacePanelView } from './workspace-panels'
 import { TabStrip } from './TabStrip'
 import { resolveTabDropTarget, setInsertionMark, tabDrag, type DropZone } from './tab-drag'
@@ -112,7 +113,7 @@ export function TabGroupPane({
         trailing={trailing}
       />
       <div data-tab-group-body-id={groupId} className="relative flex min-h-0 min-w-0 flex-1 flex-col">
-        {active ? <TabBody tab={active} /> : <div className="m-auto px-4 text-center text-sm text-muted-foreground">{emptyHint}</div>}
+        {active ? <TabBody tab={active} /> : <EmptyPane workspaceId={workspaceId} groupId={groupId} hint={emptyHint} />}
         {/* The drawer belongs to the tab on show: none without one, and each tab keeps its own. */}
         {active && <ToolDrawer key={active.id} workspaceId={workspaceId} tabId={active.id} exclude={active.id} focused={isFocused} />}
       </div>

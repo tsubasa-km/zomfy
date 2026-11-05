@@ -189,7 +189,7 @@ export const SHELL: Record<string, string> = {
   Maximize: '最大化',
 
   // components/WorkspaceColumns.tsx
-  'No tabs yet. Use + in the tab bar to start Claude in this workspace.': 'まだタブがありません。タブバーの + で、このワークスペースで Claude を開始できます。',
+  'No tabs yet. Start one here, or find more under + in the tab bar.': 'まだタブがありません。ここから開くか、タブバーの + からほかも選べます。',
   'Open beside': '横に開く',
   'Quick chat': 'クイックチャット',
   'Open in new window': '新しいウィンドウで開く',

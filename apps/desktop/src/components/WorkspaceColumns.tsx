@@ -19,7 +19,7 @@ import { t } from '@/i18n/i18n'
 // dragged by its header, lands on an edge of a pane to split beside it, or in its middle to take its
 // place. A header dropped outside the window opens that workspace in a window of its own.
 
-const EMPTY_HINT = t('No tabs yet. Use + in the tab bar to start Claude in this workspace.')
+const EMPTY_HINT = t('No tabs yet. Start one here, or find more under + in the tab bar.')
 const MIN_PANE_PX = 160
 
 /** The workspace a sidebar drag opens: a chat's or workspace's own, or a project's main checkout. */

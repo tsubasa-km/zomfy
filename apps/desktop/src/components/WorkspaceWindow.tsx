@@ -62,7 +62,7 @@ export default function WorkspaceWindow() {
           {known ? (
             <WorkspaceTabs
               workspaceId={workspaceId}
-              emptyHint={t('No tabs yet. Use + in the tab bar to start Claude in this workspace.')}
+              emptyHint={t('No tabs yet. Start one here, or find more under + in the tab bar.')}
               trailing={
                 <div className="flex items-center gap-0.5 pr-1">
                   {isTauri() && (

@@ -402,6 +402,7 @@ export const CHAT: Record<string, string> = {
   'New {agent} Chat': '新しい {agent} チャット',
   'New Terminal ({shell})': '新しいターミナル ({shell})',
   'New Browser Tab': '新しいブラウザータブ',
+  'Claude chat': 'Claude チャット',
   'Panels': 'パネル',
   'Panel': 'パネル',
   'This panel is no longer available.': 'このパネルはもう使えません。',
