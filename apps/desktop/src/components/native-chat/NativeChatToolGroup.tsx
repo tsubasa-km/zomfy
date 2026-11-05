@@ -1,6 +1,6 @@
 import { ChevronRight, ShieldQuestion } from 'lucide-react'
 import { cn } from '@/lib/utils'
-import { NativeChatToolLine } from './NativeChatToolLine'
+import { NativeChatToolLine, ToolImages } from './NativeChatToolLine'
 import { NativeChatSubagentRun } from './NativeChatSubagentRun'
 import { useNativeChatDisclosure } from './native-chat-disclosure-store'
 import { isSubagentTool, shortenPaths, type ApprovalOutcome, type ToolNode } from './native-chat-transcript-model'
@@ -75,6 +75,7 @@ export function NativeChatToolGroup({ tools, rowKey, cwd }: { tools: ToolNode[];
     )
   }
   const live = tools.filter(running)
+  const folded = tools.filter((n) => !running(n)).flatMap((n) => n.tool.images ?? [])
   const failed = tools.filter((n) => n.tool.status === 'failed').length
   return (
     <div className="flex flex-col" data-native-chat-tool-run={open ? 'open' : 'closed'}>
@@ -95,7 +96,13 @@ export function NativeChatToolGroup({ tools, rowKey, cwd }: { tools: ToolNode[];
           ))}
         </div>
       ) : (
-        live.map((node) => <Call key={node.tool.id} node={node} rowKey={rowKey} cwd={cwd} />)
+        <>
+          {live.map((node) => (
+            <Call key={node.tool.id} node={node} rowKey={rowKey} cwd={cwd} />
+          ))}
+          {/* What the folded calls returned as images stays in view, as a screenshot does in Claude's app. */}
+          {folded.length > 0 ? <ToolImages images={folded} className="ml-0" /> : null}
+        </>
       )}
     </div>
   )

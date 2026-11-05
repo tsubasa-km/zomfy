@@ -141,6 +141,8 @@ export const CHAT: Record<string, string> = {
   'Reconnecting to {host}… You can keep writing; sending waits until it is back.': '{host} に再接続しています… 入力は続けられます。送信は再接続を待って行われます。',
   Attachments: '添付ファイル',
   'Image {n}': '画像 {n}',
+  'Show larger': '大きく表示',
+  'Show smaller': '小さく表示',
   'Remove image': '画像を削除',
   'Reconnecting to {host}… sending waits until it is back': '{host} に再接続しています… 送信は再接続を待って行われます',
   'The task for "{name}"': '「{name}」のタスク',

@@ -15,6 +15,8 @@ import {
 } from 'lucide-react'
 import { diffFromToolCall } from '@/shared/native-chat-diff'
 import { cn } from '@/lib/utils'
+import type { ChatImage } from '@/session-store'
+import { t } from '@/i18n/i18n'
 import { NativeChatExpandable } from './NativeChatExpandable'
 import { NativeChatDiffView } from './NativeChatDiffView'
 import { shortenPaths, toolNameOf, type ToolItem } from './native-chat-transcript-model'
@@ -95,6 +97,8 @@ export function NativeChatToolLine({ tool, cwd }: { tool: ToolItem; cwd: string 
           ) : null}
         </span>
       </button>
+      {/* Images the tool returned show without opening it, as Claude's app shows them. */}
+      {tool.images?.length ? <ToolImages images={tool.images} /> : null}
       {hasDetail ? (
         <NativeChatExpandable open={expanded}>
           <div className="mt-1 mb-2 ml-6 space-y-2">
@@ -117,6 +121,30 @@ export function NativeChatToolLine({ tool, cwd }: { tool: ToolItem; cwd: string 
           </div>
         </NativeChatExpandable>
       ) : null}
+    </div>
+  )
+}
+
+/** Images tools returned, small until clicked. */
+export function ToolImages({ images, className }: { images: ChatImage[]; className?: string }) {
+  const [large, setLarge] = useState<number | null>(null)
+  return (
+    <div className={cn('mt-1 mb-2 ml-6 flex flex-wrap gap-2', className)} data-native-chat-tool-images>
+      {images.map((image, index) => (
+        <button
+          key={index}
+          type="button"
+          title={large === index ? t('Show smaller') : t('Show larger')}
+          onClick={() => setLarge(large === index ? null : index)}
+          className="overflow-hidden rounded-lg border border-chat-code-border bg-chat-code-surface"
+        >
+          <img
+            src={`data:${image.mimeType};base64,${image.data}`}
+            alt={t('Image {n}', { n: index + 1 })}
+            className={cn('block object-contain', large === index ? 'max-h-[70vh] max-w-full' : 'max-h-48 max-w-72')}
+          />
+        </button>
+      ))}
     </div>
   )
 }

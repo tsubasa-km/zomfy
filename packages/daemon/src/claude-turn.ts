@@ -336,12 +336,7 @@ async function forwardMessage(
           sessionUpdate: "tool_call_update",
           toolCallId: block.tool_use_id,
           status: block.is_error ? "failed" : "completed",
-          content: [
-            {
-              type: "content",
-              content: { type: "text", text: toolResultText(block.content) },
-            },
-          ],
+          content: toolResultContent(block.content),
         });
       }
       return;
@@ -582,10 +577,25 @@ export function toolTitle(toolName: string, input: unknown): string {
   return typeof target === "string" ? `${toolName}: ${target}` : toolName;
 }
 
+/** A tool result's text, then each image in it (a screenshot, an image it read) for the chat to show. */
+export function toolResultContent(content: unknown): acp.ToolCallContent[] {
+  const parts: acp.ToolCallContent[] = [{ type: "content", content: { type: "text", text: toolResultText(content) } }];
+  if (!Array.isArray(content)) return parts;
+  for (const part of content) {
+    const source = part?.type === "image" ? part.source : null;
+    if (source?.type !== "base64" || typeof source.data !== "string") continue;
+    const mimeType = typeof source.media_type === "string" ? source.media_type : "image/png";
+    parts.push({ type: "content", content: { type: "image", data: source.data, mimeType } });
+  }
+  return parts;
+}
+
 export function toolResultText(content: unknown): string {
   if (typeof content === "string") return content;
   if (!Array.isArray(content)) return "";
+  // Only the text parts: an image beside the text would otherwise leave an empty line.
   return content
-    .map((part) => (part?.type === "text" ? String(part.text) : ""))
+    .filter((part) => part?.type === "text")
+    .map((part) => String(part.text))
     .join("\n");
 }

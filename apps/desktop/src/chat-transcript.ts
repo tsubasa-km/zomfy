@@ -6,7 +6,7 @@ import { WORKFLOW_META,
   type TurnEndMeta,
   type TurnResumeKind
 } from '@acp-harness/protocol'
-import { appendText, getState, updateSession, upsertTool, type ThreadItem } from '@/session-store'
+import { appendText, getState, updateSession, upsertTool, type ChatImage, type ThreadItem } from '@/session-store'
 import { patchChatSession } from '@/stores/chat-store'
 import { t } from '@/i18n/i18n'
 
@@ -41,7 +41,7 @@ export function applyChatUpdate({ sessionId, update }: acp.SessionNotification):
       upsertTool(sessionId, update.toolCallId, {
         ...(update.title ? { title: update.title } : {}),
         ...(update.status ? { status: update.status } : {}),
-        ...(update.content ? { output: toolOutputText(update.content) } : {})
+        ...(update.content ? { output: toolOutputText(update.content), images: toolOutputImages(update.content) } : {})
       })
       break
     case 'usage_update': {
@@ -185,6 +185,12 @@ function contextUsageMeta(meta: Record<string, unknown> | null | undefined): Con
         : []
     )
   }
+}
+
+function toolOutputImages(content: acp.ToolCallContent[]): ChatImage[] {
+  return content.flatMap((part) =>
+    part.type === 'content' && part.content.type === 'image' ? [{ mimeType: part.content.mimeType, data: part.content.data }] : []
+  )
 }
 
 function toolOutputText(content: acp.ToolCallContent[]): string {

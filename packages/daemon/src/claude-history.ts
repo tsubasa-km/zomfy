@@ -6,7 +6,7 @@ import {
   type SessionMessage,
 } from "@anthropic-ai/claude-agent-sdk";
 import { CHAT_META } from "@acp-harness/protocol";
-import { toolKind, toolResultText, toolTitle } from "./claude-turn.ts";
+import { toolKind, toolResultContent, toolTitle } from "./claude-turn.ts";
 
 export interface ClaudeConversation {
   claudeSessionId: string;
@@ -82,7 +82,7 @@ export async function conversationUpdates(claudeSessionId: string, cwd: string):
             sessionUpdate: "tool_call_update",
             toolCallId: block.tool_use_id,
             status: block.is_error === true ? "failed" : "completed",
-            content: [{ type: "content", content: { type: "text", text: toolResultText(block.content) } }],
+            content: toolResultContent(block.content),
           });
         }
       }

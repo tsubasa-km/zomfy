@@ -52,6 +52,8 @@ export type ThreadItem =
       status: string
       input: unknown
       output: string
+      /** Images the tool returned (a screenshot, an image it read). */
+      images?: ChatImage[]
       /** Claude's tool name (TodoWrite, Task, Edit…), when the daemon reports it. */
       toolName?: string
       /** The Task call whose subagent made this call. */
