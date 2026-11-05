@@ -142,11 +142,6 @@ fn presize_maximized<R: tauri::Runtime>(window: &tauri::WebviewWindow<R>) -> boo
 }
 
 #[tauri::command]
-fn title_bar_alive(window: tauri::WebviewWindow) {
-    title_bar::alive(&window);
-}
-
-#[tauri::command]
 fn window_ready(window: tauri::WebviewWindow, dark: bool) {
     show_main_once(&window, Some(dark));
 }
@@ -183,8 +178,7 @@ pub fn run() {
             read_dropped_image,
             set_tray_attention,
             set_minimize_to_tray,
-            window_ready,
-            title_bar_alive
+            window_ready
         ])
         .setup(|app| {
             if let Ok(dir) = app.path().resource_dir() {
@@ -212,9 +206,6 @@ pub fn run() {
             }
             tauri::WindowEvent::Focused(true) => {
                 tray::clear_attention(window.app_handle());
-                if window.label() == "main" {
-                    title_bar::focused();
-                }
             }
             _ => {}
         })

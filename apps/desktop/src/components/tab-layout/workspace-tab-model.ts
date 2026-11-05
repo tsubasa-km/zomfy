@@ -4,6 +4,7 @@ import { closeTerminal, createTerminal } from '@/daemon-connection'
 import {
   allWorkspaces,
   closeEditorTab,
+  expectDrawerTerminal,
   getState,
   openEditorTab,
   selectTab,
@@ -255,9 +256,15 @@ export async function newTerminalTab(
   shellId?: string,
   options: { select?: boolean; drawer?: boolean } = {}
 ): Promise<string> {
-  const id = await createTerminal(workspaceId, shellId, undefined, { select: options.select })
-  setTabMeta(id, { shellId, drawer: options.drawer || undefined })
-  return id
+  const unclaimed = options.drawer ? expectDrawerTerminal(workspaceId) : null
+  try {
+    const id = await createTerminal(workspaceId, shellId, undefined, { select: options.select })
+    setTabMeta(id, { shellId, drawer: options.drawer || undefined })
+    return id
+  } finally {
+    // Normally the new terminal took it; a failed create must not hand the next one to the drawer.
+    unclaimed?.()
+  }
 }
 
 /** A browser tab kept in the pull-down drawer. */

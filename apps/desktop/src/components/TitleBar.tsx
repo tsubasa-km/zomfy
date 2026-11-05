@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { invoke, isTauri } from '@tauri-apps/api/core'
+import { isTauri } from '@tauri-apps/api/core'
 import { getCurrentWindow } from '@tauri-apps/api/window'
 import { PanelLeft, PanelRight, RefreshCw, Settings, type LucideIcon } from 'lucide-react'
 import { restartToUpdate, useAppUpdate } from '@/lib/app-update'
@@ -56,17 +56,8 @@ function BarButton({ icon: Icon, label, command, pressed, onClick }: { icon: Luc
   )
 }
 
-/** The window brings the OS title bar back if this stops (title_bar.rs), so a hung page can still be closed. */
-const HEARTBEAT_MS = 2000
-
 export function TitleBar() {
   const [maximized, setMaximized] = useState(false)
-  useEffect(() => {
-    const beat = () => void invoke('title_bar_alive').catch(() => {})
-    beat()
-    const timer = setInterval(beat, HEARTBEAT_MS)
-    return () => clearInterval(timer)
-  }, [])
   useEffect(() => {
     const win = getCurrentWindow()
     const sync = () => void win.isMaximized().then(setMaximized)

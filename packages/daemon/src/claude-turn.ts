@@ -141,6 +141,9 @@ export async function runClaudeTurn(input: TurnInput): Promise<acp.StopReason> {
   await mkdir(CHAT_ATTACHMENT_DIR, { recursive: true }).catch(() => undefined);
   const mcpServers = { ...input.mcpServers, ...input.step?.mcpServers };
   const allowedTools = [...(input.allowedTools ?? []), ...(input.step?.allowedTools ?? [])];
+  // Claude Code's own Workflow tool runs workflows from its settings folders, not the project's: in a
+  // harness chat only the project's (the run_workflow tool) are on offer.
+  const disallowedTools = [...CLAUDE_TOOLS_OFF, ...(input.step?.disallowedTools ?? [])];
   const stream = query({
     prompt: promptStream(),
     options: {
@@ -163,7 +166,7 @@ export async function runClaudeTurn(input: TurnInput): Promise<acp.StopReason> {
       ...(permissionMode === "bypassPermissions" ? { allowDangerouslySkipPermissions: true } : {}),
       ...(mcpServers && Object.keys(mcpServers).length > 0 ? { mcpServers } : {}),
       ...(allowedTools.length ? { allowedTools } : {}),
-      ...(input.step?.disallowedTools?.length ? { disallowedTools: input.step.disallowedTools } : {}),
+      disallowedTools,
       ...(input.step?.skills ? { skills: input.step.skills } : {}),
       ...(input.step?.strictMcpConfig ? { strictMcpConfig: true } : {}),
       ...(input.step?.outputFormat ? { outputFormat: input.step.outputFormat } : {}),
@@ -578,6 +581,9 @@ export function toolTitle(toolName: string, input: unknown): string {
 }
 
 /** A tool result's text, then each image in it (a screenshot, an image it read) for the chat to show. */
+/** Claude Code tools a harness chat never offers: the harness has its own for these. */
+const CLAUDE_TOOLS_OFF = ["Workflow"];
+
 export function toolResultContent(content: unknown): acp.ToolCallContent[] {
   const parts: acp.ToolCallContent[] = [{ type: "content", content: { type: "text", text: toolResultText(content) } }];
   if (!Array.isArray(content)) return parts;

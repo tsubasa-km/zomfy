@@ -12,7 +12,7 @@ import type {
   Workspace
 } from '@acp-harness/protocol'
 import { WINDOW_ROLE } from '@/lib/window-role'
-import { showChat } from '@/stores/tab-layout-store'
+import { setTabMeta, showChat } from '@/stores/tab-layout-store'
 import { openWorkflows } from '@/stores/workflows-store'
 import { hidePaneSidebar, showPaneSidebar, togglePaneSidebar } from '@/stores/pane-sidebar-store'
 import { forgetHostSnapshot, saveHostSnapshot } from '@/lib/host-snapshots'
@@ -623,7 +623,31 @@ export function selectSession(sessionId: string): void {
 
 // ── Terminals ────────────────────────────────────────────────────────────
 
+/** Terminals being opened in the pull-down drawer, one token each, by workspace (workspace-tab-model). */
+const drawerTerminalsDue = new Map<string, symbol[]>()
+
+/** The next new terminal in `workspaceId` belongs to its drawer; the returned call withdraws that if none took it. */
+export function expectDrawerTerminal(workspaceId: string): () => void {
+  const token = Symbol('drawer terminal')
+  drawerTerminalsDue.set(workspaceId, [...(drawerTerminalsDue.get(workspaceId) ?? []), token])
+  return () => {
+    const rest = (drawerTerminalsDue.get(workspaceId) ?? []).filter((t) => t !== token)
+    if (rest.length > 0) drawerTerminalsDue.set(workspaceId, rest)
+    else drawerTerminalsDue.delete(workspaceId)
+  }
+}
+
 export function setTerminals(hostId: HostId, terminals: TerminalInfo[]): void {
+  // A terminal opened for the drawer is marked as the drawer's before it is first drawn, so it never
+  // shows in the tab strip, whichever comes first: the host's broadcast or the create reply.
+  const known = new Set(state.terminals.map((t) => t.id))
+  for (const terminal of terminals) {
+    const [, ...rest] = drawerTerminalsDue.get(terminal.workspaceId) ?? []
+    if (known.has(terminal.id) || !drawerTerminalsDue.has(terminal.workspaceId)) continue
+    if (rest.length > 0) drawerTerminalsDue.set(terminal.workspaceId, rest)
+    else drawerTerminalsDue.delete(terminal.workspaceId)
+    setTabMeta(terminal.id, { drawer: true })
+  }
   set({
     ...state,
     terminals: [
