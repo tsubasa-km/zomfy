@@ -6,6 +6,7 @@ import { cn } from '@/lib/utils'
 import type { ChatImage, Session } from '@/session-store'
 import { patchChatSession, useChatSession, useChatStore } from '@/stores/chat-store'
 import {
+  appendToDraft,
   isWorking,
   loadCatalog,
   loadMentionFiles,
@@ -36,6 +37,8 @@ import { NativeChatAttachMenu } from './NativeChatAttachMenu'
 import { attachChat, attachTerminal, mentionFile } from '@/lib/chat-attachments'
 import { NativeChatWorkflowPicker, type WorkflowHome } from './NativeChatWorkflowPicker'
 import { toast } from 'sonner'
+import { imageTypeOf, readDroppedImage } from '@/lib/chat-file-drop'
+import { hostDropPath, registerComposerDropTarget } from '@/lib/terminal-file-drop'
 import { HARNESS_METHODS } from '@acp-harness/protocol'
 import { harnessRequest } from '@/daemon-connection'
 import { projectOfSession } from '@/lib/session-project'
@@ -271,6 +274,23 @@ export function NativeChatComposer({
     if (images.length > 0) patchChatSession(session.id, (c) => ({ draftImages: [...c.draftImages, ...images] }))
   }
 
+  // Files dropped from the OS come as paths (the page never sees the drop): images attach, other
+  // files go in as their paths, in the form the chat's host uses.
+  const dropRef = useRef<(paths: string[]) => void>(() => {})
+  dropRef.current = (paths) => {
+    const images = paths.filter((p) => imageTypeOf(p) !== null)
+    const others = paths.filter((p) => imageTypeOf(p) === null)
+    if (others.length > 0) appendToDraft(session.id, others.map((p) => hostDropPath(p, session.hostId)).join(' '))
+    for (const path of images) {
+      readDroppedImage(path).then(
+        (image) => patchChatSession(session.id, (c) => ({ draftImages: [...c.draftImages, image] })),
+        (error: unknown) => toast.error(error instanceof Error ? error.message : String(error))
+      )
+    }
+    editorRef.current?.focusEnd()
+  }
+  useEffect(() => registerComposerDropTarget(session.id, (paths) => dropRef.current(paths)), [session.id])
+
   const options = session.options
   const models = catalog?.value?.models?.length ? catalog.value.models : (fallbackModels ?? [])
   const currentModel = models.find((m) => m.value === (options?.model ?? 'default'))
@@ -305,6 +325,7 @@ export function NativeChatComposer({
             ref={composerBox}
             data-native-chat-composer
             data-chat-composer-drop
+            data-composer-session={session.id}
             className={cn(
               'cursor-text rounded-2xl border border-chat-composer-border bg-chat-composer-surface p-2 shadow-[0_2px_10px_rgb(0_0_0/0.04)] [contain:paint] data-[tab-drop-hover]:border-ring data-[tab-drop-hover]:ring-2 data-[tab-drop-hover]:ring-ring/30',
               dragging && 'border-ring'

@@ -58,6 +58,26 @@ async fn disconnect_ssh_host(target: String) -> Result<(), String> {
         .map_err(|e| e.to_string())
 }
 
+/// The bytes of an image file dropped on a chat from the OS (the webview gets only its path).
+/// Only images, and not huge ones: the chat sends them to the model inline.
+#[tauri::command]
+fn read_dropped_image(path: String) -> Result<tauri::ipc::Response, String> {
+    const MAX_BYTES: u64 = 20 * 1024 * 1024;
+    let extension = std::path::Path::new(&path)
+        .extension()
+        .and_then(|e| e.to_str())
+        .map(str::to_ascii_lowercase)
+        .unwrap_or_default();
+    if !matches!(extension.as_str(), "png" | "jpg" | "jpeg" | "gif" | "webp") {
+        return Err(format!("{path} is not an image the chat can attach"));
+    }
+    let size = std::fs::metadata(&path).map_err(|e| format!("{path}: {e}"))?.len();
+    if size > MAX_BYTES {
+        return Err(format!("{path} is larger than 20 MB"));
+    }
+    std::fs::read(&path).map(tauri::ipc::Response::new).map_err(|e| format!("{path}: {e}"))
+}
+
 #[tauri::command]
 fn open_workspace_in(target: String, host: String, path: String, shell: Option<String>) -> Result<(), String> {
     open_in::open_in(&target, &host, &path, shell.as_deref())
@@ -160,6 +180,7 @@ pub fn run() {
             start_ssh_daemon,
             disconnect_ssh_host,
             open_workspace_in,
+            read_dropped_image,
             set_tray_attention,
             set_minimize_to_tray,
             window_ready,

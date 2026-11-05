@@ -43,25 +43,53 @@ export function pathsFromDataTransfer(data: DataTransfer): string[] {
 }
 
 // The OS drop arrives once per window through Tauri with physical coordinates; it is routed to
-// the terminal under the pointer.
+// the terminal, or the chat composer, under the pointer. A composer under a drag shows it takes it.
 const dropTargets = new Map<string, (paths: string[]) => void>()
+const composerTargets = new Map<string, (paths: string[]) => void>()
 let nativeDropListening = false
+let hovered: HTMLElement | null = null
+
+function setHovered(next: HTMLElement | null): void {
+  if (hovered === next) return
+  hovered?.removeAttribute('data-tab-drop-hover')
+  hovered = next
+  hovered?.setAttribute('data-tab-drop-hover', '')
+}
+
+function listenForNativeDrops(): void {
+  if (nativeDropListening || !isTauri()) return
+  nativeDropListening = true
+  void import('@tauri-apps/api/webview').then(({ getCurrentWebview }) =>
+    getCurrentWebview().onDragDropEvent(({ payload }) => {
+      if (payload.type === 'leave') return setHovered(null)
+      if (payload.type !== 'over' && payload.type !== 'drop') return
+      const scale = window.devicePixelRatio || 1
+      const element = document.elementFromPoint(payload.position.x / scale, payload.position.y / scale)
+      const composer = element?.closest<HTMLElement>('[data-composer-session]') ?? null
+      if (payload.type === 'over') return setHovered(composer)
+      setHovered(null)
+      if (payload.paths.length === 0) return
+      const sessionId = composer?.dataset.composerSession
+      if (sessionId) return composerTargets.get(sessionId)?.(payload.paths)
+      const id = element?.closest<HTMLElement>('[data-terminal-id]')?.dataset.terminalId
+      if (id) dropTargets.get(id)?.(payload.paths)
+    })
+  )
+}
 
 export function registerTerminalDropTarget(terminalId: string, onPaths: (paths: string[]) => void): () => void {
   dropTargets.set(terminalId, onPaths)
-  if (!nativeDropListening && isTauri()) {
-    nativeDropListening = true
-    void import('@tauri-apps/api/webview').then(({ getCurrentWebview }) =>
-      getCurrentWebview().onDragDropEvent(({ payload }) => {
-        if (payload.type !== 'drop' || payload.paths.length === 0) return
-        const scale = window.devicePixelRatio || 1
-        const element = document.elementFromPoint(payload.position.x / scale, payload.position.y / scale)
-        const id = element?.closest<HTMLElement>('[data-terminal-id]')?.dataset.terminalId
-        if (id) dropTargets.get(id)?.(payload.paths)
-      })
-    )
-  }
+  listenForNativeDrops()
   return () => {
     if (dropTargets.get(terminalId) === onPaths) dropTargets.delete(terminalId)
+  }
+}
+
+/** A chat composer (`data-composer-session` on its box) takes files dropped from the OS. */
+export function registerComposerDropTarget(sessionId: string, onPaths: (paths: string[]) => void): () => void {
+  composerTargets.set(sessionId, onPaths)
+  listenForNativeDrops()
+  return () => {
+    if (composerTargets.get(sessionId) === onPaths) composerTargets.delete(sessionId)
   }
 }
