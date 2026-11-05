@@ -7,6 +7,8 @@ import { cn } from '@/lib/utils'
 import { MENTION_TITLE, parseChatMentions, type ChatMention } from '@/lib/chat-mentions'
 import { openChatMention } from '@/lib/chat-attachments'
 import { NativeChatCodeBlock } from './NativeChatCodeBlock'
+import { NativeChatPathCode } from './NativeChatPathCode'
+import { looksLikeFilePath } from '@/lib/link-targets'
 import { NativeChatMarkdownRowKeyContext } from './native-chat-disclosure-store'
 import { t } from '@/i18n/i18n'
 import './native-chat-markdown.css'
@@ -28,6 +30,8 @@ const DOCUMENT_COMPONENTS: Components = {
   code: ({ children }) =>
     typeof children === 'string' && children.startsWith(MENTION_MARK) ? (
       <MentionChip mention={decodeMention(children)} />
+    ) : typeof children === 'string' && looksLikeFilePath(children) ? (
+      <NativeChatPathCode path={children.trim()} />
     ) : (
     <code className="rounded bg-accent px-1.5 py-0.5 font-mono text-[0.92em] [overflow-wrap:anywhere]">
       {children}

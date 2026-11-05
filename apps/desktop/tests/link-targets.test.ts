@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test'
-import { classifyLinkHref, workspaceRelativePath } from '../src/lib/link-targets.ts'
+import { classifyLinkHref, looksLikeFilePath, workspaceRelativePath } from '../src/lib/link-targets.ts'
 
 describe('classifyLinkHref', () => {
   test('web, system, anchor and blocked schemes', () => {
@@ -34,5 +34,19 @@ describe('workspaceRelativePath', () => {
     expect(workspaceRelativePath('/repository/a.ts', '/repo')).toBeNull()
     expect(workspaceRelativePath(String.raw`c:\Repo\src\a.ts`, String.raw`C:\repo`)).toBe('src/a.ts')
     expect(workspaceRelativePath('/etc/hosts', '/repo')).toBeNull()
+  })
+})
+
+describe('looksLikeFilePath', () => {
+  test('paths and file names read as paths', () => {
+    for (const path of ['src/a.ts', 'src/a.ts:12', './run.sh', String.raw`C:\Users\me\diagram.png`, '/tmp/out/flow.svg', 'diagram.png', 'README.md', '~/notes.md']) {
+      expect(looksLikeFilePath(path)).toBe(true)
+    }
+  })
+
+  test('code, commands and links do not', () => {
+    for (const text of ['console.log', 'a.b', 'npm run build', 'https://example.com/a.png', 'foo()', 'v1.2', '', 'x // y.ts']) {
+      expect(looksLikeFilePath(text)).toBe(false)
+    }
   })
 })

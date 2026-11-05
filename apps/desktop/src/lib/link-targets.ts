@@ -73,3 +73,31 @@ export function workspaceRelativePath(path: string, root: string | null): string
   if (!a.startsWith(`${b}/`)) return null
   return normalized.slice(base.length + 1) || null
 }
+
+// Extensions a bare file name (no folder) must have to read as a file rather than code (`a.b`);
+// `log` is left out, as `console.log` is code far more often than a file.
+const FILE_EXTENSIONS = new Set(
+  'png jpg jpeg gif webp svg bmp ico pdf md mdx txt csv json jsonc yaml yml toml xml html htm css scss js jsx ts tsx mjs cjs py rb go rs java kt cs c cpp h hpp sh ps1 bat sql mmd drawio env lock'.split(' ')
+)
+
+/**
+ * Whether inline code reads as a path worth opening: no spaces or scheme, and either a folder in it
+ * (`src/a.ts`, `C:\x\y.png`, `./run.sh`) or a bare name with a file extension (`diagram.png`). A
+ * `:12` line suffix is allowed.
+ */
+export function looksLikeFilePath(text: string): boolean {
+  const value = text.trim()
+  if (!value || /\s/.test(value) || value.length > 400) return false
+  if (SCHEME_RE.test(value) && !WINDOWS_DRIVE_RE.test(value)) return false
+  const path = value.replace(/(?::\d+){1,2}$|#L\d+$/i, '')
+  const name = path.split(/[\\/]/).at(-1) ?? ''
+  const extension = /\.([A-Za-z0-9]{1,8})$/.exec(name)?.[1]?.toLowerCase()
+  if (!extension) return false
+  if (/[\\/]/.test(path)) return /^[\w.~:\\/@-]+$/.test(path) && !path.includes('//')
+  return FILE_EXTENSIONS.has(extension) && /^[\w.@-]+$/.test(name)
+}
+
+/** An image the chat can show itself, by its extension. */
+export function isImagePath(path: string): boolean {
+  return /\.(png|jpe?g|gif|webp)$/i.test(path.replace(/(?::\d+){1,2}$/, ''))
+}
