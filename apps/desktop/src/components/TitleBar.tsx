@@ -1,10 +1,10 @@
 import { useEffect, useState } from 'react'
 import { invoke, isTauri } from '@tauri-apps/api/core'
 import { getCurrentWindow } from '@tauri-apps/api/window'
-import { PanelLeft, PanelTop, RefreshCw, Settings, type LucideIcon } from 'lucide-react'
+import { PanelLeft, PanelRight, RefreshCw, Settings, type LucideIcon } from 'lucide-react'
 import { restartToUpdate, useAppUpdate } from '@/lib/app-update'
 import { WINDOW_ROLE } from '@/lib/window-role'
-import { toggleDrawer } from '@/session-store'
+import { toggleActivePaneSidebar } from '@/session-store'
 import { getSetting, setSetting, useSetting } from '@/stores/settings-store'
 import { openSettings } from '@/stores/app-overlay-store'
 import { useShortcutLabel } from '@/keybindings/keybinding-registry'
@@ -92,7 +92,7 @@ export function TitleBar() {
       <div data-tauri-drag-region className="flex-1 self-stretch" />
       <UpdateButton />
       <div className="mr-1.5 flex items-center gap-0.5">
-        <BarButton icon={PanelTop} label={t('Toggle drawer')} command="sidebar.right.toggle" onClick={() => toggleDrawer()} />
+        <BarButton icon={PanelRight} label={t('Toggle right sidebar')} command="sidebar.right.toggle" onClick={() => toggleActivePaneSidebar()} />
         <BarButton icon={Settings} label={t('Settings')} command="app.settings" onClick={() => openSettings()} />
       </div>
       <div className="flex h-full">

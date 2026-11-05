@@ -1,12 +1,15 @@
 import { useEffect } from 'react'
 import { isTauri } from '@tauri-apps/api/core'
 import { Window, getCurrentWindow } from '@tauri-apps/api/window'
-import { AppWindow, Undo2 } from 'lucide-react'
+import { AppWindow, PanelRight, Undo2 } from 'lucide-react'
 import { connectAllHosts } from '@/daemon-connection'
 import { getState, selectWorkspace, useStore } from '@/session-store'
 import { WorkspaceTabs } from '@/components/WorkspaceTabs'
 import { DragChip, PointerDragLayer } from '@/components/PointerDragLayer'
 import { usePaneTitle } from '@/components/WorkspaceColumns'
+import { PaneSidebar } from '@/components/tab-layout/PaneSidebar'
+import { togglePaneSidebar, usePaneSidebar } from '@/stores/pane-sidebar-store'
+import { cn } from '@/lib/utils'
 import { paneDrag } from '@/components/pane-drop'
 import { Toaster } from '@/components/ui/sonner'
 import { WorkflowStartConfirmDialog } from '@/components/workflows/WorkflowStartConfirm'
@@ -60,25 +63,28 @@ export default function WorkspaceWindow() {
         <main className="flex min-w-0 flex-1 flex-col">
           {known && <WindowPaneHeader workspaceId={workspaceId} />}
           {known ? (
-            <WorkspaceTabs
-              workspaceId={workspaceId}
-              emptyHint={t('No tabs yet. Start one here, or find more under + in the tab bar.')}
-              trailing={
-                <div className="flex items-center gap-0.5 pr-1">
-                  {isTauri() && (
-                    <Button
-                      size="icon-xs"
-                      variant="ghost"
-                      aria-label={t('Back to the main window')}
-                      title={t('Back to the main window')}
-                      onClick={() => void returnToMainWindow(workspaceId)}
-                    >
-                      <Undo2 className="size-3.5" />
-                    </Button>
-                  )}
-                </div>
-              }
-            />
+            <div className="flex min-h-0 min-w-0 flex-1">
+              <WorkspaceTabs
+                workspaceId={workspaceId}
+                emptyHint={t('No tabs yet. Start one here, or find more under + in the tab bar.')}
+                trailing={
+                  <div className="flex items-center gap-0.5 pr-1">
+                    {isTauri() && (
+                      <Button
+                        size="icon-xs"
+                        variant="ghost"
+                        aria-label={t('Back to the main window')}
+                        title={t('Back to the main window')}
+                        onClick={() => void returnToMainWindow(workspaceId)}
+                      >
+                        <Undo2 className="size-3.5" />
+                      </Button>
+                    )}
+                  </div>
+                }
+              />
+              <PaneSidebar workspaceId={workspaceId} />
+            </div>
           ) : (
             <div className="m-auto text-sm text-muted-foreground">{t('Connecting…')}</div>
           )}
@@ -94,6 +100,7 @@ export default function WorkspaceWindow() {
 /** The pane's name, as in the main window; dropped on the main window, the workspace goes back into the pane under it. */
 function WindowPaneHeader({ workspaceId }: { workspaceId: string }) {
   const { title, detail } = usePaneTitle(workspaceId)
+  const sidebarOpen = usePaneSidebar(workspaceId).open
   return (
     <div
       data-column-header
@@ -110,6 +117,18 @@ function WindowPaneHeader({ workspaceId }: { workspaceId: string }) {
     >
       <span className="shrink-0 font-medium text-foreground">{title}</span>
       {detail && <span className="min-w-0 truncate text-muted-foreground">{detail}</span>}
+      <Button
+        size="icon-xs"
+        variant="ghost"
+        className={cn('ml-auto', sidebarOpen && 'bg-accent text-foreground')}
+        aria-label={t('Toggle sidebar for this pane')}
+        title={t('Toggle sidebar for this pane')}
+        aria-pressed={sidebarOpen}
+        onPointerDown={(event) => event.stopPropagation()}
+        onClick={() => togglePaneSidebar(workspaceId)}
+      >
+        <PanelRight className="size-3.5" />
+      </Button>
     </div>
   )
 }

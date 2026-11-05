@@ -14,7 +14,7 @@ import type {
 import { WINDOW_ROLE } from '@/lib/window-role'
 import { showChat } from '@/stores/tab-layout-store'
 import { openWorkflows } from '@/stores/workflows-store'
-import { requestDrawer } from '@/stores/drawer-request-store'
+import { hidePaneSidebar, showPaneSidebar, togglePaneSidebar } from '@/stores/pane-sidebar-store'
 import { forgetHostSnapshot, saveHostSnapshot } from '@/lib/host-snapshots'
 import {
   appendPane,
@@ -697,26 +697,27 @@ function focusTab(workspaceId: string, tabId: string): void {
   )
 }
 
-/** The drawer panel (ToolDrawer) that shows what a right sidebar tab did. */
-function drawerPanel(tab: RightSidebarTab): string {
+/** The panel id (components/tab-layout/workspace-panels.tsx) of what a right sidebar tab showed. */
+function panelOf(tab: RightSidebarTab): string {
   return tab.startsWith('plugin:') ? `plugin:${tab}` : `panel:${tab}`
 }
 
 /**
- * The right sidebar's panels live in each pane's pull-down drawer now, so this shows (with `tab`)
- * or hides the active workspace's drawer; `toggleDrawer` flips it.
+ * The right sidebar is each workspace pane's own now (stores/pane-sidebar-store), so this shows
+ * (with `tab`) or hides the active workspace's; `togglePaneSidebarOf` flips it.
  */
 export function setRightSidebar(change: Partial<StoreState['rightSidebar']>): void {
   set({ ...state, rightSidebar: { ...state.rightSidebar, ...change } })
   const workspaceId = state.activeWorkspaceId
   if (!workspaceId) return
-  requestDrawer(workspaceId, change.tab ? drawerPanel(change.tab) : null, change.open === false ? 'hide' : 'show')
+  if (change.open === false) hidePaneSidebar(workspaceId)
+  else showPaneSidebar(workspaceId, change.tab ? panelOf(change.tab) : undefined)
 }
 
-/** Shows the active workspace's drawer on `tab`, or hides it when it already shows that (or, without `tab`, anything). */
-export function toggleDrawer(tab?: RightSidebarTab): void {
+/** The active workspace's sidebar on `tab`, or closed when it already shows that (or, without `tab`, anything). */
+export function toggleActivePaneSidebar(tab?: RightSidebarTab): void {
   const workspaceId = state.activeWorkspaceId
-  if (workspaceId) requestDrawer(workspaceId, tab ? drawerPanel(tab) : null, 'toggle')
+  if (workspaceId) togglePaneSidebar(workspaceId, tab ? panelOf(tab) : undefined)
 }
 
 export function markSeen(sessionId: string): void {

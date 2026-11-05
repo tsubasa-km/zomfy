@@ -1,10 +1,12 @@
 import { Fragment, useRef, useState } from 'react'
-import { AppWindow, X } from 'lucide-react'
+import { AppWindow, PanelRight, X } from 'lucide-react'
 import { allProjects, allWorkspaces, closeColumn, getState, selectWorkspace, setPaneSizes, useStore } from '@/session-store'
 import { sidebarDrag, type DragItem } from '@/components/sidebar/sidebar-drag'
 import { projectLabel } from '@/components/sidebar/workspace-visibility'
 import { WorkspaceTabs } from '@/components/WorkspaceTabs'
 import { QuickStart } from '@/components/QuickStart'
+import { PaneSidebar } from '@/components/tab-layout/PaneSidebar'
+import { togglePaneSidebar, usePaneSidebar } from '@/stores/pane-sidebar-store'
 import { DragChip } from '@/components/PointerDragLayer'
 import { Button } from '@/components/ui/button'
 import { canPopOutWorkspace, popOutWorkspace } from '@/lib/workspace-window'
@@ -63,7 +65,7 @@ export function WorkspaceMain() {
       {showPanes ? (
         <PaneView node={tree} path={[]} active={active} />
       ) : active ? (
-        <WorkspaceTabs key={active} workspaceId={active} emptyHint={EMPTY_HINT} />
+        <WorkspacePane key={active} workspaceId={active} focused={false} single />
       ) : (
         <QuickStart />
       )}
@@ -95,8 +97,7 @@ function PaneView({ node, path, active }: { node: PaneNode; path: number[]; acti
           if (getState().activeWorkspaceId !== id) selectWorkspace(id)
         }}
       >
-        <PaneHeader workspaceId={id} focused={id === active} />
-        <WorkspaceTabs workspaceId={id} emptyHint={EMPTY_HINT} />
+        <WorkspacePane workspaceId={id} focused={id === active} />
       </div>
     )
   }
@@ -111,6 +112,19 @@ function PaneView({ node, path, active }: { node: PaneNode; path: number[]; acti
           </div>
         </Fragment>
       ))}
+    </div>
+  )
+}
+
+/** One workspace's pane: its name bar, its tabs, and its own sidebar on the right when open. */
+function WorkspacePane({ workspaceId, focused, single = false }: { workspaceId: string; focused: boolean; single?: boolean }) {
+  return (
+    <div className="flex min-h-0 min-w-0 flex-1 flex-col">
+      <PaneHeader workspaceId={workspaceId} focused={focused} single={single} />
+      <div className="flex min-h-0 min-w-0 flex-1">
+        <WorkspaceTabs workspaceId={workspaceId} emptyHint={EMPTY_HINT} />
+        <PaneSidebar workspaceId={workspaceId} />
+      </div>
     </div>
   )
 }
@@ -134,8 +148,9 @@ export function usePaneTitle(workspaceId: string): { title: string; detail: stri
 }
 
 /** The workspace's name; drag it to move the pane, or out of the window to give it a window of its own. */
-export function PaneHeader({ workspaceId, focused }: { workspaceId: string; focused: boolean }) {
+export function PaneHeader({ workspaceId, focused, single = false }: { workspaceId: string; focused: boolean; single?: boolean }) {
   const { title, detail } = usePaneTitle(workspaceId)
+  const sidebarOpen = usePaneSidebar(workspaceId).open
   return (
     <div
       data-column-header
@@ -157,14 +172,28 @@ export function PaneHeader({ workspaceId, focused }: { workspaceId: string; focu
       <span className={cn('shrink-0 font-medium', focused ? 'text-foreground' : 'text-muted-foreground')}>{title}</span>
       {detail && <span className="min-w-0 truncate text-muted-foreground">{detail}</span>}
       <div className="ml-auto flex shrink-0 items-center">
+        <Button
+          size="icon-xs"
+          variant="ghost"
+          aria-label={t('Toggle sidebar for this pane')}
+          title={t('Toggle sidebar for this pane')}
+          aria-pressed={sidebarOpen}
+          data-pane-sidebar-toggle
+          className={cn(sidebarOpen && 'bg-accent text-foreground')}
+          onClick={() => togglePaneSidebar(workspaceId)}
+        >
+          <PanelRight className="size-3.5" />
+        </Button>
         {canPopOutWorkspace() && (
           <Button size="icon-xs" variant="ghost" aria-label={t('Open in new window')} onClick={() => void popOutWorkspace(workspaceId)}>
             <AppWindow className="size-3.5" />
           </Button>
         )}
-        <Button size="icon-xs" variant="ghost" aria-label={t('Close column')} onClick={() => closeColumn(workspaceId)}>
-          <X className="size-3.5" />
-        </Button>
+        {!single && (
+          <Button size="icon-xs" variant="ghost" aria-label={t('Close column')} onClick={() => closeColumn(workspaceId)}>
+            <X className="size-3.5" />
+          </Button>
+        )}
       </div>
     </div>
   )
