@@ -295,9 +295,58 @@ export const MANAGER_TOOLS = [
   },
   {
     name: 'list_workflows',
-    description: "This project's saved workflows (graphs of agent steps the harness runs) and their recent runs.",
-    inputSchema: { type: 'object', properties: {} },
+    description:
+      "This project's saved workflows (graphs of agent steps the harness runs) and their recent runs. With projectId, another project's workflows instead (to copy one with copy_workflow). With includeGraph, each workflow's steps and edges in the form save_workflow takes.",
+    inputSchema: {
+      type: 'object',
+      properties: {
+        projectId: str('Another project (from list_workspaces); default this chat\'s project.'),
+        includeGraph: { type: 'boolean', description: 'Also return nodes and edges.' }
+      }
+    },
     readOnly: true
+  },
+  {
+    name: 'save_workflow',
+    description:
+      "Creates a workflow in this chat's project, or replaces one of its workflows (workflowId). A workflow is a graph: nodes are steps, edges route on how a step ended. Node kinds and the outcomes their edges carry: start (next; exactly one, where the task enters), agent (an agent chat does config.prompt; next, ask), review (an agent reviews; approve, changes, ask), check (runs config.command; pass, fail), human (asks the person config.question; answered), end (finishes; config.result done or failed; no edges out). Every outcome a step can end in, except ask, needs an edge; ask may route to a human step. Give each node an id you choose; positions are laid out for you. The person sees it on the Workflows page and can edit it.",
+    inputSchema: {
+      type: 'object',
+      properties: {
+        workflowId: str('Replace this workflow of the project; omit to create one.'),
+        name: str('Short name.'),
+        description: str('What it is for, when to use it.'),
+        nodes: {
+          type: 'array',
+          description: 'Steps: { id, kind, label, config? } with config fields such as prompt, command, question, result.',
+          items: { type: 'object' }
+        },
+        edges: {
+          type: 'array',
+          description: 'Routes: { from, to, outcome } between node ids.',
+          items: { type: 'object' }
+        }
+      },
+      required: ['name', 'nodes', 'edges']
+    },
+    readOnly: false,
+    managerAllowed: true
+  },
+  {
+    name: 'copy_workflow',
+    description:
+      "Copies a workflow from another project (list_workflows with that projectId) into this chat's project, as a new workflow there; the original stays as it is.",
+    inputSchema: {
+      type: 'object',
+      properties: {
+        projectId: str('The project to copy from.'),
+        workflowId: str('The workflow to copy.'),
+        name: str('A name for the copy; default the original\'s.')
+      },
+      required: ['projectId', 'workflowId']
+    },
+    readOnly: false,
+    managerAllowed: true
   },
   {
     name: 'run_workflow',

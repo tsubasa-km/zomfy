@@ -48,6 +48,8 @@ export const PAGES: Record<string, string> = {
   'Unsaved changes': '未保存の変更',
   Saved: '保存済み',
   'Duplicate as a variant': 'バリアントとして複製',
+  'Copy from another project': '他のプロジェクトから複製',
+  'No other project has workflows.': 'ほかのプロジェクトにワークフローはありません。',
   'New from a template': 'テンプレートから新規作成',
   '{n} problem': '{n} 件の問題',
   '{n} problems': '{n} 件の問題',

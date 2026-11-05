@@ -5,7 +5,8 @@ import {
   type ManagedSessionStatus,
   type ManagerCallParams,
   type ManagerCallResult,
-  type TodoLink
+  type TodoLink,
+  type Workflow
 } from '@acp-harness/protocol'
 import {
   answerPermission,
@@ -29,6 +30,8 @@ import { linkOf } from '@/stores/project-links-store'
 import { projectOfSession } from '@/lib/session-project'
 import { upsertWorkflowRun } from '@/stores/workflow-runs-store'
 import { confirmWorkflowStart } from '@/components/workflows/WorkflowStartConfirm'
+import { validateWorkflow } from '@/components/workflows/workflow-model'
+import { copyOfWorkflow, workflowFromSpec } from './workflow-tools'
 
 // Runs the manager agent's tool calls in this window, which is linked to every host. Status is
 // the hosts' (broadcast into the session store); this file only reads it and presents it, and a
@@ -83,7 +86,11 @@ function dispatch({ tool, args, callerSessionId }: ManagerCallParams): Promise<u
     case 'ask_requester':
       return askRequester(callerSessionId, reqString(args, 'question'))
     case 'list_workflows':
-      return listWorkflows(callerSessionId)
+      return listWorkflows(callerSessionId, optString(args, 'projectId'), args.includeGraph === true)
+    case 'save_workflow':
+      return saveWorkflow(callerSessionId, args)
+    case 'copy_workflow':
+      return copyWorkflow(callerSessionId, reqString(args, 'projectId'), reqString(args, 'workflowId'), optString(args, 'name'))
     case 'run_workflow':
       return runWorkflow(callerSessionId, reqString(args, 'workflowId'), reqString(args, 'task'))
     case 'get_workflow_run':
@@ -134,8 +141,22 @@ async function requesterOf(session: Session): Promise<Session | null> {
   return origin && origin.id !== session.id && (origin.agent ?? 'claude') === 'claude' && !origin.localOnly ? origin : null
 }
 
-async function listWorkflows(callerSessionId: string): Promise<unknown> {
-  const { hostId, projectId } = workflowProject(callerSessionId)
+/** A project by id, on whichever host has it. */
+function projectById(projectId: string): { hostId: HostId; projectId: string; name: string } {
+  const project = allProjects().find((p) => p.id === projectId)
+  if (!project) throw new ToolError(`Unknown project ${projectId}; use list_workspaces for ids.`)
+  return { hostId: project.hostId, projectId: project.id, name: project.displayName ?? project.name }
+}
+
+async function listWorkflows(callerSessionId: string, otherProjectId?: string, includeGraph = false): Promise<unknown> {
+  const { hostId, projectId } = otherProjectId ? projectById(otherProjectId) : workflowProject(callerSessionId)
+  const graph = (w: Workflow) =>
+    includeGraph
+      ? {
+          nodes: w.nodes.map((n) => ({ id: n.id, kind: n.kind, label: n.label, config: n.config })),
+          edges: w.edges.map((e) => ({ from: e.from, to: e.to, outcome: e.outcome }))
+        }
+      : {}
   const [workflows, runs] = await Promise.all([
     harnessRequest(HARNESS_METHODS.workflowsList, { projectId }, hostId),
     harnessRequest(HARNESS_METHODS.workflowRunsList, { projectId }, hostId)
@@ -145,13 +166,54 @@ async function listWorkflows(callerSessionId: string): Promise<unknown> {
       workflowId: w.id,
       name: w.name,
       description: w.description ?? '',
-      steps: w.nodes.filter((n) => n.kind !== 'start').map((n) => `${n.label} (${n.kind})`)
+      steps: w.nodes.filter((n) => n.kind !== 'start').map((n) => `${n.label} (${n.kind})`),
+      ...graph(w)
     })),
     recentRuns: runs
       .sort((a, b) => b.createdAt - a.createdAt)
       .slice(0, 10)
       .map((r) => ({ runId: r.id, workflow: r.workflow.name, status: r.status, task: r.task.slice(0, 200) }))
   }
+}
+
+/** Saves `workflow` in its project once it would run; what keeps it from running comes back as the error. */
+async function saveChecked(hostId: HostId, workflow: Workflow): Promise<unknown> {
+  const agents = await harnessRequest(HARNESS_METHODS.workflowAgentsList, {}, hostId).catch(() => [])
+  const issues = validateWorkflow(workflow, agents)
+  const errors = issues.filter((i) => i.level === 'error').map((i) => i.message)
+  if (errors.length > 0) throw new ToolError(`Not saved; fix these and call again:\n- ${errors.join('\n- ')}`)
+  await harnessRequest(HARNESS_METHODS.workflowSave, { workflow }, hostId)
+  return {
+    workflowId: workflow.id,
+    name: workflow.name,
+    warnings: issues.filter((i) => i.level === 'warning').map((i) => i.message),
+    next: 'Saved; it shows on the Workflows page, and run_workflow can start it.'
+  }
+}
+
+async function saveWorkflow(callerSessionId: string, args: Record<string, unknown>): Promise<unknown> {
+  const { hostId, projectId } = workflowProject(callerSessionId)
+  const workflowId = optString(args, 'workflowId')
+  const base = workflowId
+    ? (await harnessRequest(HARNESS_METHODS.workflowsList, { projectId }, hostId)).find((w) => w.id === workflowId)
+    : undefined
+  if (workflowId && !base) throw new ToolError(`No workflow ${workflowId} in this project; list_workflows shows them.`)
+  let workflow: Workflow
+  try {
+    workflow = workflowFromSpec(args, projectId, base)
+  } catch (error) {
+    throw new ToolError(error instanceof Error ? error.message : String(error))
+  }
+  return saveChecked(hostId, workflow)
+}
+
+async function copyWorkflow(callerSessionId: string, fromProjectId: string, workflowId: string, name?: string): Promise<unknown> {
+  const from = projectById(fromProjectId)
+  const source = (await harnessRequest(HARNESS_METHODS.workflowsList, { projectId: from.projectId }, from.hostId)).find((w) => w.id === workflowId)
+  if (!source) throw new ToolError(`No workflow ${workflowId} in ${from.name}; list_workflows with its projectId shows them.`)
+  const to = workflowProject(callerSessionId)
+  const taken = (await harnessRequest(HARNESS_METHODS.workflowsList, { projectId: to.projectId }, to.hostId)).map((w) => w.name)
+  return saveChecked(to.hostId, copyOfWorkflow(source, to.projectId, taken, name))
 }
 
 async function runWorkflow(callerSessionId: string, workflowId: string, task: string): Promise<unknown> {

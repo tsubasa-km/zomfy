@@ -67,6 +67,8 @@ import { WorkflowAgentsDialog } from './WorkflowAgentsDialog'
 import { DATA_PREFIX, LINK_PREFIX, dataCanvasEdges, dataCanvasNodes, type DataCanvasNode } from './workflow-data-canvas'
 import { loadWorkflowRuns, upsertWorkflowRun, useWorkflowRun, useWorkflowRuns } from '@/stores/workflow-runs-store'
 import { WorkflowRunDialog } from './WorkflowRunDialog'
+import { WorkflowCopyMenu } from './WorkflowCopyMenu'
+import { copyOfWorkflow } from '@/manager/workflow-tools'
 import { confirmWorkflowStart } from './WorkflowStartConfirm'
 import {
   NODE_KINDS,
@@ -290,6 +292,10 @@ export function WorkflowsPage({ target }: { target: WorkflowsPageTarget }) {
               <Copy className="size-3.5" />
               {t('Duplicate as a variant')}
             </DropdownMenuItem>
+            <WorkflowCopyMenu
+              projectId={target.projectId}
+              onPick={(source) => startNew((projectId) => copyOfWorkflow(source, projectId, (saved ?? []).map((w) => w.name)))}
+            />
             <DropdownMenuSeparator />
             <DropdownMenuLabel className="text-xs text-muted-foreground">{t('New from a template')}</DropdownMenuLabel>
             {WORKFLOW_TEMPLATES.map((template) => (
