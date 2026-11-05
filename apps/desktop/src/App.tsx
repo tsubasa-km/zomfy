@@ -5,6 +5,7 @@ import { useAppOverlays } from '@/stores/app-overlay-store'
 import { Sidebar } from '@/components/Sidebar'
 import { FloatingWorkspace } from '@/components/FloatingWorkspace'
 import { OWN_TITLE_BAR, TitleBar } from '@/components/TitleBar'
+import { ChatLightbox } from '@/components/native-chat/ChatLightbox'
 import { PointerDragLayer } from '@/components/PointerDragLayer'
 import { Toaster } from '@/components/ui/sonner'
 import { WorkflowStartConfirmDialog } from '@/components/workflows/WorkflowStartConfirm'
@@ -132,6 +133,7 @@ export default function App() {
       </div>
       <FloatingWorkspace />
       <Toaster />
+      <ChatLightbox />
       <WorkflowStartConfirmDialog />
       <CloseGuardDialog />
       <UpdateConfirmDialog />

@@ -4,6 +4,7 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/component
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { cn } from '@/lib/utils'
 import { NativeChatMarkdown } from './NativeChatMarkdown'
+import { chatImageSrc, openChatLightbox } from './ChatLightbox'
 import { NativeChatCopyButton } from './NativeChatCopyButton'
 import { NativeChatDecisionLine, NativeChatToolGroup } from './NativeChatToolGroup'
 import { NativeChatTaskList } from './NativeChatTaskList'
@@ -65,12 +66,19 @@ export function NativeChatTranscriptRow({
             {item.images?.length ? (
               <div className="mb-1.5 flex flex-wrap justify-end gap-2">
                 {item.images.map((image, index) => (
-                  <img
+                  <button
                     key={index}
-                    src={`data:${image.mimeType};base64,${image.data}`}
-                    alt={t('Image {n}', { n: index + 1 })}
-                    className="max-h-40 max-w-60 rounded-md border border-border object-contain"
-                  />
+                    type="button"
+                    title={t('Show larger')}
+                    className="cursor-zoom-in"
+                    onClick={() => openChatLightbox(item.images!.map((i) => ({ src: chatImageSrc(i) })), index)}
+                  >
+                    <img
+                      src={chatImageSrc(image)}
+                      alt={t('Image {n}', { n: index + 1 })}
+                      className="max-h-40 max-w-60 rounded-md border border-border object-contain"
+                    />
+                  </button>
                 ))}
               </div>
             ) : null}

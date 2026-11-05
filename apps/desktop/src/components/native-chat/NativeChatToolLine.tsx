@@ -16,6 +16,7 @@ import {
 import { diffFromToolCall } from '@/shared/native-chat-diff'
 import { cn } from '@/lib/utils'
 import type { ChatImage } from '@/session-store'
+import { chatImageSrc, openChatLightbox } from './ChatLightbox'
 import { t } from '@/i18n/i18n'
 import { NativeChatExpandable } from './NativeChatExpandable'
 import { NativeChatDiffView } from './NativeChatDiffView'
@@ -125,24 +126,20 @@ export function NativeChatToolLine({ tool, cwd }: { tool: ToolItem; cwd: string 
   )
 }
 
-/** Images tools returned, small until clicked. */
-export function ToolImages({ images, className }: { images: ChatImage[]; className?: string }) {
-  const [large, setLarge] = useState<number | null>(null)
+/** Images tools returned (or a message named), small; a click opens them in the chat's viewer. */
+export function ToolImages({ images, titles, className }: { images: ChatImage[]; titles?: string[]; className?: string }) {
+  const slides = images.map((image, index) => ({ src: chatImageSrc(image), ...(titles?.[index] ? { title: titles[index] } : {}) }))
   return (
     <div className={cn('mt-1 mb-2 ml-6 flex flex-wrap gap-2', className)} data-native-chat-tool-images>
-      {images.map((image, index) => (
+      {slides.map((slide, index) => (
         <button
           key={index}
           type="button"
-          title={large === index ? t('Show smaller') : t('Show larger')}
-          onClick={() => setLarge(large === index ? null : index)}
-          className="overflow-hidden rounded-lg border border-chat-code-border bg-chat-code-surface"
+          title={t('Show larger')}
+          onClick={() => openChatLightbox(slides, index)}
+          className="cursor-zoom-in overflow-hidden rounded-lg border border-chat-code-border bg-chat-code-surface"
         >
-          <img
-            src={`data:${image.mimeType};base64,${image.data}`}
-            alt={t('Image {n}', { n: index + 1 })}
-            className={cn('block object-contain', large === index ? 'max-h-[70vh] max-w-full' : 'max-h-48 max-w-72')}
-          />
+          <img src={slide.src} alt={slide.title ?? t('Image {n}', { n: index + 1 })} className="block max-h-48 max-w-72 object-contain" />
         </button>
       ))}
     </div>

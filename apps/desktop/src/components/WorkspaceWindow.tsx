@@ -12,6 +12,7 @@ import { togglePaneSidebar, usePaneSidebar } from '@/stores/pane-sidebar-store'
 import { cn } from '@/lib/utils'
 import { paneDrag } from '@/components/pane-drop'
 import { Toaster } from '@/components/ui/sonner'
+import { ChatLightbox } from '@/components/native-chat/ChatLightbox'
 import { WorkflowStartConfirmDialog } from '@/components/workflows/WorkflowStartConfirm'
 import { Button } from '@/components/ui/button'
 import { TooltipProvider } from '@/components/ui/tooltip'
@@ -92,6 +93,7 @@ export default function WorkspaceWindow() {
       </div>
       <PointerDragLayer />
       <Toaster />
+      <ChatLightbox />
       <WorkflowStartConfirmDialog />
     </TooltipProvider>
   )
