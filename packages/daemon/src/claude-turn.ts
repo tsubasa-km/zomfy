@@ -370,9 +370,12 @@ async function finishTurn(
 ${errorText}`) ?? title, _meta: { [TURN_RECOVERY_META.turnEnd]: end } });
   };
   if (message.subtype === "success") {
-    // Local commands (/context, /cost…) answer only in the result.
-    if (!progress.agentTextSent && message.result.trim() && !message.is_error) {
-      await update({ sessionUpdate: "agent_message_chunk", content: { type: "text", text: message.result } });
+    // Local commands (/context, /cost…) answer only in the result. A turn that answered through its
+    // output format (a workflow's question to the chat that started it) has that answer there as
+    // JSON: the chat shows its prose instead.
+    const text = message.structured_output === undefined ? message.result : structuredProse(message.structured_output);
+    if (!progress.agentTextSent && text.trim() && !message.is_error) {
+      await update({ sessionUpdate: "agent_message_chunk", content: { type: "text", text } });
     }
     if (message.is_error) await failed(message.result || "The turn failed", message.result);
   } else {
@@ -604,4 +607,14 @@ export function toolResultText(content: unknown): string {
     .filter((part) => part?.type === "text")
     .map((part) => String(part.text))
     .join("\n");
+}
+
+/** The readable part of a structured answer (its text or summary); empty when it has none. */
+export function structuredProse(output: unknown): string {
+  if (typeof output !== "object" || output === null) return "";
+  for (const key of ["text", "summary"]) {
+    const value: unknown = Reflect.get(output, key);
+    if (typeof value === "string" && value.trim()) return value;
+  }
+  return "";
 }
