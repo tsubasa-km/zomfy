@@ -13,6 +13,7 @@ import { AgentDashboard } from '@/components/AgentDashboard'
 import { SettingsPage } from '@/components/settings/SettingsPage'
 import { AutomationsPage } from '@/components/automations/AutomationsPage'
 import { useAutomationState } from '@/stores/automation-store'
+import { useOnePageAtATime } from '@/lib/app-pages'
 import { SkillsPage } from '@/components/skills/SkillsPage'
 import { installSkillsCommands } from '@/components/skills/skills-commands'
 import { installChatCommands } from '@/components/native-chat/native-chat-commands'
@@ -73,6 +74,14 @@ export default function App() {
   const tasksOpen = useTasks((s) => s.open)
   const workflowsPage = useWorkflowsPage()
   const gridPreview = useProjectGridPreview()
+  useOnePageAtATime({
+    workflows: workflowsPage !== null,
+    dashboard: dashboardOpen,
+    board: boardOpen,
+    tasks: tasksOpen,
+    automations: automationsOpen,
+    skills: skillsOpen
+  })
 
   useEffect(() => {
     // index.html shows a themed boot screen until the shell mounts.

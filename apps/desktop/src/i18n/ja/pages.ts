@@ -997,6 +997,7 @@ export const PAGES: Record<string, string> = {
 
   // components/skills/SkillsPage.tsx
   'Close skills': 'スキルを閉じる',
+  'Close automations': 'オートメーションを閉じる',
   'Close · Esc': '閉じる · Esc',
   '{n} skill': '{n} 個のスキル',
   '{n} skills': '{n} 個のスキル',

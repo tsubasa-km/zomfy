@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { GitBranch, Pin, Search, X } from 'lucide-react'
+import { GitBranch, Pin, Search } from 'lucide-react'
+import { PageCloseButton } from '@/components/PageCloseButton'
 import { HARNESS_METHODS, WORKSPACE_STATUSES, type Workspace } from '@acp-harness/protocol'
 import { harnessRequest } from '@/daemon-connection'
 import { allWorkspaces, findWorkspace, getState, selectWorkspace, useStore, workspaceStatus, type HostedWorkspace } from '@/session-store'
@@ -18,7 +19,6 @@ import { DropLine, renderedOrder } from '@/components/sidebar/WorkspaceCard'
 import { updateWorkspace } from '@/components/sidebar/WorkspaceMenu'
 import { beginSidebarDrag, useSidebarDropTarget } from '@/components/sidebar/sidebar-drag'
 import { projectLabel, reorderIds, workspaceLabel } from '@/components/sidebar/workspace-visibility'
-import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import type { WorktreeStatus } from '@/lib/worktree-status'
 import { cn } from '@/lib/utils'
@@ -85,7 +85,8 @@ export function WorkspaceBoard() {
 
   return (
     <div className="flex min-h-0 min-w-0 flex-1 flex-col bg-background" data-workspace-board>
-      <div className="flex h-11 shrink-0 items-center gap-3 border-b border-border px-4">
+      <div className="flex h-11 shrink-0 items-center gap-3 border-b border-border px-3">
+        <PageCloseButton label={t('Close board')} onClick={() => setBoardOpen(false)} />
         <div className="text-sm font-semibold">{t('Workspace board')}</div>
         <div className="relative flex max-w-xs min-w-0 flex-1 items-center">
           <Search className="pointer-events-none absolute top-1/2 left-2 size-3.5 -translate-y-1/2 text-muted-foreground" />
@@ -110,15 +111,6 @@ export function WorkspaceBoard() {
             </span>
           )}
         </div>
-        <Button
-          size="icon-xs"
-          variant="ghost"
-          className="ml-auto"
-          aria-label={t('Close board')}
-          onClick={() => setBoardOpen(false)}
-        >
-          <X className="size-3.5" />
-        </Button>
       </div>
       <div className="grid min-h-0 flex-1 auto-cols-[minmax(220px,1fr)] grid-flow-col gap-2 overflow-x-auto p-3" data-workspace-list>
         {LANES.map((lane) => {

@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
-import { ExternalLink, XIcon } from 'lucide-react'
+import { ExternalLink } from 'lucide-react'
+import { PageCloseButton } from '@/components/PageCloseButton'
 import {
   allWorkspaces,
   selectSession,
@@ -56,7 +57,8 @@ export function AgentDashboard() {
 
   return (
     <div className="relative flex min-h-0 min-w-0 flex-1 flex-col bg-background text-foreground" data-dashboard>
-      <div className="flex shrink-0 items-center gap-2 border-b border-border px-4 py-2.5">
+      <div className="flex shrink-0 items-center gap-2 border-b border-border px-3 py-2">
+        {WINDOW_ROLE === 'main' && <PageCloseButton label={t('Close dashboard')} onClick={() => setDashboardOpen(false)} />}
         <h1 className="text-[13px] font-semibold">{t('Agents')}</h1>
         <span className="text-[11px] text-muted-foreground">
           {t(sessions.length === 1 ? '{n} session' : '{n} sessions', { n: sessions.length })}{' '}
@@ -79,14 +81,6 @@ export function AgentDashboard() {
               <ExternalLink className="size-4" />
             </button>
           ) : null}
-          <button
-            type="button"
-            aria-label={t('Close dashboard')}
-            className="rounded-sm p-1 text-muted-foreground opacity-70 transition-opacity hover:opacity-100"
-            onClick={() => setDashboardOpen(false)}
-          >
-            <XIcon className="size-4" />
-          </button>
         </div>
       </div>
       <div className="scrollbar-sleek flex min-h-0 flex-1 overflow-x-auto p-3">

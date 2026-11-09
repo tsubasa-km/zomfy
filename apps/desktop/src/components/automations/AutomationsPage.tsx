@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { ArrowLeft, CalendarClock, MessageSquare, Pencil, Play, Plus, Trash2 } from 'lucide-react'
+import { CalendarClock, MessageSquare, Pencil, Play, Plus, Trash2 } from 'lucide-react'
 import {
   HARNESS_METHODS,
   chatAgentLabel,
@@ -22,6 +22,7 @@ import {
 import { AutomationEditorDialog } from './AutomationEditorDialog'
 import { TuiAgentIcon } from '@/components/terminal/TuiAgentIcon'
 import { Button } from '@/components/ui/button'
+import { PageCloseButton } from '@/components/PageCloseButton'
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Switch } from '@/components/ui/switch'
 import { cn } from '@/lib/utils'
@@ -105,9 +106,7 @@ export function AutomationsPage() {
       }}
     >
       <div className="flex h-11 shrink-0 items-center gap-2 border-b border-border px-3">
-        <Button size="icon-xs" variant="ghost" aria-label={t('Back')} onClick={() => setAutomationsPageOpen(false)}>
-          <ArrowLeft />
-        </Button>
+        <PageCloseButton label={t('Close automations')} onClick={() => setAutomationsPageOpen(false)} />
         <CalendarClock className="size-4 text-muted-foreground" />
         <h1 className="text-[13px] font-semibold">{t('Automations')}</h1>
         <span className="text-[11px] text-muted-foreground">{t("Run on each host's daemon, even with this window closed")}</span>

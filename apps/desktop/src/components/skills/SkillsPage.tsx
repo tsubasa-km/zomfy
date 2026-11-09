@@ -1,12 +1,13 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { invoke, isTauri } from '@tauri-apps/api/core'
-import { BookOpen, ChevronDown, RefreshCw, Search, X } from 'lucide-react'
+import { BookOpen, ChevronDown, RefreshCw, Search } from 'lucide-react'
 import { HARNESS_METHODS, type DiscoveredSkill, type SkillDiscoveryResult } from '@acp-harness/protocol'
 import { harnessRequest } from '@/daemon-connection'
 import { LOCAL_HOST, allWorkspaces, useStore, type HostId } from '@/session-store'
 import { setSkillsPageOpen } from '@/stores/app-overlay-store'
 import { useCommandHandler } from '@/keybindings/keybinding-registry'
 import { Button } from '@/components/ui/button'
+import { PageCloseButton } from '@/components/PageCloseButton'
 import { Input } from '@/components/ui/input'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
@@ -123,16 +124,7 @@ export function SkillsPage() {
     <main className="flex min-h-0 flex-1 flex-col bg-background" data-skills-page>
       <header className="shrink-0 border-b border-border">
         <div className={cn(COLUMN, 'flex items-center gap-2 py-3')}>
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button variant="ghost" size="icon" className="size-7 shrink-0 rounded-full" onClick={close} aria-label={t('Close skills')}>
-                <X className="size-4" />
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent side="bottom" sideOffset={6}>
-              {t('Close · Esc')}
-            </TooltipContent>
-          </Tooltip>
+          <PageCloseButton label={t('Close skills')} onClick={close} />
           <div className="mx-1 h-5 w-px bg-border/50" aria-hidden />
           <BookOpen className="size-4 shrink-0 text-muted-foreground" />
           <div className="min-w-0 flex-1">

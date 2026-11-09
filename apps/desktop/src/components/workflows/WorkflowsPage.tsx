@@ -11,7 +11,7 @@ import {
   type NodeChange
 } from '@xyflow/react'
 import '@xyflow/react/dist/style.css'
-import { ChevronDown, Copy, Database, FlaskConical, HardDrive, History, Pencil, Play, Plus, Save, Sparkles, Trash2, Workflow as WorkflowIcon, X } from 'lucide-react'
+import { ChevronDown, Copy, Database, FlaskConical, HardDrive, History, Pencil, Play, Plus, Save, Sparkles, Trash2, Workflow as WorkflowIcon } from 'lucide-react'
 import { toast } from 'sonner'
 import {
   HARNESS_METHODS,
@@ -41,7 +41,8 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger
 } from '@/components/ui/dropdown-menu'
-import { openWorkflows, type WorkflowsPageTarget } from '@/stores/workflows-store'
+import { openWorkflows, setWorkflowsLeaveGuard, type WorkflowsPageTarget } from '@/stores/workflows-store'
+import { PageCloseButton } from '@/components/PageCloseButton'
 import { cn } from '@/lib/utils'
 import { STEP_ACCENTS, STEP_ICONS, WORKFLOW_NODE_TYPES, type WorkflowCanvasNode } from './workflow-nodes'
 import type { CycleCanvasNode } from './workflow-cycles'
@@ -148,6 +149,11 @@ export function WorkflowsPage({ target }: { target: WorkflowsPageTarget }) {
   }, [target.hostId, target.projectId])
 
   const confirmDiscard = () => !dirty || window.confirm(t('Discard the unsaved changes to this workflow?'))
+  // Another sidebar page opening closes this one; it asks first about unsaved changes.
+  useEffect(() => {
+    setWorkflowsLeaveGuard(() => !dirty || window.confirm(t('Discard the unsaved changes to this workflow?')))
+    return () => setWorkflowsLeaveGuard(null)
+  }, [dirty])
 
   const pick = (workflow: Workflow) => {
     if (workflow.id === draft?.id || !confirmDiscard()) return
@@ -269,6 +275,12 @@ export function WorkflowsPage({ target }: { target: WorkflowsPageTarget }) {
       }}
     >
       <div className="flex h-10 shrink-0 items-center gap-2 border-b border-border px-3">
+        <PageCloseButton
+          label={t('Close workflows')}
+          onClick={() => {
+            if (confirmDiscard()) openWorkflows(null)
+          }}
+        />
         <WorkflowIcon className="size-4 text-muted-foreground" />
         <div className="text-sm font-medium">{t('Workflows')}</div>
         <div className="text-sm text-muted-foreground">· {target.projectName}</div>
@@ -390,17 +402,6 @@ export function WorkflowsPage({ target }: { target: WorkflowsPageTarget }) {
           >
             <Play className="size-3.5" />
             {t('Run')}
-          </Button>
-          <Button
-            variant="ghost"
-            size="icon"
-            className="size-7"
-            aria-label={t('Close workflows')}
-            onClick={() => {
-              if (confirmDiscard()) openWorkflows(null)
-            }}
-          >
-            <X className="size-4" />
           </Button>
         </div>
       </div>

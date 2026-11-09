@@ -5,6 +5,7 @@ import { allProjects, allWorkspaces, getState, useStore, type HostedProject } fr
 import { openNewWorkspace, rememberProjectProvider, setTasks, useTasks } from '@/stores/tasks-store'
 import { projectLabel } from '@/components/sidebar/workspace-visibility'
 import { Button } from '@/components/ui/button'
+import { PageCloseButton } from '@/components/PageCloseButton'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group'
 import {
@@ -106,6 +107,7 @@ export function TasksPage() {
     <div className="relative flex min-h-0 min-w-0 flex-1 flex-col bg-background text-foreground" data-tasks-page>
       <div className="mx-auto flex min-h-0 w-full min-w-0 flex-1 flex-col px-5 pt-2 pb-4 md:px-8">
         <div className="flex shrink-0 flex-wrap items-center gap-2 py-1.5">
+          <PageCloseButton label={t('Close tasks')} onClick={() => setTasks({ open: false })} />
           <List className="size-4 text-muted-foreground" />
           <h1 className="text-[13px] font-semibold">{t('Tasks')}</h1>
           <Select
@@ -152,11 +154,6 @@ export function TasksPage() {
               {reviewWord}
             </ToggleGroupItem>
           </ToggleGroup>
-          <div className="flex-1" />
-          <Button size="xs" variant="ghost" className="text-muted-foreground" aria-label={t('Close tasks')} onClick={() => setTasks({ open: false })}>
-            <X />
-            {t('Close')} · Esc
-          </Button>
         </div>
 
         {!project ? (

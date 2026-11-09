@@ -8,6 +8,7 @@ import { setCommandPalette, setSkillsPageOpen, useAppOverlays } from '@/stores/a
 import { getTasks, setTasks, useTasks } from '@/stores/tasks-store'
 import { openWorkflows, useWorkflowsPage } from '@/stores/workflows-store'
 import { openWorkflowsHere } from '@/lib/workflows-entry'
+import { closePages } from '@/lib/app-pages'
 import { setSetting, useSetting, type SettingKey } from '@/stores/settings-store'
 import { useShortcutKeys } from '@/keybindings/keybinding-registry'
 import { ShortcutKeyCombo } from '@/components/ShortcutKeyCombo'
@@ -214,6 +215,14 @@ export const SidebarNav = memo(function SidebarNav() {
   const quickStartShown = useStore((s) => s.activeWorkspaceId === null && !s.dashboardOpen)
   const boardOpen = useSidebarStore((s) => s.boardOpen)
   const tasksOpen = useTasks((s) => s.open)
+  const pages = {
+    workflows: workflowsOpen,
+    dashboard: dashboardOpen,
+    board: boardOpen,
+    tasks: tasksOpen,
+    automations: automationsOpen,
+    skills: skillsOpen
+  }
   return (
     <div className="flex flex-col gap-0.5 px-2 pt-2 pb-1" data-sidebar-navigation>
       <SearchRow />
@@ -222,12 +231,9 @@ export const SidebarNav = memo(function SidebarNav() {
           icon={SquarePen}
           label={t('New chat')}
           data="new-chat"
-          active={quickStartShown && !boardOpen && !tasksOpen}
+          active={quickStartShown && !Object.values(pages).some(Boolean)}
           onClick={() => {
-            setBoardOpen(false)
-            setTasks({ open: false })
-            openWorkflows(null)
-            showQuickStart()
+            if (closePages(pages)) showQuickStart()
           }}
           hideSetting="showNewChatButton"
         />
