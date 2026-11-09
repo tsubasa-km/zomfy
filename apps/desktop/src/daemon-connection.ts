@@ -67,7 +67,7 @@ import { applyHostSettings } from "./stores/host-settings-store";
 import { getSetting } from "./stores/settings-store";
 import { setTodos } from "./stores/inbox-store";
 import { setProjectLinks } from "./stores/project-links-store";
-import { upsertWorkflowRun } from "./stores/workflow-runs-store";
+import { noteRunChange, offerInterruptedRuns } from "./lib/run-interruptions";
 import { upsertWorkflowExperiment } from "./stores/workflow-experiments-store";
 import { runManagerTool } from "./manager/manager-tool-runner";
 import { applyAutomationSnapshot } from "./stores/automation-store";
@@ -221,7 +221,7 @@ async function openConnection(hostId: HostId): Promise<void> {
     .onNotification(
       WORKFLOW_NOTIFICATIONS.workflowRunChanged,
       (raw: unknown) => raw as WorkflowRun,
-      (ctx) => upsertWorkflowRun(hostId, ctx.params),
+      (ctx) => noteRunChange(hostId, ctx.params),
     )
     .onNotification(
       WORKFLOW_EXPERIMENT_NOTIFICATIONS.workflowExperimentChanged,
@@ -329,6 +329,8 @@ async function openConnection(hostId: HostId): Promise<void> {
       connection: { kind: "connected", url: info.url },
     });
     if (hostId !== LOCAL_HOST) rememberHost(hostId, true);
+    // Runs interrupted while no window watched (the app was closed) are offered back.
+    void offerInterruptedRuns(hostId);
     // The person's todos live on this computer's daemon; an older daemon has none.
     if (hostId === LOCAL_HOST) void opened.agent.request<TodoItem[]>(HARNESS_METHODS.todosList, {}).then(setTodos, () => undefined);
     // Linked projects live on this computer's daemon too; an older daemon has none.

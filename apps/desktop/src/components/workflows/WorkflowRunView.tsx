@@ -1,9 +1,10 @@
 import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react'
 import { Background, Controls, ReactFlow, useReactFlow, type NodeChange } from '@xyflow/react'
-import { ArrowLeft, CircleStop, MessageSquare, Send } from 'lucide-react'
+import { ArrowLeft, CircleStop, MessageSquare, RotateCcw, Send } from 'lucide-react'
 import { toast } from 'sonner'
-import { HARNESS_METHODS, localOnlySteps, workflowCycles, workflowScorecard, type WorkflowCycle, type WorkflowRun, type WorkflowRunStep } from '@acp-harness/protocol'
+import { HARNESS_METHODS, localOnlySteps, runResumable, workflowCycles, workflowScorecard, type WorkflowCycle, type WorkflowRun, type WorkflowRunStep } from '@acp-harness/protocol'
 import { harnessRequest } from '@/daemon-connection'
+import { resumeWorkflowRun } from '@/lib/run-interruptions'
 import { selectSession, useStore } from '@/session-store'
 import { openWorkflows } from '@/stores/workflows-store'
 import type { HostedWorkflowRun } from '@/stores/workflow-runs-store'
@@ -234,6 +235,23 @@ function RunPanel({ run, focusNode, onBack }: { run: HostedWorkflowRun; focusNod
             <Button variant="outline" size="sm" className="h-7" disabled={busy} onClick={() => void act(HARNESS_METHODS.workflowRunStop)}>
               <CircleStop className="size-3.5" />
               {t('Stop')}
+            </Button>
+          )}
+          {runResumable(run) && (
+            <Button
+              variant="outline"
+              size="sm"
+              className="h-7"
+              disabled={busy}
+              data-run-resume
+              title={t('Run it again from the step it ended on')}
+              onClick={() => {
+                setBusy(true)
+                void resumeWorkflowRun(run.hostId, run.id).finally(() => setBusy(false))
+              }}
+            >
+              <RotateCcw className="size-3.5" />
+              {t('Resume')}
             </Button>
           )}
         </div>

@@ -1,5 +1,6 @@
 import {
   cyclesOf,
+  runResumable,
   isAbsolutePath,
   localOnlySteps,
   resolveWorkflowAgents,
@@ -133,13 +134,17 @@ export class WorkflowEngine {
     deps.serveTool("spawn_agents", (caller, _tool, args) => this.spawnAgents(caller, args), (id) => this.spawners.has(id));
   }
 
-  /** A run left running by a previous daemon cannot pick its turn back up; a waiting one can. */
+  /**
+   * A run left running by a previous daemon cannot pick its turn back up; a waiting one can. It ends
+   * as interrupted, for a window to offer to resume.
+   */
   async recover(): Promise<void> {
     for (const run of await this.runs.all()) {
       this.adoptChats(run);
       if (run.status !== "running") continue;
       run.status = "stopped";
       run.endedAt = Date.now();
+      if (!run.experimentId) run.interrupted = true;
       const open = run.steps.at(-1);
       if (open && open.endedAt === null) {
         open.endedAt = Date.now();
@@ -264,6 +269,31 @@ export class WorkflowEngine {
     await this.save(run);
     void this.drive(run);
     return run;
+  }
+
+  /**
+   * Picks a stopped or failed run up again at the step it ended on: that step runs afresh (a chat it
+   * keeps carries on), with the run's handoffs and round counts as they were.
+   */
+  async resume(runId: string): Promise<WorkflowRun> {
+    const run = await this.runs.get(runId);
+    if (!run) throw new Error(`Unknown run ${runId}`);
+    if (this.live.has(runId)) throw new Error("That run is still going");
+    if (!runResumable(run)) throw new Error("Only a run stopped or failed partway can be resumed");
+    run.status = "running";
+    run.endedAt = null;
+    run.waiting = null;
+    delete run.endReason;
+    delete run.interrupted;
+    await this.save(run);
+    this.tellRequester(run, `Workflow "${run.workflow.name}" (run ${run.id}) was resumed at "${this.node(run, run.currentNodeId!).label}".`);
+    void this.drive(run);
+    return run;
+  }
+
+  /** Runs that were interrupted and can still be resumed, newest first. */
+  async interrupted(): Promise<WorkflowRun[]> {
+    return (await this.runs.all()).filter((r) => r.interrupted && runResumable(r)).sort((a, b) => (b.endedAt ?? 0) - (a.endedAt ?? 0));
   }
 
   async stop(runId: string): Promise<WorkflowRun> {
@@ -1040,6 +1070,8 @@ export class WorkflowEngine {
     run.status = status;
     run.waiting = null;
     run.endedAt = Date.now();
+    // A failure partway (not an End that says "failed") is an interruption the windows offer to resume.
+    if (status === "failed" && !run.experimentId && runResumable(run)) run.interrupted = true;
     // A step cut off by the Stop ends with the run, not left "running".
     if (status === "stopped") {
       for (const step of run.steps) {

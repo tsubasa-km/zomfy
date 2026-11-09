@@ -285,6 +285,16 @@ export function workflowOutcomes(node: Pick<WorkflowNode, 'kind' | 'config'>): W
 
 export type WorkflowRunStatus = 'running' | 'waiting' | 'done' | 'failed' | 'stopped'
 
+/**
+ * Whether a run can be picked up again: it was stopped or failed partway, on a step that is not an
+ * End (a run that reached End is over, even when its End says it failed).
+ */
+export function runResumable(run: Pick<WorkflowRun, 'status' | 'currentNodeId' | 'workflow'>): boolean {
+  if (run.status !== 'stopped' && run.status !== 'failed') return false
+  const node = run.workflow.nodes.find((n) => n.id === run.currentNodeId)
+  return !!node && node.kind !== 'end' && node.kind !== 'start'
+}
+
 /** One visit of a step in a run. */
 export interface WorkflowRunStep {
   id: string
@@ -349,6 +359,11 @@ export interface WorkflowRun {
   escalated?: Record<string, string>
   /** Why it ended failed or stopped, when something said (a step's error, or a comparison's run that would have waited). */
   endReason?: string
+  /**
+   * Ended by something other than the person or the flow (a step failed, the daemon restarted under
+   * it); the windows offer to resume it. A resumed run loses it.
+   */
+  interrupted?: boolean
   /** Set once the run's branch was merged into the project's main checkout, naming that branch. */
   mergedInto?: string
   /** Started by a comparison of flows (WorkflowExperiment); no chat is told of it. */
@@ -377,6 +392,8 @@ export const WORKFLOW_METHODS = {
   workflowRunsList: '_harness/workflowRuns/list',
   workflowRunAnswer: '_harness/workflowRuns/answer',
   workflowRunStop: '_harness/workflowRuns/stop',
+  workflowRunResume: '_harness/workflowRuns/resume',
+  workflowRunsInterrupted: '_harness/workflowRuns/interrupted',
   workflowRunMerge: '_harness/workflowRuns/merge',
   workflowRunAskPerson: '_harness/workflowRuns/askPerson'
 } as const
@@ -405,6 +422,10 @@ export interface WorkflowRequests {
   /** The person's answer to a waiting run; "stop" in a limit stop ends it instead. */
   [WORKFLOW_METHODS.workflowRunAnswer]: { params: { runId: string; text: string }; result: WorkflowRun }
   [WORKFLOW_METHODS.workflowRunStop]: { params: { runId: string }; result: WorkflowRun }
+  /** Picks a stopped or failed run up again at the step it ended on (runResumable); newer daemons only. */
+  [WORKFLOW_METHODS.workflowRunResume]: { params: { runId: string }; result: WorkflowRun }
+  /** Every project's runs that were interrupted and can still be resumed, for a window to offer; newer daemons only. */
+  [WORKFLOW_METHODS.workflowRunsInterrupted]: { params: Record<string, never>; result: WorkflowRun[] }
   /** Merges a finished run's worktree branch into the project's main checkout (a merge commit). */
   [WORKFLOW_METHODS.workflowRunMerge]: { params: { runId: string }; result: WorkflowRun }
   /** A run's session puts a question to the person mid-step; resolves with their answer (null: the session is in no run). */

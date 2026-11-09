@@ -1,8 +1,9 @@
 import { useEffect, useState } from 'react'
-import { CircleStop, ExternalLink, Send, Workflow as WorkflowIcon } from 'lucide-react'
+import { CircleStop, ExternalLink, RotateCcw, Send, Workflow as WorkflowIcon } from 'lucide-react'
 import { toast } from 'sonner'
-import { HARNESS_METHODS, type WorkflowRun } from '@acp-harness/protocol'
+import { HARNESS_METHODS, runResumable, type WorkflowRun } from '@acp-harness/protocol'
 import { harnessRequest } from '@/daemon-connection'
+import { resumeWorkflowRun } from '@/lib/run-interruptions'
 import type { HostId } from '@/session-store'
 import { loadWorkflowRuns, useWorkflowRun } from '@/stores/workflow-runs-store'
 import { openWorkflows } from '@/stores/workflows-store'
@@ -125,6 +126,22 @@ export function NativeChatWorkflowRunCard({
           <Button variant="ghost" size="sm" className="h-7 px-2 text-xs" disabled={busy} onClick={() => void act(true)}>
             <CircleStop className="size-3.5" />
             {t('Stop')}
+          </Button>
+        )}
+        {runResumable(run) && (
+          <Button
+            variant="ghost"
+            size="sm"
+            className="h-7 px-2 text-xs"
+            disabled={busy}
+            data-run-resume
+            onClick={() => {
+              setBusy(true)
+              void resumeWorkflowRun(run.hostId, run.id).finally(() => setBusy(false))
+            }}
+          >
+            <RotateCcw className="size-3.5" />
+            {t('Resume')}
           </Button>
         )}
       </div>
