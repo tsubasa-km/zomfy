@@ -213,13 +213,15 @@ export function createHarnessAgent(
     });
   }
 
-  /** For turns no client started (automations): the newest window that answers permission asks. */
+  /** Chats whose permission asks are answered "allow" for the person (a workflow's steps). */
   const autoApprove = new Set<string>();
+  const autoApproved = (request: acp.RequestPermissionRequest): acp.RequestPermissionResponse | null => {
+    if (!autoApprove.has(request.sessionId)) return null;
+    const allow = request.options.find((o) => o.kind === "allow_once") ?? request.options.find((o) => o.kind === "allow_always");
+    return allow ? { outcome: { outcome: "selected", optionId: allow.optionId } } : null;
+  };
+  /** For turns no client started (automations): the newest window that answers permission asks. */
   const askAnyClient: Ask = async (request) => {
-    if (autoApprove.has(request.sessionId)) {
-      const allow = request.options.find((o) => o.kind === "allow_once") ?? request.options.find((o) => o.kind === "allow_always");
-      if (allow) return { outcome: { outcome: "selected", optionId: allow.optionId } };
-    }
     const tried = new Set<acp.AgentContext>();
     // A window that drops (sleep, a network blip) usually comes back: wait a while for one before denying.
     for (const deadline = Date.now() + ASK_WAIT_MS; ; ) {
@@ -286,6 +288,9 @@ export function createHarnessAgent(
     }
 
     const askPermission = async (request: acp.RequestPermissionRequest) => {
+      // Answered before the chat is marked as waiting: no window flags it or notifies the person.
+      const allowed = autoApproved({ ...request, sessionId: session.id });
+      if (allowed) return allowed;
       sessions.update(session.id, { status: "needs-you" });
       try {
         return await ask({ ...request, sessionId: session.id });

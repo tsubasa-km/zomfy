@@ -176,7 +176,29 @@ export interface Workflow {
   /** Files and folders its steps may be given; a step sees only those linked to it. */
   data?: WorkflowDataSource[]
   dataLinks?: WorkflowDataLink[]
+  /** How its steps' agents get permission; unset is 'auto'. */
+  permissionMode?: WorkflowPermissionMode
   updatedAt: number
+}
+
+/**
+ * 'auto': Claude judges each action, and an ask that still comes up is answered for the person.
+ * 'bypassPermissions': everything is allowed. 'acceptEdits': edits go ahead, other asks (commands)
+ * wait on the person. 'default': every ask waits on the person. A review step never edits unasked.
+ */
+export type WorkflowPermissionMode = 'auto' | 'acceptEdits' | 'default' | 'bypassPermissions'
+export const WORKFLOW_PERMISSION_MODES: readonly WorkflowPermissionMode[] = ['auto', 'acceptEdits', 'default', 'bypassPermissions']
+
+export function workflowPermissionMode(workflow: Pick<Workflow, 'permissionMode'>): WorkflowPermissionMode {
+  const mode = workflow.permissionMode
+  return mode && WORKFLOW_PERMISSION_MODES.includes(mode) ? mode : 'auto'
+}
+
+/** Whether a run's steps' permission asks are answered "allow" rather than waiting on the person. */
+export function runAnswersAsks(run: Pick<WorkflowRun, 'autoApprove' | 'workflow'>): boolean {
+  if (run.autoApprove !== undefined) return run.autoApprove
+  const mode = workflowPermissionMode(run.workflow)
+  return mode === 'auto' || mode === 'bypassPermissions'
 }
 
 type CycleSource = Pick<Workflow, 'nodes' | 'edges' | 'cycleSettings'>
@@ -372,8 +394,9 @@ export interface WorkflowRun {
   originSessionId?: string
   /**
    * Whether its steps' permission asks (a command to run, a file to change) are answered "allow"
-   * rather than waiting on the person, who is not watching the steps' chats. Unset means yes; only a
-   * comparison started with the box unticked sets false. A step run in the starting chat still asks.
+   * rather than waiting on the person, who is not watching the steps' chats. Unset follows the
+   * workflow's permission mode (runAnswersAsks); a comparison sets it. A step run in the starting chat
+   * still asks.
    */
   autoApprove?: boolean
   /** A comparison arm's: what its steps went without. */

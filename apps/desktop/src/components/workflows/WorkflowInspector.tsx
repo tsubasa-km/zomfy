@@ -4,6 +4,7 @@ import {
   resolveStep,
   unboundedLoops,
   workflowOutcomes,
+  workflowPermissionMode,
   type Workflow,
   type WorkflowAgentProfile,
   type WorkflowDataLink,
@@ -12,7 +13,8 @@ import {
   type WorkflowCycle,
   type WorkflowNode,
   type WorkflowNodeConfig,
-  type WorkflowParallel
+  type WorkflowParallel,
+  type WorkflowPermissionMode
 } from '@acp-harness/protocol'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -179,7 +181,7 @@ export function WorkflowInspector({
   multi: number
   onCycle: (id: string, patch: { label?: string; maxRounds?: number }) => void
   issues: WorkflowIssue[]
-  onWorkflow: (patch: Partial<Pick<Workflow, 'name' | 'description' | 'skipLoopConfirm'>>) => void
+  onWorkflow: (patch: Partial<Pick<Workflow, 'name' | 'description' | 'skipLoopConfirm' | 'permissionMode'>>) => void
   onNode: (id: string, patch: Partial<Omit<WorkflowNode, 'config'>> & { config?: Partial<WorkflowNodeConfig> }) => void
   onEdge: (id: string, patch: Partial<Pick<WorkflowEdge, 'outcome' | 'session'>>) => void
   onDelete: () => void
@@ -528,6 +530,21 @@ export function WorkflowInspector({
       <Field label={t('Description')}>
         <Textarea value={workflow.description ?? ''} onChange={(e) => onWorkflow({ description: e.target.value })} className="min-h-16 text-xs" />
       </Field>
+      <div data-workflow-permission-mode>
+        <Field label={t('Approvals')} hint={permissionModeHint(workflowPermissionMode(workflow))}>
+          <Choice
+            label={t('Approvals')}
+            value={workflowPermissionMode(workflow)}
+            onChange={(mode) => onWorkflow({ permissionMode: mode === 'auto' ? undefined : mode })}
+            options={[
+              { value: 'auto', label: t('Automatic') },
+              { value: 'acceptEdits', label: t('Ask me before commands') },
+              { value: 'default', label: t('Ask me for everything') },
+              { value: 'bypassPermissions', label: t('Allow everything') }
+            ]}
+          />
+        </Field>
+      </div>
       {unbounded.length > 0 && (
         <div className="space-y-2" data-workflow-unbounded>
           <p className="text-xs text-muted-foreground">{t('No round limit: {names}.', { names: unbounded.map((c) => c.label).join(', ') })}</p>
@@ -577,4 +594,17 @@ export function WorkflowInspector({
       </p>
     </div>
   )
+}
+
+function permissionModeHint(mode: WorkflowPermissionMode): string {
+  switch (mode) {
+    case 'auto':
+      return t('Claude judges each action and blocks risky ones; the steps never wait on you.')
+    case 'acceptEdits':
+      return t('Steps change files freely; a command waits for your approval in its chat.')
+    case 'default':
+      return t('Every file change and command waits for your approval in its chat.')
+    case 'bypassPermissions':
+      return t('Steps do anything without a check. Only for a sandbox or a throwaway copy.')
+  }
 }

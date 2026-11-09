@@ -316,6 +316,12 @@ export const MANAGER_TOOLS = [
         workflowId: str('Replace this workflow of the project; omit to create one.'),
         name: str('Short name.'),
         description: str('What it is for, when to use it.'),
+        permissionMode: {
+          type: 'string',
+          enum: ['auto', 'acceptEdits', 'default', 'bypassPermissions'],
+          description:
+            "How its steps' agents get permission. auto (the default): Claude judges each action and nobody is asked. acceptEdits: edits go ahead, commands are asked of the person. default: every action is asked of the person. bypassPermissions: everything is allowed."
+        },
         nodes: {
           type: 'array',
           description: 'Steps: { id, kind, label, config? } with config fields such as prompt, command, question, result.',

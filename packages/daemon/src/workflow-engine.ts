@@ -1,6 +1,8 @@
 import {
   cyclesOf,
+  runAnswersAsks,
   runResumable,
+  workflowPermissionMode,
   isAbsolutePath,
   localOnlySteps,
   resolveWorkflowAgents,
@@ -17,6 +19,7 @@ import {
   type WorkflowCycle,
   type WorkflowDataLink,
   type WorkflowDataSource,
+  type ChatPermissionMode,
   type WorkflowNode,
   type WorkflowOutcome,
   type WorkflowRun,
@@ -461,7 +464,7 @@ export class WorkflowEngine {
       if (live.stopped) throw new RunStopped();
       live.sessions.add(sessionId);
       // The starting chat is the person's: its asks are never answered for them.
-      if (run.autoApprove !== false && node.config.runBy !== "lead") this.deps.autoApprove.add(sessionId);
+      if (runAnswersAsks(run) && node.config.runBy !== "lead") this.deps.autoApprove.add(sessionId);
       try {
         const result = await this.deps.runStepTurn(sessionId, prompt, step);
         this.tally(run, result);
@@ -508,11 +511,10 @@ export class WorkflowEngine {
         title: `${node.label}${count > 1 ? ` ${i + 1}` : ""} · ${run.workflow.name}`,
         ...this.parentOf(run),
         ...(stepAgent(node) ? { agent: stepAgent(node) } : {}),
-        // Agents edit their own worktree without asking each time; reviewers only read.
         options: {
           model: !stepAgent(node) && node.config.model ? node.config.model : null,
           effort: null,
-          permissionMode: node.kind === "review" ? "default" : "acceptEdits",
+          permissionMode: stepPermissionMode(run, node),
         },
       });
       return record.id;
@@ -697,7 +699,7 @@ export class WorkflowEngine {
       ...this.parentOf(run),
       ...(stepAgent(node) ? { agent: stepAgent(node) } : {}),
       ...(this.heldBack(run, node.id) ? { localOnly: true } : {}),
-      options: { model: null, effort: null, permissionMode: node.kind === "review" ? "default" : "acceptEdits" },
+      options: { model: null, effort: null, permissionMode: stepPermissionMode(run, node) },
     });
     spawner.helpers.push(record.id);
     run.steps.at(-1)?.sessionIds.push(record.id);
@@ -716,7 +718,7 @@ export class WorkflowEngine {
     ].join("\n");
     if (live.stopped) return "Not run: the workflow was stopped.";
     live.sessions.add(record.id);
-    if (run.autoApprove !== false) this.deps.autoApprove.add(record.id);
+    if (runAnswersAsks(run)) this.deps.autoApprove.add(record.id);
     try {
       const result = await this.deps.runStepTurn(record.id, text, spawner.step);
       this.tally(run, result);
@@ -1261,4 +1263,10 @@ function stepOptions(tools: WorkflowToolPolicy | undefined, outcomes: WorkflowOu
     ...(deny.length ? { disallowedTools: deny } : {}),
     outputFormat: { type: "json_schema", schema: verdictSchema(outcomes) },
   };
+}
+
+/** The mode a step's chat starts in: the workflow's, except that a reviewer never edits unasked. */
+function stepPermissionMode(run: WorkflowRun, node: WorkflowNode): ChatPermissionMode {
+  const mode = workflowPermissionMode(run.workflow);
+  return node.kind === "review" && mode === "acceptEdits" ? "default" : mode;
 }

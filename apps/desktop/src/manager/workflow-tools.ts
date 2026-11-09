@@ -1,4 +1,4 @@
-import type { Workflow, WorkflowEdge, WorkflowNode, WorkflowNodeKind } from '@acp-harness/protocol'
+import { WORKFLOW_PERMISSION_MODES, type Workflow, type WorkflowEdge, type WorkflowNode, type WorkflowNodeKind } from '@acp-harness/protocol'
 
 // The pieces behind the agent's save_workflow and copy_workflow tools and the Workflows page's
 // "Copy from another project": a workflow built from the plain graph an agent writes, laid out on the
@@ -77,6 +77,7 @@ export function workflowFromSpec(spec: Record<string, unknown>, projectId: strin
     return { id: `${from}->${to}:${outcome}`, from, to, outcome }
   })
   const positions = layoutNodes(nodes, edges)
+  const permissionMode = WORKFLOW_PERMISSION_MODES.find((m) => m === spec.permissionMode) ?? base?.permissionMode
   const kept = new Set(nodes.map((n) => n.id))
   const links = base?.dataLinks?.filter((l) => kept.has(l.nodeId))
   return {
@@ -85,6 +86,7 @@ export function workflowFromSpec(spec: Record<string, unknown>, projectId: strin
     projectId,
     name,
     ...(typeof spec.description === 'string' && spec.description.trim() ? { description: spec.description.trim() } : {}),
+    ...(permissionMode ? { permissionMode } : {}),
     nodes: nodes.map((n) => ({ ...n, ...positions.get(n.id)! })),
     edges,
     updatedAt: Date.now()
