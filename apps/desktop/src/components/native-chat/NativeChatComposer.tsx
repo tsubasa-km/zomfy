@@ -12,6 +12,8 @@ import {
   loadMentionFiles,
   setAgentOption,
   setSessionOptions,
+  resumeQueue,
+  steerQueued,
   stopTurn,
   submitPrompt
 } from '@/chat-actions'
@@ -78,7 +80,7 @@ export function NativeChatComposer({
   session: Session
   editorRef: React.RefObject<MarkdownEditorHandle | null>
 }) {
-  const { draft, draftImages, usage } = useChatSession(session.id)
+  const { draft, draftImages, usage, queue } = useChatSession(session.id)
   const catalog = useChatStore((s) => s.catalogs[session.workspaceId])
   // Models are the account's, not the folder's: when this folder's probe failed, another folder's list on the host serves.
   const hostWorkspaces = useStore((s) => allWorkspaces(s).filter((w) => w.hostId === session.hostId).map((w) => w.id).join(','))
@@ -204,6 +206,13 @@ export function NativeChatComposer({
   }
 
   function submit() {
+    if (!offline && !workflow && !draft.trim() && draftImages.length === 0 && queue[0]) {
+      // The send key again on an empty composer sends the queued message now (the queue's ▶):
+      // pressed twice, a follow-up typed while a turn runs goes at once instead of waiting.
+      if (working) steerQueued(session.id, queue[0].id)
+      else resumeQueue(session.id)
+      return
+    }
     if (offline || (!draft.trim() && draftImages.length === 0)) return
     if (workflow && workflowHome.projectId) {
       // The message is the run's task; the harness runs the workflow, not this chat.
@@ -387,7 +396,9 @@ export function NativeChatComposer({
                   : workflow
                     ? t('The task for "{name}"', { name: workflow.name })
                     : working
-                      ? t('Queue a follow-up')
+                      ? queue.length > 0
+                        ? t('Queue a follow-up, or {key} to send the queued one now', { key: SEND_LABEL[sendKey] })
+                        : t('Queue a follow-up')
                       : (suggestion ?? t('Message the agent'))
               }
               contentAttributes={{

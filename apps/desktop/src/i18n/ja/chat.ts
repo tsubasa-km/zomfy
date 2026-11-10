@@ -370,6 +370,7 @@ export const CHAT: Record<string, string> = {
   // components/native-chat/NativeChatWorkflowRunCard.tsx
   Running: '実行中',
   'Waiting for you': '対応待ち',
+  'Queue a follow-up, or {key} to send the queued one now': '続けて送るメッセージをキューに追加（空のまま {key} で今すぐ送信）',
   Stopped: '停止',
   'Loading the workflow run…': 'ワークフローの実行を読み込み中…',
   'The run did not take that': '実行に反映できませんでした',
