@@ -22,6 +22,8 @@ import { useWorkspaceSummaries } from '@/components/sidebar/use-workspace-summar
 import { useCardReviewSummaries } from '@/stores/hosting-store'
 import { projectLabel, workspaceMatches } from '@/components/sidebar/workspace-visibility'
 import { useSetting } from '@/stores/settings-store'
+import { useSidebarWidth } from '@/stores/sidebar-width-store'
+import { SidebarResizeHandle } from '@/components/SidebarResizeHandle'
 import { cn } from '@/lib/utils'
 import { t } from '@/i18n/i18n'
 
@@ -30,6 +32,7 @@ import { t } from '@/i18n/i18n'
 
 export function Sidebar() {
   const visible = useSetting('sidebarVisible')
+  const width = useSidebarWidth('left')
   const hosts = useStore((s) => s.hosts)
   const sessions = useStore((s) => s.sessions)
   const unread = useStore((s) => s.unread)
@@ -82,11 +85,13 @@ export function Sidebar() {
   return (
     // Hidden, not unmounted: the dialogs below are opened from elsewhere too.
     <aside
+      style={{ width }}
       className={cn(
-        'relative flex min-h-0 w-[280px] flex-shrink-0 flex-col overflow-hidden border-r border-worktree-sidebar-border bg-worktree-sidebar text-worktree-sidebar-foreground',
+        'relative flex min-h-0 flex-shrink-0 flex-col overflow-hidden border-r border-worktree-sidebar-border bg-worktree-sidebar text-worktree-sidebar-foreground',
         !visible && 'hidden'
       )}
     >
+      <SidebarResizeHandle widthKey="left" edge="right" />
       <SidebarNav />
       <SidebarHeader onNewGroup={(hostId) => setGroupName({ mode: 'create', hostId })} />
       <SidebarSearch matchCount={counts.matched} totalCount={counts.total} />

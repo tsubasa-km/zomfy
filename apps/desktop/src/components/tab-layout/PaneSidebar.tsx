@@ -1,6 +1,8 @@
 import { PanelRightClose } from 'lucide-react'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { hidePaneSidebar, showPaneSidebar, usePaneSidebar } from '@/stores/pane-sidebar-store'
+import { useSidebarWidth } from '@/stores/sidebar-width-store'
+import { SidebarResizeHandle } from '@/components/SidebarResizeHandle'
 import { WorkspacePanelView, useWorkspacePanels } from './workspace-panels'
 import { cn } from '@/lib/utils'
 import { t } from '@/i18n/i18n'
@@ -33,18 +35,21 @@ function PanelButton({ label, active, onClick, children }: { label: string; acti
 export function PaneSidebar({ workspaceId }: { workspaceId: string }) {
   const { open, panel } = usePaneSidebar(workspaceId)
   const panels = useWorkspacePanels()
-  if (!open) return null
   const shown = panels.some((p) => p.id === panel) ? panel : panels[0]!.id
+  // A chat needs more room than a file tree, so it keeps a width of its own.
+  const widthKey = shown === 'panel:side-chat' ? 'right:side-chat' : 'right'
+  const width = useSidebarWidth(widthKey)
+  if (!open) return null
   return (
     <aside
       data-pane-sidebar={workspaceId}
+      style={{ width }}
       className={cn(
         // Never more than half a narrow pane, so its tabs stay usable.
-        'flex min-h-0 max-w-[50%] shrink-0 flex-col overflow-hidden border-l border-sidebar-border bg-sidebar text-sidebar-foreground',
-        // A chat needs more room than a file tree.
-        shown === 'panel:side-chat' ? 'w-[420px]' : 'w-[300px]'
+        'relative flex min-h-0 max-w-[50%] shrink-0 flex-col overflow-hidden border-l border-sidebar-border bg-sidebar text-sidebar-foreground'
       )}
     >
+      <SidebarResizeHandle widthKey={widthKey} edge="left" />
       <div className="flex h-9 shrink-0 items-center gap-0.5 overflow-hidden border-b border-border px-1">
         {panels.map(({ id, label, icon: Icon }) => (
           <PanelButton key={id} label={label} active={id === shown} onClick={() => showPaneSidebar(workspaceId, id)}>

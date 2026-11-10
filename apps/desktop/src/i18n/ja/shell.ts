@@ -987,6 +987,10 @@ export const SHELL: Record<string, string> = {
   'vs {ref}': '{ref} との比較',
   'This workspace is not a git repository.': 'このワークスペースは git リポジトリではありません。',
   Repository: 'リポジトリ',
+
+  // components/SidebarResizeHandle.tsx
+  'Resize sidebar': 'サイドバーの幅を変更',
+  'Drag to resize · double-click to reset': 'ドラッグで幅を変更 · ダブルクリックで元に戻す',
   'Delete all untracked': '未追跡のファイルをすべて削除',
   'Unstage all': 'すべてステージ解除',
   'Stage all (mark resolved)': 'すべてステージ（解決済みにする）',
