@@ -7,7 +7,7 @@ import { getState, selectWorkspace, useStore } from '@/session-store'
 import { WorkspaceTabs } from '@/components/WorkspaceTabs'
 import { DragChip, PointerDragLayer } from '@/components/PointerDragLayer'
 import { usePaneTitle } from '@/components/WorkspaceColumns'
-import { PaneSidebar, PaneSidebarButtons } from '@/components/tab-layout/PaneSidebar'
+import { PaneSidebar, PaneSidebarToggle } from '@/components/tab-layout/PaneSidebar'
 import { paneDrag } from '@/components/pane-drop'
 import { Toaster } from '@/components/ui/sonner'
 import { ChatLightbox } from '@/components/native-chat/ChatLightbox'
@@ -59,10 +59,11 @@ export default function WorkspaceWindow() {
   return (
     <TooltipProvider delayDuration={300}>
       <div className="flex h-full w-full overflow-hidden bg-background text-foreground">
-        <main className="flex min-w-0 flex-1 flex-col">
-          {known && <WindowPaneHeader workspaceId={workspaceId} />}
+        <main className="flex min-w-0 flex-1">
           {known ? (
-            <div className="flex min-h-0 min-w-0 flex-1">
+            <>
+            <div className="flex min-h-0 min-w-0 flex-1 flex-col">
+              <WindowPaneHeader workspaceId={workspaceId} />
               <WorkspaceTabs
                 workspaceId={workspaceId}
                 emptyHint={t('No tabs yet. Start one here, or find more under + in the tab bar.')}
@@ -82,8 +83,9 @@ export default function WorkspaceWindow() {
                   </div>
                 }
               />
-              <PaneSidebar workspaceId={workspaceId} />
             </div>
+            <PaneSidebar workspaceId={workspaceId} />
+            </>
           ) : (
             <div className="m-auto text-sm text-muted-foreground">{t('Connecting…')}</div>
           )}
@@ -116,8 +118,8 @@ function WindowPaneHeader({ workspaceId }: { workspaceId: string }) {
     >
       <span className="shrink-0 font-medium text-foreground">{title}</span>
       {detail && <span className="min-w-0 truncate text-muted-foreground">{detail}</span>}
-      <div className="ml-auto flex min-w-0 items-center">
-        <PaneSidebarButtons workspaceId={workspaceId} />
+      <div className="ml-auto flex shrink-0 items-center">
+        <PaneSidebarToggle workspaceId={workspaceId} />
       </div>
     </div>
   )

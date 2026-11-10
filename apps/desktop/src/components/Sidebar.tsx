@@ -10,6 +10,7 @@ import { SidebarSearch } from '@/components/sidebar/SidebarSearch'
 import { SessionRow } from '@/components/sidebar/SessionRow'
 import { ProjectList, hasActiveFilters } from '@/components/sidebar/ProjectList'
 import type { SidebarActions } from '@/components/sidebar/ProjectSection'
+import { setSidebarActions } from '@/components/sidebar/ProjectActionsMenu'
 import { BulkActionBar } from '@/components/sidebar/BulkActionBar'
 import { NewWorkspaceDialog } from '@/components/sidebar/NewWorkspaceDialog'
 import { SidebarNav } from '@/components/sidebar/SidebarNav'
@@ -81,6 +82,8 @@ export function Sidebar() {
       }
     }
   }
+  // Pane headers open the same project menu; its dialogs live here.
+  setSidebarActions(actions)
 
   return (
     // Hidden, not unmounted: the dialogs below are opened from elsewhere too.

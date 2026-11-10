@@ -5,7 +5,8 @@ import { sidebarDrag, type DragItem } from '@/components/sidebar/sidebar-drag'
 import { projectLabel } from '@/components/sidebar/workspace-visibility'
 import { WorkspaceTabs } from '@/components/WorkspaceTabs'
 import { QuickStart } from '@/components/QuickStart'
-import { PaneSidebar, PaneSidebarButtons } from '@/components/tab-layout/PaneSidebar'
+import { PaneSidebar } from '@/components/tab-layout/PaneSidebar'
+import { PaneMenu } from '@/components/PaneMenu'
 import { DragChip } from '@/components/PointerDragLayer'
 import { Button } from '@/components/ui/button'
 import { canPopOutWorkspace, popOutWorkspace } from '@/lib/workspace-window'
@@ -115,15 +116,15 @@ function PaneView({ node, path, active }: { node: PaneNode; path: number[]; acti
   )
 }
 
-/** One workspace's pane: its name bar, its tabs, and its own sidebar on the right when open. */
+/** One workspace's pane: its name bar over its tabs, and its own sidebar on the right, full height, when open. */
 function WorkspacePane({ workspaceId, focused, single = false }: { workspaceId: string; focused: boolean; single?: boolean }) {
   return (
-    <div className="flex min-h-0 min-w-0 flex-1 flex-col">
-      <PaneHeader workspaceId={workspaceId} focused={focused} single={single} />
-      <div className="flex min-h-0 min-w-0 flex-1">
+    <div className="flex min-h-0 min-w-0 flex-1">
+      <div className="flex min-h-0 min-w-0 flex-1 flex-col">
+        <PaneHeader workspaceId={workspaceId} focused={focused} single={single} />
         <WorkspaceTabs workspaceId={workspaceId} emptyHint={EMPTY_HINT} />
-        <PaneSidebar workspaceId={workspaceId} />
       </div>
+      <PaneSidebar workspaceId={workspaceId} focused={focused} />
     </div>
   )
 }
@@ -169,13 +170,8 @@ export function PaneHeader({ workspaceId, focused, single = false }: { workspace
     >
       <span className={cn('shrink-0 font-medium', focused ? 'text-foreground' : 'text-muted-foreground')}>{title}</span>
       {detail && <span className="min-w-0 truncate text-muted-foreground">{detail}</span>}
-      <div className="ml-auto flex min-w-0 items-center">
-        <PaneSidebarButtons workspaceId={workspaceId} />
-        {canPopOutWorkspace() && (
-          <Button size="icon-xs" variant="ghost" aria-label={t('Open in new window')} onClick={() => void popOutWorkspace(workspaceId)}>
-            <AppWindow className="size-3.5" />
-          </Button>
-        )}
+      <PaneMenu workspaceId={workspaceId} />
+      <div className="ml-auto flex shrink-0 items-center">
         {!single && (
           <Button size="icon-xs" variant="ghost" aria-label={t('Close column')} onClick={() => closeColumn(workspaceId)}>
             <X className="size-3.5" />

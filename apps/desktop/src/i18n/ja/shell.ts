@@ -991,6 +991,9 @@ export const SHELL: Record<string, string> = {
   // components/SidebarResizeHandle.tsx
   'Resize sidebar': 'サイドバーの幅を変更',
   'Drag to resize · double-click to reset': 'ドラッグで幅を変更 · ダブルクリックで元に戻す',
+
+  // components/PaneMenu.tsx
+  'Pane actions': 'ペインの操作',
   'Delete all untracked': '未追跡のファイルをすべて削除',
   'Unstage all': 'すべてステージ解除',
   'Stage all (mark resolved)': 'すべてステージ（解決済みにする）',
