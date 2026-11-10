@@ -1,12 +1,11 @@
 import { Fragment, useRef, useState } from 'react'
-import { AppWindow, PanelRight, X } from 'lucide-react'
+import { AppWindow, X } from 'lucide-react'
 import { allProjects, allWorkspaces, closeColumn, getState, selectWorkspace, setPaneSizes, useStore } from '@/session-store'
 import { sidebarDrag, type DragItem } from '@/components/sidebar/sidebar-drag'
 import { projectLabel } from '@/components/sidebar/workspace-visibility'
 import { WorkspaceTabs } from '@/components/WorkspaceTabs'
 import { QuickStart } from '@/components/QuickStart'
-import { PaneSidebar } from '@/components/tab-layout/PaneSidebar'
-import { togglePaneSidebar, usePaneSidebar } from '@/stores/pane-sidebar-store'
+import { PaneSidebar, PaneSidebarButtons } from '@/components/tab-layout/PaneSidebar'
 import { DragChip } from '@/components/PointerDragLayer'
 import { Button } from '@/components/ui/button'
 import { canPopOutWorkspace, popOutWorkspace } from '@/lib/workspace-window'
@@ -150,7 +149,6 @@ export function usePaneTitle(workspaceId: string): { title: string; detail: stri
 /** The workspace's name; drag it to move the pane, or out of the window to give it a window of its own. */
 export function PaneHeader({ workspaceId, focused, single = false }: { workspaceId: string; focused: boolean; single?: boolean }) {
   const { title, detail } = usePaneTitle(workspaceId)
-  const sidebarOpen = usePaneSidebar(workspaceId).open
   return (
     <div
       data-column-header
@@ -171,19 +169,8 @@ export function PaneHeader({ workspaceId, focused, single = false }: { workspace
     >
       <span className={cn('shrink-0 font-medium', focused ? 'text-foreground' : 'text-muted-foreground')}>{title}</span>
       {detail && <span className="min-w-0 truncate text-muted-foreground">{detail}</span>}
-      <div className="ml-auto flex shrink-0 items-center">
-        <Button
-          size="icon-xs"
-          variant="ghost"
-          aria-label={t('Toggle sidebar for this pane')}
-          title={t('Toggle sidebar for this pane')}
-          aria-pressed={sidebarOpen}
-          data-pane-sidebar-toggle
-          className={cn(sidebarOpen && 'bg-accent text-foreground')}
-          onClick={() => togglePaneSidebar(workspaceId)}
-        >
-          <PanelRight className="size-3.5" />
-        </Button>
+      <div className="ml-auto flex min-w-0 items-center">
+        <PaneSidebarButtons workspaceId={workspaceId} />
         {canPopOutWorkspace() && (
           <Button size="icon-xs" variant="ghost" aria-label={t('Open in new window')} onClick={() => void popOutWorkspace(workspaceId)}>
             <AppWindow className="size-3.5" />

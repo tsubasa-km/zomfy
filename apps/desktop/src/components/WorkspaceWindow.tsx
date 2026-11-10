@@ -1,15 +1,13 @@
 import { useEffect } from 'react'
 import { isTauri } from '@tauri-apps/api/core'
 import { Window, getCurrentWindow } from '@tauri-apps/api/window'
-import { AppWindow, PanelRight, Undo2 } from 'lucide-react'
+import { AppWindow, Undo2 } from 'lucide-react'
 import { connectAllHosts } from '@/daemon-connection'
 import { getState, selectWorkspace, useStore } from '@/session-store'
 import { WorkspaceTabs } from '@/components/WorkspaceTabs'
 import { DragChip, PointerDragLayer } from '@/components/PointerDragLayer'
 import { usePaneTitle } from '@/components/WorkspaceColumns'
-import { PaneSidebar } from '@/components/tab-layout/PaneSidebar'
-import { togglePaneSidebar, usePaneSidebar } from '@/stores/pane-sidebar-store'
-import { cn } from '@/lib/utils'
+import { PaneSidebar, PaneSidebarButtons } from '@/components/tab-layout/PaneSidebar'
 import { paneDrag } from '@/components/pane-drop'
 import { Toaster } from '@/components/ui/sonner'
 import { ChatLightbox } from '@/components/native-chat/ChatLightbox'
@@ -102,7 +100,6 @@ export default function WorkspaceWindow() {
 /** The pane's name, as in the main window; dropped on the main window, the workspace goes back into the pane under it. */
 function WindowPaneHeader({ workspaceId }: { workspaceId: string }) {
   const { title, detail } = usePaneTitle(workspaceId)
-  const sidebarOpen = usePaneSidebar(workspaceId).open
   return (
     <div
       data-column-header
@@ -119,18 +116,9 @@ function WindowPaneHeader({ workspaceId }: { workspaceId: string }) {
     >
       <span className="shrink-0 font-medium text-foreground">{title}</span>
       {detail && <span className="min-w-0 truncate text-muted-foreground">{detail}</span>}
-      <Button
-        size="icon-xs"
-        variant="ghost"
-        className={cn('ml-auto', sidebarOpen && 'bg-accent text-foreground')}
-        aria-label={t('Toggle sidebar for this pane')}
-        title={t('Toggle sidebar for this pane')}
-        aria-pressed={sidebarOpen}
-        onPointerDown={(event) => event.stopPropagation()}
-        onClick={() => togglePaneSidebar(workspaceId)}
-      >
-        <PanelRight className="size-3.5" />
-      </Button>
+      <div className="ml-auto flex min-w-0 items-center">
+        <PaneSidebarButtons workspaceId={workspaceId} />
+      </div>
     </div>
   )
 }
