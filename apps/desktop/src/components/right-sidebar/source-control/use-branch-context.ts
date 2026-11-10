@@ -17,8 +17,10 @@ function readStoredBaseRef(workspaceId: string): string | null {
  * Compare-with-base and the commit graph for one workspace. Both reload when HEAD, the upstream
  * or the base ref move (Orca refreshes them off the same status signals).
  */
-export function useBranchContext(workspaceId: string, status: GitStatusResult | null) {
-  const [baseRef, setBaseRefState] = useState<string | null>(() => readStoredBaseRef(workspaceId))
+export function useBranchContext(workspaceId: string, status: GitStatusResult | null, repo = '') {
+  // Each repository keeps its own base: a repository below the workspace has other branches.
+  const storeKey = repo ? `${workspaceId}:${repo}` : workspaceId
+  const [baseRef, setBaseRefState] = useState<string | null>(() => readStoredBaseRef(storeKey))
   const [compare, setCompare] = useState<{ loading: boolean; result: GitBranchCompareResult | null }>({ loading: true, result: null })
   const [history, setHistory] = useState<GitHistoryState>({ status: 'loading' })
   const requestSeq = useRef(0)
@@ -26,25 +28,25 @@ export function useBranchContext(workspaceId: string, status: GitStatusResult | 
   const setBaseRef = useCallback(
     (ref: string | null) => {
       try {
-        if (ref) localStorage.setItem(baseRefKey(workspaceId), ref)
-        else localStorage.removeItem(baseRefKey(workspaceId))
+        if (ref) localStorage.setItem(baseRefKey(storeKey), ref)
+        else localStorage.removeItem(baseRefKey(storeKey))
       } catch {
         // Storage can be unavailable; the choice then lasts for this session only.
       }
       setBaseRefState(ref)
     },
-    [workspaceId]
+    [storeKey]
   )
 
   const refresh = useCallback(() => {
     const seq = ++requestSeq.current
     setCompare((prev) => ({ loading: true, result: prev.result }))
     setHistory((prev) => ({ status: 'loading', result: prev.result }))
-    void harnessRequest(HARNESS_METHODS.gitBranchCompare, { workspaceId, baseRef })
+    void harnessRequest(HARNESS_METHODS.gitBranchCompare, { workspaceId, repo, baseRef })
       .then((result) => {
         if (seq !== requestSeq.current) return
         setCompare({ loading: false, result })
-        return harnessRequest(HARNESS_METHODS.gitHistory, { workspaceId, baseRef: result.summary.baseRef })
+        return harnessRequest(HARNESS_METHODS.gitHistory, { workspaceId, repo, baseRef: result.summary.baseRef })
       })
       .then(
         (result) => {
@@ -57,7 +59,7 @@ export function useBranchContext(workspaceId: string, status: GitStatusResult | 
           setHistory((prev) => ({ status: 'error', result: prev.result, error: message }))
         }
       )
-  }, [workspaceId, baseRef])
+  }, [workspaceId, repo, baseRef])
 
   const isRepo = status?.isRepo ?? false
   const signal = `${status?.head ?? ''}|${status?.branch ?? ''}|${status?.upstream?.upstreamName ?? ''}|${status?.upstream?.ahead ?? ''}|${status?.upstream?.behind ?? ''}`

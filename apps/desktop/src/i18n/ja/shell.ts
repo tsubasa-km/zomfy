@@ -986,6 +986,7 @@ export const SHELL: Record<string, string> = {
   'Clear the message to regenerate.': '再生成するにはメッセージを消去してください。',
   'vs {ref}': '{ref} との比較',
   'This workspace is not a git repository.': 'このワークスペースは git リポジトリではありません。',
+  Repository: 'リポジトリ',
   'Delete all untracked': '未追跡のファイルをすべて削除',
   'Unstage all': 'すべてステージ解除',
   'Stage all (mark resolved)': 'すべてステージ（解決済みにする）',

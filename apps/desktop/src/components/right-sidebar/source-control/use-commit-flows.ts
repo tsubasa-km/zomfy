@@ -22,6 +22,7 @@ const OP_FAILURE: Record<RemoteOpKind, string> = {
  */
 export function useCommitFlows({
   workspaceId,
+  repo,
   message,
   setMessage,
   stagedCount,
@@ -29,6 +30,8 @@ export function useCommitFlows({
   onSettled
 }: {
   workspaceId: string
+  /** A repository below the workspace; '' for its own. */
+  repo: string
   message: string
   setMessage: (message: string) => void
   stagedCount: number
@@ -48,12 +51,12 @@ export function useCommitFlows({
       setRemoteOp(op)
       setRemoteError(null)
       try {
-        if (op === 'push' || op === 'publish') await harnessRequest(HARNESS_METHODS.gitPush, { workspaceId })
-        else if (op === 'force_push') await harnessRequest(HARNESS_METHODS.gitPush, { workspaceId, forceWithLease: true })
-        else if (op === 'pull') await harnessRequest(HARNESS_METHODS.gitPull, { workspaceId })
-        else if (op === 'fast_forward') await harnessRequest(HARNESS_METHODS.gitPull, { workspaceId, ffOnly: true })
-        else if (op === 'sync') await harnessRequest(HARNESS_METHODS.gitSync, { workspaceId })
-        else await harnessRequest(HARNESS_METHODS.gitFetch, { workspaceId })
+        if (op === 'push' || op === 'publish') await harnessRequest(HARNESS_METHODS.gitPush, { workspaceId, repo })
+        else if (op === 'force_push') await harnessRequest(HARNESS_METHODS.gitPush, { workspaceId, repo, forceWithLease: true })
+        else if (op === 'pull') await harnessRequest(HARNESS_METHODS.gitPull, { workspaceId, repo })
+        else if (op === 'fast_forward') await harnessRequest(HARNESS_METHODS.gitPull, { workspaceId, repo, ffOnly: true })
+        else if (op === 'sync') await harnessRequest(HARNESS_METHODS.gitSync, { workspaceId, repo })
+        else await harnessRequest(HARNESS_METHODS.gitFetch, { workspaceId, repo })
         return true
       } catch (e) {
         setRemoteError(`${OP_FAILURE[op]}: ${errorText(e)}`)
@@ -63,15 +66,15 @@ export function useCommitFlows({
         onSettled()
       }
     },
-    [workspaceId, onSettled]
+    [workspaceId, repo, onSettled]
   )
 
   const cancelGenerate = useCallback(() => {
     if (!generating) return
     generationSeq.current++
     setGenerating(false)
-    void harnessRequest(HARNESS_METHODS.gitCancelCommitMessage, { workspaceId }).catch(() => {})
-  }, [generating, workspaceId])
+    void harnessRequest(HARNESS_METHODS.gitCancelCommitMessage, { workspaceId, repo }).catch(() => {})
+  }, [generating, workspaceId, repo])
 
   const commit = useCallback(
     async (options: { amend?: boolean } = {}): Promise<boolean> => {
@@ -80,7 +83,7 @@ export function useCommitFlows({
       setIsCommitting(true)
       setCommitError(null)
       try {
-        await harnessRequest(HARNESS_METHODS.gitCommit, { workspaceId, message, amend: options.amend })
+        await harnessRequest(HARNESS_METHODS.gitCommit, { workspaceId, repo, message, amend: options.amend })
         setMessage('')
         return true
       } catch (e) {
@@ -91,7 +94,7 @@ export function useCommitFlows({
         onSettled()
       }
     },
-    [cancelGenerate, workspaceId, message, setMessage, onSettled]
+    [cancelGenerate, workspaceId, repo, message, setMessage, onSettled]
   )
 
   const runPrimary = useCallback(
@@ -121,14 +124,14 @@ export function useCommitFlows({
     setGenerating(true)
     setGenerateError(null)
     try {
-      const { message: generated } = await harnessRequest(HARNESS_METHODS.gitGenerateCommitMessage, { workspaceId })
+      const { message: generated } = await harnessRequest(HARNESS_METHODS.gitGenerateCommitMessage, { workspaceId, repo })
       if (seq === generationSeq.current) setMessage(generated)
     } catch (e) {
       if (seq === generationSeq.current) setGenerateError(t("Couldn't generate a commit message: {error}", { error: errorText(e) }))
     } finally {
       if (seq === generationSeq.current) setGenerating(false)
     }
-  }, [workspaceId, setMessage])
+  }, [workspaceId, repo, setMessage])
 
   // Unstaging everything leaves nothing to commit, so an old commit error no longer applies.
   useEffect(() => {

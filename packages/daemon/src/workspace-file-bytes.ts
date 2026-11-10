@@ -1,4 +1,5 @@
 import { readFile, stat } from 'node:fs/promises'
+import { dirname, relative, sep } from 'node:path'
 import type { FileBinaryContent, FileRevisionContent, FileRevisionParams, FileStat } from '@acp-harness/protocol'
 import { resolveInside } from './workspace-files.ts'
 
@@ -25,15 +26,17 @@ export async function statWorkspaceFile(root: string, path: string): Promise<Fil
 
 /** `git show` of the committed or staged copy; a path missing there is `exists: false`, not an error. */
 export async function readWorkspaceFileRevision(root: string, params: FileRevisionParams): Promise<FileRevisionContent> {
-  await resolveInside(root, params.path)
+  const absolute = await resolveInside(root, params.path)
   // A leading dash would read as a git option.
   if (!/^[\w./~^-]+$/.test(params.revision) || params.revision.startsWith('-')) {
     throw new Error(`Invalid revision ${params.revision}`)
   }
-  // `./` keeps the path relative to the workspace even when it is a repository subdirectory.
-  const spec = `${params.revision === 'index' ? '' : params.revision}:./${params.path}`
+  // Run from the file's own folder, so a file in a repository below the workspace is read from that
+  // repository; `./` keeps the path relative to that folder.
+  const cwd = await nearestFolder(dirname(absolute), root)
+  const spec = `${params.revision === 'index' ? '' : params.revision}:./${relative(cwd, absolute).split(sep).join('/')}`
   const proc = Bun.spawn(['git', 'show', spec], {
-    cwd: root,
+    cwd,
     stdout: 'pipe',
     stderr: 'pipe',
     windowsHide: true,
@@ -55,4 +58,11 @@ export async function readWorkspaceFileRevision(root: string, params: FileRevisi
   }
   if (binary || buffer.length > TEXT_REVISION_LIMIT) return { ...missing, exists: true, binary: true }
   return { ...missing, exists: true, content: buffer.toString('utf8') }
+}
+
+/** The folder itself, or for a deleted one the nearest folder above it that is still there (never above root). */
+async function nearestFolder(dir: string, root: string): Promise<string> {
+  let at = dir
+  while (relative(root, at) && !(await stat(at).then((s) => s.isDirectory(), () => false))) at = dirname(at)
+  return relative(root, at).startsWith('..') ? root : at
 }

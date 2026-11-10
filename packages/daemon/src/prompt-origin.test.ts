@@ -5,7 +5,7 @@ import { PROMPT_ORIGIN_META, promptOrigin } from '@acp-harness/protocol'
 // words the harness wrote.
 
 test('the marker says who a prompt is from', () => {
-  const origin = { kind: 'step-question', from: 'the workflow "W" (run r)', question: 'A or B?' }
+  const origin = { kind: 'step-question', from: 'the workflow "W" (run r)', question: 'A or B?' } as const
   expect(promptOrigin({ [PROMPT_ORIGIN_META]: origin }, 'anything')).toEqual(origin)
   expect(promptOrigin({ [PROMPT_ORIGIN_META]: { kind: 'step-task', workflow: 'W', step: 'Dev' } }, '')).toEqual({
     kind: 'step-task',

@@ -1,9 +1,11 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { Minus, Plus, Trash, Undo2 } from 'lucide-react'
-import { HARNESS_METHODS, type GitChange, type GitCommitChanges, type GitDiscardArea, type GitHistoryItem } from '@acp-harness/protocol'
+import { ChevronDown, FolderGit2, Minus, Plus, Trash, Undo2 } from 'lucide-react'
+import { HARNESS_METHODS, type GitChange, type GitCommitChanges, type GitDiscardArea, type GitHistoryItem, type GitRepository } from '@acp-harness/protocol'
 import { harnessRequest } from '@/daemon-connection'
-import { openEditorTab } from '@/session-store'
-import { useGitStatus } from '@/hooks/use-git-status'
+import { allWorkspaces, openEditorTab, useStore } from '@/session-store'
+import { useGitRepositories, useGitStatus } from '@/hooks/use-git-status'
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
+import { cn } from '@/lib/utils'
 import { ActionButton, ChangeRow, DirectoryRow, SectionHeader } from './source-control/change-rows'
 import { CommitArea } from './source-control/CommitArea'
 import { GitHistoryPanel } from './source-control/GitHistoryPanel'
@@ -32,8 +34,10 @@ const SECTION_LABEL: Record<SectionId, string> = {
   untracked: t('Untracked Files')
 }
 const VIEW_MODE_KEY = 'acp-harness:source-control-view-mode'
-/** Orca keeps an unsent message per workspace across panel and workspace switches (commit-drafts.ts). */
+/** Orca keeps an unsent message per workspace across panel and workspace switches (commit-drafts.ts); here per repository. */
 const commitDrafts = new Map<string, string>()
+/** The repository each workspace's tab shows, kept across panel switches. */
+const chosenRepos = new Map<string, string>()
 const isMac = navigator.userAgent.includes('Mac')
 const errorText = (e: unknown) => (e instanceof Error ? e.message : String(e))
 
@@ -55,16 +59,83 @@ const toggled = (set: Set<string>, key: string) => {
 /** A staged rename's old path must travel with it, or unstage/discard leaves the old file deleted in the index. */
 const withOldPaths = (entries: GitChange[]) => entries.flatMap((e) => (e.oldPath ? [e.path, e.oldPath] : [e.path]))
 
+/**
+ * The workspace's repository, or one in a folder below it (a repository kept apart in a subfolder, a
+ * submodule): a picker shows when there is more than one.
+ */
 export function SourceControl({ workspaceId }: { workspaceId: string }) {
-  const { status, refresh } = useGitStatus(workspaceId)
-  const [message, setMessageState] = useState(() => commitDrafts.get(workspaceId) ?? '')
+  const repositories = useGitRepositories(workspaceId)
+  const [chosen, setChosen] = useState(() => chosenRepos.get(workspaceId) ?? '')
+  const repo = repositories === null || repositories.some((r) => r.path === chosen) ? chosen : (repositories[0]?.path ?? '')
+  if (repositories?.length === 0) {
+    return <p className="px-3 py-4 text-xs text-muted-foreground">{t('This workspace is not a git repository.')}</p>
+  }
+  const choose = (path: string) => {
+    chosenRepos.set(workspaceId, path)
+    setChosen(path)
+  }
+  return (
+    <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
+      {repositories && repositories.length > 1 && (
+        <RepositoryPicker workspaceId={workspaceId} repositories={repositories} repo={repo} onChoose={choose} />
+      )}
+      <RepositoryChanges key={repo} workspaceId={workspaceId} repo={repo} />
+    </div>
+  )
+}
+
+function RepositoryPicker({
+  workspaceId,
+  repositories,
+  repo,
+  onChoose
+}: {
+  workspaceId: string
+  repositories: GitRepository[]
+  repo: string
+  onChoose: (path: string) => void
+}) {
+  const workspaceName = useStore((s) => allWorkspaces(s).find((w) => w.id === workspaceId)?.name ?? '')
+  const label = (path: string) => path || workspaceName
+  const current = repositories.find((r) => r.path === repo)
+  return (
+    <div className="flex h-8 shrink-0 items-center border-b border-border px-1.5" data-source-control-repos>
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <button type="button" className="flex min-w-0 items-center gap-1.5 rounded-md px-1.5 py-1 text-xs hover:bg-accent/60" title={t('Repository')}>
+            <FolderGit2 className="size-3.5 shrink-0 text-muted-foreground" />
+            <span className="truncate font-medium">{label(repo)}</span>
+            {current?.branch && <span className="truncate text-muted-foreground">{current.branch}</span>}
+            <ChevronDown className="size-3.5 shrink-0 text-muted-foreground" />
+          </button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="start" className="w-64">
+          {repositories.map((r) => (
+            <DropdownMenuItem key={r.path} onSelect={() => onChoose(r.path)} data-source-control-repo={r.path}>
+              <span className={cn('min-w-0 flex-1 truncate', r.path === repo && 'font-medium')}>{label(r.path)}</span>
+              {r.branch && <span className="max-w-24 shrink-0 truncate text-[11px] text-muted-foreground">{r.branch}</span>}
+            </DropdownMenuItem>
+          ))}
+        </DropdownMenuContent>
+      </DropdownMenu>
+    </div>
+  )
+}
+
+/** One repository's changes, commit area and history; `repo` is '' for the workspace's own. */
+function RepositoryChanges({ workspaceId, repo }: { workspaceId: string; repo: string }) {
+  const { status, refresh } = useGitStatus(workspaceId, repo)
+  const draftKey = repo ? `${workspaceId}:${repo}` : workspaceId
+  const [message, setMessageState] = useState(() => commitDrafts.get(draftKey) ?? '')
   const setMessage = useCallback(
     (next: string) => {
-      commitDrafts.set(workspaceId, next)
+      commitDrafts.set(draftKey, next)
       setMessageState(next)
     },
-    [workspaceId]
+    [draftKey]
   )
+  /** Diff and file tabs take the path from the workspace; a change's path is the repository's. */
+  const inWorkspace = useCallback((path: string) => (repo ? `${repo}/${path}` : path), [repo])
   const [viewMode, setViewMode] = useState<SourceControlViewMode>(readViewMode)
   const [filterQuery, setFilterQuery] = useState('')
   const [filterExpanded, setFilterExpanded] = useState(false)
@@ -76,7 +147,7 @@ export function SourceControl({ workspaceId }: { workspaceId: string }) {
   const [bulkBusy, setBulkBusy] = useState(false)
   const [actionError, setActionError] = useState<string | null>(null)
   const [baseRefDialogOpen, setBaseRefDialogOpen] = useState(false)
-  const branchContext = useBranchContext(workspaceId, status)
+  const branchContext = useBranchContext(workspaceId, status, repo)
 
   const mutate = useCallback(
     async (work: () => Promise<unknown>) => {
@@ -93,14 +164,14 @@ export function SourceControl({ workspaceId }: { workspaceId: string }) {
     },
     [refresh]
   )
-  const stage = useCallback((paths: string[]) => mutate(() => harnessRequest(HARNESS_METHODS.gitStage, { workspaceId, paths })), [mutate, workspaceId])
-  const unstage = useCallback((paths: string[]) => mutate(() => harnessRequest(HARNESS_METHODS.gitUnstage, { workspaceId, paths })), [mutate, workspaceId])
+  const stage = useCallback((paths: string[]) => mutate(() => harnessRequest(HARNESS_METHODS.gitStage, { workspaceId, repo, paths })), [mutate, workspaceId, repo])
+  const unstage = useCallback((paths: string[]) => mutate(() => harnessRequest(HARNESS_METHODS.gitUnstage, { workspaceId, repo, paths })), [mutate, workspaceId, repo])
   const discard = useCallback(
     (groups: { area: GitDiscardArea; paths: string[] }[]) =>
       mutate(async () => {
-        for (const g of groups) if (g.paths.length > 0) await harnessRequest(HARNESS_METHODS.gitDiscard, { workspaceId, paths: g.paths, area: g.area })
+        for (const g of groups) if (g.paths.length > 0) await harnessRequest(HARNESS_METHODS.gitDiscard, { workspaceId, repo, paths: g.paths, area: g.area })
       }),
-    [mutate, workspaceId]
+    [mutate, workspaceId, repo]
   )
 
   // ── Sections ──────────────────────────────────────────────────────────
@@ -163,8 +234,9 @@ export function SourceControl({ workspaceId }: { workspaceId: string }) {
   }, [selected.size])
 
   const openDiff = useCallback(
-    (section: SectionId, entry: GitChange) => openEditorTab({ workspaceId, kind: 'diff', path: entry.path, staged: section === 'staged' }),
-    [workspaceId]
+    (section: SectionId, entry: GitChange) =>
+      openEditorTab({ workspaceId, kind: 'diff', path: inWorkspace(entry.path), staged: section === 'staged' }),
+    [workspaceId, inWorkspace]
   )
 
   // Orca's use-selection: plain click opens and clears, Cmd/Ctrl toggles, Shift selects a range —
@@ -173,7 +245,7 @@ export function SourceControl({ workspaceId }: { workspaceId: string }) {
     if (isSourceControlSplitOpenModifier(event, isMac)) {
       if (selected.size > 0) setSelected(new Set())
       anchorKey.current = key
-      void openEditorTabInSplit({ workspaceId, kind: 'diff', path: entry.path, staged: section === 'staged' })
+      void openEditorTabInSplit({ workspaceId, kind: 'diff', path: inWorkspace(entry.path), staged: section === 'staged' })
       return
     }
     if (event.shiftKey && anchorKey.current) {
@@ -206,6 +278,7 @@ export function SourceControl({ workspaceId }: { workspaceId: string }) {
   const stageablePaths = allSections.filter((s) => s.id === 'unstaged' || s.id === 'untracked').flatMap((s) => s.items.map((c) => c.path))
   const flows = useCommitFlows({
     workspaceId,
+    repo,
     message,
     setMessage,
     stagedCount: staged.length,
@@ -246,7 +319,7 @@ export function SourceControl({ workspaceId }: { workspaceId: string }) {
     const tab = {
       workspaceId,
       kind: 'diff' as const,
-      path: entry.path,
+      path: inWorkspace(entry.path),
       staged: false,
       compare: { base: compareSummary.mergeBase, head: compareSummary.headOid, label: t('vs {ref}', { ref: compareSummary.baseRef }) }
     }
@@ -254,18 +327,18 @@ export function SourceControl({ workspaceId }: { workspaceId: string }) {
     else openEditorTab(tab)
   }
   const loadCommitFiles = useCallback(
-    (item: GitHistoryItem) => harnessRequest(HARNESS_METHODS.gitCommitChanges, { workspaceId, commit: item.id }),
-    [workspaceId]
+    (item: GitHistoryItem) => harnessRequest(HARNESS_METHODS.gitCommitChanges, { workspaceId, repo, commit: item.id }),
+    [workspaceId, repo]
   )
   const openCommitFile = (item: GitHistoryItem, changes: GitCommitChanges, entry: GitChange) =>
     openEditorTab({
       workspaceId,
       kind: 'diff',
-      path: entry.path,
+      path: inWorkspace(entry.path),
       staged: false,
       compare: { base: changes.parent, head: changes.commit, label: `${item.displayId ?? item.id.slice(0, 7)} ${item.subject}` }
     })
-  const loadBaseRefs = useCallback(() => harnessRequest(HARNESS_METHODS.gitBaseRefs, { workspaceId }), [workspaceId])
+  const loadBaseRefs = useCallback(() => harnessRequest(HARNESS_METHODS.gitBaseRefs, { workspaceId, repo }), [workspaceId, repo])
 
   if (status && !status.isRepo) {
     return <p className="px-3 py-4 text-xs text-muted-foreground">{t('This workspace is not a git repository.')}</p>
@@ -389,7 +462,8 @@ export function SourceControl({ workspaceId }: { workspaceId: string }) {
           branchContext.refresh()
         }}
         branch={status?.branch ?? null}
-        reviewSlot={<SourceControlReviewLink workspaceId={workspaceId} branch={status?.branch ?? null} />}
+        // The review (pull request) belongs to the workspace's own branch.
+        reviewSlot={repo ? null : <SourceControlReviewLink workspaceId={workspaceId} branch={status?.branch ?? null} />}
         compareSummary={compareSummary}
         compareLoading={branchContext.compare.loading}
         baseRef={branchContext.baseRef}
@@ -439,6 +513,7 @@ export function SourceControl({ workspaceId }: { workspaceId: string }) {
                     key={row.key}
                     rowKey={row.key}
                     workspaceId={workspaceId}
+                    repo={repo}
                     entry={row.entry}
                     depth={row.depth}
                     showPathHint={viewMode === 'list'}
@@ -476,6 +551,7 @@ export function SourceControl({ workspaceId }: { workspaceId: string }) {
                   key={row.key}
                   rowKey={row.key}
                   workspaceId={workspaceId}
+                  repo={repo}
                   entry={row.entry}
                   depth={row.depth}
                   showPathHint={viewMode === 'list'}

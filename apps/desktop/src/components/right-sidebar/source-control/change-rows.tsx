@@ -117,12 +117,14 @@ export function DiffLineCounts({ added, removed }: { added: number | null; remov
 /** Orca's entry context menu: view the change, open the file, copy paths, reveal it. */
 function ChangeContextMenu({
   workspaceId,
+  repo,
   entry,
   onOpenDiff,
   onOpenChange,
   children
 }: {
   workspaceId: string
+  repo?: string
   entry: GitChange
   onOpenDiff: () => void
   onOpenChange?: (open: boolean) => void
@@ -132,8 +134,10 @@ function ChangeContextMenu({
   const workspacePath = useStore((s) => allWorkspaces(s).find((w) => w.id === workspaceId)?.path ?? null)
   const hostId = useStore((s) => allWorkspaces(s).find((w) => w.id === workspaceId)?.hostId ?? null)
   const workspace = workspacePath !== null && hostId !== null ? { path: workspacePath, hostId } : null
+  // The change's path is the repository's; a repository below the workspace adds its folder.
+  const path = repo ? `${repo}/${entry.path}` : entry.path
   const sep = workspace?.path.includes('\\') ? '\\' : '/'
-  const absolutePath = workspace ? `${workspace.path.replace(/[\\/]+$/, '')}${sep}${entry.path.split('/').join(sep)}` : null
+  const absolutePath = workspace ? `${workspace.path.replace(/[\\/]+$/, '')}${sep}${path.split('/').join(sep)}` : null
   const exists = entry.status !== 'deleted'
   return (
     <ContextMenu onOpenChange={onOpenChange}>
@@ -145,7 +149,7 @@ function ChangeContextMenu({
         </ContextMenuItem>
         <ContextMenuItem
           disabled={!exists}
-          onSelect={() => openEditorTab({ workspaceId, kind: 'file', path: entry.path, staged: false })}
+          onSelect={() => openEditorTab({ workspaceId, kind: 'file', path, staged: false })}
         >
           <FileText className="size-3.5" />
           {t('Open File')}
@@ -155,7 +159,7 @@ function ChangeContextMenu({
           <Copy className="size-3.5" />
           {t('Copy Path')}
         </ContextMenuItem>
-        <ContextMenuItem onSelect={() => void navigator.clipboard.writeText(entry.path)}>
+        <ContextMenuItem onSelect={() => void navigator.clipboard.writeText(path)}>
           <Copy className="size-3.5" />
           {t('Copy Relative Path')}
         </ContextMenuItem>
@@ -181,6 +185,7 @@ function ChangeContextMenu({
 
 export function ChangeRow({
   workspaceId,
+  repo,
   entry,
   depth = 0,
   showPathHint = true,
@@ -192,6 +197,7 @@ export function ChangeRow({
   actions
 }: {
   workspaceId: string
+  repo?: string
   entry: GitChange
   depth?: number
   showPathHint?: boolean
@@ -207,7 +213,7 @@ export function ChangeRow({
   const dirPath = slash >= 0 ? entry.path.slice(0, slash) : ''
   const color = GIT_STATUS_COLOR[entry.status]
   return (
-    <ChangeContextMenu workspaceId={workspaceId} entry={entry} onOpenDiff={onOpenDiff} onOpenChange={(open) => open && onContextMenu?.()}>
+    <ChangeContextMenu workspaceId={workspaceId} repo={repo} entry={entry} onOpenDiff={onOpenDiff} onOpenChange={(open) => open && onContextMenu?.()}>
       <div
         role="button"
         tabIndex={0}

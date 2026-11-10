@@ -117,10 +117,19 @@ export interface GitBranchCompareResult {
   entries: GitChange[]
 }
 
-type Ws = { workspaceId: string }
+/** A git repository in a workspace folder: its own, or one in a folder below it. */
+export interface GitRepository {
+  /** Below the workspace, '/'-separated; '' for the workspace's own repository. */
+  path: string
+  branch: string | null
+}
+
+/** `repo` picks a repository below the workspace (a GitRepository path); without it, the workspace's own. */
+type Ws = { workspaceId: string; repo?: string }
 type Empty = Record<string, never>
 
 export const GIT_METHODS = {
+  gitRepositories: '_harness/git/repositories',
   gitStatus: '_harness/git/status',
   gitDiff: '_harness/git/diff',
   gitStage: '_harness/git/stage',
@@ -140,6 +149,8 @@ export const GIT_METHODS = {
 } as const
 
 export interface GitRequests {
+  /** The workspace's repository and those in folders below it. */
+  [GIT_METHODS.gitRepositories]: { params: { workspaceId: string }; result: { repositories: GitRepository[] } }
   [GIT_METHODS.gitStatus]: { params: Ws; result: GitStatusResult }
   [GIT_METHODS.gitDiff]: { params: Ws & { path: string; staged: boolean; compare?: GitDiffCompare }; result: FileDiff }
   [GIT_METHODS.gitStage]: { params: Ws & { paths: string[] }; result: Empty }
