@@ -5,8 +5,8 @@ import { sidebarDrag, type DragItem } from '@/components/sidebar/sidebar-drag'
 import { projectLabel } from '@/components/sidebar/workspace-visibility'
 import { WorkspaceTabs } from '@/components/WorkspaceTabs'
 import { QuickStart } from '@/components/QuickStart'
-import { PaneSidebar } from '@/components/tab-layout/PaneSidebar'
-import { PaneMenu } from '@/components/PaneMenu'
+import { PaneSidebar, PaneSidebarButtons } from '@/components/tab-layout/PaneSidebar'
+import { PaneMoreMenu, PaneTitleMenu } from '@/components/PaneMenu'
 import { DragChip } from '@/components/PointerDragLayer'
 import { Button } from '@/components/ui/button'
 import { canPopOutWorkspace, popOutWorkspace } from '@/lib/workspace-window'
@@ -116,15 +116,15 @@ function PaneView({ node, path, active }: { node: PaneNode; path: number[]; acti
   )
 }
 
-/** One workspace's pane: its name bar over its tabs, and its own sidebar on the right, full height, when open. */
+/** One workspace's pane: its header, then its tabs and its own sidebar on the right when open. */
 function WorkspacePane({ workspaceId, focused, single = false }: { workspaceId: string; focused: boolean; single?: boolean }) {
   return (
-    <div className="flex min-h-0 min-w-0 flex-1">
-      <div className="flex min-h-0 min-w-0 flex-1 flex-col">
-        <PaneHeader workspaceId={workspaceId} focused={focused} single={single} />
+    <div className="flex min-h-0 min-w-0 flex-1 flex-col">
+      <PaneHeader workspaceId={workspaceId} focused={focused} single={single} />
+      <div className="flex min-h-0 min-w-0 flex-1">
         <WorkspaceTabs workspaceId={workspaceId} emptyHint={EMPTY_HINT} />
+        <PaneSidebar workspaceId={workspaceId} />
       </div>
-      <PaneSidebar workspaceId={workspaceId} focused={focused} />
     </div>
   )
 }
@@ -147,7 +147,11 @@ export function usePaneTitle(workspaceId: string): { title: string; detail: stri
   return { title, detail: detail !== title ? detail : '' }
 }
 
-/** The workspace's name; drag it to move the pane, or out of the window to give it a window of its own. */
+/**
+ * The pane's header, laid out as the Claude app's session header: the name (opening the project's
+ * menu), then the sidebar's panels, "…" and close. Drag it to move the pane, or out of the window
+ * to give it a window of its own.
+ */
 export function PaneHeader({ workspaceId, focused, single = false }: { workspaceId: string; focused: boolean; single?: boolean }) {
   const { title, detail } = usePaneTitle(workspaceId)
   return (
@@ -156,7 +160,7 @@ export function PaneHeader({ workspaceId, focused, single = false }: { workspace
       data-focused={focused || undefined}
       title={t('Drag to move this pane; drop it outside the window to open it in a window of its own')}
       className={cn(
-        'flex h-7 shrink-0 cursor-grab items-center gap-1.5 border-t-2 border-b border-b-border pr-1 pl-2.5 text-xs select-none active:cursor-grabbing',
+        'flex h-10 shrink-0 cursor-grab items-center gap-1 border-t-2 border-b border-b-border pr-1.5 pl-1.5 select-none active:cursor-grabbing',
         focused ? 'border-t-highlight' : 'border-t-transparent'
       )}
       onPointerDown={(event) => {
@@ -168,13 +172,13 @@ export function PaneHeader({ workspaceId, focused, single = false }: { workspace
         })
       }}
     >
-      <span className={cn('shrink-0 font-medium', focused ? 'text-foreground' : 'text-muted-foreground')}>{title}</span>
-      {detail && <span className="min-w-0 truncate text-muted-foreground">{detail}</span>}
-      <PaneMenu workspaceId={workspaceId} />
-      <div className="ml-auto flex shrink-0 items-center">
+      <PaneTitleMenu workspaceId={workspaceId} title={title} detail={detail} focused={focused} />
+      <div className="ml-auto flex shrink-0 items-center gap-0.5">
+        <PaneSidebarButtons workspaceId={workspaceId} />
+        <PaneMoreMenu workspaceId={workspaceId} />
         {!single && (
-          <Button size="icon-xs" variant="ghost" aria-label={t('Close column')} onClick={() => closeColumn(workspaceId)}>
-            <X className="size-3.5" />
+          <Button size="icon-sm" variant="ghost" className="size-7 shrink-0 text-muted-foreground" aria-label={t('Close column')} onClick={() => closeColumn(workspaceId)}>
+            <X className="size-4" />
           </Button>
         )}
       </div>

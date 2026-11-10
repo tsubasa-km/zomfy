@@ -7,7 +7,8 @@ import { getState, selectWorkspace, useStore } from '@/session-store'
 import { WorkspaceTabs } from '@/components/WorkspaceTabs'
 import { DragChip, PointerDragLayer } from '@/components/PointerDragLayer'
 import { usePaneTitle } from '@/components/WorkspaceColumns'
-import { PaneSidebar, PaneSidebarToggle } from '@/components/tab-layout/PaneSidebar'
+import { PaneSidebar, PaneSidebarButtons } from '@/components/tab-layout/PaneSidebar'
+import { PaneMoreMenu } from '@/components/PaneMenu'
 import { paneDrag } from '@/components/pane-drop'
 import { Toaster } from '@/components/ui/sonner'
 import { ChatLightbox } from '@/components/native-chat/ChatLightbox'
@@ -59,11 +60,10 @@ export default function WorkspaceWindow() {
   return (
     <TooltipProvider delayDuration={300}>
       <div className="flex h-full w-full overflow-hidden bg-background text-foreground">
-        <main className="flex min-w-0 flex-1">
+        <main className="flex min-w-0 flex-1 flex-col">
+          {known && <WindowPaneHeader workspaceId={workspaceId} />}
           {known ? (
-            <>
-            <div className="flex min-h-0 min-w-0 flex-1 flex-col">
-              <WindowPaneHeader workspaceId={workspaceId} />
+            <div className="flex min-h-0 min-w-0 flex-1">
               <WorkspaceTabs
                 workspaceId={workspaceId}
                 emptyHint={t('No tabs yet. Start one here, or find more under + in the tab bar.')}
@@ -83,9 +83,8 @@ export default function WorkspaceWindow() {
                   </div>
                 }
               />
+              <PaneSidebar workspaceId={workspaceId} />
             </div>
-            <PaneSidebar workspaceId={workspaceId} />
-            </>
           ) : (
             <div className="m-auto text-sm text-muted-foreground">{t('Connecting…')}</div>
           )}
@@ -106,7 +105,7 @@ function WindowPaneHeader({ workspaceId }: { workspaceId: string }) {
     <div
       data-column-header
       title={t('Drag onto the main window to put this workspace back there')}
-      className="flex h-7 shrink-0 cursor-grab items-center gap-1.5 border-b border-border px-2.5 text-xs select-none active:cursor-grabbing"
+      className="flex h-10 shrink-0 cursor-grab items-center gap-1.5 border-b border-border pr-1.5 pl-3 select-none active:cursor-grabbing"
       onPointerDown={(event) => {
         if (!isTauri()) return
         paneDrag.begin(event, {
@@ -116,10 +115,11 @@ function WindowPaneHeader({ workspaceId }: { workspaceId: string }) {
         })
       }}
     >
-      <span className="shrink-0 font-medium text-foreground">{title}</span>
-      {detail && <span className="min-w-0 truncate text-muted-foreground">{detail}</span>}
-      <div className="ml-auto flex shrink-0 items-center">
-        <PaneSidebarToggle workspaceId={workspaceId} />
+      <span className="shrink-0 text-sm font-medium text-foreground">{title}</span>
+      {detail && <span className="min-w-0 truncate text-xs text-muted-foreground">{detail}</span>}
+      <div className="ml-auto flex min-w-0 items-center gap-0.5">
+        <PaneSidebarButtons workspaceId={workspaceId} />
+        <PaneMoreMenu workspaceId={workspaceId} />
       </div>
     </div>
   )

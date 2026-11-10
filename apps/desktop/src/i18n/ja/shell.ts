@@ -994,6 +994,7 @@ export const SHELL: Record<string, string> = {
 
   // components/PaneMenu.tsx
   'Pane actions': 'ペインの操作',
+  'Open sidebar': 'サイドバーを開く',
   'Delete all untracked': '未追跡のファイルをすべて削除',
   'Unstage all': 'すべてステージ解除',
   'Stage all (mark resolved)': 'すべてステージ（解決済みにする）',
