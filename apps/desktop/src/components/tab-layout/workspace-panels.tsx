@@ -1,4 +1,4 @@
-import { Bot, Files, GitCompare, ListChecks, MessagesSquare, Plug, PlugZap, Search, type LucideIcon } from 'lucide-react'
+import { Bot, Files, GitCompare, ListChecks, MessagesSquare, Plug, PlugZap, Search, Workflow, type LucideIcon } from 'lucide-react'
 import { allWorkspaces, useStore } from '@/session-store'
 import { FileExplorer } from '@/components/right-sidebar/FileExplorer'
 import { SearchPanel } from '@/components/right-sidebar/SearchPanel'
@@ -7,6 +7,7 @@ import { ChecksPanel } from '@/components/right-sidebar/checks/ChecksPanel'
 import { PortsPanel } from '@/components/right-sidebar/PortsPanel'
 import { SideChatPanel } from '@/components/right-sidebar/SideChatPanel'
 import { AgentPanel } from '@/components/right-sidebar/AgentPanel'
+import { WorkflowsPanel } from '@/components/right-sidebar/WorkflowsPanel'
 import { PluginPanel } from '@/components/right-sidebar/PluginPanel'
 import { useActivePluginPanels } from '@/plugins/plugin-registry'
 import { resolvePluginPanelIcon } from '@/plugins/plugin-panel-icons'
@@ -28,7 +29,8 @@ export const PANELS: WorkspacePanel[] = [
   { id: 'panel:checks', label: t('Checks'), icon: ListChecks },
   { id: 'panel:ports', label: t('Ports'), icon: Plug },
   { id: 'panel:side-chat', label: t('Side chat'), icon: MessagesSquare },
-  { id: 'panel:agent', label: t('Agent'), icon: Bot }
+  { id: 'panel:agent', label: t('Agent'), icon: Bot },
+  { id: 'panel:workflows', label: t('Workflows'), icon: Workflow }
 ]
 
 /** The built-in panels, then the enabled plugins' ones. */
@@ -70,6 +72,8 @@ export function WorkspacePanelView({ id, workspaceId }: { id: string; workspaceI
       return <SideChatPanel key={workspaceId} workspaceId={workspaceId} />
     case 'panel:agent':
       return <AgentPanel key={workspaceId} workspaceId={workspaceId} />
+    case 'panel:workflows':
+      return <WorkflowsPanel key={workspaceId} workspaceId={workspaceId} />
     default:
       return <div className="m-auto px-4 text-center text-sm text-muted-foreground">{t('This panel is no longer available.')}</div>
   }

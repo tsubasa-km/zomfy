@@ -21,26 +21,11 @@ import { canvasLayout } from './workflow-canvas-layout'
 import { WORKFLOW_EDGE_TYPES } from './workflow-route-edge'
 import { LoopViewPanel, loopDecor, useLoopView } from './workflow-loop-view'
 import { outcomeLabel } from './workflow-model'
+import { RUN_STATUS_CLASSES as STATUS_CLASSES, RUN_STATUS_LABELS as STATUS_LABELS } from './workflow-run-status'
 import { t } from '@/i18n/i18n'
 
 // A run of a workflow: the graph as it was when the run started, with where the run is now, how
 // often each step ran and which edges it took; beside it, the steps' log and the person's part.
-
-const STATUS_LABELS: Record<WorkflowRun['status'], string> = {
-  running: t('Running'),
-  waiting: t('Waiting for you'),
-  done: t('Done'),
-  failed: t('Failed'),
-  stopped: t('Stopped')
-}
-
-const STATUS_CLASSES: Record<WorkflowRun['status'], string> = {
-  running: 'text-primary',
-  waiting: 'text-agent-question-text',
-  done: 'text-status-success',
-  failed: 'text-destructive',
-  stopped: 'text-muted-foreground'
-}
 
 function subscribeDark(listener: () => void): () => void {
   const observer = new MutationObserver(listener)

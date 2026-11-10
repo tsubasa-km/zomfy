@@ -921,6 +921,11 @@ export const SHELL: Record<string, string> = {
   'Use default ({ref})': 'デフォルトを使用（{ref}）',
   'Use “{ref}”': '「{ref}」を使用',
 
+  // components/right-sidebar/WorkflowsPanel.tsx
+  'A quick chat belongs to no project, so it has no workflows.': 'クイックチャットはどのプロジェクトにも属さないため、ワークフローはありません。',
+  'No runs yet. Start a workflow from a chat (the workflow button under the message box).': 'まだ実行はありません。チャットのメッセージ欄の下にあるワークフローボタンから開始できます。',
+  Recent: '最近',
+
   // components/right-sidebar/AgentPanel.tsx
   Skill: 'スキル',
   Memory: 'メモリ',
