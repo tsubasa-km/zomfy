@@ -3,6 +3,8 @@ export const CHAT: Record<string, string> = {
   // agent-notifications.ts
   workspace: 'ワークスペース',
   'Claude needs you · {workspace}': 'Claude が対応を待っています · {workspace}',
+  'Question from {from}': '{from} からの質問',
+  'Instructions for "{step}" from the workflow "{workflow}"': 'ワークフロー「{workflow}」のステップ「{step}」への指示',
   'Claude stopped with an error · {workspace}': 'Claude がエラーで停止しました · {workspace}',
   'Claude finished · {workspace}': 'Claude が完了しました · {workspace}',
   'Usage limit reset: resumed · {workspace}': '使用量の上限がリセットされ、再開しました · {workspace}',

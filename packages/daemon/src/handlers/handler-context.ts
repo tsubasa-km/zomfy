@@ -9,6 +9,7 @@ import type {
   WorkflowStepContext,
   WorkflowStepUsage,
 } from "@acp-harness/protocol";
+import type { PromptOrigin } from "@acp-harness/protocol";
 import type { TurnAutoResume } from "../turn-auto-resume.ts";
 import type { StepOptions } from "../claude-turn.ts";
 import type { AcpAgentSessions } from "../acp-agent-sessions.ts";
@@ -62,6 +63,8 @@ export interface HandlerContext {
     sessionId: string,
     text: string,
     step: StepOptions,
+    /** Who the prompt is from, so the chat draws it apart from the person's messages. */
+    origin?: PromptOrigin,
   ): Promise<{
     stopReason: acp.StopReason;
     text: string;

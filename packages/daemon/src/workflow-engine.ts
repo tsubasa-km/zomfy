@@ -466,7 +466,8 @@ export class WorkflowEngine {
       // The starting chat is the person's: its asks are never answered for them.
       if (runAnswersAsks(run) && node.config.runBy !== "lead") this.deps.autoApprove.add(sessionId);
       try {
-        const result = await this.deps.runStepTurn(sessionId, prompt, step);
+        const origin = { kind: "step-task", workflow: run.workflow.name, step: node.label } as const;
+        const result = await this.deps.runStepTurn(sessionId, prompt, step, origin);
         this.tally(run, result);
         if (live.stopped) throw new RunStopped();
         // Another message in that chat (the person writing to it mid-step) cuts the turn short.
@@ -474,7 +475,7 @@ export class WorkflowEngine {
         let parsed = parseVerdict(result.structured, outcomes) ?? parseVerdict(verdictInText(result.text), outcomes);
         if (!parsed && stepAgent(node)) {
           // Another agent that forgot the closing JSON is asked for it once, rather than guessed.
-          const again = await this.deps.runStepTurn(sessionId, verdictReminder(outcomes), step);
+          const again = await this.deps.runStepTurn(sessionId, verdictReminder(outcomes), step, origin);
           this.tally(run, again);
           if (live.stopped) throw new RunStopped();
           parsed = parseVerdict(verdictInText(again.text), outcomes);
@@ -720,7 +721,11 @@ export class WorkflowEngine {
     live.sessions.add(record.id);
     if (runAnswersAsks(run)) this.deps.autoApprove.add(record.id);
     try {
-      const result = await this.deps.runStepTurn(record.id, text, spawner.step);
+      const result = await this.deps.runStepTurn(record.id, text, spawner.step, {
+        kind: "step-task",
+        workflow: run.workflow.name,
+        step: `${node.label} · helper: ${part.title}`,
+      });
       this.tally(run, result);
       if (live.stopped) return "Stopped with the workflow.";
       return result.text.trim() || `Ended (${result.stopReason}) without a report.`;

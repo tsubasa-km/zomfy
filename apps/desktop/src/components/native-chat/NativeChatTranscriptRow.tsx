@@ -16,6 +16,7 @@ import {
 } from './NativeChatTurnRecovery'
 import { NATIVE_CHAT_QUOTE_SOURCE_PROPS } from './NativeChatSelectionQuote'
 import { NativeChatWorkflowRunCard } from './NativeChatWorkflowRunCard'
+import { NativeChatPromptOrigin } from './NativeChatPromptOrigin'
 import { type TranscriptRowModel } from './native-chat-transcript-model'
 import { t } from '@/i18n/i18n'
 
@@ -56,6 +57,7 @@ export function NativeChatTranscriptRow({
       const { item } = row
       const messageId = item.messageId
       if (item.resumed) return <NativeChatResumedDivider kind={item.resumed} />
+      if (item.origin) return <NativeChatPromptOrigin origin={item.origin} text={item.text} rowKey={rowKey} />
       return (
         <div
           className="group relative flex flex-col items-end gap-0.5"

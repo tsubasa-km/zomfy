@@ -6,12 +6,14 @@ import {
   MANAGER_SYSTEM_PROMPT,
   QUICK_CHAT_SYSTEM_PROMPT,
   SESSION_REPLAY_META,
+  PROMPT_ORIGIN_META,
   TURN_RECOVERY_META,
   TURN_RECOVERY_NOTIFICATIONS,
   chatAgentLabel,
   type HarnessMethod,
   type HarnessRequests,
   type TurnEndMeta,
+  type PromptOrigin,
   type TurnResumeKind,
   type ManagerToolName,
 } from "@acp-harness/protocol";
@@ -254,6 +256,7 @@ export function createHarnessAgent(
     ask: Ask,
     client: acp.AgentContext | null,
     resumed?: TurnResumeKind,
+    origin?: PromptOrigin,
   ): Promise<acp.PromptResponse> {
     const session = sessions.get(params.sessionId);
     if (!session) throw new Error(`Unknown session ${params.sessionId}`);
@@ -283,7 +286,14 @@ export function createHarnessAgent(
         sessionUpdate: "user_message_chunk",
         messageId,
         content: block,
-        ...(resumed ? { _meta: { [TURN_RECOVERY_META.resumed]: resumed } } : {}),
+        ...(resumed || origin
+          ? {
+              _meta: {
+                ...(resumed ? { [TURN_RECOVERY_META.resumed]: resumed } : {}),
+                ...(origin ? { [PROMPT_ORIGIN_META]: origin } : {}),
+              },
+            }
+          : {}),
       });
     }
 
@@ -531,7 +541,7 @@ export function createHarnessAgent(
     followFolder: (sessionId, cwd) => mover.follow(sessionId, cwd),
     serveTool: (tool, route, offeredTo) => localTools.set(tool, { route, offeredTo }),
     autoApprove,
-    async runStepTurn(sessionId, text, step) {
+    async runStepTurn(sessionId, text, step, origin) {
       let result: { text: string; structured: unknown; usage?: WorkflowStepUsage; context?: WorkflowStepContext } = { text: "", structured: undefined };
       stepTurns.set(sessionId, { step, onResult: (r) => (result = r) });
       // Other agents have no result hook: their reply is what they said this turn.
@@ -541,7 +551,7 @@ export function createHarnessAgent(
       if (external) acpAgents.setStepServers(sessionId, acpStdioServers(step.mcpServers, await hostPath()));
       const before = (await sessions.transcript(sessionId)).length;
       try {
-        const { stopReason } = await prompt({ sessionId, prompt: [{ type: "text", text }] }, askAnyClient, null);
+        const { stopReason } = await prompt({ sessionId, prompt: [{ type: "text", text }] }, askAnyClient, null, undefined, origin);
         const turn = (await sessions.transcript(sessionId)).slice(before);
         if (external) {
           const used = record ? acpAgents.for(record)?.lastUsage : null;

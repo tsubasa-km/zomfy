@@ -53,3 +53,40 @@ export interface TurnRecoveryRequests {
     result: SessionInfo
   }
 }
+
+/**
+ * `_meta` key on a user_message_chunk the harness wrote rather than the person (PromptOrigin): the
+ * chat draws it apart from what they typed.
+ */
+export const PROMPT_ORIGIN_META = 'harness/promptOrigin'
+
+export type PromptOrigin =
+  /** A workflow step's question put to the chat that started the run. */
+  | { kind: 'step-question'; from: string; question: string }
+  /** A workflow step's instructions to its agent. */
+  | { kind: 'step-task'; workflow: string; step: string }
+
+export function promptOrigin(meta: Record<string, unknown> | null | undefined, text: string): PromptOrigin | null {
+  const value = meta?.[PROMPT_ORIGIN_META]
+  if (typeof value === 'object' && value !== null && 'kind' in value) {
+    if (value.kind === 'step-question' && 'from' in value && 'question' in value && typeof value.from === 'string' && typeof value.question === 'string') {
+      return { kind: 'step-question', from: value.from, question: value.question }
+    }
+    if (value.kind === 'step-task' && 'workflow' in value && 'step' in value && typeof value.workflow === 'string' && typeof value.step === 'string') {
+      return { kind: 'step-task', workflow: value.workflow, step: value.step }
+    }
+  }
+  return legacyOrigin(text)
+}
+
+// Prompts recorded before the marker existed, recognised by the words the harness wrote.
+const LEGACY_QUESTION = /^\[Question from (.+)\]\n([\s\S]*?)\n\nAnswer it if you can from this conversation/
+const LEGACY_TASK = /^(?:You are (?:the .+|a helper agent) in|Next step in) the workflow "(.+?)"[:,] (?:step )?"(.+?)"/
+
+function legacyOrigin(text: string): PromptOrigin | null {
+  const question = LEGACY_QUESTION.exec(text)
+  if (question) return { kind: 'step-question', from: question[1]!, question: question[2]!.trim() }
+  const task = LEGACY_TASK.exec(text)
+  if (task) return { kind: 'step-task', workflow: task[1]!, step: task[2]! }
+  return null
+}

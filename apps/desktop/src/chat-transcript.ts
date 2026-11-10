@@ -2,8 +2,10 @@ import type * as acp from '@agentclientprotocol/sdk'
 import { WORKFLOW_META,
   CHAT_META,
   TURN_RECOVERY_META,
+  promptOrigin,
   type ContextUsageMeta,
   type TurnEndMeta,
+  type PromptOrigin,
   type TurnResumeKind
 } from '@acp-harness/protocol'
 import { appendText, getState, updateSession, upsertTool, type ChatImage, type ThreadItem } from '@/session-store'
@@ -16,7 +18,7 @@ export function applyChatUpdate({ sessionId, update }: acp.SessionNotification):
   if (!getState().sessions.some((s) => s.id === sessionId && s.loaded)) return
   switch (update.sessionUpdate) {
     case 'user_message_chunk':
-      appendUserContent(sessionId, update.content, update.messageId ?? undefined, resumeKind(update._meta))
+      appendUserContent(sessionId, update.content, update.messageId ?? undefined, resumeKind(update._meta), update._meta)
       break
     case 'agent_message_chunk':
       if (update.content.type === 'text') appendText(sessionId, 'agent', update.content.text)
@@ -112,7 +114,8 @@ function appendUserContent(
   sessionId: string,
   content: acp.ContentBlock,
   messageId: string | undefined,
-  resumed: TurnResumeKind | null
+  resumed: TurnResumeKind | null,
+  meta: Record<string, unknown> | null | undefined
 ): void {
   if (content.type !== 'text' && content.type !== 'image') return
   updateSession(sessionId, (s) => {
@@ -121,13 +124,19 @@ function appendUserContent(
     const base: Extract<ThreadItem, { kind: 'user' }> =
       same && last?.kind === 'user'
         ? last
-        : { kind: 'user', text: '', ...(messageId ? { messageId } : {}), ...(resumed ? { resumed } : {}) }
+        : { kind: 'user', text: '', ...(messageId ? { messageId } : {}), ...(resumed ? { resumed } : {}), ...originOf(meta, content) }
     const next: ThreadItem =
       content.type === 'text'
         ? { ...base, text: base.text ? `${base.text}\n${content.text}` : content.text }
         : { ...base, images: [...(base.images ?? []), { mimeType: content.mimeType, data: content.data }] }
     return { ...s, items: same ? [...s.items.slice(0, -1), next] : [...s.items, next] }
   })
+}
+
+/** Who wrote the prompt, when the harness did (a workflow step's question or instructions). */
+function originOf(meta: Record<string, unknown> | null | undefined, content: acp.ContentBlock): { origin?: PromptOrigin } {
+  const origin = promptOrigin(meta, content.type === 'text' ? content.text : '')
+  return origin ? { origin } : {}
 }
 
 const RESUME_KINDS: readonly TurnResumeKind[] = ['continue', 'retry', 'resume', 'auto', 'moved']

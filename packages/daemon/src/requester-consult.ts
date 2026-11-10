@@ -44,7 +44,12 @@ async function ask(deps: Deps, leadSessionId: string, from: string, question: st
     "Answer it if you can from this conversation, the project and the person's intent (look things up if that helps).",
     'Give your result as the structured output: "decision" is "answer" with the answer in "text", or "escalate" when it is the person\'s call, with the question for them in "text" (sharpened, with the options you see).',
   ].join("\n");
-  const result = await deps.runStepTurn(leadSessionId, prompt, { outputFormat: { type: "json_schema", schema: SCHEMA } });
+  const result = await deps.runStepTurn(
+    leadSessionId,
+    prompt,
+    { outputFormat: { type: "json_schema", schema: SCHEMA } },
+    { kind: "step-question", from, question },
+  );
   const value = result.structured;
   if (value && typeof value === "object" && "decision" in value && "text" in value && typeof value.text === "string") {
     return value.decision === "escalate" ? { escalate: value.text || question } : { answer: value.text };
