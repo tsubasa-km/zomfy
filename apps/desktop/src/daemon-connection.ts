@@ -4,11 +4,13 @@ import { invoke, isTauri } from "@tauri-apps/api/core";
 import { t } from "@/i18n/i18n";
 import {
   AUTOMATION_NOTIFICATIONS,
+  CHAT_AGENT_NOTIFICATIONS,
   HARNESS_METHODS,
   HARNESS_NOTIFICATIONS,
   MANAGER_METHODS,
   MANAGER_ROUTING_CAPABILITY,
   type AutomationSnapshot,
+  type ChatAgentInfo,
   SESSION_REPLAY_META,
   SETTINGS_NOTIFICATIONS,
   TODO_NOTIFICATIONS,
@@ -69,6 +71,7 @@ import { setTodos } from "./stores/inbox-store";
 import { setProjectLinks } from "./stores/project-links-store";
 import { noteRunChange, offerInterruptedRuns } from "./lib/run-interruptions";
 import { upsertWorkflowExperiment } from "./stores/workflow-experiments-store";
+import { setChatAgents } from "./lib/chat-agents";
 import { runManagerTool } from "./manager/manager-tool-runner";
 import { applyAutomationSnapshot } from "./stores/automation-store";
 import { notifyAutoResumed } from "./agent-notifications";
@@ -280,6 +283,11 @@ async function openConnection(hostId: HostId): Promise<void> {
       AUTOMATION_NOTIFICATIONS.automationsChanged,
       (raw: unknown) => raw as AutomationSnapshot,
       (ctx) => applyAutomationSnapshot(hostId, ctx.params),
+    )
+    .onNotification(
+      CHAT_AGENT_NOTIFICATIONS.chatAgentsChanged,
+      (raw: unknown) => raw as ChatAgentInfo[],
+      (ctx) => setChatAgents(hostId, ctx.params),
     )
     .onNotification(
       TURN_RECOVERY_NOTIFICATIONS.autoResumed,

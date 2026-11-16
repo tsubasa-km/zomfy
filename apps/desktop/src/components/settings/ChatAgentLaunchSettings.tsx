@@ -49,7 +49,7 @@ export function ChatAgentLaunchSettings({ host }: { host: HostEntry }) {
           onClick={() => void loadChatAgents(host.id, true)}
         >
           <RefreshCw className={cn('size-3', state.kind === 'loading' && 'animate-spin')} />
-          {t('Refresh')}
+          {t('Reload')}
         </Button>
       </div>
       {state.kind === 'failed' && state.agents.length === 0 ? (
@@ -131,6 +131,11 @@ function ChatAgentRow({ host, agent }: { host: HostEntry; agent: ChatAgentInfo }
             >
               {STATUS_LABEL[agent.status]}
             </span>
+            {agent.update ? (
+              <span className="text-xs text-primary" data-chat-agent-update={agent.update.latest}>
+                {t('Update available: {version}', { version: agent.update.latest })}
+              </span>
+            ) : null}
           </CollapsibleTrigger>
           <InstallAction agent={agent} running={install?.phase === 'running'} onInstall={startInstall} />
         </div>
@@ -138,15 +143,26 @@ function ChatAgentRow({ host, agent }: { host: HostEntry; agent: ChatAgentInfo }
       <CollapsibleContent animation="height">
         <div className="space-y-2 pb-3 pl-6">
           {agent.detail ? <p className="font-mono text-xs break-all text-muted-foreground">{agent.detail}</p> : null}
+          {agent.update ? (
+            <InstallHint>
+              {t('{package} {installed} is installed; {latest} is out.', {
+                package: agent.update.packageName,
+                installed: agent.update.installed,
+                latest: agent.update.latest
+              })}
+            </InstallHint>
+          ) : null}
           {agent.installCommand ? (
             <InstallHint>
-              {t('Install runs this on {host}:', { host: host.label })}{' '}
+              {agent.update
+                ? t('Update runs this on {host}:', { host: host.label })
+                : t('Install runs this on {host}:', { host: host.label })}{' '}
               <code className="font-mono break-all">{agent.installCommand}</code>
             </InstallHint>
           ) : null}
           {install?.phase === 'failed' ? (
             <div className="space-y-1">
-              <p className="text-xs text-destructive">{t('The install did not finish.')}</p>
+              <p className="text-xs text-destructive">{agent.update ? t('The update did not finish.') : t('The install did not finish.')}</p>
               {install.output ? (
                 <pre className="max-h-40 overflow-auto rounded-md bg-muted/50 p-2 font-mono text-[11px] whitespace-pre-wrap text-muted-foreground">
                   {install.output}
@@ -175,9 +191,14 @@ function ChatAgentRow({ host, agent }: { host: HostEntry; agent: ChatAgentInfo }
 
 /** Install (or add the missing adapter) where the daemon knows how; otherwise the agent's own guide. */
 function InstallAction({ agent, running, onInstall }: { agent: ChatAgentInfo; running: boolean; onInstall: () => void }) {
-  if (agent.status === 'ready') return null
+  if (agent.status === 'ready' && !agent.update) return null
   if (agent.installCommand) {
-    const label = agent.status === 'needs-adapter' ? t('Install adapter') : agent.status === 'unsupported' ? t('Update') : t('Install')
+    const label =
+      agent.status === 'needs-adapter'
+        ? t('Install adapter')
+        : agent.status === 'unsupported' || agent.update
+          ? t('Update')
+          : t('Install')
     return (
       <Button type="button" size="xs" variant="outline" disabled={running} onClick={onInstall} data-chat-agent-install={agent.id}>
         {running ? <LoaderCircle className="size-3 animate-spin" /> : <Download className="size-3" />}

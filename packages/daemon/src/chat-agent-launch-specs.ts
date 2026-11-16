@@ -12,6 +12,7 @@ import { chatAgentLaunch } from './chat-agent-launch-settings.ts'
 import { detectInstalledAgents, hostPath } from './tui-agent-detection.ts'
 import { resolveClaudeExecutable } from './claude-executable.ts'
 import { log } from './log.ts'
+import { agentUpdate, checkAgentUpdates, type NpmPackage } from './chat-agent-updates.ts'
 
 // How each external agent serves ACP, as data (Orca's acp-launch-specs.ts). An argument list with
 // a probe is only used when the installed CLI's help names it: ACP flags were renamed between
@@ -24,7 +25,7 @@ interface AcpLaunch {
 
 /** How a missing agent gets installed: global npm packages, or the vendor's install script. */
 interface AgentInstall {
-  npm?: string[]
+  npm?: NpmPackage[]
   /** A PowerShell line on Windows, a shell line elsewhere. */
   script?: { windows: string; unix: string }
 }
@@ -33,7 +34,7 @@ interface AcpLaunchSpec {
   agent: Exclude<ChatAgentId, 'claude'>
   command: string
   /** A CLI whose ACP server ships separately: installed without `command`, the adapter is missing. */
-  adapter?: { cli: string; hint: string; npm: string[] }
+  adapter?: { cli: string; hint: string; npm: NpmPackage[] }
   install?: AgentInstall
   launches: AcpLaunch[]
   /** Laid over the agent's environment before the user's own variables. */
@@ -54,9 +55,14 @@ const SPECS: AcpLaunchSpec[] = [
     adapter: {
       cli: 'codex',
       hint: 'Codex is installed, but its chats need the ACP adapter (`codex-acp`)',
-      npm: ['@agentclientprotocol/codex-acp']
+      npm: [{ name: '@agentclientprotocol/codex-acp', bin: 'codex-acp' }]
     },
-    install: { npm: ['@openai/codex', '@agentclientprotocol/codex-acp'] },
+    install: {
+      npm: [
+        { name: '@openai/codex', bin: 'codex' },
+        { name: '@agentclientprotocol/codex-acp', bin: 'codex-acp' }
+      ]
+    },
     launches: [{ args: [] }],
     env: {},
     accountVariable: 'CODEX_HOME'
@@ -68,14 +74,14 @@ const SPECS: AcpLaunchSpec[] = [
     launches: [{ args: ['acp'] }],
     // Orca's: ACP sessions report this client, and no question tool, which the chat has no form for.
     env: { OPENCODE_CLIENT: 'acp', OPENCODE_ENABLE_QUESTION_TOOL: 'false' },
-    install: { npm: ['opencode-ai'] },
+    install: { npm: [{ name: 'opencode-ai', bin: 'opencode' }] },
     accountVariable: null
   },
-  { agent: 'gemini', command: 'gemini', install: { npm: ['@google/gemini-cli'] }, launches: ACP_FLAG_LAUNCHES, env: {}, accountVariable: null },
+  { agent: 'gemini', command: 'gemini', install: { npm: [{ name: '@google/gemini-cli', bin: 'gemini' }] }, launches: ACP_FLAG_LAUNCHES, env: {}, accountVariable: null },
   // Orca's verified Grok launch.
   { agent: 'grok', command: 'grok', launches: [{ args: ['agent', 'stdio'] }], env: {}, accountVariable: 'GROK_HOME' },
-  { agent: 'copilot', command: 'copilot', install: { npm: ['@github/copilot'] }, launches: [ACP_FLAG_LAUNCHES[0]!], env: {}, accountVariable: null },
-  { agent: 'qwen-code', command: 'qwen', install: { npm: ['@qwen-code/qwen-code'] }, launches: ACP_FLAG_LAUNCHES, env: {}, accountVariable: null },
+  { agent: 'copilot', command: 'copilot', install: { npm: [{ name: '@github/copilot', bin: 'copilot' }] }, launches: [ACP_FLAG_LAUNCHES[0]!], env: {}, accountVariable: null },
+  { agent: 'qwen-code', command: 'qwen', install: { npm: [{ name: '@qwen-code/qwen-code', bin: 'qwen' }] }, launches: ACP_FLAG_LAUNCHES, env: {}, accountVariable: null },
   { agent: 'goose', command: 'goose', launches: [ACP_SUBCOMMAND_LAUNCH], env: {}, accountVariable: null },
   { agent: 'kimi', command: 'kimi', launches: [ACP_SUBCOMMAND_LAUNCH, ACP_FLAG_LAUNCHES[0]!], env: {}, accountVariable: null },
   // Google's Antigravity CLI; `agy acp` since 1.5.0, signed in once by running `agy`.
@@ -146,6 +152,7 @@ export async function listChatAgents(refresh: boolean): Promise<ChatAgentInfo[]>
   if (refresh) {
     helpCache.clear()
     await hostPath(true)
+    await checkUpdates(true)
   }
   return Promise.all(
     CHAT_AGENT_IDS.map(async (id): Promise<ChatAgentInfo> => {
@@ -158,16 +165,25 @@ export async function listChatAgents(refresh: boolean): Promise<ChatAgentInfo[]>
         accountVariable: id === 'claude' ? 'CLAUDE_CONFIG_DIR' : (SPECS.find((s) => s.agent === id)?.accountVariable ?? null),
         command: launch.command,
         envNames: Object.keys(launch.env).sort(),
-        installCommand: installCommand(id, resolved.status, launch.command),
-        installUrl: tuiAgentSpec(id)?.homepageUrl ?? null
+        installCommand: installCommand(id, resolved.status, launch.command, agentUpdate(id) !== null),
+        installUrl: tuiAgentSpec(id)?.homepageUrl ?? null,
+        update: launch.command ? null : agentUpdate(id)
       }
     })
   )
 }
 
-/** What installs the agent, or the part of it this host lacks; null when it runs or a custom command is set. */
-export function installCommand(agent: ChatAgentId, status: ChatAgentInfo['status'], custom: string | null): string | null {
-  if (status === 'ready' || custom) return null
+/**
+ * What installs the agent, the part of it this host lacks, or its newer release; null when it runs
+ * up to date or a custom command is set.
+ */
+export function installCommand(
+  agent: ChatAgentId,
+  status: ChatAgentInfo['status'],
+  custom: string | null,
+  outdated = false
+): string | null {
+  if (custom || (status === 'ready' && !outdated)) return null
   const spec = SPECS.find((s) => s.agent === agent)
   const install = agent === 'claude' ? CLAUDE_INSTALL : spec?.install
   if (status === 'needs-adapter' && spec?.adapter) return npmLine(spec.adapter.npm)
@@ -177,8 +193,21 @@ export function installCommand(agent: ChatAgentId, status: ChatAgentInfo['status
   return null
 }
 
-function npmLine(packages: string[]): string {
-  return `npm install -g ${packages.join(' ')}`
+function npmLine(packages: NpmPackage[]): string {
+  return `npm install -g ${packages.map((p) => `${p.name}@latest`).join(' ')}`
+}
+
+/** The npm packages each agent runs from, for the update check. */
+function npmAgents(): { id: ChatAgentId; packages: NpmPackage[] }[] {
+  return SPECS.map((spec) => ({ id: spec.agent, packages: spec.install?.npm ?? spec.adapter?.npm ?? [] })).filter(
+    (agent) => agent.packages.length > 0
+  )
+}
+
+/** Compares installed agent packages with npm; true when an agent's update changed. */
+export async function checkUpdates(network: boolean): Promise<boolean> {
+  const PATH = await hostPath()
+  return checkAgentUpdates(npmAgents(), async (bin) => Bun.which(bin, { PATH }), { network })
 }
 
 const installing = new Map<ChatAgentId, Promise<ChatAgentInstallResult>>()
@@ -223,10 +252,13 @@ async function runInstall(agent: ChatAgentId): Promise<ChatAgentInstallResult> {
   }
   log(`install of ${agent} exited with ${code}`)
   // Installers add to PATH (npm's prefix, ~/.local/bin); terminals' agent detection reads it too.
-  const agents = await listChatAgents(true)
+  helpCache.clear()
+  await hostPath(true)
+  await checkUpdates(false)
+  const agents = await listChatAgents(false)
   void detectInstalledAgents(true)
   const after = agents.find((a) => a.id === agent)
-  return { ok: code === 0 && after?.status === 'ready', output, agents }
+  return { ok: code === 0 && after?.status === 'ready' && !after.update, output, agents }
 }
 
 function helpText(base: string[], args: string[]): Promise<string> {

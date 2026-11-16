@@ -36,6 +36,15 @@ export interface ChatAgentInfo {
   installCommand?: string | null
   /** Where the agent's own install instructions live. */
   installUrl?: string | null
+  /** A newer release of one of the agent's npm packages, found by the daemon's periodic check. */
+  update?: ChatAgentUpdate | null
+}
+
+export interface ChatAgentUpdate {
+  /** The npm package with the newer release (`@openai/codex`, `@agentclientprotocol/codex-acp`…). */
+  packageName: string
+  installed: string
+  latest: string
 }
 
 export interface ChatAgentInstallResult {
@@ -70,6 +79,11 @@ export const CHAT_AGENT_METHODS = {
   chatAgentsList: '_harness/chatAgents/list',
   chatAgentSetLaunch: '_harness/chatAgents/setLaunch',
   chatAgentInstall: '_harness/chatAgents/install'
+} as const
+
+export const CHAT_AGENT_NOTIFICATIONS = {
+  /** The host's agents, sent when its update check finds something new. */
+  chatAgentsChanged: '_harness/chatAgents/changed'
 } as const
 
 export interface ChatAgentRequests {
