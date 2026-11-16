@@ -31,8 +31,9 @@ tauri-plugin-process = "2"
 
 # Read the optimization guideline for more details: https://tauri.app/concept/size/#cargo-configuration
 [profile.release]
-codegen-units = 1
-lto = true
+# No LTO and the default codegen units: a release rebuild takes about 2.5 min instead of 8.5,
+# for the same 13 MB exe.
+lto = false
 opt-level = 3
 panic = "abort"
 strip = true

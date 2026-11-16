@@ -5,7 +5,7 @@
 //   bun scripts/release.ts [patch|minor|major|<x.y.z>]   (default: patch)
 //
 // Signs with ~/.ssh/zomfy-updater.key (or TAURI_SIGNING_PRIVATE_KEY); losing that key strands installed copies.
-import { existsSync, readFileSync, writeFileSync } from 'node:fs'
+import { existsSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { homedir } from 'node:os'
 import { join } from 'node:path'
 
@@ -92,4 +92,9 @@ run(['git', 'push', REMOTE, 'main', tag], { env: { GH_TOKEN: token } })
 run(['gh', 'release', 'create', tag, installer, `${installer}.sig`, latestPath, '--repo', REPO, '--title', `Zomfy ${version}`, '--notes', notes], {
   env: { GH_TOKEN: token }
 })
+// Each release leaves a ~130 MB installer behind; once this one is uploaded the older ones are dead weight.
+const nsisDir = join(desktop, 'src-tauri', 'target', 'release', 'bundle', 'nsis')
+for (const name of readdirSync(nsisDir)) {
+  if (name !== installerName && name !== `${installerName}.sig`) rmSync(join(nsisDir, name), { force: true })
+}
 console.log(`Released ${tag} (was ${previous}): ${installer}`)
