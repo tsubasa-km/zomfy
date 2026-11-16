@@ -1,5 +1,5 @@
 import { useState, type ReactNode } from 'react'
-import { ChevronRight, Download, ExternalLink, LoaderCircle, RefreshCw } from 'lucide-react'
+import { ChevronRight, ExternalLink, RefreshCw } from 'lucide-react'
 import { HARNESS_METHODS, type ChatAgentId, type ChatAgentInfo } from '@acp-harness/protocol'
 import { harnessRequest } from '@/daemon-connection'
 import type { HostEntry } from '@/session-store'
@@ -94,29 +94,11 @@ function ChatAgentRow({ host, agent }: { host: HostEntry; agent: ChatAgentInfo }
   const searching = useSettingsSearchQuery().trim() !== ''
   const [open, setOpen] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const [install, setInstall] = useState<{ phase: 'running' } | { phase: 'failed'; output: string } | null>(null)
   const run = (patch: LaunchPatch) =>
     setLaunch(host, agent.id, patch).then(
       () => setError(null),
       (e: unknown) => setError(e instanceof Error ? e.message : String(e))
     )
-  const startInstall = () => {
-    setInstall({ phase: 'running' })
-    harnessRequest(HARNESS_METHODS.chatAgentInstall, { agent: agent.id }, host.id).then(
-      (result) => {
-        setChatAgents(host.id, result.agents)
-        if (result.ok) setInstall(null)
-        else {
-          setInstall({ phase: 'failed', output: result.output })
-          setOpen(true)
-        }
-      },
-      (e: unknown) => {
-        setInstall({ phase: 'failed', output: e instanceof Error ? e.message : String(e) })
-        setOpen(true)
-      }
-    )
-  }
   return (
     <Collapsible open={searching || open} onOpenChange={setOpen} className="not-has-[[data-setting-row]]:hidden" data-chat-agent={agent.id}>
       <SearchableSetting entry={{ title: agent.label, keywords: [agent.id, 'agent', 'install'] }}>
@@ -137,7 +119,7 @@ function ChatAgentRow({ host, agent }: { host: HostEntry; agent: ChatAgentInfo }
               </span>
             ) : null}
           </CollapsibleTrigger>
-          <InstallAction agent={agent} running={install?.phase === 'running'} onInstall={startInstall} />
+          <InstallLink agent={agent} />
         </div>
       </SearchableSetting>
       <CollapsibleContent animation="height">
@@ -145,30 +127,14 @@ function ChatAgentRow({ host, agent }: { host: HostEntry; agent: ChatAgentInfo }
           {agent.detail ? <p className="font-mono text-xs break-all text-muted-foreground">{agent.detail}</p> : null}
           {agent.update ? (
             <InstallHint>
-              {t('{package} {installed} is installed; {latest} is out.', {
+              {t('{package} {installed} is installed; {latest} is out. Update it the way you installed it.', {
                 package: agent.update.packageName,
                 installed: agent.update.installed,
                 latest: agent.update.latest
               })}
             </InstallHint>
-          ) : null}
-          {agent.installCommand ? (
-            <InstallHint>
-              {agent.update
-                ? t('Update runs this on {host}:', { host: host.label })
-                : t('Install runs this on {host}:', { host: host.label })}{' '}
-              <code className="font-mono break-all">{agent.installCommand}</code>
-            </InstallHint>
-          ) : null}
-          {install?.phase === 'failed' ? (
-            <div className="space-y-1">
-              <p className="text-xs text-destructive">{agent.update ? t('The update did not finish.') : t('The install did not finish.')}</p>
-              {install.output ? (
-                <pre className="max-h-40 overflow-auto rounded-md bg-muted/50 p-2 font-mono text-[11px] whitespace-pre-wrap text-muted-foreground">
-                  {install.output}
-                </pre>
-              ) : null}
-            </div>
+          ) : agent.status !== 'ready' ? (
+            <InstallHint>{t('Install it on {host} from the official page, then press Reload.', { host: host.label })}</InstallHint>
           ) : null}
           {agent.id !== 'claude' ? (
             <TextField
@@ -189,29 +155,20 @@ function ChatAgentRow({ host, agent }: { host: HostEntry; agent: ChatAgentInfo }
   )
 }
 
-/** Install (or add the missing adapter) where the daemon knows how; otherwise the agent's own guide. */
-function InstallAction({ agent, running, onInstall }: { agent: ChatAgentInfo; running: boolean; onInstall: () => void }) {
-  if (agent.status === 'ready' && !agent.update) return null
-  if (agent.installCommand) {
-    const label =
-      agent.status === 'needs-adapter'
-        ? t('Install adapter')
-        : agent.status === 'unsupported' || agent.update
-          ? t('Update')
-          : t('Install')
-    return (
-      <Button type="button" size="xs" variant="outline" disabled={running} onClick={onInstall} data-chat-agent-install={agent.id}>
-        {running ? <LoaderCircle className="size-3 animate-spin" /> : <Download className="size-3" />}
-        {running ? t('Installing…') : label}
-      </Button>
-    )
-  }
-  if (!agent.installUrl) return null
+/** The vendor's page for what this host lacks: the agent, its adapter, or a newer release. */
+function InstallLink({ agent }: { agent: ChatAgentInfo }) {
+  if ((agent.status === 'ready' && !agent.update) || !agent.installUrl) return null
   const url = agent.installUrl
+  const label =
+    agent.status === 'needs-adapter'
+      ? t('Get the adapter')
+      : agent.status === 'unsupported' || agent.update
+        ? t('How to update')
+        : t('Install guide')
   return (
-    <Button type="button" size="xs" variant="ghost" onClick={() => window.open(url, '_blank', 'noopener')}>
+    <Button type="button" size="xs" variant="outline" onClick={() => window.open(url, '_blank', 'noopener')} data-chat-agent-install-link={agent.id}>
       <ExternalLink className="size-3" />
-      {t('Install guide')}
+      {label}
     </Button>
   )
 }

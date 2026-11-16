@@ -5,11 +5,10 @@ import {
   chatAgentLabel,
   tuiAgentSpec,
   type ChatAgentId,
-  type ChatAgentInfo,
-  type ChatAgentInstallResult
+  type ChatAgentInfo
 } from '@acp-harness/protocol'
 import { chatAgentLaunch } from './chat-agent-launch-settings.ts'
-import { detectInstalledAgents, hostPath } from './tui-agent-detection.ts'
+import { hostPath } from './tui-agent-detection.ts'
 import { resolveClaudeExecutable } from './claude-executable.ts'
 import { log } from './log.ts'
 import { agentUpdate, checkAgentUpdates, type NpmPackage } from './chat-agent-updates.ts'
@@ -23,19 +22,14 @@ interface AcpLaunch {
   probe?: { args: string[]; pattern: RegExp }
 }
 
-/** How a missing agent gets installed: global npm packages, or the vendor's install script. */
-interface AgentInstall {
-  npm?: NpmPackage[]
-  /** A PowerShell line on Windows, a shell line elsewhere. */
-  script?: { windows: string; unix: string }
-}
-
 interface AcpLaunchSpec {
   agent: Exclude<ChatAgentId, 'claude'>
   command: string
   /** A CLI whose ACP server ships separately: installed without `command`, the adapter is missing. */
-  adapter?: { cli: string; hint: string; npm: NpmPackage[] }
-  install?: AgentInstall
+  adapter?: { cli: string; hint: string; url: string }
+  /** The npm packages a global npm install of the agent consists of, for the update check. Other
+   *  installs (Homebrew, native installers) are left alone. */
+  npm?: NpmPackage[]
   launches: AcpLaunch[]
   /** Laid over the agent's environment before the user's own variables. */
   env: Record<string, string>
@@ -54,15 +48,13 @@ const SPECS: AcpLaunchSpec[] = [
     command: 'codex-acp',
     adapter: {
       cli: 'codex',
-      hint: 'Codex is installed, but its chats need the ACP adapter (`codex-acp`)',
-      npm: [{ name: '@agentclientprotocol/codex-acp', bin: 'codex-acp' }]
+      hint: 'Codex is installed, but its chats also need the ACP adapter `codex-acp`',
+      url: 'https://github.com/agentclientprotocol/codex-acp'
     },
-    install: {
-      npm: [
-        { name: '@openai/codex', bin: 'codex' },
-        { name: '@agentclientprotocol/codex-acp', bin: 'codex-acp' }
-      ]
-    },
+    npm: [
+      { name: '@openai/codex', bin: 'codex' },
+      { name: '@agentclientprotocol/codex-acp', bin: 'codex-acp' }
+    ],
     launches: [{ args: [] }],
     env: {},
     accountVariable: 'CODEX_HOME'
@@ -74,37 +66,25 @@ const SPECS: AcpLaunchSpec[] = [
     launches: [{ args: ['acp'] }],
     // Orca's: ACP sessions report this client, and no question tool, which the chat has no form for.
     env: { OPENCODE_CLIENT: 'acp', OPENCODE_ENABLE_QUESTION_TOOL: 'false' },
-    install: { npm: [{ name: 'opencode-ai', bin: 'opencode' }] },
+    npm: [{ name: 'opencode-ai', bin: 'opencode' }],
     accountVariable: null
   },
-  { agent: 'gemini', command: 'gemini', install: { npm: [{ name: '@google/gemini-cli', bin: 'gemini' }] }, launches: ACP_FLAG_LAUNCHES, env: {}, accountVariable: null },
+  { agent: 'gemini', command: 'gemini', npm: [{ name: '@google/gemini-cli', bin: 'gemini' }], launches: ACP_FLAG_LAUNCHES, env: {}, accountVariable: null },
   // Orca's verified Grok launch.
   { agent: 'grok', command: 'grok', launches: [{ args: ['agent', 'stdio'] }], env: {}, accountVariable: 'GROK_HOME' },
-  { agent: 'copilot', command: 'copilot', install: { npm: [{ name: '@github/copilot', bin: 'copilot' }] }, launches: [ACP_FLAG_LAUNCHES[0]!], env: {}, accountVariable: null },
-  { agent: 'qwen-code', command: 'qwen', install: { npm: [{ name: '@qwen-code/qwen-code', bin: 'qwen' }] }, launches: ACP_FLAG_LAUNCHES, env: {}, accountVariable: null },
+  { agent: 'copilot', command: 'copilot', npm: [{ name: '@github/copilot', bin: 'copilot' }], launches: [ACP_FLAG_LAUNCHES[0]!], env: {}, accountVariable: null },
+  { agent: 'qwen-code', command: 'qwen', npm: [{ name: '@qwen-code/qwen-code', bin: 'qwen' }], launches: ACP_FLAG_LAUNCHES, env: {}, accountVariable: null },
   { agent: 'goose', command: 'goose', launches: [ACP_SUBCOMMAND_LAUNCH], env: {}, accountVariable: null },
   { agent: 'kimi', command: 'kimi', launches: [ACP_SUBCOMMAND_LAUNCH, ACP_FLAG_LAUNCHES[0]!], env: {}, accountVariable: null },
   // Google's Antigravity CLI; `agy acp` since 1.5.0, signed in once by running `agy`.
   {
     agent: 'antigravity',
     command: 'agy',
-    install: {
-      script: {
-        windows: 'irm https://antigravity.google/cli/install.ps1 | iex',
-        unix: 'curl -fsSL https://antigravity.google/cli/install.sh | bash'
-      }
-    },
     launches: [ACP_SUBCOMMAND_LAUNCH],
     env: {},
     accountVariable: null
   }
 ]
-
-// Claude Code's native installer, for hosts where chats would fall back to the SDK's logged-out copy.
-const CLAUDE_INSTALL: AgentInstall = {
-  script: { windows: 'irm https://claude.ai/install.ps1 | iex', unix: 'curl -fsSL https://claude.ai/install.sh | bash' }
-}
-const INSTALL_TIMEOUT_MS = 10 * 60_000
 
 const PROBE_TIMEOUT_MS = 8_000
 const helpCache = new Map<string, Promise<string>>()
@@ -165,41 +145,16 @@ export async function listChatAgents(refresh: boolean): Promise<ChatAgentInfo[]>
         accountVariable: id === 'claude' ? 'CLAUDE_CONFIG_DIR' : (SPECS.find((s) => s.agent === id)?.accountVariable ?? null),
         command: launch.command,
         envNames: Object.keys(launch.env).sort(),
-        installCommand: installCommand(id, resolved.status, launch.command, agentUpdate(id) !== null),
-        installUrl: tuiAgentSpec(id)?.homepageUrl ?? null,
+        installUrl: installUrl(id, resolved.status),
         update: launch.command ? null : agentUpdate(id)
       }
     })
   )
 }
 
-/**
- * What installs the agent, the part of it this host lacks, or its newer release; null when it runs
- * up to date or a custom command is set.
- */
-export function installCommand(
-  agent: ChatAgentId,
-  status: ChatAgentInfo['status'],
-  custom: string | null,
-  outdated = false
-): string | null {
-  if (custom || (status === 'ready' && !outdated)) return null
-  const spec = SPECS.find((s) => s.agent === agent)
-  const install = agent === 'claude' ? CLAUDE_INSTALL : spec?.install
-  if (status === 'needs-adapter' && spec?.adapter) return npmLine(spec.adapter.npm)
-  if (!install) return null
-  if (install.npm) return npmLine(install.npm)
-  if (install.script) return process.platform === 'win32' ? install.script.windows : install.script.unix
-  return null
-}
-
-function npmLine(packages: NpmPackage[]): string {
-  return `npm install -g ${packages.map((p) => `${p.name}@latest`).join(' ')}`
-}
-
 /** The npm packages each agent runs from, for the update check. */
 function npmAgents(): { id: ChatAgentId; packages: NpmPackage[] }[] {
-  return SPECS.map((spec) => ({ id: spec.agent, packages: spec.install?.npm ?? spec.adapter?.npm ?? [] })).filter(
+  return SPECS.map((spec) => ({ id: spec.agent, packages: spec.npm ?? [] })).filter(
     (agent) => agent.packages.length > 0
   )
 }
@@ -210,55 +165,10 @@ export async function checkUpdates(network: boolean): Promise<boolean> {
   return checkAgentUpdates(npmAgents(), async (bin) => Bun.which(bin, { PATH }), { network })
 }
 
-const installing = new Map<ChatAgentId, Promise<ChatAgentInstallResult>>()
-
-/** Runs the agent's install command in the host's shell, then lists the agents with a fresh PATH. */
-export function installChatAgent(agent: ChatAgentId): Promise<ChatAgentInstallResult> {
-  let pending = installing.get(agent)
-  if (!pending) {
-    pending = runInstall(agent).finally(() => installing.delete(agent))
-    installing.set(agent, pending)
-  }
-  return pending
-}
-
-async function runInstall(agent: ChatAgentId): Promise<ChatAgentInstallResult> {
-  const current = (await listChatAgents(true)).find((a) => a.id === agent)
-  const line = current?.installCommand
-  if (!line) return { ok: false, output: `Nothing to install for ${chatAgentLabel(agent)} on this host.`, agents: await listChatAgents(false) }
-  const argv =
-    process.platform === 'win32'
-      ? ['powershell.exe', '-NoLogo', '-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass', '-Command', line]
-      : [process.env.SHELL || '/bin/sh', '-lc', line]
-  log(`installing ${agent}: ${line}`)
-  let code = 1
-  let output = ''
-  try {
-    const proc = Bun.spawn(argv, {
-      stdin: 'ignore',
-      stdout: 'pipe',
-      stderr: 'pipe',
-      env: { ...process.env, PATH: await hostPath() },
-      windowsHide: true
-    })
-    const timer = setTimeout(() => proc.kill(), INSTALL_TIMEOUT_MS)
-    const [out, err, exit] = await Promise.all([new Response(proc.stdout).text(), new Response(proc.stderr).text(), proc.exited]).finally(
-      () => clearTimeout(timer)
-    )
-    code = exit
-    output = `${out}${err}`.trim()
-  } catch (error) {
-    output = error instanceof Error ? error.message : String(error)
-  }
-  log(`install of ${agent} exited with ${code}`)
-  // Installers add to PATH (npm's prefix, ~/.local/bin); terminals' agent detection reads it too.
-  helpCache.clear()
-  await hostPath(true)
-  await checkUpdates(false)
-  const agents = await listChatAgents(false)
-  void detectInstalledAgents(true)
-  const after = agents.find((a) => a.id === agent)
-  return { ok: code === 0 && after?.status === 'ready' && !after.update, output, agents }
+/** Where to install the agent, or the adapter it lacks: the vendor's own page. */
+function installUrl(agent: ChatAgentId, status: ChatAgentInfo['status']): string | null {
+  if (status === 'needs-adapter') return SPECS.find((s) => s.agent === agent)?.adapter?.url ?? null
+  return tuiAgentSpec(agent)?.homepageUrl ?? null
 }
 
 function helpText(base: string[], args: string[]): Promise<string> {
