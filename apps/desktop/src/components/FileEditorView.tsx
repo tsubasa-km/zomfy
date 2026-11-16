@@ -17,6 +17,9 @@ import { updateEditorPreferences, useEditorPreferences, type MarkdownViewMode } 
 import { acceptConflict, useMonacoConflicts } from '@/components/editor/use-monaco-conflicts'
 import { useFileDiskWatch } from '@/components/editor/use-file-disk-watch'
 import { EDITOR_FONT_FAMILY, useDarkClass } from '@/components/editor/use-dark-class'
+import { Button } from '@/components/ui/button'
+import { REVEAL_LABEL } from '@/components/right-sidebar/explorer-paths'
+import { canOpenFileExternally, openFileWithDefaultApp, revealFile } from '@/lib/open-file-externally'
 import { cn } from '@/lib/utils'
 import { t } from '@/i18n/i18n'
 
@@ -209,6 +212,7 @@ function TextFileEditor({ tab, markdown }: { tab: EditorTab; markdown: boolean }
       <EditorPanelHeader
         workspaceId={tab.workspaceId}
         path={tab.path}
+        external
         status={
           <>
             {file?.truncated && <span className="shrink-0 text-xs text-muted-foreground">{t('First 1 MB, read-only')}</span>}
@@ -279,10 +283,20 @@ function TextFileEditor({ tab, markdown }: { tab: EditorTab; markdown: boolean }
         />
       )}
       {file?.binary ? (
-        <div className="flex h-full items-center justify-center px-6 text-center">
+        <div className="flex h-full items-center justify-center px-6 text-center" data-binary-file>
           <div className="space-y-2">
             <div className="text-sm font-medium text-foreground">{t('Binary file')}</div>
             <div className="text-xs text-muted-foreground">{t('This file cannot be displayed as text.')}</div>
+            {canOpenFileExternally(tab.workspaceId) && (
+              <div className="flex flex-wrap justify-center gap-2 pt-2">
+                <Button size="sm" data-binary-action="open-default" onClick={() => openFileWithDefaultApp(tab.workspaceId, tab.path)}>
+                  {t('Open with Default App')}
+                </Button>
+                <Button size="sm" variant="outline" data-binary-action="reveal" onClick={() => revealFile(tab.workspaceId, tab.path)}>
+                  {REVEAL_LABEL}
+                </Button>
+              </div>
+            )}
           </div>
         </div>
       ) : file ? (

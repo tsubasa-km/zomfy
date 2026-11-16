@@ -10,6 +10,8 @@ import {
 } from '@/components/ui/dropdown-menu'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { findWorkspace } from '@/session-store'
+import { REVEAL_LABEL } from '@/components/right-sidebar/explorer-paths'
+import { canOpenFileExternally, openFileWithDefaultApp, revealFile } from '@/lib/open-file-externally'
 import { t } from '@/i18n/i18n'
 import './editor-panel.css'
 
@@ -31,13 +33,16 @@ export function EditorPanelHeader({
   path,
   status,
   controls,
-  menuItems
+  menuItems,
+  external = false
 }: {
   workspaceId: string
   path: string
   status?: React.ReactNode
   controls?: React.ReactNode
   menuItems?: React.ReactNode
+  /** The file is on disk: offer opening it in the OS's file manager or default app. */
+  external?: boolean
 }): React.JSX.Element {
   const [copied, setCopied] = useState(false)
   const timer = useRef<number | undefined>(undefined)
@@ -90,6 +95,17 @@ export function EditorPanelHeader({
         <DropdownMenuContent align="end" sideOffset={4} className="min-w-48">
           <DropdownMenuItem onSelect={() => copy(absolute)}>{t('Copy Path')}</DropdownMenuItem>
           <DropdownMenuItem onSelect={() => copy(path)}>{t('Copy Relative Path')}</DropdownMenuItem>
+          {external && canOpenFileExternally(workspaceId) && (
+            <>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem data-editor-action="open-default" onSelect={() => openFileWithDefaultApp(workspaceId, path)}>
+                {t('Open with Default App')}
+              </DropdownMenuItem>
+              <DropdownMenuItem data-editor-action="reveal" onSelect={() => revealFile(workspaceId, path)}>
+                {REVEAL_LABEL}
+              </DropdownMenuItem>
+            </>
+          )}
           {menuItems && <DropdownMenuSeparator />}
           {menuItems}
         </DropdownMenuContent>

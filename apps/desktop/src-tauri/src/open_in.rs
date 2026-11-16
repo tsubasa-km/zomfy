@@ -1,6 +1,7 @@
 //! Orca's "Open in" menu: hand a workspace folder to VS Code, the file manager, or a terminal. A WSL
 //! workspace opens through the distro (VS Code's WSL remote, `\\wsl.localhost`, `wsl --cd`); an SSH
-//! one through VS Code Remote-SSH or an `ssh -t` terminal.
+//! one through VS Code Remote-SSH or an `ssh -t` terminal. A file can also be shown selected in the
+//! file manager (`reveal`) or handed to the app the OS opens it with (`default`).
 
 use crate::daemon_process::hidden;
 use crate::ssh_daemon::{Destination, posix_quote};
@@ -40,7 +41,8 @@ fn open_ssh(target: &str, ssh: &str, path: &str) -> Result<(), String> {
             spawn("wt", &args.iter().map(String::as_str).collect::<Vec<_>>())
         }
         "terminal" => Err("Open in terminal is only wired up on Windows so far".into()),
-        "explorer" => Err("An SSH host's folders can't open in the file manager; use VS Code".into()),
+        "explorer" | "reveal" => Err("An SSH host's folders can't open in the file manager; use VS Code".into()),
+        "default" => Err("An SSH host's files can't open in a local app".into()),
         _ => Err(format!("Unknown open target {target}")),
     }
 }
@@ -58,6 +60,35 @@ fn local_shell_argv(shell: Option<&str>) -> Result<Vec<&'static str>, String> {
     })
 }
 
+/// A WSL path as Windows sees it.
+fn wsl_unc(distro: &str, path: &str) -> String {
+    format!(r"\\wsl.localhost\{distro}{}", path.replace('/', r"\"))
+}
+
+/// The file manager's window on the folder holding `path`, with `path` selected.
+fn reveal(path: &str) -> Result<(), String> {
+    #[cfg(windows)]
+    {
+        use std::os::windows::process::CommandExt;
+        // Explorer parses `/select,"path"` itself; quoting the whole argument, as Command does
+        // for a path with spaces, makes it open its default folder instead.
+        hidden("explorer")
+            .raw_arg(format!("/select,\"{path}\""))
+            .spawn()
+            .map(|_| ())
+            .map_err(|e| format!("explorer: {e}"))
+    }
+    #[cfg(target_os = "macos")]
+    {
+        spawn("open", &["-R", path])
+    }
+    #[cfg(not(any(windows, target_os = "macos")))]
+    {
+        let parent = std::path::Path::new(path).parent().and_then(|p| p.to_str()).unwrap_or(path);
+        spawn("xdg-open", &[parent])
+    }
+}
+
 /// `host` is `local`, `wsl:<distro>` or `ssh:<target>`; `path` is the host's own path. `shell` picks the
 /// local terminal's shell by the daemon's shell id; WSL and SSH terminals run the host's login shell.
 pub fn open_in(target: &str, host: &str, path: &str, shell: Option<&str>) -> Result<(), String> {
@@ -73,10 +104,14 @@ pub fn open_in(target: &str, host: &str, path: &str, shell: Option<&str>) -> Res
         ("explorer", None) if cfg!(windows) => spawn("explorer", &[path]),
         ("explorer", None) if cfg!(target_os = "macos") => spawn("open", &[path]),
         ("explorer", None) => spawn("xdg-open", &[path]),
-        ("explorer", Some(d)) => {
-            let unc = format!(r"\\wsl.localhost\{d}{}", path.replace('/', r"\"));
-            spawn("explorer", &[&unc])
-        }
+        ("explorer", Some(d)) => spawn("explorer", &[&wsl_unc(d, path)]),
+        ("reveal", None) => reveal(path),
+        ("reveal", Some(d)) => reveal(&wsl_unc(d, path)),
+        // Explorer hands a file to its associated app, and asks which one when there is none.
+        ("default", None) if cfg!(windows) => spawn("explorer", &[path]),
+        ("default", None) if cfg!(target_os = "macos") => spawn("open", &[path]),
+        ("default", None) => spawn("xdg-open", &[path]),
+        ("default", Some(d)) => spawn("explorer", &[&wsl_unc(d, path)]),
         ("terminal", None) if cfg!(windows) => {
             let mut args = vec!["-d", path];
             args.extend(local_shell_argv(shell)?);
@@ -97,6 +132,11 @@ mod tests {
         assert!(local_shell_argv(None).unwrap().is_empty());
         assert_eq!(local_shell_argv(Some("cmd")).unwrap(), ["cmd.exe"]);
         assert!(local_shell_argv(Some("zsh")).is_err());
+    }
+
+    #[test]
+    fn wsl_paths_become_unc() {
+        assert_eq!(wsl_unc("Ubuntu", "/home/me/a.zip"), r"\\wsl.localhost\Ubuntu\home\me\a.zip");
     }
 
     #[test]

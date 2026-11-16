@@ -592,6 +592,7 @@ export const SHELL: Record<string, string> = {
   // components/right-sidebar/explorer-paths.ts
   'Reveal in Finder': 'Finder で表示',
   'Reveal in File Explorer': 'エクスプローラーで表示',
+  'Open with Default App': '既定のアプリで開く',
   'Open Containing Folder': '含まれているフォルダーを開く',
 
   // components/right-sidebar/file-explorer-inline-input.tsx

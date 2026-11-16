@@ -168,7 +168,7 @@ function ChangeContextMenu({
           disabled={!absolutePath || !exists || !workspace}
           onSelect={() => {
             if (!absolutePath || !workspace) return
-            openWorkspaceIn('explorer', workspace.hostId, absolutePath.slice(0, absolutePath.lastIndexOf(sep)) || absolutePath)
+            openWorkspaceIn('reveal', workspace.hostId, absolutePath)
           }}
         >
           <SquareArrowOutUpRight className="size-3.5" />

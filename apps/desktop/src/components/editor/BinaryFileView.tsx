@@ -46,6 +46,7 @@ export function BinaryFileView({ tab, kind }: { tab: EditorTab; kind: 'image' | 
       <EditorPanelHeader
         workspaceId={tab.workspaceId}
         path={tab.path}
+        external
         status={
           error && (
             <span className="min-w-0 truncate text-xs text-destructive" title={error}>

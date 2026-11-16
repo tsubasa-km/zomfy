@@ -20,6 +20,7 @@ import { OpenTerminalItem, openWorkspaceIn } from '@/components/sidebar/Workspac
 import { FileExplorerRow, type FileExplorerRowActions } from './FileExplorerRow'
 import { InlineInputRow, type InlineInput } from './file-explorer-inline-input'
 import { PermanentDeleteDialog } from './file-explorer-delete-dialog'
+import { canOpenFileExternally, openFileWithDefaultApp } from '@/lib/open-file-externally'
 import { absolutePath, ancestorsOf, baseName, copyText, isWithin, joinPath, parentDir, revealInFileManager } from './explorer-paths'
 import { useExplorerKeys } from './use-explorer-keys'
 import { requestFindInFolder } from './search-requests'
@@ -284,6 +285,7 @@ export function FileExplorer({ workspaceId, rootName }: { workspaceId: string; r
         }),
       onCopyPaths: (kind) => copyPaths(selectionFor(entry), kind),
       onReveal: (e) => hostId && revealInFileManager(hostId, workspacePath, e.path, e.kind === 'dir'),
+      onOpenDefault: canOpenFileExternally(workspaceId) ? (e) => openFileWithDefaultApp(workspaceId, e.path) : null,
       onFindInFolder: (e) => {
         requestFindInFolder(workspaceId, `${e.path}/**`)
         setRightSidebar({ open: true, tab: 'search' })

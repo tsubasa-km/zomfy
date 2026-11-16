@@ -1,4 +1,4 @@
-import { ChevronRight, CircleAlert, Copy, ExternalLink, File, FilePlus, Files, Folder, FolderOpen, FolderPlus, Link, Loader2, Pencil, Search, Trash2 } from 'lucide-react'
+import { AppWindow, ChevronRight, CircleAlert, Copy, ExternalLink, File, FilePlus, Files, Folder, FolderOpen, FolderPlus, Link, Loader2, Pencil, Search, Trash2 } from 'lucide-react'
 import type { FileEntry } from '@acp-harness/protocol'
 import {
   ContextMenu,
@@ -30,6 +30,8 @@ export interface FileExplorerRowActions {
   onDuplicate: (entry: FileEntry) => void
   onCopyPaths: (kind: 'absolute' | 'relative') => void
   onReveal: (entry: FileEntry) => void
+  /** Null where no local app can reach the file (an SSH host). */
+  onOpenDefault: ((entry: FileEntry) => void) | null
   onFindInFolder: (entry: FileEntry) => void
   onDelete: () => void
 }
@@ -165,6 +167,12 @@ export function FileExplorerRow({
             <Search />
             {t('Find in Folder')}
             <ContextMenuShortcut>{EXPLORER_SHORTCUTS.findInFolder}</ContextMenuShortcut>
+          </ContextMenuItem>
+        )}
+        {!isDir && actions.onOpenDefault && (
+          <ContextMenuItem data-explorer-action="open-default" onSelect={() => actions.onOpenDefault?.(entry)}>
+            <AppWindow />
+            {t('Open with Default App')}
           </ContextMenuItem>
         )}
         <ContextMenuItem onSelect={() => actions.onReveal(entry)}>

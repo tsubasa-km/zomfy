@@ -48,7 +48,7 @@ export const REVEAL_LABEL = platform.includes('Mac')
     ? t('Reveal in File Explorer')
     : t('Open Containing Folder')
 
-/** Opens the folder that holds an entry (or the folder itself) in the host's file manager. */
+/** Opens a folder in the host's file manager, or the folder holding a file with the file selected. */
 export function revealInFileManager(hostId: HostId, workspacePath: string, relative: string, isDir: boolean): void {
-  openWorkspaceIn('explorer', hostId, absolutePath(workspacePath, isDir ? relative : parentDir(relative)))
+  openWorkspaceIn(isDir ? 'explorer' : 'reveal', hostId, absolutePath(workspacePath, relative))
 }

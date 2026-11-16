@@ -48,7 +48,7 @@ import { t } from '@/i18n/i18n'
 // Copy Worktree Name, Pin, Mark Read/Unread, Sleep, Delete.
 
 /** `shell` is one of the local daemon's shell ids, for a terminal; none is the terminal app's default. */
-export function openWorkspaceIn(target: 'vscode' | 'explorer' | 'terminal', hostId: HostId, path: string, shell?: string): void {
+export function openWorkspaceIn(target: 'vscode' | 'explorer' | 'terminal' | 'reveal' | 'default', hostId: HostId, path: string, shell?: string): void {
   void invoke('open_workspace_in', { target, host: hostId, path, shell: shell ?? null }).catch((e: unknown) => window.alert(String(e)))
 }
 
