@@ -437,6 +437,14 @@ export function createHarnessAgent(
     })
     .onRequest("session/load", async (ctx) => {
       if (!sessions.get(ctx.params.sessionId)) throw new Error(`Unknown session ${ctx.params.sessionId}`);
+      // A harness window takes the replay in the response, one message however long the chat.
+      if (ctx.params._meta?.[SESSION_REPLAY_META.inResponse] === true) {
+        const { updates, through } = await sessions.snapshot(ctx.params.sessionId, (updates, through) => ({
+          updates: compactTranscript(updates),
+          through,
+        }));
+        return { _meta: { [SESSION_REPLAY_META.replayedThrough]: through, [SESSION_REPLAY_META.updates]: updates } };
+      }
       // Replay goes only to the client that asked; live updates already reach everyone. Queued
       // whole inside the snapshot, so no live update recorded after it lands in its middle.
       const { sent, through } = await sessions.snapshot(ctx.params.sessionId, (updates, through) => ({

@@ -103,7 +103,15 @@ export const SESSION_REPLAY_META = {
   /** session/update: part of a `session/load` replay, not a live update. */
   replay: 'harness/replay',
   /** session/load response: the last `seq` the replay holds; live updates up to it are already in it. */
-  replayedThrough: 'harness/replayedThrough'
+  replayedThrough: 'harness/replayedThrough',
+  /**
+   * session/load request: true asks for the replay inside the response (`updates`) rather than as one
+   * notification per update, which a long chat makes thousands of messages. A daemon that predates
+   * it ignores it and notifies as before.
+   */
+  inResponse: 'harness/replayInResponse',
+  /** session/load response to `inResponse`: the replayed updates, in order. */
+  updates: 'harness/replayUpdates'
 } as const
 
 export interface ContextUsageMeta {

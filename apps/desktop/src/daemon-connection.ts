@@ -445,12 +445,21 @@ function loadTranscript(sessionId: string): Promise<void> {
   replayBuffers.set(sessionId, []);
   const pending = requireConnection(session.hostId)
     .then((conn) =>
-      conn.agent.request(acp.methods.agent.session.load, { sessionId, cwd: session.cwd, mcpServers: [] }),
+      conn.agent.request(acp.methods.agent.session.load, {
+        sessionId,
+        cwd: session.cwd,
+        mcpServers: [],
+        _meta: { [SESSION_REPLAY_META.inResponse]: true },
+      }),
     )
     .then(
       (response) => {
         staleTranscripts.delete(sessionId);
-        applyReplay(sessionId, replayBuffers.get(sessionId) ?? [], response._meta?.[SESSION_REPLAY_META.replayedThrough]);
+        applyReplay(
+          sessionId,
+          [...replayFromResponse(sessionId, response._meta), ...(replayBuffers.get(sessionId) ?? [])],
+          response._meta?.[SESSION_REPLAY_META.replayedThrough],
+        );
       },
       (error: unknown) => {
         // A partial replay would show a transcript with holes; keep what was shown until a full one.
@@ -464,6 +473,17 @@ function loadTranscript(sessionId: string): Promise<void> {
     });
   loading.set(sessionId, pending);
   return pending;
+}
+
+/** The replay a daemon put in its response; none from one that notified it update by update. */
+function replayFromResponse(sessionId: string, meta: Record<string, unknown> | null | undefined): acp.SessionNotification[] {
+  const updates = meta?.[SESSION_REPLAY_META.updates];
+  if (!Array.isArray(updates)) return [];
+  return updates.map((update) => ({
+    sessionId,
+    update: update as acp.SessionUpdate,
+    _meta: { [SESSION_REPLAY_META.replay]: true },
+  }));
 }
 
 /** Replaces the transcript with a replay and the live updates that raced it. */
