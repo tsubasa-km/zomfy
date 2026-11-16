@@ -36,7 +36,11 @@ export const SETTINGS_SECTIONS: readonly SettingsNavSection[] = [
     group: 'capabilities',
     entries: [
       { title: t('Default agent'), keywords: ['claude', 'agent'] },
-      { title: t('Claude Code command'), description: t('CLI each host runs for agent turns.'), keywords: ['claude', 'path', 'executable', 'cli'] }
+      { title: t('Claude Code command'), description: t('CLI each host runs for agent turns.'), keywords: ['claude', 'path', 'executable', 'cli'] },
+      {
+        title: t('Chat agents'),
+        keywords: ['codex', 'antigravity', 'gemini', 'opencode', 'copilot', 'acp', 'install', 'environment', 'account', 'CODEX_HOME']
+      }
     ]
   },
   {

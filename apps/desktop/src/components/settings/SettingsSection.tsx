@@ -15,6 +15,11 @@ const SettingsSearchContext = createContext<SettingsSearchState>({ query: '', sh
 
 export const SettingsSearchProvider = SettingsSearchContext.Provider
 
+/** The settings search text, for parts that fold away and must open to show what matched. */
+export function useSettingsSearchQuery(): string {
+  return useContext(SettingsSearchContext).query
+}
+
 export function SettingsSection({
   id,
   title,

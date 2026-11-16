@@ -43,6 +43,13 @@ export const TUI_AGENTS = [
     promptInjectionMode: 'flag-prompt-interactive',
     homepageUrl: 'https://github.com/google-gemini/gemini-cli'
   },
+  {
+    id: 'antigravity',
+    label: 'Antigravity',
+    detectCmd: 'agy',
+    promptInjectionMode: 'stdin-after-start',
+    homepageUrl: 'https://antigravity.google/docs/cli/overview'
+  },
   { id: 'aider', label: 'Aider', detectCmd: 'aider', promptInjectionMode: 'stdin-after-start', homepageUrl: 'https://aider.chat' },
   { id: 'goose', label: 'Goose', detectCmd: 'goose', promptInjectionMode: 'stdin-after-start', homepageUrl: 'https://block.github.io/goose/' },
   { id: 'amp', label: 'Amp', detectCmd: 'amp', promptInjectionMode: 'stdin-after-start', homepageUrl: 'https://ampcode.com' },

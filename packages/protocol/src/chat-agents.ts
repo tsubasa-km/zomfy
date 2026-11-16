@@ -4,7 +4,7 @@
 
 import { tuiAgentSpec } from './tui-agents'
 
-export const CHAT_AGENT_IDS = ['claude', 'codex', 'opencode', 'gemini', 'grok', 'copilot', 'qwen-code', 'goose', 'kimi'] as const
+export const CHAT_AGENT_IDS = ['claude', 'codex', 'opencode', 'gemini', 'grok', 'copilot', 'qwen-code', 'goose', 'kimi', 'antigravity'] as const
 export type ChatAgentId = (typeof CHAT_AGENT_IDS)[number]
 
 export function isChatAgentId(value: unknown): value is ChatAgentId {
@@ -31,6 +31,18 @@ export interface ChatAgentInfo {
   command: string | null
   /** Environment variable names set for this agent on this host; values never leave the host. */
   envNames: string[]
+  /** The command line `chatAgentInstall` runs to install (or update) what is missing; null when only
+   *  `installUrl` can help. Absent from daemons that predate installs. */
+  installCommand?: string | null
+  /** Where the agent's own install instructions live. */
+  installUrl?: string | null
+}
+
+export interface ChatAgentInstallResult {
+  ok: boolean
+  /** What the installer printed, for when it fails. */
+  output: string
+  agents: ChatAgentInfo[]
 }
 
 /** One choice the agent's ACP server offers for a session (its model, effort, mode…). */
@@ -56,7 +68,8 @@ export const CHAT_AGENT_OPTION_IDS = { mode: 'harness/mode', model: 'harness/mod
 
 export const CHAT_AGENT_METHODS = {
   chatAgentsList: '_harness/chatAgents/list',
-  chatAgentSetLaunch: '_harness/chatAgents/setLaunch'
+  chatAgentSetLaunch: '_harness/chatAgents/setLaunch',
+  chatAgentInstall: '_harness/chatAgents/install'
 } as const
 
 export interface ChatAgentRequests {
@@ -66,4 +79,6 @@ export interface ChatAgentRequests {
     params: { agent: ChatAgentId; command?: string | null; env?: { name: string; value: string | null } }
     result: ChatAgentInfo[]
   }
+  /** Runs the agent's `installCommand` on the host, then lists the agents again. */
+  [CHAT_AGENT_METHODS.chatAgentInstall]: { params: { agent: ChatAgentId }; result: ChatAgentInstallResult }
 }
