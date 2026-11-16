@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { memo, useEffect, useRef, useState } from 'react'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { cn } from '@/lib/utils'
 import { t } from '@/i18n/i18n'
@@ -33,13 +33,18 @@ function readActiveId(scroller: HTMLElement, items: RailItem[]): string | null {
   return active
 }
 
-export function NativeChatMessageRail({
-  items,
-  scrollRef
-}: {
-  items: RailItem[]
-  scrollRef: React.RefObject<HTMLDivElement | null>
-}) {
+type RailProps = { items: RailItem[]; scrollRef: React.RefObject<HTMLDivElement | null> }
+
+/** A mark (and tooltip) per prompt: rendered again only when the prompts change, not with each streamed chunk. */
+export const NativeChatMessageRail = memo(
+  MessageRail,
+  (prev: RailProps, next: RailProps) =>
+    prev.scrollRef === next.scrollRef &&
+    prev.items.length === next.items.length &&
+    prev.items.every((item, i) => item.id === next.items[i]!.id && item.text === next.items[i]!.text)
+)
+
+function MessageRail({ items, scrollRef }: RailProps) {
   const [activeId, setActiveId] = useState<string | null>(null)
   const railRef = useRef<HTMLDivElement>(null)
   // Parents rebuild `items` every render; reading it through a ref keeps the listener stable,

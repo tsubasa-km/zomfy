@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { memo, useState } from 'react'
 import { ChevronRight, CircleAlert, GitFork, SquareTerminal, Undo2 } from 'lucide-react'
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
@@ -17,7 +17,7 @@ import {
 import { NATIVE_CHAT_QUOTE_SOURCE_PROPS } from './NativeChatSelectionQuote'
 import { NativeChatWorkflowRunCard } from './NativeChatWorkflowRunCard'
 import { NativeChatPromptOrigin } from './NativeChatPromptOrigin'
-import { type TranscriptRowModel } from './native-chat-transcript-model'
+import { sameTranscriptRow, type TranscriptRowModel } from './native-chat-transcript-model'
 import { t } from '@/i18n/i18n'
 
 // Rows follow Orca's NativeChatUserMessageRow, NativeChatAssistantMessageRow,
@@ -43,15 +43,16 @@ export type TranscriptRowActions = {
   workflows: { hostId: string; projectId: string | null; projectName: string }
 }
 
-export function NativeChatTranscriptRow({
-  row,
-  rowKey,
-  actions
-}: {
-  row: TranscriptRowModel
-  rowKey: string
-  actions: TranscriptRowActions
-}) {
+type TranscriptRowProps = { row: TranscriptRowModel; rowKey: string; actions: TranscriptRowActions }
+
+/** A streamed chunk changes the last row; the rest of a long chat keeps what it rendered. */
+export const NativeChatTranscriptRow = memo(
+  TranscriptRow,
+  (prev: TranscriptRowProps, next: TranscriptRowProps) =>
+    prev.rowKey === next.rowKey && prev.actions === next.actions && sameTranscriptRow(prev.row, next.row)
+)
+
+function TranscriptRow({ row, rowKey, actions }: TranscriptRowProps) {
   switch (row.kind) {
     case 'user': {
       const { item } = row

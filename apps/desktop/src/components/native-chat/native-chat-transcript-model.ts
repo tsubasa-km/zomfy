@@ -155,6 +155,56 @@ export function buildTranscript(items: ThreadItem[], turnRunning: boolean, cwd: 
   return { rows, taskList }
 }
 
+/**
+ * Whether two builds of a row show the same thing. The model is rebuilt from every item on each
+ * streamed chunk, so in a long chat nearly every row is new yet unchanged; those skip rendering.
+ */
+export function sameTranscriptRow(a: TranscriptRowModel, b: TranscriptRowModel): boolean {
+  if (a === b) return true
+  if (a.kind !== b.kind) return false
+  switch (a.kind) {
+    case 'user':
+      return shallowEqual(a.item, (b as typeof a).item)
+    case 'tools': {
+      const other = (b as typeof a).tools
+      return a.tools.length === other.length && a.tools.every((node, i) => sameToolNode(node, other[i]!))
+    }
+    case 'tasks': {
+      const other = b as typeof a
+      return a.fromBoard === other.fromBoard && sameJson(a.list, other.list) && sameJson(a.previous, other.previous)
+    }
+    case 'turn-diff':
+      // A turn's diff is made of completed edits, which no longer change.
+      return sameJson(diffShape(a.diff), diffShape((b as typeof a).diff))
+    default:
+      return shallowEqual(a, b)
+  }
+}
+
+function sameToolNode(a: ToolNode, b: ToolNode): boolean {
+  return (
+    a.tool === b.tool &&
+    a.children.length === b.children.length &&
+    a.children.every((child, i) => child === b.children[i]) &&
+    shallowEqual(a.decision ?? {}, b.decision ?? {})
+  )
+}
+
+function diffShape(diff: TurnDiff): unknown {
+  return [diff.added, diff.removed, diff.files.map((f) => [f.path, f.added, f.removed, f.edits.length])]
+}
+
+function shallowEqual(a: object, b: object): boolean {
+  const left = Object.entries(a)
+  if (left.length !== Object.keys(b).length) return false
+  const right = new Map(Object.entries(b))
+  return left.every(([key, value]) => right.has(key) && right.get(key) === value)
+}
+
+function sameJson(a: unknown, b: unknown): boolean {
+  return a === b || JSON.stringify(a) === JSON.stringify(b)
+}
+
 function turnDiff(tools: ToolItem[], cwd: string): TurnDiff | null {
   const files = new Map<string, TurnDiffFile>()
   for (const tool of tools) {

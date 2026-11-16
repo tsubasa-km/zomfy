@@ -141,7 +141,10 @@ function remarkChatMentions() {
   return visit
 }
 
-export function NativeChatMarkdown({
+/** Parsing is the costly part of a chat's render, so a message is parsed again only when it changes. */
+export const NativeChatMarkdown = React.memo(ChatMarkdown)
+
+function ChatMarkdown({
   content,
   rowKey,
   className,

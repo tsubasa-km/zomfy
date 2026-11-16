@@ -1,4 +1,4 @@
-import { useEffect, useId, useMemo, useRef, useState } from 'react'
+import { memo, useEffect, useId, useMemo, useRef, useState } from 'react'
 import { ArrowUp, Square, X } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
@@ -73,13 +73,21 @@ const SEND_LABEL = { 'mod-enter': SUBMIT_SHORTCUT_LABEL, enter: '↵' } as const
 // What a press in the composer box keeps for itself instead of moving the caret.
 const COMPOSER_CONTROLS = 'button, a, input, select, textarea, label, [role="button"], [role="menuitem"], [role="option"], .cm-content, [data-native-chat-attachment]'
 
-export function NativeChatComposer({
-  session,
-  editorRef
-}: {
-  session: Session
-  editorRef: React.RefObject<MarkdownEditorHandle | null>
-}) {
+type ComposerProps = { session: Session; editorRef: React.RefObject<MarkdownEditorHandle | null> }
+
+/**
+ * The session fields the composer (and the menus it hands the session to) reads. Its session
+ * changes with every streamed chunk; without this, the whole composer would render with each one.
+ */
+const COMPOSER_SESSION_FIELDS = ['id', 'workspaceId', 'hostId', 'status', 'agent', 'agentState', 'options', 'promptSuggestion', 'sideOf'] as const
+
+export const NativeChatComposer = memo(
+  Composer,
+  (prev: ComposerProps, next: ComposerProps) =>
+    prev.editorRef === next.editorRef && COMPOSER_SESSION_FIELDS.every((key) => prev.session[key] === next.session[key])
+)
+
+function Composer({ session, editorRef }: ComposerProps) {
   const { draft, draftImages, usage, queue } = useChatSession(session.id)
   const catalog = useChatStore((s) => s.catalogs[session.workspaceId])
   // Models are the account's, not the folder's: when this folder's probe failed, another folder's list on the host serves.

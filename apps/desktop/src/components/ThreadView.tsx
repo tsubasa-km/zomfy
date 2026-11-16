@@ -48,7 +48,7 @@ import { NativeChatMessageRail, type RailItem } from '@/components/native-chat/N
 import { NativeChatQueuedMessageList } from '@/components/native-chat/NativeChatQueuedMessageList'
 import { NativeChatSelectionQuote, formatNativeChatQuote } from '@/components/native-chat/NativeChatSelectionQuote'
 import { selectionMarkdown } from '@/components/native-chat/selection-markdown'
-import { NativeChatTranscriptRow } from '@/components/native-chat/NativeChatTranscriptRow'
+import { NativeChatTranscriptRow, type TranscriptRowActions } from '@/components/native-chat/NativeChatTranscriptRow'
 import { buildTranscript } from '@/components/native-chat/native-chat-transcript-model'
 import { useNativeChatFind } from '@/components/native-chat/use-native-chat-find'
 import '@/components/native-chat/native-chat-appearance.css'
@@ -93,6 +93,22 @@ export function ThreadView({ session, onSendToMain }: { session: Session; onSend
     projectName: project ? (project.displayName ?? project.name) : ''
   }
   const recoveryRow = turnEnd ? model.rows.findLastIndex((row) => row.kind === 'notice' && row.turnEnd !== undefined) : -1
+  // One actions object for every row, kept while nothing in it changes: rows render only when theirs do.
+  const rowActions = useMemo(
+    (): TranscriptRowActions => ({
+      ...(working || !claudeOnly ? {} : { onRewind: setRewindTarget }),
+      onForkFrom: (messageId) => void forkChat(session.id, messageId),
+      ...(forkReason ? { forkUnavailable: forkReason } : {}),
+      cwd: session.cwd,
+      workflows: { hostId: workflowHome.hostId, projectId: workflowHome.projectId, projectName: workflowHome.projectName },
+      onRevealFile: (path) => openEditorTab({ workspaceId: session.workspaceId, kind: 'file', path, staged: false })
+    }),
+    [working, claudeOnly, forkReason, session.id, session.cwd, session.workspaceId, workflowHome.hostId, workflowHome.projectId, workflowHome.projectName]
+  )
+  const recoveryActions = useMemo(
+    (): TranscriptRowActions => ({ ...rowActions, onRecover: (kind) => void resumeTurn(session.id, kind) }),
+    [rowActions, session.id]
+  )
   const limitResetsAt = turnEnd?.reason === 'usage-limit' ? turnEnd.resetsAt : null
   const showLimitBanner = !running && (turnEnd?.reason === 'usage-limit' || Boolean(session.autoResume))
   const find = useNativeChatFind(columnRef, session.items)
@@ -124,7 +140,7 @@ export function ThreadView({ session, onSendToMain }: { session: Session; onSend
   const railItems = useMemo(
     (): RailItem[] =>
       model.rows.flatMap((row, index) =>
-        row.kind === 'user' ? [{ id: `${session.id}:${index}`, text: row.item.text.replace(/\s+/g, ' ').slice(0, 200) }] : []
+        row.kind === 'user' ? [{ id: `${session.id}:${index}`, text: row.item.text.slice(0, 1000).replace(/\s+/g, ' ').slice(0, 200) }] : []
       ),
     [model.rows, session.id]
   )
@@ -189,16 +205,7 @@ export function ThreadView({ session, onSendToMain }: { session: Session; onSend
                         key={index}
                         row={row}
                         rowKey={`${session.id}:${index}`}
-                        actions={{
-                          ...(working || !claudeOnly ? {} : { onRewind: setRewindTarget }),
-                          onForkFrom: (messageId) => void forkChat(session.id, messageId),
-                          ...(index === recoveryRow ? { onRecover: (kind) => void resumeTurn(session.id, kind) } : {}),
-                          ...(forkReason ? { forkUnavailable: forkReason } : {}),
-                          cwd: session.cwd,
-                          workflows: workflowHome,
-                          onRevealFile: (path) =>
-                            openEditorTab({ workspaceId: session.workspaceId, kind: 'file', path, staged: false })
-                        }}
+                        actions={index === recoveryRow ? recoveryActions : rowActions}
                       />
                     ))}
                     {session.turnStartedAt !== null && <WorkingStatus startedAt={session.turnStartedAt} />}
