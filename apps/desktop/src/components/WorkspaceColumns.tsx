@@ -1,20 +1,17 @@
-import { AppWindow } from 'lucide-react'
 import { allProjects, allWorkspaces, getState, selectSession, selectWorkspace, useStore } from '@/session-store'
 import { sidebarDrag, type DragItem } from '@/components/sidebar/sidebar-drag'
 import { projectLabel } from '@/components/sidebar/workspace-visibility'
 import { WorkspaceTabs } from '@/components/WorkspaceTabs'
 import { PaneSidebar, PaneSidebarButtons } from '@/components/tab-layout/PaneSidebar'
-import { PaneMoreMenu, PaneTitleMenu } from '@/components/PaneMenu'
-import { DragChip } from '@/components/PointerDragLayer'
-import { canPopOutWorkspace, popOutWorkspace } from '@/lib/workspace-window'
-import { paneDrag } from '@/components/pane-drop'
+import { PaneMoreMenu } from '@/components/PaneMenu'
 import { WINDOW_TABS } from '@/stores/tab-layout-store'
 import { t } from '@/i18n/i18n'
 
 // The main area: one set of tabs for the whole window, as an editor's. A tab is a chat, a terminal,
 // a file, a page or a panel of any workspace, and tabs split side by side whatever project they
-// belong to. The header and the sidebar on the right follow the tab in front: they name the
-// workspace it works in and show that workspace's files, changes and checks.
+// belong to. There is no header above them: the tab strip's right end carries the panels of the
+// workspace the tab in front works in, whose files, changes and checks the sidebar on the right
+// shows, and the status bar names that workspace.
 
 const EMPTY_HINT = t('No tabs yet. Start one here, or find more under + in the tab bar.')
 
@@ -43,13 +40,19 @@ export function WorkspaceMain() {
 
   return (
     <div ref={dropRef} className="relative flex min-w-0 flex-1" data-workspace-main>
-      <div className="flex min-h-0 min-w-0 flex-1 flex-col">
-        {active ? <PaneHeader workspaceId={active} /> : <BareHeader />}
-        <div className="flex min-h-0 min-w-0 flex-1">
-          <WorkspaceTabs workspaceId={WINDOW_TABS} emptyHint={EMPTY_HINT} />
-          {active && <PaneSidebar workspaceId={active} />}
-        </div>
-      </div>
+      <WorkspaceTabs
+        workspaceId={WINDOW_TABS}
+        emptyHint={EMPTY_HINT}
+        trailing={
+          active ? (
+            <div className="flex shrink-0 items-center gap-0.5 pr-1.5 pl-1" data-window-tools>
+              <PaneSidebarButtons workspaceId={active} />
+              <PaneMoreMenu workspaceId={active} />
+            </div>
+          ) : undefined
+        }
+      />
+      {active && <PaneSidebar workspaceId={active} />}
     </div>
   )
 }
@@ -70,44 +73,4 @@ export function usePaneTitle(workspaceId: string): { title: string; detail: stri
     return workspace.branch && workspace.branch !== name ? `${name} · ${workspace.branch}` : name
   })
   return { title, detail: detail !== title ? detail : '' }
-}
-
-/**
- * The window's header, laid out as the Claude app's session header: where the tab in front works
- * (opening the project's menu), then that workspace's panels and "…". Dragged out of the window, it
- * opens the workspace in a window of its own.
- */
-export function PaneHeader({ workspaceId }: { workspaceId: string }) {
-  const { title, detail } = usePaneTitle(workspaceId)
-  return (
-    <div
-      data-column-header
-      title={canPopOutWorkspace() ? t('Drag out of the window to open this workspace in a window of its own') : undefined}
-      className="flex h-10 shrink-0 items-center gap-1 border-b border-b-border pr-1.5 pl-1.5 select-none"
-      onPointerDown={(event) => {
-        if (!canPopOutWorkspace()) return
-        if (event.target instanceof Element && event.target.closest('button')) return
-        paneDrag.begin(event, {
-          payload: () => ({ workspaceId }),
-          preview: <DragChip label={title} icon={<AppWindow className="size-3.5" />} />,
-          onDropOutside: (_item, screen) => void popOutWorkspace(workspaceId, screen)
-        })
-      }}
-    >
-      <PaneTitleMenu workspaceId={workspaceId} title={title} detail={detail} focused={false} />
-      <div className="ml-auto flex shrink-0 items-center gap-0.5">
-        <PaneSidebarButtons workspaceId={workspaceId} />
-        <PaneMoreMenu workspaceId={workspaceId} />
-      </div>
-    </div>
-  )
-}
-
-/** The header with no workspace in front (the "New chat" tab, or nothing open): the same height, so tabs do not jump. */
-function BareHeader() {
-  return (
-    <div data-column-header className="flex h-10 shrink-0 items-center border-b border-b-border pr-1.5 pl-3 select-none">
-      <span className="truncate text-sm font-medium text-muted-foreground">{t('New chat')}</span>
-    </div>
-  )
 }

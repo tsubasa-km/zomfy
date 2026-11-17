@@ -1,6 +1,7 @@
 import type { ReactNode } from 'react'
 import { GitBranch, PanelsTopLeft, Settings, ZoomIn } from 'lucide-react'
 import {
+  allProjects,
   findWorkspace,
   floatingWorkspaceId,
   getState,
@@ -66,15 +67,18 @@ function BranchSegment() {
   const workspace = workspaceId ? findWorkspace(workspaceId) : null
   const label = useShortcutLabel('sidebar.sourceControl.toggle')
   if (!workspace) return null
-  const text = workspace.branch ?? (workspace.projectId ? t('detached') : t('folder'))
+  const branch = workspace.branch ?? (workspace.projectId ? t('detached') : t('folder'))
+  // The window has no header naming the workspace in front, so this segment does: its project, then its branch.
+  const project = allProjects().find((p) => p.hostId === workspace.hostId && p.id === workspace.projectId)
+  const text = project ? `${project.displayName ?? project.name} · ${branch}` : workspace.scratch ? t('Quick chat') : branch
   return (
     <Segment
-      label={t('Branch {name}', { name: text })}
+      label={t('Branch {name}', { name: branch })}
       tooltip={`${workspace.displayName ?? workspace.name} · ${t('Source Control')}${label ? ` (${label})` : ''}`}
       onClick={() => setRightSidebar({ open: true, tab: 'source-control' })}
     >
       <GitBranch className="size-3" />
-      <span className="max-w-48 truncate" data-status-branch>
+      <span className="max-w-64 truncate" data-status-branch>
         {text}
       </span>
     </Segment>
