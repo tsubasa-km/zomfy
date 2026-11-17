@@ -3,6 +3,7 @@
 import { tuiAgentSpec } from '@acp-harness/protocol'
 import { ClaudeIcon, OpenAIIcon } from '@/components/agent-icons'
 import ampUrl from '@/assets/agent-icons/amp.png'
+import antigravityUrl from '@/assets/agent-icons/antigravity.png'
 import augUrl from '@/assets/agent-icons/aug.png'
 import clineUrl from '@/assets/agent-icons/cline.png'
 import continueUrl from '@/assets/agent-icons/continue.png'
@@ -20,6 +21,7 @@ import rovoUrl from '@/assets/agent-icons/rovo.png'
 
 const FAVICONS: Record<string, string> = {
   amp: ampUrl,
+  antigravity: antigravityUrl,
   aug: augUrl,
   cline: clineUrl,
   continue: continueUrl,
