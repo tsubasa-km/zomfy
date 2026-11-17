@@ -89,3 +89,27 @@ test('a turn stopped before its server is up never reaches the agent', async () 
   expect(await session.prompt(text('hi'), new AbortController(), neverAnswered)).toBe('end_turn')
   expect(said).toEqual(['echo: hi'])
 }, 15_000)
+
+test('an agent that cannot reopen its conversation is handed the chat before its prompt is read', async () => {
+  const said: string[] = []
+  const notices: string[] = []
+  let handoff = ''
+  // The scripted agent has neither session/resume nor session/load, so the saved id cannot reopen.
+  const session = new AcpAgentSession('codex', process.cwd(), 'gone', emptyAgentState(), {
+    emit: async (update: acp.SessionUpdate) => {
+      if (update.sessionUpdate === 'agent_message_chunk' && update.content.type === 'text') said.push(update.content.text)
+      if (update.sessionUpdate === 'notice') notices.push(update.title)
+    },
+    onState: () => undefined,
+    onAgentSessionId: () => undefined,
+    onConversationLost: async () => {
+      await Bun.sleep(20)
+      handoff = 'the chat so far. '
+    }
+  })
+  open.push(session)
+  const blocks = (): acp.ContentBlock[] => [{ type: 'text', text: `${handoff}hi` }]
+  expect(await session.prompt(blocks, new AbortController(), neverAnswered)).toBe('end_turn')
+  expect(said).toEqual(['echo: the chat so far. hi'])
+  expect(notices).toHaveLength(1)
+}, 15_000)

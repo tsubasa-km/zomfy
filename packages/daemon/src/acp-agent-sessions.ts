@@ -3,6 +3,7 @@ import { AcpAgentSession, emptyAgentState } from './acp-agent-session.ts'
 import type { SessionRecord, SessionRegistry } from './session-registry.ts'
 import { managerMcp } from './manager-mcp-server.ts'
 import { mcpServersReady } from './mcp-ready.ts'
+import { restartHandoff } from './agent-handoff.ts'
 
 /** The ACP servers running for this daemon's external-agent sessions, one per session. */
 export class AcpAgentSessions {
@@ -32,20 +33,45 @@ export class AcpAgentSessions {
     else this.stepServers.delete(sessionId)
   }
 
+  /** Stops the session's server, as when its chat changes agent; the agent's own conversation stays reopenable. */
+  release(sessionId: string): void {
+    this.live.get(sessionId)?.dispose()
+    this.live.delete(sessionId)
+  }
+
   /** The session's agent connection, made on first use; null for Claude sessions. */
   for(record: SessionRecord): AcpAgentSession | null {
+    // The chat changed agent since: the server running is the previous agent's.
+    const running = this.live.get(record.id)
+    if (running && running.agent !== record.agent) this.release(record.id)
     if (!record.agent || record.agent === 'claude') return null
-    let agent = this.live.get(record.id)
-    if (!agent) {
-      agent = new AcpAgentSession(record.agent, record.cwd, record.agentSessionId ?? null, record.agentState ?? emptyAgentState(), {
-        emit: (update) => this.emit(record.id, update),
-        onState: (agentState) => this.sessions.update(record.id, { agentState }),
-        onAgentSessionId: (agentSessionId) => this.sessions.update(record.id, { agentSessionId }),
-        mcpServers: (capabilities) => [...managerMcp.acpServers(record.id, capabilities), ...(this.stepServers.get(record.id) ?? [])],
-        ready: () => mcpServersReady(this.stepServers.get(record.id) ?? [])
-      })
-      this.live.set(record.id, agent)
-    }
+    const existing = this.live.get(record.id)
+    if (existing) return existing
+    const agentId = record.agent
+    // A server let go while it started still reports; by then the record is another agent's.
+    const current = (): boolean => this.live.get(record.id) === agent
+    const agent: AcpAgentSession = new AcpAgentSession(agentId, record.cwd, record.agentSessionIds?.[agentId] ?? null, record.agentState ?? emptyAgentState(), {
+      emit: async (update) => {
+        if (current()) await this.emit(record.id, update)
+      },
+      onState: (agentState) => {
+        if (current()) this.sessions.update(record.id, { agentState })
+      },
+      onAgentSessionId: (agentSessionId) => {
+        if (current()) this.sessions.update(record.id, { agentSessionIds: { ...record.agentSessionIds, [agentId]: agentSessionId } })
+      },
+      onConversationLost: async () => {
+        const transcript = await this.sessions.transcript(record.id)
+        // A turn waiting on this start has its prompt in the transcript already; it follows the handoff.
+        let end = transcript.length
+        if (record.turnStartedAt !== null) while (transcript[end - 1]?.sessionUpdate === 'user_message_chunk') end--
+        const handoffContext = restartHandoff(transcript.slice(0, end), { agent: agentId, cwd: record.cwd })
+        if (handoffContext && current()) this.sessions.update(record.id, { handoffContext })
+      },
+      mcpServers: (capabilities) => [...managerMcp.acpServers(record.id, capabilities), ...(this.stepServers.get(record.id) ?? [])],
+      ready: () => mcpServersReady(this.stepServers.get(record.id) ?? [])
+    })
+    this.live.set(record.id, agent)
     return agent
   }
 }

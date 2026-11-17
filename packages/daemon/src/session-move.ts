@@ -3,6 +3,7 @@ import type { MoveSessionParams, MoveSessionResult, Workspace } from "@acp-harne
 import { chatAgentLaunch } from "./chat-agent-launch-settings.ts";
 import { moveClaudeConversation } from "./claude-conversation-move.ts";
 import { releaseFinishedTurn } from "./claude-turn.ts";
+import { pendingHandoff } from "./agent-handoff.ts";
 import { publicInfo, type SessionRegistry } from "./session-registry.ts";
 import type { WorkspaceManager } from "./workspace-manager.ts";
 
@@ -85,7 +86,8 @@ export class SessionMover {
     const { sessions, emit } = this.deps;
     const session = sessions.get(sessionId);
     if (!session || session.cwd === cwd) return;
-    if (session.claudeSessionId && (session.agent ?? "claude") === "claude") {
+    // Claude's conversation follows even while another agent runs the chat, so changing back finds it.
+    if (session.claudeSessionId) {
       await releaseFinishedTurn(sessionId);
       await moveClaudeConversation(session.claudeSessionId, session.cwd, cwd, (await chatAgentLaunch("claude")).env);
     }
@@ -108,7 +110,24 @@ export class SessionMover {
       await releaseFinishedTurn(sessionId);
       await moveClaudeConversation(session.claudeSessionId, session.cwd, target.path, (await chatAgentLaunch("claude")).env);
     }
-    sessions.update(sessionId, { workspaceId: target.id, cwd: target.path, promptSuggestion: null });
+    sessions.update(sessionId, {
+      workspaceId: target.id,
+      cwd: target.path,
+      promptSuggestion: null,
+      // Other agents that ran this chat keep their conversations by folder, and ACP cannot move them:
+      // one the chat returns to starts anew, told the whole conversation.
+      agentSessionIds: {},
+      // What Claude is still to be told on taking the chat back names the folder to work in.
+      ...(session.handoffContext
+        ? {
+            handoffContext: pendingHandoff(await sessions.transcript(sessionId), {
+              agent: "claude",
+              cwd: target.path,
+              resumes: session.claudeSessionId !== null,
+            }),
+          }
+        : {}),
+    });
     await emit(sessionId, {
       sessionUpdate: "notice",
       severity: "info",
