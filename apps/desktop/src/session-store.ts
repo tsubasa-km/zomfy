@@ -12,6 +12,7 @@ import type {
   PromptOrigin,
   Workspace
 } from '@acp-harness/protocol'
+import { NEW_CHAT_TITLE } from '@acp-harness/protocol'
 import { WINDOW_ROLE } from '@/lib/window-role'
 import {
   carriesOverOpenChats,
@@ -578,6 +579,11 @@ export function showQuickStart(): void {
 
 // ── Sessions ─────────────────────────────────────────────────────────────
 
+/** A chat's name as this window shows it: one that has not been named yet says so in the window's language. */
+function shownTitle(title: string): string {
+  return title === NEW_CHAT_TITLE ? t('New chat') : title
+}
+
 /** Applies one host's session list, keeping transcripts this window already has. */
 export function mergeSessions(hostId: HostId, list: SessionInfo[]): void {
   const previous = new Map(state.sessions.map((s) => [s.id, s]))
@@ -603,7 +609,7 @@ export function mergeSessions(hostId: HostId, list: SessionInfo[]): void {
       const seconds = Math.max(1, Math.round((Date.now() - old.turnStartedAt) / 1000))
       items = [...items, { kind: 'notice', text: t('Worked for {seconds}s', { seconds }) }]
     }
-    const session: Session = { ...info, hostId, workspaceId: info.workspaceId, items, loaded: old?.loaded ?? false }
+    const session: Session = { ...info, title: shownTitle(info.title), hostId, workspaceId: info.workspaceId, items, loaded: old?.loaded ?? false }
     sessions.push(session)
     if (old && old.status !== info.status) {
       transitions.push({ session, from: old.status, to: info.status })
@@ -631,7 +637,7 @@ export function mergeSessions(hostId: HostId, list: SessionInfo[]): void {
 
 /** Adds a chat this window just started. With `focus` it gets a tab, in front; without, it only joins the sidebar. */
 export function addSession(session: Session, focus = true): void {
-  const next = { ...state, sessions: [...state.sessions.filter((s) => s.id !== session.id), session] }
+  const next = { ...state, sessions: [...state.sessions.filter((s) => s.id !== session.id), { ...session, title: shownTitle(session.title) }] }
   // A side chat lives in its main chat's drawer and never has a tab.
   if (!focus || session.sideOf) return set(next)
   showChat(session.id)

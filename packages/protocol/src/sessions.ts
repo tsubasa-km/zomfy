@@ -26,6 +26,8 @@ export interface SessionInfo {
   createdAt: number
   /** Set while a turn runs. */
   turnStartedAt: number | null
+  /** When a turn last started or ended, for ordering chats by recency; absent from older daemons and until the first turn. */
+  lastActivityAt?: number
   /** Absent from daemons that predate composer options. */
   options?: SessionOptions
   /** The agent the session runs; absent (older daemons) means Claude. */

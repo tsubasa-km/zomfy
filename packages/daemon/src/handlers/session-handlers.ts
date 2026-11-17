@@ -1,5 +1,5 @@
 import type * as acp from "@agentclientprotocol/sdk";
-import { HARNESS_METHODS, chatAgentLabel, isChatAgentId, type ChatAgentId } from "@acp-harness/protocol";
+import { HARNESS_METHODS, NEW_CHAT_TITLE, chatAgentLabel, isChatAgentId, type ChatAgentId } from "@acp-harness/protocol";
 import type { HandlerContext } from "./handler-context.ts";
 import { DEFAULT_SESSION_OPTIONS, publicInfo, type SessionRecord } from "../session-registry.ts";
 
@@ -128,8 +128,8 @@ export function registerSessionHandlers(ctx: HandlerContext): void {
       agentState: to === "claude" ? undefined : emptyAgentState(),
       handoffContext,
       promptSuggestion: null,
-      // A chat still named after its agent follows the change.
-      ...(session.title === chatAgentLabel(from) ? { title: chatAgentLabel(to) } : {}),
+      // A chat an older daemon named after its agent would now carry the wrong one.
+      ...(session.title === chatAgentLabel(from) ? { title: NEW_CHAT_TITLE } : {}),
       // Claude keeps the options it had in this chat; where it never answered, it starts on the defaults.
       ...(to === "claude" && !answered
         ? {

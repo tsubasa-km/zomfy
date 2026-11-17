@@ -21,9 +21,9 @@ function parentOf(session: Session): string | undefined {
   return session.parentId ?? session.sideOf
 }
 
-/** When the chat last had the person's or the agent's attention, as far as this window knows. */
+/** When the chat's latest turn started or ended; a chat that never ran one counts from when it was made. */
 export function activityOf(session: Session): number {
-  return session.turnStartedAt ?? session.createdAt
+  return session.turnStartedAt ?? session.lastActivityAt ?? session.createdAt
 }
 
 /** Top-level chats, each with the chats under it; a chat whose parent is not listed stands on its own. */

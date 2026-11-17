@@ -156,8 +156,8 @@ test('Claude taking over a chat it never ran starts on default options, in the m
   const c = chat({ agent: 'codex', title: 'Codex', options: { ...DEFAULT_SESSION_OPTIONS } }, [user('Request'), agent('Codex answer.')])
   await c.setAgent('claude', { permissionMode: 'acceptEdits' })
   expect(c.session.options).toEqual({ ...DEFAULT_SESSION_OPTIONS, permissionMode: 'acceptEdits' })
-  // Still named after its agent, so the name follows.
-  expect(c.session.title).toBe('Claude')
+  // An older daemon named it after its agent, which would now be the wrong one.
+  expect(c.session.title).toBe('New chat')
   expect(c.session.handoffContext).toContain('taking over this conversation from Codex')
 })
 

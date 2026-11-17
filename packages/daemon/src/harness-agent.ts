@@ -10,6 +10,7 @@ import {
   TURN_RECOVERY_META,
   TURN_RECOVERY_NOTIFICATIONS,
   chatAgentLabel,
+  isUntitledChat,
   type HarnessMethod,
   type HarnessRequests,
   type TurnEndMeta,
@@ -273,9 +274,9 @@ export function createHarnessAgent(
     await external?.settled();
     // A chat that changed agent before its first message has that notice in its transcript, and nothing said.
     const firstTurn = external
-      ? session.title === chatAgentLabel(external.agent) &&
+      ? isUntitledChat(session.title) &&
         !(await sessions.transcript(session.id)).some((u) => u.sessionUpdate === "user_message_chunk")
-      : session.claudeSessionId === null && session.title === "Claude";
+      : session.claudeSessionId === null && isUntitledChat(session.title);
     sessions.update(session.id, {
       status: "working",
       turnStartedAt: Date.now(),

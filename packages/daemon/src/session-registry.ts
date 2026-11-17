@@ -3,7 +3,7 @@ import { join } from 'node:path'
 import type * as acp from '@agentclientprotocol/sdk'
 import {
   TURN_RECOVERY_META,
-  chatAgentLabel,
+  NEW_CHAT_TITLE,
   type ChatAgentId,
   type SessionInfo,
   type SessionOptions,
@@ -109,7 +109,7 @@ export class SessionRegistry {
   ): SessionRecord {
     const record: SessionRecord = {
       id: crypto.randomUUID(),
-      title: chatAgentLabel(fields.agent ?? 'claude'),
+      title: NEW_CHAT_TITLE,
       status: 'idle',
       createdAt: Date.now(),
       turnStartedAt: null,
@@ -125,7 +125,9 @@ export class SessionRegistry {
   update(id: string, patch: Partial<SessionRecord>): void {
     const record = this.records.get(id)
     if (!record) return
-    Object.assign(record, patch)
+    // A turn starting or ending is what "recently active" means to the chat list.
+    const turnChanged = 'turnStartedAt' in patch && patch.turnStartedAt !== record.turnStartedAt
+    Object.assign(record, patch, turnChanged ? { lastActivityAt: Date.now() } : {})
     this.changed()
   }
 
