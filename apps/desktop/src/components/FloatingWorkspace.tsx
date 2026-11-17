@@ -2,7 +2,8 @@ import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react
 import { allWorkspaces, floatingWorkspaceId, getState, setFloating, useStore } from '@/session-store'
 import { useCommandHandler } from '@/keybindings/keybinding-registry'
 import { WorkspaceTabs } from '@/components/WorkspaceTabs'
-import { useWorkspaceTabs } from '@/components/tab-layout/workspace-tab-model'
+import { newTerminalTab, useWorkspaceTabs } from '@/components/tab-layout/workspace-tab-model'
+import { getSetting } from '@/stores/settings-store'
 import { FloatingWorkspaceToggleButton } from '@/components/floating-workspace/FloatingWorkspaceToggleButton'
 import { FloatingWorkspaceWindowControls } from '@/components/floating-workspace/FloatingWorkspaceWindowControls'
 import { useFloatingWorkspaceTrigger } from '@/components/floating-workspace/use-floating-workspace-trigger'
@@ -171,6 +172,17 @@ export function FloatingWorkspace() {
   useEffect(() => {
     if (!trigger.enabled && getState().floating.open) setFloating({ open: false })
   }, [trigger.enabled])
+
+  // Opening the panel with no tabs starts a terminal, so it is ready to type in. Only an opening
+  // counts: a panel left open at launch, or emptied by closing its last tab, stays as it is.
+  const wasOpen = useRef(open)
+  useEffect(() => {
+    const opened = open && !wasOpen.current
+    wasOpen.current = open
+    if (!opened || !floatingId || tabCount > 0 || !getSetting('floatingWorkspaceOpenTerminal')) return
+    // A failed start leaves the empty panel with its start buttons.
+    newTerminalTab(floatingId).catch(() => undefined)
+  }, [open, floatingId])
 
   // Orca's floatingWorkspace.maximize opens the panel maximized when it is minimized.
   useCommandHandler(
