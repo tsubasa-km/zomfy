@@ -1,8 +1,9 @@
 import { toast } from 'sonner'
 import { HARNESS_METHODS } from '@acp-harness/protocol'
 import { harnessRequest } from '@/daemon-connection'
-import { getState, selectTab, updateSession } from '@/session-store'
+import { getState, updateSession } from '@/session-store'
 import { hideChats, removeTabsFromLayout, showChat } from '@/stores/tab-layout-store'
+import { selectLayoutTab } from '@/components/tab-layout/workspace-tab-model'
 import { t } from '@/i18n/i18n'
 
 /** A daemon from before rename/archive answers JSON-RPC "method not found". */
@@ -44,7 +45,7 @@ export async function setChatArchived(sessionId: string, archived: boolean): Pro
   if (archived) {
     const next = removeTabsFromLayout(before.workspaceId, [sessionId])
     hideChats([sessionId])
-    if (next) selectTab(before.workspaceId, next)
+    selectLayoutTab(next, before.workspaceId)
   }
   try {
     await harnessRequest(HARNESS_METHODS.sessionSetArchived, { sessionId, archived }, before.hostId)

@@ -37,6 +37,7 @@ import {
   removeTabsFromLayout,
   setTabMeta,
   showChat,
+  tabScope,
   useTabLayout,
   WINDOW_TABS,
   type ReopenSpec,
@@ -202,8 +203,19 @@ export function absoluteEditorPath(workspaceId: string, relative: string): strin
  */
 export function syncWorkspaceFocus(workspaceId: string): void {
   const layout = layoutFor(workspaceId)
-  const active = layout.groups[layout.focusedGroupId]?.activeTabId
-  if (active) selectTab(active === START_TAB ? null : (workspaceOfTab(active) ?? workspaceId), active)
+  const active = layout.groups[layout.focusedGroupId]?.activeTabId ?? null
+  // A window left with no tab at all has no workspace in front either, and offers a new chat.
+  if (active || getState().activeWorkspaceId !== null) selectLayoutTab(active, workspaceId)
+}
+
+/**
+ * Puts the tab a layout shows in front into the app-wide focus, under the tab's own workspace
+ * (`workspaceId` only says which layout it is). With no tab left among the window's, no workspace
+ * is in front.
+ */
+export function selectLayoutTab(tabId: string | null, workspaceId: string): void {
+  if (tabId) selectTab(tabId === START_TAB ? null : (workspaceOfTab(tabId) ?? workspaceId), tabId)
+  else if (tabScope(workspaceId) === WINDOW_TABS) selectTab(null, '')
 }
 
 export function activateTab(workspaceId: string, groupId: string, tabId: string): void {
@@ -263,7 +275,7 @@ export function closeWorkspaceTabs(workspaceId: string, tabs: WorkspaceTab[]): b
   forgetTabMeta(tabs.filter((t) => t.kind !== 'chat').map((t) => t.id))
   forgetPanes(ids)
   // Session close picks its own fallback; the focused group's MRU choice wins, as in Orca.
-  if (next) selectTab(next === START_TAB ? null : (workspaceOfTab(next) ?? workspaceId), next)
+  selectLayoutTab(next, workspaceId)
   return true
 }
 

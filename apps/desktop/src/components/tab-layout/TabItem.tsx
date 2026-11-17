@@ -5,7 +5,7 @@ import { AgentStateDot, type AgentDotState } from '@/components/AgentStateDot'
 import { Input } from '@/components/ui/input'
 import { isImeOwnedKeyboardEvent } from '@/lib/ime-composition-keyboard-event'
 import { cn } from '@/lib/utils'
-import { setTabMeta, useTabLayout } from '@/stores/tab-layout-store'
+import { keepTab, setTabMeta, tabScope, useTabLayout } from '@/stores/tab-layout-store'
 import { gestureOf, keepTextUnselected, tabSelection } from '@/stores/list-selection'
 import { TabContextMenu } from './TabContextMenu'
 import { TabKindIcon } from './TabKindIcon'
@@ -60,6 +60,7 @@ export function TabItem({
   const showPlace = useContext(TabPlacesContext)
   const place = useWorkspacePlace(tabWorkspaceId(tab))
   const meta = useTabLayout((s) => s.meta[tab.id])
+  const preview = useTabLayout((s) => s.preview[tabScope(workspaceId)] === tab.id)
   const title = meta?.customTitle ?? defaultTabTitle(tab)
   const pinned = meta?.pinned === true
   const [menu, setMenu] = useState<{ x: number; y: number; open: boolean } | null>(null)
@@ -107,6 +108,7 @@ export function TabItem({
         data-tab-title={title}
         data-pinned={pinned ? 'true' : 'false'}
         data-tab-selected={selected || undefined}
+        data-tab-preview={preview || undefined}
         title={showPlace && place ? `${title} · ${place}` : undefined}
         onPointerDown={(e) => {
           if (renaming !== null) return
@@ -128,7 +130,11 @@ export function TabItem({
           tabSelection.reset(groupId, tab.id)
           activateTab(workspaceId, groupId, tab.id)
         }}
-        onDoubleClick={() => canRenameTab(tab) && setRenaming(title)}
+        onDoubleClick={() => {
+          // A preview tab's double click keeps it, as an editor's does; any other one renames.
+          if (preview) keepTab(tab.id)
+          else if (canRenameTab(tab)) setRenaming(title)
+        }}
         onMouseDown={(e) => {
           if (e.button === 1) e.preventDefault()
           else keepTextUnselected(e)
@@ -180,7 +186,7 @@ export function TabItem({
             spellCheck={false}
           />
         ) : (
-          <span className="min-w-0 flex-1 truncate">{title}</span>
+          <span className={cn('min-w-0 flex-1 truncate', preview && 'italic')}>{title}</span>
         )}
         {/* A chat says where it works in the sidebar and the header; a shell, a file or a panel needs it on the tab. */}
         {showPlace && place && tab.kind !== 'chat' && renaming === null && (

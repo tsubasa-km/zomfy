@@ -16,8 +16,16 @@ import { WINDOW_ROLE } from '@/lib/window-role'
 import {
   carriesOverOpenChats,
   carryOverOpenChats,
+  getTabLayoutState,
+  groupOfTab,
+  hideChats,
+  keepTab,
   layoutFor,
+  placeTab,
+  previewTabOf,
+  removeTabsFromLayout,
   seedWindowLayout,
+  setPreviewTab,
   setTabMeta,
   setTabScopeResolver,
   showChat,
@@ -705,9 +713,38 @@ export function handleSessionPicks(handler: (sessionId: string) => void): void {
   sessionPickHandler = handler
 }
 
-/** Focuses a session wherever it lives: its workspace in the main area, or the floating panel. */
+/**
+ * Opens a chat picked from the sidebar's list as an editor opens a file picked from its tree: in a
+ * preview tab, which the next chat picked there takes the place of. A chat that already has a tab
+ * just comes to the front, and a preview tab the person works in (selectSession, a sent message, a
+ * move) stays for good.
+ */
+export function previewSession(sessionId: string): void {
+  const session = state.sessions.find((s) => s.id === sessionId)
+  if (sessionPickHandler || !session || session.sideOf || !inWindowTabs(session.workspaceId) || getTabLayoutState().open[sessionId]) {
+    const preview = previewTabOf(WINDOW_TABS)
+    selectSession(sessionId)
+    // Coming back to the preview tab from the sidebar is still looking, not working in it.
+    if (preview === sessionId) setPreviewTab(WINDOW_TABS, sessionId)
+    return
+  }
+  const old = previewTabOf(WINDOW_TABS)
+  const slot = old ? groupOfTab(layoutFor(WINDOW_TABS), old) : null
+  showChat(sessionId)
+  if (old && slot) {
+    placeTab(WINDOW_TABS, sessionId, slot.id, slot.tabOrder.indexOf(old))
+    removeTabsFromLayout(WINDOW_TABS, [old])
+    hideChats([old])
+  }
+  focusTab(session.workspaceId, sessionId)
+  setPreviewTab(WINDOW_TABS, sessionId)
+  if (state.dashboardOpen) set({ ...state, dashboardOpen: false })
+}
+
+/** Focuses a session wherever it lives: its workspace in the main area, or the floating panel. Its tab stays. */
 export function selectSession(sessionId: string): void {
   if (sessionPickHandler) return sessionPickHandler(sessionId)
+  keepTab(sessionId)
   const session = state.sessions.find((s) => s.id === sessionId)
   // A side chat has no tab; it shows in its workspace's drawer, beside the chat it was opened from.
   if (session?.sideOf) {

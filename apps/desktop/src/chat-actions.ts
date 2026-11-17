@@ -1,3 +1,4 @@
+import { keepTab } from '@/stores/tab-layout-store'
 import { HARNESS_METHODS, type SessionInfo, type SessionOptions, type TurnResumeKind } from '@acp-harness/protocol'
 import { isExternalAgentSession } from '@/lib/chat-agents'
 import { cancelTurn, ensureSessionLoaded, harnessRequest, reloadSessionTranscript, sendPrompt } from '@/daemon-connection'
@@ -33,6 +34,8 @@ export function isWorking(s: Pick<Session, 'status'>): boolean {
 export function submitPrompt(sessionId: string, text: string, images: ChatImage[]): void {
   const target = session(sessionId)
   if (!target || (!text.trim() && images.length === 0)) return
+  // A chat the person writes in is one they are working in: its preview tab stays.
+  keepTab(sessionId)
   if (isWorking(target)) {
     const message: QueuedMessage = { id: crypto.randomUUID(), text, images }
     patchChatSession(sessionId, (c) => ({ queue: [...c.queue, message] }))

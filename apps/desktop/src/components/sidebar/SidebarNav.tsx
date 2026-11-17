@@ -1,7 +1,8 @@
 import { memo, type ReactNode } from 'react'
 import { BookOpen, CalendarClock, Github, Gitlab, LayoutDashboard, List, Search, SquarePen, Workflow, type LucideIcon } from 'lucide-react'
 import type { HostingProviderId } from '@acp-harness/protocol'
-import { allProjects, getState, setDashboardOpen, showQuickStart, useStore } from '@/session-store'
+import { allProjects, getState, setDashboardOpen, showQuickStart, START_TAB, useStore } from '@/session-store'
+import { WINDOW_TABS } from '@/stores/tab-layout-store'
 import { setBoardOpen, useSidebarStore } from '@/stores/sidebar-store'
 import { setAutomationsPageOpen, useAutomationState } from '@/stores/automation-store'
 import { setCommandPalette, setSkillsPageOpen, useAppOverlays } from '@/stores/app-overlay-store'
@@ -212,7 +213,7 @@ export const SidebarNav = memo(function SidebarNav() {
   const automationsOpen = useAutomationState((s) => s.pageOpen)
   const dashboardOpen = useStore((s) => s.dashboardOpen)
   const showNewChat = useSetting('showNewChatButton')
-  const quickStartShown = useStore((s) => s.activeWorkspaceId === null && !s.dashboardOpen)
+  const quickStartShown = useStore((s) => s.activeWorkspaceId === null && s.activeSessionByWorkspace[WINDOW_TABS] === START_TAB && !s.dashboardOpen)
   const boardOpen = useSidebarStore((s) => s.boardOpen)
   const tasksOpen = useTasks((s) => s.open)
   const pages = {

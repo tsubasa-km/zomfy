@@ -1,7 +1,7 @@
 import { useRef, useState } from 'react'
 import { ChevronRight } from 'lucide-react'
 import { cn } from '@/lib/utils'
-import { allWorkspaces, getState, selectSession, useStore, type Session } from '@/session-store'
+import { allWorkspaces, getState, previewSession, selectSession, useStore, type Session } from '@/session-store'
 import { AgentStateDot } from '@/components/AgentStateDot'
 import { TuiAgentIcon } from '@/components/terminal/TuiAgentIcon'
 import { sessionAgent } from '@/lib/chat-agents'
@@ -179,7 +179,9 @@ export function SessionRow({
           return
         }
         chatSelection.reset(SCOPE, session.id)
-        selectSession(session.id)
+        // One click looks at the chat; a second one keeps its tab, as in an editor's file tree.
+        if (card && e.detail < 2) previewSession(session.id)
+        else selectSession(session.id)
       }}
     >
       {fold && (

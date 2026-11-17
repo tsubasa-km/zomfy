@@ -81,6 +81,11 @@ interface TabLayoutState {
   open: Record<string, true>
   /** Most recent first; in memory only, as in Orca. */
   closed: Record<string, ClosedTab[]>
+  /**
+   * By layout, the chat tab the next chat picked in the sidebar takes the place of, as an editor's
+   * preview tab: looking through chats does not pile tabs up. In memory only.
+   */
+  preview: Record<string, string>
 }
 
 const STORAGE_KEY = 'acp-harness.tab-layout.v1'
@@ -107,13 +112,13 @@ function readLegacyHidden(): Record<string, true> | null {
 }
 
 const legacyHidden = readLegacyHidden()
-let state: TabLayoutState = { ...readSaved(), closed: {} }
+let state: TabLayoutState = { ...readSaved(), closed: {}, preview: {} }
 const listeners = new Set<() => void>()
 
 // A popped-out workspace window edits layouts too; each window takes the other's saves as they land.
 window.addEventListener('storage', (event) => {
   if (event.key !== STORAGE_KEY) return
-  state = { ...readSaved(), closed: state.closed }
+  state = { ...readSaved(), closed: state.closed, preview: state.preview }
   for (const listener of listeners) listener()
 })
 
@@ -346,6 +351,7 @@ export function removeTabsFromLayout(workspaceId: string, ids: string[]): string
 
 /** Moves a tab to a position in a group (reorder within a group, or move across groups). */
 export function moveTab(workspaceId: string, tabId: string, targetGroupId: string, index: number): void {
+  keepTab(tabId)
   const layout = layoutFor(workspaceId)
   const source = groupOfTab(layout, tabId)
   const target = layout.groups[targetGroupId]
@@ -369,6 +375,7 @@ export function moveTab(workspaceId: string, tabId: string, targetGroupId: strin
 
 /** Orca's "Move Tab to Split": the tab opens a new group beside the target group. */
 export function splitWithTab(workspaceId: string, tabId: string, targetGroupId: string, side: SplitSide): void {
+  keepTab(tabId)
   const layout = layoutFor(workspaceId)
   const source = groupOfTab(layout, tabId)
   if (!source || !layout.groups[targetGroupId]) return
@@ -394,6 +401,7 @@ export function setSplitRatio(workspaceId: string, path: string, ratio: number):
 }
 
 export function setTabMeta(tabId: string, patch: Partial<TabMeta>): void {
+  if (patch.pinned) keepTab(tabId)
   const current = state.meta[tabId] ?? {}
   const merged: TabMeta = { ...current, ...patch }
   for (const key of Object.keys(merged) as (keyof TabMeta)[]) {
@@ -437,6 +445,26 @@ export function carryOverOpenChats(ids: string[]): void {
 
 export function carriesOverOpenChats(): boolean {
   return legacyHidden !== null
+}
+
+/** The preview tab among the tabs `workspaceId`'s live in, if there is one. */
+export function previewTabOf(workspaceId: string): string | null {
+  return state.preview[tabScope(workspaceId)] ?? null
+}
+
+export function setPreviewTab(workspaceId: string, tabId: string | null): void {
+  const scope = tabScope(workspaceId)
+  if ((state.preview[scope] ?? null) === tabId) return
+  const { [scope]: _old, ...rest } = state.preview
+  commit({ ...state, preview: tabId ? { ...rest, [scope]: tabId } : rest })
+}
+
+/** The tab stays: the person worked in it (sent a message, moved it, pinned it, opened it by name). */
+export function keepTab(tabId: string): void {
+  const scope = Object.keys(state.preview).find((key) => state.preview[key] === tabId)
+  if (scope === undefined) return
+  const { [scope]: _kept, ...preview } = state.preview
+  commit({ ...state, preview })
 }
 
 export function pushClosedTab(workspaceId: string, entry: ClosedTab): void {
