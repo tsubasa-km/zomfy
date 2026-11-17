@@ -90,6 +90,7 @@ export const SETTINGS_SECTIONS: readonly SettingsNavSection[] = [
     group: 'workflows',
     entries: [
       { title: t('Scrollback'), keywords: ['history', 'lines', 'buffer'] },
+      { title: t('Right-click'), keywords: ['right click', 'context menu', 'copy', 'paste', 'mouse', 'windows terminal'] },
       { title: t('Shortcuts in Terminal'), keywords: ['shortcut', 'priority', 'policy', 'keybindings'] },
       { title: t('Default shell'), keywords: ['shell', 'powershell', 'bash', 'zsh', 'cmd'] }
     ]

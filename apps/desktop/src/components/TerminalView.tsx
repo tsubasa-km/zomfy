@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import { Ellipsis } from 'lucide-react'
 import { Terminal } from '@xterm/xterm'
 import { FitAddon } from '@xterm/addon-fit'
 import { SearchAddon } from '@xterm/addon-search'
@@ -14,7 +15,8 @@ import { dropPathsText, pathsFromDataTransfer, registerTerminalDropTarget } from
 import { filePathDrag } from '@/lib/file-path-drag'
 import { commandsForProject, newQuickCommand, runQuickCommandInTerminal, useQuickCommands } from '@/lib/quick-commands'
 import { LOCAL_HOST, allProjects, allWorkspaces, getState, useStore } from '@/session-store'
-import { getSettings, useSettings, type AppSettings } from '@/stores/settings-store'
+import { getSettings, useSetting, useSettings, type AppSettings } from '@/stores/settings-store'
+import { t } from '@/i18n/i18n'
 import { TerminalContextMenu } from '@/components/terminal/TerminalContextMenu'
 import { TerminalSearch } from '@/components/terminal/TerminalSearch'
 import { TerminalProcessExitOverlay } from '@/components/terminal/TerminalProcessExitOverlay'
@@ -64,6 +66,9 @@ export function TerminalView({ terminal, embedded = false }: { terminal: Termina
   const [searchOpen, setSearchOpen] = useState(false)
   const [menu, setMenu] = useState<{ x: number; y: number } | null>(null)
   const [settingTitle, setSettingTitle] = useState(false)
+  const rightClick = useSetting('terminalRightClick')
+  // The key handler is set up once per xterm; it opens the menu through this ref.
+  const openMenuAtCursorRef = useRef(() => {})
 
   const hostId = useStore((s) => s.terminals.find((t) => t.id === terminal.id)?.hostId ?? LOCAL_HOST)
   const projectId = useStore((s) => allWorkspaces(s).find((w) => w.id === terminal.workspaceId)?.projectId ?? null)
@@ -129,6 +134,12 @@ export function TerminalView({ terminal, embedded = false }: { terminal: Termina
     const input = xterm.onData((data) => sendRef.current(data))
 
     xterm.attachCustomKeyEventHandler((e) => {
+      // The keyboard's way to the menu, which copy/paste right-clicks leave without a click.
+      if (e.type === 'keydown' && (e.key === 'ContextMenu' || (e.key === 'F10' && e.shiftKey && !e.ctrlKey && !e.altKey))) {
+        e.preventDefault()
+        openMenuAtCursorRef.current()
+        return false
+      }
       const action = matchTerminalShortcut(e, xterm.hasSelection())
       if (!action) return true
       // Paste is left to the browser's paste event, which xterm turns into a (bracketed) paste.
@@ -207,6 +218,30 @@ export function TerminalView({ terminal, embedded = false }: { terminal: Termina
       })
       .catch(() => undefined)
       .finally(focus)
+  /** Windows Terminal's right-click: copy the selection and clear it, or paste when nothing is selected. */
+  const copyOrPaste = () => {
+    const xterm = xtermRef.current
+    if (!xterm) return
+    if (xterm.hasSelection()) {
+      void navigator.clipboard.writeText(xterm.getSelection())
+      xterm.clearSelection()
+      focus()
+    } else paste()
+  }
+  /** The menu by the text cursor, for Shift+F10 and the menu key. */
+  openMenuAtCursorRef.current = () => {
+    const xterm = xtermRef.current
+    const screen = xterm?.element?.querySelector('.xterm-screen')
+    const outer = host.current?.parentElement
+    if (!xterm || !screen || !outer) return
+    const box = screen.getBoundingClientRect()
+    const origin = outer.getBoundingClientRect()
+    const buffer = xterm.buffer.active
+    setMenu({
+      x: box.left - origin.left + ((buffer.cursorX + 1) * box.width) / xterm.cols,
+      y: box.top - origin.top + ((buffer.cursorY + 1) * box.height) / xterm.rows
+    })
+  }
   const restart = () => void harnessRequest(HARNESS_METHODS.terminalRestart, { terminalId: terminal.id })
   const rename = (title: string | null) =>
     void harnessRequest(HARNESS_METHODS.terminalRename, { terminalId: terminal.id, title })
@@ -214,11 +249,16 @@ export function TerminalView({ terminal, embedded = false }: { terminal: Termina
   return (
     <div
       ref={explorerDropRef}
-      className="relative flex min-h-0 min-w-0 flex-1 flex-col"
+      className="group/terminal relative flex min-h-0 min-w-0 flex-1 flex-col"
       style={{ background: theme.background }}
       onContextMenu={(e) => {
         if (!(e.target instanceof Node) || !host.current?.contains(e.target)) return
         e.preventDefault()
+        // Shift swaps the two right-click behaviours, so either mode reaches the other one.
+        if ((rightClick === 'copy-paste') !== e.shiftKey) {
+          copyOrPaste()
+          return
+        }
         const box = e.currentTarget.getBoundingClientRect()
         setMenu({ x: e.clientX - box.left, y: e.clientY - box.top })
       }}
@@ -236,6 +276,23 @@ export function TerminalView({ terminal, embedded = false }: { terminal: Termina
       }}
     >
       <div ref={host} data-terminal-id={terminal.id} className="min-h-0 flex-1 px-3 pt-2" />
+      {/* With copy/paste right-clicks the menu has no click of its own; this shows on hover. */}
+      {rightClick === 'copy-paste' && !searchOpen && (
+        <button
+          type="button"
+          data-terminal-menu-button
+          aria-label={t('Terminal menu')}
+          title={t('Terminal menu (Shift+right-click)')}
+          className="absolute top-2 right-2 z-10 flex size-6 items-center justify-center rounded-md border border-border/60 bg-popover/90 text-muted-foreground opacity-0 shadow-sm transition-opacity group-hover/terminal:opacity-100 hover:text-foreground focus-visible:opacity-100"
+          onClick={(e) => {
+            const box = e.currentTarget.parentElement!.getBoundingClientRect()
+            const button = e.currentTarget.getBoundingClientRect()
+            setMenu({ x: button.right - box.left - 240, y: button.bottom - box.top + 4 })
+          }}
+        >
+          <Ellipsis className="size-3.5" />
+        </button>
+      )}
       {searchOpen && searchAddon && (
         <TerminalSearch
           searchAddon={searchAddon}

@@ -1,5 +1,5 @@
 import { LOCAL_HOST, useStore } from '@/session-store'
-import { setSetting, useSetting, type TerminalShortcutPolicy } from '@/stores/settings-store'
+import { setSetting, useSetting, type TerminalRightClick, type TerminalShortcutPolicy } from '@/stores/settings-store'
 import { useHostSettings, updateHostSettings } from '@/stores/host-settings-store'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { SettingsRow, SettingsSegmentedControl, SettingsSubsectionHeader } from './settings-form-controls'
@@ -44,6 +44,7 @@ export function DefaultShellRow({ hostId }: { hostId: string }) {
 export function TerminalPane() {
   const scrollback = useSetting('terminalScrollbackRows')
   const policy = useSetting('terminalShortcutPolicy')
+  const rightClick = useSetting('terminalRightClick')
 
   return (
     <div className="space-y-8">
@@ -67,6 +68,26 @@ export function TerminalPane() {
                   ))}
                 </SelectContent>
               </Select>
+            }
+          />
+          <SettingsRow
+            label={t('Right-click')}
+            description={
+              rightClick === 'copy-paste'
+                ? t('Copies the selection, or pastes when nothing is selected, as in Windows Terminal. Shift+right-click, Shift+F10 or the … button at the top right of a terminal opens the menu.')
+                : t('Opens the terminal menu. Shift+right-click copies the selection, or pastes when nothing is selected.')
+            }
+            keywords={['right click', 'context menu', 'copy', 'paste', 'mouse', 'windows terminal']}
+            control={
+              <SettingsSegmentedControl<TerminalRightClick>
+                ariaLabel={t('Right-click')}
+                value={rightClick}
+                onChange={(value) => setSetting('terminalRightClick', value)}
+                options={[
+                  { value: 'menu', label: t('Show menu') },
+                  { value: 'copy-paste', label: t('Copy / paste') }
+                ]}
+              />
             }
           />
           <SettingsRow

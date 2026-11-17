@@ -8,6 +8,8 @@ export type ThemePreference = 'system' | 'dark' | 'light'
 /** Orca's terminal shortcut policy: app shortcuts win inside terminals, or the terminal does. */
 export type TerminalShortcutPolicy = 'orca-first' | 'terminal-first'
 export type TerminalCursorStyle = 'block' | 'bar' | 'underline'
+/** What a right-click in a terminal does: open its menu, or copy the selection / paste as Windows Terminal does. */
+export type TerminalRightClick = 'menu' | 'copy-paste'
 /** Which Enter sends a chat message; the other one inserts a newline. */
 export type ChatSendKey = 'mod-enter' | 'enter'
 
@@ -30,6 +32,7 @@ export interface AppSettings {
   terminalThemeLight: string
   terminalScrollbackRows: number
   terminalShortcutPolicy: TerminalShortcutPolicy
+  terminalRightClick: TerminalRightClick
   /** Empty follows the terminal font, as in Orca. */
   editorFontFamily: string
   editorFontSize: number
@@ -100,6 +103,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
   terminalThemeLight: 'Default Light',
   terminalScrollbackRows: 5_000,
   terminalShortcutPolicy: 'orca-first',
+  terminalRightClick: 'menu',
   editorFontFamily: '',
   editorFontSize: 13,
   editorWordWrap: true,

@@ -679,6 +679,16 @@ export const PAGES: Record<string, string> = {
   Light: 'ライト',
   '{zoomIn} / {zoomOut} from anywhere in the app.': 'アプリ内のどこからでも {zoomIn} / {zoomOut} で変更できます。',
   'Colors and typography for terminal tabs on every host.': 'すべてのホストのターミナルタブの配色と文字の設定です。',
+  // components/settings/TerminalPane.tsx (right-click)
+  'Right-click': '右クリック',
+  'Copies the selection, or pastes when nothing is selected, as in Windows Terminal. Shift+right-click, Shift+F10 or the … button at the top right of a terminal opens the menu.':
+    'Windows Terminal と同じく、選択中のテキストをコピーし、何も選択していなければ貼り付けます。メニューは Shift+右クリック、Shift+F10、またはターミナル右上の … ボタンで開きます。',
+  'Opens the terminal menu. Shift+right-click copies the selection, or pastes when nothing is selected.':
+    'ターミナルのメニューを開きます。Shift+右クリックで、選択中のテキストのコピー（何も選択していなければ貼り付け）になります。',
+  'Show menu': 'メニューを表示',
+  'Copy / paste': 'コピー / 貼り付け',
+  'Terminal menu': 'ターミナルのメニュー',
+  'Terminal menu (Shift+right-click)': 'ターミナルのメニュー（Shift+右クリック）',
   // components/settings/TerminalThemeSettings.tsx
   'Colors in Dark Mode': 'ダークモードの配色',
   'Colors in Light Mode': 'ライトモードの配色',
