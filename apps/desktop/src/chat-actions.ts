@@ -1,5 +1,5 @@
-import { HARNESS_METHODS, type SessionInfo, type SessionOptions, type TurnResumeKind } from '@acp-harness/protocol'
-import { isExternalAgentSession } from '@/lib/chat-agents'
+import { HARNESS_METHODS, type ChatAgentId, type SessionInfo, type SessionOptions, type TurnResumeKind } from '@acp-harness/protocol'
+import { isExternalAgentSession, sessionAgent } from '@/lib/chat-agents'
 import { cancelTurn, ensureSessionLoaded, harnessRequest, reloadSessionTranscript, sendPrompt } from '@/daemon-connection'
 import {
   addSession,
@@ -19,6 +19,7 @@ import {
   type QueuedMessage
 } from '@/stores/chat-store'
 import { queueOnStatus } from '@/stores/prompt-queue'
+import { getSetting } from '@/stores/settings-store'
 import { t } from '@/i18n/i18n'
 
 function session(sessionId: string): Session | undefined {
@@ -158,6 +159,27 @@ export async function setAgentOption(sessionId: string, optionId: string, value:
   }
 }
 
+/**
+ * Replaces the agent behind a chat, which otherwise stays as it is. The daemon hands the new agent a
+ * selection of the conversation as text; its broadcast brings the chat's new agent and options.
+ */
+export async function setSessionAgent(sessionId: string, agent: ChatAgentId): Promise<void> {
+  const target = session(sessionId)
+  if (!target || sessionAgent(target) === agent) return
+  try {
+    await harnessRequest(
+      HARNESS_METHODS.sessionSetAgent,
+      // Claude starts in the person's default mode here too, as in a new chat.
+      { sessionId, agent, ...(agent === 'claude' ? { permissionMode: getSetting('defaultPermissionMode') } : {}) },
+      target.hostId
+    )
+    // The context ring showed the previous agent's context.
+    patchChatSession(sessionId, { usage: null })
+  } catch (error) {
+    noteFailure(sessionId, t("Couldn't change this chat's agent"), error)
+  }
+}
+
 export async function loadCatalog(workspaceId: string, refresh = false): Promise<void> {
   const current = getChatState().catalogs[workspaceId]
   if (current && !refresh && current.status !== 'error') return
@@ -228,9 +250,14 @@ export async function resumeConversation(workspaceId: string, claudeSessionId: s
 export async function rewindTo(sessionId: string, messageId: string): Promise<void> {
   const target = session(sessionId)
   if (!target) return
-  const { text } = await harnessRequest(HARNESS_METHODS.sessionRewind, { sessionId, messageId }, target.hostId)
-  patchChatSession(sessionId, { usage: null, draft: text })
-  await reloadTranscript(sessionId)
+  try {
+    const { text } = await harnessRequest(HARNESS_METHODS.sessionRewind, { sessionId, messageId }, target.hostId)
+    patchChatSession(sessionId, { usage: null, draft: text })
+    await reloadTranscript(sessionId)
+  } catch (error) {
+    // A message another agent answered, in a chat that changed agents, is not Claude's to rewind to.
+    noteFailure(sessionId, t("Couldn't rewind this chat"), error)
+  }
 }
 
 /** Replays the daemon's transcript into this window from scratch. */

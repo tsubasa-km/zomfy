@@ -12,6 +12,7 @@ import {
   loadCatalog,
   loadMentionFiles,
   setAgentOption,
+  setSessionAgent,
   setSessionOptions,
   resumeQueue,
   steerQueued,
@@ -30,7 +31,8 @@ import { NativeChatSessionOptionPicker } from './NativeChatSessionOptionPicker'
 import { NativeChatContextUsageRing } from './NativeChatContextUsageRing'
 import { NativeChatDictationButton } from './NativeChatDictationButton'
 import { NativeChatAgentModePicker, NativeChatAgentModelPicker, agentOptionSlots } from './NativeChatAgentOptionPickers'
-import { isExternalAgentSession } from '@/lib/chat-agents'
+import { NativeChatAgentPicker } from './NativeChatAgentPicker'
+import { isExternalAgentSession, sessionAgent } from '@/lib/chat-agents'
 import { isSubmitShortcut, SUBMIT_SHORTCUT_LABEL } from '@/lib/terminal-shortcuts'
 import { useSetting } from '@/stores/settings-store'
 import { MarkdownEditor, type MarkdownEditorHandle } from '@/components/markdown-editor/MarkdownEditor'
@@ -80,7 +82,7 @@ type ComposerProps = { session: Session; editorRef: React.RefObject<MarkdownEdit
  * The session fields the composer (and the menus it hands the session to) reads. Its session
  * changes with every streamed chunk; without this, the whole composer would render with each one.
  */
-const COMPOSER_SESSION_FIELDS = ['id', 'workspaceId', 'hostId', 'status', 'agent', 'agentState', 'options', 'promptSuggestion', 'sideOf'] as const
+const COMPOSER_SESSION_FIELDS = ['id', 'workspaceId', 'hostId', 'status', 'agent', 'agentState', 'options', 'promptSuggestion', 'sideOf', 'role', 'localOnly'] as const
 
 export const NativeChatComposer = memo(
   Composer,
@@ -316,6 +318,14 @@ function Composer({ session, editorRef }: ComposerProps) {
   const canSend = draft.trim().length > 0 || draftImages.length > 0
   const slots = agentOptionSlots(agentState?.options ?? [])
   const changeAgentOption = (optionId: string, value: string) => void setAgentOption(session.id, optionId, value)
+  // The Manager and Lead chats are Claude with the harness's own instructions, and a workflow step's
+  // local-only data stays with the agent it was given to: their agent does not change.
+  const agentChangeable = !session.role && !session.localOnly
+  const agentLocked = working
+    ? t('Stop the agent to change it')
+    : offline
+      ? t('Reconnecting to {host}…', { host: hostLabel(session.hostId) })
+      : null
 
   return (
     <div className="shrink-0 bg-chat-canvas select-none">
@@ -457,6 +467,14 @@ function Composer({ session, editorRef }: ComposerProps) {
                       e.target.value = ''
                     }}
                   />
+                  {agentChangeable ? (
+                    <NativeChatAgentPicker
+                      hostId={session.hostId}
+                      current={sessionAgent(session)}
+                      disabledReason={agentLocked}
+                      onSelect={(agent) => void setSessionAgent(session.id, agent)}
+                    />
+                  ) : null}
                   {external ? (
                     <>
                       {slots.mode ? <NativeChatAgentModePicker option={slots.mode} onChange={changeAgentOption} /> : null}
