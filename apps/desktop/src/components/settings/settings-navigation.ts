@@ -111,6 +111,8 @@ export const SETTINGS_SECTIONS: readonly SettingsNavSection[] = [
       { title: t('Show Onboarding Checklist'), keywords: ['onboarding', 'setup', 'checklist', 'sidebar'] },
       { title: t('Enable Floating Workspace'), keywords: ['floating', 'workspace', 'terminal', 'quick panel'] },
       { title: t('Toggle Button Location'), keywords: ['floating', 'status bar', 'button'] },
+      { title: t('Colors in Dark Mode'), keywords: ['terminal', 'theme', 'color', 'colour', 'palette', 'dark', 'scheme'] },
+      { title: t('Colors in Light Mode'), keywords: ['terminal', 'theme', 'color', 'colour', 'palette', 'light', 'scheme'] },
       { title: t('Terminal Font'), keywords: ['font', 'terminal', 'monospace'] },
       { title: t('Terminal Font Size'), keywords: ['font size', 'terminal'] },
       { title: t('Line Height'), keywords: ['terminal', 'spacing'] },

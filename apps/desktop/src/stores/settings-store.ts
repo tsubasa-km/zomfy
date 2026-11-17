@@ -25,6 +25,9 @@ export interface AppSettings {
   terminalLineHeight: number
   terminalCursorStyle: TerminalCursorStyle
   terminalCursorBlink: boolean
+  /** Terminal color themes by name (lib/terminal-themes), one for each app mode. */
+  terminalThemeDark: string
+  terminalThemeLight: string
   terminalScrollbackRows: number
   terminalShortcutPolicy: TerminalShortcutPolicy
   /** Empty follows the terminal font, as in Orca. */
@@ -93,6 +96,8 @@ export const DEFAULT_SETTINGS: AppSettings = {
   terminalLineHeight: 1,
   terminalCursorStyle: 'block',
   terminalCursorBlink: true,
+  terminalThemeDark: 'Default Dark',
+  terminalThemeLight: 'Default Light',
   terminalScrollbackRows: 5_000,
   terminalShortcutPolicy: 'orca-first',
   editorFontFamily: '',

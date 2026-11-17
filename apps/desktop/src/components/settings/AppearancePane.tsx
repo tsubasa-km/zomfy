@@ -18,10 +18,11 @@ import {
   SettingsSwitchRow,
   TextField
 } from './settings-form-controls'
+import { TerminalThemeSettings } from './TerminalThemeSettings'
 import { t } from '@/i18n/i18n'
 
 // Orca's Appearance pane: Interface (theme, zoom, IDE font), Sidebar rows, the floating workspace
-// toggle (Orca's FloatingWorkspacePane) and Terminal typography.
+// toggle (Orca's FloatingWorkspacePane) and Terminal colors and typography.
 
 function UIZoomControl() {
   const level = useSetting('uiZoomLevel')
@@ -183,8 +184,9 @@ export function AppearancePane() {
       <FloatingWorkspaceSection />
 
       <div className="space-y-2 not-has-[[data-setting-row]]:hidden">
-        <SettingsSubsectionHeader title={t('Terminal')} description={t('Typography for terminal tabs on every host.')} />
+        <SettingsSubsectionHeader title={t('Terminal')} description={t('Colors and typography for terminal tabs on every host.')} />
         <div className="divide-y divide-border/40">
+          <TerminalThemeSettings />
           <TextField
             label={t('Terminal Font')}
             keywords={['font', 'terminal', 'monospace']}

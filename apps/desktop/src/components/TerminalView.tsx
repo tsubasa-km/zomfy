@@ -7,13 +7,14 @@ import { isLinkModifier, openHref } from '@/lib/link-routing'
 import { HARNESS_METHODS, type TerminalInfo } from '@acp-harness/protocol'
 import { harnessRequest, subscribeTerminalOutput } from '@/daemon-connection'
 import { closeTerminalPane, splitTerminalPane } from '@/components/terminal/terminal-pane-commands'
-import { currentTerminalTheme } from '@/lib/terminal-themes'
+import { currentTerminalTheme, useTerminalTheme } from '@/lib/terminal-themes'
 import { matchTerminalShortcut } from '@/lib/terminal-shortcuts'
 import { registerFileLinks } from '@/lib/terminal-file-links'
 import { dropPathsText, pathsFromDataTransfer, registerTerminalDropTarget } from '@/lib/terminal-file-drop'
 import { filePathDrag } from '@/lib/file-path-drag'
 import { commandsForProject, newQuickCommand, runQuickCommandInTerminal, useQuickCommands } from '@/lib/quick-commands'
 import { LOCAL_HOST, allProjects, allWorkspaces, getState, useStore } from '@/session-store'
+import { getSettings, useSettings, type AppSettings } from '@/stores/settings-store'
 import { TerminalContextMenu } from '@/components/terminal/TerminalContextMenu'
 import { TerminalSearch } from '@/components/terminal/TerminalSearch'
 import { TerminalProcessExitOverlay } from '@/components/terminal/TerminalProcessExitOverlay'
@@ -30,6 +31,23 @@ function cssVar(name: string): string {
   return getComputedStyle(document.documentElement).getPropertyValue(name).trim()
 }
 
+/** xterm options from the Appearance and Terminal settings. */
+function terminalOptions(s: AppSettings) {
+  return {
+    fontFamily: s.terminalFontFamily.trim() || cssVar('--font-mono') || 'Cascadia Code, Consolas, monospace',
+    fontSize: s.terminalFontSize,
+    lineHeight: s.terminalLineHeight,
+    cursorStyle: s.terminalCursorStyle,
+    cursorBlink: s.terminalCursorBlink,
+    scrollback: s.terminalScrollbackRows
+  }
+}
+
+/** A stable key for the settings terminalOptions reads, so panes redraw only when one changes. */
+function terminalOptionsKey(s: AppSettings): string {
+  return JSON.stringify([s.terminalFontFamily, s.terminalFontSize, s.terminalLineHeight, s.terminalCursorStyle, s.terminalCursorBlink, s.terminalScrollbackRows])
+}
+
 /**
  * One shell from the daemon, drawn with xterm.js as Orca's terminal panes are. `embedded` is a
  * terminal under a chat code block: it neither takes focus on mount nor splits.
@@ -37,6 +55,9 @@ function cssVar(name: string): string {
 export function TerminalView({ terminal, embedded = false }: { terminal: TerminalInfo; embedded?: boolean }) {
   const host = useRef<HTMLDivElement>(null)
   const xtermRef = useRef<Terminal | null>(null)
+  const fitRef = useRef<FitAddon | null>(null)
+  const theme = useTerminalTheme()
+  const optionsKey = useSettings(terminalOptionsKey)
   const cwdRef = useRef(terminal.cwd)
   cwdRef.current = terminal.cwd
   const [searchAddon, setSearchAddon] = useState<SearchAddon | null>(null)
@@ -69,16 +90,14 @@ export function TerminalView({ terminal, embedded = false }: { terminal: Termina
     const element = host.current
     if (!element) return
     const xterm = new Terminal({
-      cursorBlink: true,
-      fontSize: 13,
-      fontFamily: cssVar('--font-mono') || 'Cascadia Code, Consolas, monospace',
-      scrollback: 10_000,
+      ...terminalOptions(getSettings()),
       // The search addon's match decorations use the proposed decoration API.
       allowProposedApi: true,
       theme: currentTerminalTheme()
     })
     xtermRef.current = xterm
     const fit = new FitAddon()
+    fitRef.current = fit
     const search = new SearchAddon()
     xterm.loadAddon(fit)
     xterm.loadAddon(search)
@@ -142,26 +161,42 @@ export function TerminalView({ terminal, embedded = false }: { terminal: Termina
     observer.observe(element)
     if (!embedded) xterm.focus()
 
-    // Follow the OS light/dark switch the app theme already tracks.
-    const themeObserver = new MutationObserver(() => (xterm.options.theme = currentTerminalTheme()))
-    themeObserver.observe(document.documentElement, { attributes: true, attributeFilter: ['class'] })
-
     const unregisterDrop = registerTerminalDropTarget(terminal.id, (paths) => dropRef.current(paths))
 
     return () => {
       clearTimeout(resizeTimer)
       observer.disconnect()
-      themeObserver.disconnect()
       unregisterDrop()
       fileLinks.dispose()
       input.dispose()
       unsubscribe()
       setSearchAddon(null)
       xtermRef.current = null
+      fitRef.current = null
       xterm.dispose()
     }
     // A restart bumps startedAt: the old screen goes and the new shell's output replays.
   }, [terminal.id, terminal.workspaceId, terminal.startedAt])
+
+  // The terminal theme follows the app's light/dark mode and the theme picked for each.
+  useEffect(() => {
+    if (xtermRef.current) xtermRef.current.options.theme = theme
+  }, [theme])
+
+  // Font, cursor and scrollback settings apply to open terminals; a new font size or line
+  // height changes how many rows and columns fit, so the pane refits.
+  useEffect(() => {
+    const xterm = xtermRef.current
+    if (!xterm) return
+    Object.assign(xterm.options, terminalOptions(getSettings()))
+    const element = host.current
+    if (!element || element.clientWidth === 0 || element.clientHeight === 0) return
+    fitRef.current?.fit()
+    if (!isRunning(terminal.id)) return
+    void harnessRequest(HARNESS_METHODS.terminalResize, { terminalId: terminal.id, cols: xterm.cols, rows: xterm.rows }).catch(
+      () => undefined
+    )
+  }, [optionsKey, terminal.id])
 
   const focus = () => xtermRef.current?.focus()
   const paste = () =>
@@ -180,7 +215,7 @@ export function TerminalView({ terminal, embedded = false }: { terminal: Termina
     <div
       ref={explorerDropRef}
       className="relative flex min-h-0 min-w-0 flex-1 flex-col"
-      style={{ background: currentTerminalTheme().background }}
+      style={{ background: theme.background }}
       onContextMenu={(e) => {
         if (!(e.target instanceof Node) || !host.current?.contains(e.target)) return
         e.preventDefault()
