@@ -1,7 +1,7 @@
 import { toast } from 'sonner'
 import { HARNESS_METHODS } from '@acp-harness/protocol'
 import { createSession, harnessRequest } from '@/daemon-connection'
-import { allWorkspaces, getState, selectWorkspace, type HostedProject } from '@/session-store'
+import { allWorkspaces, getState, type HostedProject } from '@/session-store'
 import { defaultChatAgent } from '@/lib/default-chat-agent'
 import { suggestWorkspaceName } from '@/lib/workspace-name-suggestion'
 import { t } from '@/i18n/i18n'
@@ -24,7 +24,7 @@ export async function startChat(project: HostedProject, where: 'worktree' | 'che
       workspaceId = allWorkspaces(getState()).find((w) => w.projectId === project.id && w.isPrimary)?.id
     }
     if (!workspaceId) throw new Error(t('The project has no folder to start a chat in.'))
-    selectWorkspace(workspaceId)
+    // The new chat opens as a tab, in front.
     await createSession(workspaceId, defaultChatAgent())
   } catch (error) {
     toast.error(t("Couldn't start a chat"), { description: error instanceof Error ? error.message : String(error) })

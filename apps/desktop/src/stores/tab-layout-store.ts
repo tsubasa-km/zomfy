@@ -1,7 +1,24 @@
 import { useSyncExternalStore } from 'react'
 
-// Orca's tab-group model (shared/tab-types.ts, store/slices/tabs): each workspace holds a split tree
-// whose leaves are tab groups, each group its own tab order, active tab and MRU stack.
+// Orca's tab-group model (shared/tab-types.ts, store/slices/tabs): a split tree whose leaves are tab
+// groups, each group its own tab order, active tab and MRU stack. The main window keeps one such
+// layout for the tabs of every workspace (as an editor keeps one set of tabs); the floating panel
+// and a workspace popped out into its own window each keep their own.
+
+/** The key of the main window's layout, where a workspace's own id would otherwise stand. */
+export const WINDOW_TABS = 'window'
+
+let scopeOf: (workspaceId: string) => string = (id) => id
+
+/** session-store says which workspaces share the window's layout; it cannot be imported from here. */
+export function setTabScopeResolver(resolve: (workspaceId: string) => string): void {
+  scopeOf = resolve
+}
+
+/** The layout a workspace's tabs live in: the window's, or its own. */
+export function tabScope(workspaceId: string): string {
+  return workspaceId === WINDOW_TABS ? WINDOW_TABS : scopeOf(workspaceId)
+}
 
 export type SplitDirection = 'horizontal' | 'vertical'
 export type SplitSide = 'left' | 'right' | 'up' | 'down'
@@ -53,13 +70,15 @@ export interface ClosedTab {
   groupId: string
   index: number
   spec: ReopenSpec
+  /** The workspace the tab belonged to, where a reopened terminal, file or page starts again. */
+  workspaceId?: string
 }
 
 interface TabLayoutState {
   layouts: Record<string, WorkspaceLayout>
   meta: Record<string, TabMeta>
-  /** Chats whose tab was closed: the chat is kept (sidebar, Ctrl+Shift+T) but shows no tab. */
-  hidden: Record<string, true>
+  /** Chats that have a tab. Every other chat is kept (sidebar, Ctrl+Shift+T) but shows none. */
+  open: Record<string, true>
   /** Most recent first; in memory only, as in Orca. */
   closed: Record<string, ClosedTab[]>
 }
@@ -68,15 +87,26 @@ const STORAGE_KEY = 'acp-harness.tab-layout.v1'
 const MAX_CLOSED = 20
 const MAX_RECENT = 30
 
-function readSaved(): Pick<TabLayoutState, 'layouts' | 'meta' | 'hidden'> {
+function readSaved(): Pick<TabLayoutState, 'layouts' | 'meta' | 'open'> {
   try {
     const raw = JSON.parse(localStorage.getItem(STORAGE_KEY) ?? '{}')
-    return { layouts: raw.layouts ?? {}, meta: raw.meta ?? {}, hidden: raw.hidden ?? {} }
+    return { layouts: raw.layouts ?? {}, meta: raw.meta ?? {}, open: raw.open ?? {} }
   } catch {
-    return { layouts: {}, meta: {}, hidden: {} }
+    return { layouts: {}, meta: {}, open: {} }
   }
 }
 
+/** What storage held before chats were opened one by one: every chat had a tab unless it was listed here. */
+function readLegacyHidden(): Record<string, true> | null {
+  try {
+    const raw = JSON.parse(localStorage.getItem(STORAGE_KEY) ?? '{}')
+    return raw.open === undefined ? (raw.hidden ?? {}) : null
+  } catch {
+    return null
+  }
+}
+
+const legacyHidden = readLegacyHidden()
 let state: TabLayoutState = { ...readSaved(), closed: {} }
 const listeners = new Set<() => void>()
 
@@ -91,7 +121,7 @@ function commit(next: TabLayoutState): void {
   state = next
   for (const listener of listeners) listener()
   try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify({ layouts: next.layouts, meta: next.meta, hidden: next.hidden }))
+    localStorage.setItem(STORAGE_KEY, JSON.stringify({ layouts: next.layouts, meta: next.meta, open: next.open }))
   } catch {
     // Storage can be unavailable; the layout then starts fresh next time.
   }
@@ -262,20 +292,33 @@ export function reconcileLayout(
 
 // ── Store actions ───────────────────────────────────────────────────────
 
+// Every action takes a workspace id (or WINDOW_TABS) and works on the layout that workspace's tabs live in.
+
 export function layoutFor(workspaceId: string): WorkspaceLayout {
-  return state.layouts[workspaceId] ?? emptyLayout()
+  return state.layouts[tabScope(workspaceId)] ?? emptyLayout()
 }
 
 function setLayout(workspaceId: string, layout: WorkspaceLayout): void {
-  if (state.layouts[workspaceId] === layout) return
-  commit({ ...state, layouts: { ...state.layouts, [workspaceId]: layout } })
+  const scope = tabScope(workspaceId)
+  if (state.layouts[scope] === layout) return
+  commit({ ...state, layouts: { ...state.layouts, [scope]: layout } })
 }
 
 /** Commits a reconciled layout only when it actually changed, so render-time reconciles stay quiet. */
 export function storeReconciledLayout(workspaceId: string, layout: WorkspaceLayout): void {
-  const current = state.layouts[workspaceId]
+  const current = state.layouts[tabScope(workspaceId)]
   if (current && JSON.stringify(current) === JSON.stringify(layout)) return
   setLayout(workspaceId, layout)
+}
+
+/**
+ * The window's layout starts from the one the workspace last in front had, so an update to window
+ * tabs opens on the tabs the person left.
+ */
+export function seedWindowLayout(fromWorkspaceId: string | null): void {
+  const from = fromWorkspaceId ? state.layouts[fromWorkspaceId] : undefined
+  if (state.layouts[WINDOW_TABS] || !from) return
+  commit({ ...state, layouts: { ...state.layouts, [WINDOW_TABS]: from } })
 }
 
 export function activateInGroup(workspaceId: string, groupId: string, tabId: string): void {
@@ -366,27 +409,47 @@ export function forgetTabMeta(ids: string[]): void {
   commit({ ...state, meta })
 }
 
+/** Takes the chats' tabs away; the chats themselves stay. */
 export function hideChats(ids: string[]): void {
-  if (ids.length === 0) return
-  commit({ ...state, hidden: { ...state.hidden, ...Object.fromEntries(ids.map((id) => [id, true as const])) } })
+  if (!ids.some((id) => state.open[id])) return
+  const open = { ...state.open }
+  for (const id of ids) delete open[id]
+  commit({ ...state, open })
 }
 
-/** Gives a closed chat its tab back; a no-op for one that has it. */
+/** Gives a chat a tab; a no-op for one that has it. */
 export function showChat(id: string): void {
-  if (!state.hidden[id]) return
-  const { [id]: _shown, ...hidden } = state.hidden
-  commit({ ...state, hidden })
+  if (state.open[id]) return
+  commit({ ...state, open: { ...state.open, [id]: true } })
+}
+
+/**
+ * Storage from before chats were opened one by one: the chats that had a tab then keep it. `ids`
+ * are the ones a host just listed in the workspaces the window was showing; null when there is
+ * nothing to carry over.
+ */
+export function carryOverOpenChats(ids: string[]): void {
+  if (!legacyHidden) return
+  const hidden = legacyHidden
+  const kept = ids.filter((id) => !hidden[id] && !state.open[id])
+  if (kept.length > 0) commit({ ...state, open: { ...state.open, ...Object.fromEntries(kept.map((id) => [id, true as const])) } })
+}
+
+export function carriesOverOpenChats(): boolean {
+  return legacyHidden !== null
 }
 
 export function pushClosedTab(workspaceId: string, entry: ClosedTab): void {
-  const list = [entry, ...(state.closed[workspaceId] ?? [])].slice(0, MAX_CLOSED)
-  commit({ ...state, closed: { ...state.closed, [workspaceId]: list } })
+  const scope = tabScope(workspaceId)
+  const list = [{ workspaceId, ...entry }, ...(state.closed[scope] ?? [])].slice(0, MAX_CLOSED)
+  commit({ ...state, closed: { ...state.closed, [scope]: list } })
 }
 
 export function popClosedTab(workspaceId: string): ClosedTab | null {
-  const [entry, ...rest] = state.closed[workspaceId] ?? []
+  const scope = tabScope(workspaceId)
+  const [entry, ...rest] = state.closed[scope] ?? []
   if (!entry) return null
-  commit({ ...state, closed: { ...state.closed, [workspaceId]: rest } })
+  commit({ ...state, closed: { ...state.closed, [scope]: rest } })
   return entry
 }
 
@@ -413,12 +476,13 @@ export function placeTab(workspaceId: string, tabId: string, preferredGroupId: s
 
 /** A terminal tab whose leader pane closed takes the next pane's id, keeping its slot, focus and title. */
 export function renameTab(workspaceId: string, oldId: string, newId: string): void {
-  const layout = state.layouts[workspaceId]
+  const scope = tabScope(workspaceId)
+  const layout = state.layouts[scope]
   const swap = (id: string) => (id === oldId ? newId : id)
   const layouts = layout
     ? {
         ...state.layouts,
-        [workspaceId]: {
+        [scope]: {
           ...layout,
           groups: Object.fromEntries(
             Object.entries(layout.groups).map(([id, g]) => [

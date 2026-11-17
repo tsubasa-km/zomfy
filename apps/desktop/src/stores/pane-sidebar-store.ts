@@ -1,7 +1,10 @@
 import { createExternalStore } from './external-store'
+import { tabScope } from './tab-layout-store'
 
-// Each workspace pane's own sidebar on its right (components/tab-layout/PaneSidebar.tsx): whether it
-// is open and which panel it shows, by workspace, kept across restarts.
+// The sidebar on the right of a set of tabs (components/tab-layout/PaneSidebar.tsx): whether it is
+// open and which panel it shows, kept across restarts. The main window has one for all the
+// workspaces whose tabs it holds, so switching tabs changes what the sidebar shows and not whether
+// it is there; the floating panel and a pop-out window each have their own.
 
 export interface PaneSidebarState {
   open: boolean
@@ -30,11 +33,12 @@ const store = createExternalStore<Record<string, PaneSidebarState>>(readSaved(),
 })
 
 export function usePaneSidebar(workspaceId: string): PaneSidebarState {
-  return store.use((state) => state[workspaceId] ?? DEFAULT)
+  return store.use((state) => state[tabScope(workspaceId)] ?? DEFAULT)
 }
 
 function update(workspaceId: string, change: Partial<PaneSidebarState>): void {
-  store.update((state) => ({ ...state, [workspaceId]: { ...(state[workspaceId] ?? DEFAULT), ...change } }))
+  const key = tabScope(workspaceId)
+  store.update((state) => ({ ...state, [key]: { ...(state[key] ?? DEFAULT), ...change } }))
 }
 
 /** Opens the pane's sidebar, on `panel` when given. */
@@ -48,7 +52,7 @@ export function hidePaneSidebar(workspaceId: string): void {
 
 /** Without `panel`, flips it; with one, shows that panel, or closes when it already shows it. */
 export function togglePaneSidebar(workspaceId: string, panel?: string): void {
-  const current = store.get()[workspaceId] ?? DEFAULT
+  const current = store.get()[tabScope(workspaceId)] ?? DEFAULT
   if (current.open && (!panel || current.panel === panel)) hidePaneSidebar(workspaceId)
   else showPaneSidebar(workspaceId, panel)
 }

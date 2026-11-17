@@ -157,7 +157,7 @@ export function ChatList({ actions }: { actions: SidebarActions }) {
     const { chat, children } = node
     const open = expanded.includes(chat.id)
     const w = workspaceById.get(chat.workspaceId)
-    const drag = w ? { kind: 'workspace' as const, id: w.id, hostId: w.hostId, projectId: w.projectId } : undefined
+    const dragOf = (s: Session) => (w ? { kind: 'workspace' as const, id: w.id, hostId: w.hostId, projectId: w.projectId, sessionId: s.id } : undefined)
     const childStatus = children.reduce<Session['status']>(
       (top, s) => (s.status === 'needs-you' || (s.status === 'error' && top !== 'needs-you') || (s.status === 'working' && top === 'idle') ? s.status : top),
       'idle'
@@ -167,11 +167,11 @@ export function ChatList({ actions }: { actions: SidebarActions }) {
         <SessionRow
           session={chat}
           showActive
-          drag={drag}
+          drag={dragOf(chat)}
           card={cardOf(chat)}
           fold={children.length > 0 ? { count: children.length, expanded: open, status: childStatus } : undefined}
         />
-        {open && children.map((child) => <SessionRow key={child.id} session={child} showActive drag={drag} card={cardOf(child)} child />)}
+        {open && children.map((child) => <SessionRow key={child.id} session={child} showActive drag={dragOf(child)} card={cardOf(child)} child />)}
       </Fragment>
     )
   }

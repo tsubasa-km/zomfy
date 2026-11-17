@@ -175,13 +175,15 @@ export function NewWorkspaceDialog({ request, onClose }: { request: NewWorkspace
         },
         project.hostId
       )
-      selectWorkspace(workspace.id)
       setTasks({ open: false })
+      // What the workspace starts with comes to the front: its chat, else its setup terminal, else the offer to start a chat there.
       if (agent !== 'none') {
         const sessionId = await createSession(workspace.id, agent)
         if (prompt.trim()) void sendPrompt(sessionId, prompt.trim())
       } else if (workspace.setupTerminalId) {
         selectTerminal(workspace.setupTerminalId)
+      } else {
+        selectWorkspace(workspace.id)
       }
       onClose()
     } catch (e) {

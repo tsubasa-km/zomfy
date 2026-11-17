@@ -1167,5 +1167,12 @@ export const SHELL: Record<string, string> = {
   'Projects with their workspaces as cards.': 'プロジェクトごとに、ワークスペースをカードで表示します。',
   'Projects and workspaces': 'プロジェクトとワークスペース',
   'No chats match the search.': '検索に一致するチャットはありません。',
-  'No chats yet. Start one with New chat.': 'チャットはまだありません。「新しいチャット」から始められます。'
+  'No chats yet. Start one with New chat.': 'チャットはまだありません。「新しいチャット」から始められます。',
+
+  // components/QuickStart.tsx, WorkspaceColumns.tsx (window tabs)
+  'Starts in {place}.': '{place} で始めます。',
+  'Starts in a worktree of its own in {project}, so it never edits the same checkout as another chat.': '{project} に専用のワークツリーを作って始めます。ほかのチャットと同じチェックアウトを編集することはありません。',
+  'Start somewhere else': '別の場所で始める',
+  'No project': 'プロジェクトなし',
+  'Drag out of the window to open this workspace in a window of its own': 'ウィンドウの外へドラッグすると、このワークスペースを別ウィンドウで開きます'
 }

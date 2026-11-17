@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
-import { ChevronLeft, ChevronRight, Ellipsis, X } from 'lucide-react'
+import { ChevronLeft, ChevronRight, Ellipsis, Plus, X } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import {
   DropdownMenu,
@@ -8,6 +8,8 @@ import {
   DropdownMenuTrigger
 } from '@/components/ui/dropdown-menu'
 import { cn } from '@/lib/utils'
+import { showQuickStart } from '@/session-store'
+import { WINDOW_TABS } from '@/stores/tab-layout-store'
 import { NewTabMenu } from './NewTabMenu'
 import { NewTerminalButton } from './terminal-commands'
 import { QuickCommandsButton } from '@/components/terminal/QuickCommandsButton'
@@ -166,9 +168,25 @@ export function TabStrip({
       {overflow.hasOverflow && (
         <ScrollButton direction="end" disabled={!overflow.canScrollEnd} onClick={() => scrollBy('end')} />
       )}
-      <NewTabMenu workspaceId={workspaceId} groupId={groupId} />
-      <NewTerminalButton workspaceId={workspaceId} groupId={groupId} />
-      <QuickCommandsButton workspaceId={workspaceId} />
+      {workspaceId === WINDOW_TABS ? (
+        // No workspace in front, so nowhere to start a terminal or open a file: only a chat can start.
+        <button
+          type="button"
+          aria-label={t('New chat')}
+          title={t('New chat')}
+          data-new-chat-tab
+          className="my-auto ml-1 flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-muted-foreground hover:bg-accent/50 hover:text-foreground focus-visible:ring-2 focus-visible:ring-accent focus-visible:outline-none"
+          onClick={() => showQuickStart()}
+        >
+          <Plus className="size-4" />
+        </button>
+      ) : (
+        <>
+          <NewTabMenu workspaceId={workspaceId} groupId={groupId} />
+          <NewTerminalButton workspaceId={workspaceId} groupId={groupId} />
+          <QuickCommandsButton workspaceId={workspaceId} />
+        </>
+      )}
       <div className="min-w-0 flex-1" />
       {hasSplit && (
         <div

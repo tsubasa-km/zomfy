@@ -80,8 +80,8 @@ export function SessionRow({
 }) {
   const open = useStore((s) => Boolean(showActive) && s.activeWorkspaceId === session.workspaceId && s.activeSessionByWorkspace[session.workspaceId] === session.id)
   const workspaceName = useStore((s) => allWorkspaces(s).find((w) => w.id === session.workspaceId)?.name ?? '')
-  // A chat whose tab was closed is still here; clicking it brings the tab back.
-  const tabClosed = useTabLayout((s) => Boolean(s.hidden[session.id]))
+  // Most chats have no tab at any moment; clicking one opens it.
+  const tabClosed = useTabLayout((s) => !s.open[session.id])
   const selected = chatSelection.use((s) => s.scope === SCOPE && s.ids.length > 1 && s.ids.includes(session.id))
   const targets = () => {
     const ids = chatSelection.targets(session.id)
@@ -157,13 +157,12 @@ export function SessionRow({
       data-session-open={open || undefined}
       data-session-archived={session.archived || undefined}
       data-session-child={child || undefined}
-      title={card ? undefined : session.archived ? t('Archived: click to open it') : tabClosed ? t('Tab closed: click to open it again') : undefined}
+      title={!card && session.archived ? t('Archived: click to open it') : undefined}
       className={cn(
         'group/chat relative flex min-w-0 cursor-pointer rounded-md pr-1 text-muted-foreground hover:bg-worktree-sidebar-accent/60 hover:text-foreground',
         card ? 'items-start gap-2 py-1.5 text-[13px]' : 'items-center gap-1.5 py-0.5 text-[12px]',
         child ? 'pl-[36px]' : 'pl-[22px]',
-        // A closed tab says nothing about the chat in the chat list, where every chat is one click away.
-        !card && (tabClosed || session.archived) && renaming === null && 'opacity-60',
+        !card && session.archived && renaming === null && 'opacity-60',
         selected && 'bg-worktree-sidebar-accent text-foreground opacity-100',
         open && 'bg-worktree-sidebar-accent/70 text-foreground opacity-100'
       )}

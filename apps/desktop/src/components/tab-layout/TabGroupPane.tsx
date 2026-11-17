@@ -1,5 +1,8 @@
 import { useEffect, useState } from 'react'
 import { ensureSessionLoaded } from '@/daemon-connection'
+import { useStore } from '@/session-store'
+import { tabScope, WINDOW_TABS } from '@/stores/tab-layout-store'
+import { QuickStart } from '@/components/QuickStart'
 import { ThreadView } from '@/components/ThreadView'
 import { TerminalTabBody } from '@/components/terminal/TerminalPaneTree'
 import { DiffTabView } from '@/components/EditorTabViews'
@@ -13,7 +16,7 @@ import { TabStrip } from './TabStrip'
 import { resolveTabDropTarget, setInsertionMark, tabDrag, type DropZone } from './tab-drag'
 import { focusGroup, moveTabTo, splitTabTo } from './tab-group-commands'
 import './pane-split-commands'
-import type { WorkspaceTab } from './workspace-tab-model'
+import { tabWorkspaceId, type WorkspaceTab } from './workspace-tab-model'
 import { t } from '@/i18n/i18n'
 
 const OVERLAY_RECT: Record<DropZone, React.CSSProperties> = {
@@ -26,6 +29,12 @@ const OVERLAY_RECT: Record<DropZone, React.CSSProperties> = {
 
 function TabBody({ tab }: { tab: WorkspaceTab }) {
   switch (tab.kind) {
+    case 'start':
+      return (
+        <div key={tab.id} className="flex min-h-0 flex-1 flex-col overflow-y-auto">
+          <QuickStart />
+        </div>
+      )
     case 'chat':
       return <ThreadView key={tab.id} session={tab.session} />
     case 'terminal':
@@ -69,6 +78,12 @@ export function TabGroupPane({
 }) {
   const active = tabs.find((t) => t.id === activeId) ?? null
   const activeChatId = active?.kind === 'chat' ? active.id : undefined
+  // Among the window's tabs, the pane works in the workspace of the tab it shows: that is where its
+  // "+" starts a terminal and whose drawer it pulls down. Showing none (or the "New chat" tab), it
+  // falls back to the workspace in front, and has no workspace when there is none.
+  const front = useStore((s) => s.activeWorkspaceId)
+  const home = workspaceId !== WINDOW_TABS ? workspaceId : ((active ? tabWorkspaceId(active) : null) ?? front)
+  const placed = home ?? workspaceId
   const [zone, setZone] = useState<DropZone | null>(null)
 
   useEffect(() => {
@@ -77,7 +92,7 @@ export function TabGroupPane({
 
   // Tabs move only within their own workspace, as before; the floating panel is another workspace.
   const dropRef = tabDrag.useDropTarget({
-    accepts: (drag) => drag.workspaceId === workspaceId,
+    accepts: (drag) => tabScope(drag.workspaceId) === tabScope(workspaceId),
     over: (drag, { point, element }) => {
       const target = resolveTabDropTarget(drag, groupId, element, point)
       setInsertionMark(target.kind === 'insert' ? target.mark : null)
@@ -104,7 +119,7 @@ export function TabGroupPane({
       onPointerDown={() => !isFocused && focusGroup(workspaceId, groupId)}
     >
       <TabStrip
-        workspaceId={workspaceId}
+        workspaceId={placed}
         groupId={groupId}
         tabs={tabs}
         activeId={active?.id ?? null}
@@ -113,9 +128,20 @@ export function TabGroupPane({
         trailing={trailing}
       />
       <div data-tab-group-body-id={groupId} className="relative flex min-h-0 min-w-0 flex-1 flex-col">
-        {active ? <TabBody tab={active} /> : <EmptyPane workspaceId={workspaceId} groupId={groupId} hint={emptyHint} />}
+        {active ? (
+          <TabBody tab={active} />
+        ) : home ? (
+          <EmptyPane workspaceId={home} groupId={groupId} hint={emptyHint} />
+        ) : (
+          // Nothing open and no workspace in front: the window offers what its "New chat" tab does.
+          <div className="flex min-h-0 flex-1 flex-col overflow-y-auto">
+            <QuickStart />
+          </div>
+        )}
         {/* The drawer belongs to the tab on show: none without one, and each tab keeps its own. */}
-        {active && <ToolDrawer key={active.id} workspaceId={workspaceId} tabId={active.id} exclude={active.id} focused={isFocused} />}
+        {active && home && active.kind !== 'start' && (
+          <ToolDrawer key={active.id} workspaceId={home} tabId={active.id} exclude={active.id} focused={isFocused} />
+        )}
       </div>
       {zone && (
         <div aria-hidden data-tab-drop-zone={zone} className="tab-drop-overlay" style={OVERLAY_RECT[zone]}>

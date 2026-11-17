@@ -64,6 +64,8 @@ interface SidebarState {
   pinnedChats: string[]
   /** Chat list sections folded shut ('archived' starts that way). */
   collapsedSections: string[]
+  /** The project the "New chat" tab last started a chat in, as `hostId:projectId`; null for a quick chat. */
+  startProject: string | null
   /** Multi-selected workspace ids (Ctrl/Shift click). */
   selection: string[]
   selectionAnchor: string | null
@@ -75,7 +77,7 @@ interface SidebarState {
 const KEY = 'acp-harness.sidebar.v1'
 type Saved = Pick<
   SidebarState,
-  'filters' | 'cardLayout' | 'cardProperties' | 'collapsedProjects' | 'expandedChats' | 'projectOrder' | 'pinnedChats' | 'collapsedSections'
+  'filters' | 'cardLayout' | 'cardProperties' | 'collapsedProjects' | 'expandedChats' | 'projectOrder' | 'pinnedChats' | 'collapsedSections' | 'startProject'
 >
 
 function readSaved(): Partial<Saved> {
@@ -97,6 +99,7 @@ let state: SidebarState = {
   projectOrder: saved.projectOrder ?? [],
   pinnedChats: saved.pinnedChats ?? [],
   collapsedSections: saved.collapsedSections ?? ['archived'],
+  startProject: saved.startProject ?? null,
   selection: [],
   selectionAnchor: null,
   boardOpen: false,
@@ -117,7 +120,8 @@ function set(change: Partial<SidebarState>): void {
       expandedChats: state.expandedChats,
       projectOrder: state.projectOrder,
       pinnedChats: state.pinnedChats,
-      collapsedSections: state.collapsedSections
+      collapsedSections: state.collapsedSections,
+      startProject: state.startProject
     }
     localStorage.setItem(KEY, JSON.stringify(persisted))
   } catch {
@@ -183,6 +187,10 @@ export function toggleChatExpanded(sessionId: string): void {
 export function setChatPinned(sessionId: string, pinned: boolean): void {
   const others = state.pinnedChats.filter((id) => id !== sessionId)
   set({ pinnedChats: pinned ? [...others, sessionId] : others })
+}
+
+export function setStartProject(startProject: string | null): void {
+  set({ startProject })
 }
 
 export function toggleSectionCollapsed(sectionId: string): void {

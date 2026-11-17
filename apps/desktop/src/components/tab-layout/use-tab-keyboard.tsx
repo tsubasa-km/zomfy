@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
-import { getTabLayoutState, type WorkspaceLayout } from '@/stores/tab-layout-store'
-import { isFloating } from '@/session-store'
+import { getTabLayoutState, WINDOW_TABS, type WorkspaceLayout } from '@/stores/tab-layout-store'
+import { getState, isFloating } from '@/session-store'
 import { tabSelection } from '@/stores/list-selection'
 import { matchTabShortcut } from './tab-shortcuts'
 import {
@@ -115,9 +115,12 @@ export function useTabKeyboard({
         case 'tab.previousAllTypes':
           step(-1)
           break
-        case 'tab.newBrowser':
-          openBrowserTab(workspaceId)
+        case 'tab.newBrowser': {
+          // A page opens in a workspace: among the window's tabs, the one in front.
+          const home = workspaceId === WINDOW_TABS ? getState().activeWorkspaceId : workspaceId
+          if (home) openBrowserTab(home)
           break
+        }
         case 'tab.rename':
           if (active) requestTabRename(active.id)
           break

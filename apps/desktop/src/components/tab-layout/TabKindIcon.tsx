@@ -1,4 +1,4 @@
-import { FileCode2, GitCompare, Globe } from 'lucide-react'
+import { FileCode2, GitCompare, Globe, SquarePen } from 'lucide-react'
 import { TerminalTabIcon } from '@/components/terminal/TerminalTabIcon'
 import { TuiAgentIcon } from '@/components/terminal/TuiAgentIcon'
 import { sessionAgent } from '@/lib/chat-agents'
@@ -8,6 +8,8 @@ import { useWorkspacePanel } from './workspace-panels'
 
 export function TabKindIcon({ tab, className }: { tab: WorkspaceTab; className?: string }) {
   switch (tab.kind) {
+    case 'start':
+      return <SquarePen className={cn('size-3.5', className)} />
     case 'chat':
       return <TuiAgentIcon agent={sessionAgent(tab.session)} size={12} />
     case 'terminal':

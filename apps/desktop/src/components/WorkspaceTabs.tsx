@@ -6,21 +6,24 @@ import {
   leafGroupIds,
   reconcileLayout,
   storeReconciledLayout,
+  tabScope,
   topRightGroupId,
-  useTabLayout
+  useTabLayout,
+  WINDOW_TABS
 } from '@/stores/tab-layout-store'
 import { SplitLayout } from '@/components/tab-layout/SplitLayout'
 import { TabGroupPane } from '@/components/tab-layout/TabGroupPane'
 import { useTabKeyboard } from '@/components/tab-layout/use-tab-keyboard'
-import { syncWorkspaceFocus, useWorkspaceTabs } from '@/components/tab-layout/workspace-tab-model'
+import { syncWorkspaceFocus, TabPlacesContext, tabWorkspaceId, useWorkspaceTabs } from '@/components/tab-layout/workspace-tab-model'
 import { TerminalWorkspaceDialogs } from '@/components/terminal/TerminalWorkspaceDialogs'
 import { reconcileWorkspacePanes } from '@/components/terminal/terminal-pane-commands'
 import { paneOwnerTab, setActivePane, useTerminalPaneState } from '@/stores/terminal-pane-store'
 import '@/components/tab-layout/tab-layout.css'
 import { t } from '@/i18n/i18n'
 
-// A workspace's center area, as Orca draws it: a split tree of tab groups (TabGroupSplitNodeTree),
-// each with its own tab strip (tab-bar/) and body.
+// A set of tabs, as Orca draws it: a split tree of tab groups (TabGroupSplitNodeTree), each with its
+// own tab strip (tab-bar/) and body. `workspaceId` names one workspace's tabs (the floating panel, a
+// pop-out window), or with WINDOW_TABS the main window's, which hold every workspace's.
 
 export function WorkspaceTabs({
   workspaceId,
@@ -33,16 +36,25 @@ export function WorkspaceTabs({
   emptyHint: string
 }) {
   const tabs = useWorkspaceTabs(workspaceId)
+  // The terminal menus' dialogs belong to a workspace: among the window's tabs, the one in front.
+  const front = useStore((s) => s.activeWorkspaceId)
+  const dialogsFor = workspaceId === WINDOW_TABS ? front : workspaceId
   const focusedId = useStore((s) => s.activeSessionByWorkspace[workspaceId])
   const panes = useTerminalPaneState()
   // Focusing a split pane's terminal (a notification, Jump to agent) focuses its tab and that pane.
   const focusTabId = useMemo(() => (focusedId ? paneOwnerTab(focusedId) : undefined), [focusedId, panes])
-  // Gone tabs are pruned only once the owning host has listed its sessions and terminals.
+  // Gone tabs are pruned only once the owning host has listed its sessions and terminals: for the
+  // window's tabs, every host it reconnects to, so a slow one does not lose its tabs' places.
   const hostListed = useStore((s) => {
+    if (workspaceId === WINDOW_TABS) {
+      const hosts = Object.values(s.hosts)
+      const settled = (id: string) => s.hosts[id] !== undefined && s.hosts[id]!.connection.kind !== 'connecting'
+      return hosts.some((h) => h.connection.kind === 'connected') && hosts.every((h) => settled(h.id)) && s.rememberedHosts.every(settled)
+    }
     const hostId = allWorkspaces(s).find((w) => w.id === workspaceId)?.hostId
     return hostId !== undefined && s.hosts[hostId]?.connection.kind === 'connected'
   })
-  const stored = useTabLayout((s) => s.layouts[workspaceId])
+  const stored = useTabLayout((s) => s.layouts[tabScope(workspaceId)])
   const liveIds = useMemo(() => tabs.map((t) => t.id), [tabs])
   const layout = useMemo(
     () => reconcileLayout(stored ?? emptyLayout(), liveIds, focusTabId, hostListed),
@@ -54,7 +66,7 @@ export function WorkspaceTabs({
   }, [focusedId, focusTabId])
 
   useEffect(() => {
-    if (hostListed) reconcileWorkspacePanes(workspaceId, getState().terminals)
+    if (hostListed) reconcileWorkspacePanes(workspaceId === WINDOW_TABS ? null : workspaceId, getState().terminals)
     // Recomputed from the store, not the render's copy, so a move made since then is kept.
     storeReconciledLayout(workspaceId, reconcileLayout(layoutFor(workspaceId), liveIds, focusTabId, hostListed))
     syncWorkspaceFocus(workspaceId)
@@ -64,10 +76,13 @@ export function WorkspaceTabs({
   const switcher = useTabKeyboard({ workspaceId, rootRef, tabs, layout })
   const byId = useMemo(() => new Map(tabs.map((t) => [t.id, t])), [tabs])
   const hasSplit = leafGroupIds(layout.root).length > 1
+  // With tabs of several workspaces side by side, each says which one it belongs to.
+  const manyPlaces = useMemo(() => new Set(tabs.flatMap((t) => tabWorkspaceId(t) ?? [])).size > 1, [tabs])
   const trailingGroup = topRightGroupId(layout.root)
 
   return (
     <div ref={rootRef} data-workspace-tabs={workspaceId} className="flex min-h-0 min-w-0 flex-1 flex-col">
+      <TabPlacesContext.Provider value={manyPlaces}>
       <SplitLayout
         workspaceId={workspaceId}
         node={layout.root}
@@ -95,8 +110,9 @@ export function WorkspaceTabs({
           )
         }}
       />
+      </TabPlacesContext.Provider>
       {switcher}
-      <TerminalWorkspaceDialogs workspaceId={workspaceId} />
+      {dialogsFor && <TerminalWorkspaceDialogs workspaceId={dialogsFor} />}
     </div>
   )
 }

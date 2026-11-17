@@ -1,6 +1,6 @@
 import type { TerminalInfo } from '@acp-harness/protocol'
 import { closeTerminal, createTerminal } from '@/daemon-connection'
-import { getState, selectTab } from '@/session-store'
+import { getState, inWindowTabs, selectTab } from '@/session-store'
 import { renameTab } from '@/stores/tab-layout-store'
 import {
   addPane,
@@ -64,12 +64,18 @@ export function tabPaneTerminalIds(tabId: string): string[] {
   return layout ? paneTerminalIds(layout.root) : [tabId]
 }
 
-/** Drops panes whose terminals the host no longer lists, keeping each tab in its slot. */
-export function reconcileWorkspacePanes(workspaceId: string, terminals: readonly TerminalInfo[]): void {
+/**
+ * Drops panes whose terminals the host no longer lists, keeping each tab in its slot. `workspaceId`
+ * names one workspace's tabs; null means the main window's, which hold every workspace's.
+ */
+export function reconcileWorkspacePanes(workspaceId: string | null, terminals: readonly TerminalInfo[]): void {
   const live = new Set(terminals.map((t) => t.id))
-  const own = new Set(terminals.filter((t) => t.workspaceId === workspaceId).map((t) => t.id))
+  const own = new Set(terminals.filter((t) => (workspaceId === null ? inWindowTabs(t.workspaceId) : t.workspaceId === workspaceId)).map((t) => t.id))
   const tabIds = paneTabIds().filter((tabId) => tabPaneTerminalIds(tabId).some((id) => own.has(id)))
-  for (const [oldId, newId] of prunePanes(live, tabIds)) followRename(workspaceId, oldId, newId)
+  for (const [oldId, newId] of prunePanes(live, tabIds)) {
+    const home = terminals.find((t) => t.id === newId)?.workspaceId ?? workspaceId
+    if (home) followRename(home, oldId, newId)
+  }
 }
 
 /** Moves focus to the next or previous pane of the focused terminal tab, wrapping around. */

@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useContext, useEffect, useRef, useState } from 'react'
 import { Pin, X } from 'lucide-react'
 import type { Session } from '@/session-store'
 import { AgentStateDot, type AgentDotState } from '@/components/AgentStateDot'
@@ -18,6 +18,9 @@ import {
   canRenameTab,
   closeWorkspaceTabs,
   defaultTabTitle,
+  TabPlacesContext,
+  tabWorkspaceId,
+  useWorkspacePlace,
   type WorkspaceTab
 } from './workspace-tab-model'
 import { t } from '@/i18n/i18n'
@@ -35,7 +38,7 @@ const DROP_BEFORE = "before:absolute before:inset-y-0 before:left-0 before:z-10 
 const DROP_AFTER = "after:absolute after:inset-y-0 after:right-0 after:z-10 after:w-[2px] after:bg-blue-500 after:content-['']"
 
 export function TabItem({
-  workspaceId,
+  workspaceId: paneWorkspaceId,
   groupId,
   tab,
   groupTabs,
@@ -52,6 +55,10 @@ export function TabItem({
   groupActiveId: string | null
   hasSplit: boolean
 }) {
+  // A tab acts in its own workspace, which among the window's tabs is not always its pane's.
+  const workspaceId = tabWorkspaceId(tab) ?? paneWorkspaceId
+  const showPlace = useContext(TabPlacesContext)
+  const place = useWorkspacePlace(tabWorkspaceId(tab))
   const meta = useTabLayout((s) => s.meta[tab.id])
   const title = meta?.customTitle ?? defaultTabTitle(tab)
   const pinned = meta?.pinned === true
@@ -100,6 +107,7 @@ export function TabItem({
         data-tab-title={title}
         data-pinned={pinned ? 'true' : 'false'}
         data-tab-selected={selected || undefined}
+        title={showPlace && place ? `${title} · ${place}` : undefined}
         onPointerDown={(e) => {
           if (renaming !== null) return
           tabDrag.begin(e, {
@@ -173,6 +181,12 @@ export function TabItem({
           />
         ) : (
           <span className="min-w-0 flex-1 truncate">{title}</span>
+        )}
+        {/* A chat says where it works in the sidebar and the header; a shell, a file or a panel needs it on the tab. */}
+        {showPlace && place && tab.kind !== 'chat' && renaming === null && (
+          <span className="max-w-[45%] shrink-0 truncate text-[10px] text-muted-foreground/70" data-tab-place>
+            {place}
+          </span>
         )}
         {meta?.color && renaming === null && (
           <span className="size-2 shrink-0 rounded-full" style={{ backgroundColor: meta.color }} />

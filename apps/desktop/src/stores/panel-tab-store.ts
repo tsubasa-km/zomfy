@@ -30,6 +30,10 @@ const store = createExternalStore<PanelTab[]>(readSaved(), (tabs) => {
 
 export const usePanelTabs = (): PanelTab[] => store.use((tabs) => tabs)
 
+export function getPanelTabs(): PanelTab[] {
+  return store.get()
+}
+
 export function addPanelTab(workspaceId: string, panel: string): PanelTab {
   const tab: PanelTab = { id: `paneltab:${crypto.randomUUID()}`, workspaceId, createdAt: Date.now(), panel }
   store.update((tabs) => [...tabs, tab])

@@ -12,6 +12,8 @@ export interface DragItem {
   id: string
   hostId: HostId
   projectId: string | null
+  /** The chat whose row is dragged; dropped on the main area, that chat opens. */
+  sessionId?: string
 }
 
 export const sidebarDrag = createPointerDragChannel<DragItem>()

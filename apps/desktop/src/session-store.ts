@@ -13,7 +13,16 @@ import type {
   Workspace
 } from '@acp-harness/protocol'
 import { WINDOW_ROLE } from '@/lib/window-role'
-import { setTabMeta, showChat } from '@/stores/tab-layout-store'
+import {
+  carriesOverOpenChats,
+  carryOverOpenChats,
+  layoutFor,
+  seedWindowLayout,
+  setTabMeta,
+  setTabScopeResolver,
+  showChat,
+  WINDOW_TABS
+} from '@/stores/tab-layout-store'
 import { openWorkflows } from '@/stores/workflows-store'
 import { hidePaneSidebar, showPaneSidebar, togglePaneSidebar } from '@/stores/pane-sidebar-store'
 import { forgetHostSnapshot, saveHostSnapshot } from '@/lib/host-snapshots'
@@ -172,6 +181,11 @@ export interface StoreState {
   columns: string[]
   /** Workspaces open in a window of their own (lib/workspace-window), kept out of this window's view. */
   poppedOut: string[]
+  /**
+   * The "New chat" tab (components/QuickStart): whether the window shows it, and the workspace its
+   * chat starts in when the person came from one that has nothing open (null starts a quick chat).
+   */
+  startTab: { open: boolean; workspaceId: string | null }
 }
 
 export type SessionTransition = { session: Session; from: SessionStatus; to: SessionStatus }
@@ -196,6 +210,7 @@ type SavedLayout = Pick<
   | 'rememberedHosts'
   | 'sidebarView'
   | 'paneTree'
+  | 'startTab'
 >
 
 /** What layouts saved before the pane tree held. */
@@ -210,7 +225,14 @@ function readLayout(): Partial<SavedLayout> & LegacyLayout {
 }
 
 const saved = readLayout()
-const initialTree = saved.paneTree !== undefined ? readPaneTree(saved.paneTree) : panesFromColumns(saved.columns ?? [], saved.columnWidths)
+// The main window has one set of tabs for every workspace, so it never splits by workspace; a
+// layout saved while it did keeps only its tabs.
+const initialTree =
+  WINDOW_ROLE === 'main'
+    ? null
+    : saved.paneTree !== undefined
+      ? readPaneTree(saved.paneTree)
+      : panesFromColumns(saved.columns ?? [], saved.columnWidths)
 let state: StoreState = {
   hosts: {},
   sessions: [],
@@ -226,8 +248,11 @@ let state: StoreState = {
   dashboardOpen: false,
   paneTree: initialTree,
   columns: paneLeaves(initialTree),
-  poppedOut: []
+  poppedOut: [],
+  startTab: saved.startTab ?? { open: false, workspaceId: null }
 }
+/** The workspaces the window showed when it last closed, whose chats keep their tabs across the update to window tabs. */
+const shownBefore = new Set([saved.activeWorkspaceId, ...paneLeaves(saved.paneTree !== undefined ? readPaneTree(saved.paneTree) : null)].filter(Boolean))
 const listeners = new Set<() => void>()
 let batchDepth = 0
 let batchDirty = false
@@ -269,7 +294,8 @@ function publish(next: StoreState): void {
       rightSidebar: next.rightSidebar,
       rememberedHosts: next.rememberedHosts,
       sidebarView: next.sidebarView,
-      paneTree: next.paneTree
+      paneTree: next.paneTree,
+      startTab: next.startTab
     }
     localStorage.setItem(LAYOUT_KEY, JSON.stringify(layout))
   } catch {
@@ -399,9 +425,68 @@ export function onPoppedOutSelect(handler: (workspaceId: string) => void): void 
   focusPoppedOut = handler
 }
 
+/** Whether a workspace's tabs are among the main window's, rather than the floating panel's or a pop-out window's. */
+export function inWindowTabs(workspaceId: string, s: StoreState = state): boolean {
+  return WINDOW_ROLE === 'main' && workspaceId !== floatingWorkspaceId(s) && !s.poppedOut.includes(workspaceId)
+}
+
+setTabScopeResolver((workspaceId) => (inWindowTabs(workspaceId) ? WINDOW_TABS : workspaceId))
+if (WINDOW_ROLE === 'main') seedWindowLayout(saved.activeWorkspaceId ?? null)
+
+/** The id of the "New chat" tab. */
+export const START_TAB = 'start'
+
+/** The workspace a tab of the window belongs to, for the kinds of tab this store knows. */
+function workspaceOfKnownTab(tabId: string, s: StoreState = state): string | null {
+  return (
+    s.sessions.find((x) => x.id === tabId)?.workspaceId ??
+    s.terminals.find((x) => x.id === tabId)?.workspaceId ??
+    s.editorTabs.find((x) => x.id === tabId)?.workspaceId ??
+    null
+  )
+}
+
+/**
+ * Brings a workspace to the front. In the main window that means one of its tabs: the one it last
+ * had in front, else any it has open, else its latest chat; a workspace with nothing to show gets
+ * the "New chat" tab, set to start the chat there.
+ */
 export function selectWorkspace(workspaceId: string): void {
   if (state.poppedOut.includes(workspaceId) && focusPoppedOut) return focusPoppedOut(workspaceId)
-  set({ ...state, activeWorkspaceId: workspaceId })
+  if (!inWindowTabs(workspaceId)) return set({ ...state, activeWorkspaceId: workspaceId })
+  const layout = layoutFor(WINDOW_TABS)
+  const open = Object.values(layout.groups).flatMap((g) => g.tabOrder)
+  const last = state.activeSessionByWorkspace[workspaceId]
+  const tab = last && open.includes(last) ? last : open.find((id) => workspaceOfKnownTab(id) === workspaceId)
+  if (tab) return set(withTabFocus(state, workspaceId, tab))
+  const chat = state.sessions.findLast((s) => s.workspaceId === workspaceId && !s.sideOf && !s.parentId && !s.archived)
+  if (chat) return focusTab(workspaceId, chat.id)
+  openStartTab(workspaceId)
+}
+
+/** `tabId` in front of its workspace's tabs: in the window when they live there, taking the window's focus with it. */
+function withTabFocus(s: StoreState, workspaceId: string | null, tabId: string): StoreState {
+  const activeSessionByWorkspace = { ...s.activeSessionByWorkspace }
+  if (workspaceId) activeSessionByWorkspace[workspaceId] = tabId
+  if (workspaceId && !inWindowTabs(workspaceId, s)) return { ...s, activeSessionByWorkspace }
+  if (WINDOW_ROLE !== 'main') return { ...s, activeSessionByWorkspace }
+  activeSessionByWorkspace[WINDOW_TABS] = tabId
+  return { ...s, activeSessionByWorkspace, activeWorkspaceId: workspaceId }
+}
+
+/** Shows the "New chat" tab in front; with `workspaceId`, its chat starts in that workspace. */
+export function openStartTab(workspaceId: string | null = null): void {
+  openWorkflows(null)
+  set({ ...withTabFocus(state, null, START_TAB), startTab: { open: true, workspaceId }, dashboardOpen: false })
+}
+
+export function closeStartTab(): void {
+  if (state.startTab.open) set({ ...state, startTab: { open: false, workspaceId: null } })
+}
+
+/** Where the "New chat" tab starts its chat: null for a quick chat. */
+export function setStartWorkspace(workspaceId: string | null): void {
+  set({ ...state, startTab: { ...state.startTab, workspaceId } })
 }
 
 /** The state with `tree` as its layout, `columns` listing its panes. */
@@ -427,7 +512,7 @@ function currentPanes(): PaneNode | null {
 
 /** Shows `workspaceId` in a pane of its own at the right end, or focuses its pane. */
 export function openInColumn(workspaceId: string): void {
-  if (state.poppedOut.includes(workspaceId)) return selectWorkspace(workspaceId)
+  if (state.poppedOut.includes(workspaceId) || WINDOW_ROLE === 'main') return selectWorkspace(workspaceId)
   if (state.columns.includes(workspaceId)) return set({ ...state, activeWorkspaceId: workspaceId, dashboardOpen: false })
   const base = currentPanes()
   const tree = base && !(isLeaf(base) && base.leaf === workspaceId) ? appendPane(base, workspaceId) : null
@@ -436,7 +521,7 @@ export function openInColumn(workspaceId: string): void {
 
 /** Puts `workspaceId` on `side` of the pane showing `target`, taking it from its old place if it had one. */
 export function placePane(workspaceId: string, target: string, side: PaneSide): void {
-  if (state.poppedOut.includes(workspaceId) || workspaceId === target) return selectWorkspace(workspaceId)
+  if (state.poppedOut.includes(workspaceId) || workspaceId === target || WINDOW_ROLE === 'main') return selectWorkspace(workspaceId)
   const base = currentPanes()
   if (!base) return selectWorkspace(workspaceId)
   const tree = paneLeaves(base).includes(workspaceId) ? movePane(base, workspaceId, target, side) : insertPane(base, target, workspaceId, side)
@@ -477,8 +562,9 @@ export function setPoppedOut(workspaceId: string, popped: boolean): void {
   set(withPanes({ ...state, poppedOut, activeWorkspaceId: active }, removePane(state.paneTree, workspaceId)))
 }
 
-/** No workspace selected: the main view shows the quick start (components/QuickStart). */
+/** The quick start (components/QuickStart) in front: the window's "New chat" tab. */
 export function showQuickStart(): void {
+  if (WINDOW_ROLE === 'main') return openStartTab()
   set({ ...state, activeWorkspaceId: null, dashboardOpen: false })
 }
 
@@ -519,6 +605,12 @@ export function mergeSessions(hostId: HostId, list: SessionInfo[]): void {
       }
     }
   }
+  if (carriesOverOpenChats()) {
+    const floating = floatingWorkspaceId()
+    carryOverOpenChats(
+      list.flatMap((s) => (s.workspaceId && !s.sideOf && !s.archived && (shownBefore.has(s.workspaceId) || s.workspaceId === floating) ? [s.id] : []))
+    )
+  }
   set({
     ...state,
     unread,
@@ -529,14 +621,13 @@ export function mergeSessions(hostId: HostId, list: SessionInfo[]): void {
   for (const t of transitions) for (const listener of transitionListeners) listener(t)
 }
 
+/** Adds a chat this window just started. With `focus` it gets a tab, in front; without, it only joins the sidebar. */
 export function addSession(session: Session, focus = true): void {
-  set({
-    ...state,
-    sessions: [...state.sessions.filter((s) => s.id !== session.id), session],
-    activeSessionByWorkspace: focus
-      ? { ...state.activeSessionByWorkspace, [session.workspaceId]: session.id }
-      : state.activeSessionByWorkspace
-  })
+  const next = { ...state, sessions: [...state.sessions.filter((s) => s.id !== session.id), session] }
+  // A side chat lives in its main chat's drawer and never has a tab.
+  if (!focus || session.sideOf) return set(next)
+  showChat(session.id)
+  set(withTabFocus(next, session.workspaceId, session.id))
 }
 
 export function removeSession(sessionId: string): void {
@@ -618,9 +709,11 @@ export function handleSessionPicks(handler: (sessionId: string) => void): void {
 export function selectSession(sessionId: string): void {
   if (sessionPickHandler) return sessionPickHandler(sessionId)
   const session = state.sessions.find((s) => s.id === sessionId)
-  // A side chat has no tab; it shows in its workspace's drawer.
+  // A side chat has no tab; it shows in its workspace's drawer, beside the chat it was opened from.
   if (session?.sideOf) {
-    set({ ...state, activeWorkspaceId: session.workspaceId })
+    const main = state.sessions.find((s) => s.id === session.sideOf)
+    if (main) focusTab(main.workspaceId, main.id)
+    else selectWorkspace(session.workspaceId)
     setRightSidebar({ open: true, tab: 'side-chat' })
   } else if (session) focusTab(session.workspaceId, sessionId)
   if (state.dashboardOpen) set({ ...state, dashboardOpen: false })
@@ -684,11 +777,8 @@ export function openEditorTab(tab: Omit<EditorTab, 'id' | 'createdAt'>): void {
   const target = existing
     ? { ...existing, ...(tab.line !== undefined ? { line: tab.line } : {}) }
     : { ...tab, id: `${tab.kind}:${crypto.randomUUID()}`, createdAt: Date.now() }
-  set({
-    ...state,
-    editorTabs: existing ? state.editorTabs.map((t) => (t.id === target.id ? target : t)) : [...state.editorTabs, target],
-    activeSessionByWorkspace: { ...state.activeSessionByWorkspace, [tab.workspaceId]: target.id }
-  })
+  const editorTabs = existing ? state.editorTabs.map((t) => (t.id === target.id ? target : t)) : [...state.editorTabs, target]
+  set(withTabFocus({ ...state, editorTabs }, tab.workspaceId, target.id))
 }
 
 export function setEditorDirty(id: string, dirty: boolean): void {
@@ -712,20 +802,31 @@ export function moveEditorTabs(workspaceId: string, from: string, to: string): v
   })
 }
 
-export function selectTab(workspaceId: string, tabId: string): void {
-  set({ ...state, activeSessionByWorkspace: { ...state.activeSessionByWorkspace, [workspaceId]: tabId } })
+/**
+ * Puts a tab in front of the tabs it lives among. `workspaceId` is the tab's own workspace (null
+ * for the "New chat" tab, which has none); among the window's tabs that also makes it the active one.
+ */
+export function selectTab(workspaceId: string | null, tabId: string): void {
+  const next = withTabFocus(state, workspaceId, tabId)
+  if (
+    next.activeWorkspaceId === state.activeWorkspaceId &&
+    next.activeSessionByWorkspace[WINDOW_TABS] === state.activeSessionByWorkspace[WINDOW_TABS] &&
+    (!workspaceId || state.activeSessionByWorkspace[workspaceId] === tabId)
+  ) {
+    return
+  }
+  set(next)
 }
 
 function focusTab(workspaceId: string, tabId: string): void {
-  showChat(tabId)
+  if (state.sessions.some((s) => s.id === tabId)) showChat(tabId)
   // A chat or terminal picked anywhere (sidebar, inbox, a card) must not stay hidden behind the Workflows page.
   openWorkflows(null)
-  const activeSessionByWorkspace = { ...state.activeSessionByWorkspace, [workspaceId]: tabId }
-  set(
-    isFloating(workspaceId)
-      ? { ...state, activeSessionByWorkspace, floating: { ...state.floating, open: true } }
-      : { ...state, activeSessionByWorkspace, activeWorkspaceId: workspaceId }
-  )
+  const focused = withTabFocus(state, workspaceId, tabId)
+  if (isFloating(workspaceId)) return set({ ...focused, floating: { ...state.floating, open: true } })
+  set(focused)
+  // Its tabs are in a window of its own, which comes forward.
+  if (state.poppedOut.includes(workspaceId)) focusPoppedOut?.(workspaceId)
 }
 
 /** The panel id (components/tab-layout/workspace-panels.tsx) of what a right sidebar tab showed. */
