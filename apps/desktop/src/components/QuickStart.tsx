@@ -1,10 +1,11 @@
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import { ArrowUp, FolderPlus, GitBranch } from 'lucide-react'
 import { toast } from 'sonner'
 import { HARNESS_METHODS, isChatAgentId } from '@acp-harness/protocol'
 import { createSession, harnessRequest } from '@/daemon-connection'
 import { selectWorkspace, useStore, type HostId } from '@/session-store'
 import { submitPrompt } from '@/chat-actions'
+import { announceSent } from '@/lib/chat-after-send'
 import { useSetting } from '@/stores/settings-store'
 import { isSubmitShortcut, SUBMIT_SHORTCUT_LABEL } from '@/lib/terminal-shortcuts'
 import { openAddProjectDialog } from '@/lib/project-dialogs'
@@ -24,8 +25,10 @@ export function QuickStart() {
   const [hostId, setHostId] = useState<HostId | null>(null)
   const [draft, setDraft] = useState('')
   const [busy, setBusy] = useState(false)
+  const input = useRef<HTMLTextAreaElement>(null)
   const sendKey = useSetting('chatSendKey')
   const defaultAgent = useSetting('defaultChatAgent')
+  const afterSend = useSetting('chatAfterSend')
   useSetting('defaultHost')
   const target = hostId && connected.some((h) => h.id === hostId) ? hostId : defaultHostId()
 
@@ -38,13 +41,17 @@ export function QuickStart() {
       const sessionId = await createSession(workspace.id, isChatAgentId(defaultAgent) ? defaultAgent : undefined, {
         hostId: target
       })
-      selectWorkspace(workspace.id)
       submitPrompt(sessionId, text, [])
       setDraft('')
+      // Either open the new chat, or stay here for the next one while it runs in the sidebar.
+      if (afterSend === 'new-chat') announceSent(sessionId)
+      else selectWorkspace(workspace.id)
     } catch (error) {
       toast.error(t('Could not start the chat'), { description: error instanceof Error ? error.message : String(error) })
     } finally {
       setBusy(false)
+      // The box was disabled while sending, which dropped its focus; staying here means typing on.
+      if (afterSend === 'new-chat') requestAnimationFrame(() => input.current?.focus())
     }
   }
 
@@ -66,6 +73,7 @@ export function QuickStart() {
       </div>
       <div className="rounded-xl border border-input bg-card p-1.5 shadow-xs focus-within:border-ring">
         <Textarea
+          ref={input}
           autoFocus
           value={draft}
           disabled={busy}

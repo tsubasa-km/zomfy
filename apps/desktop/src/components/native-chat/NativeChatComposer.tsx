@@ -3,6 +3,7 @@ import { ArrowUp, Square, X } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { cn } from '@/lib/utils'
+import { leaveChatForNewChat, returnsToNewChat } from '@/lib/chat-after-send'
 import type { ChatImage, Session } from '@/session-store'
 import { patchChatSession, useChatSession, useChatStore } from '@/stores/chat-store'
 import {
@@ -251,6 +252,7 @@ function Composer({ session, editorRef }: ComposerProps) {
     submitPrompt(session.id, draft.trim(), draftImages)
     patchChatSession(session.id, { draft: '', draftImages: [] })
     setCaret(0)
+    if (returnsToNewChat(session.workspaceId, Boolean(session.sideOf))) leaveChatForNewChat(session.id)
   }
 
   // Tabs and explorer files dragged onto the composer become mentions (lib/chat-composer-drop.ts).

@@ -679,6 +679,15 @@ export const PAGES: Record<string, string> = {
   Light: 'ライト',
   '{zoomIn} / {zoomOut} from anywhere in the app.': 'アプリ内のどこからでも {zoomIn} / {zoomOut} で変更できます。',
   'Colors and typography for terminal tabs on every host.': 'すべてのホストのターミナルタブの配色と文字の設定です。',
+  // components/settings/InputEditingPane.tsx (after sending)
+  'After sending': '送信したあと',
+  "The chat's tab closes and New Chat opens, ready for the next task. The chat keeps running in the sidebar; the notice after sending opens it.":
+    'チャットのタブを閉じて「新しいチャット」画面に戻り、すぐ次の依頼を書けます。チャットはサイドバーで動き続け、送信後に出る通知から開けます。',
+  'The chat stays open, so you can watch the reply.': 'チャットを開いたままにして、返答を見られます。',
+  'Stay in the chat': 'チャットのまま',
+  'Go to New Chat': '新しいチャットへ',
+  // lib/chat-after-send.ts
+  'Message sent. The chat keeps running in the sidebar.': '送信しました。チャットはサイドバーで動き続けます。',
   'Open a Terminal When Empty': '空のときはターミナルを開く',
   'Opening the floating workspace with no tabs starts a terminal in it.': 'タブのないフローティングワークスペースを開くと、ターミナルが 1 つ開きます。',
   // components/settings/TerminalPane.tsx (right-click)

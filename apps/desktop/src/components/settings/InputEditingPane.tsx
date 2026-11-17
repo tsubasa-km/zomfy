@@ -1,4 +1,4 @@
-import { DEFAULT_SETTINGS, setSetting, useSetting, type ChatSendKey } from '@/stores/settings-store'
+import { DEFAULT_SETTINGS, setSetting, useSetting, type ChatAfterSend, type ChatSendKey } from '@/stores/settings-store'
 import { isMac } from '@/lib/terminal-shortcuts'
 import {
   NumberField,
@@ -17,6 +17,7 @@ export function InputEditingPane() {
   const minimap = useSetting('editorMinimap')
   const sendKey = useSetting('chatSendKey')
   const memos = useSetting('chatMemosEnabled')
+  const afterSend = useSetting('chatAfterSend')
 
   return (
     <div className="space-y-6">
@@ -35,6 +36,26 @@ export function InputEditingPane() {
                 options={[
                   { value: 'mod-enter', label: isMac ? '⌘ Enter' : 'Ctrl+Enter' },
                   { value: 'enter', label: 'Enter' }
+                ]}
+              />
+            }
+          />
+          <SettingsRow
+            label={t('After sending')}
+            description={
+              afterSend === 'new-chat'
+                ? t("The chat's tab closes and New Chat opens, ready for the next task. The chat keeps running in the sidebar; the notice after sending opens it.")
+                : t('The chat stays open, so you can watch the reply.')
+            }
+            keywords={['chat', 'send', 'new chat', 'close tab', 'background', 'after sending']}
+            control={
+              <SettingsSegmentedControl<ChatAfterSend>
+                ariaLabel={t('After sending')}
+                value={afterSend}
+                onChange={(value) => setSetting('chatAfterSend', value)}
+                options={[
+                  { value: 'stay', label: t('Stay in the chat') },
+                  { value: 'new-chat', label: t('Go to New Chat') }
                 ]}
               />
             }

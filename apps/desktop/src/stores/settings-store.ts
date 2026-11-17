@@ -12,6 +12,8 @@ export type TerminalCursorStyle = 'block' | 'bar' | 'underline'
 export type TerminalRightClick = 'menu' | 'copy-paste'
 /** Which Enter sends a chat message; the other one inserts a newline. */
 export type ChatSendKey = 'mod-enter' | 'enter'
+/** Where the main view goes once a chat message is sent: it stays on the chat, or goes back to New Chat. */
+export type ChatAfterSend = 'stay' | 'new-chat'
 
 /** Orca's floatingTerminalTriggerLocation: where the floating workspace toggle lives. */
 export type FloatingWorkspaceTriggerLocation = 'floating-button' | 'status-bar'
@@ -88,6 +90,8 @@ export interface AppSettings {
   dictationLanguage: string
   /** Cmd/Ctrl+Enter by default, so Enter and Shift+Enter both write newlines in the markdown composer. */
   chatSendKey: ChatSendKey
+  /** 'new-chat' closes the chat's tab after sending (the chat keeps running) and shows New Chat. */
+  chatAfterSend: ChatAfterSend
   /** Experimental: a markdown memo per chat, kept by the session's host. */
   chatMemosEnabled: boolean
 }
@@ -141,6 +145,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
   dictationApiKey: '',
   dictationLanguage: '',
   chatSendKey: 'mod-enter',
+  chatAfterSend: 'stay',
   chatMemosEnabled: true
 }
 
