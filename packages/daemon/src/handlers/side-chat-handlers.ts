@@ -7,12 +7,18 @@ import {
 } from "@acp-harness/protocol";
 import type { HandlerContext } from "./handler-context.ts";
 import { DEFAULT_SESSION_OPTIONS, publicInfo } from "../session-registry.ts";
+import { conversationMessages } from "../conversation-messages.ts";
 import { log } from "../log.ts";
 
 /** Long answers are clipped so the seed stays a small part of the side chat's context. */
 const MESSAGE_CHAR_LIMIT = 2000;
 
 type Message = { role: "User" | "Assistant"; text: string };
+
+/** The messages a side chat is shown: the ones with words (a turn of tool calls alone has none). */
+function spokenMessages(updates: acp.SessionUpdate[]): Message[] {
+  return conversationMessages(updates).filter((m) => m.text.trim());
+}
 
 export function registerSideChatHandlers({ handle, sessions, acpAgents }: HandlerContext): void {
   handle(HARNESS_METHODS.sideChatCreate, async (p) => {
@@ -21,7 +27,7 @@ export function registerSideChatHandlers({ handle, sessions, acpAgents }: Handle
     if (p.agent !== undefined && !isChatAgentId(p.agent)) throw new Error(`Unknown agent ${String(p.agent)}`);
     const agent: ChatAgentId = p.agent ?? "claude";
     const count = Math.max(0, Math.min(40, Math.floor(p.contextMessages ?? SIDE_CHAT_DEFAULT_CONTEXT_MESSAGES)));
-    const recent = count > 0 ? conversationMessages(await sessions.transcript(main.id)).slice(-count) : [];
+    const recent = count > 0 ? spokenMessages(await sessions.transcript(main.id)).slice(-count) : [];
 
     const record = sessions.create({
       workspaceId: main.workspaceId,
@@ -45,20 +51,6 @@ export function registerSideChatHandlers({ handle, sessions, acpAgents }: Handle
     acpAgents.for(record)?.ensureStarted().catch((error) => log(`starting ${agent} failed: ${String(error)}`));
     return publicInfo(record);
   });
-}
-
-/** The transcript's user and agent text, with streamed chunks joined into whole messages. */
-function conversationMessages(updates: acp.SessionUpdate[]): Message[] {
-  const messages: Message[] = [];
-  for (const update of updates) {
-    if (update.sessionUpdate !== "user_message_chunk" && update.sessionUpdate !== "agent_message_chunk") continue;
-    if (update.content.type !== "text") continue;
-    const role = update.sessionUpdate === "user_message_chunk" ? "User" : "Assistant";
-    const last = messages.at(-1);
-    if (last?.role === role) last.text += update.content.text;
-    else messages.push({ role, text: update.content.text });
-  }
-  return messages.filter((m) => m.text.trim());
 }
 
 function seedText(mainTitle: string, recent: Message[]): string {

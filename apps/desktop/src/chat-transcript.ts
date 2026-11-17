@@ -2,6 +2,8 @@ import type * as acp from '@agentclientprotocol/sdk'
 import { WORKFLOW_META,
   CHAT_META,
   TURN_RECOVERY_META,
+  chatAgentLabel,
+  isChatAgentId,
   promptOrigin,
   type ContextUsageMeta,
   type TurnEndMeta,
@@ -85,7 +87,7 @@ export function applyChatUpdate({ sessionId, update }: acp.SessionNotification):
       const runId = update._meta?.[WORKFLOW_META.run]
       pushItem(sessionId, {
         kind: 'notice',
-        text: update.title,
+        text: agentSwitchText(update._meta) ?? update.title,
         severity: update.severity,
         ...(turnEnd ? { turnEnd } : {}),
         ...(typeof runId === 'string' ? { runId } : {})
@@ -144,6 +146,18 @@ const RESUME_KINDS: readonly TurnResumeKind[] = ['continue', 'retry', 'resume', 
 function resumeKind(meta: Record<string, unknown> | null | undefined): TurnResumeKind | null {
   const value = meta?.[TURN_RECOVERY_META.resumed]
   return RESUME_KINDS.find((kind) => kind === value) ?? null
+}
+
+/** The daemon's notice of a changed agent, in the window's language; null for any other notice. */
+function agentSwitchText(meta: Record<string, unknown> | null | undefined): string | null {
+  const value = meta?.[CHAT_META.agentSwitch]
+  if (typeof value !== 'object' || value === null) return null
+  const { from, to, resumed } = value as { from?: unknown; to?: unknown; resumed?: unknown }
+  if (!isChatAgentId(from) || !isChatAgentId(to)) return null
+  const names = { from: chatAgentLabel(from), to: chatAgentLabel(to) }
+  return resumed === true
+    ? t("Switched from {from} to {to}. {to} resumes its own conversation and gets a selection of what happened since, not {from}'s full context.", names)
+    : t("Switched from {from} to {to}. {to} gets a selection of this conversation, not {from}'s full context.", names)
 }
 
 function turnEndMeta(meta: Record<string, unknown> | null | undefined): TurnEndMeta | null {

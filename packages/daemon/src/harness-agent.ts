@@ -62,6 +62,7 @@ import { managerMcp, type ManagerRoute } from "./manager-mcp-server.ts";
 import { ManagerRouting, autoAllowedManagerTools } from "./manager-routing.ts";
 import { log } from "./log.ts";
 import { compactTranscript } from "./transcript-compaction.ts";
+import { toolCallCommand, toolCallPaths } from "./conversation-messages.ts";
 
 /** One agent app shared by every transport, so sessions outlive the connection that made them. */
 export function createHarnessAgent(
@@ -270,8 +271,10 @@ export function createHarnessAgent(
     const external = acpAgents.for(session);
     // Send now: the interrupted turn ends (and its last updates land) before this prompt shows.
     await external?.settled();
+    // A chat that changed agent before its first message has that notice in its transcript, and nothing said.
     const firstTurn = external
-      ? session.title === chatAgentLabel(external.agent) && (await sessions.transcript(session.id)).length === 0
+      ? session.title === chatAgentLabel(external.agent) &&
+        !(await sessions.transcript(session.id)).some((u) => u.sessionUpdate === "user_message_chunk")
       : session.claudeSessionId === null && session.title === "Claude";
     sessions.update(session.id, {
       status: "working",
@@ -310,14 +313,31 @@ export function createHarnessAgent(
     };
 
     // A side chat's seed rides on its first turn only; the transcript shows just what was typed.
-    const seed = session.seedContext;
-    const agentPrompt: acp.ContentBlock[] = seed ? [{ type: "text", text: seed }, ...params.prompt] : params.prompt;
-    if (seed) sessions.update(session.id, { seedContext: null });
+    // So does the conversation so far, for an agent that just took the chat over.
+    // Read when the prompt goes to the agent: one whose conversation would not reopen is handed it only then.
+    let handoff: string | null | undefined;
+    const promptWithSeed = (): acp.ContentBlock[] => {
+      handoff = session.handoffContext;
+      const seed = [handoff, session.seedContext].filter((part) => !!part).join("\n\n");
+      if (!seed) return params.prompt;
+      sessions.update(session.id, { seedContext: null, handoffContext: null });
+      return [{ type: "text", text: seed }, ...params.prompt];
+    };
+    /** A turn that ended before the agent answered may never have reached it: the handoff goes with the next one. */
+    const keepUnansweredHandoff = async (): Promise<void> => {
+      // A newer prompt that took this turn's place has already started without it.
+      if (!handoff || pendingTurns.get(session.id) !== abort || sessions.get(session.id) !== session || session.handoffContext) return;
+      const transcript = await sessions.transcript(session.id);
+      const sent = transcript.findLastIndex((u) => u.sessionUpdate === "user_message_chunk" && u.messageId === messageId);
+      const answered = transcript.slice(sent + 1).some((u) => u.sessionUpdate === "agent_message_chunk" || u.sessionUpdate === "tool_call");
+      if (!answered && sessions.get(session.id) === session && !session.handoffContext) sessions.update(session.id, { handoffContext: handoff });
+    };
 
     // Set by the turn when it ends short (a usage limit, an error); a holder, as a callback writes it.
     const outcome: { end: TurnEndMeta | null } = { end: null };
     // A Stop (not a newer prompt taking over, nor the chat closing) leaves a row that offers Continue.
     const interrupted = async (): Promise<acp.PromptResponse> => {
+      await keepUnansweredHandoff();
       if (pendingTurns.get(session.id) !== abort || !sessions.get(session.id)) return { stopReason: "cancelled" };
       const stopped: TurnEndMeta = { reason: "interrupted" };
       await emit(session.id, {
@@ -335,11 +355,11 @@ export function createHarnessAgent(
     const worktreePrompt = quickChat ? null : claims.prompt(session.workspaceId);
     try {
       const stopReason = external
-        ? await external.prompt(agentPrompt, abort, askPermission)
+        ? await external.prompt(promptWithSeed, abort, askPermission)
         : await runClaudeTurn({
         acpSessionId: session.id,
         state: session,
-        prompt: agentPrompt,
+        prompt: promptWithSeed(),
         messageId,
         abort,
         emit: (update) => emit(session.id, update),
@@ -383,6 +403,7 @@ export function createHarnessAgent(
     } catch (error) {
       if (abort.signal.aborted) return await interrupted();
       log(`turn failed: ${error instanceof Error ? error.stack : String(error)}`);
+      await keepUnansweredHandoff();
       // The failure stays in the transcript, not just this reply, and can offer Retry or Resume.
       const raw = error instanceof Error ? error.message : String(error);
       const title = (external ? null : explainClaudeFailure(raw)) ?? raw;
@@ -638,10 +659,8 @@ function stepToolUse(updates: acp.SessionUpdate[]): StepToolUse {
     else if (tool === "Agent" || tool === "Task") use.agents.push(...text(input.subagent_type));
     const server = tool.startsWith("mcp__") ? tool.split("__")[1] : /^mcp\.([^.]+)\./.exec(update.title ?? "")?.[1];
     if (server) use.mcp.push(server);
-    const paths = [...(update.locations ?? []).map((l) => l.path), input.file_path, input.notebook_path].filter(
-      (p): p is string => typeof p === "string" && !!p,
-    );
-    const command = typeof input.command === "string" ? input.command : Array.isArray(input.command) ? input.command.join(" ") : "";
+    const paths = toolCallPaths(update);
+    const command = toolCallCommand(update);
     if (update.kind === "read") use.reads.push(...new Set(paths));
     else if (update.kind === "edit") use.edits.push(...new Set(paths));
     else if (update.kind === "execute" && command) use.commands.push(command);

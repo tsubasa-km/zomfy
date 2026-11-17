@@ -1210,5 +1210,22 @@ export const PAGES: Record<string, string> = {
   'Updating Claude Code on {host}…': '{host} の Claude Code を更新中…',
   'Claude Code on {host} is now {version}.': '{host} の Claude Code は {version} になりました。',
   'Claude Code on {host} was not updated': '{host} の Claude Code を更新できませんでした',
-  'Run `claude update` in a terminal on that host.': 'そのホストのターミナルで `claude update` を実行してください。'
+  'Run `claude update` in a terminal on that host.': 'そのホストのターミナルで `claude update` を実行してください。',
+
+  // components/native-chat/NativeChatAgentPicker.tsx
+  "The chat stays. The new agent gets a selection of this conversation as text, not the previous agent's context.":
+    'チャットはそのまま残ります。新しいエージェントには、この会話から抜粋したテキストが渡されます。前のエージェントのコンテキストは引き継がれません。',
+
+  // components/native-chat/NativeChatComposer.tsx (agent picker)
+  'Stop the agent to change it': '変更するにはエージェントを停止してください',
+
+  // chat-transcript.ts (agent change notice)
+  "Switched from {from} to {to}. {to} gets a selection of this conversation, not {from}'s full context.":
+    '{from} から {to} に切り替えました。{to} にはこの会話の抜粋が渡されます。{from} のコンテキスト全体は引き継がれません。',
+  "Switched from {from} to {to}. {to} resumes its own conversation and gets a selection of what happened since, not {from}'s full context.":
+    '{from} から {to} に切り替えました。{to} は自身の会話を再開し、その後のやり取りの抜粋を受け取ります。{from} のコンテキスト全体は引き継がれません。',
+
+  // chat-actions.ts (agent change, rewind)
+  "Couldn't change this chat's agent": 'このチャットのエージェントを変更できませんでした',
+  "Couldn't rewind this chat": 'このチャットを巻き戻せませんでした'
 }

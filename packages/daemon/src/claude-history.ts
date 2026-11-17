@@ -136,10 +136,15 @@ function promptIndexes(messages: SessionMessage[]): number[] {
   return indexes;
 }
 
-// Command echoes and caveats the CLI records as user turns are not the person's words.
+// Command echoes and caveats the CLI records as user turns are not the person's words; nor is the
+// conversation Claude was handed on taking a chat over from another agent (agent-handoff.ts).
 function isPromptText(text: string): boolean {
   const trimmed = text.trimStart();
-  return trimmed.length > 0 && !/^<(command-|local-command|system-reminder)/.test(trimmed) && !trimmed.startsWith("Caveat:");
+  return (
+    trimmed.length > 0 &&
+    !/^<(command-|local-command|system-reminder|agent-handoff>)/.test(trimmed) &&
+    !trimmed.startsWith("Caveat:")
+  );
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {

@@ -90,8 +90,18 @@ export const CHAT_META = {
   /** tool_call: the Task call whose subagent made this call. */
   parentToolCallId: 'harness/parentToolCallId',
   /** usage_update: per-category breakdown and whether it is an estimate. */
-  contextUsage: 'harness/contextUsage'
+  contextUsage: 'harness/contextUsage',
+  /** notice: the chat's agent changed here (AgentSwitchMeta). */
+  agentSwitch: 'harness/agentSwitch'
 } as const
+
+/** Which agent a chat left and which took over, on the notice that marks the change in its transcript. */
+export interface AgentSwitchMeta {
+  from: ChatAgentId
+  to: ChatAgentId
+  /** `to` ran this chat before and picks its own conversation back up, told only what it missed. */
+  resumed?: boolean
+}
 
 /**
  * `_meta` keys that let a window splice a `session/load` replay with the live updates that raced it.
@@ -138,7 +148,8 @@ export const SESSION_METHODS = {
   sessionConsultLead: '_harness/sessions/consultLead',
   /** Absent from older daemons: the request fails as an unknown method. */
   sessionRename: '_harness/sessions/rename',
-  sessionSetArchived: '_harness/sessions/setArchived'
+  sessionSetArchived: '_harness/sessions/setArchived',
+  sessionSetAgent: '_harness/sessions/setAgent'
 } as const
 
 /** What a chat made of a question put to it by another session (sessionConsultLead). */
@@ -199,4 +210,14 @@ export interface SessionRequests {
   /** A blank title is refused. */
   [SESSION_METHODS.sessionRename]: { params: { sessionId: string; title: string }; result: SessionInfo }
   [SESSION_METHODS.sessionSetArchived]: { params: { sessionId: string; archived: boolean }; result: SessionInfo }
+  /**
+   * Replaces the agent behind a chat; its transcript, title and place stay. The new agent gets a
+   * selection of the conversation as text with its next prompt, not the old agent's own context.
+   * Refused while a turn runs, and a no-op for the agent the chat already has. `permissionMode`: the
+   * mode Claude starts in when it has not answered in this chat before. Absent from older daemons.
+   */
+  [SESSION_METHODS.sessionSetAgent]: {
+    params: { sessionId: string; agent: ChatAgentId; permissionMode?: ChatPermissionMode }
+    result: SessionInfo
+  }
 }

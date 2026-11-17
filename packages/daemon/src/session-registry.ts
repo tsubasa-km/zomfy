@@ -4,6 +4,7 @@ import type * as acp from '@agentclientprotocol/sdk'
 import {
   TURN_RECOVERY_META,
   chatAgentLabel,
+  type ChatAgentId,
   type SessionInfo,
   type SessionOptions,
   type TurnEndMeta
@@ -18,11 +19,27 @@ const INDEX_PATH = join(SESSIONS_DIR, 'index.json')
 export interface SessionRecord extends SessionInfo {
   /** Claude's own session id, so a later turn (or a restarted daemon) resumes the conversation. */
   claudeSessionId: string | null
-  /** An external agent's own id for the conversation (its ACP session id). */
-  agentSessionId?: string | null
+  /**
+   * External agents' own ids for the conversation (their ACP session ids), by agent: a chat whose
+   * agent was changed keeps each one's, so changing back reopens that agent's conversation.
+   */
+  agentSessionIds?: Partial<Record<ChatAgentId, string>>
   options: SessionOptions
   /** Context the next turn's prompt starts with, unseen in the transcript (a side chat's seed). */
   seedContext?: string | null
+  /**
+   * The conversation so far for an agent that just took over the chat (agent-handoff.ts); the next
+   * turn's prompt starts with it, ahead of `seedContext`. Kept apart from it: activity notes rewrite that.
+   */
+  handoffContext?: string | null
+}
+
+/** Records saved before a chat could change agents kept one `agentSessionId`, its only agent's. */
+export function savedAgentSessionIds(
+  saved: Pick<SessionRecord, 'agent' | 'agentSessionIds'> & { agentSessionId?: string | null }
+): SessionRecord['agentSessionIds'] {
+  if (saved.agentSessionIds) return saved.agentSessionIds
+  return saved.agentSessionId && saved.agent && saved.agent !== 'claude' ? { [saved.agent]: saved.agentSessionId } : undefined
 }
 
 export const DEFAULT_SESSION_OPTIONS: SessionOptions = { model: null, permissionMode: 'default', effort: null }
@@ -41,9 +58,9 @@ export class SessionRegistry {
 
   async load(): Promise<void> {
     try {
-      const saved: SessionRecord[] = JSON.parse(await readFile(INDEX_PATH, 'utf8'))
+      const saved: (SessionRecord & { agentSessionId?: string | null })[] = JSON.parse(await readFile(INDEX_PATH, 'utf8'))
       // A turn cannot outlive the daemon that ran it.
-      for (const r of saved) {
+      for (const { agentSessionId, ...r } of saved) {
         if (r.status === 'working' || r.status === 'needs-you') {
           // Recorded, so the chat shows where it stopped and can offer Continue.
           const end: TurnEndMeta = { reason: 'interrupted' }
@@ -57,6 +74,7 @@ export class SessionRegistry {
         this.records.set(r.id, {
           ...r,
           options: { ...DEFAULT_SESSION_OPTIONS, ...r.options },
+          agentSessionIds: savedAgentSessionIds({ ...r, agentSessionId }),
           status: r.status === 'error' ? 'error' : 'idle',
           turnStartedAt: null,
           // Its server is not running yet; the next turn starts it.
@@ -87,7 +105,7 @@ export class SessionRegistry {
 
   create(
     fields: Pick<SessionInfo, 'workspaceId' | 'cwd'> &
-      Partial<Pick<SessionRecord, 'title' | 'claudeSessionId' | 'options' | 'agent' | 'role' | 'sideOf' | 'parentId' | 'seedContext' | 'localOnly'>>
+      Partial<Pick<SessionRecord, 'title' | 'claudeSessionId' | 'options' | 'agent' | 'role' | 'sideOf' | 'parentId' | 'seedContext' | 'handoffContext' | 'localOnly'>>
   ): SessionRecord {
     const record: SessionRecord = {
       id: crypto.randomUUID(),
@@ -241,6 +259,6 @@ function notePath(id: string): string {
 }
 
 export function publicInfo(record: SessionRecord): SessionInfo {
-  const { claudeSessionId: _hidden, agentSessionId: _agentHidden, seedContext: _seedHidden, ...info } = record
+  const { claudeSessionId: _hidden, agentSessionIds: _agentHidden, seedContext: _seedHidden, handoffContext: _handoffHidden, ...info } = record
   return info
 }

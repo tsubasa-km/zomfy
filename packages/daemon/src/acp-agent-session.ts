@@ -22,6 +22,8 @@ const IDLE_EXIT_MS = 15 * 60_000
 /** How long a cancelled turn may take to end before its server is stopped (it ignored the cancel). */
 const CANCEL_GRACE_MS = 10_000
 
+export type PromptBlocks = acp.ContentBlock[] | (() => acp.ContentBlock[])
+
 /** Asks the person; the caller puts the harness session id on the request. */
 export type AskPermission = (request: acp.RequestPermissionRequest) => Promise<acp.RequestPermissionResponse>
 
@@ -31,6 +33,11 @@ export interface AcpAgentSessionHooks {
   onState(state: ChatAgentSessionState): void
   /** The agent's own id for the conversation, kept so a restarted server reopens it. */
   onAgentSessionId(id: string): void
+  /**
+   * The conversation the agent had could not be reopened, and it starts a new one knowing nothing of
+   * the chat. Waited for before that conversation's first turn, whose prompt is read after it.
+   */
+  onConversationLost?(): Promise<void>
   /** MCP servers to offer the agent's session (the manager tools), per what it supports. */
   mcpServers?(capabilities: acp.AgentCapabilities): acp.McpServer[]
   /** Waited for once the session is open, before its first turn (slow MCP servers coming up). */
@@ -83,7 +90,8 @@ export class AcpAgentSession {
     while (this.turn) await this.turn
   }
 
-  async prompt(blocks: acp.ContentBlock[], abort: AbortController, ask: AskPermission): Promise<acp.StopReason> {
+  /** `blocks` as a function is read once the agent's session is open, just before the prompt goes to it. */
+  async prompt(blocks: PromptBlocks, abort: AbortController, ask: AskPermission): Promise<acp.StopReason> {
     while (this.turn) await this.turn
     let release!: () => void
     const turn = new Promise<void>((resolve) => (release = resolve))
@@ -96,14 +104,14 @@ export class AcpAgentSession {
     }
   }
 
-  private async runTurn(blocks: acp.ContentBlock[], signal: AbortSignal, ask: AskPermission): Promise<acp.StopReason> {
+  private async runTurn(blocks: PromptBlocks, signal: AbortSignal, ask: AskPermission): Promise<acp.StopReason> {
     const aborted = whenAborted(signal)
     try {
       // A Stop while the server starts ends the turn now; the start goes on for the next one.
       const running = await Promise.race([this.ensureStarted(), aborted.promise])
       if (!running || signal.aborted) return 'cancelled'
       this.clearIdle()
-      const prompt = await this.promptFor(blocks, running.capabilities.promptCapabilities)
+      const prompt = await this.promptFor(typeof blocks === 'function' ? blocks() : blocks, running.capabilities.promptCapabilities)
       if (signal.aborted) return 'cancelled'
       this.ask = ask
       this.turnSignal = signal
@@ -262,12 +270,13 @@ export class AcpAgentSession {
       await this.hooks.emit({
         sessionUpdate: 'notice',
         severity: 'warning',
-        title: `${chatAgentLabel(this.agent)} could not reopen its conversation; the next message starts a new one`
+        title: `${chatAgentLabel(this.agent)} could not reopen its conversation; the next message starts a new one, from a selection of this chat`
       })
     }
     const created = await conn.agent.request(acp.methods.agent.session.new, { cwd: this.cwd, mcpServers })
     this.agentSessionId = created.sessionId
     this.hooks.onAgentSessionId(created.sessionId)
+    if (previous) await this.hooks.onConversationLost?.()
     return { agentSessionId: created.sessionId, setup: created }
   }
 
