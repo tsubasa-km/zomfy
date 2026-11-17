@@ -36,14 +36,15 @@ import { t } from '@/i18n/i18n'
 
 export function SidebarHeader({ onNewGroup }: { onNewGroup: (hostId: HostId) => void }) {
   const groupBy = useStore((s) => s.sidebarView.groupBy)
+  const chats = useStore((s) => (s.sidebarView.layout ?? 'chats') === 'chats')
   return (
     <div className="mt-2 flex h-8 min-w-0 items-center justify-between gap-1.5 px-2">
       <span className="min-w-0 truncate pr-0.5 pl-2 text-xs font-semibold text-muted-foreground/80 select-none">
-        {groupBy === 'project' ? t('Projects') : t('Workspaces')}
+        {chats ? t('Chats') : groupBy === 'project' ? t('Projects') : t('Workspaces')}
       </span>
       <div className="flex shrink-0 items-center gap-0.5">
         <BoardButton />
-        <SidebarFilterMenu />
+        {!chats && <SidebarFilterMenu />}
         <WorkspaceOptionsMenu />
         <AddMenu onNewGroup={onNewGroup} />
       </div>

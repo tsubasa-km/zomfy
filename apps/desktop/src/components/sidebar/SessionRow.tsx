@@ -14,7 +14,9 @@ import { isImeOwnedKeyboardEvent } from '@/lib/ime-composition-keyboard-event'
 import { hideChats, removeTabsFromLayout, useTabLayout } from '@/stores/tab-layout-store'
 import { chatSelection, gestureOf, keepTextUnselected } from '@/stores/list-selection'
 import { beginSidebarDrag, type DragItem } from '@/components/sidebar/sidebar-drag'
-import { toggleChatExpanded } from '@/stores/sidebar-store'
+import { setChatPinned, toggleChatExpanded } from '@/stores/sidebar-store'
+import { HoverCard, HoverCardContent, HoverCardTrigger } from '@/components/ui/hover-card'
+import { ChatCardBody, ChatHoverDetails, type ChatCardInfo } from '@/components/sidebar/ChatCard'
 import { t } from '@/i18n/i18n'
 
 const SCOPE = 'sidebar'
@@ -58,7 +60,8 @@ export function SessionRow({
   drag,
   showActive,
   fold,
-  child
+  child,
+  card
 }: {
   session: Session
   showWorkspace?: boolean
@@ -72,6 +75,8 @@ export function SessionRow({
   fold?: { count: number; expanded: boolean; status: Session['status'] }
   /** Drawn indented, under its parent chat. */
   child?: boolean
+  /** Draws the chat list's two-line row, with the rest of what is known on a hover card. */
+  card?: ChatCardInfo
 }) {
   const open = useStore((s) => Boolean(showActive) && s.activeWorkspaceId === session.workspaceId && s.activeSessionByWorkspace[session.workspaceId] === session.id)
   const workspaceName = useStore((s) => allWorkspaces(s).find((w) => w.id === session.workspaceId)?.name ?? '')
@@ -87,15 +92,61 @@ export function SessionRow({
     chatSelection.reset()
   }
   const [renaming, setRenaming] = useState<string | null>(null)
+  const [hovered, setHovered] = useState(false)
+  const [menuOpen, setMenuOpen] = useState(false)
   const renameAfterClose = useRef(false)
   const commitRename = () => {
     if (renaming === null) return
     setRenaming(null)
     void renameChat(session.id, renaming)
   }
+  const title =
+    renaming !== null ? (
+      <Input
+        autoFocus
+        data-session-rename-input
+        aria-label={t('Rename chat {title}', { title: session.title })}
+        value={renaming}
+        onChange={(e) => setRenaming(e.target.value)}
+        onBlur={commitRename}
+        onKeyDown={(e) => {
+          e.stopPropagation()
+          if (isImeOwnedKeyboardEvent(e)) return
+          if (e.key === 'Enter') {
+            e.preventDefault()
+            commitRename()
+          } else if (e.key === 'Escape') {
+            e.preventDefault()
+            setRenaming(null)
+          }
+        }}
+        onClick={(e) => e.stopPropagation()}
+        onPointerDown={(e) => e.stopPropagation()}
+        className="h-5 min-w-0 flex-1 px-1 py-0 text-xs"
+        spellCheck={false}
+      />
+    ) : (
+      <span className={cn('min-w-0 flex-1 truncate', card && 'text-foreground/90', card?.unread && 'font-semibold text-foreground')}>
+        {showWorkspace ? `${workspaceName} · ` : ''}
+        {session.title}
+      </span>
+    )
+  const foldBadge = fold && !fold.expanded && (
+    <span
+      className="flex shrink-0 items-center gap-1 text-[10px] text-muted-foreground/80 tabular-nums"
+      title={fold.count === 1 ? t('{n} chat under this one', { n: fold.count }) : t('{n} chats under this one', { n: fold.count })}
+      data-chat-children={fold.count}
+    >
+      {fold.count}
+      {fold.status !== 'idle' && <AgentStateDot state={SESSION_DOT[fold.status]} size="sm" />}
+    </span>
+  )
   return (
-    <ContextMenu>
+    <ContextMenu onOpenChange={setMenuOpen}>
+      {/* The card only opens for the chat list's rows, and never over a menu or a rename. */}
+      <HoverCard openDelay={500} closeDelay={80} open={Boolean(card) && hovered && !menuOpen && renaming === null} onOpenChange={setHovered}>
       <ContextMenuTrigger asChild>
+        <HoverCardTrigger asChild>
     <div
       role="button"
       tabIndex={0}
@@ -106,11 +157,13 @@ export function SessionRow({
       data-session-open={open || undefined}
       data-session-archived={session.archived || undefined}
       data-session-child={child || undefined}
-      title={session.archived ? t('Archived: click to open it') : tabClosed ? t('Tab closed: click to open it again') : undefined}
+      title={card ? undefined : session.archived ? t('Archived: click to open it') : tabClosed ? t('Tab closed: click to open it again') : undefined}
       className={cn(
-        'relative flex min-w-0 cursor-pointer items-center gap-1.5 rounded-md py-0.5 pr-1 text-[12px] text-muted-foreground hover:bg-worktree-sidebar-accent/60 hover:text-foreground',
+        'group/chat relative flex min-w-0 cursor-pointer rounded-md pr-1 text-muted-foreground hover:bg-worktree-sidebar-accent/60 hover:text-foreground',
+        card ? 'items-start gap-2 py-1.5 text-[13px]' : 'items-center gap-1.5 py-0.5 text-[12px]',
         child ? 'pl-[36px]' : 'pl-[22px]',
-        (tabClosed || session.archived) && renaming === null && 'opacity-60',
+        // A closed tab says nothing about the chat in the chat list, where every chat is one click away.
+        !card && (tabClosed || session.archived) && renaming === null && 'opacity-60',
         selected && 'bg-worktree-sidebar-accent text-foreground opacity-100',
         open && 'bg-worktree-sidebar-accent/70 text-foreground opacity-100'
       )}
@@ -136,7 +189,10 @@ export function SessionRow({
           aria-label={fold.expanded ? t('Hide chats under this one') : t('Show chats under this one')}
           aria-expanded={fold.expanded}
           data-chat-fold
-          className="absolute left-[5px] flex size-4 items-center justify-center rounded-sm text-muted-foreground/70 hover:bg-worktree-sidebar-accent hover:text-foreground"
+          className={cn(
+            'absolute left-[5px] flex size-4 items-center justify-center rounded-sm text-muted-foreground/70 hover:bg-worktree-sidebar-accent hover:text-foreground',
+            card && 'top-2'
+          )}
           onPointerDown={(e) => e.stopPropagation()}
           onClick={(e) => {
             e.stopPropagation()
@@ -146,60 +202,47 @@ export function SessionRow({
           <ChevronRight className={cn('size-3 transition-transform', fold.expanded && 'rotate-90')} />
         </button>
       )}
-      <TuiAgentIcon agent={sessionAgent(session)} size={11} />
-      {renaming !== null ? (
-        <Input
-          autoFocus
-          data-session-rename-input
-          aria-label={t('Rename chat {title}', { title: session.title })}
-          value={renaming}
-          onChange={(e) => setRenaming(e.target.value)}
-          onBlur={commitRename}
-          onKeyDown={(e) => {
-            e.stopPropagation()
-            if (isImeOwnedKeyboardEvent(e)) return
-            if (e.key === 'Enter') {
-              e.preventDefault()
-              commitRename()
-            } else if (e.key === 'Escape') {
-              e.preventDefault()
-              setRenaming(null)
-            }
-          }}
-          onClick={(e) => e.stopPropagation()}
-          onPointerDown={(e) => e.stopPropagation()}
-          className="h-5 min-w-0 flex-1 px-1 py-0 text-xs"
-          spellCheck={false}
-        />
+      {card ? (
+        <>
+          <span className="mt-[3px] flex shrink-0">
+            <TuiAgentIcon agent={sessionAgent(session)} size={14} />
+          </span>
+          <ChatCardBody
+            session={session}
+            card={card}
+            status={fold && fold.status !== 'idle' && session.status === 'idle' ? fold.status : session.status}
+            title={title}
+            trailing={foldBadge}
+            busy={renaming !== null}
+          />
+        </>
       ) : (
-        <span className="min-w-0 flex-1 truncate">
-          {showWorkspace ? `${workspaceName} · ` : ''}
-          {session.title}
-        </span>
+        <>
+          <TuiAgentIcon agent={sessionAgent(session)} size={11} />
+          {title}
+          {session.archived && renaming === null && (
+            <span className="shrink-0 text-[10px] text-muted-foreground/80" data-session-archived-tag>
+              {t('Archived')}
+            </span>
+          )}
+          {place && (
+            <span className="max-w-24 shrink-0 truncate font-mono text-[10px] text-muted-foreground/80" title={place} data-session-place>
+              {place}
+            </span>
+          )}
+          {foldBadge}
+          <AgentStateDot state={SESSION_DOT[session.status]} size="sm" />
+        </>
       )}
-      {session.archived && renaming === null && (
-        <span className="shrink-0 text-[10px] text-muted-foreground/80" data-session-archived-tag>
-          {t('Archived')}
-        </span>
-      )}
-      {place && (
-        <span className="max-w-24 shrink-0 truncate font-mono text-[10px] text-muted-foreground/80" title={place} data-session-place>
-          {place}
-        </span>
-      )}
-      {fold && !fold.expanded && (
-        <span
-          className="flex shrink-0 items-center gap-1 text-[10px] text-muted-foreground/80 tabular-nums"
-          title={fold.count === 1 ? t('{n} chat under this one', { n: fold.count }) : t('{n} chats under this one', { n: fold.count })}
-          data-chat-children={fold.count}
-        >
-          {fold.count}
-          {fold.status !== 'idle' && <AgentStateDot state={SESSION_DOT[fold.status]} size="sm" />}
-        </span>
-      )}
-      <AgentStateDot state={SESSION_DOT[session.status]} size="sm" />
     </div>
+        </HoverCardTrigger>
       </ContextMenuTrigger>
+      {card && (
+        <HoverCardContent side="right" align="start" sideOffset={8} className="w-72 p-3 text-xs">
+          <ChatHoverDetails session={session} card={card} childCount={fold?.count ?? 0} />
+        </HoverCardContent>
+      )}
+      </HoverCard>
       <ContextMenuContent
         onCloseAutoFocus={(event) => {
           if (!renameAfterClose.current) return
@@ -243,6 +286,11 @@ export function SessionRow({
             <ContextMenuItem data-chat-action="rename" onSelect={() => (renameAfterClose.current = true)}>
               {t('Rename…')}
             </ContextMenuItem>
+            {card && !session.archived && (
+              <ContextMenuItem data-chat-action={card.pinned ? 'unpin' : 'pin'} onSelect={() => setChatPinned(session.id, !card.pinned)}>
+                {card.pinned ? t('Unpin') : t('Pin to the top')}
+              </ContextMenuItem>
+            )}
             <ContextMenuItem
               data-chat-action={session.archived ? 'unarchive' : 'archive'}
               onSelect={() => void setChatArchived(session.id, !session.archived)}

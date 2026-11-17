@@ -60,6 +60,10 @@ interface SidebarState {
   expandedChats: string[]
   /** The projects' order across hosts, as `hostId:projectId`; each host keeps only its own order. */
   projectOrder: string[]
+  /** Chats kept at the top of the chat list, in the order they were pinned. */
+  pinnedChats: string[]
+  /** Chat list sections folded shut ('archived' starts that way). */
+  collapsedSections: string[]
   /** Multi-selected workspace ids (Ctrl/Shift click). */
   selection: string[]
   selectionAnchor: string | null
@@ -69,7 +73,10 @@ interface SidebarState {
 }
 
 const KEY = 'acp-harness.sidebar.v1'
-type Saved = Pick<SidebarState, 'filters' | 'cardLayout' | 'cardProperties' | 'collapsedProjects' | 'expandedChats' | 'projectOrder'>
+type Saved = Pick<
+  SidebarState,
+  'filters' | 'cardLayout' | 'cardProperties' | 'collapsedProjects' | 'expandedChats' | 'projectOrder' | 'pinnedChats' | 'collapsedSections'
+>
 
 function readSaved(): Partial<Saved> {
   try {
@@ -88,6 +95,8 @@ let state: SidebarState = {
   collapsedProjects: saved.collapsedProjects ?? [],
   expandedChats: saved.expandedChats ?? [],
   projectOrder: saved.projectOrder ?? [],
+  pinnedChats: saved.pinnedChats ?? [],
+  collapsedSections: saved.collapsedSections ?? ['archived'],
   selection: [],
   selectionAnchor: null,
   boardOpen: false,
@@ -106,7 +115,9 @@ function set(change: Partial<SidebarState>): void {
       cardProperties: state.cardProperties,
       collapsedProjects: state.collapsedProjects,
       expandedChats: state.expandedChats,
-      projectOrder: state.projectOrder
+      projectOrder: state.projectOrder,
+      pinnedChats: state.pinnedChats,
+      collapsedSections: state.collapsedSections
     }
     localStorage.setItem(KEY, JSON.stringify(persisted))
   } catch {
@@ -167,6 +178,15 @@ export function toggleProjectCollapsed(projectId: string): void {
 
 export function toggleChatExpanded(sessionId: string): void {
   set({ expandedChats: toggleIn(state.expandedChats, sessionId) })
+}
+
+export function setChatPinned(sessionId: string, pinned: boolean): void {
+  const others = state.pinnedChats.filter((id) => id !== sessionId)
+  set({ pinnedChats: pinned ? [...others, sessionId] : others })
+}
+
+export function toggleSectionCollapsed(sectionId: string): void {
+  set({ collapsedSections: toggleIn(state.collapsedSections, sectionId) })
 }
 
 export function setProjectOrder(projectOrder: string[]): void {

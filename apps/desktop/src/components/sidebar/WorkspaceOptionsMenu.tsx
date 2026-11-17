@@ -51,23 +51,54 @@ export function WorkspaceOptionsMenu() {
   const view = useStore((s) => s.sidebarView)
   const layout = useSidebarStore((s) => s.cardLayout)
   const properties = useSidebarStore((s) => s.cardProperties)
+  const chats = (view.layout ?? 'chats') === 'chats'
   return (
     <DropdownMenu modal={false}>
       <Tooltip>
         <TooltipTrigger asChild>
           <DropdownMenuTrigger asChild>
-            <Button size="icon-xs" variant="ghost" aria-label={t('Workspace options')} className="text-muted-foreground">
+            <Button size="icon-xs" variant="ghost" aria-label={t('View options')} data-sidebar-view-options className="text-muted-foreground">
               <SlidersHorizontal className="size-3.5" strokeWidth={2.25} />
             </Button>
           </DropdownMenuTrigger>
         </TooltipTrigger>
         <TooltipContent side="bottom" sideOffset={6}>
-          {t('Workspace options')}
+          {t('View options')}
         </TooltipContent>
       </Tooltip>
       <DropdownMenuContent side="right" align="start" sideOffset={8} className="w-60 pb-2">
-        <DropdownMenuLabel className="pb-0 text-sm text-foreground">{t('Workspace options')}</DropdownMenuLabel>
+        <DropdownMenuLabel className="pb-0 text-sm text-foreground">{t('View options')}</DropdownMenuLabel>
         <DropdownMenuSeparator />
+        <DropdownMenuLabel className="text-xs text-muted-foreground">{t('List')}</DropdownMenuLabel>
+        <DropdownMenuRadioGroup
+          value={chats ? 'chats' : 'workspaces'}
+          onValueChange={(v) => setSidebarView({ layout: v === 'workspaces' ? 'workspaces' : 'chats' })}
+        >
+          <DropdownMenuRadioItem value="chats" data-layout="chats" title={t('Every chat in one list, the ones that need you first.')} onSelect={(e) => e.preventDefault()}>
+            {t('Chats')}
+          </DropdownMenuRadioItem>
+          <DropdownMenuRadioItem value="workspaces" data-layout="workspaces" title={t('Projects with their workspaces as cards.')} onSelect={(e) => e.preventDefault()}>
+            {t('Projects and workspaces')}
+          </DropdownMenuRadioItem>
+        </DropdownMenuRadioGroup>
+        <DropdownMenuSeparator />
+        {chats ? (
+          <>
+            <DropdownMenuLabel className="text-xs text-muted-foreground">{t('Group by')}</DropdownMenuLabel>
+            <DropdownMenuRadioGroup
+              value={view.chatGroupBy ?? 'state'}
+              onValueChange={(v) => setSidebarView({ chatGroupBy: v === 'project' ? 'project' : 'state' })}
+            >
+              <DropdownMenuRadioItem value="state" data-chat-group="state" onSelect={(e) => e.preventDefault()}>
+                {t('State')}
+              </DropdownMenuRadioItem>
+              <DropdownMenuRadioItem value="project" data-chat-group="project" onSelect={(e) => e.preventDefault()}>
+                {t('Project')}
+              </DropdownMenuRadioItem>
+            </DropdownMenuRadioGroup>
+          </>
+        ) : (
+          <>
         <DropdownMenuLabel className="text-xs text-muted-foreground">{t('Show')}</DropdownMenuLabel>
         <DropdownMenuRadioGroup
           value={view.rows ?? 'chats'}
@@ -152,6 +183,8 @@ export function WorkspaceOptionsMenu() {
             ))}
           </DropdownMenuSubContent>
         </DropdownMenuSub>
+          </>
+        )}
       </DropdownMenuContent>
     </DropdownMenu>
   )

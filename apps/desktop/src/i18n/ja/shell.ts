@@ -1147,5 +1147,25 @@ export const SHELL: Record<string, string> = {
   // components/floating-workspace/FloatingWorkspaceWindowControls.tsx
   'Open {agent} in floating workspace': 'フローティング ワークスペースで {agent} を開く',
   'Restore floating workspace': 'フローティング ワークスペースを元のサイズに戻す',
-  'Maximize floating workspace': 'フローティング ワークスペースを最大化'
+  'Maximize floating workspace': 'フローティング ワークスペースを最大化',
+
+  // components/sidebar/ChatList.tsx, ChatCard.tsx, lib/chat-list.ts
+  Error: 'エラー',
+  now: '今',
+  '{n}m': '{n}分',
+  '{n}h': '{n}時間',
+  '{n}d': '{n}日',
+  'Working · {age}': '作業中 · {age}',
+  'Pin to the top': '上にピン留め',
+  'for {age}': '{age}',
+  'started {date}': '{date} に開始',
+  'Search chats': 'チャットを検索',
+  'View options': '表示オプション',
+  List: '一覧',
+  State: '状態',
+  'Every chat in one list, the ones that need you first.': 'すべてのチャットを 1 つの一覧に並べ、対応が必要なものを先頭に出します。',
+  'Projects with their workspaces as cards.': 'プロジェクトごとに、ワークスペースをカードで表示します。',
+  'Projects and workspaces': 'プロジェクトとワークスペース',
+  'No chats match the search.': '検索に一致するチャットはありません。',
+  'No chats yet. Start one with New chat.': 'チャットはまだありません。「新しいチャット」から始められます。'
 }

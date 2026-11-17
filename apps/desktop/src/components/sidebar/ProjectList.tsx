@@ -62,21 +62,21 @@ interface Source {
 }
 
 /** Short host names: "WSL" (the distro when there are several), the SSH alias, "Windows". */
-function shortHostNames(hosts: HostEntry[]): Record<HostId, string> {
+export function shortHostNames(hosts: HostEntry[]): Record<HostId, string> {
   const wslCount = hosts.filter((h) => h.id.startsWith('wsl:')).length
   const short = (h: HostEntry) =>
     h.id.startsWith('wsl:') ? (wslCount > 1 ? h.id.slice(4) : 'WSL') : h.id.startsWith('ssh:') ? h.id.slice(4) : h.label
   return Object.fromEntries(hosts.map((h) => [h.id, short(h)]))
 }
 
-interface LinkedEntry {
+export interface LinkedEntry {
   /** The link's main member present here (its first), or the project itself when unlinked. */
   primary: HostedProject
   copies: HostedProject[]
 }
 
 /** Projects in display order, each link folded into the place of its first member listed. */
-function linkedEntries(projects: HostedProject[], links: ProjectLink[]): LinkedEntry[] {
+export function linkedEntries(projects: HostedProject[], links: ProjectLink[]): LinkedEntry[] {
   const key = (hostId: HostId, projectId: string) => `${hostId}:${projectId}`
   const byKey = new Map(projects.map((p) => [key(p.hostId, p.id), p]))
   const linkOfKey = new Map(links.flatMap((l) => l.members.map((m) => [key(m.hostId, m.projectId), l] as const)))

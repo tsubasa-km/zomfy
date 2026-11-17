@@ -11,7 +11,16 @@ import { t } from '@/i18n/i18n'
 // Orca's WorkspaceKanbanSearchField (counter + clear, Escape clears), with the active filters below
 // it as removable chips so a narrowed list never looks complete.
 
-export function SidebarSearch({ matchCount, totalCount }: { matchCount: number; totalCount: number }) {
+export function SidebarSearch({
+  matchCount,
+  totalCount,
+  chats = false
+}: {
+  matchCount: number
+  totalCount: number
+  /** The list holds chats, which the workspace filters do not apply to. */
+  chats?: boolean
+}) {
   const query = useSidebarStore((s) => s.filters.query)
   const inputRef = useRef<HTMLInputElement>(null)
   const filtering = query.trim() !== ''
@@ -23,8 +32,8 @@ export function SidebarSearch({ matchCount, totalCount }: { matchCount: number; 
         <Input
           ref={inputRef}
           value={query}
-          aria-label={t('Search workspaces')}
-          placeholder={t('Search workspaces')}
+          aria-label={chats ? t('Search chats') : t('Search workspaces')}
+          placeholder={chats ? t('Search chats') : t('Search workspaces')}
           data-sidebar-search
           className="h-7 border-worktree-sidebar-border bg-background pr-16 pl-7 text-xs"
           onChange={(e) => setFilters({ query: e.target.value })}
@@ -58,7 +67,7 @@ export function SidebarSearch({ matchCount, totalCount }: { matchCount: number; 
           </div>
         )}
       </div>
-      <ActiveFilterChips />
+      {!chats && <ActiveFilterChips />}
     </div>
   )
 }

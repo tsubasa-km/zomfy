@@ -133,6 +133,10 @@ export interface SidebarView {
   rows?: 'chats' | 'workspaces'
   /** List archived chats too (dimmed, with Unarchive in their menu). */
   showArchived?: boolean
+  /** The list itself: every chat ordered by what needs the person (the default), or Orca's workspace cards. */
+  layout?: 'chats' | 'workspaces'
+  /** How the chat list is cut: by state (the default), or a folder per project. */
+  chatGroupBy?: 'state' | 'project'
 }
 
 /** `plugin:<publisher.id>/<panelId>` names an enabled plugin's panel. */

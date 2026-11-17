@@ -9,6 +9,7 @@ import { SidebarHeader } from '@/components/sidebar/SidebarHeader'
 import { SidebarSearch } from '@/components/sidebar/SidebarSearch'
 import { SessionRow } from '@/components/sidebar/SessionRow'
 import { ProjectList, hasActiveFilters } from '@/components/sidebar/ProjectList'
+import { ChatList, useChatListCounts } from '@/components/sidebar/ChatList'
 import type { SidebarActions } from '@/components/sidebar/ProjectSection'
 import { setSidebarActions } from '@/components/sidebar/ProjectActionsMenu'
 import { BulkActionBar } from '@/components/sidebar/BulkActionBar'
@@ -38,6 +39,9 @@ export function Sidebar() {
   const sessions = useStore((s) => s.sessions)
   const unread = useStore((s) => s.unread)
   const filters = useSidebarStore((s) => s.filters)
+  // The chat list is the sidebar; Orca's workspace cards stay one option away.
+  const chats = useStore((s) => (s.sidebarView.layout ?? 'chats') === 'chats')
+  const chatCounts = useChatListCounts()
   const newWorkspace = useNewWorkspaceRequest()
   const [deleting, setDeleting] = useState<Workspace | null>(null)
   const [updating, setUpdating] = useState<Workspace | null>(null)
@@ -97,13 +101,18 @@ export function Sidebar() {
       <SidebarResizeHandle widthKey="left" edge="right" />
       <SidebarNav />
       <SidebarHeader onNewGroup={(hostId) => setGroupName({ mode: 'create', hostId })} />
-      <SidebarSearch matchCount={counts.matched} totalCount={counts.total} />
+      <SidebarSearch
+        chats={chats}
+        matchCount={chats ? chatCounts.matched : counts.matched}
+        totalCount={chats ? chatCounts.total : counts.total}
+      />
 
       <div
         className="worktree-sidebar-scrollbar mt-1 min-h-0 flex-1 overflow-x-hidden overflow-y-auto px-1 pb-3"
         data-workspace-list
       >
-        {waiting.length > 0 && (
+        {chats && <ChatList actions={actions} />}
+        {!chats && waiting.length > 0 && (
           <section className="mb-2">
             <div className="flex h-7 min-w-0 items-center gap-1.5 pt-1 pr-1 pl-2">
               <span className="block size-1.5 shrink-0 rounded-full bg-agent-question" />
@@ -124,8 +133,8 @@ export function Sidebar() {
             ))}
           </section>
         )}
-        <ProjectList actions={actions} />
-        {hasActiveFilters(filters) && counts.matched === 0 && counts.total > 0 && (
+        {!chats && <ProjectList actions={actions} />}
+        {!chats && hasActiveFilters(filters) && counts.matched === 0 && counts.total > 0 && (
           <p className="px-3 pt-3 text-center text-xs text-muted-foreground" data-no-matches>
             {t('No workspaces match the filters.')}
           </p>
