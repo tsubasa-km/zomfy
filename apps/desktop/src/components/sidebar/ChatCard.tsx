@@ -21,6 +21,8 @@ export interface ChatCardInfo {
   project: string
   /** Its worktree's branch, when that is not the project's own checkout. */
   place?: string
+  /** The project's name for the hover card, when the row itself shows something else in its place. */
+  hoverProject?: string
   /** The checked-out branch and folder, for the hover card. */
   branch?: string | null
   path?: string
@@ -170,7 +172,7 @@ export function ChatHoverDetails({ session, card, childCount }: { session: Sessi
       </div>
       <div className="flex flex-col gap-1.5 border-t border-border/60 pt-2">
         <DetailLine icon={<FolderGit2 className="size-3.5" />} title={card.path}>
-          {card.project}
+          {card.hoverProject ?? card.project}
         </DetailLine>
         {card.branch && (
           <DetailLine icon={<GitBranch className="size-3.5" />}>

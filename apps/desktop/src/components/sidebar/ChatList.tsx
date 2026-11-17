@@ -131,9 +131,13 @@ export function ChatList({ actions }: { actions: SidebarActions }) {
   const cardOf = (session: Session): ChatCardInfo => {
     const w = workspaceById.get(session.workspaceId)
     const project = projectOf(w)
+    const name = project ? projectLabel(project) : w?.scratch ? t('Quick chat') : w ? workspaceLabel(w) : ''
+    // Under its project's folder a row need not repeat the project: it says which branch instead.
+    const foldered = groupBy === 'project' && project !== undefined && !pinned.includes(session.id) && !session.archived
     return {
-      project: project ? projectLabel(project) : w?.scratch ? t('Quick chat') : w ? workspaceLabel(w) : '',
-      place: w && project && !w.isPrimary ? placeOf(w) : undefined,
+      project: foldered ? (w?.branch ?? name) : name,
+      place: w && project && !w.isPrimary && !foldered ? placeOf(w) : undefined,
+      hoverProject: name,
       branch: w?.branch,
       path: w?.path,
       host: session.hostId !== defaultHost ? (names[session.hostId] ?? session.hostId) : undefined,
