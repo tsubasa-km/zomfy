@@ -1,6 +1,6 @@
 [package]
 name = "acp-harness-desktop"
-version = "0.2.37"
+version = "0.2.38"
 description = "Zomfy desktop"
 authors = []
 edition = "2024"
