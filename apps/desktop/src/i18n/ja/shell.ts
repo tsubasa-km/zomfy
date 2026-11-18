@@ -87,6 +87,48 @@ export const SHELL: Record<string, string> = {
   'Select Tab 1–9': 'タブ 1–9 を選択',
   'Search Settings': '設定を検索',
 
+  // components/editor/TextFileEditor.tsx
+  'Some bytes of this file are not valid {encoding} and were read as �. Saving writes them as that character. Save anyway?':
+    'このファイルには {encoding} として正しくないバイトがあり、� として読み込まれています。保存するとその文字のまま書き込まれます。保存しますか？',
+  'Loading… {percent}': '読み込み中… {percent}',
+  'Saving… {percent}': '保存中… {percent}',
+  'Could not save: {reason}': '保存できませんでした: {reason}',
+  'Loading… {loaded} of {total}': '読み込み中… {loaded} / {total}',
+  'Loading was cancelled.': '読み込みをキャンセルしました。',
+  'Load File': 'ファイルを読み込む',
+
+  // components/editor/LargeFileViewer.tsx
+  'This file changed on disk.': 'このファイルはディスク上で変更されました。',
+  '(line cut here)': '（この行は長いためここまで表示）',
+  'Searching…': '検索中…',
+  '{size}, read-only': '{size}・読み取り専用',
+  'Indexing… {percent}%': '行を数えています… {percent}%',
+  'Find in file': 'ファイル内を検索',
+  'Stop searching': '検索を中止',
+  Line: '行',
+
+  // components/editor/TextFormatMenus.tsx
+  Japanese: '日本語',
+  Western: '西欧',
+  'Simplified Chinese': '簡体字中国語',
+  'Traditional Chinese': '繁体字中国語',
+  Korean: '韓国語',
+  'UTF-8 with BOM': 'UTF-8 (BOM 付き)',
+  '{encoding} (no BOM)': '{encoding} (BOM なし)',
+  'Some bytes are not valid {encoding}; they show as �. Try reopening with another encoding.':
+    '{encoding} として正しくないバイトがあり、� と表示されています。別のエンコーディングで開き直してみてください。',
+  'File encoding': 'ファイルのエンコーディング',
+  'Reopen with Encoding': 'エンコーディングを指定して開き直す',
+  'Detect Automatically': '自動判別',
+  'Save with Encoding': 'エンコーディングを指定して保存',
+  'Line endings': '改行コード',
+
+  // components/editor/document-transfer.ts
+  'Cancelled.': 'キャンセルしました。',
+  "This file's host runs an older daemon that only reads and writes UTF-8; update Zomfy there first.":
+    'このファイルのホストでは古いデーモンが動いていて、UTF-8 でしか読み書きできません。先にそのホストの Zomfy を更新してください。',
+  'The file kept changing while it was being read; reload it.': '読み込み中にファイルが変更され続けました。再読み込みしてください。',
+
   // components/EditorTabViews.tsx
   Staged: 'ステージ済み',
   'Working tree': '作業ツリー',
