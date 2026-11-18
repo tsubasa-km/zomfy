@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react'
+import { useId, useRef } from 'react'
 import { Check, ChevronDown } from 'lucide-react'
 import type { ChatAgentOption } from '@acp-harness/protocol'
 import { Button } from '@/components/ui/button'
@@ -10,18 +10,18 @@ import {
   DropdownMenuRadioItem,
   DropdownMenuTrigger
 } from '@/components/ui/dropdown-menu'
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { t } from '@/i18n/i18n'
 
 // The composer pickers for an external ACP agent's own session options, laid out as Claude's are
-// (NativeChatSessionOptionPicker, NativeChatPermissionModePicker): its mode on the left, its model
-// with the model's effort pinned under it on the right, as Orca's ACP chats show them.
+// (NativeChatSessionOptionPicker, NativeChatPermissionModePicker): its mode as a chip, and its
+// models with the model's effort pinned under them in the agent-and-model menu.
 
 type Change = (optionId: string, value: string) => void
 
-function choiceName(option: ChatAgentOption): string {
+/** The picked choice's name, as the composer shows an option. */
+export function choiceName(option: ChatAgentOption): string {
   return option.choices.find((c) => c.value === option.currentValue)?.name ?? option.currentValue
 }
 
@@ -77,117 +77,91 @@ export function NativeChatAgentModePicker({ option, onChange }: { option: ChatAg
 }
 
 /** A searchable list of the agent's models, with its effort levels (when it has them) under it. */
-export function NativeChatAgentModelPicker({
+export function NativeChatAgentModelChoices({
   model,
   effort,
-  onChange
+  onChange,
+  onDone
 }: {
   model: ChatAgentOption
   effort: ChatAgentOption | null
   onChange: Change
+  /** Closes the menu the list sits in. */
+  onDone: () => void
 }) {
-  const [open, setOpen] = useState(false)
   const search = useRef<HTMLInputElement>(null)
-  const modelLabel = choiceName(model)
-  const effortLabel = effort ? choiceName(effort) : null
+  const effortLabelId = useId()
   return (
-    <Popover open={open} onOpenChange={setOpen}>
-      <PopoverTrigger asChild>
-        <Button
-          type="button"
-          variant="ghost"
-          size="xs"
-          data-native-chat-model-picker
-          aria-label={`${model.name} ${modelLabel}${effortLabel ? `, ${effort?.name} ${effortLabel}` : ''}`}
-          className="max-w-64"
-          onKeyDown={(event) => {
-            if (event.key === 'ArrowDown') {
-              event.preventDefault()
-              setOpen(true)
-            }
+    <>
+      <Command surface="inline" density="menu" label={t('Search models…')} filter={modelChoiceFilter} defaultValue={model.currentValue}>
+        <CommandInput ref={search} placeholder={t('Search models…')} />
+        <CommandList
+          onMouseDown={(event) => {
+            event.preventDefault()
+            search.current?.focus()
           }}
         >
-          <span className="truncate text-chat-foreground">{modelLabel}</span>
-          {effortLabel ? <span className="shrink-0">{effortLabel}</span> : null}
-          <ChevronDown className="size-3" />
-        </Button>
-      </PopoverTrigger>
-      <PopoverContent
-        align="end"
-        side="top"
-        collisionPadding={8}
-        className="flex w-96 max-w-(--radix-popover-content-available-width) flex-col p-0 select-none"
-      >
-        <Command surface="inline" density="menu" label={t('Search models…')} filter={modelChoiceFilter} defaultValue={model.currentValue}>
-          <CommandInput ref={search} placeholder={t('Search models…')} />
-          <CommandList
-            onMouseDown={(event) => {
-              event.preventDefault()
-              search.current?.focus()
-            }}
-          >
-            <CommandEmpty>{t('No models match your search.')}</CommandEmpty>
-            <CommandGroup>
-              {model.choices.map((choice) => {
-                const selected = choice.value === model.currentValue
-                return (
-                  <CommandItem
-                    key={choice.value}
-                    value={choice.value}
-                    keywords={[choice.name, choice.description ?? '']}
-                    selection="palette"
-                    aria-current={selected || undefined}
-                    data-model={choice.value}
-                    onSelect={() => {
-                      if (!selected) onChange(model.id, choice.value)
-                    }}
-                  >
-                    <div className="min-w-0 flex-1">
-                      <div className="truncate">{choice.name}</div>
-                      {choice.description ? (
-                        <div className="truncate text-xs font-normal text-muted-foreground">{choice.description}</div>
-                      ) : null}
-                    </div>
-                    <span className="ml-auto flex size-3.5 shrink-0 items-center justify-center">
-                      {selected ? <Check className="size-3.5 text-muted-foreground" /> : null}
-                    </span>
-                  </CommandItem>
-                )
-              })}
-            </CommandGroup>
-          </CommandList>
-        </Command>
-        {effort && effort.choices.length > 0 ? (
-          <div className="border-t border-border p-1">
-            <div className="flex min-h-7 flex-wrap items-center justify-between gap-x-3 gap-y-1 pl-2">
-              <span id="native-chat-agent-effort-label" className="text-xs text-muted-foreground">
-                {effort.name}
-              </span>
-              <ToggleGroup
-                type="single"
-                variant="segmented"
-                size="xs"
-                spacing={0.5}
-                role="radiogroup"
-                aria-labelledby="native-chat-agent-effort-label"
-                value={effort.currentValue}
-                onValueChange={(value) => {
-                  setOpen(false)
-                  if (value && value !== effort.currentValue) onChange(effort.id, value)
-                }}
-                className="-ml-2 flex-wrap"
-              >
-                {effort.choices.map((choice) => (
-                  <ToggleGroupItem key={choice.value} value={choice.value} title={choice.description ?? choice.name} data-effort={choice.value}>
-                    {choice.name}
-                  </ToggleGroupItem>
-                ))}
-              </ToggleGroup>
-            </div>
+          <CommandEmpty>{t('No models match your search.')}</CommandEmpty>
+          <CommandGroup>
+            {model.choices.map((choice) => {
+              const selected = choice.value === model.currentValue
+              return (
+                <CommandItem
+                  key={choice.value}
+                  value={choice.value}
+                  keywords={[choice.name, choice.description ?? '']}
+                  selection="palette"
+                  aria-current={selected || undefined}
+                  data-model={choice.value}
+                  onSelect={() => {
+                    if (!selected) onChange(model.id, choice.value)
+                  }}
+                >
+                  <div className="min-w-0 flex-1">
+                    <div className="truncate">{choice.name}</div>
+                    {choice.description ? (
+                      <div className="truncate text-xs font-normal text-muted-foreground">{choice.description}</div>
+                    ) : null}
+                  </div>
+                  <span className="ml-auto flex size-3.5 shrink-0 items-center justify-center">
+                    {selected ? <Check className="size-3.5 text-muted-foreground" /> : null}
+                  </span>
+                </CommandItem>
+              )
+            })}
+          </CommandGroup>
+        </CommandList>
+      </Command>
+      {effort && effort.choices.length > 0 ? (
+        <div className="border-t border-border p-1">
+          <div className="flex min-h-7 flex-wrap items-center justify-between gap-x-3 gap-y-1 pl-2">
+            <span id={effortLabelId} className="text-xs text-muted-foreground">
+              {effort.name}
+            </span>
+            <ToggleGroup
+              type="single"
+              variant="segmented"
+              size="xs"
+              spacing={0.5}
+              role="radiogroup"
+              aria-labelledby={effortLabelId}
+              value={effort.currentValue}
+              onValueChange={(value) => {
+                onDone()
+                if (value && value !== effort.currentValue) onChange(effort.id, value)
+              }}
+              className="-ml-2 flex-wrap"
+            >
+              {effort.choices.map((choice) => (
+                <ToggleGroupItem key={choice.value} value={choice.value} title={choice.description ?? choice.name} data-effort={choice.value}>
+                  {choice.name}
+                </ToggleGroupItem>
+              ))}
+            </ToggleGroup>
           </div>
-        ) : null}
-      </PopoverContent>
-    </Popover>
+        </div>
+      ) : null}
+    </>
   )
 }
 

@@ -1,5 +1,5 @@
-import { useRef, useState } from 'react'
-import { ArrowUp, FolderPlus, GitBranch, X } from 'lucide-react'
+import { useState } from 'react'
+import { Folder, FolderPlus, GitBranch, X } from 'lucide-react'
 import { toast } from 'sonner'
 import { HARNESS_METHODS } from '@acp-harness/protocol'
 import { createSession, harnessRequest } from '@/daemon-connection'
@@ -11,30 +11,32 @@ import {
   setStartWorkspace,
   START_TAB,
   useStore,
+  type ChatImage,
   type HostedProject,
   type HostId
 } from '@/session-store'
 import { groupOfTab, layoutFor, placeTab, WINDOW_TABS } from '@/stores/tab-layout-store'
 import { setStartProject, useSidebarStore } from '@/stores/sidebar-store'
-import { submitPrompt } from '@/chat-actions'
+import { patchChatSession } from '@/stores/chat-store'
+import { NEW_THREAD_DRAFT, type NewThreadStart } from '@/stores/new-thread-store'
+import { setSessionOptions, submitPrompt } from '@/chat-actions'
 import { announceSent } from '@/lib/chat-after-send'
-import { defaultChatAgent } from '@/lib/default-chat-agent'
 import { suggestWorkspaceName } from '@/lib/workspace-name-suggestion'
 import { useSetting } from '@/stores/settings-store'
-import { isSubmitShortcut, SUBMIT_SHORTCUT_LABEL } from '@/lib/terminal-shortcuts'
 import { openAddProjectDialog } from '@/lib/project-dialogs'
 import { projectLabel, sortProjects, workspaceLabel } from '@/components/sidebar/workspace-visibility'
 import { sortedHosts } from '@/components/settings/HostsPane'
 import { defaultHostId } from '@/lib/default-host'
+import { NewThreadComposer } from '@/components/native-chat/NewThreadComposer'
 import { Button } from '@/components/ui/button'
-import { Textarea } from '@/components/ui/textarea'
 import { Select, SelectContent, SelectItem, SelectSeparator, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { t } from '@/i18n/i18n'
 
 // The "New chat" tab, as in the Claude apps: type and go. With no project picked the chat starts in
 // its own scratch folder, and its agent moves it into a project when the work needs one
 // (move_chat). With a project picked it starts there: in a worktree of its own for a git project,
-// so chats working at once never edit the same checkout.
+// so chats working at once never edit the same checkout. The composer is an open chat's own
+// (NewThreadComposer); under it, as under T3 Code's new thread, sits where the thread starts.
 
 const NO_PROJECT = 'none'
 const projectKey = (p: HostedProject) => `${p.hostId}:${p.id}`
@@ -43,12 +45,8 @@ export function QuickStart() {
   const hosts = useStore((s) => s.hosts)
   const connected = sortedHosts(hosts).filter((h) => h.connection.kind === 'connected')
   const [hostId, setHostId] = useState<HostId | null>(null)
-  const [draft, setDraft] = useState('')
   const [busy, setBusy] = useState(false)
-  const input = useRef<HTMLTextAreaElement>(null)
-  const sendKey = useSetting('chatSendKey')
   const afterSend = useSetting('chatAfterSend')
-  useSetting('defaultChatAgent')
   useSetting('defaultHost')
   const defaultHost = defaultHostId()
   const target = hostId && connected.some((h) => h.id === hostId) ? hostId : defaultHost
@@ -60,11 +58,16 @@ export function QuickStart() {
   const workspaceId = useStore((s) => s.startTab.workspaceId)
   const workspace = useStore((s) => (workspaceId ? (allWorkspaces(s).find((w) => w.id === workspaceId) ?? null) : null))
   const workspaceProject = workspace ? allProjects(hosts).find((p) => p.hostId === workspace.hostId && p.id === workspace.projectId) : undefined
+  // A git project's thread gets a worktree of its own; until it exists, the main checkout stands in for its files and commands.
+  const projectFolder = useStore((s) =>
+    project ? (allWorkspaces(s).find((w) => w.hostId === project.hostId && w.projectId === project.id && w.isPrimary)?.id ?? null) : null
+  )
 
-  async function start() {
-    const text = draft.trim()
-    if (!text || busy) return
+  async function start(text: string, images: ChatImage[], choice: NewThreadStart) {
+    if (busy) return
     setBusy(true)
+    // The words leave the box at once; a start that fails gives them back.
+    patchChatSession(NEW_THREAD_DRAFT, { draft: '', draftImages: [] })
     // The chat takes this tab's place unless the person stays here for the next one.
     const stay = afterSend === 'new-chat'
     const slot = groupOfTab(layoutFor(WINDOW_TABS), START_TAB)
@@ -87,9 +90,13 @@ export function QuickStart() {
         const scratch = await harnessRequest(HARNESS_METHODS.workspaceCreateScratch, {}, target)
         place = { id: scratch.id, hostId: target }
       }
-      const sessionId = await createSession(place.id, defaultChatAgent(), { hostId: place.hostId, focus: !stay })
-      submitPrompt(sessionId, text, [])
-      setDraft('')
+      const { agent, options } = choice
+      const sessionId = await createSession(place.id, agent, { hostId: place.hostId, focus: !stay, permissionMode: options.permissionMode })
+      // The session's options are what its next turn launches with: set before the prompt goes, they are the first turn's.
+      if (agent === 'claude' && (options.model !== null || options.effort !== null)) {
+        await setSessionOptions(sessionId, { model: options.model, effort: options.effort })
+      }
+      submitPrompt(sessionId, text, images)
       if (workspaceId) setStartWorkspace(null)
       if (stay) announceSent(sessionId)
       else {
@@ -97,19 +104,13 @@ export function QuickStart() {
         closeStartTab()
       }
     } catch (error) {
+      patchChatSession(NEW_THREAD_DRAFT, (c) => ({
+        draft: c.draft.trim() ? `${text}\n\n${c.draft}` : text,
+        draftImages: [...images, ...c.draftImages]
+      }))
       toast.error(t('Could not start the chat'), { description: error instanceof Error ? error.message : String(error) })
     } finally {
       setBusy(false)
-      // The box was disabled while sending, which dropped its focus; staying here means typing on.
-      if (stay) requestAnimationFrame(() => input.current?.focus())
-    }
-  }
-
-  function onKeyDown(e: React.KeyboardEvent<HTMLTextAreaElement>) {
-    if (e.key !== 'Enter' || e.shiftKey || e.altKey || e.nativeEvent.isComposing) return
-    if (isSubmitShortcut(e) || (sendKey === 'enter' && !e.ctrlKey && !e.metaKey)) {
-      e.preventDefault()
-      void start()
     }
   }
 
@@ -125,26 +126,21 @@ export function QuickStart() {
         : t('Starts right away in a fresh folder. The agent moves the chat into a project when the work needs one.')
 
   return (
-    <div className="m-auto flex w-full max-w-xl flex-col gap-4 px-6 py-6" data-quick-start>
+    <div className="m-auto flex w-full max-w-(--chat-content-max-width) flex-col gap-4 px-3 py-6 sm:px-4" data-quick-start>
       <div className="space-y-1 text-center">
         <h1 className="text-lg font-medium text-foreground">{t('What should we work on?')}</h1>
         <p className="text-xs text-muted-foreground" data-quick-start-where>
           {where}
         </p>
       </div>
-      <div className="rounded-xl border border-input bg-card p-1.5 shadow-xs focus-within:border-ring">
-        <Textarea
-          ref={input}
-          autoFocus
-          value={draft}
-          disabled={busy}
-          onChange={(e) => setDraft(e.target.value)}
-          onKeyDown={onKeyDown}
-          placeholder={t('Ask anything, or describe a task')}
-          aria-label={t('Start a chat')}
-          className="max-h-60 min-h-20 resize-none border-0 bg-transparent shadow-none focus-visible:ring-0 dark:bg-transparent"
+      <div className="flex flex-col gap-1.5 select-none">
+        <NewThreadComposer
+          hostId={workspace?.hostId ?? project?.hostId ?? target}
+          workspaceId={workspace?.id ?? projectFolder}
+          busy={busy}
+          onStart={(text, images, choice) => void start(text, images, choice)}
         />
-        <div className="flex items-center justify-between gap-2 px-1 pt-1">
+        <div className="flex flex-wrap items-center gap-x-1 gap-y-1 px-1" data-quick-start-strip>
           <div className="flex min-w-0 items-center gap-1">
             {workspace ? (
               // The person came from this workspace; the chip gives the choice back.
@@ -152,6 +148,7 @@ export function QuickStart() {
                 className="inline-flex h-7 min-w-0 items-center gap-1 rounded-md bg-accent/60 pr-0.5 pl-2 text-xs text-foreground"
                 data-quick-start-workspace
               >
+                <Folder className="size-3.5 shrink-0 text-muted-foreground" />
                 <span className="min-w-0 truncate">
                   {workspaceProject ? projectLabel(workspaceProject) : workspaceLabel(workspace)}
                   {workspaceProject && workspace.branch ? ` · ${workspace.branch}` : ''}
@@ -169,6 +166,7 @@ export function QuickStart() {
             ) : (
               <Select value={project ? projectKey(project) : NO_PROJECT} onValueChange={(v) => setStartProject(v === NO_PROJECT ? null : v)}>
                 <SelectTrigger size="sm" className="h-7 w-auto max-w-56 border-0 text-xs shadow-none" aria-label={t('Project')} data-quick-start-project>
+                  <Folder className="size-3.5 shrink-0 text-muted-foreground" />
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -198,31 +196,22 @@ export function QuickStart() {
               </Select>
             )}
           </div>
-          <Button
-            size="icon"
-            className="size-7 shrink-0 rounded-full"
-            disabled={!draft.trim() || busy}
-            aria-label={t('Start chat ({key})', { key: sendKey === 'enter' ? '↵' : SUBMIT_SHORTCUT_LABEL })}
-            onClick={() => void start()}
-          >
-            <ArrowUp className="size-4" />
-          </Button>
+          <div className="ml-auto flex items-center">
+            <Button variant="ghost" size="xs" className="h-7 text-muted-foreground" onClick={() => openAddProjectDialog({ hostId: target })}>
+              <FolderPlus className="size-3.5" />
+              {t('Add a project')}
+            </Button>
+            <Button
+              variant="ghost"
+              size="xs"
+              className="h-7 text-muted-foreground"
+              onClick={() => openAddProjectDialog({ hostId: target, step: 'clone' })}
+            >
+              <GitBranch className="size-3.5" />
+              {t('Clone a repository')}
+            </Button>
+          </div>
         </div>
-      </div>
-      <div className="flex justify-center gap-2">
-        <Button variant="ghost" size="sm" className="text-muted-foreground" onClick={() => openAddProjectDialog({ hostId: target })}>
-          <FolderPlus className="size-4" />
-          {t('Add a project')}
-        </Button>
-        <Button
-          variant="ghost"
-          size="sm"
-          className="text-muted-foreground"
-          onClick={() => openAddProjectDialog({ hostId: target, step: 'clone' })}
-        >
-          <GitBranch className="size-4" />
-          {t('Clone a repository')}
-        </Button>
       </div>
     </div>
   )

@@ -1,16 +1,10 @@
-import { memo, useEffect, useId, useMemo, useRef, useState } from 'react'
-import { ArrowUp, Square, X } from 'lucide-react'
-import { Button } from '@/components/ui/button'
-import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
-import { cn } from '@/lib/utils'
+import { memo, useEffect, useRef, useState } from 'react'
 import { leaveChatForNewChat, returnsToNewChat } from '@/lib/chat-after-send'
-import type { ChatImage, Session } from '@/session-store'
-import { patchChatSession, useChatSession, useChatStore } from '@/stores/chat-store'
+import type { Session } from '@/session-store'
+import { useChatSession, useChatStore } from '@/stores/chat-store'
 import {
-  appendToDraft,
   isWorking,
   loadCatalog,
-  loadMentionFiles,
   setAgentOption,
   setSessionAgent,
   setSessionOptions,
@@ -19,31 +13,24 @@ import {
   stopTurn,
   submitPrompt
 } from '@/chat-actions'
-import {
-  NativeChatAutocompleteMenu,
-  composerAutocompleteQuery,
-  matchCommands,
-  matchFiles,
-  type ComposerAutocomplete
-} from './NativeChatAutocompleteMenus'
 import { NativeChatPermissionModePicker } from './NativeChatPermissionModePicker'
-import { NativeChatSessionOptionPicker } from './NativeChatSessionOptionPicker'
+import { NativeChatSessionOptionChoices, sessionOptionLabels } from './NativeChatSessionOptionPicker'
 import { NativeChatContextUsageRing } from './NativeChatContextUsageRing'
 import { NativeChatDictationButton } from './NativeChatDictationButton'
-import { NativeChatAgentModePicker, NativeChatAgentModelPicker, agentOptionSlots } from './NativeChatAgentOptionPickers'
+import { NativeChatAgentModePicker, NativeChatAgentModelChoices, agentOptionSlots, choiceName } from './NativeChatAgentOptionPickers'
 import { NativeChatAgentPicker } from './NativeChatAgentPicker'
+import { NativeChatComposerAction, NativeChatComposerBox, SEND_LABEL } from './NativeChatComposerBox'
+import { useNativeChatComposer } from './use-native-chat-composer'
+import { sentPrompts } from './native-chat-prompt-recall'
 import { isExternalAgentSession, sessionAgent } from '@/lib/chat-agents'
-import { isSubmitShortcut, SUBMIT_SHORTCUT_LABEL } from '@/lib/terminal-shortcuts'
 import { useSetting } from '@/stores/settings-store'
-import { MarkdownEditor, type MarkdownEditorHandle } from '@/components/markdown-editor/MarkdownEditor'
+import type { MarkdownEditorHandle } from '@/components/markdown-editor/MarkdownEditor'
 import { loadChatMemo, setChatMemoOpen, useChatMemo } from '@/stores/chat-memo-store'
 import { NativeChatMemoButton, NativeChatMemoPanel } from './NativeChatMemoPanel'
 import { NativeChatAttachMenu } from './NativeChatAttachMenu'
 import { attachChat, attachTerminal, mentionFile } from '@/lib/chat-attachments'
 import { NativeChatWorkflowPicker, type WorkflowHome } from './NativeChatWorkflowPicker'
 import { toast } from 'sonner'
-import { imageTypeOf, readDroppedImage } from '@/lib/chat-file-drop'
-import { hostDropPath, registerComposerDropTarget } from '@/lib/terminal-file-drop'
 import { HARNESS_METHODS } from '@acp-harness/protocol'
 import { harnessRequest } from '@/daemon-connection'
 import { projectOfSession } from '@/lib/session-project'
@@ -53,28 +40,8 @@ import { confirmWorkflowStart } from '@/components/workflows/WorkflowStartConfir
 import { allWorkspaces, getState, hostLabel, useStore } from '@/session-store'
 import { t } from '@/i18n/i18n'
 
-// Layout and classes follow Orca's NativeChatComposer, NativeChatComposerField and
-// NativeChatComposerActions.
-
-const IMAGE_TYPES = new Set(['image/png', 'image/jpeg', 'image/gif', 'image/webp'])
-
-function readImage(file: File): Promise<ChatImage | null> {
-  if (!IMAGE_TYPES.has(file.type)) return Promise.resolve(null)
-  return new Promise((resolve) => {
-    const reader = new FileReader()
-    reader.onload = () => {
-      const url = typeof reader.result === 'string' ? reader.result : ''
-      const comma = url.indexOf(',')
-      resolve(comma === -1 ? null : { mimeType: file.type, data: url.slice(comma + 1) })
-    }
-    reader.onerror = () => resolve(null)
-    reader.readAsDataURL(file)
-  })
-}
-
-const SEND_LABEL = { 'mod-enter': SUBMIT_SHORTCUT_LABEL, enter: '↵' } as const
-// What a press in the composer box keeps for itself instead of moving the caret.
-const COMPOSER_CONTROLS = 'button, a, input, select, textarea, label, [role="button"], [role="menuitem"], [role="option"], .cm-content, [data-native-chat-attachment]'
+// An open chat's composer: what the chat adds to the shared input (use-native-chat-composer) and
+// box (NativeChatComposerBox). The "New chat" tab's is NewThreadComposer.
 
 type ComposerProps = { session: Session; editorRef: React.RefObject<MarkdownEditorHandle | null> }
 
@@ -91,7 +58,7 @@ export const NativeChatComposer = memo(
 )
 
 function Composer({ session, editorRef }: ComposerProps) {
-  const { draft, draftImages, usage, queue } = useChatSession(session.id)
+  const { usage, queue } = useChatSession(session.id)
   const catalog = useChatStore((s) => s.catalogs[session.workspaceId])
   // Models are the account's, not the folder's: when this folder's probe failed, another folder's list on the host serves.
   const hostWorkspaces = useStore((s) => allWorkspaces(s).filter((w) => w.hostId === session.hostId).map((w) => w.id).join(','))
@@ -106,21 +73,13 @@ function Composer({ session, editorRef }: ComposerProps) {
         .find((m) => m && m.length > 0) ??
       null
   )
-  const files = useChatStore((s) => s.mentionFiles[session.workspaceId])
   const working = isWorking(session)
   // Sending or stopping needs the host; while it reconnects the person can still write.
   const offline = useStore((s) => s.hosts[session.hostId]?.connection.kind !== 'connected')
   // Other agents bring their own commands and options over ACP; the workspace catalog is Claude's.
   const external = isExternalAgentSession(session)
   const agentState = session.agentState
-  const listboxId = useId()
-  const fileInput = useRef<HTMLInputElement>(null)
   const composerBox = useRef<HTMLDivElement>(null)
-  const [caret, setCaret] = useState(0)
-  const [activeIndex, setActiveIndex] = useState(0)
-  const [dismissedAt, setDismissedAt] = useState<string | null>(null)
-  const [dragging, setDragging] = useState(false)
-  const sendKey = useSetting('chatSendKey')
   const [workflow, setWorkflow] = useState<{ id: string; name: string } | null>(null)
   // Workflows are saved with the project's main member, which may be on another host.
   const chatProject = projectOfSession(session)
@@ -141,80 +100,21 @@ function Composer({ session, editorRef }: ComposerProps) {
     if (!external) void loadCatalog(session.workspaceId)
   }, [session.workspaceId, external])
 
-  const query = composerAutocompleteQuery(draft, caret)
-  useEffect(() => {
-    if (query?.mode === 'mention' && !files) void loadMentionFiles(session.workspaceId)
-  }, [query?.mode, files, session.workspaceId])
-
-  const autocomplete = useMemo((): ComposerAutocomplete | null => {
-    if (!query || dismissedAt === draft) return null
-    if (query.mode === 'slash') {
-      return {
-        ...query,
-        mode: 'slash',
-        items: matchCommands(external ? (agentState?.commands ?? []) : (catalog?.value?.commands ?? []), query.query),
-        status: external ? (agentState?.phase === 'starting' ? 'loading' : 'ready') : (catalog?.status ?? 'loading')
-      }
-    }
-    return { ...query, mode: 'mention', items: matchFiles(files?.value ?? [], query.query), status: files?.status ?? 'loading' }
-  }, [query?.mode, query?.query, query?.start, query?.end, catalog, files, dismissedAt, draft, external, agentState])
-  const optionCount = autocomplete?.items.length ?? 0
-  // Claude's guess at the next prompt shows in the empty composer; Tab takes it, as in the Claude apps.
-  const suggestion = !working && draft === '' && draftImages.length === 0 ? (session.promptSuggestion ?? null) : null
-  const selected = Math.min(activeIndex, Math.max(0, optionCount - 1))
-
-  function setDraft(value: string) {
-    patchChatSession(session.id, { draft: value })
-  }
-
-  function choose(index: number) {
-    if (!autocomplete) return
-    const insert =
-      autocomplete.mode === 'slash'
-        ? `/${autocomplete.items[index]?.name ?? autocomplete.query} `
-        : `@${autocomplete.items[index] ?? autocomplete.query} `
-    setActiveIndex(0)
-    editorRef.current?.replaceRange(autocomplete.start, autocomplete.end, insert)
-  }
-
-  /** The chosen Enter sends; with Enter chosen, Cmd/Ctrl+Enter sends too. */
-  function isSendKey(e: KeyboardEvent): boolean {
-    if (e.key !== 'Enter' || e.shiftKey || e.altKey) return false
-    if (isSubmitShortcut(e)) return true
-    return sendKey === 'enter' && !e.ctrlKey && !e.metaKey
-  }
-
-  function handleKeyDown(e: KeyboardEvent): boolean {
-    if (suggestion && e.key === 'Tab' && !e.shiftKey && !e.altKey && !e.ctrlKey && !e.metaKey) {
-      editorRef.current?.replaceRange(0, 0, suggestion)
-      return true
-    }
-    if (autocomplete && optionCount > 0) {
-      if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
-        const step = e.key === 'ArrowDown' ? 1 : -1
-        setActiveIndex((selected + step + optionCount) % optionCount)
-        return true
-      }
-      const plainEnter = e.key === 'Enter' && !e.shiftKey && !e.altKey && !e.ctrlKey && !e.metaKey
-      if (e.key === 'Tab' || plainEnter) {
-        // With Enter sending, a fully typed command sends on Enter; Tab always completes.
-        const exact = autocomplete.mode === 'slash' && autocomplete.items[selected]?.name === autocomplete.query
-        if (e.key === 'Tab' || !exact || sendKey !== 'enter') {
-          choose(selected)
-          return true
-        }
-      }
-    }
-    if (autocomplete && e.key === 'Escape') {
-      setDismissedAt(draft)
-      return true
-    }
-    if (isSendKey(e)) {
-      submit()
-      return true
-    }
-    return false
-  }
+  const composer = useNativeChatComposer({
+    draftId: session.id,
+    hostId: session.hostId,
+    editorRef,
+    commands: external
+      ? { items: agentState?.commands ?? [], status: agentState?.phase === 'starting' ? 'loading' : 'ready' }
+      : { items: catalog?.value?.commands ?? [], status: catalog?.status ?? 'loading' },
+    filesWorkspaceId: session.workspaceId,
+    // Claude's guess at the next prompt shows in the empty composer.
+    suggestion: working ? null : (session.promptSuggestion ?? null),
+    // Read when asked: the composer does not render with each streamed chunk of the transcript.
+    history: () => sentPrompts(getState().sessions.find((s) => s.id === session.id)?.items ?? []),
+    onSubmit: submit
+  })
+  const { draft, draftImages, sendKey, suggestion } = composer
 
   function submit() {
     if (!offline && !workflow && !draft.trim() && draftImages.length === 0 && queue[0]) {
@@ -243,8 +143,7 @@ function Composer({ session, editorRef }: ComposerProps) {
           )
           upsertWorkflowRun(hostId, run)
           setWorkflow(null)
-          patchChatSession(session.id, { draft: '', draftImages: [] })
-          setCaret(0)
+          composer.clear()
         })
         .catch((error: unknown) =>
           toast.error(t('The workflow did not start'), { description: error instanceof Error ? error.message : String(error) })
@@ -252,8 +151,7 @@ function Composer({ session, editorRef }: ComposerProps) {
       return
     }
     submitPrompt(session.id, draft.trim(), draftImages)
-    patchChatSession(session.id, { draft: '', draftImages: [] })
-    setCaret(0)
+    composer.clear()
     if (returnsToNewChat(session.workspaceId, Boolean(session.sideOf))) leaveChatForNewChat(session.id)
   }
 
@@ -284,34 +182,6 @@ function Composer({ session, editorRef }: ComposerProps) {
     }
   }, [session])
 
-  /** Opens the @ file menu at the caret, as typing @ would. */
-  function startFileMention() {
-    const before = draft.slice(0, caret)
-    editorRef.current?.replaceRange(caret, caret, before === '' || /\s$/.test(before) ? '@' : ' @')
-  }
-
-  async function addImages(list: Iterable<File>) {
-    const images = (await Promise.all([...list].map(readImage))).filter((i): i is ChatImage => i !== null)
-    if (images.length > 0) patchChatSession(session.id, (c) => ({ draftImages: [...c.draftImages, ...images] }))
-  }
-
-  // Files dropped from the OS come as paths (the page never sees the drop): images attach, other
-  // files go in as their paths, in the form the chat's host uses.
-  const dropRef = useRef<(paths: string[]) => void>(() => {})
-  dropRef.current = (paths) => {
-    const images = paths.filter((p) => imageTypeOf(p) !== null)
-    const others = paths.filter((p) => imageTypeOf(p) === null)
-    if (others.length > 0) appendToDraft(session.id, others.map((p) => hostDropPath(p, session.hostId)).join(' '))
-    for (const path of images) {
-      readDroppedImage(path).then(
-        (image) => patchChatSession(session.id, (c) => ({ draftImages: [...c.draftImages, image] })),
-        (error: unknown) => toast.error(error instanceof Error ? error.message : String(error))
-      )
-    }
-    editorRef.current?.focusEnd()
-  }
-  useEffect(() => registerComposerDropTarget(session.id, (paths) => dropRef.current(paths)), [session.id])
-
   const options = session.options
   const models = catalog?.value?.models?.length ? catalog.value.models : (fallbackModels ?? [])
   const currentModel = models.find((m) => m.value === (options?.model ?? 'default'))
@@ -326,6 +196,9 @@ function Composer({ session, editorRef }: ComposerProps) {
     : offline
       ? t('Reconnecting to {host}…', { host: hostLabel(session.hostId) })
       : null
+  const claudeLabels = !external && options ? sessionOptionLabels(options, models) : null
+  const reconnecting = t('Reconnecting to {host}…', { host: hostLabel(session.hostId) })
+  const key = SEND_LABEL[sendKey]
 
   return (
     <div className="shrink-0 bg-chat-canvas select-none">
@@ -341,224 +214,159 @@ function Composer({ session, editorRef }: ComposerProps) {
             />
           </div>
         ) : null}
-        <div className="relative mx-auto w-full max-w-(--chat-content-max-width)">
-          {autocomplete ? (
-            <NativeChatAutocompleteMenu autocomplete={autocomplete} activeIndex={selected} listboxId={listboxId} onChoose={choose} />
-          ) : null}
-          {offline ? (
-            <p className="mb-1.5 px-1 text-xs text-muted-foreground" data-composer-offline>
-              {t('Reconnecting to {host}… You can keep writing; sending waits until it is back.', { host: hostLabel(session.hostId) })}
-            </p>
-          ) : null}
-          <div
-            ref={composerBox}
-            data-native-chat-composer
-            data-chat-composer-drop
-            data-composer-session={session.id}
-            className={cn(
-              'cursor-text rounded-2xl border border-chat-composer-border bg-chat-composer-surface p-2 shadow-[0_2px_10px_rgb(0_0_0/0.04)] [contain:paint] data-[tab-drop-hover]:border-ring data-[tab-drop-hover]:ring-2 data-[tab-drop-hover]:ring-ring/30',
-              dragging && 'border-ring'
-            )}
-            onDragOver={(event) => {
-              if ([...event.dataTransfer.items].some((i) => i.kind === 'file')) {
-                event.preventDefault()
-                setDragging(true)
-              }
-            }}
-            // The whole box is the input: a press on its padding, below the text or between the controls
-            // puts the caret at the end, as if the text box filled it.
-            onMouseDown={(event) => {
-              if (event.button !== 0 || !(event.target instanceof HTMLElement)) return
-              const target = event.target
-              if (target.closest(COMPOSER_CONTROLS)) return
-              // A press on a scrollbar scrolls.
-              if (event.nativeEvent.offsetX > target.clientWidth || event.nativeEvent.offsetY > target.clientHeight) return
-              event.preventDefault()
-              editorRef.current?.focusEnd()
-            }}
-            onDragLeave={() => setDragging(false)}
-            onDrop={(event) => {
-              setDragging(false)
-              if (event.dataTransfer.files.length === 0) return
-              event.preventDefault()
-              void addImages(event.dataTransfer.files)
-            }}
-          >
-            {draftImages.length > 0 ? (
-              <div className="flex flex-wrap gap-2 px-1 pt-1.5 pb-1" aria-label={t('Attachments')}>
-                {draftImages.map((image, index) => (
-                  <div key={index} className="relative size-14 shrink-0" data-native-chat-attachment>
-                    <img
-                      src={`data:${image.mimeType};base64,${image.data}`}
-                      alt={t('Image {n}', { n: index + 1 })}
-                      className="size-full rounded-md border border-border bg-chat-canvas object-cover"
-                    />
-                    <button
-                      type="button"
-                      aria-label={t('Remove image')}
-                      onClick={() =>
-                        patchChatSession(session.id, (c) => ({ draftImages: c.draftImages.filter((_, i) => i !== index) }))
-                      }
-                      className="absolute -top-1.5 -right-1.5 flex size-4 items-center justify-center rounded-full border border-border bg-chat-canvas text-muted-foreground shadow-xs transition-colors hover:bg-accent hover:text-accent-foreground focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
-                    >
-                      <X className="size-3" />
-                    </button>
-                  </div>
-                ))}
-              </div>
-            ) : null}
-            <MarkdownEditor
-              ref={editorRef}
-              value={draft}
-              placeholder={
-                offline
-                  ? t('Reconnecting to {host}… sending waits until it is back', { host: hostLabel(session.hostId) })
-                  : workflow
-                    ? t('The task for "{name}"', { name: workflow.name })
-                    : working
-                      ? queue.length > 0
-                        ? t('Queue a follow-up, or {key} to send the queued one now', { key: SEND_LABEL[sendKey] })
-                        : t('Queue a follow-up')
-                      : (suggestion ?? t('Message the agent'))
-              }
-              contentAttributes={{
-                'aria-label': t('Message the agent'),
-                'aria-multiline': 'true',
-                role: 'combobox',
-                'aria-expanded': String(autocomplete !== null),
-                'aria-controls': autocomplete ? listboxId : undefined,
-                'aria-activedescendant': autocomplete && optionCount > 0 ? `${listboxId}-option-${selected}` : undefined,
-                'data-native-chat-input': '',
-                'aria-description': suggestion ? t('Suggestion: {suggestion}. Press Tab to use it.', { suggestion }) : undefined
-              }}
-              onChange={(value) => {
-                setDraft(value)
-                setActiveIndex(0)
-              }}
-              onCaretChange={setCaret}
-              onKeyDown={handleKeyDown}
-              onPasteFiles={(files) => {
-                const images = files.filter((f) => IMAGE_TYPES.has(f.type))
-                if (images.length === 0) return false
-                void addImages(images)
-                return true
-              }}
-              minHeight="3rem"
-              maxHeight="calc(12lh + 0.5rem)"
-              className="px-2 py-1 text-sm text-chat-foreground-strong"
-            />
-            <div className="flex flex-wrap items-center gap-2 pt-0.5">
-              {/* One line at any width: the mode and model names shorten instead of wrapping. */}
-              <div className="flex w-full min-w-0 items-center justify-between gap-x-2 text-chat-foreground-faint">
-                <div className="flex min-w-0 shrink items-center gap-0.5">
-                  <NativeChatAttachMenu
-                    session={session}
-                    onPickImages={() => fileInput.current?.click()}
-                    onMentionFile={startFileMention}
+        <div className="mx-auto w-full max-w-(--chat-content-max-width)">
+          <NativeChatComposerBox
+            composer={composer}
+            editorRef={editorRef}
+            boxRef={composerBox}
+            takesTabDrops
+            placeholder={
+              offline
+                ? t('Reconnecting to {host}… sending waits until it is back', { host: hostLabel(session.hostId) })
+                : workflow
+                  ? t('The task for "{name}"', { name: workflow.name })
+                  : working
+                    ? queue.length > 0
+                      ? t('Queue a follow-up, or {key} to send the queued one now', { key })
+                      : t('Queue a follow-up')
+                    : (suggestion ?? t('Message the agent'))
+            }
+            notice={
+              offline ? (
+                <p className="mb-1.5 px-1 text-xs text-muted-foreground" data-composer-offline>
+                  {t('Reconnecting to {host}… You can keep writing; sending waits until it is back.', { host: hostLabel(session.hostId) })}
+                </p>
+              ) : null
+            }
+            left={
+              <>
+                <NativeChatAttachMenu session={session} onPickImages={composer.pickImages} onMentionFile={composer.startFileMention} />
+                <NativeChatWorkflowPicker home={workflowHome} picked={workflow} onPick={setWorkflow} />
+                {memos ? <NativeChatMemoButton sessionId={session.id} /> : null}
+              </>
+            }
+            right={
+              <>
+                {external ? (
+                  <NativeChatAgentPicker
+                    hostId={session.hostId}
+                    current={sessionAgent(session)}
+                    model={slots.model ? choiceName(slots.model) : null}
+                    detail={slots.model ? (slots.effort ? choiceName(slots.effort) : null) : agentState?.phase === 'starting' ? t('Starting…') : null}
+                    spoken={
+                      slots.model
+                        ? `${slots.model.name} ${choiceName(slots.model)}${slots.effort ? `, ${slots.effort.name} ${choiceName(slots.effort)}` : ''}`
+                        : undefined
+                    }
+                    disabledReason={agentLocked}
+                    note={AGENT_SWITCH_NOTE}
+                    closeOnSelect
+                    onSelect={agentChangeable ? (agent) => void setSessionAgent(session.id, agent) : undefined}
+                  >
+                    {(close) =>
+                      slots.model ? (
+                        <NativeChatAgentModelChoices model={slots.model} effort={slots.effort} onChange={changeAgentOption} onDone={close} />
+                      ) : (
+                        <p className="px-3 py-2.5 text-xs text-muted-foreground" data-agent-phase={agentState?.phase}>
+                          {agentState?.phase === 'starting'
+                            ? t('Starting…')
+                            : ((agentState?.phase === 'failed' ? agentState.error : null) ?? t('This agent offers no model to pick here.'))}
+                        </p>
+                      )
+                    }
+                  </NativeChatAgentPicker>
+                ) : options || agentChangeable ? (
+                  <NativeChatAgentPicker
+                    hostId={session.hostId}
+                    current="claude"
+                    model={claudeLabels?.model ?? null}
+                    detail={claudeLabels?.effort}
+                    spoken={claudeLabels?.spoken}
+                    disabledReason={agentLocked}
+                    note={AGENT_SWITCH_NOTE}
+                    closeOnSelect
+                    onSelect={agentChangeable ? (agent) => void setSessionAgent(session.id, agent) : undefined}
+                  >
+                    {(close) =>
+                      options ? (
+                        <NativeChatSessionOptionChoices
+                          options={options}
+                          models={models}
+                          loading={catalog?.status === 'loading'}
+                          onChange={(patch) => void setSessionOptions(session.id, patch)}
+                          onDone={close}
+                        />
+                      ) : (
+                        // A daemon that predates composer options: the agent can change, its model cannot.
+                        <p className="px-3 py-2.5 text-xs text-muted-foreground">{t('This agent offers no model to pick here.')}</p>
+                      )
+                    }
+                  </NativeChatAgentPicker>
+                ) : null}
+                {external ? (
+                  <>
+                    {slots.mode ? <NativeChatAgentModePicker option={slots.mode} onChange={changeAgentOption} /> : null}
+                    {slots.others.map((option) => (
+                      <NativeChatAgentModePicker key={option.id} option={option} onChange={changeAgentOption} />
+                    ))}
+                  </>
+                ) : options ? (
+                  <NativeChatPermissionModePicker
+                    current={options.permissionMode}
+                    // With no model list at all (its probe failed), Auto stays offered; Claude refuses it if the model cannot.
+                    autoAvailable={currentModel ? currentModel.supportsAutoMode === true : models.length === 0}
+                    onSelect={(permissionMode) => void setSessionOptions(session.id, { permissionMode })}
                   />
-                  <input
-                    ref={fileInput}
-                    type="file"
-                    accept="image/png,image/jpeg,image/gif,image/webp"
-                    multiple
-                    hidden
-                    onChange={(e) => {
-                      if (e.target.files) void addImages(e.target.files)
-                      e.target.value = ''
-                    }}
-                  />
-                  {agentChangeable ? (
-                    <NativeChatAgentPicker
-                      hostId={session.hostId}
-                      current={sessionAgent(session)}
-                      disabledReason={agentLocked}
-                      onSelect={(agent) => void setSessionAgent(session.id, agent)}
-                    />
+                ) : null}
+                {usage ? <NativeChatContextUsageRing usage={usage} /> : null}
+                <NativeChatDictationButton
+                  onTranscript={(text) => {
+                    // Appends to the draft as it is when the transcript lands, not when recording began.
+                    const current = editorRef.current?.getValue() ?? draft
+                    composer.setDraft(current && !/\s$/.test(current) ? `${current} ${text}` : `${current}${text}`)
+                  }}
+                />
+              </>
+            }
+            actions={
+              working ? (
+                <>
+                  <NativeChatComposerAction kind="stop" label={t('Stop the agent')} hint={offline ? reconnecting : undefined} disabled={offline} onClick={() => stopTurn(session.id)} />
+                  {/* With something written the round button is the follow-up's: it queues behind the running turn. */}
+                  {canSend && !offline ? (
+                    workflow ? (
+                      <NativeChatComposerAction kind="send" label={t('Send')} hint={t('Send ({key})', { key })} onClick={submit} />
+                    ) : (
+                      <NativeChatComposerAction kind="queue" label={t('Queue message')} hint={t('Queue message ({key})', { key })} onClick={submit} />
+                    )
                   ) : null}
-                  {external ? (
-                    <>
-                      {slots.mode ? <NativeChatAgentModePicker option={slots.mode} onChange={changeAgentOption} /> : null}
-                      {slots.others.map((option) => (
-                        <NativeChatAgentModePicker key={option.id} option={option} onChange={changeAgentOption} />
-                      ))}
-                    </>
-                  ) : options ? (
-                    <NativeChatPermissionModePicker
-                      current={options.permissionMode}
-                      // With no model list at all (its probe failed), Auto stays offered; Claude refuses it if the model cannot.
-                      autoAvailable={currentModel ? currentModel.supportsAutoMode === true : models.length === 0}
-                      onSelect={(permissionMode) => void setSessionOptions(session.id, { permissionMode })}
-                    />
-                  ) : null}
-                  <NativeChatWorkflowPicker home={workflowHome} picked={workflow} onPick={setWorkflow} />
-                </div>
-                <div className="ml-auto flex min-w-0 shrink items-center gap-1.5">
-                  {external ? (
-                    slots.model ? (
-                      <NativeChatAgentModelPicker model={slots.model} effort={slots.effort} onChange={changeAgentOption} />
-                    ) : agentState?.phase === 'starting' ? (
-                      <span className="px-1 text-xs" data-agent-phase="starting">
-                        {t('Starting…')}
-                      </span>
-                    ) : null
-                  ) : options ? (
-                    <NativeChatSessionOptionPicker
-                      options={options}
-                      models={models}
-                      loading={catalog?.status === 'loading'}
-                      onChange={(patch) => void setSessionOptions(session.id, patch)}
-                    />
-                  ) : null}
-                  {usage ? <NativeChatContextUsageRing usage={usage} /> : null}
-                  {memos ? <NativeChatMemoButton sessionId={session.id} /> : null}
-                  <NativeChatDictationButton
-                    onTranscript={(text) => {
-                      // Appends to the draft as it is when the transcript lands, not when recording began.
-                      const current = editorRef.current?.getValue() ?? draft
-                      setDraft(current && !/\s$/.test(current) ? `${current} ${text}` : `${current}${text}`)
-                    }}
-                  />
-                  {/* A disabled button gets no pointer events, so the hint hangs on a wrapper. */}
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <span className="inline-flex">
-                        <Button
-                          type="button"
-                          data-native-chat-critical-action={working ? 'stop' : undefined}
-                          aria-label={working ? t('Stop the agent') : t('Send')}
-                          onMouseDown={(event) => event.preventDefault()}
-                          onClick={(event) => {
-                            // A double-click lands after the first send started; it must not stop the new turn.
-                            if (event.detail > 1) return
-                            if (working) stopTurn(session.id)
-                            else submit()
-                          }}
-                          disabled={offline || (!working && !canSend)}
-                          variant={working ? 'secondary' : 'default'}
-                          size="icon"
-                          className={cn('size-8 rounded-full', !working && 'bg-highlight text-white hover:bg-highlight/90')}
-                        >
-                          {working ? <Square className="size-3.5 fill-current" /> : <ArrowUp className="size-4" />}
-                        </Button>
-                      </span>
-                    </TooltipTrigger>
-                    <TooltipContent side="top" sideOffset={4} data-native-chat-send-hint>
-                      {offline
-                        ? t('Reconnecting to {host}…', { host: hostLabel(session.hostId) })
-                        : working
-                          ? t('Stop the agent')
-                          : t('Send ({key})', { key: SEND_LABEL[sendKey] })}
-                    </TooltipContent>
-                  </Tooltip>
-                </div>
-              </div>
-            </div>
-          </div>
+                </>
+              ) : !canSend && queue[0] && !workflow ? (
+                <NativeChatComposerAction
+                  kind="resume"
+                  label={t('Send the queued message now')}
+                  hint={offline ? reconnecting : t('Send the queued message now ({key})', { key })}
+                  disabled={offline}
+                  onClick={submit}
+                />
+              ) : (
+                <NativeChatComposerAction
+                  kind="send"
+                  label={t('Send')}
+                  hint={offline ? reconnecting : t('Send ({key})', { key })}
+                  disabled={offline || !canSend}
+                  onClick={submit}
+                />
+              )
+            }
+          />
         </div>
       </div>
     </div>
   )
 }
+
+const AGENT_SWITCH_NOTE = t("The chat stays. The new agent gets a selection of this conversation as text, not the previous agent's context.")
 
 /** The workspace file an editor tab shows, when it belongs to `workspaceId`. */
 function editorTabPath(tabId: string, workspaceId: string): string | null {

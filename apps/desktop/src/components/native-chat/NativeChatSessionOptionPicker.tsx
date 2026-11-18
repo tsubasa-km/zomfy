@@ -1,15 +1,13 @@
-import { useRef, useState } from 'react'
-import { Check, ChevronDown } from 'lucide-react'
+import { useId, useRef } from 'react'
+import { Check } from 'lucide-react'
 import type { ChatEffort, ChatModel, SessionOptions } from '@acp-harness/protocol'
-import { Button } from '@/components/ui/button'
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command'
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group'
 import { t } from '@/i18n/i18n'
 
 // Ported from Orca's NativeChatSessionOptionPickers, NativeChatModelCombobox and
-// NativeChatSessionOptionRows: one pill naming the model and effort, opening a searchable model
-// list with the model's effort levels pinned under it.
+// NativeChatSessionOptionRows: Claude's models as a searchable list with the model's effort levels
+// pinned under it. The composer's agent-and-model menu (NativeChatAgentPicker) shows it.
 
 const EFFORT_LABEL: Record<ChatEffort, string> = {
   low: t('Low'),
@@ -29,126 +27,116 @@ function modelChoiceFilter(value: string, search: string, keywords?: string[]): 
   return terms.every((term) => haystack.includes(term)) ? 1 : 0
 }
 
-export function NativeChatSessionOptionPicker({
+function currentChoice(options: SessionOptions, models: ChatModel[]): { value: string; model: ChatModel | undefined; effort: ChatEffort | null } {
+  const value = options.model ?? models.find((m) => m.value === DEFAULT_MODEL)?.value ?? DEFAULT_MODEL
+  const model = models.find((m) => m.value === value)
+  return { value, model, effort: options.effort && model?.efforts.includes(options.effort) ? options.effort : null }
+}
+
+/** How the menu's trigger names Claude's options: the model (null when nothing names one), its effort, and both as a screen reader hears them. */
+export function sessionOptionLabels(options: SessionOptions, models: ChatModel[]): { model: string | null; effort: string | null; spoken: string } {
+  const { model, effort } = currentChoice(options, models)
+  const name = model?.displayName ?? options.model
+  const spoken = name ?? t('Model')
+  return {
+    model: name,
+    effort: effort ? EFFORT_SHORT[effort] : null,
+    spoken: effort ? t('Model {model}, Effort {effort}', { model: spoken, effort: EFFORT_LABEL[effort] }) : t('Model {model}', { model: spoken })
+  }
+}
+
+export function NativeChatSessionOptionChoices({
   options,
   models,
   loading,
-  onChange
+  onChange,
+  onDone
 }: {
   options: SessionOptions
   models: ChatModel[]
   loading: boolean
   onChange: (patch: Partial<SessionOptions>) => void
+  /** Closes the menu the list sits in. */
+  onDone: () => void
 }) {
-  const [open, setOpen] = useState(false)
   const search = useRef<HTMLInputElement>(null)
-  const currentValue = options.model ?? models.find((m) => m.value === DEFAULT_MODEL)?.value ?? DEFAULT_MODEL
-  const current = models.find((m) => m.value === currentValue)
-  const modelLabel = current?.displayName ?? options.model ?? t('Model')
+  const effortLabelId = useId()
+  const { value: currentValue, model: current, effort } = currentChoice(options, models)
   const efforts = current?.efforts ?? []
-  const effort = options.effort && efforts.includes(options.effort) ? options.effort : null
 
   return (
-    <Popover open={open} onOpenChange={setOpen}>
-      <PopoverTrigger asChild>
-        <Button
-          type="button"
-          variant="ghost"
-          size="xs"
-          data-native-chat-model-picker
-          aria-label={effort ? t('Model {model}, Effort {effort}', { model: modelLabel, effort: EFFORT_LABEL[effort] }) : t('Model {model}', { model: modelLabel })}
-          className="max-w-64 min-w-0 shrink"
-          onKeyDown={(event) => {
-            // A popover trigger opens on Enter and Space only; a menu also takes ArrowDown.
-            if (event.key === 'ArrowDown') {
-              event.preventDefault()
-              setOpen(true)
-            }
+    <>
+      <Command surface="inline" density="menu" label={t('Search models…')} filter={modelChoiceFilter} defaultValue={currentValue}>
+        <CommandInput ref={search} placeholder={t('Search models…')} />
+        <CommandList
+          onMouseDown={(event) => {
+            // A row is not a focus target; typing keeps filtering after a click.
+            event.preventDefault()
+            search.current?.focus()
           }}
         >
-          <span className="truncate text-chat-foreground">{modelLabel}</span>
-          {effort ? <span className="shrink-0">{EFFORT_SHORT[effort]}</span> : null}
-          <ChevronDown className="size-3" />
-        </Button>
-      </PopoverTrigger>
-      <PopoverContent
-        align="end"
-        side="top"
-        collisionPadding={8}
-        className="flex w-96 max-w-(--radix-popover-content-available-width) flex-col p-0 select-none"
-      >
-        <Command surface="inline" density="menu" label={t('Search models…')} filter={modelChoiceFilter} defaultValue={currentValue}>
-          <CommandInput ref={search} placeholder={t('Search models…')} />
-          <CommandList
-            onMouseDown={(event) => {
-              // A row is not a focus target; typing keeps filtering after a click.
-              event.preventDefault()
-              search.current?.focus()
-            }}
-          >
-            <CommandEmpty>{loading ? t('Loading models…') : t('No models match your search.')}</CommandEmpty>
-            <CommandGroup>
-              {models.map((model) => {
-                const selected = model.value === currentValue
-                return (
-                  <CommandItem
-                    key={model.value}
-                    value={model.value}
-                    keywords={[model.displayName, model.description]}
-                    selection="palette"
-                    aria-current={selected || undefined}
-                    data-model={model.value}
-                    onSelect={() => {
-                      if (!selected) onChange({ model: model.value === DEFAULT_MODEL ? null : model.value })
-                    }}
-                  >
-                    <div className="min-w-0 flex-1">
-                      <div className="truncate">{model.displayName}</div>
-                      {model.description ? (
-                        <div className="truncate text-xs font-normal text-muted-foreground">{model.description}</div>
-                      ) : null}
-                    </div>
-                    <span className="ml-auto flex size-3.5 shrink-0 items-center justify-center">
-                      {selected ? <Check className="size-3.5 text-muted-foreground" /> : null}
-                    </span>
-                  </CommandItem>
-                )
-              })}
-            </CommandGroup>
-          </CommandList>
-        </Command>
-        {efforts.length > 0 ? (
-          <div className="border-t border-border p-1">
-            <div className="flex min-h-7 flex-wrap items-center justify-between gap-x-3 gap-y-1 pl-2">
-              <span id="native-chat-effort-label" className="text-xs text-muted-foreground">
-                {t('Effort')}
-              </span>
-              <ToggleGroup
-                type="single"
-                variant="segmented"
-                size="xs"
-                spacing={0.5}
-                role="radiogroup"
-                aria-labelledby="native-chat-effort-label"
-                value={effort ?? ''}
-                onValueChange={(value) => {
-                  // Effort is the last thing set before typing, so a level closes the picker.
-                  setOpen(false)
-                  const picked = efforts.find((e) => e === value)
-                  onChange({ effort: picked ?? null })
-                }}
-                className="-ml-2 flex-wrap"
-              >
-                {efforts.map((level) => (
-                  <ToggleGroupItem key={level} value={level} title={EFFORT_LABEL[level]} data-effort={level}>
-                    {EFFORT_SHORT[level]}
-                  </ToggleGroupItem>
-                ))}
-              </ToggleGroup>
-            </div>
+          <CommandEmpty>{loading ? t('Loading models…') : t('No models match your search.')}</CommandEmpty>
+          <CommandGroup>
+            {models.map((model) => {
+              const selected = model.value === currentValue
+              return (
+                <CommandItem
+                  key={model.value}
+                  value={model.value}
+                  keywords={[model.displayName, model.description]}
+                  selection="palette"
+                  aria-current={selected || undefined}
+                  data-model={model.value}
+                  onSelect={() => {
+                    if (!selected) onChange({ model: model.value === DEFAULT_MODEL ? null : model.value })
+                  }}
+                >
+                  <div className="min-w-0 flex-1">
+                    <div className="truncate">{model.displayName}</div>
+                    {model.description ? (
+                      <div className="truncate text-xs font-normal text-muted-foreground">{model.description}</div>
+                    ) : null}
+                  </div>
+                  <span className="ml-auto flex size-3.5 shrink-0 items-center justify-center">
+                    {selected ? <Check className="size-3.5 text-muted-foreground" /> : null}
+                  </span>
+                </CommandItem>
+              )
+            })}
+          </CommandGroup>
+        </CommandList>
+      </Command>
+      {efforts.length > 0 ? (
+        <div className="border-t border-border p-1">
+          <div className="flex min-h-7 flex-wrap items-center justify-between gap-x-3 gap-y-1 pl-2">
+            <span id={effortLabelId} className="text-xs text-muted-foreground">
+              {t('Effort')}
+            </span>
+            <ToggleGroup
+              type="single"
+              variant="segmented"
+              size="xs"
+              spacing={0.5}
+              role="radiogroup"
+              aria-labelledby={effortLabelId}
+              value={effort ?? ''}
+              onValueChange={(value) => {
+                // Effort is the last thing set before typing, so a level closes the picker.
+                onDone()
+                const picked = efforts.find((e) => e === value)
+                onChange({ effort: picked ?? null })
+              }}
+              className="-ml-2 flex-wrap"
+            >
+              {efforts.map((level) => (
+                <ToggleGroupItem key={level} value={level} title={EFFORT_LABEL[level]} data-effort={level}>
+                  {EFFORT_SHORT[level]}
+                </ToggleGroupItem>
+              ))}
+            </ToggleGroup>
           </div>
-        ) : null}
-      </PopoverContent>
-    </Popover>
+        </div>
+      ) : null}
+    </>
   )
 }

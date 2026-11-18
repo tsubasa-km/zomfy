@@ -160,6 +160,20 @@ export const CHAT: Record<string, string> = {
   Send: '送信',
   'Reconnecting to {host}…': '{host} に再接続しています…',
   'Send ({key})': '送信 ({key})',
+  'Queue message': 'メッセージをキューに追加',
+  'Queue message ({key})': 'メッセージをキューに追加 ({key})',
+  'Send the queued message now': 'キュー内のメッセージを今すぐ送信',
+  'Send the queued message now ({key})': 'キュー内のメッセージを今すぐ送信 ({key})',
+  'This agent offers no model to pick here.': 'このエージェントには、ここで選べるモデルがありません。',
+
+  // components/native-chat/NativeChatComposerBox.tsx
+  'View image {n}': '画像 {n} を表示',
+
+  // components/native-chat/NewThreadComposer.tsx
+  "{agent}'s own models and modes can be picked once the thread has started.": '{agent} のモデルとモードは、スレッドを開始してから選べます。',
+  "The thread starts with Claude's default model. Its models can be picked once the thread has started.":
+    'スレッドは Claude の既定のモデルで始まります。モデルはスレッドを開始してから選べます。',
+  'Starting the thread…': 'スレッドを開始しています…',
 
   // components/native-chat/NativeChatContextUsageRing.tsx
   'Context {used} of {window} tokens, {percentage}% used': 'コンテキスト {used} / {window} トークン（{percentage}% 使用）',
