@@ -23,6 +23,7 @@ export const COMMON: Record<string, string> = {
   'Undo covers only the files open in the editor.': '元に戻せるのはエディターで開いているファイルだけです。',
   Linter: 'リンター',
   'Use {name}': '{name} を使う',
+  'Not found': '見つかりません',
   'To install it on this host: {command}': 'このホストへのインストール方法: {command}',
   '{name} command': '{name} のコマンド',
   'Starts this language server over stdio. Empty looks for it on the host.': 'この言語サーバーを標準入出力で起動するコマンドです。空欄ならホスト上から探します。',
