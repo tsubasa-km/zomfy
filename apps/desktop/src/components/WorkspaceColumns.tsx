@@ -2,16 +2,16 @@ import { allProjects, allWorkspaces, getState, selectSession, selectWorkspace, u
 import { sidebarDrag, type DragItem } from '@/components/sidebar/sidebar-drag'
 import { projectLabel } from '@/components/sidebar/workspace-visibility'
 import { WorkspaceTabs } from '@/components/WorkspaceTabs'
-import { PaneSidebar, PaneSidebarButtons } from '@/components/tab-layout/PaneSidebar'
+import { PaneSidebar, PaneSidebarToggle } from '@/components/tab-layout/PaneSidebar'
+import { OWN_TITLE_BAR } from '@/components/TitleBar'
 import { PaneMoreMenu } from '@/components/PaneMenu'
 import { WINDOW_TABS } from '@/stores/tab-layout-store'
 import { t } from '@/i18n/i18n'
 
 // The main area: one set of tabs for the whole window, as an editor's. A tab is a chat, a terminal,
 // a file, a page or a panel of any workspace, and tabs split side by side whatever project they
-// belong to. There is no header above them: the tab strip's right end carries the panels of the
-// workspace the tab in front works in, whose files, changes and checks the sidebar on the right
-// shows, and the status bar names that workspace.
+// belong to. There is no header above them: the sidebar on the right shows the files, changes and
+// checks of the workspace the tab in front works in, and the status bar names that workspace.
 
 const EMPTY_HINT = t('No tabs yet. Start one here, or find more under + in the tab bar.')
 
@@ -46,7 +46,7 @@ export function WorkspaceMain() {
         trailing={
           active ? (
             <div className="flex shrink-0 items-center gap-0.5 pr-1.5 pl-1" data-window-tools>
-              <PaneSidebarButtons workspaceId={active} />
+              {!OWN_TITLE_BAR && <PaneSidebarToggle workspaceId={active} />}
               <PaneMoreMenu workspaceId={active} />
             </div>
           ) : undefined

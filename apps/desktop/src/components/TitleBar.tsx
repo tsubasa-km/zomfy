@@ -4,7 +4,8 @@ import { getCurrentWindow } from '@tauri-apps/api/window'
 import { PanelLeft, PanelRight, RefreshCw, Settings, type LucideIcon } from 'lucide-react'
 import { restartToUpdate, useAppUpdate } from '@/lib/app-update'
 import { WINDOW_ROLE } from '@/lib/window-role'
-import { toggleActivePaneSidebar } from '@/session-store'
+import { toggleActivePaneSidebar, useStore } from '@/session-store'
+import { usePaneSidebar } from '@/stores/pane-sidebar-store'
 import { getSetting, setSetting, useSetting } from '@/stores/settings-store'
 import { openSettings } from '@/stores/app-overlay-store'
 import { useShortcutLabel } from '@/keybindings/keybinding-registry'
@@ -43,7 +44,7 @@ function BarButton({ icon: Icon, label, command, pressed, onClick }: { icon: Luc
           aria-label={label}
           aria-pressed={pressed}
           data-title-bar-button={command}
-          className="flex size-7 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-foreground/10 hover:text-foreground"
+          className={cn('flex size-7 items-center justify-center rounded-md transition-colors hover:bg-foreground/10 hover:text-foreground', pressed ? 'text-foreground' : 'text-muted-foreground')}
           onClick={onClick}
         >
           <Icon className="size-4" />
@@ -54,6 +55,13 @@ function BarButton({ icon: Icon, label, command, pressed, onClick }: { icon: Luc
       </TooltipContent>
     </Tooltip>
   )
+}
+
+/** Opens and closes the sidebar on the right, whose panels are along its own top. */
+function RightSidebarButton() {
+  const workspaceId = useStore((s) => s.activeWorkspaceId)
+  const open = usePaneSidebar(workspaceId ?? '').open
+  return <BarButton icon={PanelRight} label={t('Toggle right sidebar')} command="sidebar.right.toggle" pressed={!!workspaceId && open} onClick={() => toggleActivePaneSidebar()} />
 }
 
 export function TitleBar() {
@@ -83,7 +91,7 @@ export function TitleBar() {
       <div data-tauri-drag-region className="flex-1 self-stretch" />
       <UpdateButton />
       <div className="mr-1.5 flex items-center gap-0.5">
-        <BarButton icon={PanelRight} label={t('Toggle right sidebar')} command="sidebar.right.toggle" onClick={() => toggleActivePaneSidebar()} />
+        <RightSidebarButton />
         <BarButton icon={Settings} label={t('Settings')} command="app.settings" onClick={() => openSettings()} />
       </div>
       <div className="flex h-full">

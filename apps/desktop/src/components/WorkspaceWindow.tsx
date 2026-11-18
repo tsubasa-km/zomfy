@@ -7,7 +7,7 @@ import { getState, selectWorkspace, useStore } from '@/session-store'
 import { WorkspaceTabs } from '@/components/WorkspaceTabs'
 import { DragChip, PointerDragLayer } from '@/components/PointerDragLayer'
 import { usePaneTitle } from '@/components/WorkspaceColumns'
-import { PaneSidebar, PaneSidebarButtons } from '@/components/tab-layout/PaneSidebar'
+import { PaneSidebar, PaneSidebarToggle } from '@/components/tab-layout/PaneSidebar'
 import { PaneMoreMenu } from '@/components/PaneMenu'
 import { paneDrag } from '@/components/pane-drop'
 import { Toaster } from '@/components/ui/sonner'
@@ -118,7 +118,7 @@ function WindowPaneHeader({ workspaceId }: { workspaceId: string }) {
       <span className="shrink-0 text-sm font-medium text-foreground">{title}</span>
       {detail && <span className="min-w-0 truncate text-xs text-muted-foreground">{detail}</span>}
       <div className="ml-auto flex min-w-0 items-center gap-0.5">
-        <PaneSidebarButtons workspaceId={workspaceId} />
+        <PaneSidebarToggle workspaceId={workspaceId} />
         <PaneMoreMenu workspaceId={workspaceId} />
       </div>
     </div>

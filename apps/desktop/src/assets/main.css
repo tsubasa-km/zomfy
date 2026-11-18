@@ -232,13 +232,14 @@
   --chart-3: var(--color-blue-600);
   --chart-4: var(--color-blue-700);
   --chart-5: var(--color-blue-800);
-  --worktree-sidebar: #f8f8f8;
+  /* Both sidebars and the title bar sit on the same surface as the tabs between them; borders divide them. */
+  --worktree-sidebar: var(--background);
   --worktree-sidebar-foreground: #141414;
   --worktree-sidebar-accent: #ececec;
   --worktree-sidebar-accent-foreground: #141414;
   --worktree-sidebar-border: #e7e7e7;
   --worktree-sidebar-ring: #a3a3a3;
-  --sidebar: #fafafa;
+  --sidebar: var(--background);
   --sidebar-foreground: #141414;
   --sidebar-primary: #1f1f1f;
   --sidebar-primary-foreground: #fafafa;
@@ -346,9 +347,7 @@
   --chart-3: var(--color-blue-600);
   --chart-4: var(--color-blue-700);
   --chart-5: var(--color-blue-800);
-  /* Why: light mode sets worktree-sidebar to secondary (#f5f5f5); mirror that
-     lift in dark mode so the panel reads clearly above #0a0a0a canvas. */
-  --worktree-sidebar: #1f1f1f;
+  --worktree-sidebar: var(--background);
   --worktree-sidebar-foreground: #fafafa;
   --worktree-sidebar-accent: #303030;
   --worktree-sidebar-accent-foreground: #fafafa;
@@ -356,7 +355,7 @@
      aren't brighter than the rest of the UI in dark mode (#5906). */
   --worktree-sidebar-border: rgb(255 255 255 / 0.08);
   --worktree-sidebar-ring: #737373;
-  --sidebar: #1f1f1f;
+  --sidebar: var(--background);
   --sidebar-foreground: #fafafa;
   --sidebar-primary: #1447e6;
   --sidebar-primary-foreground: #fafafa;
