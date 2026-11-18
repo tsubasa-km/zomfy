@@ -5,6 +5,10 @@ export interface EditorPreferences {
   /** Orca: undefined/true mean wrap on (#9974). */
   editorWordWrap: boolean
   editorMinimap: boolean
+  /** Keeps the enclosing scopes' first lines at the top of the editor while scrolling. */
+  editorStickyScroll: boolean
+  /** Draws spaces and tabs everywhere, not only in the selection. */
+  editorRenderWhitespace: boolean
   diffSideBySide: boolean
   diffWordWrap: boolean
   diffShowWhitespace: boolean
@@ -20,6 +24,8 @@ const STORAGE_KEY = 'acp-harness.editor-preferences'
 const DEFAULTS: EditorPreferences = {
   editorWordWrap: true,
   editorMinimap: false,
+  editorStickyScroll: true,
+  editorRenderWhitespace: false,
   diffSideBySide: true,
   diffWordWrap: false,
   diffShowWhitespace: false,

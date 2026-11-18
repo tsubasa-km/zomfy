@@ -59,3 +59,22 @@ declare module 'monaco-editor/esm/vs/language/typescript/languageFeatures.js' {
     provideInlayHints: languages.InlayHintsProvider['provideInlayHints']
   }
 }
+
+// Monaco's registry of language providers, which the standalone editor does not expose. Only what
+// the breadcrumbs ask of it (components/editor/editor-symbols.ts).
+declare module 'monaco-editor/esm/vs/editor/standalone/browser/standaloneServices.js' {
+  export const StandaloneServices: { get<T>(id: { readonly _service: T }): T }
+}
+
+declare module 'monaco-editor/esm/vs/editor/common/services/languageFeatures.js' {
+  import type { editor, languages, IDisposable } from 'monaco-editor'
+
+  export const ILanguageFeaturesService: {
+    readonly _service: {
+      documentSymbolProvider: {
+        ordered(model: editor.ITextModel): languages.DocumentSymbolProvider[]
+        onDidChange(listener: () => void): IDisposable
+      }
+    }
+  }
+}

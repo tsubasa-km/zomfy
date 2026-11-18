@@ -17,6 +17,7 @@ import { claimEditorStatus, EditorStatusItems } from '@/components/editor/Editor
 import { EditorStatusSegments } from '@/components/editor/EditorStatusSegments'
 import { EncodingMenu, formatLabel, LineEndingMenu, type LineEnding } from '@/components/editor/TextFormatMenus'
 import { FileChangedNotice, formatBytes, LargeFileViewer } from '@/components/editor/LargeFileViewer'
+import { useSymbolTrail } from '@/components/editor/editor-symbols'
 import { attachLanguageFeatures } from '@/components/editor/editor-language-features'
 import { acceptConflict, useMonacoConflicts } from '@/components/editor/use-monaco-conflicts'
 import { useFileDiskWatch } from '@/components/editor/use-file-disk-watch'
@@ -119,6 +120,7 @@ export function TextFileEditor({ tab }: { tab: EditorTab }) {
   // Conflict markers are looked for by reading the whole text on every edit, which a large file cannot afford.
   const heavy = file?.kind === 'text' && file.size > CONFLICT_SCAN_BYTES
   const conflicts = useMonacoConflicts(heavy ? null : codeEditor)
+  const symbols = useSymbolTrail(heavy ? null : codeEditor)
   const uri = modelUri(tab)
   const hasPreview = preview !== null
 
@@ -404,6 +406,12 @@ export function TextFileEditor({ tab }: { tab: EditorTab }) {
         workspaceId={tab.workspaceId}
         path={tab.path}
         external
+        symbols={showSource ? symbols : undefined}
+        onSymbol={(symbol) => {
+          codeEditor?.revealRangeNearTopIfOutsideViewport(symbol.selectionRange)
+          codeEditor?.setPosition({ lineNumber: symbol.selectionRange.startLineNumber, column: symbol.selectionRange.startColumn })
+          codeEditor?.focus()
+        }}
         status={
           <>
             {text?.truncated && <span className="shrink-0 text-xs text-muted-foreground">{t('First 1 MB, read-only')}</span>}
@@ -458,6 +466,25 @@ export function TextFileEditor({ tab }: { tab: EditorTab }) {
             >
               {t('Minimap')}
             </DropdownMenuCheckboxItem>
+            <DropdownMenuCheckboxItem
+              checked={prefs.editorStickyScroll}
+              onCheckedChange={() => updateEditorPreferences({ editorStickyScroll: !prefs.editorStickyScroll })}
+            >
+              {t('Sticky Scroll')}
+            </DropdownMenuCheckboxItem>
+            <DropdownMenuCheckboxItem
+              checked={prefs.editorRenderWhitespace}
+              onCheckedChange={() => updateEditorPreferences({ editorRenderWhitespace: !prefs.editorRenderWhitespace })}
+            >
+              {t('Render Whitespace')}
+            </DropdownMenuCheckboxItem>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem disabled={!codeEditor || !showSource} onSelect={() => runEditorAction('editor.action.quickOutline')}>
+              {t('Go to Symbol in Editor…')}
+            </DropdownMenuItem>
+            <DropdownMenuItem disabled={!codeEditor || !showSource} onSelect={() => runEditorAction('editor.action.quickCommand')}>
+              {t('Command Palette (Editor)…')}
+            </DropdownMenuItem>
           </>
         }
       />
@@ -523,7 +550,11 @@ export function TextFileEditor({ tab }: { tab: EditorTab }) {
                 wordWrap: prefs.editorWordWrap ? 'on' : 'off',
                 scrollBeyondLastLine: false,
                 automaticLayout: true,
-                renderWhitespace: 'selection',
+                renderWhitespace: prefs.editorRenderWhitespace ? 'all' : 'selection',
+                stickyScroll: { enabled: prefs.editorStickyScroll },
+                bracketPairColorization: { enabled: true },
+                guides: { indentation: true, bracketPairs: 'active' },
+                smoothScrolling: true,
                 // The conflict lenses read the whole text too.
                 codeLens: !heavy,
                 // Past 20 MB or 300k lines Monaco stops tokenizing and syncing the model to its workers.

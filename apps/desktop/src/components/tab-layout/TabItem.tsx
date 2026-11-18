@@ -186,11 +186,12 @@ export function TabItem({
             spellCheck={false}
           />
         ) : (
-          <span className={cn('min-w-0 flex-1 truncate', preview && 'italic')}>{title}</span>
+          // The name keeps its room; where the tab belongs gives way first, as a tab's description does in VS Code.
+          <span className={cn('min-w-[4ch] flex-[1_1_auto] truncate', preview && 'italic')}>{title}</span>
         )}
         {/* A chat says where it works in the sidebar and the header; a shell, a file or a panel needs it on the tab. */}
         {showPlace && place && tab.kind !== 'chat' && renaming === null && (
-          <span className="max-w-[45%] shrink-0 truncate text-[10px] text-muted-foreground/70" data-tab-place>
+          <span className="max-w-[45%] min-w-0 flex-[0_1000_auto] truncate text-[10px] text-muted-foreground/70" data-tab-place>
             {place}
           </span>
         )}

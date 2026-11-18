@@ -13,6 +13,8 @@ import { findWorkspace } from '@/session-store'
 import { REVEAL_LABEL } from '@/components/right-sidebar/explorer-paths'
 import { canOpenFileExternally, openFileWithDefaultApp, revealFile } from '@/lib/open-file-externally'
 import { t } from '@/i18n/i18n'
+import type { monaco } from '@/lib/monaco-setup'
+import { EditorBreadcrumbs } from './EditorBreadcrumbs'
 import './editor-panel.css'
 
 export function absoluteEditorPath(workspaceId: string, path: string): string {
@@ -22,18 +24,15 @@ export function absoluteEditorPath(workspaceId: string, path: string): string {
   return `${root.replace(/[\\/]+$/, '')}${separator}${path.split('/').join(separator)}`
 }
 
-function splitPathForDisplay(path: string): { prefix: string; fileName: string } {
-  const slash = path.lastIndexOf('/')
-  return slash < 0 ? { prefix: '', fileName: path } : { prefix: path.slice(0, slash + 1), fileName: path.slice(slash + 1) }
-}
-
-/** Orca's editor header: the path (click copies it), status chips, view controls and the "…" menu. */
+/** The editor header: breadcrumbs down to the file and the cursor's symbols, status chips, view controls and the "…" menu. */
 export function EditorPanelHeader({
   workspaceId,
   path,
   status,
   controls,
   menuItems,
+  symbols,
+  onSymbol,
   external = false
 }: {
   workspaceId: string
@@ -41,6 +40,9 @@ export function EditorPanelHeader({
   status?: React.ReactNode
   controls?: React.ReactNode
   menuItems?: React.ReactNode
+  /** The symbols around the cursor, shown after the file in the breadcrumbs. */
+  symbols?: readonly monaco.languages.DocumentSymbol[]
+  onSymbol?: (symbol: monaco.languages.DocumentSymbol) => void
   /** The file is on disk: offer opening it in the OS's file manager or default app. */
   external?: boolean
 }): React.JSX.Element {
@@ -48,7 +50,6 @@ export function EditorPanelHeader({
   const timer = useRef<number | undefined>(undefined)
   useEffect(() => () => window.clearTimeout(timer.current), [])
   const absolute = absoluteEditorPath(workspaceId, path)
-  const display = splitPathForDisplay(path)
 
   const copy = (text: string): void => {
     void navigator.clipboard.writeText(text).then(() => {
@@ -62,16 +63,7 @@ export function EditorPanelHeader({
     <div className="editor-header">
       <div className="editor-header-text">
         <div className="editor-header-path-row">
-          <button
-            type="button"
-            className="editor-header-path"
-            title={absolute}
-            data-editor-header-path
-            onClick={() => copy(absolute)}
-          >
-            <span className="editor-header-path-prefix">{display.prefix}</span>
-            <span className="editor-header-path-file">{display.fileName}</span>
-          </button>
+          <EditorBreadcrumbs workspaceId={workspaceId} path={path} symbols={symbols} onSymbol={onSymbol} />
           <span className={`editor-header-copy-toast${copied ? ' is-visible' : ''}`} aria-live="polite">
             {t('File path copied')}
           </span>

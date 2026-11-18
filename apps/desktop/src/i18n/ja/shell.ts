@@ -1238,5 +1238,24 @@ export const SHELL: Record<string, string> = {
   'Spaces: {size}': 'スペース: {size}',
   'Tab Size: {size}': 'タブのサイズ: {size}',
   'Plain Text': 'プレーンテキスト',
-  'Editor file details': '編集中のファイルの情報'
+  'Editor file details': '編集中のファイルの情報',
+
+  // components/editor/EditorBreadcrumbs.tsx, EditorStatusSegments.tsx (menus)
+  'Could not list this folder': 'このフォルダーを一覧できませんでした',
+  'Empty folder': '空のフォルダー',
+  Breadcrumbs: 'パンくずリスト',
+  'Indent Using Spaces': 'スペースでインデント',
+  'Indent Using Tabs': 'タブでインデント',
+  'Detect Indentation from Content': '内容からインデントを検出',
+  'Convert Indentation to Spaces': 'インデントをスペースに変換',
+  'Convert Indentation to Tabs': 'インデントをタブに変換',
+  'Trim Trailing Whitespace': '末尾の空白を削除',
+  'Select Language Mode': '言語モードの選択',
+  'No matching language': '一致する言語がありません',
+  'Auto Detect': '自動検出',
+  Current: '現在',
+  'Sticky Scroll': '固定スクロール',
+  'Render Whitespace': '空白文字を表示',
+  'Go to Symbol in Editor…': 'エディター内のシンボルへ移動…',
+  'Command Palette (Editor)…': 'コマンド パレット (エディター)…'
 }

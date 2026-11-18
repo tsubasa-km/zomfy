@@ -25,40 +25,48 @@
   overflow: hidden;
 }
 
-.editor-header-path {
+.editor-breadcrumbs {
   display: flex;
   align-items: center;
+  gap: 1px;
   min-width: 0;
   flex: 1 1 auto;
-  padding: 0;
-  max-width: 100%;
   overflow: hidden;
-  border: none;
-  background: transparent;
   color: var(--muted-foreground);
-  cursor: pointer;
   font-size: 12px;
   line-height: 1.2;
-  font-family: ui-monospace, SFMono-Regular, SF Mono, Menlo, Consolas, monospace;
   white-space: nowrap;
-  text-align: left;
 }
 
-.editor-header-path-prefix {
-  min-width: 0;
+.editor-crumb {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  /* Folders give way first; the file and the symbols stay readable in a narrow pane. */
+  min-width: 2ch;
+  flex: 0 1 auto;
   overflow: hidden;
+  padding: 2px 4px;
+  border: none;
+  border-radius: 4px;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-.editor-header-path-file {
-  flex: 0 0 auto;
-  white-space: nowrap;
+.editor-crumb.is-file {
+  flex-shrink: 0;
+  color: var(--foreground);
 }
 
-.editor-header-path:hover,
-.editor-header-path:focus-visible {
+.editor-crumb:hover,
+.editor-crumb:focus-visible,
+.editor-crumb[data-state='open'] {
+  background: var(--accent);
   color: var(--foreground);
+  outline: none;
 }
 
 .editor-header-copy-toast {
