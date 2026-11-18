@@ -510,6 +510,7 @@ export class WorkflowEngine {
         workspaceId: ws.id,
         cwd: ws.path,
         title: `${node.label}${count > 1 ? ` ${i + 1}` : ""} · ${run.workflow.name}`,
+        origin: "workflow",
         ...this.parentOf(run),
         ...(stepAgent(node) ? { agent: stepAgent(node) } : {}),
         options: {
@@ -697,6 +698,7 @@ export class WorkflowEngine {
       workspaceId: workspace.id,
       cwd: workspace.path,
       title: `${node.label} · helper: ${part.title}`,
+      origin: "workflow",
       ...this.parentOf(run),
       ...(stepAgent(node) ? { agent: stepAgent(node) } : {}),
       ...(this.heldBack(run, node.id) ? { localOnly: true } : {}),
@@ -1037,14 +1039,21 @@ export class WorkflowEngine {
     return own || (last ? `From "${last.label}": ${last.summary}` : `"${node.label}" needs your decision.`);
   }
 
-  /** Chats from runs made before chats had parents are put under the run's starting chat. */
+  /**
+   * Chats from runs made before a run's chats were marked as its own, or had parents: they are
+   * marked now, and put under the run's starting chat when it has one.
+   */
   private adoptChats(run: WorkflowRun): void {
-    if (!run.originSessionId) return;
-    const { parentId } = this.parentOf(run);
-    if (!parentId) return;
+    const { parentId } = run.originSessionId ? this.parentOf(run) : {};
     for (const id of new Set(run.steps.flatMap((s) => s.sessionIds))) {
       const record = this.deps.sessions.get(id);
-      if (record && id !== parentId && !record.parentId && !record.sideOf) this.deps.sessions.update(id, { parentId });
+      // A step run by the Lead ran in the person's own chat, which is not the run's.
+      if (!record || id === run.originSessionId || id === parentId || record.role || record.sideOf) continue;
+      const patch = {
+        ...(record.origin ? {} : { origin: "workflow" as const }),
+        ...(parentId && !record.parentId ? { parentId } : {}),
+      };
+      if (Object.keys(patch).length > 0) this.deps.sessions.update(id, patch);
     }
   }
 

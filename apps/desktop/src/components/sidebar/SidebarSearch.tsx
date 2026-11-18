@@ -1,26 +1,13 @@
-import { useRef, type ReactNode } from 'react'
+import { useRef } from 'react'
 import { Search, X } from 'lucide-react'
-import { allProjects, useStore } from '@/session-store'
-import { setFilters, toggleIn, useSidebarStore } from '@/stores/sidebar-store'
-import { STATUS_FILTERS } from '@/components/sidebar/SidebarFilterMenu'
-import { projectLabel } from '@/components/sidebar/workspace-visibility'
+import { setFilters, useSidebarStore } from '@/stores/sidebar-store'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { t } from '@/i18n/i18n'
 
-// Orca's WorkspaceKanbanSearchField (counter + clear, Escape clears), with the active filters below
-// it as removable chips so a narrowed list never looks complete.
+// Orca's WorkspaceKanbanSearchField (counter + clear, Escape clears), over the chat list.
 
-export function SidebarSearch({
-  matchCount,
-  totalCount,
-  chats = false
-}: {
-  matchCount: number
-  totalCount: number
-  /** The list holds chats, which the workspace filters do not apply to. */
-  chats?: boolean
-}) {
+export function SidebarSearch({ matchCount, totalCount }: { matchCount: number; totalCount: number }) {
   const query = useSidebarStore((s) => s.filters.query)
   const inputRef = useRef<HTMLInputElement>(null)
   const filtering = query.trim() !== ''
@@ -32,8 +19,8 @@ export function SidebarSearch({
         <Input
           ref={inputRef}
           value={query}
-          aria-label={chats ? t('Search chats') : t('Search workspaces')}
-          placeholder={chats ? t('Search chats') : t('Search workspaces')}
+          aria-label={t('Search chats')}
+          placeholder={t('Search chats')}
           data-sidebar-search
           className="h-7 border-worktree-sidebar-border bg-background pr-16 pl-7 text-xs"
           onChange={(e) => setFilters({ query: e.target.value })}
@@ -67,69 +54,6 @@ export function SidebarSearch({
           </div>
         )}
       </div>
-      {!chats && <ActiveFilterChips />}
     </div>
   )
-}
-
-function Chip({ id, children, onRemove }: { id: string; children: ReactNode; onRemove: () => void }) {
-  return (
-    <span
-      data-filter-chip={id}
-      className="inline-flex h-5 max-w-full items-center gap-0.5 rounded-full border border-worktree-sidebar-border bg-worktree-sidebar-accent/55 pr-0.5 pl-2 text-[11px] text-foreground"
-    >
-      <span className="min-w-0 truncate">{children}</span>
-      <button
-        type="button"
-        aria-label={t('Remove filter')}
-        onClick={onRemove}
-        className="flex size-4 shrink-0 items-center justify-center rounded-full text-muted-foreground hover:bg-muted hover:text-foreground"
-      >
-        <X className="size-3" />
-      </button>
-    </span>
-  )
-}
-
-function ActiveFilterChips() {
-  const f = useSidebarStore((s) => s.filters)
-  const hosts = useStore((s) => s.hosts)
-  const chips: ReactNode[] = []
-  if (f.agentRunning) chips.push(<Chip key="a" id="agent-running" onRemove={() => setFilters({ agentRunning: false })}>{t('Agent running')}</Chip>)
-  if (f.needsYou) chips.push(<Chip key="n" id="needs-you" onRemove={() => setFilters({ needsYou: false })}>{t('Needs you')}</Chip>)
-  if (f.unread) chips.push(<Chip key="u" id="unread" onRemove={() => setFilters({ unread: false })}>{t('Unread')}</Chip>)
-  if (f.hidePrimary) {
-    chips.push(<Chip key="p" id="hide-primary" onRemove={() => setFilters({ hidePrimary: false })}>{t('No default branch')}</Chip>)
-  }
-  for (const status of f.statuses) {
-    const label = STATUS_FILTERS.find((s) => s.id === status)?.label ?? status
-    chips.push(
-      <Chip key={`s-${status}`} id={`status:${status}`} onRemove={() => setFilters({ statuses: toggleIn(f.statuses, status) })}>
-        {label}
-      </Chip>
-    )
-  }
-  for (const hostId of f.hostIds) {
-    chips.push(
-      <Chip key={`h-${hostId}`} id={`host:${hostId}`} onRemove={() => setFilters({ hostIds: toggleIn(f.hostIds, hostId) })}>
-        {hosts[hostId]?.label ?? hostId}
-      </Chip>
-    )
-  }
-  const projects = allProjects(hosts)
-  for (const projectId of f.projectIds) {
-    const project = projects.find((p) => p.id === projectId)
-    if (!project) continue
-    chips.push(
-      <Chip
-        key={`p-${projectId}`}
-        id={`project:${projectId}`}
-        onRemove={() => setFilters({ projectIds: toggleIn(f.projectIds, projectId) })}
-      >
-        {projectLabel(project)}
-      </Chip>
-    )
-  }
-  if (chips.length === 0) return null
-  return <div className="mt-1.5 flex flex-wrap gap-1">{chips}</div>
 }

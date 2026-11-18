@@ -1174,5 +1174,18 @@ export const SHELL: Record<string, string> = {
   'Starts in a worktree of its own in {project}, so it never edits the same checkout as another chat.': '{project} に専用のワークツリーを作って始めます。ほかのチャットと同じチェックアウトを編集することはありません。',
   'Start somewhere else': '別の場所で始める',
   'No project': 'プロジェクトなし',
-  'Drag out of the window to open this workspace in a window of its own': 'ウィンドウの外へドラッグすると、このワークスペースを別ウィンドウで開きます'
+  'Drag out of the window to open this workspace in a window of its own': 'ウィンドウの外へドラッグすると、このワークスペースを別ウィンドウで開きます',
+
+  // components/sidebar/ChatCard.tsx, ChatListOptionsMenu.tsx, tab-layout/EmptyPane.tsx
+  'In a worktree of its own': '専用のワークツリーで作業中',
+  '{n} terminal running': 'ターミナル {n} 個が実行中',
+  '{n} terminals running': 'ターミナル {n} 個が実行中',
+  worktree: 'ワークツリー',
+  'Workflow chats': 'ワークフローのチャット',
+  'Chats a workflow run made for its steps. They stay folded under the chat the run was started from either way.': 'ワークフローが各ステップ用に作ったチャットです。どちらの設定でも、実行元のチャットの下には折りたたんで残ります。',
+  'New thread': '新しいスレッド',
+  'Open a surface': '開くものを選ぶ',
+  Files: 'ファイル',
+  Diff: '差分',
+  'Pull request': 'プルリクエスト'
 }

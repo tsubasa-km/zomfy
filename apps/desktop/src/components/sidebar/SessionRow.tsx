@@ -144,7 +144,7 @@ export function SessionRow({
   return (
     <ContextMenu onOpenChange={setMenuOpen}>
       {/* The card only opens for the chat list's rows, and never over a menu or a rename. */}
-      <HoverCard openDelay={500} closeDelay={80} open={Boolean(card) && hovered && !menuOpen && renaming === null} onOpenChange={setHovered}>
+      <HoverCard openDelay={250} closeDelay={80} open={Boolean(card) && hovered && !menuOpen && renaming === null} onOpenChange={setHovered}>
       <ContextMenuTrigger asChild>
         <HoverCardTrigger asChild>
     <div
@@ -160,8 +160,8 @@ export function SessionRow({
       title={!card && session.archived ? t('Archived: click to open it') : undefined}
       className={cn(
         'group/chat relative flex min-w-0 cursor-pointer rounded-md pr-1 text-muted-foreground hover:bg-worktree-sidebar-accent/60 hover:text-foreground',
-        card ? 'items-start gap-2 py-1.5 text-[13px]' : 'items-center gap-1.5 py-0.5 text-[12px]',
-        child ? 'pl-[36px]' : 'pl-[22px]',
+        card ? 'items-start gap-2 py-1.5 pr-1.5 text-[13px]' : 'items-center gap-1.5 py-0.5 text-[12px]',
+        child ? 'pl-[34px]' : card ? 'pl-5' : 'pl-[22px]',
         !card && session.archived && renaming === null && 'opacity-60',
         selected && 'bg-worktree-sidebar-accent text-foreground opacity-100',
         open && 'bg-worktree-sidebar-accent/70 text-foreground opacity-100'
@@ -191,8 +191,9 @@ export function SessionRow({
           aria-expanded={fold.expanded}
           data-chat-fold
           className={cn(
-            'absolute left-[5px] flex size-4 items-center justify-center rounded-sm text-muted-foreground/70 hover:bg-worktree-sidebar-accent hover:text-foreground',
-            card && 'top-2'
+            'absolute flex size-4 items-center justify-center rounded-sm text-muted-foreground/70 hover:bg-worktree-sidebar-accent hover:text-foreground',
+            // Beside the title, which is the row's second line unless the row sits under its project's folder.
+            card ? (card.foldered ? 'top-2 left-0.5' : 'top-6 left-0.5') : 'left-[5px]'
           )}
           onPointerDown={(e) => e.stopPropagation()}
           onClick={(e) => {
@@ -205,9 +206,6 @@ export function SessionRow({
       )}
       {card ? (
         <>
-          <span className="mt-[3px] flex shrink-0">
-            <TuiAgentIcon agent={sessionAgent(session)} size={14} />
-          </span>
           <ChatCardBody
             session={session}
             card={card}

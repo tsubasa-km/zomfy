@@ -1,10 +1,8 @@
 import { Fragment } from 'react'
 import { FolderPlus, MessageSquarePlus, Plus, Settings2, Unlink, Workflow as WorkflowIcon } from 'lucide-react'
-import { HARNESS_METHODS, type ProjectGroup } from '@acp-harness/protocol'
-import { harnessRequest } from '@/daemon-connection'
 import type { HostId, HostedProject } from '@/session-store'
 import { ProjectMenuItems } from '@/components/sidebar/WorkspaceMenu'
-import type { SidebarActions } from '@/components/sidebar/ProjectSection'
+import type { SidebarActions } from '@/components/sidebar/sidebar-actions'
 import { projectLabel } from '@/components/sidebar/workspace-visibility'
 import { DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator } from '@/components/ui/dropdown-menu'
 import { openAddProjectDialog } from '@/lib/project-dialogs'
@@ -29,13 +27,11 @@ export function sidebarActions(): SidebarActions | null {
 
 export function ProjectActionsMenuItems({
   project,
-  groups,
   actions,
   copies = [],
   badgeFor
 }: {
   project: HostedProject
-  groups: ProjectGroup[]
   actions: SidebarActions
   /** The same repository on other hosts, listed with it in the sidebar. */
   copies?: HostedProject[]
@@ -47,14 +43,8 @@ export function ProjectActionsMenuItems({
       <ProjectMenuItems
         hostId={project.hostId}
         path={project.path}
-        groups={groups}
-        groupId={project.groupId}
         onNewWorkspace={() => actions.newWorkspace(project)}
         onSettings={() => actions.projectSettings(project)}
-        onMoveToGroup={(groupId) =>
-          void harnessRequest(HARNESS_METHODS.projectUpdate, { projectId: project.id, patch: { groupId } }, project.hostId)
-        }
-        onNewGroup={() => actions.newGroup(project.hostId, [project.id])}
         onCleanUp={project.kind === 'git' ? () => actions.cleanUp(project) : undefined}
         onRemove={() => actions.removeProject(project)}
       />

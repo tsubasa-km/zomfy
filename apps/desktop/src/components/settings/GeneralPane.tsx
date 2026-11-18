@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { Download, RefreshCw, RotateCcw, Sparkles, Compass } from 'lucide-react'
-import { setSidebarView, useStore, type SidebarView } from '@/session-store'
+import { useStore } from '@/session-store'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { sortedHosts } from './HostsPane'
 import { resetAllSettings, setSetting, useSetting, type AppSettings } from '@/stores/settings-store'
@@ -79,7 +79,6 @@ function UpdateRow() {
 }
 
 export function GeneralPane() {
-  const view = useStore((s) => s.sidebarView)
   const statusBarVisible = useSetting('statusBarVisible')
   const minimizeToTray = useSetting('minimizeToTrayOnClose')
   const language = useSetting('language')
@@ -88,45 +87,13 @@ export function GeneralPane() {
   return (
     <div className="space-y-8">
       <div className="space-y-2 not-has-[[data-setting-row]]:hidden">
-        <SettingsSubsectionHeader title={t('Workspaces')} description={t("How the sidebar lists workspaces; the sidebar's own options menu changes the same values.")} />
+        <SettingsSubsectionHeader title={t('Hosts')} />
         <div className="divide-y divide-border/40">
           <SettingsRow
             label={t('Default host')}
             description={t('Where New chat and Add a project start when you do not pick a host.')}
             keywords={['host', 'wsl', 'ssh', 'default', 'machine']}
             control={<DefaultHostSelect />}
-          />
-          <SettingsRow
-            label={t('Group workspaces by')}
-            keywords={['sidebar', 'project', 'status']}
-            control={
-              <SettingsSegmentedControl<SidebarView['groupBy']>
-                ariaLabel={t('Group workspaces by')}
-                value={view.groupBy}
-                onChange={(groupBy) => setSidebarView({ groupBy })}
-                options={[
-                  { value: 'project', label: t('Project') },
-                  { value: 'status', label: t('Status') }
-                ]}
-              />
-            }
-          />
-          <SettingsRow
-            label={t('Sort workspaces by')}
-            keywords={['sidebar', 'name', 'recent', 'created']}
-            control={
-              <SettingsSegmentedControl<SidebarView['sortBy']>
-                ariaLabel={t('Sort workspaces by')}
-                value={view.sortBy}
-                onChange={(sortBy) => setSidebarView({ sortBy })}
-                options={[
-                  { value: 'created', label: t('Created') },
-                  { value: 'name', label: t('Name') },
-                  { value: 'recent', label: t('Recent') },
-                  { value: 'manual', label: t('Manual') }
-                ]}
-              />
-            }
           />
         </div>
       </div>

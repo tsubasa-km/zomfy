@@ -1,10 +1,10 @@
 import type { ReactNode } from 'react'
-import { Archive, ArchiveRestore, FolderGit2, GitBranch, MessagesSquare, Monitor, Pin, PinOff } from 'lucide-react'
+import { Archive, ArchiveRestore, Folder, FolderGit2, GitBranch, MessagesSquare, Monitor, Pin, PinOff, SquareTerminal } from 'lucide-react'
 import { chatAgentLabel, CHAT_AGENT_OPTION_IDS, type WorkspaceSummary } from '@acp-harness/protocol'
 import type { Session } from '@/session-store'
 import { AgentStateDot, agentStateLabel } from '@/components/AgentStateDot'
 import { TuiAgentIcon } from '@/components/terminal/TuiAgentIcon'
-import { SESSION_DOT } from '@/components/sidebar/WorkspaceCardBadges'
+import { ReviewBadge, SESSION_DOT } from '@/components/sidebar/WorkspaceCardBadges'
 import { sessionAgent } from '@/lib/chat-agents'
 import { activityOf, compactAge, useCoarseNow } from '@/lib/chat-list'
 import { setChatArchived } from '@/chat-rename-archive'
@@ -12,25 +12,29 @@ import { setChatPinned } from '@/stores/sidebar-store'
 import { cn } from '@/lib/utils'
 import { t } from '@/i18n/i18n'
 
-// A chat as the chat list draws it: its title and state on one line, where it works and how fresh
-// it is on the next, and the rest (branch, agent, model, changes) on a card beside the row on hover.
+// A chat as the chat list draws it, with what T3 Code's thread rows show: its project and what it is
+// doing on the first line, its title on the second, and where it works on the third (branch, running
+// terminals, pull request, uncommitted lines, agent). The card beside a hovered row has the rest.
 
 /** What a chat row shows beyond the chat itself. */
 export interface ChatCardInfo {
   /** The project's name, or what stands in for it (a quick chat). */
   project: string
-  /** Its worktree's branch, when that is not the project's own checkout. */
-  place?: string
-  /** The project's name for the hover card, when the row itself shows something else in its place. */
-  hoverProject?: string
-  /** The checked-out branch and folder, for the hover card. */
+  /** Under its project's folder the row leaves the project line out. */
+  foldered: boolean
+  workspaceId: string
+  /** The checked-out branch; null for a folder that is not a git checkout. */
   branch?: string | null
+  /** A worktree made for the chat, as opposed to the project's own checkout. */
+  worktree: boolean
   path?: string
   /** The host's short name, when the chat is not on the default host. */
   host?: string
   pinned: boolean
   unread: boolean
   summary?: WorkspaceSummary
+  /** Terminals running in the chat's workspace. */
+  terminals: number
 }
 
 /** The model the chat's next turn runs on, when it says. */
@@ -45,21 +49,31 @@ function DiffStats({ summary }: { summary: WorkspaceSummary | undefined }) {
   return (
     <span className="inline-flex shrink-0 items-center gap-1 font-mono text-[10px] leading-none tabular-nums" data-chat-diff>
       <span style={{ color: 'var(--git-decoration-added)' }}>+{summary.additions}</span>
-      <span style={{ color: 'var(--git-decoration-deleted)' }}>-{summary.deletions}</span>
+      <span style={{ color: 'var(--git-decoration-deleted)' }}>−{summary.deletions}</span>
     </span>
   )
 }
 
-/** The row's corner: what the chat is doing, or how long ago it last did something. */
-function ChatStatusText({ session, status }: { session: Session; status: Session['status'] }) {
+/** What the chat is doing, in a word with its mark; a chat at rest shows how long ago it last did something. */
+function ChatStatus({ session, status, unread }: { session: Session; status: Session['status']; unread: boolean }) {
   const now = useCoarseNow()
-  if (status === 'needs-you') return <span className="font-medium text-agent-question-text">{t('Needs you')}</span>
-  if (status === 'error') return <span className="font-medium text-destructive">{t('Error')}</span>
-  if (status === 'working') {
-    const since = session.turnStartedAt
-    return <span className="tabular-nums">{since ? t('Working · {age}', { age: compactAge(since, now) }) : t('Working')}</span>
-  }
-  return <span className="tabular-nums">{compactAge(activityOf(session), now)}</span>
+  const label =
+    status === 'needs-you' ? t('Needs you') : status === 'error' ? t('Failed') : status === 'working' ? t('Working') : unread ? t('Done') : null
+  if (!label) return <span className="tabular-nums">{compactAge(activityOf(session), now)}</span>
+  return (
+    <span
+      className={cn(
+        'inline-flex items-center gap-1 font-medium',
+        status === 'needs-you' && 'text-agent-question-text',
+        status === 'error' && 'text-destructive',
+        status === 'idle' && 'text-foreground/80'
+      )}
+      data-chat-status={status}
+    >
+      <AgentStateDot state={SESSION_DOT[status]} size="sm" />
+      {label}
+    </span>
+  )
 }
 
 function RowAction({ label, onClick, children, action }: { label: string; onClick: () => void; children: ReactNode; action: string }) {
@@ -69,7 +83,7 @@ function RowAction({ label, onClick, children, action }: { label: string; onClic
       aria-label={label}
       title={label}
       data-chat-row-action={action}
-      className="flex size-5 items-center justify-center rounded-sm text-muted-foreground hover:bg-worktree-sidebar-accent hover:text-foreground"
+      className="flex size-4 items-center justify-center rounded-sm text-muted-foreground hover:bg-worktree-sidebar-accent hover:text-foreground"
       onPointerDown={(e) => e.stopPropagation()}
       onClick={(e) => {
         e.stopPropagation()
@@ -81,7 +95,7 @@ function RowAction({ label, onClick, children, action }: { label: string; onClic
   )
 }
 
-/** The two lines of a chat row. `title` is the row's own title (or its rename field), `trailing` its fold badge. */
+/** The row's lines. `title` is the row's own title (or its rename field), `trailing` its fold badge. */
 export function ChatCardBody({
   session,
   card,
@@ -99,45 +113,81 @@ export function ChatCardBody({
   /** Renaming: the hover actions stay out of the way. */
   busy: boolean
 }) {
+  const agent = <TuiAgentIcon agent={sessionAgent(session)} size={12} />
+  // What the chat is doing, which the pointer trades for the row's actions.
+  const corner = (
+    <>
+      <span className={cn('ml-auto flex shrink-0 items-center gap-1.5 text-[11px] leading-none', !busy && 'group-hover/chat:hidden')} data-chat-status-text>
+        <ChatStatus session={session} status={status} unread={card.unread} />
+      </span>
+      {!busy && (
+        <span className="ml-auto hidden shrink-0 items-center gap-0.5 group-hover/chat:flex">
+          {!session.archived && (
+            <RowAction
+              action={card.pinned ? 'unpin' : 'pin'}
+              label={card.pinned ? t('Unpin') : t('Pin to the top')}
+              onClick={() => setChatPinned(session.id, !card.pinned)}
+            >
+              {card.pinned ? <PinOff className="size-3" /> : <Pin className="size-3" />}
+            </RowAction>
+          )}
+          <RowAction
+            action={session.archived ? 'unarchive' : 'archive'}
+            label={session.archived ? t('Unarchive') : t('Archive')}
+            onClick={() => void setChatArchived(session.id, !session.archived)}
+          >
+            {session.archived ? <ArchiveRestore className="size-3" /> : <Archive className="size-3" />}
+          </RowAction>
+        </span>
+      )}
+    </>
+  )
+  const where = card.branch || card.terminals > 0 || (card.summary && card.summary.additions + card.summary.deletions > 0)
   return (
     <div className="flex min-w-0 flex-1 flex-col">
+      {!card.foldered && (
+        <div className="flex h-4 min-w-0 items-center gap-1 text-[11px] leading-none text-muted-foreground/80">
+          <Folder className="size-3 shrink-0 opacity-70" />
+          <span className="min-w-0 truncate" data-chat-project>
+            {card.project}
+            {card.host && ` · ${card.host}`}
+          </span>
+          {corner}
+        </div>
+      )}
       <div className="flex h-5 min-w-0 items-center gap-1.5">
         {title}
         {card.pinned && <Pin className="size-3 shrink-0 text-muted-foreground/70" aria-label={t('Pinned')} data-chat-pinned />}
         {trailing}
-        <AgentStateDot state={SESSION_DOT[session.status]} size="sm" />
+        {card.foldered && corner}
+        {/* With no third line to sit on, the agent's mark closes the title's. */}
+        {!where && <span className="flex shrink-0 opacity-70">{agent}</span>}
       </div>
-      <div className="flex h-4 min-w-0 items-center gap-1.5 text-[11px] leading-none text-muted-foreground/80">
-        <span className="min-w-0 truncate" data-chat-where>
-          {card.project}
-          {card.place && <span className="font-mono text-[10px]"> · {card.place}</span>}
-          {card.host && <span> · {card.host}</span>}
-        </span>
-        <span className={cn('ml-auto flex shrink-0 items-center gap-1.5', !busy && 'group-hover/chat:hidden')} data-chat-status-text>
-          <DiffStats summary={card.summary} />
-          <ChatStatusText session={session} status={status} />
-        </span>
-        {!busy && (
-          <span className="ml-auto hidden shrink-0 items-center gap-0.5 group-hover/chat:flex">
-            {!session.archived && (
-              <RowAction
-                action={card.pinned ? 'unpin' : 'pin'}
-                label={card.pinned ? t('Unpin') : t('Pin to the top')}
-                onClick={() => setChatPinned(session.id, !card.pinned)}
-              >
-                {card.pinned ? <PinOff className="size-3" /> : <Pin className="size-3" />}
-              </RowAction>
-            )}
-            <RowAction
-              action={session.archived ? 'unarchive' : 'archive'}
-              label={session.archived ? t('Unarchive') : t('Archive')}
-              onClick={() => void setChatArchived(session.id, !session.archived)}
+      {where && (
+        <div className="flex h-4 min-w-0 items-center gap-1.5 text-[11px] leading-none text-muted-foreground/80" data-chat-where>
+          {card.branch ? (
+            <span className="flex min-w-0 flex-1 items-center gap-1" title={card.worktree ? t('In a worktree of its own') : undefined}>
+              <GitBranch className="size-3 shrink-0 opacity-70" />
+              <span className="min-w-0 truncate font-mono text-[10px]">{card.branch}</span>
+            </span>
+          ) : (
+            <span className="flex-1" />
+          )}
+          {card.terminals > 0 && (
+            <span
+              className="inline-flex shrink-0 items-center gap-0.5 tabular-nums"
+              title={card.terminals === 1 ? t('{n} terminal running', { n: card.terminals }) : t('{n} terminals running', { n: card.terminals })}
+              data-chat-terminals={card.terminals}
             >
-              {session.archived ? <ArchiveRestore className="size-3" /> : <Archive className="size-3" />}
-            </RowAction>
-          </span>
-        )}
-      </div>
+              <SquareTerminal className="size-3" />
+              {card.terminals > 1 && card.terminals}
+            </span>
+          )}
+          <ReviewBadge workspaceId={card.workspaceId} showNumber />
+          <DiffStats summary={card.summary} />
+          <span className="flex shrink-0 opacity-70">{agent}</span>
+        </div>
+      )}
     </div>
   )
 }
@@ -172,18 +222,24 @@ export function ChatHoverDetails({ session, card, childCount }: { session: Sessi
       </div>
       <div className="flex flex-col gap-1.5 border-t border-border/60 pt-2">
         <DetailLine icon={<FolderGit2 className="size-3.5" />} title={card.path}>
-          {card.hoverProject ?? card.project}
+          {card.project}
         </DetailLine>
+        {card.host && <DetailLine icon={<Monitor className="size-3.5" />}>{card.host}</DetailLine>}
         {card.branch && (
           <DetailLine icon={<GitBranch className="size-3.5" />}>
             <span className="font-mono text-[11px]">{card.branch}</span>
+            {card.worktree && <span className="text-muted-foreground"> · {t('worktree')}</span>}
           </DetailLine>
         )}
-        {card.host && <DetailLine icon={<Monitor className="size-3.5" />}>{card.host}</DetailLine>}
         <DetailLine icon={<TuiAgentIcon agent={agent} size={13} />}>
           {chatAgentLabel(agent)}
           {model && <span className="text-muted-foreground"> · {model}</span>}
         </DetailLine>
+        {card.terminals > 0 && (
+          <DetailLine icon={<SquareTerminal className="size-3.5" />}>
+            {card.terminals === 1 ? t('{n} terminal running', { n: card.terminals }) : t('{n} terminals running', { n: card.terminals })}
+          </DetailLine>
+        )}
         {childCount > 0 && (
           <DetailLine icon={<MessagesSquare className="size-3.5" />}>
             {childCount === 1 ? t('{n} chat under this one', { n: childCount }) : t('{n} chats under this one', { n: childCount })}

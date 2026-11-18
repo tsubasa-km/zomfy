@@ -143,18 +143,12 @@ export interface EditorTab {
   compare?: { base: string; head: string; label: string }
 }
 
-/** Orca's "Workspace options": group by and sort by. */
+/** How the sidebar's chat list looks. */
 export interface SidebarView {
-  groupBy: 'project' | 'status'
-  sortBy: 'created' | 'name' | 'recent' | 'manual'
-  /** What a project lists: its chats (the default; worktrees stay behind them) or its workspaces as cards. */
-  rows?: 'chats' | 'workspaces'
-  /** List archived chats too (dimmed, with Unarchive in their menu). */
-  showArchived?: boolean
-  /** The list itself: every chat ordered by what needs the person (the default), or Orca's workspace cards. */
-  layout?: 'chats' | 'workspaces'
   /** How the chat list is cut: by state (the default), or a folder per project. */
   chatGroupBy?: 'state' | 'project'
+  /** List the chats workflow runs made for their steps even when no chat started the run. */
+  workflowChats?: boolean
 }
 
 /** `plugin:<publisher.id>/<panelId>` names an enabled plugin's panel. */
@@ -251,7 +245,7 @@ let state: StoreState = {
   floating: saved.floating ?? { open: false, maximized: false },
   editorTabs: saved.editorTabs ?? [],
   rightSidebar: saved.rightSidebar ?? { open: true, tab: 'explorer' },
-  sidebarView: saved.sidebarView ?? { groupBy: 'project', sortBy: 'created' },
+  sidebarView: saved.sidebarView ?? {},
   rememberedHosts: saved.rememberedHosts ?? [],
   unread: {},
   dashboardOpen: false,

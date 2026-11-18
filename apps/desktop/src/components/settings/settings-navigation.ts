@@ -72,8 +72,6 @@ export const SETTINGS_SECTIONS: readonly SettingsNavSection[] = [
     icon: SlidersHorizontal,
     group: 'setup',
     entries: [
-      { title: t('Group workspaces by'), keywords: ['sidebar', 'project', 'status'] },
-      { title: t('Sort workspaces by'), keywords: ['sidebar', 'name', 'recent', 'created'] },
       { title: t('Status bar'), keywords: ['footer', 'status bar'] },
       { title: t('Minimize to Tray on Close'), keywords: ['tray', 'minimize', 'close', 'background'] },
       { title: t('Language'), keywords: ['language', 'japanese', 'english', 'locale', '言語', '日本語'] },

@@ -1,84 +1,48 @@
-import { useMemo, useState } from 'react'
+import { useState } from 'react'
 import { HARNESS_METHODS, type Workspace } from '@acp-harness/protocol'
 import { harnessRequest } from '@/daemon-connection'
-import { useStore, type HostedProject } from '@/session-store'
-import { useSidebarStore } from '@/stores/sidebar-store'
-import { setInboxOpen } from '@/stores/inbox-store'
+import type { HostedProject } from '@/session-store'
 import { DeleteWorkspaceDialog, UpdateWorkspaceDialog } from '@/components/workspace-dialogs'
 import { SidebarHeader } from '@/components/sidebar/SidebarHeader'
 import { SidebarSearch } from '@/components/sidebar/SidebarSearch'
-import { SessionRow } from '@/components/sidebar/SessionRow'
-import { ProjectList, hasActiveFilters } from '@/components/sidebar/ProjectList'
 import { ChatList, useChatListCounts } from '@/components/sidebar/ChatList'
-import type { SidebarActions } from '@/components/sidebar/ProjectSection'
+import type { SidebarActions } from '@/components/sidebar/sidebar-actions'
 import { setSidebarActions } from '@/components/sidebar/ProjectActionsMenu'
-import { BulkActionBar } from '@/components/sidebar/BulkActionBar'
 import { NewWorkspaceDialog } from '@/components/sidebar/NewWorkspaceDialog'
 import { SidebarNav } from '@/components/sidebar/SidebarNav'
 import { openNewWorkspace, useNewWorkspaceRequest } from '@/stores/tasks-store'
 import { ProjectSettingsDialog } from '@/components/sidebar/ProjectSettingsDialog'
 import { ProjectDialogs } from '@/components/sidebar/ProjectDialogs'
-import { ProjectGroupNameDialog, type GroupNameRequest } from '@/components/sidebar/ProjectGroupNameDialog'
 import { CleanupMergedDialog } from '@/components/sidebar/CleanupMergedDialog'
 import { useWorkspaceSummaries } from '@/components/sidebar/use-workspace-summaries'
 import { useCardReviewSummaries } from '@/stores/hosting-store'
-import { projectLabel, workspaceMatches } from '@/components/sidebar/workspace-visibility'
+import { projectLabel } from '@/components/sidebar/workspace-visibility'
 import { useSetting } from '@/stores/settings-store'
 import { useSidebarWidth } from '@/stores/sidebar-width-store'
 import { SidebarResizeHandle } from '@/components/SidebarResizeHandle'
 import { cn } from '@/lib/utils'
 import { t } from '@/i18n/i18n'
 
-// Markup and classes follow Orca's sidebar (sidebar/index.tsx, SidebarHeader, WorktreeList); the
-// sections, cards and dialogs live in components/sidebar/.
+// The left sidebar: the app's pages, then every chat in one list (components/sidebar/ChatList).
+// Markup and classes follow Orca's sidebar; the dialogs its menus open live here.
 
 export function Sidebar() {
   const visible = useSetting('sidebarVisible')
   const width = useSidebarWidth('left')
-  const hosts = useStore((s) => s.hosts)
-  const sessions = useStore((s) => s.sessions)
-  const unread = useStore((s) => s.unread)
-  const filters = useSidebarStore((s) => s.filters)
-  // The chat list is the sidebar; Orca's workspace cards stay one option away.
-  const chats = useStore((s) => (s.sidebarView.layout ?? 'chats') === 'chats')
   const chatCounts = useChatListCounts()
   const newWorkspace = useNewWorkspaceRequest()
   const [deleting, setDeleting] = useState<Workspace | null>(null)
   const [updating, setUpdating] = useState<Workspace | null>(null)
   const [settingsFor, setSettingsFor] = useState<HostedProject | null>(null)
-  const [groupName, setGroupName] = useState<GroupNameRequest | null>(null)
   const [cleanUp, setCleanUp] = useState<HostedProject | null>(null)
   useWorkspaceSummaries()
   useCardReviewSummaries()
-
-  const waiting = sessions.filter((s) => s.status === 'needs-you')
-
-  // "n / total" for the search field, over every host's project workspaces.
-  const counts = useMemo(() => {
-    let total = 0
-    let matched = 0
-    for (const host of Object.values(hosts)) {
-      const projects = host.harness?.projects ?? []
-      const name = (id: string | null) => {
-        const p = projects.find((x) => x.id === id)
-        return p ? projectLabel(p) : ''
-      }
-      for (const w of host.harness?.workspaces ?? []) {
-        if (w.projectId === null) continue
-        total++
-        if (workspaceMatches(w, filters, { hostId: host.id, sessions, unread, projectName: name })) matched++
-      }
-    }
-    return { total, matched }
-  }, [hosts, filters, sessions, unread])
 
   const actions: SidebarActions = {
     newWorkspace: (project, parent) => openNewWorkspace({ project, parent }),
     update: setUpdating,
     remove: setDeleting,
     projectSettings: setSettingsFor,
-    newGroup: (hostId, projectIds) => setGroupName({ mode: 'create', hostId, projectIds }),
-    renameGroup: (hostId, group) => setGroupName({ mode: 'rename', hostId, group }),
     cleanUp: setCleanUp,
     removeProject: (project) => {
       if (window.confirm(t('Remove {name} from acp-harness? Its folders and worktrees on disk are kept.', { name: projectLabel(project) }))) {
@@ -100,55 +64,18 @@ export function Sidebar() {
     >
       <SidebarResizeHandle widthKey="left" edge="right" />
       <SidebarNav />
-      <SidebarHeader onNewGroup={(hostId) => setGroupName({ mode: 'create', hostId })} />
-      <SidebarSearch
-        chats={chats}
-        matchCount={chats ? chatCounts.matched : counts.matched}
-        totalCount={chats ? chatCounts.total : counts.total}
-      />
+      <SidebarHeader />
+      <SidebarSearch matchCount={chatCounts.matched} totalCount={chatCounts.total} />
 
-      <div
-        className="worktree-sidebar-scrollbar mt-1 min-h-0 flex-1 overflow-x-hidden overflow-y-auto px-1 pb-3"
-        data-workspace-list
-      >
-        {chats && <ChatList actions={actions} />}
-        {!chats && waiting.length > 0 && (
-          <section className="mb-2">
-            <div className="flex h-7 min-w-0 items-center gap-1.5 pt-1 pr-1 pl-2">
-              <span className="block size-1.5 shrink-0 rounded-full bg-agent-question" />
-              <div className="min-w-0 truncate text-[13px] leading-none font-semibold text-agent-question-text">
-                {t('Waiting for you')}
-              </div>
-              <span className="text-[11px] text-muted-foreground tabular-nums">{waiting.length}</span>
-              <button
-                type="button"
-                className="ml-auto text-[11px] text-muted-foreground hover:text-foreground"
-                onClick={() => setInboxOpen(true)}
-              >
-                {t('Inbox')}
-              </button>
-            </div>
-            {waiting.map((s) => (
-              <SessionRow key={`w-${s.id}`} session={s} showWorkspace />
-            ))}
-          </section>
-        )}
-        {!chats && <ProjectList actions={actions} />}
-        {!chats && hasActiveFilters(filters) && counts.matched === 0 && counts.total > 0 && (
-          <p className="px-3 pt-3 text-center text-xs text-muted-foreground" data-no-matches>
-            {t('No workspaces match the filters.')}
-          </p>
-        )}
+      <div className="worktree-sidebar-scrollbar mt-1 min-h-0 flex-1 overflow-x-hidden overflow-y-auto px-1 pb-3" data-chat-list-scroll>
+        <ChatList actions={actions} />
       </div>
-
-      <BulkActionBar />
 
       <NewWorkspaceDialog request={newWorkspace} onClose={() => openNewWorkspace(null)} />
       <DeleteWorkspaceDialog workspace={deleting} onClose={() => setDeleting(null)} />
       <UpdateWorkspaceDialog workspace={updating} onClose={() => setUpdating(null)} />
       <ProjectSettingsDialog project={settingsFor} onClose={() => setSettingsFor(null)} />
       <ProjectDialogs />
-      <ProjectGroupNameDialog request={groupName} onClose={() => setGroupName(null)} />
       <CleanupMergedDialog project={cleanUp} onClose={() => setCleanUp(null)} />
     </aside>
   )

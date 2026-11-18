@@ -1,17 +1,17 @@
 import { Fragment, useMemo, type ReactNode } from 'react'
 import { ChevronRight, FolderGit2, FolderOpen, MessageSquare, MoreHorizontal, Plus } from 'lucide-react'
 import type { Workspace } from '@acp-harness/protocol'
-import { floatingWorkspaceId, useStore, type HostedProject, type HostId, type Session } from '@/session-store'
+import { floatingWorkspaceId, selectWorkspace, useStore, type HostedProject, type HostId, type Session } from '@/session-store'
 import { toggleProjectCollapsed, toggleSectionCollapsed, useSidebarStore } from '@/stores/sidebar-store'
 import { setInboxOpen } from '@/stores/inbox-store'
 import { useProjectLinks } from '@/stores/project-links-store'
 import { useSetting } from '@/stores/settings-store'
 import { SessionRow } from '@/components/sidebar/SessionRow'
 import type { ChatCardInfo } from '@/components/sidebar/ChatCard'
-import type { SidebarActions } from '@/components/sidebar/ProjectSection'
+import type { SidebarActions } from '@/components/sidebar/sidebar-actions'
 import { ProjectActionsMenuItems } from '@/components/sidebar/ProjectActionsMenu'
-import { linkedEntries, shortHostNames, type LinkedEntry } from '@/components/sidebar/ProjectList'
-import { mergeOrder, projectLabel, sortGroups, sortProjects, workspaceLabel } from '@/components/sidebar/workspace-visibility'
+import { linkedEntries, shortHostNames, type LinkedEntry } from '@/components/sidebar/project-entries'
+import { mergeOrder, projectLabel, sortProjects, workspaceLabel } from '@/components/sidebar/workspace-visibility'
 import { sortedHosts } from '@/components/settings/HostsPane'
 import { Button } from '@/components/ui/button'
 import { DropdownMenu, DropdownMenuContent, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
@@ -28,11 +28,6 @@ import { t } from '@/i18n/i18n'
 
 type HostedWorkspace = Workspace & { hostId: HostId }
 
-/** A worktree's short name: its branch without the owner prefix ("user/fix-x" → "fix-x"). */
-function placeOf(w: Workspace): string {
-  return (w.branch ?? workspaceLabel(w)).split('/').pop()!
-}
-
 const NO_PROJECT = 'none'
 
 /** How many chats the list holds and how many the search keeps, for the search field's counter. */
@@ -42,7 +37,7 @@ export function useChatListCounts(): { total: number; matched: number } {
   const query = useSidebarStore((s) => s.filters.query)
   const hosts = useStore((s) => s.hosts)
   return useMemo(() => {
-    const listed = sessions.filter((s) => !s.sideOf && !s.parentId && s.workspaceId !== floating && !s.archived)
+    const listed = sessions.filter((s) => !s.sideOf && !s.parentId && s.origin !== 'workflow' && s.workspaceId !== floating && !s.archived)
     const needle = query.trim().toLowerCase()
     if (!needle) return { total: listed.length, matched: listed.length }
     const where = new Map<string, string>()
@@ -110,6 +105,8 @@ export function ChatList({ actions }: { actions: SidebarActions }) {
   const unread = useStore((s) => s.unread)
   const floating = useStore((s) => floatingWorkspaceId(s))
   const groupBy = useStore((s) => s.sidebarView.chatGroupBy ?? 'state')
+  const showWorkflow = useStore((s) => s.sidebarView.workflowChats === true)
+  const terminals = useStore((s) => s.terminals)
   const query = useSidebarStore((s) => s.filters.query)
   const pinned = useSidebarStore((s) => s.pinnedChats)
   const collapsedSections = useSidebarStore((s) => s.collapsedSections)
@@ -128,18 +125,23 @@ export function ChatList({ actions }: { actions: SidebarActions }) {
   const projects: HostedProject[] = ordered.flatMap((h) => sortProjects(h.harness?.projects ?? []).map((p) => ({ ...p, hostId: h.id })))
   const projectOf = (w: HostedWorkspace | undefined) => (w ? projects.find((p) => p.hostId === w.hostId && p.id === w.projectId) : undefined)
 
+  const terminalCount = new Map<string, number>()
+  for (const terminal of terminals) {
+    if (!terminal.inline) terminalCount.set(terminal.workspaceId, (terminalCount.get(terminal.workspaceId) ?? 0) + 1)
+  }
+
   const cardOf = (session: Session): ChatCardInfo => {
     const w = workspaceById.get(session.workspaceId)
     const project = projectOf(w)
-    const name = project ? projectLabel(project) : w?.scratch ? t('Quick chat') : w ? workspaceLabel(w) : ''
-    // Under its project's folder a row need not repeat the project: it says which branch instead.
-    const foldered = groupBy === 'project' && project !== undefined && !pinned.includes(session.id) && !session.archived
     return {
-      project: foldered ? (w?.branch ?? name) : name,
-      place: w && project && !w.isPrimary && !foldered ? placeOf(w) : undefined,
-      hoverProject: name,
+      project: project ? projectLabel(project) : w?.scratch ? t('Quick chat') : w ? workspaceLabel(w) : '',
+      // Under its project's folder a row need not repeat the project.
+      foldered: groupBy === 'project' && project !== undefined && !pinned.includes(session.id) && !session.archived,
+      workspaceId: session.workspaceId,
       branch: w?.branch,
+      worktree: Boolean(w && project && !w.isPrimary),
       path: w?.path,
+      terminals: terminalCount.get(session.workspaceId) ?? 0,
       host: session.hostId !== defaultHost ? (names[session.hostId] ?? session.hostId) : undefined,
       pinned: pinned.includes(session.id),
       unread: Boolean(unread[session.id]),
@@ -148,12 +150,18 @@ export function ChatList({ actions }: { actions: SidebarActions }) {
   }
 
   // The floating panel's chats are that panel's, and a chat whose workspace this window has not heard of has no row to draw.
-  const listed = allSessions.filter((s) => s.workspaceId !== floating && workspaceById.has(s.workspaceId))
+  const known = allSessions.filter((s) => s.workspaceId !== floating && workspaceById.has(s.workspaceId))
+  // A workflow run's step chats stay folded under the chat the run was started from. One with no
+  // such chat to sit under is left out (the Workflows page has it), unless it waits for the person.
+  const parents = new Set(known.map((s) => s.id))
+  const listed = showWorkflow
+    ? known
+    : known.filter((s) => s.origin !== 'workflow' || (s.parentId !== undefined && parents.has(s.parentId)) || s.status === 'needs-you')
   const needle = query.trim().toLowerCase()
   const matches = (s: Session) => {
     if (!needle) return true
     const card = cardOf(s)
-    return [s.title, card.project, card.place ?? '', card.branch ?? ''].some((text) => text.toLowerCase().includes(needle))
+    return [s.title, card.project, card.branch ?? ''].some((text) => text.toLowerCase().includes(needle))
   }
   const nodes = chatTree(listed).filter((n) => [n.chat, ...n.children].some(matches))
 
@@ -217,7 +225,6 @@ export function ChatList({ actions }: { actions: SidebarActions }) {
   const unordered = linkedEntries(projects, links)
   const rank = new Map(mergeOrder(unordered.map(entryKey), projectOrder).map((key, i) => [key, i]))
   const entries = [...unordered].sort((a, b) => rank.get(entryKey(a))! - rank.get(entryKey(b))!)
-  const groups = ordered.flatMap((h) => sortGroups(h.harness?.projectGroups ?? []).map((group) => ({ group, hostId: h.id })))
   const pinnedSection = sections.find((s) => s.id === 'pinned')
   const archivedSection = sections.find((s) => s.id === 'archived')
   const foldered = nodes.filter((n) => !n.chat.archived && !pinned.includes(n.chat.id))
@@ -229,6 +236,8 @@ export function ChatList({ actions }: { actions: SidebarActions }) {
       })
       .sort(byUrgency)
   const loose = foldered.filter((n) => !projectOf(workspaceById.get(n.chat.workspaceId))).sort(byUrgency)
+  // Workspaces some chat works in, shown or not.
+  const busy = new Set(allSessions.filter((s) => !s.archived).map((s) => s.workspaceId))
 
   return (
     <div data-chat-list="project">
@@ -308,23 +317,35 @@ export function ChatList({ actions }: { actions: SidebarActions }) {
                     </Button>
                   </DropdownMenuTrigger>
                   <DropdownMenuContent align="start" className="w-60">
-                    <ProjectActionsMenuItems
-                      project={project}
-                      groups={groups.filter((g) => g.hostId === project.hostId).map((g) => g.group)}
-                      actions={actions}
-                      copies={copies}
-                      badgeFor={(hostId) => names[hostId] ?? hostId}
-                    />
+                    <ProjectActionsMenuItems project={project} actions={actions} copies={copies} badgeFor={(hostId) => names[hostId] ?? hostId} />
                   </DropdownMenuContent>
                 </DropdownMenu>
               </div>
             </div>
-            {!collapsed &&
-              (list.length > 0 ? (
-                <div className="space-y-px pr-1">{list.map(row)}</div>
-              ) : (
-                <p className="py-0.5 pl-[22px] text-[12px] text-muted-foreground/70 italic">{t('No chats yet')}</p>
-              ))}
+            {!collapsed && (
+              <div className="space-y-px pr-1">
+                {list.map(row)}
+                {/* A worktree no chat works in still needs a way in, and a way to be seen and cleaned up. */}
+                {!needle &&
+                  workspaces
+                    .filter((w) => members.some((m) => m.hostId === w.hostId && m.id === w.projectId) && !w.isPrimary && !busy.has(w.id))
+                    .map((w) => (
+                      <button
+                        key={w.id}
+                        type="button"
+                        data-empty-workspace={w.id}
+                        onClick={() => selectWorkspace(w.id)}
+                        className="flex w-full min-w-0 items-center gap-1.5 rounded-md py-1 pr-1.5 pl-5 text-left text-[12px] text-muted-foreground/70 hover:bg-worktree-sidebar-accent/60 hover:text-foreground"
+                      >
+                        <span className="min-w-0 flex-1 truncate italic">{t('No chats yet')}</span>
+                        <span className="max-w-32 shrink-0 truncate font-mono text-[10px]">{w.branch ?? workspaceLabel(w)}</span>
+                      </button>
+                    ))}
+                {list.length === 0 && !workspaces.some((w) => members.some((m) => m.hostId === w.hostId && m.id === w.projectId) && !w.isPrimary && !busy.has(w.id)) && (
+                  <p className="py-0.5 pl-5 text-[12px] text-muted-foreground/70 italic">{t('No chats yet')}</p>
+                )}
+              </div>
+            )}
           </section>
         )
       })}

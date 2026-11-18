@@ -8,14 +8,12 @@ import {
   Plus,
   Server,
   SquarePlus,
-  Folders,
   TerminalSquare
 } from 'lucide-react'
 import { connectHost } from '@/daemon-connection'
-import { LOCAL_HOST, setDashboardOpen, useStore, type HostId } from '@/session-store'
+import { setDashboardOpen, useStore } from '@/session-store'
 import { setBoardOpen, useSidebarStore } from '@/stores/sidebar-store'
-import { SidebarFilterMenu } from '@/components/sidebar/SidebarFilterMenu'
-import { WorkspaceOptionsMenu } from '@/components/sidebar/WorkspaceOptionsMenu'
+import { ChatListOptionsMenu } from '@/components/sidebar/ChatListOptionsMenu'
 import { openAddProjectDialog, setOrcaImportOpen } from '@/lib/project-dialogs'
 import { SshConnectDialog } from '@/components/sidebar/SshConnectDialog'
 import { Button } from '@/components/ui/button'
@@ -34,19 +32,16 @@ import { t } from '@/i18n/i18n'
 // Orca's SidebarHeader / sidebar-header-actions / SidebarToolbar: title, then board, filter, options
 // and add. Skills, Automations and the dashboard are SidebarNav rows, as in Orca.
 
-export function SidebarHeader({ onNewGroup }: { onNewGroup: (hostId: HostId) => void }) {
-  const groupBy = useStore((s) => s.sidebarView.groupBy)
-  const chats = useStore((s) => (s.sidebarView.layout ?? 'chats') === 'chats')
+export function SidebarHeader() {
   return (
     <div className="mt-2 flex h-8 min-w-0 items-center justify-between gap-1.5 px-2">
       <span className="min-w-0 truncate pr-0.5 pl-2 text-xs font-semibold text-muted-foreground/80 select-none">
-        {chats ? t('Chats') : groupBy === 'project' ? t('Projects') : t('Workspaces')}
+        {t('Chats')}
       </span>
       <div className="flex shrink-0 items-center gap-0.5">
         <BoardButton />
-        {!chats && <SidebarFilterMenu />}
-        <WorkspaceOptionsMenu />
-        <AddMenu onNewGroup={onNewGroup} />
+        <ChatListOptionsMenu />
+        <AddMenu />
       </div>
     </div>
   )
@@ -77,7 +72,7 @@ function BoardButton() {
   )
 }
 
-function AddMenu({ onNewGroup }: { onNewGroup: (hostId: HostId) => void }) {
+function AddMenu() {
   const [distros, setDistros] = useState<string[] | null>(null)
   const [sshOpen, setSshOpen] = useState(false)
   const hosts = useStore((s) => s.hosts)
@@ -110,11 +105,6 @@ function AddMenu({ onNewGroup }: { onNewGroup: (hostId: HostId) => void }) {
         <DropdownMenuItem data-add="orca-import" onSelect={() => setOrcaImportOpen(true)}>
           <Download className="size-4" />
           {t('Import from Orca…')}
-        </DropdownMenuItem>
-        <DropdownMenuSeparator />
-        <DropdownMenuItem data-add="group" onSelect={() => onNewGroup(LOCAL_HOST)}>
-          <Folders className="size-4" />
-          {t('New project group…')}
         </DropdownMenuItem>
         <DropdownMenuSeparator />
         <DropdownMenuItem data-add="ssh" onSelect={() => setSshOpen(true)}>

@@ -51,6 +51,8 @@ export interface SessionInfo {
   localOnly?: boolean
   /** Hidden from the sidebar and tab strip until unarchived; absent from older daemons. */
   archived?: boolean
+  /** 'workflow' for a chat a workflow run made for one of its steps or helpers; the sidebar leaves those out unless asked. */
+  origin?: 'workflow'
 }
 
 export interface ChatModel {

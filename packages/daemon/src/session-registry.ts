@@ -105,7 +105,7 @@ export class SessionRegistry {
 
   create(
     fields: Pick<SessionInfo, 'workspaceId' | 'cwd'> &
-      Partial<Pick<SessionRecord, 'title' | 'claudeSessionId' | 'options' | 'agent' | 'role' | 'sideOf' | 'parentId' | 'seedContext' | 'handoffContext' | 'localOnly'>>
+      Partial<Pick<SessionRecord, 'title' | 'claudeSessionId' | 'options' | 'agent' | 'role' | 'sideOf' | 'parentId' | 'seedContext' | 'handoffContext' | 'localOnly' | 'origin'>>
   ): SessionRecord {
     const record: SessionRecord = {
       id: crypto.randomUUID(),

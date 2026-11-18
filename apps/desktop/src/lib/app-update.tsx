@@ -25,6 +25,8 @@ export interface UpdateState {
 }
 
 const CHECK_EVERY_MS = 4 * 60 * 60 * 1000
+/** How long the "ready" toast stays. It is a notice: the title bar and Settings keep the Restart button after it goes. */
+const READY_TOAST_MS = 15_000
 const store = createExternalStore<UpdateState>({ phase: 'idle', current: null, next: null, error: null })
 const confirmStore = createExternalStore(false)
 let pending: Update | null = null
@@ -63,7 +65,8 @@ export async function checkForUpdate(manual = false): Promise<void> {
     toast(t('Zomfy {version} is ready', { version: update.version }), {
       id: 'app-update',
       description: t('Restart to update.'),
-      duration: Infinity,
+      duration: READY_TOAST_MS,
+      closeButton: true,
       action: { label: t('Restart'), onClick: () => restartToUpdate() }
     })
   } catch (error) {

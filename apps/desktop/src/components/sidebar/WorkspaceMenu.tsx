@@ -4,7 +4,6 @@ import {
   Code2,
   Copy,
   ExternalLink,
-  FolderInput,
   FolderOpen,
   GitFork,
   Mail,
@@ -23,7 +22,6 @@ import {
 import {
   HARNESS_METHODS,
   WORKSPACE_STATUSES,
-  type ProjectGroup,
   type Workspace,
   type WorkspacePatch,
   type WorkspaceStatusId
@@ -246,23 +244,15 @@ export function WorkspaceMenuItems({
 export function ProjectMenuItems({
   hostId,
   path,
-  groups,
-  groupId,
   onNewWorkspace,
   onSettings,
-  onMoveToGroup,
-  onNewGroup,
   onCleanUp,
   onRemove
 }: {
   hostId: HostId
   path: string
-  groups: ProjectGroup[]
-  groupId?: string
   onNewWorkspace: () => void
   onSettings: () => void
-  onMoveToGroup: (groupId: string | null) => void
-  onNewGroup: () => void
   onCleanUp?: () => void
   onRemove: () => void
 }) {
@@ -276,28 +266,6 @@ export function ProjectMenuItems({
         <Settings2 className="size-3.5" />
         {t('Project Settings…')}
       </DropdownMenuItem>
-      <DropdownMenuSub>
-        <DropdownMenuSubTrigger data-project-action="move-to-group">
-          <FolderInput className="size-3.5" />
-          {t('Move to Group')}
-        </DropdownMenuSubTrigger>
-        <DropdownMenuSubContent>
-          {groups.map((g) => (
-            <DropdownMenuItem key={g.id} data-group-target={g.id} onSelect={() => onMoveToGroup(g.id)}>
-              {g.name}
-              {g.id === groupId && <span className="ml-auto text-xs text-muted-foreground">✓</span>}
-            </DropdownMenuItem>
-          ))}
-          {groups.length > 0 && <DropdownMenuSeparator />}
-          <DropdownMenuItem data-project-action="new-group" onSelect={onNewGroup}>
-            <Plus className="size-3.5" />
-            {t('New Group…')}
-          </DropdownMenuItem>
-          {groupId && (
-            <DropdownMenuItem onSelect={() => onMoveToGroup(null)}>{t('Remove from Group')}</DropdownMenuItem>
-          )}
-        </DropdownMenuSubContent>
-      </DropdownMenuSub>
       {onCleanUp && (
         <DropdownMenuItem data-project-action="cleanup" onSelect={onCleanUp}>
           <Sparkles className="size-3.5" />
