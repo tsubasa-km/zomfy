@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react'
+import { memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react'
 import { ArrowDown, ArrowUp, ArrowUpDown, FilterX, ListFilter, Search, TriangleAlert, X } from 'lucide-react'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
@@ -17,7 +17,7 @@ import type { TextPreviewProps } from '../text-previews'
 import { formatByteSize } from '../editor-file-kind'
 import { CellViewer } from './CellViewer'
 import { TableSource } from './delimited-client'
-import { CELL_MAX_CHARS, COL_BLOCK, COPY_MAX_CHARS, MAX_COLUMNS, ROW_BLOCK, type ViewSpec } from './delimited-dataset'
+import { CELL_MAX_CHARS, COL_BLOCK, COPY_MAX_CHARS, MAX_COLUMNS, ROW_BLOCK, type CellBlock, type ViewSpec } from './delimited-dataset'
 import { delimiterForPath } from './delimited-files'
 import { showSourceDelimiter } from './delimited-language'
 import type { Delimiter } from './delimited-scan'
@@ -135,6 +135,106 @@ function cellText(value: string, cut: boolean, marks: RegExp | null): React.Reac
   if (last < text.length) parts.push(text.slice(last))
   return parts
 }
+
+interface RowCellsProps {
+  top: number
+  /** The row's place in its blocks. */
+  index: number
+  /** The row's blocks for the column blocks on screen, from `firstBlock`; undefined where the cells have not arrived. */
+  blocks: (CellBlock | undefined)[]
+  firstBlock: number
+  firstCol: number
+  lastCol: number
+  columnStarts: Float64Array
+  types: ColumnType[]
+  expected: number
+  marks: RegExp | null
+  columnMarks: Map<number, RegExp>
+}
+
+/** One row's cells. Memoised on what it shows, so scrolling down renders the rows coming in and leaves the rest alone. */
+const RowCells = memo(
+  function RowCells({ top, index, blocks, firstBlock, firstCol, lastCol, columnStarts, types, expected, marks, columnMarks }: RowCellsProps): React.JSX.Element {
+    const cells: React.ReactNode[] = []
+    for (let b = 0; b < blocks.length; b++) {
+      const block = blocks[b]
+      const values = block?.cells[index]
+      if (!block || !values) continue
+      const blockStart = (firstBlock + b) * COL_BLOCK
+      const to = Math.min(lastCol, blockStart + COL_BLOCK - 1)
+      for (let c = Math.max(firstCol, blockStart); c <= to; c++) {
+        const j = c - blockStart
+        const value = values[j]
+        const cut = value !== null && value.length >= CELL_MAX_CHARS && block.cut.some((entry) => entry[0] === index && entry[1] === j)
+        cells.push(
+          <div
+            key={c}
+            className="dt-cell"
+            style={{ left: columnStarts[c], width: columnStarts[c + 1] - columnStarts[c] }}
+            data-number={types[c] === 'number' ? '' : undefined}
+            data-missing={value === null && c < expected ? '' : undefined}
+            data-extra={value !== null && c >= expected ? '' : undefined}
+          >
+            {value === null ? null : cellText(value, cut, columnMarks.get(c) ?? marks)}
+          </div>
+        )
+      }
+    }
+    return (
+      <div className="dt-row" style={{ top, height: ROW_HEIGHT }}>
+        {cells}
+      </div>
+    )
+  },
+  (before, after) => {
+    for (const key of Object.keys(after) as (keyof RowCellsProps)[]) {
+      if (key !== 'blocks' && before[key] !== after[key]) return false
+    }
+    return before.blocks.length === after.blocks.length && before.blocks.every((block, b) => block === after.blocks[b])
+  }
+)
+
+/** A row's number in the file, marked when the row does not fit the first row or a quote ran away with it. */
+const RowNumber = memo(function RowNumber({
+  top,
+  label,
+  line,
+  fields,
+  expected,
+  openQuote,
+  selected
+}: {
+  top: number
+  label: string
+  /** The source line the row starts on; 0 until its cells have arrived. */
+  line: number
+  fields: number
+  expected: number
+  openQuote: boolean
+  selected: boolean
+}): React.JSX.Element {
+  const uneven = fields !== -1 && fields !== expected
+  return (
+    <div
+      className="dt-rownum"
+      style={{ top, height: ROW_HEIGHT }}
+      data-line={line || undefined}
+      data-selected={selected ? '' : undefined}
+      data-problem={openQuote ? 'quote' : uneven ? 'uneven' : undefined}
+      title={
+        openQuote
+          ? t('A quote opened on this row is never closed, so the rest of the file became part of it.')
+          : uneven
+            ? t('This row has {fields} fields; the first row has {expected}.', { fields, expected })
+            : line > 0
+              ? t('Line {line} of the source. Click to show it there.', { line })
+              : undefined
+      }
+    >
+      {label}
+    </div>
+  )
+})
 
 /**
  * A delimited file as a table beside (or instead of) its source. It only shows: edits happen in
@@ -281,7 +381,8 @@ function Table({ source, content, workspaceId, path, revealLine }: TextPreviewPr
   const lastCol = columns === 0 ? -1 : Math.min(columns - 1, indexAt(columnStarts, columns, scroll.left + viewport.width - gutterWidth) + 1)
 
   useEffect(() => {
-    if (columns > 0) source.want(firstRow, Math.max(firstRow, lastRow), firstCol, lastCol)
+    // A block further than what shows, so rows scrolled to are usually there already.
+    if (columns > 0) source.want(Math.max(0, firstRow - ROW_BLOCK / 2), Math.max(firstRow, Math.min(rowCount - 1, lastRow + ROW_BLOCK)), firstCol, lastCol)
   })
 
   // Column widths and alignment from a sample of the rows, taken again when the shape of the
@@ -296,10 +397,10 @@ function Table({ source, content, workspaceId, path, revealLine }: TextPreviewPr
       const element = scroller.current
       if (stale || !sample || !element) return
       const style = getComputedStyle(element)
-      const names = header ? (source.block(0, 0)?.names ?? []) : []
+      sample.names.forEach((name, c) => (source.names[c] = name))
       setAuto({
         widths: sample.widest.map((text, c) => {
-          const name = c < COL_BLOCK ? (names[c] ?? '') : ''
+          const name = sample.names[c] ?? ''
           // The sample's widest value is picked by character count; a tenth more covers one with wider letters.
           const width = Math.max(textWidth(text, style) * 1.1 + 20, textWidth(name || t('Column {n}', { n: c + 1 }), style, 500) + 36)
           return Math.round(Math.max(MIN_WIDTH + 12, Math.min(AUTO_MAX_WIDTH, width)))
@@ -314,8 +415,7 @@ function Table({ source, content, workspaceId, path, revealLine }: TextPreviewPr
   }, [source, sampleKey])
 
   const nameOf = (column: number): string => {
-    const block = header ? source.block(Math.floor(firstRow / ROW_BLOCK), Math.floor(column / COL_BLOCK)) : undefined
-    return block?.names?.[column % COL_BLOCK] || t('Column {n}', { n: column + 1 })
+    return (header && source.names[column]) || t('Column {n}', { n: column + 1 })
   }
 
   /** The cell under a point of the window, clamped to the table. */
@@ -469,7 +569,9 @@ function Table({ source, content, workspaceId, path, revealLine }: TextPreviewPr
       event.preventDefault()
       setViewer({ row: selection.row, column: selection.col })
     } else if (key === 'Escape' && selection) {
-      setSelection(null)
+      // First back to the cell the cursor is on, then to nothing.
+      const single = selection.kind === 'cells' && selection.anchorRow === selection.row && selection.anchorCol === selection.col
+      setSelection(single ? null : { kind: 'cells', anchorRow: selection.row, anchorCol: selection.col, row: selection.row, col: selection.col })
     } else {
       const next = selectionAfterKey(selection, { key: event.key, shift: event.shiftKey, mod }, rowCount, columns, Math.max(1, Math.floor(bodyHeight / ROW_HEIGHT) - 1))
       if (!next) return
@@ -555,67 +657,41 @@ function Table({ source, content, workspaceId, path, revealLine }: TextPreviewPr
     const top = r * ROW_HEIGHT - paged.offset
     const rowBlock = Math.floor(r / ROW_BLOCK)
     const i = r % ROW_BLOCK
-    const cells: React.ReactNode[] = []
-    let fields = -1
-    let line = 0
-    let sourceRow = -1
+    const blocks: (CellBlock | undefined)[] = []
+    let known: CellBlock | undefined
     for (let cb = firstBlock; cb <= lastBlock; cb++) {
       const block = source.block(rowBlock, cb)
-      const values = block?.cells[i]
-      if (!block || !values) continue
-      fields = block.fields[i]
-      line = block.line[i]
-      sourceRow = block.source[i]
-      const from = Math.max(firstCol, cb * COL_BLOCK)
-      const to = Math.min(lastCol, cb * COL_BLOCK + COL_BLOCK - 1)
-      for (let c = from; c <= to; c++) {
-        const j = c - cb * COL_BLOCK
-        const value = values[j]
-        const cut = value !== null && value.length >= CELL_MAX_CHARS && block.cut.some((entry) => entry[0] === i && entry[1] === j)
-        cells.push(
-          <div
-            key={c}
-            className="dt-cell"
-            style={{ left: columnStarts[c], width: columnStarts[c + 1] - columnStarts[c] }}
-            data-number={auto.types[c] === 'number' ? '' : undefined}
-            data-missing={value === null && status !== null && c < status.expected ? '' : undefined}
-            data-extra={value !== null && status !== null && c >= status.expected ? '' : undefined}
-          >
-            {value === null ? null : cellText(value, cut, columnMarks.get(c) ?? marks)}
-          </div>
-        )
-      }
+      blocks.push(block)
+      if (block?.cells[i]) known = block
     }
-    const uneven = fields !== -1 && status !== null && fields !== status.expected
-    const openQuote = status?.unterminated != null && sourceRow === status.unterminated.row
+    const sourceRow = known ? known.source[i] : -1
     numberCells.push(
-      <div
+      <RowNumber
         key={r}
-        className="dt-rownum"
-        style={{ top, height: ROW_HEIGHT }}
-        data-selected={range && selection?.kind !== 'columns' && r >= range.rowFrom && r <= range.rowTo ? '' : undefined}
-        data-problem={openQuote ? 'quote' : uneven ? 'uneven' : undefined}
-        title={
-          openQuote
-            ? t('A quote opened on this row is never closed, so the rest of the file became part of it.')
-            : uneven
-              ? t('This row has {fields} fields; the first row has {expected}.', { fields, expected: status.expected })
-              : line > 0
-                ? t('Line {line} of the source. Click to show it there.', { line })
-                : undefined
-        }
-        onPointerDown={(event) => {
-          beginDrag('rows', event)
-          if (event.button === 0 && !event.shiftKey && line > 0) revealLine(line)
-        }}
-      >
-        {sourceRow === -1 ? '' : count(header ? sourceRow : sourceRow + 1)}
-      </div>
+        top={top}
+        label={sourceRow === -1 ? '' : count(header ? sourceRow : sourceRow + 1)}
+        line={known ? known.line[i] : 0}
+        fields={known ? known.fields[i] : -1}
+        expected={status?.expected ?? 0}
+        openQuote={status?.unterminated != null && sourceRow === status.unterminated.row}
+        selected={range !== null && selection?.kind !== 'columns' && r >= range.rowFrom && r <= range.rowTo}
+      />
     )
     rowCells.push(
-      <div key={r} className="dt-row" style={{ top, height: ROW_HEIGHT }}>
-        {cells}
-      </div>
+      <RowCells
+        key={r}
+        top={top}
+        index={i}
+        blocks={blocks}
+        firstBlock={firstBlock}
+        firstCol={firstCol}
+        lastCol={lastCol}
+        columnStarts={columnStarts}
+        types={auto.types}
+        expected={status?.expected ?? 0}
+        marks={marks}
+        columnMarks={columnMarks}
+      />
     )
   }
 
@@ -761,7 +837,15 @@ function Table({ source, content, workspaceId, path, revealLine }: TextPreviewPr
                 {headCells}
                 {filterCells}
               </div>
-              <div className="dt-gutter" style={{ width: gutterWidth, height: paged.real }}>
+              <div
+                className="dt-gutter"
+                style={{ width: gutterWidth, height: paged.real }}
+                onPointerDown={(event) => {
+                  beginDrag('rows', event)
+                  const line = Number((event.target as HTMLElement).closest<HTMLElement>('[data-line]')?.dataset.line)
+                  if (event.button === 0 && !event.shiftKey && line > 0) revealLine(line)
+                }}
+              >
                 {numberCells}
               </div>
               <div

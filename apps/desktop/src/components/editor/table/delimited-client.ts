@@ -23,6 +23,12 @@ export class TableSource {
   totalChars = 0
   /** Bumps whenever something a render reads has changed. */
   version = 0
+  /**
+   * The header row's values by column, as far as they have come with the cells. Kept across
+   * versions and views, overwritten as new ones arrive, so the header never blanks while the
+   * cells under it are fetched.
+   */
+  readonly names: string[] = []
 
   private readonly worker = new TableWorker()
   private readonly listeners = new Set<() => void>()
@@ -150,6 +156,8 @@ export class TableSource {
         if (!message.blocks) return
         this.stale = new Map()
         for (const block of message.blocks) {
+          // A header that has lost columns loses their names too.
+          if (block.names) for (let j = 0; j < COL_BLOCK; j++) this.names[block.colBlock * COL_BLOCK + j] = block.names[j] ?? ''
           const key = blockKey(block.rowBlock, block.colBlock)
           this.blocks.delete(key)
           this.blocks.set(key, block)

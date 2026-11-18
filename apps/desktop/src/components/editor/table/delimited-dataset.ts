@@ -65,6 +65,8 @@ export interface ColumnSample {
   /** Per column, the widest-looking value among the sampled rows (and the header), cut to 200 characters. */
   widest: string[]
   types: ColumnType[]
+  /** The first row's values when it is the header, else empty. */
+  names: string[]
 }
 
 export interface CellRange {
@@ -78,10 +80,23 @@ function escapeRegExp(text: string): string {
   return text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
 }
 
-/** Rough on-screen width of a value in character cells: CJK and other wide characters count double. */
+// How wide each ASCII character runs in a proportional font, in average lower-case letters.
+const ASCII_WIDTHS = new Float32Array(128).fill(1)
+for (const narrow of " .,;:|!'`ijlI") ASCII_WIDTHS[narrow.charCodeAt(0)] = 0.5
+for (const slim of 'ftr()[]{}/\\-"') ASCII_WIDTHS[slim.charCodeAt(0)] = 0.7
+for (let c = 65; c <= 90; c++) if (c !== 73) ASCII_WIDTHS[c] = 1.25
+for (const wide of 'mwMW@%') ASCII_WIDTHS[wide.charCodeAt(0)] = 1.6
+
+/**
+ * Rough on-screen width of a value, in average letters: enough to pick the value of a column
+ * worth measuring properly. CJK and other wide characters count double.
+ */
 export function displayWidth(value: string): number {
-  let width = value.length
-  for (let i = 0; i < value.length; i++) if (value.charCodeAt(i) >= 0x1100) width++
+  let width = 0
+  for (let i = 0; i < value.length; i++) {
+    const c = value.charCodeAt(i)
+    width += c < 128 ? ASCII_WIDTHS[c] : c >= 0x1100 ? 2 : 1
+  }
   return width
 }
 
@@ -381,7 +396,12 @@ export class DelimitedDataset {
         values[c].push(record[c])
       }
     }
-    return { widest, types: values.map(detectColumnType) }
+    let names: string[] = []
+    if (this.view.spec.header && this.rows > 0) {
+      this.seek(0)
+      names = readRecord(this.text, this.at, this.delimiter, columns).map((name) => name.slice(0, CELL_MAX_CHARS))
+    }
+    return { widest, types: values.map(detectColumnType), names }
   }
 
   /** The widest-looking value of one column over every row of the view. */
