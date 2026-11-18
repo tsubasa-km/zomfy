@@ -249,6 +249,35 @@ export async function resumeConversation(workspaceId: string, claudeSessionId: s
   openSession(info, hostId)
 }
 
+/**
+ * Imports a conversation an agent's own CLI recorded on `hostId` as a thread, or finds the thread
+ * that already shows it. The thread joins the sidebar without taking focus (showThread opens it);
+ * `workspaceId` absent puts it in the workspace of the conversation's own folder.
+ */
+export async function importThread(
+  hostId: string,
+  conversation: { agent: ChatAgentId; conversationId: string },
+  workspaceId?: string
+): Promise<string> {
+  const { agent, conversationId } = conversation
+  const info = await harnessRequest(
+    HARNESS_METHODS.sessionResume,
+    // A daemon that predates thread import reads only the workspace and Claude's own parameter.
+    { ...(workspaceId ? { workspaceId } : {}), agent, conversationId, ...(agent === 'claude' ? { claudeSessionId: conversationId } : {}) },
+    hostId
+  )
+  if (info.workspaceId !== null && !getState().sessions.some((s) => s.id === info.id)) {
+    addSession({ ...info, hostId, workspaceId: info.workspaceId, items: [], loaded: false }, false)
+  }
+  return info.id
+}
+
+/** Brings a thread to the front and loads its transcript. */
+export function showThread(sessionId: string): void {
+  selectSession(sessionId)
+  void ensureSessionLoaded(sessionId)
+}
+
 /** Drops this prompt and everything after it, and puts its words back in the composer. */
 export async function rewindTo(sessionId: string, messageId: string): Promise<void> {
   const target = session(sessionId)

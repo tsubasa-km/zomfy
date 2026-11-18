@@ -1,6 +1,7 @@
 import type * as acp from "@agentclientprotocol/sdk";
 import {
   forkSession,
+  getSessionInfo,
   getSessionMessages,
   listSessions,
   type SessionMessage,
@@ -13,19 +14,32 @@ export interface ClaudeConversation {
   title: string;
   lastModified: number;
   gitBranch: string | null;
+  /** The folder Claude recorded for it. */
+  cwd: string | null;
 }
 
-/** Claude's conversations recorded for this folder, newest first. */
-export async function listConversations(cwd: string): Promise<ClaudeConversation[]> {
-  const sessions = await listSessions({ dir: cwd, includeWorktrees: false, limit: 100 });
-  return sessions
-    .map((s) => ({
-      claudeSessionId: s.sessionId,
-      title: (s.customTitle ?? s.summary ?? s.firstPrompt ?? "").replace(/\s+/g, " ").trim() || "Untitled",
-      lastModified: s.lastModified,
-      gitBranch: s.gitBranch ?? null,
-    }))
-    .sort((a, b) => b.lastModified - a.lastModified);
+type ListedSession = Awaited<ReturnType<typeof listSessions>>[number];
+
+function conversationOf(s: ListedSession): ClaudeConversation {
+  return {
+    claudeSessionId: s.sessionId,
+    title: (s.customTitle ?? s.summary ?? s.firstPrompt ?? "").replace(/\s+/g, " ").trim() || "Untitled",
+    lastModified: s.lastModified,
+    gitBranch: s.gitBranch ?? null,
+    cwd: s.cwd ?? null,
+  };
+}
+
+/** Claude's conversations recorded for this folder, newest first; without a folder, every folder's. */
+export async function listConversations(cwd?: string, limit = 100): Promise<ClaudeConversation[]> {
+  const sessions = await listSessions(cwd ? { dir: cwd, includeWorktrees: false, limit } : { limit });
+  return sessions.map(conversationOf).sort((a, b) => b.lastModified - a.lastModified);
+}
+
+/** One conversation: looked for in `cwd`'s own record when given, else in every folder's. */
+export async function findConversation(claudeSessionId: string, cwd?: string): Promise<ClaudeConversation | null> {
+  const found = await getSessionInfo(claudeSessionId, cwd ? { dir: cwd } : {});
+  return found ? conversationOf(found) : null;
 }
 
 export async function forkConversation(
@@ -58,9 +72,9 @@ export async function conversationBefore(
   return previous ? forkConversation(claudeSessionId, cwd, previous.uuid) : null;
 }
 
-/** A conversation on disk as the ACP updates a live turn would have sent. */
-export async function conversationUpdates(claudeSessionId: string, cwd: string): Promise<acp.SessionUpdate[]> {
-  const messages = await getSessionMessages(claudeSessionId, { dir: cwd });
+/** A conversation on disk as the ACP updates a live turn would have sent; without `cwd` it is looked for in every folder's record. */
+export async function conversationUpdates(claudeSessionId: string, cwd?: string): Promise<acp.SessionUpdate[]> {
+  const messages = await getSessionMessages(claudeSessionId, cwd ? { dir: cwd } : {});
   const updates: acp.SessionUpdate[] = [];
   for (const message of messages) {
     const content = messageContent(message);

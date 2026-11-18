@@ -1227,5 +1227,21 @@ export const PAGES: Record<string, string> = {
 
   // chat-actions.ts (agent change, rewind)
   "Couldn't change this chat's agent": 'このチャットのエージェントを変更できませんでした',
-  "Couldn't rewind this chat": 'このチャットを巻き戻せませんでした'
+  "Couldn't rewind this chat": 'このチャットを巻き戻せませんでした',
+
+  // components/ImportThreadsDialog.tsx, components/sidebar/SidebarHeader.tsx (add menu)
+  'Import threads…': 'スレッドをインポート…',
+  'Import threads': 'スレッドをインポート',
+  "Conversations you had in an agent's own app or CLI on this host. An imported thread keeps its transcript, and your next message continues the conversation.":
+    'このホストで、エージェント自身のアプリや CLI で行った会話です。インポートしたスレッドには会話の内容が残り、次のメッセージでその会話を続けられます。',
+  'Search conversations': '会話を検索',
+  'Folders to list': '一覧にするフォルダー',
+  'All folders': 'すべてのフォルダー',
+  'Select all of {label}': '{label} をすべて選択',
+  '{path}: importing adds this folder as a project': '{path}: インポートすると、このフォルダーがプロジェクトとして追加されます',
+  'Import into {name}': '{name} にインポート',
+  'No conversations match the search.': '検索に一致する会話はありません。',
+  'No conversations found here.': 'ここには会話が見つかりませんでした。',
+  'Reading {agents}…': '{agents} を読み込み中…',
+  "Couldn't read {label}'s conversations: {error}": '{label} の会話を読み込めませんでした: {error}'
 }

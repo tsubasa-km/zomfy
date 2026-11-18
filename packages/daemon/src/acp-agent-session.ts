@@ -435,7 +435,7 @@ function unstableModels(value: unknown): ChatAgentOption | null {
 }
 
 /** Agents that report a command's output only in `rawOutput` (OpenCode's `metadata.output`) get it as text. */
-function withOutputText(update: Extract<acp.SessionUpdate, { sessionUpdate: 'tool_call_update' }>): acp.SessionUpdate {
+export function withOutputText(update: Extract<acp.SessionUpdate, { sessionUpdate: 'tool_call_update' }>): acp.SessionUpdate {
   if (update.content?.length || typeof update.rawOutput !== 'object' || update.rawOutput === null) return update
   const raw = update.rawOutput as { output?: unknown; stdout?: unknown; metadata?: { output?: unknown } }
   const text = [raw.output, raw.stdout, raw.metadata?.output].find((v): v is string => typeof v === 'string')
@@ -453,7 +453,7 @@ function whenAborted(signal: AbortSignal): { promise: Promise<void>; dispose(): 
   return { promise, dispose: () => signal.removeEventListener('abort', onAbort) }
 }
 
-function stdinWriter(sink: Bun.FileSink): WritableStream<Uint8Array> {
+export function stdinWriter(sink: Bun.FileSink): WritableStream<Uint8Array> {
   return new WritableStream({
     async write(chunk) {
       sink.write(chunk)

@@ -122,6 +122,19 @@ export function restartHandoff(transcript: readonly acp.SessionUpdate[], target:
   return handoffText({ kind: others.length > 0 ? 'takeover' : 'restart', from: others, to: target.agent, cwd: target.cwd, messages })
 }
 
+/**
+ * For a thread imported from a conversation the agent recorded itself (its own CLI's) and cannot
+ * reopen from here, such as one imported into another folder: a selection of the whole thread.
+ */
+export function importHandoff(
+  transcript: readonly acp.SessionUpdate[],
+  target: Pick<HandoffTarget, 'agent' | 'cwd'> & { origin: string | null }
+): string | null {
+  const messages = attributedMessages(transcript, agentEras(transcript, target.agent), 0)
+  if (messages.length === 0) return null
+  return handoffText({ kind: 'import', from: [], to: target.agent, cwd: target.cwd, messages, origin: target.origin })
+}
+
 /** The conversation from `since` on, each message with the agent that ran the chat then. */
 function attributedMessages(transcript: readonly acp.SessionUpdate[], eras: AgentEra[], since: number): AttributedMessage[] {
   const messages: AttributedMessage[] = []
@@ -147,18 +160,21 @@ export interface HandoffInput {
   /**
    * `takeover`: `to` continues other agents' work and knows none of it. `return`: `to` resumes its
    * own conversation of this chat, and `messages` is what it missed. `restart`: the conversation was
-   * `to`'s alone, and it lost it.
+   * `to`'s alone, and it lost it. `import`: the conversation was `to`'s own, had outside this app and
+   * imported as a thread it cannot reopen.
    */
-  kind: 'takeover' | 'return' | 'restart'
+  kind: 'takeover' | 'return' | 'restart' | 'import'
   /** The agents whose work the new one continues. */
   from: ChatAgentId[]
   to: ChatAgentId
   cwd: string
   messages: AttributedMessage[]
+  /** `import`: the folder the conversation was had in, when it is another than `cwd`. */
+  origin?: string | null
 }
 
 /** The block the agent's next prompt starts with. */
-export function handoffText({ kind, from, to, cwd, messages }: HandoffInput): string {
+export function handoffText({ kind, from, to, cwd, messages, origin }: HandoffInput): string {
   const others = listOf(from.map(chatAgentLabel))
   const theirs = from.length === 1 ? `${others}'s` : 'their'
   const recorded = 'as the app hosting this chat (Zomfy) recorded it'
@@ -174,6 +190,10 @@ export function handoffText({ kind, from, to, cwd, messages }: HandoffInput): st
     restart: [
       `Your earlier conversation in this chat could not be reopened, so you (${chatAgentLabel(to)}) continue it in a new one, in the same working directory: ${cwd}`,
       `Below is a selection of the conversation so far, ${recorded}. It is not the context you had: reasoning and tool output are left out, and a long conversation is shortened. Read files and run commands again when you need a detail that is not here.`
+    ],
+    import: [
+      `The user imported an earlier conversation they had with you (${chatAgentLabel(to)})${origin ? `, in ${origin},` : ''} into this app, and continues it here in a new one. Your working directory now: ${cwd}`,
+      `Below is a selection of that conversation, as the app hosting this chat (Zomfy) read it from your own record. It is not the context you had: reasoning and tool output are left out, and a long conversation is shortened. Read files and run commands again when you need a detail that is not here.`
     ]
   }[kind]
   return [

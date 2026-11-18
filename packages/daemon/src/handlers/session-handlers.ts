@@ -5,12 +5,8 @@ import { DEFAULT_SESSION_OPTIONS, publicInfo, type SessionRecord } from "../sess
 
 const PERMISSION_MODES = new Set<string>(["default", "acceptEdits", "plan", "auto", "bypassPermissions"]);
 import { chatCatalog } from "../claude-catalog.ts";
-import {
-  conversationBefore,
-  conversationUpdates,
-  forkConversation,
-  listConversations,
-} from "../claude-history.ts";
+import { conversationBefore, conversationUpdates, forkConversation } from "../claude-history.ts";
+import { importConversation, pastConversations } from "../agent-conversations.ts";
 import { liveClaudeQueries } from "../live-claude-queries.ts";
 import { agentEras, agentSwitchNotice, answeredBefore, pendingHandoff, type AgentEra } from "../agent-handoff.ts";
 import { emptyAgentState } from "../acp-agent-session.ts";
@@ -207,34 +203,9 @@ export function registerSessionHandlers(ctx: HandlerContext): void {
     return { text };
   });
 
-  handle(HARNESS_METHODS.sessionHistory, async (p) => {
-    const cwd = workspaceRoot(p.workspaceId);
-    const open = new Map(
-      sessions
-        .all()
-        .filter((s) => s.workspaceId === p.workspaceId && s.claudeSessionId)
-        .map((s) => [s.claudeSessionId, s.id]),
-    );
-    return (await listConversations(cwd)).map((c) => ({ ...c, openSessionId: open.get(c.claudeSessionId) ?? null }));
-  });
+  handle(HARNESS_METHODS.sessionHistory, (p) => pastConversations(ctx, p));
 
-  handle(HARNESS_METHODS.sessionResume, async (p) => {
-    const existing = sessions
-      .all()
-      .find((s) => s.workspaceId === p.workspaceId && s.claudeSessionId === p.claudeSessionId);
-    if (existing) return publicInfo(existing);
-    const cwd = workspaceRoot(p.workspaceId);
-    const summary = (await listConversations(cwd)).find((c) => c.claudeSessionId === p.claudeSessionId);
-    const updates = await conversationUpdates(p.claudeSessionId, cwd);
-    const record = sessions.create({
-      workspaceId: p.workspaceId,
-      cwd,
-      title: (summary?.title ?? "Claude").slice(0, 40),
-      claudeSessionId: p.claudeSessionId,
-    });
-    await sessions.replaceTranscript(record.id, updates);
-    return publicInfo(record);
-  });
+  handle(HARNESS_METHODS.sessionResume, async (p) => publicInfo(await importConversation(ctx, p)));
 
   /** A fork that ends with this prompt's exchange: everything before the next prompt. */
   async function forkThrough(source: SessionRecord, claudeSessionId: string, messageId: string): Promise<string> {
