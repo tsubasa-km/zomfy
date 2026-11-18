@@ -382,7 +382,8 @@ export function FileExplorer({ workspaceId, rootName }: { workspaceId: string; r
     filePathDrag.begin(event, {
       payload: () => {
         if (!selected.has(entry.path)) select(entry.path)
-        return { workspaceId, paths }
+        const dirs = new Set(entries.filter((e) => e.kind === 'dir').map((e) => e.path))
+        return { workspaceId, paths, files: paths.filter((p) => !dirs.has(p)) }
       },
       preview: (
         <DragChip

@@ -1,4 +1,5 @@
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
+import { filePathDrag, type DraggedPaths } from '@/lib/file-path-drag'
 import { ensureSessionLoaded } from '@/daemon-connection'
 import { useStore } from '@/session-store'
 import { tabScope, WINDOW_TABS } from '@/stores/tab-layout-store'
@@ -13,8 +14,8 @@ import { ToolDrawer } from './ToolDrawer'
 import { EmptyPane } from './EmptyPane'
 import { WorkspacePanelView } from './workspace-panels'
 import { TabStrip } from './TabStrip'
-import { resolveTabDropTarget, setInsertionMark, tabDrag, type DropZone } from './tab-drag'
-import { focusGroup, moveTabTo, splitTabTo } from './tab-group-commands'
+import { resolveTabDropTarget, setInsertionMark, tabDrag, type DraggedTab, type DropZone } from './tab-drag'
+import { focusGroup, moveTabTo, openFilesAt, splitTabTo } from './tab-group-commands'
 import './pane-split-commands'
 import { tabWorkspaceId, type WorkspaceTab } from './workspace-tab-model'
 import { t } from '@/i18n/i18n'
@@ -110,9 +111,36 @@ export function TabGroupPane({
     }
   })
 
+  // Files from the explorer open here, or in a new split from the pane's edge. As a drag they come
+  // from no tab, so every edge splits and the body adds them to this pane.
+  const asTab = (drag: DraggedPaths): DraggedTab => ({ workspaceId: drag.workspaceId, tabId: '', groupId: '', kind: 'editor' })
+  const fileDropRef = filePathDrag.useDropTarget({
+    accepts: (drag) => (drag.files?.length ?? 0) > 0 && tabScope(drag.workspaceId) === tabScope(workspaceId),
+    over: (drag, { point, element }) => {
+      const target = resolveTabDropTarget(asTab(drag), groupId, element, point)
+      setInsertionMark(target.kind === 'insert' ? target.mark : null)
+      setZone(target.kind === 'split' ? target.side : target.kind === 'move' ? 'center' : null)
+    },
+    leave: () => {
+      setInsertionMark(null)
+      setZone(null)
+    },
+    drop: (drag, { point, element }) => {
+      const target = resolveTabDropTarget(asTab(drag), groupId, element, point)
+      openFilesAt(workspaceId, drag.workspaceId, drag.files ?? [], target)
+    }
+  })
+  const paneRef = useCallback(
+    (element: HTMLDivElement | null) => {
+      dropRef(element)
+      fileDropRef(element)
+    },
+    [dropRef, fileDropRef]
+  )
+
   return (
     <div
-      ref={dropRef}
+      ref={paneRef}
       data-tab-group-id={groupId}
       data-focused={isFocused ? 'true' : 'false'}
       className={cn('relative flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden', hasSplit && !isFocused && 'opacity-95')}
