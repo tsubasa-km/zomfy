@@ -17,6 +17,7 @@ import {
 } from './lsp-server-catalog.ts'
 import { LSP_TIMINGS, LspSession, type LspTimings } from './lsp-session.ts'
 import { LspUriTranslator } from './lsp-uris.ts'
+import { hostPath } from './tui-agent-detection.ts'
 import { log } from './log.ts'
 
 // Starts a language server for a (window, workspace, server) the first time a file of its language
@@ -145,7 +146,9 @@ export class LanguageServerManager {
   }
 
   async servers(workspaceId: string | undefined): Promise<LspServerStatus[]> {
+    // Settings asks to see what is installed now, not what was when the daemon started.
     refreshLspServerProbes()
+    await hostPath(true)
     return listLspServers(workspaceId ? this.rootOrNull(workspaceId) : null)
   }
 

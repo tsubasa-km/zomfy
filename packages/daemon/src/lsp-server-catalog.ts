@@ -377,24 +377,27 @@ export function lspRequirementMet(spec: LspServerSpec, root: string): boolean {
 }
 
 const PROBE_TIMEOUT_MS = 8_000
-const probeCache = new Map<string, Promise<{ code: number; output: string }>>()
+/** A probe that failed is tried again after this long: the person may have installed the server meanwhile. */
+const FAILED_PROBE_TTL_MS = 60_000
+const probeCache = new Map<string, Promise<{ code: number; output: string; at: number }>>()
 
 /** Forgets what earlier probes found, so a server installed since is seen. */
 export function refreshLspServerProbes(): void {
   probeCache.clear()
 }
 
-function runProbe(argv: string[], cwd: string): Promise<{ code: number; output: string }> {
+async function runProbe(argv: string[], cwd: string): Promise<{ code: number; output: string }> {
   const key = argv.join('\0')
   let pending = probeCache.get(key)
-  if (!pending) {
+  const stale = await pending?.then((probe) => probe.code !== 0 && Date.now() - probe.at > FAILED_PROBE_TTL_MS)
+  if (!pending || stale) {
     pending = (async () => {
       const proc = Bun.spawn(argv, { cwd, stdin: 'ignore', stdout: 'pipe', stderr: 'pipe', env: { ...process.env, PATH: await hostPath() }, windowsHide: true })
       const timer = setTimeout(() => proc.kill(), PROBE_TIMEOUT_MS)
       const [out, err, code] = await Promise.all([new Response(proc.stdout).text(), new Response(proc.stderr).text(), proc.exited])
       clearTimeout(timer)
-      return { code, output: `${out}\n${err}` }
-    })().catch((error: unknown) => ({ code: -1, output: String(error) }))
+      return { code, output: `${out}\n${err}`, at: Date.now() }
+    })().catch((error: unknown) => ({ code: -1, output: String(error), at: Date.now() }))
     probeCache.set(key, pending)
   }
   return pending
