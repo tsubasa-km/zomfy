@@ -7,7 +7,7 @@
     },
     "apps/desktop": {
       "name": "@acp-harness/desktop",
-      "version": "0.2.21",
+      "version": "0.2.39",
       "dependencies": {
         "@acp-harness/protocol": "workspace:*",
         "@agentclientprotocol/sdk": "2.0.0",
