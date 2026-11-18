@@ -46,7 +46,7 @@ export function WorkflowDataPanel({
           </div>
           <p className="text-[11px] text-muted-foreground">
             {t(
-              'Only agents on a local model may use it, and what they learn from it goes on only to local agents and you, never to a cloud agent or the chat that started the run.'
+              'Only agents on a local model may use it, and what they learn from it goes on only to local agents and you, never to a cloud agent or the thread that started the run.'
             )}
           </p>
         </div>

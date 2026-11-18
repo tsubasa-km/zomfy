@@ -58,7 +58,7 @@ function SidebarSection() {
       <SettingsSubsectionHeader title={t('Sidebar')} description={t('Rows above the workspace list. Right-click a row to hide it.')} />
       <div className="divide-y divide-border/40">
         <SettingsSwitchRow
-          label={t('Show New Chat Button')}
+          label={t('Show New Thread Button')}
           keywords={['new chat', 'quick chat', 'sidebar', 'button']}
           checked={newChat}
           onChange={(v) => setSetting('showNewChatButton', v)}

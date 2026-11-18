@@ -38,7 +38,7 @@ export function SidebarHeader() {
   return (
     <div className="mt-2 flex h-8 min-w-0 items-center justify-between gap-1.5 px-2">
       <span className="min-w-0 truncate pr-0.5 pl-2 text-xs font-semibold text-muted-foreground/80 select-none">
-        {t('Chats')}
+        {t('Threads')}
       </span>
       <div className="flex shrink-0 items-center gap-0.5">
         <BoardButton />

@@ -79,7 +79,7 @@ export function TabGroupPane({
   const active = tabs.find((t) => t.id === activeId) ?? null
   const activeChatId = active?.kind === 'chat' ? active.id : undefined
   // Among the window's tabs, the pane works in the workspace of the tab it shows: that is where its
-  // "+" starts a terminal and whose drawer it pulls down. Showing none (or the "New chat" tab), it
+  // "+" starts a terminal and whose drawer it pulls down. Showing none (or the "New thread" tab), it
   // falls back to the workspace in front, and has no workspace when there is none.
   const front = useStore((s) => s.activeWorkspaceId)
   const home = workspaceId !== WINDOW_TABS ? workspaceId : ((active ? tabWorkspaceId(active) : null) ?? front)
@@ -133,7 +133,7 @@ export function TabGroupPane({
         ) : home ? (
           <EmptyPane workspaceId={home} groupId={groupId} hint={emptyHint} />
         ) : (
-          // Nothing open and no workspace in front: the window offers what its "New chat" tab does.
+          // Nothing open and no workspace in front: the window offers what its "New thread" tab does.
           <div className="flex min-h-0 flex-1 flex-col overflow-y-auto">
             <QuickStart />
           </div>

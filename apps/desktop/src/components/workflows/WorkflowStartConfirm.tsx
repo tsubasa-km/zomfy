@@ -79,7 +79,7 @@ export function WorkflowStartConfirmDialog() {
         <DialogHeader>
           <DialogTitle>{t('Start “{name}”?', { name: ask.workflow.name })}</DialogTitle>
           <DialogDescription>
-            {ask.by === 'lead' ? t('A chat wants to start it. ') : ''}
+            {ask.by === 'lead' ? t('A thread wants to start it. ') : ''}
             {ask.loops.length > 0
               ? t(
                   'These loops have no round limit, so the run keeps going round until they finish. A loop that gets stuck is handed up to rethink, but nothing caps how long that takes.'

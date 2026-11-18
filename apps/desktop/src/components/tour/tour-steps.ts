@@ -37,31 +37,31 @@ export const TOUR_STEPS: TourStep[] = [
   {
     chapter: t('Welcome'),
     title: t('A quick look around'),
-    body: t('This tour shows the main parts of Zomfy: chats, the layout, workflows, and the pages that keep track of your agents. Use ← → or the buttons below; Esc ends it.')
+    body: t('This tour shows the main parts of Zomfy: threads, the layout, workflows, and the pages that keep track of your agents. Use ← → or the buttons below; Esc ends it.')
   },
   {
-    chapter: t('Chats'),
-    title: t('Projects and their chats'),
-    body: t('Each project lists its chats. Chats that need you come first, then working ones. The tag at the end of a row is the worktree the chat works in.'),
+    chapter: t('Threads'),
+    title: t('Projects and their threads'),
+    body: t('Each project lists its threads. Threads that need you come first, then working ones. The tag at the end of a row is the worktree the thread works in.'),
     target: '[data-project-list]'
   },
   {
-    chapter: t('Chats'),
-    title: t('Chats under a chat'),
-    body: t('A workflow’s step chats and a side chat fold under the chat they work for. The number says how many there are; a dot beside it means one of them is working or needs you.'),
+    chapter: t('Threads'),
+    title: t('Threads under a thread'),
+    body: t('A workflow’s step threads and a side chat fold under the thread they work for. The number says how many there are; a dot beside it means one of them is working or needs you.'),
     target: '[data-chat-fold]',
     optional: true,
-    action: { prompt: t('Click the arrow to fold or unfold the chats under it.'), on: 'click' }
+    action: { prompt: t('Click the arrow to fold or unfold the threads under it.'), on: 'click' }
   },
   {
-    chapter: t('Chats'),
-    title: t('Start a chat'),
-    body: t('New chat starts one anywhere. The + beside a project (shown on hover) starts one there, in its own worktree, so agents working on different things never touch each other’s files.'),
+    chapter: t('Threads'),
+    title: t('Start a thread'),
+    body: t('New thread starts one anywhere. The + beside a project (shown on hover) starts one there, in its own worktree, so agents working on different things never touch each other’s files.'),
     target: '[data-sidebar-nav="new-chat"]',
     optional: true
   },
   {
-    chapter: t('Chats'),
+    chapter: t('Threads'),
     title: t('The composer'),
     body: t('Write to the agent here. Type / for commands and @ to mention a file. Below the box: attachments, permission mode, model, and how full the context is.'),
     target: '[data-native-chat-composer]'
@@ -69,7 +69,7 @@ export const TOUR_STEPS: TourStep[] = [
   {
     chapter: t('Layout'),
     title: t('Side by side'),
-    body: t('Drag a chat or a project from the sidebar onto any edge of a pane to open its workspace beside it, or onto its middle to take its place. Drag a pane by its name bar to move it, or out of the window to give it a window of its own; drag the dividers to resize.'),
+    body: t('Drag a thread or a project from the sidebar onto any edge of a pane to open its workspace beside it, or onto its middle to take its place. Drag a pane by its name bar to move it, or out of the window to give it a window of its own; drag the dividers to resize.'),
     target: '[data-workspace-main]'
   },
   {
@@ -91,7 +91,7 @@ export const TOUR_STEPS: TourStep[] = [
   {
     chapter: t('Layout'),
     title: t('Side chat'),
-    body: t('Ask a quick question about the workspace without adding to the main chat. It sees the main chat’s last few messages and leaves that conversation untouched.'),
+    body: t('Ask a quick question about the workspace without adding to the main thread. It sees the main thread’s last few messages and leaves that conversation untouched.'),
     target: '[data-drawer="open"] [data-drawer-panel="panel:side-chat"]',
     optional: true,
     action: { prompt: t('Click it to open the side chat panel.'), on: 'click' }
@@ -119,7 +119,7 @@ export const TOUR_STEPS: TourStep[] = [
   {
     chapter: t('Workflows'),
     title: t('Workflows'),
-    body: t('Draw a flow of steps. Each step is an agent chat, and how it ends picks the next step, so reviews, retries and questions for you are part of the flow.'),
+    body: t('Draw a flow of steps. Each step is an agent thread, and how it ends picks the next step, so reviews, retries and questions for you are part of the flow.'),
     target: '[data-sidebar-nav="workflows"]',
     optional: true,
     action: {
@@ -129,8 +129,8 @@ export const TOUR_STEPS: TourStep[] = [
   },
   {
     chapter: t('Workflows'),
-    title: t('Run one from a chat'),
-    body: t('Pick a workflow here and send: your message becomes the run’s task. The chat shows the run as a live card, answers its steps’ questions, and their chats fold under it.'),
+    title: t('Run one from a thread'),
+    body: t('Pick a workflow here and send: your message becomes the run’s task. The thread shows the run as a live card, answers its steps’ questions, and their threads fold under it.'),
     target: `[aria-label="${t('Run a workflow')}"]`,
     optional: true
   },
@@ -144,14 +144,14 @@ export const TOUR_STEPS: TourStep[] = [
   {
     chapter: t('Keeping track'),
     title: t('Automations'),
-    body: t('Prompts that run on a schedule, each in a chat of its own.'),
+    body: t('Prompts that run on a schedule, each in a thread of its own.'),
     target: '[data-sidebar-nav="automations"]',
     optional: true
   },
   {
     chapter: t('Keeping track'),
     title: t('Agent Dashboard'),
-    body: t('Every chat on every host, grouped by whether it needs you, is working, or is done.'),
+    body: t('Every thread on every host, grouped by whether it needs you, is working, or is done.'),
     target: '[data-sidebar-nav="dashboard"]',
     optional: true
   },

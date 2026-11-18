@@ -75,7 +75,7 @@ export function DeleteWorkspaceDialog({
           <DialogTitle>{t('Delete Workspace')}</DialogTitle>
           <DialogDescription className="break-all">
             {workspace?.scratch
-              ? t("Moves the quick chat's folder {path} to the trash and closes its chats.", { path: workspace.path })
+              ? t("Moves the quick thread's folder {path} to the trash and closes its threads.", { path: workspace.path })
               : t('Removes the worktree at {path}.', { path: workspace?.path })}
           </DialogDescription>
         </DialogHeader>

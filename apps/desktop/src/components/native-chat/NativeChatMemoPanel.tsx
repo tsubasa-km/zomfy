@@ -14,7 +14,7 @@ export function NativeChatMemoButton({ sessionId }: { sessionId: string }) {
   const memo = useChatMemo(sessionId)
   if (!memo || memo.status === 'unavailable') return null
   const hasContent = memo.text.trim().length > 0
-  const label = memo.open ? t('Close chat memo') : t('Chat memo')
+  const label = memo.open ? t('Close thread memo') : t('Thread memo')
   return (
     <Tooltip>
       <TooltipTrigger asChild>
@@ -41,7 +41,7 @@ export function NativeChatMemoButton({ sessionId }: { sessionId: string }) {
         </Button>
       </TooltipTrigger>
       <TooltipContent side="top" sideOffset={4}>
-        {hasContent && !memo.open ? t('Chat memo (has notes)') : label}
+        {hasContent && !memo.open ? t('Thread memo (has notes)') : label}
       </TooltipContent>
     </Tooltip>
   )
@@ -61,7 +61,7 @@ export function NativeChatMemoPanel({ sessionId, onClose }: { sessionId: string;
   const status = memo.status === 'loading' ? t('Loading…') : memo.error ? t('Not saved') : memo.saving || memo.dirty ? t('Saving…') : t('Saved')
   return (
     <section
-      aria-label={t('Chat memo')}
+      aria-label={t('Thread memo')}
       data-native-chat-memo
       className="mb-2 animate-in rounded-xl border border-chat-composer-border bg-chat-composer-surface shadow-xs duration-150 fade-in-0 slide-in-from-bottom-2 select-none"
     >
@@ -79,8 +79,8 @@ export function NativeChatMemoPanel({ sessionId, onClose }: { sessionId: string;
       <MarkdownEditor
         ref={editorRef}
         value={memo.text}
-        placeholder={memo.status === 'loading' ? '' : t('Notes for this chat. Markdown works; only you see them.')}
-        contentAttributes={{ 'aria-label': t('Chat memo'), 'aria-multiline': 'true' }}
+        placeholder={memo.status === 'loading' ? '' : t('Notes for this thread. Markdown works; only you see them.')}
+        contentAttributes={{ 'aria-label': t('Thread memo'), 'aria-multiline': 'true' }}
         onChange={(text) => editChatMemo(sessionId, text)}
         onKeyDown={(event) => {
           if (event.key !== 'Escape') return false

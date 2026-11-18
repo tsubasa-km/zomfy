@@ -242,7 +242,7 @@ export function ChatHoverDetails({ session, card, childCount }: { session: Sessi
         )}
         {childCount > 0 && (
           <DetailLine icon={<MessagesSquare className="size-3.5" />}>
-            {childCount === 1 ? t('{n} chat under this one', { n: childCount }) : t('{n} chats under this one', { n: childCount })}
+            {childCount === 1 ? t('{n} thread under this one', { n: childCount }) : t('{n} threads under this one', { n: childCount })}
           </DetailLine>
         )}
         {card.summary && card.summary.changedFiles > 0 && (

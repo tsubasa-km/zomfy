@@ -33,7 +33,7 @@ function AgentSection({ workspaceId }: { workspaceId: string }) {
     <>
       <DropdownMenuItem data-new-tab="claude" onSelect={() => void createSession(workspaceId)}>
         <TuiAgentIcon agent="claude" size={14} />
-        {t('New Claude Chat')}
+        {t('New Claude Thread')}
       </DropdownMenuItem>
       {others.map((agent) =>
         agent.status === 'ready' ? (
@@ -43,13 +43,13 @@ function AgentSection({ workspaceId }: { workspaceId: string }) {
             onSelect={() => void createSession(workspaceId, agent.id)}
           >
             <TuiAgentIcon agent={agent.id} size={14} />
-            {t('New {agent} Chat', { agent: agent.label })}
+            {t('New {agent} Thread', { agent: agent.label })}
           </DropdownMenuItem>
         ) : (
           <DropdownMenuItem key={agent.id} disabled data-new-tab={`chat:${agent.id}`} title={agent.detail ?? undefined}>
             <TuiAgentIcon agent={agent.id} size={14} />
             <span className="flex min-w-0 flex-col">
-              <span>{t('New {agent} Chat', { agent: agent.label })}</span>
+              <span>{t('New {agent} Thread', { agent: agent.label })}</span>
               <span className="truncate text-xs text-muted-foreground">{agent.detail}</span>
             </span>
           </DropdownMenuItem>

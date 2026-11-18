@@ -3,7 +3,7 @@ import { defaultChatAgent } from '@/lib/default-chat-agent'
 import { getSetting, useSetting } from './settings-store'
 import { createExternalStore } from './external-store'
 
-// What the "New chat" tab's composer was last set to: the agent, and for Claude the permission
+// What the "New thread" tab's composer was last set to: the agent, and for Claude the permission
 // mode, model and effort. The next new thread starts from them. Settings keep the defaults every
 // other way of starting a chat uses; a pick here stands until that default is changed there.
 
@@ -48,7 +48,7 @@ function picked<T>(pick: Remembered<T> | null, fallback: T): T {
   return pick && pick.over === fallback ? pick.value : fallback
 }
 
-/** What a thread started from the "New chat" tab begins with. */
+/** What a thread started from the "New thread" tab begins with. */
 export interface NewThreadStart {
   agent: ChatAgentId
   /** Claude's options; an ACP agent brings its own once its session opens. */

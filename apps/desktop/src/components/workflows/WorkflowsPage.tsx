@@ -395,7 +395,7 @@ export function WorkflowsPage({ target }: { target: WorkflowsPageTarget }) {
               errors > 0
                 ? t('Fix the problems first')
                 : needsChat
-                  ? t('A step runs in the chat that starts the run: start it from a chat (the workflow button under the message box)')
+                  ? t('A step runs in the thread that starts the run: start it from a thread (the workflow button under the message box)')
                   : t('Start a run of this workflow')
             }
             data-workflow-run

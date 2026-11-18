@@ -16,11 +16,13 @@ export function chatAgentLabel(id: string): string {
 }
 
 /** What a chat is called until its first message names it. Windows show it in their own language. */
-export const NEW_CHAT_TITLE = 'New chat'
+export const NEW_CHAT_TITLE = 'New thread'
+/** The same, from daemons that still called a thread a chat. */
+export const LEGACY_NEW_CHAT_TITLE = 'New chat'
 
 /** Whether a chat still has the name it was created with; older daemons named a new chat after its agent. */
 export function isUntitledChat(title: string): boolean {
-  return title === NEW_CHAT_TITLE || CHAT_AGENT_IDS.some((id) => chatAgentLabel(id) === title)
+  return title === NEW_CHAT_TITLE || title === LEGACY_NEW_CHAT_TITLE || CHAT_AGENT_IDS.some((id) => chatAgentLabel(id) === title)
 }
 
 /** `ready`: the ACP server runs here. `missing`: not on this host's PATH. `needs-adapter`: the CLI

@@ -15,7 +15,7 @@ export function VoicePane() {
     <div className="divide-y divide-border/40">
       <SettingsSwitchRow
         label={t('Dictation')}
-        description={t('Adds a microphone button to the chat composer. Recordings go only to the endpoint below.')}
+        description={t('Adds a microphone button to the thread composer. Recordings go only to the endpoint below.')}
         keywords={['voice', 'speech', 'microphone', 'dictate', 'whisper']}
         checked={enabled}
         onChange={(checked) => setSetting('voiceDictationEnabled', checked)}

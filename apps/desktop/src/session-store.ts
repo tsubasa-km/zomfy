@@ -12,7 +12,7 @@ import type {
   PromptOrigin,
   Workspace
 } from '@acp-harness/protocol'
-import { NEW_CHAT_TITLE } from '@acp-harness/protocol'
+import { LEGACY_NEW_CHAT_TITLE, NEW_CHAT_TITLE } from '@acp-harness/protocol'
 import { WINDOW_ROLE } from '@/lib/window-role'
 import {
   carriesOverOpenChats,
@@ -185,7 +185,7 @@ export interface StoreState {
   /** Workspaces open in a window of their own (lib/workspace-window), kept out of this window's view. */
   poppedOut: string[]
   /**
-   * The "New chat" tab (components/QuickStart): whether the window shows it, and the workspace its
+   * The "New thread" tab (components/QuickStart): whether the window shows it, and the workspace its
    * chat starts in when the person came from one that has nothing open (null starts a quick chat).
    */
   startTab: { open: boolean; workspaceId: string | null }
@@ -436,7 +436,7 @@ export function inWindowTabs(workspaceId: string, s: StoreState = state): boolea
 setTabScopeResolver((workspaceId) => (inWindowTabs(workspaceId) ? WINDOW_TABS : workspaceId))
 if (WINDOW_ROLE === 'main') seedWindowLayout(saved.activeWorkspaceId ?? null)
 
-/** The id of the "New chat" tab. */
+/** The id of the "New thread" tab. */
 export const START_TAB = 'start'
 
 /** The workspace a tab of the window belongs to, for the kinds of tab this store knows. */
@@ -452,7 +452,7 @@ function workspaceOfKnownTab(tabId: string, s: StoreState = state): string | nul
 /**
  * Brings a workspace to the front. In the main window that means one of its tabs: the one it last
  * had in front, else any it has open, else its latest chat; a workspace with nothing to show gets
- * the "New chat" tab, set to start the chat there.
+ * the "New thread" tab, set to start the chat there.
  */
 export function selectWorkspace(workspaceId: string): void {
   if (state.poppedOut.includes(workspaceId) && focusPoppedOut) return focusPoppedOut(workspaceId)
@@ -477,7 +477,7 @@ function withTabFocus(s: StoreState, workspaceId: string | null, tabId: string):
   return { ...s, activeSessionByWorkspace, activeWorkspaceId: workspaceId }
 }
 
-/** Shows the "New chat" tab in front; with `workspaceId`, its chat starts in that workspace. */
+/** Shows the "New thread" tab in front; with `workspaceId`, its chat starts in that workspace. */
 export function openStartTab(workspaceId: string | null = null): void {
   openWorkflows(null)
   set({ ...withTabFocus(state, null, START_TAB), startTab: { open: true, workspaceId }, dashboardOpen: false })
@@ -487,7 +487,7 @@ export function closeStartTab(): void {
   if (state.startTab.open) set({ ...state, startTab: { open: false, workspaceId: null } })
 }
 
-/** Where the "New chat" tab starts its chat: null for a quick chat. */
+/** Where the "New thread" tab starts its chat: null for a quick chat. */
 export function setStartWorkspace(workspaceId: string | null): void {
   set({ ...state, startTab: { ...state.startTab, workspaceId } })
 }
@@ -565,7 +565,7 @@ export function setPoppedOut(workspaceId: string, popped: boolean): void {
   set(withPanes({ ...state, poppedOut, activeWorkspaceId: active }, removePane(state.paneTree, workspaceId)))
 }
 
-/** The quick start (components/QuickStart) in front: the window's "New chat" tab. */
+/** The quick start (components/QuickStart) in front: the window's "New thread" tab. */
 export function showQuickStart(): void {
   if (WINDOW_ROLE === 'main') return openStartTab()
   set({ ...state, activeWorkspaceId: null, dashboardOpen: false })
@@ -575,7 +575,7 @@ export function showQuickStart(): void {
 
 /** A chat's name as this window shows it: one that has not been named yet says so in the window's language. */
 function shownTitle(title: string): string {
-  return title === NEW_CHAT_TITLE ? t('New chat') : title
+  return title === NEW_CHAT_TITLE || title === LEGACY_NEW_CHAT_TITLE ? t('New thread') : title
 }
 
 /** Applies one host's session list, keeping transcripts this window already has. */
@@ -841,7 +841,7 @@ export function moveEditorTabs(workspaceId: string, from: string, to: string): v
 
 /**
  * Puts a tab in front of the tabs it lives among. `workspaceId` is the tab's own workspace (null
- * for the "New chat" tab, which has none); among the window's tabs that also makes it the active one.
+ * for the "New thread" tab, which has none); among the window's tabs that also makes it the active one.
  */
 export function selectTab(workspaceId: string | null, tabId: string): void {
   const next = withTabFocus(state, workspaceId, tabId)

@@ -46,7 +46,7 @@ function ChangeDetail({ workflow, change }: { workflow: Workflow; change: Workfl
         to: edge ? label(edge.to) : '?',
         outcome: edge ? outcomeLabel(edge.outcome) : '?'
       })}{' '}
-      {change.on ? t('continue in the same chat') : t('a fresh session with a summary')}
+      {change.on ? t('continue in the same thread') : t('a fresh session with a summary')}
     </p>
   )
 }

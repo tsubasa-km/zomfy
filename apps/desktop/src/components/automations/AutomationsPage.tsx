@@ -308,7 +308,7 @@ function AutomationDetail({
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
             <DialogTitle>{t('Delete “{name}”?', { name: automation.name })}</DialogTitle>
-            <DialogDescription>{t('Its schedule stops and its run history goes. Chats its runs opened stay open.')}</DialogDescription>
+            <DialogDescription>{t('Its schedule stops and its run history goes. Threads its runs opened stay open.')}</DialogDescription>
           </DialogHeader>
           <DialogFooter>
             <Button variant="outline" onClick={() => setConfirmDelete(false)}>
@@ -367,7 +367,7 @@ function RunRow({ run, workspace }: { run: HostedAutomationRun; workspace: strin
             }}
           >
             <MessageSquare />
-            {t('Open chat')}
+            {t('Open thread')}
           </Button>
         ) : null}
       </td>

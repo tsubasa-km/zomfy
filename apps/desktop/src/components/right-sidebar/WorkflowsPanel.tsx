@@ -27,7 +27,7 @@ export function WorkflowsPanel({ workspaceId }: { workspaceId: string }) {
   }, [hostId, projectId])
 
   if (!projectId) {
-    return <p className="p-4 text-xs text-muted-foreground">{t('A quick chat belongs to no project, so it has no workflows.')}</p>
+    return <p className="p-4 text-xs text-muted-foreground">{t('A quick thread belongs to no project, so it has no workflows.')}</p>
   }
 
   const open = (runId?: string) => openWorkflows({ hostId, projectId, projectName, ...(runId ? { runId } : {}) })
@@ -47,7 +47,7 @@ export function WorkflowsPanel({ workspaceId }: { workspaceId: string }) {
         </Button>
       </div>
       {runs.length === 0 ? (
-        <p className="p-4 text-muted-foreground">{t('No runs yet. Start a workflow from a chat (the workflow button under the message box).')}</p>
+        <p className="p-4 text-muted-foreground">{t('No runs yet. Start a workflow from a thread (the workflow button under the message box).')}</p>
       ) : (
         <>
           {active.length > 0 && <RunList title={t('In progress')} runs={active} onOpen={open} />}

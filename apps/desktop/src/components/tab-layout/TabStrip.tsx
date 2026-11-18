@@ -172,8 +172,8 @@ export function TabStrip({
         // No workspace in front, so nowhere to start a terminal or open a file: only a chat can start.
         <button
           type="button"
-          aria-label={t('New chat')}
-          title={t('New chat')}
+          aria-label={t('New thread')}
+          title={t('New thread')}
           data-new-chat-tab
           className="my-auto ml-1 flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-muted-foreground hover:bg-accent/50 hover:text-foreground focus-visible:ring-2 focus-visible:ring-accent focus-visible:outline-none"
           onClick={() => showQuickStart()}

@@ -86,7 +86,7 @@ export function AgentPanel({ workspaceId }: { workspaceId: string }) {
   }, [hostId, projectId])
 
   if (!session) {
-    return <p className="p-4 text-xs text-muted-foreground">{t('Open a chat to see its agent, context and activity.')}</p>
+    return <p className="p-4 text-xs text-muted-foreground">{t('Open a thread to see its agent, context and activity.')}</p>
   }
 
   const agent = session.agent ?? 'claude'
@@ -112,7 +112,7 @@ export function AgentPanel({ workspaceId }: { workspaceId: string }) {
 
       <ContextSection usage={usage} agent={agent} used={activity.used} />
 
-      <Section title={t('This chat')}>
+      <Section title={t('This thread')}>
         <div className="grid grid-cols-3 gap-2">
           <Figure label={t('Turns')} value={String(activity.turns)} />
           <Figure label={t('Tool calls')} value={String(activity.tools.reduce((n, [, c]) => n + c, 0))} />
@@ -147,7 +147,7 @@ export function AgentPanel({ workspaceId }: { workspaceId: string }) {
           {run ? (
             <RunSummary run={run} sessionId={session.id} onOpen={() => openRun(run)} />
           ) : (
-            <p className="text-muted-foreground">{t("This chat is not a step of a workflow run. The project's runs are under Workflows.")}</p>
+            <p className="text-muted-foreground">{t("This thread is not a step of a workflow run. The project's runs are under Workflows.")}</p>
           )}
         </Section>
       )}
@@ -178,7 +178,7 @@ function ContextSection({
       <Section title={t('Context')}>
         <p className="text-muted-foreground">
           {agent === 'claude'
-            ? t('Shown after the chat’s first turn.')
+            ? t('Shown after the thread’s first turn.')
             : t('{agent} does not report what fills its context.', { agent: chatAgentLabel(agent) })}
         </p>
       </Section>
@@ -219,7 +219,7 @@ function ContextSection({
           <div className="text-[11px] text-muted-foreground">
             {t('Loaded every turn')}
             {idleTokens > 0 && (
-              <span className="text-status-warning"> · {t('{tokens} unused in this chat', { tokens: formatTokens(idleTokens) })}</span>
+              <span className="text-status-warning"> · {t('{tokens} unused in this thread', { tokens: formatTokens(idleTokens) })}</span>
             )}
           </div>
           <ul className="max-h-64 space-y-0.5 overflow-y-auto" data-agent-context-items>
@@ -234,7 +234,7 @@ function ContextSection({
                   <span className="w-11 shrink-0 text-[11px] text-muted-foreground">{KIND_LABELS[i.kind]}</span>
                   <span className="min-w-0 flex-1 truncate">{i.kind === 'memory' ? i.name.split(/[\\/]/).slice(-2).join('/') : i.name}</span>
                   <span className="shrink-0 tabular-nums">{formatTokens(i.tokens)}</span>
-                  <span className="w-8 shrink-0 text-right text-[11px] text-muted-foreground tabular-nums" title={t('Calls in this chat')}>
+                  <span className="w-8 shrink-0 text-right text-[11px] text-muted-foreground tabular-nums" title={t('Calls in this thread')}>
                     {count === null ? '—' : `×${count}`}
                   </span>
                 </li>
@@ -255,7 +255,7 @@ function RunSummary({ run, sessionId, onOpen }: { run: HostedWorkflowRun; sessio
       <div>
         <div className="truncate font-medium">{run.workflow.name}</div>
         <div className="truncate text-[11px] text-muted-foreground">
-          {run.status} · {t('this chat ran {steps}', { steps: [...new Set(step)].join(', ') })}
+          {run.status} · {t('this thread ran {steps}', { steps: [...new Set(step)].join(', ') })}
         </div>
       </div>
       <div className="grid grid-cols-3 gap-2">

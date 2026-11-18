@@ -19,8 +19,8 @@ export function SidebarSearch({ matchCount, totalCount }: { matchCount: number; 
         <Input
           ref={inputRef}
           value={query}
-          aria-label={t('Search chats')}
-          placeholder={t('Search chats')}
+          aria-label={t('Search threads')}
+          placeholder={t('Search threads')}
           data-sidebar-search
           className="h-7 border-worktree-sidebar-border bg-background pr-16 pl-7 text-xs"
           onChange={(e) => setFilters({ query: e.target.value })}

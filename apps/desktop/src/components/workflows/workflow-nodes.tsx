@@ -70,14 +70,14 @@ function detail(node: WorkflowNode): string {
   switch (node.kind) {
     case 'agent':
       return c.runBy === 'lead'
-        ? t('Your chat')
+        ? t('Your thread')
         : [c.role, c.workspace === 'run-worktree' ? t('own worktree') : t('main workspace')].filter(Boolean).join(' · ')
     case 'review':
-      return `${c.runBy === 'lead' ? t('Your chat') : (c.role ?? t('Reviewer'))}${c.maxRounds ? ` · ${t('up to {n} rounds', { n: c.maxRounds })}` : ''}`
+      return `${c.runBy === 'lead' ? t('Your thread') : (c.role ?? t('Reviewer'))}${c.maxRounds ? ` · ${t('up to {n} rounds', { n: c.maxRounds })}` : ''}`
     case 'check':
       return `${c.command?.trim() ? c.command : t('No command yet')}${c.maxRounds ? ` · ${t('up to {n} tries', { n: c.maxRounds })}` : ''}`
     case 'human':
-      return `${c.askLeadFirst ? t('Your chat first, then you') : t('Asks you')}${c.question?.trim() ? ` · ${c.question}` : ''}`
+      return `${c.askLeadFirst ? t('Your thread first, then you') : t('Asks you')}${c.question?.trim() ? ` · ${c.question}` : ''}`
     case 'end':
       return c.result === 'failed' ? t('Ends as failed') : t('Ends as done')
     case 'custom': {
@@ -178,7 +178,7 @@ function StepNode({ data, selected, type }: NodeProps<WorkflowCanvasNode>) {
           {agent && (
             <span
               className="flex shrink-0 items-center"
-              title={node.config.runBy === 'lead' ? t('Runs in the chat that started the run (Claude)') : t('Runs on {agent}', { agent: chatAgentLabel(agent) })}
+              title={node.config.runBy === 'lead' ? t('Runs in the thread that started the run (Claude)') : t('Runs on {agent}', { agent: chatAgentLabel(agent) })}
               data-workflow-node-agent={agent}
             >
               <TuiAgentIcon agent={agent} size={14} />

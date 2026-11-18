@@ -18,7 +18,7 @@ export function returnsToNewChat(workspaceId: string, sideChat: boolean): boolea
 
 /** Offers the chat just sent to, for a sender who wants to watch it after all. */
 export function announceSent(sessionId: string): void {
-  toast(t('Message sent. The chat keeps running in the sidebar.'), {
+  toast(t('Message sent. The thread keeps running in the sidebar.'), {
     action: { label: t('Open'), onClick: () => selectSession(sessionId) }
   })
 }

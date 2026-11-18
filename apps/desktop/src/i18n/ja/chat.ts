@@ -11,7 +11,7 @@ export const CHAT: Record<string, string> = {
 
   // chat-actions.ts
   "Couldn't change that option: {error}": 'このオプションを変更できませんでした: {error}',
-  'Forking works in Claude chats only': 'フォークは Claude のチャットでのみ使用できます',
+  'Forking works in Claude threads only': 'フォークは Claude のスレッドでのみ使用できます',
   "Couldn't fork this chat: {error}": 'このチャットをフォークできませんでした: {error}',
   "Couldn't pick this chat back up": 'このチャットを再開できませんでした',
   "Couldn't change automatic resume": '自動再開の設定を変更できませんでした',
@@ -117,11 +117,11 @@ export const CHAT: Record<string, string> = {
   Attach: '添付',
   'Image…': '画像…',
   'File in this workspace…': 'このワークスペースのファイル…',
-  Chat: 'チャット',
-  'No other chats': '他のチャットはありません',
+  Thread: 'スレッド',
+  'No other threads': '他のスレッドはありません',
   Terminal: 'ターミナル',
   'No terminals open': '開いているターミナルはありません',
-  'Run in chat': 'チャット内で実行',
+  'Run in thread': 'スレッド内で実行',
 
   // components/native-chat/NativeChatAutocompleteMenus.tsx
   'Loading files...': 'ファイルを読み込み中...',
@@ -208,13 +208,13 @@ export const CHAT: Record<string, string> = {
 
   // components/native-chat/NativeChatFindBar.tsx
   'No results': '結果なし',
-  'Find in chat': 'チャット内を検索',
+  'Find in thread': 'スレッド内を検索',
   'Previous match': '前の一致',
   'Next match': '次の一致',
   Close: '閉じる',
 
   // components/native-chat/NativeChatForkMenuItem.tsx
-  'Fork Chat': 'チャットをフォーク',
+  'Fork Thread': 'スレッドをフォーク',
   'Claude only': 'Claude のみ',
 
   // components/native-chat/NativeChatInlineTerminal.tsx
@@ -234,16 +234,16 @@ export const CHAT: Record<string, string> = {
   '{kind}: click to open': '{kind}: クリックして開く',
 
   // components/native-chat/NativeChatMemoPanel.tsx
-  'Close chat memo': 'チャットのメモを閉じる',
-  'Chat memo': 'チャットのメモ',
-  'Chat memo (has notes)': 'チャットのメモ（記入あり）',
+  'Close thread memo': 'スレッドのメモを閉じる',
+  'Thread memo': 'スレッドのメモ',
+  'Thread memo (has notes)': 'スレッドのメモ（記入あり）',
   'Loading…': '読み込み中…',
   'Not saved': '未保存',
   'Saving…': '保存中…',
   Saved: '保存済み',
   Memo: 'メモ',
   'Close memo': 'メモを閉じる',
-  'Notes for this chat. Markdown works; only you see them.': 'このチャット用のメモです。Markdown が使えます。表示されるのはあなただけです。',
+  'Notes for this thread. Markdown works; only you see them.': 'このスレッド用のメモです。Markdown が使えます。表示されるのはあなただけです。',
 
   // components/native-chat/NativeChatMessageRail.tsx
   'Your messages': '自分のメッセージ',
@@ -279,7 +279,7 @@ export const CHAT: Record<string, string> = {
   'Run in terminal ({shell})': 'ターミナルで実行（{shell}）',
 
   // components/native-chat/NativeChatSelectionQuote.tsx
-  'Add to chat': 'チャットに追加',
+  'Add to thread': 'スレッドに追加',
   'Ask in side chat': 'サイドチャットで質問',
 
   // components/native-chat/NativeChatSessionOptionPicker.tsx
@@ -423,11 +423,11 @@ export const CHAT: Record<string, string> = {
   'Type an address or a search above. Sites that refuse to be embedded stay blank here; open them in your browser instead.': '上でアドレスか検索語を入力してください。埋め込みを拒否するサイトはここでは空白のままになるため、ブラウザーで開いてください。',
 
   // components/tab-layout/NewTabMenu.tsx
-  'New Claude Chat': '新しい Claude チャット',
-  'New {agent} Chat': '新しい {agent} チャット',
+  'New Claude Thread': '新しい Claude スレッド',
+  'New {agent} Thread': '新しい {agent} スレッド',
   'New Terminal ({shell})': '新しいターミナル ({shell})',
   'New Browser Tab': '新しいブラウザータブ',
-  'Claude chat': 'Claude チャット',
+  'Claude thread': 'Claude スレッド',
   'Panels': 'パネル',
   'Panel': 'パネル',
   'This panel is no longer available.': 'このパネルはもう使えません。',
@@ -450,8 +450,8 @@ export const CHAT: Record<string, string> = {
   Up: '上',
   'Move Tab to Split': 'タブを分割先へ移動',
   'Duplicate Tab': 'タブを複製',
-  'Unarchive Chat': 'チャットのアーカイブを解除',
-  'Archive Chat': 'チャットをアーカイブ',
+  'Unarchive Thread': 'スレッドのアーカイブを解除',
+  'Archive Thread': 'スレッドをアーカイブ',
   'Unpin Tab': 'タブのピン留めを外す',
   'Pin Tab': 'タブをピン留め',
   'Copy Tab ID': 'タブ ID をコピー',

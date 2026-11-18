@@ -46,7 +46,7 @@ function deleteChats(sessions: Session[]): void {
   const question =
     sessions.length === 1
       ? t('Delete "{title}"? Their conversations are removed for good.', { title: sessions[0]!.title })
-      : t('Delete {n} chats? Their conversations are removed for good.', { n: sessions.length })
+      : t('Delete {n} threads? Their conversations are removed for good.', { n: sessions.length })
   if (!window.confirm(question)) return
   chatSelection.reset()
   for (const s of sessions) void closeSession(s.id)
@@ -105,7 +105,7 @@ export function SessionRow({
       <Input
         autoFocus
         data-session-rename-input
-        aria-label={t('Rename chat {title}', { title: session.title })}
+        aria-label={t('Rename thread {title}', { title: session.title })}
         value={renaming}
         onChange={(e) => setRenaming(e.target.value)}
         onBlur={commitRename}
@@ -134,7 +134,7 @@ export function SessionRow({
   const foldBadge = fold && !fold.expanded && (
     <span
       className="flex shrink-0 items-center gap-1 text-[10px] text-muted-foreground/80 tabular-nums"
-      title={fold.count === 1 ? t('{n} chat under this one', { n: fold.count }) : t('{n} chats under this one', { n: fold.count })}
+      title={fold.count === 1 ? t('{n} thread under this one', { n: fold.count }) : t('{n} threads under this one', { n: fold.count })}
       data-chat-children={fold.count}
     >
       {fold.count}
@@ -187,7 +187,7 @@ export function SessionRow({
       {fold && (
         <button
           type="button"
-          aria-label={fold.expanded ? t('Hide chats under this one') : t('Show chats under this one')}
+          aria-label={fold.expanded ? t('Hide threads under this one') : t('Show threads under this one')}
           aria-expanded={fold.expanded}
           data-chat-fold
           className={cn(
@@ -254,7 +254,7 @@ export function SessionRow({
         {selected ? (
           <>
             <ContextMenuItem data-chat-action="open-selected" onSelect={() => targets().forEach((s) => selectSession(s.id))}>
-              {t('Open {n} chats', { n: targets().length })}
+              {t('Open {n} threads', { n: targets().length })}
             </ContextMenuItem>
             <ContextMenuItem
               data-chat-action="close-selected"
@@ -267,16 +267,16 @@ export function SessionRow({
             </ContextMenuItem>
             {targets().some((s) => !s.archived) ? (
               <ContextMenuItem data-chat-action="archive-selected" onSelect={() => archiveAll(true)}>
-                {t('Archive {n} chats', { n: targets().length })}
+                {t('Archive {n} threads', { n: targets().length })}
               </ContextMenuItem>
             ) : (
               <ContextMenuItem data-chat-action="unarchive-selected" onSelect={() => archiveAll(false)}>
-                {t('Unarchive {n} chats', { n: targets().length })}
+                {t('Unarchive {n} threads', { n: targets().length })}
               </ContextMenuItem>
             )}
             <ContextMenuSeparator />
             <ContextMenuItem variant="destructive" data-chat-action="delete-selected" onSelect={() => deleteChats(targets())}>
-              {t('Delete {n} chats…', { n: targets().length })}
+              {t('Delete {n} threads…', { n: targets().length })}
             </ContextMenuItem>
           </>
         ) : (
@@ -298,7 +298,7 @@ export function SessionRow({
             </ContextMenuItem>
             <ContextMenuSeparator />
             <ContextMenuItem variant="destructive" onSelect={() => deleteChats([session])}>
-              {t('Delete chat…')}
+              {t('Delete thread…')}
             </ContextMenuItem>
           </>
         )}

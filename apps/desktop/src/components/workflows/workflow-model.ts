@@ -331,19 +331,19 @@ export function validateWorkflow(workflow: Workflow, agents: WorkflowAgentProfil
       issues.push({
         level: 'error',
         edgeId: edge.id,
-        message: t('"{from}" → "{to}" continues the chat, so both must be agent steps run by one session each (not your chat, not parallel).', {
+        message: t('"{from}" → "{to}" continues the thread, so both must be agent steps run by one session each (not your thread, not parallel).', {
           from: from.label,
           to: to.label
         })
       })
     } else if ((from.config.agent ?? 'claude') !== (to.config.agent ?? 'claude')) {
-      issues.push({ level: 'error', edgeId: edge.id, message: t('"{from}" → "{to}" continues the chat, so both steps must run on the same agent.', { from: from.label, to: to.label }) })
+      issues.push({ level: 'error', edgeId: edge.id, message: t('"{from}" → "{to}" continues the thread, so both steps must run on the same agent.', { from: from.label, to: to.label }) })
     } else {
       if (to.kind === 'review') {
         issues.push({
           level: 'warning',
           edgeId: edge.id,
-          message: t('"{label}" reviews in the chat that did the work, so it is not an independent review.', { label: to.label })
+          message: t('"{label}" reviews in the thread that did the work, so it is not an independent review.', { label: to.label })
         })
       }
       // Other agents load MCP servers when their chat opens; a chat carried on keeps the first step's.
@@ -352,7 +352,7 @@ export function validateWorkflow(workflow: Workflow, agents: WorkflowAgentProfil
         issues.push({
           level: 'warning',
           edgeId: edge.id,
-          message: t('"{to}" keeps the MCP servers "{from}" started with: {agent} cannot change them in a chat it carries on.', {
+          message: t('"{to}" keeps the MCP servers "{from}" started with: {agent} cannot change them in a thread it carries on.', {
             to: to.label,
             from: from.label,
             agent: to.config.agent

@@ -56,5 +56,5 @@ export const MENTION_ICON_SVG: Record<ChatMentionKind, string> = {
 export const MENTION_TITLE: Record<ChatMentionKind, string> = {
   file: t('File in this workspace'),
   terminal: t('Terminal snapshot'),
-  chat: t('Chat transcript snapshot')
+  chat: t('Thread transcript snapshot')
 }

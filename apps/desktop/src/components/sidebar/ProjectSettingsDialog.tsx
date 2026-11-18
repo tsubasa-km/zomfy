@@ -120,7 +120,7 @@ export function ProjectSettingsDialog({ project, onClose }: { project: HostedPro
               )}
             </div>
             <p className="text-[11px] text-muted-foreground">
-              {t('Moved or renamed the folder? Point the project at its new place; its chats, workflows and settings stay. Nothing is moved on disk.')}
+              {t('Moved or renamed the folder? Point the project at its new place; its threads, workflows and settings stay. Nothing is moved on disk.')}
             </p>
           </div>
           <div className="space-y-1.5">
@@ -157,7 +157,7 @@ export function ProjectSettingsDialog({ project, onClose }: { project: HostedPro
               </div>
               <div className="space-y-1.5">
                 <Label htmlFor="project-finish-with" className={fieldLabel}>
-                  {t("When a chat's work is done")}
+                  {t("When a thread's work is done")}
                 </Label>
                 <Select value={finishWith} onValueChange={(v) => setFinishWith(v === 'pull-request' ? 'pull-request' : 'merge')}>
                   <SelectTrigger id="project-finish-with" data-project-finish-with>

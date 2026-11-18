@@ -12,7 +12,7 @@ import { useSetting } from '@/stores/settings-store'
 import { composerAutocompleteQuery, matchCommands, matchFiles, type ComposerAutocomplete } from './NativeChatAutocompleteMenus'
 import { recallStep, type RecalledPrompt } from './native-chat-prompt-recall'
 
-// What every composer does with its text box, whether a chat is behind it or (the "New chat" tab)
+// What every composer does with its text box, whether a chat is behind it or (the "New thread" tab)
 // none yet: the draft and its images, the `/` and `@` menus, the keys, pasted and dropped files.
 // NativeChatComposerBox draws it; the caller says what sending does.
 

@@ -12,7 +12,7 @@ function isUnsupported(error: unknown): boolean {
 }
 
 function describe(error: unknown): string {
-  if (isUnsupported(error)) return t("This chat's host runs an older daemon; update Zomfy there first.")
+  if (isUnsupported(error)) return t("This thread's host runs an older daemon; update Zomfy there first.")
   return error instanceof Error ? error.message : String(error)
 }
 
@@ -32,7 +32,7 @@ export async function renameChat(sessionId: string, title: string): Promise<'ok'
   } catch (error) {
     updateSession(sessionId, (s) => ({ ...s, title: before.title }))
     if (isUnsupported(error)) return 'unsupported'
-    toast.error(t("Couldn't rename the chat"), { description: describe(error) })
+    toast.error(t("Couldn't rename the thread"), { description: describe(error) })
     return 'failed'
   }
 }
@@ -52,6 +52,6 @@ export async function setChatArchived(sessionId: string, archived: boolean): Pro
   } catch (error) {
     updateSession(sessionId, (s) => ({ ...s, archived: before.archived }))
     if (archived) showChat(sessionId)
-    toast.error(archived ? t("Couldn't archive the chat") : t("Couldn't unarchive the chat"), { description: describe(error) })
+    toast.error(archived ? t("Couldn't archive the thread") : t("Couldn't unarchive the thread"), { description: describe(error) })
   }
 }

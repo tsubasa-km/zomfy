@@ -22,7 +22,7 @@ export function InputEditingPane() {
   return (
     <div className="space-y-6">
       <div className="space-y-2 not-has-[[data-setting-row]]:hidden">
-        <SettingsSubsectionHeader title={t('Chat')} description={t('The markdown composer under every chat.')} />
+        <SettingsSubsectionHeader title={t('Thread')} description={t('The markdown composer under every thread.')} />
         <div className="divide-y divide-border/40">
           <SettingsRow
             label={t('Send message with')}
@@ -44,8 +44,8 @@ export function InputEditingPane() {
             label={t('After sending')}
             description={
               afterSend === 'new-chat'
-                ? t("The chat's tab closes and New Chat opens, ready for the next task. The chat keeps running in the sidebar; the notice after sending opens it.")
-                : t('The chat stays open, so you can watch the reply.')
+                ? t("The thread's tab closes and New Thread opens, ready for the next task. The thread keeps running in the sidebar; the notice after sending opens it.")
+                : t('The thread stays open, so you can watch the reply.')
             }
             keywords={['chat', 'send', 'new chat', 'close tab', 'background', 'after sending']}
             control={
@@ -54,15 +54,15 @@ export function InputEditingPane() {
                 value={afterSend}
                 onChange={(value) => setSetting('chatAfterSend', value)}
                 options={[
-                  { value: 'stay', label: t('Stay in the chat') },
-                  { value: 'new-chat', label: t('Go to New Chat') }
+                  { value: 'stay', label: t('Stay in the thread') },
+                  { value: 'new-chat', label: t('Go to New Thread') }
                 ]}
               />
             }
           />
           <SettingsSwitchRow
-            label={t('Experimental: chat memos')}
-            description={t("A markdown memo beside each chat's composer, saved on the chat's host.")}
+            label={t('Experimental: thread memos')}
+            description={t("A markdown memo beside each thread's composer, saved on the thread's host.")}
             keywords={['chat', 'memo', 'notes', 'markdown', 'experimental']}
             checked={memos}
             onChange={(checked) => setSetting('chatMemosEnabled', checked)}

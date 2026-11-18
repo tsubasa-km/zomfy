@@ -54,7 +54,7 @@ function ClaudeVersionRow({ host }: { host: HostEntry }) {
   const busy = useClaudeCliUpdating(host.id)
   if (!status) return null
   const description = !status.path
-    ? t('No `claude` command found; chats use the copy bundled with Zomfy, without your login.')
+    ? t('No `claude` command found; threads use the copy bundled with Zomfy, without your login.')
     : status.version === null
       ? t('`{path} --version` did not run.', { path: status.path })
       : status.outdated
@@ -126,11 +126,11 @@ export function AgentsPane() {
   return (
     <div className="space-y-8">
       <div className="space-y-2 not-has-[[data-setting-row]]:hidden">
-        <SettingsSubsectionHeader title={t('Default agent')} description={t('New workspaces start a chat with this agent; the + menu starts any of them.')} />
+        <SettingsSubsectionHeader title={t('Default agent')} description={t('New workspaces start a thread with this agent; the + menu starts any of them.')} />
         <SettingsRow label={t('Default agent')} keywords={['claude', 'agent']} control={<DefaultAgentSelect />} />
         <SettingsRow
           label={t('Default permissions')}
-          description={t('The mode new Claude chats start in; each chat can still change it.')}
+          description={t('The mode new Claude threads start in; each thread can still change it.')}
           keywords={['permission', 'auto', 'approval', 'mode']}
           control={<DefaultPermissionSelect />}
         />
@@ -146,7 +146,7 @@ export function AgentsPane() {
       <div className="space-y-2">
         <SettingsSubsectionHeader
           title={t('Chat agents')}
-          description={t('Agents each host can run as chats. Other agents run their own ACP server on the host, with that host’s login, command and variables.')}
+          description={t('Agents each host can run as threads. Other agents run their own ACP server on the host, with that host’s login, command and variables.')}
         />
         {sortedHosts(hosts)
           .filter((host) => host.connection.kind === 'connected')

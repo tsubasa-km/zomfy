@@ -64,7 +64,7 @@ export function usePaneTitle(workspaceId: string): { title: string; detail: stri
     const workspace = allWorkspaces(s).find((w) => w.id === workspaceId)
     if (!workspace) return ''
     const project = allProjects(s.hosts).find((p) => p.id === workspace.projectId)
-    return project ? projectLabel(project) : workspace.scratch ? t('Quick chat') : workspace.name
+    return project ? projectLabel(project) : workspace.scratch ? t('Quick thread') : workspace.name
   })
   const detail = useStore((s) => {
     const workspace = allWorkspaces(s).find((w) => w.id === workspaceId)

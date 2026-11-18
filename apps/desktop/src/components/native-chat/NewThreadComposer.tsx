@@ -15,7 +15,7 @@ import { NativeChatSessionOptionChoices, sessionOptionLabels } from './NativeCha
 import { useNativeChatComposer } from './use-native-chat-composer'
 import { t } from '@/i18n/i18n'
 
-// The "New chat" tab's composer: the same box and input as an open chat's (NativeChatComposer),
+// The "New thread" tab's composer: the same box and input as an open chat's (NativeChatComposer),
 // before a session exists. It offers what can be known by then: the agent, and for Claude the
 // permission mode, model and effort, which the thread's first turn runs with. An ACP agent's own
 // modes and models come from its session, so they show once the thread is open. What is picked
@@ -152,7 +152,7 @@ export function NewThreadComposer({
         ) : (
           <NativeChatComposerAction
             kind="send"
-            label={t('Start chat ({key})', { key: SEND_LABEL[sendKey] })}
+            label={t('Start thread ({key})', { key: SEND_LABEL[sendKey] })}
             disabled={!canSend}
             onClick={submit}
           />

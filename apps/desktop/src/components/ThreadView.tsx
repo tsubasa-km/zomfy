@@ -229,7 +229,7 @@ export function ThreadView({ session, onSendToMain }: { session: Session; onSend
                 ) : null}
                 <ContextMenuItem onSelect={() => quote(formatNativeChatQuote(menuTarget.selection))}>
                   <Quote />
-                  {t('Add selection to chat')}
+                  {t('Add selection to thread')}
                 </ContextMenuItem>
                 {askSide ? (
                   <ContextMenuItem data-native-chat-ask-side onSelect={() => askSide(formatNativeChatQuote(menuTarget.selection))}>
@@ -251,18 +251,18 @@ export function ThreadView({ session, onSendToMain }: { session: Session; onSend
                 onSelect={() => onSendToMain(menuTarget.selection || (menuTarget.message ?? ''))}
               >
                 <CornerDownLeft />
-                {t('Send to main chat')}
+                {t('Send to main thread')}
               </ContextMenuItem>
             ) : null}
             {menuTarget.selection || menuTarget.message !== null ? <ContextMenuSeparator /> : null}
             <ContextMenuItem onSelect={() => find.show()}>
               <Search />
-              {t('Find in chat')}
+              {t('Find in thread')}
               <ContextMenuShortcut>{isMac ? '⌘F' : 'Ctrl+F'}</ContextMenuShortcut>
             </ContextMenuItem>
             <ContextMenuItem data-native-chat-fork disabled={forkReason !== null} onSelect={() => void forkChat(session.id)}>
               <GitFork />
-              {t('Fork Chat')}
+              {t('Fork Thread')}
               {forkReason ? <span className="ml-auto pl-3 text-xs text-muted-foreground">{t('Claude only')}</span> : null}
             </ContextMenuItem>
           </ContextMenuContent>

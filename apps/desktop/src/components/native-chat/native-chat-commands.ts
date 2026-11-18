@@ -9,8 +9,8 @@ export function installChatCommands(): void {
   registerKeybindingDefinitions([
     {
       id: 'chat.fork',
-      title: t('Fork Chat'),
-      group: 'Chat',
+      title: t('Fork Thread'),
+      group: 'Thread',
       keywords: ['fork', 'branch', 'copy', 'duplicate', 'conversation', 'session'],
       defaultBindings: []
     }

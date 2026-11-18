@@ -139,7 +139,7 @@ export function WorkflowCompareDialog({
               <span className="block text-sm">{t("Approve the steps' commands and edits automatically")}</span>
               <span className="block text-[11px] text-muted-foreground">
                 {t(
-                  "Otherwise each run waits for you at its first command. Refused for workflows that work in the main checkout or the starting chat's chat. A run that would wait for your answer ends instead."
+                  "Otherwise each run waits for you at its first command. Refused for workflows that work in the main checkout or the starting thread's thread. A run that would wait for your answer ends instead."
                 )}
               </span>
             </span>

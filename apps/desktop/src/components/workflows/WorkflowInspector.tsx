@@ -263,14 +263,14 @@ export function WorkflowInspector({
           <Input value={node.label} onChange={(e) => onNode(node.id, { label: e.target.value })} className="h-8" />
         </Field>
         {(node.kind === 'agent' || node.kind === 'review' || (node.kind === 'custom' && c.runner !== 'command')) && (
-          <Field label={t('Run by')} hint={t('Your chat (the one the run was started from) plans or checks itself, with what it knows from the conversation.')}>
+          <Field label={t('Run by')} hint={t('Your thread (the one the run was started from) plans or checks itself, with what it knows from the conversation.')}>
             <Choice
               label={t('Run by')}
               value={c.runBy ?? 'session'}
               onChange={(runBy) => set({ runBy: runBy === 'lead' ? 'lead' : undefined })}
               options={[
                 { value: 'session', label: t('A session for this step') },
-                { value: 'lead', label: t('Your chat') }
+                { value: 'lead', label: t('Your thread') }
               ]}
             />
           </Field>
@@ -339,7 +339,7 @@ export function WorkflowInspector({
         )}
         {node.kind === 'agent' && (
           <>
-            <Field label={t('Session')} hint={t('Keep: the same chat across rounds, so it remembers the reviews.')}>
+            <Field label={t('Session')} hint={t('Keep: the same thread across rounds, so it remembers the reviews.')}>
               <Choice
                 label={t('Session')}
                 value={c.session ?? 'keep'}
@@ -421,10 +421,10 @@ export function WorkflowInspector({
         {node.kind === 'human' && (
           <div className="flex items-start justify-between gap-3" data-workflow-ask-lead>
             <div className="space-y-0.5">
-              <div className="text-xs font-medium">{t('Ask your chat first')}</div>
-              <p className="text-[11px] text-muted-foreground">{t('The chat that started the run answers; only what is your call comes to you.')}</p>
+              <div className="text-xs font-medium">{t('Ask your thread first')}</div>
+              <p className="text-[11px] text-muted-foreground">{t('The thread that started the run answers; only what is your call comes to you.')}</p>
             </div>
-            <Switch checked={c.askLeadFirst === true} onCheckedChange={(on) => set({ askLeadFirst: on || undefined })} aria-label={t('Ask your chat first')} />
+            <Switch checked={c.askLeadFirst === true} onCheckedChange={(on) => set({ askLeadFirst: on || undefined })} aria-label={t('Ask your thread first')} />
           </div>
         )}
         {node.kind === 'human' && (
@@ -501,17 +501,17 @@ export function WorkflowInspector({
         </Field>
         <div className="flex items-start justify-between gap-3" data-workflow-edge-continue>
           <div className="space-y-0.5">
-            <div className="text-xs font-medium">{t('Continue in the same chat')}</div>
+            <div className="text-xs font-medium">{t('Continue in the same thread')}</div>
             <p className="text-[11px] text-muted-foreground">
               {t(
-                "The next step goes on in this step's chat instead of starting fresh with a summary: nothing is lost in a handoff, but the context keeps growing. Both steps need the same agent and one session each."
+                "The next step goes on in this step's thread instead of starting fresh with a summary: nothing is lost in a handoff, but the context keeps growing. Both steps need the same agent and one session each."
               )}
             </p>
           </div>
           <Switch
             checked={edge.session === 'continue'}
             onCheckedChange={(on) => onEdge(edge.id, { session: on ? 'continue' : undefined })}
-            aria-label={t('Continue in the same chat')}
+            aria-label={t('Continue in the same thread')}
           />
         </div>
         <Button variant="outline" size="sm" onClick={onDelete}>
@@ -601,9 +601,9 @@ function permissionModeHint(mode: WorkflowPermissionMode): string {
     case 'auto':
       return t('Claude judges each action and blocks risky ones; the steps never wait on you.')
     case 'acceptEdits':
-      return t('Steps change files freely; a command waits for your approval in its chat.')
+      return t('Steps change files freely; a command waits for your approval in its thread.')
     case 'default':
-      return t('Every file change and command waits for your approval in its chat.')
+      return t('Every file change and command waits for your approval in its thread.')
     case 'bypassPermissions':
       return t('Steps do anything without a check. Only for a sandbox or a throwaway copy.')
   }

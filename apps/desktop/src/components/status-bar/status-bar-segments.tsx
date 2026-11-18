@@ -70,7 +70,7 @@ function BranchSegment() {
   const branch = workspace.branch ?? (workspace.projectId ? t('detached') : t('folder'))
   // The window has no header naming the workspace in front, so this segment does: its project, then its branch.
   const project = allProjects().find((p) => p.hostId === workspace.hostId && p.id === workspace.projectId)
-  const text = project ? `${project.displayName ?? project.name} · ${branch}` : workspace.scratch ? t('Quick chat') : branch
+  const text = project ? `${project.displayName ?? project.name} · ${branch}` : workspace.scratch ? t('Quick thread') : branch
   return (
     <Segment
       label={t('Branch {name}', { name: branch })}

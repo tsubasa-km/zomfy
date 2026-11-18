@@ -230,7 +230,7 @@ export const SidebarNav = memo(function SidebarNav() {
       {showNewChat ? (
         <NavRow
           icon={SquarePen}
-          label={t('New chat')}
+          label={t('New thread')}
           data="new-chat"
           active={quickStartShown && !Object.values(pages).some(Boolean)}
           onClick={() => {

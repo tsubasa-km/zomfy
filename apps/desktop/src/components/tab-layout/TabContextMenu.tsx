@@ -181,7 +181,7 @@ export function TabContextMenu({
               onSelect={() => void setChatArchived(tab.session.id, !tab.session.archived)}
             >
               {tab.session.archived ? <ArchiveRestore className="size-3.5" /> : <Archive className="size-3.5" />}
-              {tab.session.archived ? t('Unarchive Chat') : t('Archive Chat')}
+              {tab.session.archived ? t('Unarchive Thread') : t('Archive Thread')}
             </DropdownMenuItem>
             <DropdownMenuSeparator />
           </>

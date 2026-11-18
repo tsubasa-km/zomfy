@@ -179,7 +179,7 @@ export async function setSessionAgent(sessionId: string, agent: ChatAgentId): Pr
     // The context ring showed the previous agent's context.
     patchChatSession(sessionId, { usage: null })
   } catch (error) {
-    noteFailure(sessionId, t("Couldn't change this chat's agent"), error)
+    noteFailure(sessionId, t("Couldn't change this thread's agent"), error)
   }
 }
 
@@ -219,7 +219,7 @@ function openSession(info: SessionInfo, hostId: string): void {
 
 /** Why a chat cannot fork, or null: ACP has no stable fork, so other agents' chats go without (as in Orca). */
 export function forkUnavailableReason(s: Pick<Session, 'agent'>): string | null {
-  return isExternalAgentSession(s) ? t('Forking works in Claude chats only') : null
+  return isExternalAgentSession(s) ? t('Forking works in Claude threads only') : null
 }
 
 /** A new tab continuing a copy of the conversation; `fromMessageId` ends the copy with that prompt's exchange. */
@@ -239,7 +239,7 @@ export async function forkChat(sessionId: string, fromMessageId?: string): Promi
     )
     openSession(info, source.hostId)
   } catch (error) {
-    const text = t("Couldn't fork this chat: {error}", { error: error instanceof Error ? error.message : String(error) })
+    const text = t("Couldn't fork this thread: {error}", { error: error instanceof Error ? error.message : String(error) })
     updateSession(sessionId, (s) => ({ ...s, items: [...s.items, { kind: 'notice', text, severity: 'error' }] }))
   }
 }
@@ -288,7 +288,7 @@ export async function rewindTo(sessionId: string, messageId: string): Promise<vo
     await reloadTranscript(sessionId)
   } catch (error) {
     // A message another agent answered, in a chat that changed agents, is not Claude's to rewind to.
-    noteFailure(sessionId, t("Couldn't rewind this chat"), error)
+    noteFailure(sessionId, t("Couldn't rewind this thread"), error)
   }
 }
 
@@ -317,7 +317,7 @@ export async function resumeTurn(sessionId: string, kind: Exclude<TurnResumeKind
     await harnessRequest(HARNESS_METHODS.sessionResumeTurn, { sessionId, kind }, target.hostId)
   } catch (error) {
     updateSession(sessionId, (s) => ({ ...s, status: target.status, turnStartedAt: null }))
-    noteFailure(sessionId, t("Couldn't pick this chat back up"), error)
+    noteFailure(sessionId, t("Couldn't pick this thread back up"), error)
   }
 }
 

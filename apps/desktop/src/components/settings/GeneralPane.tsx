@@ -91,7 +91,7 @@ export function GeneralPane() {
         <div className="divide-y divide-border/40">
           <SettingsRow
             label={t('Default host')}
-            description={t('Where New chat and Add a project start when you do not pick a host.')}
+            description={t('Where New thread and Add a project start when you do not pick a host.')}
             keywords={['host', 'wsl', 'ssh', 'default', 'machine']}
             control={<DefaultHostSelect />}
           />
@@ -156,7 +156,7 @@ export function GeneralPane() {
         />
         <SettingsRow
           label={t('Take the tour')}
-          description={t('Walks through the window: chats, layout, workflows, and the pages that keep track of your agents.')}
+          description={t('Walks through the window: threads, layout, workflows, and the pages that keep track of your agents.')}
           keywords={['tour', 'tutorial', 'guide', 'help', 'walkthrough']}
           control={
             <Button variant="outline" size="sm" onClick={startTour} data-take-tour>

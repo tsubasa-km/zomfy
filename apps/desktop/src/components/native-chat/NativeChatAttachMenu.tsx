@@ -21,7 +21,7 @@ const MENU_LIMIT = 30
 /**
  * The composer's +: an image, a workspace file (the @ menu), or a snapshot of another chat or a
  * terminal from any workspace or host, inserted as a mention. A snapshot is saved for a chat on its
- * host, so the "New chat" tab (no `session` yet) offers what needs none.
+ * host, so the "New thread" tab (no `session` yet) offers what needs none.
  */
 export function NativeChatAttachMenu({
   session,
@@ -94,10 +94,10 @@ function SnapshotItems({ session }: { session: Session }) {
       <DropdownMenuSub>
         <DropdownMenuSubTrigger>
           <MessageSquare />
-          {t('Chat')}
+          {t('Thread')}
         </DropdownMenuSubTrigger>
         <DropdownMenuSubContent className="max-h-80 w-72 overflow-y-auto">
-          {chats.length === 0 ? <DropdownMenuItem disabled>{t('No other chats')}</DropdownMenuItem> : null}
+          {chats.length === 0 ? <DropdownMenuItem disabled>{t('No other threads')}</DropdownMenuItem> : null}
           {chats.map((chat) => (
             <DropdownMenuItem key={chat.id} data-attach-chat={chat.id} onSelect={() => attach(() => attachChat(session, chat.id))}>
               <span className="min-w-0 flex-1 truncate">{chat.title}</span>
@@ -121,7 +121,7 @@ function SnapshotItems({ session }: { session: Session }) {
             >
               <span className="min-w-0 flex-1 truncate">{terminal.customTitle || terminal.title}</span>
               <span className="max-w-24 shrink-0 truncate text-xs text-muted-foreground">
-                {terminal.inline ? t('Run in chat') : workspaceName(terminal.workspaceId)}
+                {terminal.inline ? t('Run in thread') : workspaceName(terminal.workspaceId)}
               </span>
             </DropdownMenuItem>
           ))}

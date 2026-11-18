@@ -183,7 +183,7 @@ function EntryRow({ entry, where, offline }: { entry: InboxEntry; where: string;
       <div className="truncate text-[11px] text-muted-foreground">{where}</div>
       {entry.kind === 'approval' && <ApprovalBody approval={entry.approval} />}
       {entry.kind === 'needs-you' && (
-        <p className="mt-1 text-[11px] text-agent-question-text">{t('Waiting on an answer in its chat; open it to reply.')}</p>
+        <p className="mt-1 text-[11px] text-agent-question-text">{t('Waiting on an answer in its thread; open it to reply.')}</p>
       )}
       {entry.kind === 'finished' && (
         <div className="mt-1 flex items-start gap-2">

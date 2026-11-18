@@ -51,12 +51,12 @@ export function ChatListOptionsMenu() {
         <DropdownMenuLabel className="text-xs text-muted-foreground">{t('Show')}</DropdownMenuLabel>
         <DropdownMenuCheckboxItem
           data-option="workflow-chats"
-          title={t('Chats a workflow run made for its steps. They stay folded under the chat the run was started from either way.')}
+          title={t('Threads a workflow run made for its steps. They stay folded under the thread the run was started from either way.')}
           checked={view.workflowChats === true}
           onCheckedChange={(checked) => setSidebarView({ workflowChats: checked === true })}
           onSelect={(e) => e.preventDefault()}
         >
-          {t('Workflow chats')}
+          {t('Workflow threads')}
         </DropdownMenuCheckboxItem>
       </DropdownMenuContent>
     </DropdownMenu>

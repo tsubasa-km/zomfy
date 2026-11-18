@@ -82,8 +82,8 @@ export function CommandPalette() {
         {chatSplit ? (
           <CommandGroup heading={t('Quick Actions')}>
             {([
-              { direction: 'right', title: 'Split Chat Right', description: 'Open the active chat in a split pane to the right.', icon: PanelRightClose },
-              { direction: 'down', title: 'Split Chat Down', description: 'Open the active chat in a split pane below.', icon: PanelBottomClose }
+              { direction: 'right', title: 'Split Thread Right', description: 'Open the active thread in a split pane to the right.', icon: PanelRightClose },
+              { direction: 'down', title: 'Split Thread Down', description: 'Open the active thread in a split pane below.', icon: PanelBottomClose }
             ] as const).map(({ direction, title, description, icon: Icon }) => (
               <CommandItem
                 key={direction}

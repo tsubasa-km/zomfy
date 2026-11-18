@@ -28,7 +28,7 @@ export function busyWork(): Busy {
 
 /** What would stop, as phrases for a confirmation ("2 chats working or waiting for you"). */
 export function busyParts(busy: Busy): string[] {
-  const chats = busy.chats > 1 ? t('{n} chats working or waiting for you', { n: busy.chats }) : t('{n} chat working or waiting for you', { n: busy.chats })
+  const chats = busy.chats > 1 ? t('{n} threads working or waiting for you', { n: busy.chats }) : t('{n} thread working or waiting for you', { n: busy.chats })
   const runs = busy.runs > 1 ? t('{n} workflow runs going', { n: busy.runs }) : t('{n} workflow run going', { n: busy.runs })
   return [busy.chats > 0 ? chats : null, busy.runs > 0 ? runs : null].filter((part): part is string => part !== null)
 }

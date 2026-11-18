@@ -52,12 +52,12 @@ export function SideChatPanel({ workspaceId }: { workspaceId: string }) {
     <div className="flex min-h-0 flex-1 flex-col" data-side-chat-panel>
       <div className="flex h-8 shrink-0 items-center gap-1 border-b border-border px-2">
         <span className="min-w-0 truncate text-xs text-muted-foreground" title={anchor?.title}>
-          {anchor ? t('Beside “{title}”', { title: anchor.title }) : t('No chat in this workspace')}
+          {anchor ? t('Beside “{title}”', { title: anchor.title }) : t('No thread in this workspace')}
         </span>
         <div className="ml-auto flex shrink-0 items-center">
           {side && anchor && lastAnswer?.kind === 'agent' ? (
             <IconAction
-              label={t('Send last answer to main chat')}
+              label={t('Send last answer to main thread')}
               data="send-last"
               onClick={() => sendToMainChat(anchor, lastAnswer.text)}
             >
@@ -89,7 +89,7 @@ export function SideChatPanel({ workspaceId }: { workspaceId: string }) {
         />
       ) : !main ? (
         <p className="px-3 py-6 text-center text-xs text-muted-foreground">
-          {t('Start a chat in this workspace first; a side chat asks about it without interrupting.')}
+          {t('Start a thread in this workspace first; a side chat asks about it without interrupting.')}
         </p>
       ) : null}
     </div>
@@ -116,7 +116,7 @@ function SideChatSetup({
   return (
     <div className="flex shrink-0 flex-col gap-3 border-b border-border px-3 py-3" data-side-chat-setup>
       <p className="text-xs text-muted-foreground">
-        {t('Ask a quick question about this workspace. The main chat keeps working and its conversation is not touched.')}
+        {t('Ask a quick question about this workspace. The main thread keeps working and its conversation is not touched.')}
       </p>
       <div className="flex items-center gap-2">
         <Select value={agent} onValueChange={(value) => isChatAgentId(value) && setAgent(value)}>

@@ -53,11 +53,11 @@ export function ProjectActionsMenuItems({
           <DropdownMenuSeparator />
           <DropdownMenuItem data-project-action="chat-worktree" onSelect={() => void startChat(project)}>
             <MessageSquarePlus className="size-3.5" />
-            {t('New Chat in Its Own Worktree')}
+            {t('New Thread in Its Own Worktree')}
           </DropdownMenuItem>
           <DropdownMenuItem data-project-action="chat-checkout" onSelect={() => void startChat(project, 'checkout')}>
             <MessageSquarePlus className="size-3.5" />
-            {t('New Chat in the Main Checkout')}
+            {t('New Thread in the Main Checkout')}
           </DropdownMenuItem>
         </>
       )}

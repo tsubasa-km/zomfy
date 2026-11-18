@@ -64,7 +64,7 @@ interface SidebarState {
   pinnedChats: string[]
   /** Chat list sections folded shut ('archived' starts that way). */
   collapsedSections: string[]
-  /** The project the "New chat" tab last started a chat in, as `hostId:projectId`; null for a quick chat. */
+  /** The project the "New thread" tab last started a chat in, as `hostId:projectId`; null for a quick chat. */
   startProject: string | null
   /** Multi-selected workspace ids (Ctrl/Shift click). */
   selection: string[]

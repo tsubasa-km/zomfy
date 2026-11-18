@@ -12,7 +12,6 @@ export const RESOLVED: Record<string, string> = {
   'Minimize Floating Workspace Panel': 'フローティングワークスペースのパネルを最小化',
   'Reopen closed tab': '閉じたタブを開き直す',
   'New browser tab': '新しいブラウザータブ',
-  'Start a chat': 'チャットを始める',
   'Waiting for you': '対応待ち',
   'Runs a daemon on the host and reaches it through an SSH tunnel.': 'ホストでデーモンを起動し、SSH トンネル経由で接続します。',
   Pending: '保留中',

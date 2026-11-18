@@ -52,7 +52,7 @@ import { t } from '@/i18n/i18n'
 
 /** Every kind of tab the tab groups hold, in one shape. */
 export type WorkspaceTab =
-  /** The "New chat" tab: the quick start, which belongs to no workspace. */
+  /** The "New thread" tab: the quick start, which belongs to no workspace. */
   | { kind: 'start'; id: string; createdAt: number }
   | { kind: 'chat'; id: string; createdAt: number; session: Session }
   | { kind: 'terminal'; id: string; createdAt: number; terminal: TerminalInfo }
@@ -88,7 +88,7 @@ export function useWorkspacePlace(workspaceId: string | null): string {
     if (!w) return ''
     const project = w.projectId ? s.hosts[w.hostId]?.harness?.projects.find((p) => p.id === w.projectId) : undefined
     const own = w.displayName ?? w.name
-    if (!project) return w.scratch ? t('Quick chat') : own
+    if (!project) return w.scratch ? t('Quick thread') : own
     const name = project.displayName ?? project.name
     return w.isPrimary ? name : `${name} · ${(w.branch ?? own).split('/').pop()}`
   })
@@ -160,7 +160,7 @@ function fileName(path: string): string {
 export function defaultTabTitle(tab: WorkspaceTab): string {
   switch (tab.kind) {
     case 'start':
-      return t('New chat')
+      return t('New thread')
     case 'chat':
       return tab.session.title
     case 'terminal':

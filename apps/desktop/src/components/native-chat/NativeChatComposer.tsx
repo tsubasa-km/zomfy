@@ -41,7 +41,7 @@ import { allWorkspaces, getState, hostLabel, useStore } from '@/session-store'
 import { t } from '@/i18n/i18n'
 
 // An open chat's composer: what the chat adds to the shared input (use-native-chat-composer) and
-// box (NativeChatComposerBox). The "New chat" tab's is NewThreadComposer.
+// box (NativeChatComposerBox). The "New thread" tab's is NewThreadComposer.
 
 type ComposerProps = { session: Session; editorRef: React.RefObject<MarkdownEditorHandle | null> }
 
@@ -366,7 +366,7 @@ function Composer({ session, editorRef }: ComposerProps) {
   )
 }
 
-const AGENT_SWITCH_NOTE = t("The chat stays. The new agent gets a selection of this conversation as text, not the previous agent's context.")
+const AGENT_SWITCH_NOTE = t("The thread stays. The new agent gets a selection of this conversation as text, not the previous agent's context.")
 
 /** The workspace file an editor tab shows, when it belongs to `workspaceId`. */
 function editorTabPath(tabId: string, workspaceId: string): string | null {

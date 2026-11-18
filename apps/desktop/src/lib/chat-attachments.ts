@@ -72,7 +72,7 @@ export function openChatMention(mention: Pick<ChatMention, 'kind' | 'path' | 'so
   if (mention.kind === 'chat') {
     const session = state.sessions.find((s) => s.id === mention.sourceId)
     if (!session) {
-      toast.info(t('That chat is closed. The message still carries its snapshot.'))
+      toast.info(t('That thread is closed. The message still carries its snapshot.'))
       return
     }
     selectTab(session.workspaceId, session.id)

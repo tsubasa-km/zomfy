@@ -166,7 +166,7 @@ function WorkspacePane({ index, workspaceId }: { index: number; workspaceId: str
                 c.id === chat?.id ? 'bg-accent text-foreground' : 'text-muted-foreground hover:bg-accent/50'
               )}
             >
-              {c.title || t('Chat')}
+              {c.title || t('Thread')}
             </button>
           ))}
         </div>
@@ -175,7 +175,7 @@ function WorkspacePane({ index, workspaceId }: { index: number; workspaceId: str
         {chat ? (
           <ThreadView key={chat.id} session={chat} />
         ) : (
-          <div className="flex h-full items-center justify-center text-sm text-muted-foreground">{t('No chats in this workspace')}</div>
+          <div className="flex h-full items-center justify-center text-sm text-muted-foreground">{t('No threads in this workspace')}</div>
         )}
         <ToolDrawer workspaceId={workspaceId} />
       </div>

@@ -32,7 +32,7 @@ import { Button } from '@/components/ui/button'
 import { Select, SelectContent, SelectItem, SelectSeparator, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { t } from '@/i18n/i18n'
 
-// The "New chat" tab, as in the Claude apps: type and go. With no project picked the chat starts in
+// The "New thread" tab, as in the Claude apps: type and go. With no project picked the chat starts in
 // its own scratch folder, and its agent moves it into a project when the work needs one
 // (move_chat). With a project picked it starts there: in a worktree of its own for a git project,
 // so chats working at once never edit the same checkout. The composer is an open chat's own
@@ -84,7 +84,7 @@ export function QuickStart() {
         place = { id: created.id, hostId: project.hostId }
       } else if (project) {
         const primary = allWorkspaces(getState()).find((w) => w.hostId === project.hostId && w.projectId === project.id && w.isPrimary)
-        if (!primary) throw new Error(t('The project has no folder to start a chat in.'))
+        if (!primary) throw new Error(t('The project has no folder to start a thread in.'))
         place = primary
       } else {
         const scratch = await harnessRequest(HARNESS_METHODS.workspaceCreateScratch, {}, target)
@@ -108,7 +108,7 @@ export function QuickStart() {
         draft: c.draft.trim() ? `${text}\n\n${c.draft}` : text,
         draftImages: [...images, ...c.draftImages]
       }))
-      toast.error(t('Could not start the chat'), { description: error instanceof Error ? error.message : String(error) })
+      toast.error(t('Could not start the thread'), { description: error instanceof Error ? error.message : String(error) })
     } finally {
       setBusy(false)
     }
@@ -120,10 +120,10 @@ export function QuickStart() {
         place: workspaceProject ? `${projectLabel(workspaceProject)} · ${workspace.branch ?? workspaceLabel(workspace)}` : workspaceLabel(workspace)
       })
     : project?.kind === 'git'
-      ? t('Starts in a worktree of its own in {project}, so it never edits the same checkout as another chat.', { project: projectLabel(project) })
+      ? t('Starts in a worktree of its own in {project}, so it never edits the same checkout as another thread.', { project: projectLabel(project) })
       : project
         ? t('Starts in {place}.', { place: projectLabel(project) })
-        : t('Starts right away in a fresh folder. The agent moves the chat into a project when the work needs one.')
+        : t('Starts right away in a fresh folder. The agent moves the thread into a project when the work needs one.')
 
   return (
     <div className="m-auto flex w-full max-w-(--chat-content-max-width) flex-col gap-4 px-3 py-6 sm:px-4" data-quick-start>

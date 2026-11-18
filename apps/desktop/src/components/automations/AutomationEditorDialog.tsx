@@ -190,7 +190,7 @@ function EditorBody({
       <DialogHeader>
         <DialogTitle>{existing ? t('Edit automation') : t('New automation')}</DialogTitle>
         <DialogDescription>
-          {t('The host runs it, in a chat you can open from its run history, even while this window is closed.')}
+          {t('The host runs it, in a thread you can open from its run history, even while this window is closed.')}
         </DialogDescription>
       </DialogHeader>
       <div className="grid gap-4">
@@ -418,7 +418,7 @@ function EditorBody({
           </Select>
         </Field>
         <ToggleRow
-          label={t("Continue the previous run's chat")}
+          label={t("Continue the previous run's thread")}
           checked={draft.reuseSession}
           onChange={(reuseSession) => patch({ reuseSession })}
         />

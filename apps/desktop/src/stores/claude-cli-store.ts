@@ -40,7 +40,7 @@ export async function loadClaudeCliStatus(hostId: HostId): Promise<void> {
 }
 
 export function claudeCliWarning(status: ClaudeCliStatus): string {
-  return t('Claude Code {version} is older than {expected}, the version Zomfy is built for. Newer chat features may fail on this host.', {
+  return t('Claude Code {version} is older than {expected}, the version Zomfy is built for. Newer thread features may fail on this host.', {
     version: status.version,
     expected: status.expected
   })

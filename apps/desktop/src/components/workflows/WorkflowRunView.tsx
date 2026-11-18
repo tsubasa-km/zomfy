@@ -312,7 +312,7 @@ function RunPanel({ run, focusNode, onBack }: { run: HostedWorkflowRun; focusNod
                     }}
                   >
                     <MessageSquare className="size-3" />
-                    {step.sessionIds.length > 1 ? t('Chat {n}', { n: i + 1 }) : t('Open chat')}
+                    {step.sessionIds.length > 1 ? t('Thread {n}', { n: i + 1 }) : t('Open thread')}
                   </Button>
                 ))}
               </div>

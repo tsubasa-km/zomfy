@@ -23,10 +23,10 @@ export async function startChat(project: HostedProject, where: 'worktree' | 'che
     } else {
       workspaceId = allWorkspaces(getState()).find((w) => w.projectId === project.id && w.isPrimary)?.id
     }
-    if (!workspaceId) throw new Error(t('The project has no folder to start a chat in.'))
+    if (!workspaceId) throw new Error(t('The project has no folder to start a thread in.'))
     // The new chat opens as a tab, in front.
     await createSession(workspaceId, defaultChatAgent())
   } catch (error) {
-    toast.error(t("Couldn't start a chat"), { description: error instanceof Error ? error.message : String(error) })
+    toast.error(t("Couldn't start a thread"), { description: error instanceof Error ? error.message : String(error) })
   }
 }

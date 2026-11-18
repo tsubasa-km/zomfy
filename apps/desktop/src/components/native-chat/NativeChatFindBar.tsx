@@ -41,8 +41,8 @@ export function NativeChatFindBar({ find }: { find: NativeChatFind }) {
         type="text"
         value={find.query}
         onChange={(event) => find.setQuery(event.target.value)}
-        placeholder={t('Find in chat')}
-        aria-label={t('Find in chat')}
+        placeholder={t('Find in thread')}
+        aria-label={t('Find in thread')}
         className="min-w-0 flex-1 border-none bg-transparent text-sm text-popover-foreground outline-none placeholder:text-muted-foreground"
       />
       <span aria-live="polite" className="shrink-0 px-1 text-xs whitespace-nowrap text-muted-foreground tabular-nums">

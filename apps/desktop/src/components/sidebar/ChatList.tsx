@@ -134,7 +134,7 @@ export function ChatList({ actions }: { actions: SidebarActions }) {
     const w = workspaceById.get(session.workspaceId)
     const project = projectOf(w)
     return {
-      project: project ? projectLabel(project) : w?.scratch ? t('Quick chat') : w ? workspaceLabel(w) : '',
+      project: project ? projectLabel(project) : w?.scratch ? t('Quick thread') : w ? workspaceLabel(w) : '',
       // Under its project's folder a row need not repeat the project.
       foldered: groupBy === 'project' && project !== undefined && !pinned.includes(session.id) && !session.archived,
       workspaceId: session.workspaceId,
@@ -208,7 +208,7 @@ export function ChatList({ actions }: { actions: SidebarActions }) {
   const empty = (
     <div className="flex flex-col items-center gap-2 px-4 pt-8 text-center text-xs text-muted-foreground" data-chat-list-empty>
       <MessageSquare className="size-5 opacity-60" />
-      {needle ? t('No chats match the search.') : t('No chats yet. Start one with New chat.')}
+      {needle ? t('No threads match the search.') : t('No threads yet. Start one with New thread.')}
     </div>
   )
 
@@ -246,7 +246,7 @@ export function ChatList({ actions }: { actions: SidebarActions }) {
         <section className="mb-1.5" data-chat-project={NO_PROJECT}>
           <SectionHeader
             id={`project:${NO_PROJECT}`}
-            label={t('Quick chats')}
+            label={t('Quick threads')}
             count={loose.length}
             collapsed={collapsedSections.includes(`project:${NO_PROJECT}`) && !needle}
           />
@@ -301,14 +301,14 @@ export function ChatList({ actions }: { actions: SidebarActions }) {
                     <Button
                       size="icon-xs"
                       variant="ghost"
-                      aria-label={t('New chat in {project}', { project: label })}
+                      aria-label={t('New thread in {project}', { project: label })}
                       data-project-new-chat
                       onClick={() => void startChat(project)}
                     >
                       <Plus className="size-3.5" />
                     </Button>
                   </TooltipTrigger>
-                  <TooltipContent side="right">{project.kind === 'git' ? t('New chat in its own worktree') : t('New chat')}</TooltipContent>
+                  <TooltipContent side="right">{project.kind === 'git' ? t('New thread in its own worktree') : t('New thread')}</TooltipContent>
                 </Tooltip>
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
@@ -337,12 +337,12 @@ export function ChatList({ actions }: { actions: SidebarActions }) {
                         onClick={() => selectWorkspace(w.id)}
                         className="flex w-full min-w-0 items-center gap-1.5 rounded-md py-1 pr-1.5 pl-5 text-left text-[12px] text-muted-foreground/70 hover:bg-worktree-sidebar-accent/60 hover:text-foreground"
                       >
-                        <span className="min-w-0 flex-1 truncate italic">{t('No chats yet')}</span>
+                        <span className="min-w-0 flex-1 truncate italic">{t('No threads yet')}</span>
                         <span className="max-w-32 shrink-0 truncate font-mono text-[10px]">{w.branch ?? workspaceLabel(w)}</span>
                       </button>
                     ))}
                 {list.length === 0 && !workspaces.some((w) => members.some((m) => m.hostId === w.hostId && m.id === w.projectId) && !w.isPrimary && !busy.has(w.id)) && (
-                  <p className="py-0.5 pl-5 text-[12px] text-muted-foreground/70 italic">{t('No chats yet')}</p>
+                  <p className="py-0.5 pl-5 text-[12px] text-muted-foreground/70 italic">{t('No threads yet')}</p>
                 )}
               </div>
             )}

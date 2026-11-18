@@ -34,7 +34,7 @@ export function formatNativeChatQuote(text: string): string {
 
 type QuoteRequest = { text: string; markdown: string; anchor: { getBoundingClientRect: () => DOMRect } }
 
-/** Offers "Add to chat" (and, in a main chat, "Ask in side chat") beside a selection in an agent's reply. */
+/** Offers "Add to thread" (and, in a main chat, "Ask in side chat") beside a selection in an agent's reply. */
 export function NativeChatSelectionQuote({
   rootRef,
   onQuote,
@@ -132,7 +132,7 @@ export function NativeChatSelectionQuote({
               }}
             >
               <Quote />
-              {t('Add to chat')}
+              {t('Add to thread')}
             </Button>
             {onAskInSideChat ? (
               <Button

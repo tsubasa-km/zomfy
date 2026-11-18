@@ -10,7 +10,7 @@ import { NativeChatAutocompleteMenu } from './NativeChatAutocompleteMenus'
 import type { NativeChatComposerState } from './use-native-chat-composer'
 import { t } from '@/i18n/i18n'
 
-// The composer as it is drawn, for an open chat and for the "New chat" tab alike. The box follows
+// The composer as it is drawn, for an open chat and for the "New thread" tab alike. The box follows
 // Orca's NativeChatComposer; what sits where follows T3 Code's composer: attachments as chips
 // above the text, the + alone at the footer's left, and at its right the agent and model, the
 // permissions, and the round button that sends, queues or stops.

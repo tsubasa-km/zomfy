@@ -94,12 +94,12 @@ describe('arrows that continue the chat', () => {
 
   test('join two agent steps on the same agent', () => {
     const w = withContinue(reviewLoopTemplate('p'), 'Reviewer', 'Developer')
-    expect(validateWorkflow(w).filter((i) => i.message.includes('continues the chat'))).toEqual([])
+    expect(validateWorkflow(w).filter((i) => i.message.includes('continues the thread'))).toEqual([])
   })
 
   test('not into a check step, nor between different agents', () => {
     const toCheck = withContinue(reviewLoopTemplate('p'), 'Developer', 'Run tests')
-    expect(validateWorkflow(toCheck).some((i) => i.message.includes('continues the chat'))).toBe(true)
+    expect(validateWorkflow(toCheck).some((i) => i.message.includes('continues the thread'))).toBe(true)
     const mixed = withContinue(reviewLoopTemplate('p'), 'Reviewer', 'Developer')
     mixed.nodes = mixed.nodes.map((n) => (n.label === 'Reviewer' ? { ...n, config: { ...n.config, agent: 'codex' as const } } : n))
     expect(validateWorkflow(mixed).some((i) => i.message.includes('same agent'))).toBe(true)
