@@ -1,0 +1,241 @@
+/* The grid of the delimited-text table. Cells are positioned absolutely inside a canvas as large
+   as the whole table (rows past the browser's limit are paged, see table-geometry), and the
+   header and row numbers stay in place with position: sticky so the compositor, not a scroll
+   handler, keeps them aligned while scrolling. */
+.dt-grid {
+  --dt-line: color-mix(in srgb, var(--foreground) 9%, var(--editor-surface));
+  --dt-head: color-mix(in srgb, var(--foreground) 4%, var(--editor-surface));
+  --dt-select: var(--color-blue-500, #3b82f6);
+  font-size: 12px;
+  line-height: 23px;
+  color: var(--foreground);
+  background: var(--editor-surface);
+}
+
+.dt-scroller {
+  position: relative;
+  overflow: auto;
+  outline: none;
+  overscroll-behavior: contain;
+}
+
+.dt-canvas {
+  position: relative;
+}
+
+.dt-head {
+  position: sticky;
+  top: 0;
+  z-index: 3;
+  background: var(--dt-head);
+  border-bottom: 1px solid var(--dt-line);
+  user-select: none;
+}
+
+.dt-corner {
+  position: sticky;
+  left: 0;
+  z-index: 2;
+  height: 100%;
+  background: var(--dt-head);
+  border-right: 1px solid var(--dt-line);
+}
+
+.dt-hcell {
+  position: absolute;
+  top: 0;
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  padding: 0 2px 0 8px;
+  border-right: 1px solid var(--dt-line);
+  font-weight: 500;
+  cursor: default;
+}
+
+.dt-hcell[data-selected] {
+  background: color-mix(in srgb, var(--dt-select) 14%, transparent);
+}
+
+.dt-hcell[data-extra] .dt-hname {
+  color: var(--muted-foreground);
+  font-style: italic;
+  font-weight: 400;
+}
+
+.dt-hname {
+  min-width: 0;
+  flex: 1;
+  overflow: hidden;
+  white-space: pre;
+  text-overflow: ellipsis;
+}
+
+.dt-sort {
+  display: flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  border-radius: 4px;
+  color: var(--muted-foreground);
+  opacity: 0;
+}
+
+.dt-hcell:hover .dt-sort,
+.dt-sort:focus-visible,
+.dt-sort[data-active] {
+  opacity: 1;
+}
+
+.dt-sort:hover,
+.dt-sort[data-active] {
+  color: var(--foreground);
+  background: color-mix(in srgb, var(--foreground) 9%, transparent);
+}
+
+.dt-resize {
+  position: absolute;
+  top: 0;
+  right: -4px;
+  z-index: 1;
+  width: 8px;
+  height: 100%;
+  cursor: col-resize;
+}
+
+.dt-resize:hover::after,
+.dt-resize[data-active]::after {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 3px;
+  width: 2px;
+  background: var(--dt-select);
+  content: '';
+}
+
+.dt-filter {
+  position: absolute;
+  padding: 2px 3px;
+  border-top: 1px solid var(--dt-line);
+  border-right: 1px solid var(--dt-line);
+}
+
+.dt-gutter {
+  position: sticky;
+  left: 0;
+  z-index: 2;
+  background: var(--dt-head);
+  border-right: 1px solid var(--dt-line);
+  user-select: none;
+}
+
+.dt-rownum {
+  position: absolute;
+  right: 0;
+  left: 0;
+  overflow: hidden;
+  padding-right: 8px;
+  border-bottom: 1px solid var(--dt-line);
+  color: var(--muted-foreground);
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+  cursor: pointer;
+}
+
+.dt-rownum:hover {
+  color: var(--foreground);
+}
+
+.dt-rownum[data-selected] {
+  color: var(--foreground);
+  background: color-mix(in srgb, var(--dt-select) 14%, var(--dt-head));
+}
+
+/* A row with another field count than the first row's, and the row an open quote ran away with. */
+.dt-rownum[data-problem='uneven'] {
+  color: var(--foreground);
+  background: color-mix(in srgb, var(--status-warning) 18%, var(--dt-head));
+  box-shadow: inset 3px 0 0 var(--status-warning);
+}
+
+.dt-rownum[data-problem='quote'] {
+  color: var(--foreground);
+  background: color-mix(in srgb, var(--destructive) 14%, var(--dt-head));
+  box-shadow: inset 3px 0 0 var(--destructive);
+}
+
+.dt-body {
+  position: absolute;
+  overflow: hidden;
+  cursor: cell;
+}
+
+.dt-row {
+  position: absolute;
+  left: 0;
+  width: 100%;
+  border-bottom: 1px solid var(--dt-line);
+}
+
+.dt-row:hover {
+  background: color-mix(in srgb, var(--foreground) 3%, transparent);
+}
+
+.dt-cell {
+  position: absolute;
+  top: 0;
+  height: 100%;
+  overflow: hidden;
+  padding: 0 8px;
+  border-right: 1px solid var(--dt-line);
+  white-space: pre;
+  text-overflow: ellipsis;
+}
+
+.dt-cell[data-number] {
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+
+/* A field the row does not have: hatched, so it cannot be mistaken for an empty value. */
+.dt-cell[data-missing] {
+  background: repeating-linear-gradient(135deg, transparent 0 4px, color-mix(in srgb, var(--status-warning) 26%, transparent) 4px 5px);
+}
+
+/* A field past the first row's count. */
+.dt-cell[data-extra] {
+  background: color-mix(in srgb, var(--status-warning) 12%, transparent);
+}
+
+.dt-cell mark {
+  border-radius: 2px;
+  color: inherit;
+  background: color-mix(in srgb, var(--status-warning) 38%, transparent);
+}
+
+.dt-break {
+  padding: 0 2px;
+  color: var(--muted-foreground);
+}
+
+.dt-selection {
+  position: absolute;
+  z-index: 1;
+  border: 1px solid var(--dt-select);
+  background: color-mix(in srgb, var(--dt-select) 11%, transparent);
+  pointer-events: none;
+}
+
+.dt-cursor {
+  position: absolute;
+  z-index: 1;
+  border: 2px solid var(--dt-select);
+  pointer-events: none;
+}
+
+.dt-scroller:not(:focus) .dt-cursor {
+  border-color: color-mix(in srgb, var(--dt-select) 45%, transparent);
+}
