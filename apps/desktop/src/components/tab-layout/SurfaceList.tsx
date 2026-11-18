@@ -45,7 +45,7 @@ export function SurfaceList({
       tabIndex={0}
       data-surface-list
       title={title}
-      className="group/surfaces flex min-h-0 flex-1 flex-col overflow-y-auto outline-none"
+      className="group/surfaces @container flex min-h-0 flex-1 flex-col overflow-y-auto outline-none"
       onKeyDown={(e) => {
         if (e.target !== e.currentTarget || e.ctrlKey || e.metaKey || e.altKey || e.nativeEvent.isComposing) return
         const surface = surfaces.find((s) => s.key && s.key.toLowerCase() === e.key.toLowerCase())
@@ -54,9 +54,10 @@ export function SurfaceList({
         surface.open()
       }}
     >
-      <div className="m-auto flex w-full max-w-xs flex-col gap-2 p-4">
+      <div className="m-auto flex w-full max-w-lg flex-col gap-2 p-4">
         <p className="pb-1 text-center text-sm font-medium text-foreground">{t('Open a surface')}</p>
-        <div className="flex flex-col">
+        {/* Two columns where there is room for them, so the list stays short in a low drawer. */}
+        <div className="grid grid-cols-1 gap-x-3 @sm:grid-cols-2">
           {surfaces.map((s) => (
             <button
               key={s.id}

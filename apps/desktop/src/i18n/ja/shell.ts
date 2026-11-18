@@ -1181,5 +1181,9 @@ export const SHELL: Record<string, string> = {
   'Open a surface': '開くものを選ぶ',
   Files: 'ファイル',
   Diff: '差分',
-  'Pull request': 'プルリクエスト'
+  'Pull request': 'プルリクエスト',
+
+  // components/tab-layout/ToolDrawer.tsx (resize)
+  'Resize the drawer': '引き出しの高さを変更',
+  'Drag to change the height · double-click to reset': 'ドラッグで高さを変更 · ダブルクリックで元に戻す'
 }

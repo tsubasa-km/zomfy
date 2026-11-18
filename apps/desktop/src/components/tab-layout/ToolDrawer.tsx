@@ -16,6 +16,7 @@ import {
 import { WorkspacePanelView, useWorkspacePanels } from './workspace-panels'
 import { SurfaceList, type Surface } from './SurfaceList'
 import { allWorkspaces, useStore } from '@/session-store'
+import { DRAWER_MIN_HEIGHT, setDrawerHeight, useDrawerHeight } from '@/stores/drawer-height-store'
 import { useTabLayout } from '@/stores/tab-layout-store'
 import { takeDrawerRequest, useDrawerRequest } from '@/stores/drawer-request-store'
 import { cn } from '@/lib/utils'
@@ -79,6 +80,10 @@ export function ToolDrawer({
     if (tabId) remembered.set(tabId, { pinned, activeId })
   }, [tabId, pinned, activeId])
   const rootRef = useRef<HTMLDivElement>(null)
+  const drawerRef = useRef<HTMLDivElement>(null)
+  // One height for every drawer; none saved leaves it at its own share of the pane.
+  const height = useDrawerHeight()
+  const resizing = useRef(false)
   const timer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
   useEffect(() => () => clearTimeout(timer.current), [])
   // A terminal or browser opened from here comes to the front.
@@ -135,7 +140,40 @@ export function ToolDrawer({
 
   const later = (next: boolean, ms: number) => {
     clearTimeout(timer.current)
-    timer.current = setTimeout(() => setOpen(next), ms)
+    // A drag of the bottom edge can leave the drawer for a moment; it must not close under the hand.
+    timer.current = setTimeout(() => (next || !resizing.current) && setOpen(next), ms)
+  }
+
+  /** Dragging the bottom edge: the drawer follows the pointer, and every drawer takes the height it is left at. */
+  const startResize = (event: React.PointerEvent<HTMLDivElement>) => {
+    const drawer = drawerRef.current
+    const handle = event.currentTarget
+    if (!drawer || event.button !== 0) return
+    event.preventDefault()
+    handle.setPointerCapture(event.pointerId)
+    resizing.current = true
+    clearTimeout(timer.current)
+    const startY = event.clientY
+    const startHeight = drawer.getBoundingClientRect().height
+    const limit = rootRef.current?.getBoundingClientRect().height ?? Number.POSITIVE_INFINITY
+    let next = startHeight
+    const onMove = (move: PointerEvent) => {
+      if (move.pointerId !== event.pointerId) return
+      next = Math.min(limit, Math.max(DRAWER_MIN_HEIGHT, startHeight + move.clientY - startY))
+      drawer.style.height = `${next}px`
+    }
+    const finish = () => {
+      handle.removeEventListener('pointermove', onMove)
+      handle.removeEventListener('pointerup', finish)
+      handle.removeEventListener('pointercancel', finish)
+      handle.removeEventListener('lostpointercapture', finish)
+      resizing.current = false
+      if (next !== startHeight) setDrawerHeight(next)
+    }
+    handle.addEventListener('pointermove', onMove)
+    handle.addEventListener('pointerup', finish)
+    handle.addEventListener('pointercancel', finish)
+    handle.addEventListener('lostpointercapture', finish)
   }
 
   // A shortcut, a side chat or a checks badge asks for a panel; it stays open (pinned) until put away.
@@ -180,16 +218,18 @@ export function ToolDrawer({
         </span>
       </div>
       <div
+        ref={drawerRef}
         data-drawer={shown ? 'open' : 'closed'}
         onPointerEnter={() => shown && clearTimeout(timer.current)}
         onPointerLeave={() => !pinned && later(false, CLOSE_DELAY_MS)}
         // The band at the bottom holds the pin tab, so the drawer and its tab are one thing to light and leave.
         className={cn(
-          'absolute inset-x-1.5 top-0 flex h-3/5 max-h-full min-h-48 flex-col pb-5 transition-[clip-path,visibility] duration-200 ease-out',
+          'absolute inset-x-1.5 top-0 flex max-h-full min-h-48 flex-col pb-5 transition-[clip-path,visibility] duration-200 ease-out',
+          height === null && 'h-3/5',
           !shown && 'invisible'
         )}
         // Unrolls from the tab strip down, and rolls back up; the sides and bottom leave room for the shadow.
-        style={{ clipPath: shown ? 'inset(0 -24px -24px -24px)' : 'inset(0 -24px 100% -24px)' }}
+        style={{ clipPath: shown ? 'inset(0 -24px -24px -24px)' : 'inset(0 -24px 100% -24px)', ...(height === null ? {} : { height }) }}
       >
         <div className={cn('flex min-h-0 flex-1 flex-col overflow-hidden rounded-b-lg border border-t-0 border-border bg-background shadow-lg', shown && 'pointer-events-auto')}>
         <div className="flex h-8 shrink-0 items-center gap-0.5 border-b border-border bg-muted/40 px-1">
@@ -307,6 +347,22 @@ export function ToolDrawer({
             </div>
           )}
         </div>
+        </div>
+        {/* The bottom edge takes a drag to make every drawer taller or shorter; a double click gives the height back. */}
+        <div
+          role="separator"
+          aria-orientation="horizontal"
+          aria-label={t('Resize the drawer')}
+          title={t('Drag to change the height · double-click to reset')}
+          data-drawer-resize
+          className={cn('group/resize absolute inset-x-0 bottom-[17px] z-10 flex h-2 cursor-row-resize touch-none items-center', shown && 'pointer-events-auto')}
+          onPointerDown={startResize}
+          onDoubleClick={() => {
+            if (drawerRef.current) drawerRef.current.style.height = ''
+            setDrawerHeight()
+          }}
+        >
+          <span className="h-0.5 w-full rounded-full bg-transparent transition-colors group-hover/resize:bg-highlight/60 group-active/resize:bg-highlight" />
         </div>
         {/* The tab that pulled the drawer down now hangs under it and pins it open. */}
         <button
