@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react'
-import { GitBranch, PanelsTopLeft, Settings, ZoomIn } from 'lucide-react'
+import { CircleX, GitBranch, PanelsTopLeft, Settings, TriangleAlert, ZoomIn } from 'lucide-react'
 import {
   allProjects,
   findWorkspace,
@@ -11,6 +11,8 @@ import {
   useStore
 } from '@/session-store'
 import { openSettings } from '@/stores/app-overlay-store'
+import { requestDrawer } from '@/stores/drawer-request-store'
+import { countProblems, useWorkspaceProblems } from '@/lib/lsp/problems-store'
 import { setSetting, useSetting } from '@/stores/settings-store'
 import { FloatingWorkspaceTriggerMenu } from '@/components/floating-workspace/FloatingWorkspaceTriggerMenu'
 import { useFloatingWorkspaceTrigger } from '@/components/floating-workspace/use-floating-workspace-trigger'
@@ -120,6 +122,32 @@ function AgentsSegment() {
   )
 }
 
+/** Errors and warnings in the front workspace's open files; opens the Problems panel. */
+function ProblemsSegment() {
+  const workspaceId = useStore((s) => (s.dashboardOpen ? null : s.activeWorkspaceId))
+  const hasFiles = useStore((s) => s.editorTabs.some((tab) => tab.kind === 'file' && tab.workspaceId === workspaceId))
+  const { errors, warnings } = countProblems(useWorkspaceProblems(workspaceId))
+  if (!workspaceId || !hasFiles) return null
+  return (
+    <Segment
+      label={t('Problems')}
+      tooltip={t('{errors} errors, {warnings} warnings in the open files', { errors, warnings })}
+      onClick={() => requestDrawer(workspaceId, 'panel:problems', 'show')}
+    >
+      <span data-status-problems className="inline-flex items-center gap-2">
+        <span className={cn('inline-flex items-center gap-1', errors > 0 && 'text-destructive')}>
+          <CircleX className="size-3" />
+          {errors}
+        </span>
+        <span className={cn('inline-flex items-center gap-1', warnings > 0 && 'text-status-warning')}>
+          <TriangleAlert className="size-3" />
+          {warnings}
+        </span>
+      </span>
+    </Segment>
+  )
+}
+
 function ZoomSegment() {
   const level = useSetting('uiZoomLevel')
   const reset = useShortcutLabel('zoom.reset')
@@ -178,6 +206,7 @@ function SettingsSegment() {
 registerStatusBarItem({ id: 'hosts', label: t('Hosts'), side: 'left', order: 0, render: () => <HostsMenu /> })
 registerStatusBarItem({ id: 'branch', label: t('Branch'), side: 'left', order: 10, render: () => <BranchSegment /> })
 registerStatusBarItem({ id: 'agents', label: t('Agent activity'), side: 'left', order: 20, render: () => <AgentsSegment /> })
+registerStatusBarItem({ id: 'problems', label: t('Problems'), side: 'left', order: 30, render: () => <ProblemsSegment /> })
 registerStatusBarItem({ id: 'zoom', label: t('UI zoom'), side: 'right', order: 80, render: () => <ZoomSegment /> })
 registerStatusBarItem({ id: 'floating-workspace', label: t('Floating workspace'), side: 'right', order: 90, render: () => <FloatingWorkspaceSegment /> })
 // Where the window draws its own title bar, Settings sits there instead.

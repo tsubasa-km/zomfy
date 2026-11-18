@@ -210,7 +210,8 @@ export const LSP_CLIENT_CAPABILITIES = {
     },
     executeCommand: { dynamicRegistration: true },
     didChangeConfiguration: { dynamicRegistration: true },
-    didChangeWatchedFiles: { dynamicRegistration: false }
+    didChangeWatchedFiles: { dynamicRegistration: false },
+    diagnostics: { refreshSupport: true }
   },
   textDocument: {
     synchronization: { dynamicRegistration: true, didSave: true, willSave: false, willSaveWaitUntil: false },
@@ -221,6 +222,8 @@ export const LSP_CLIENT_CAPABILITIES = {
       dataSupport: true,
       tagSupport: { valueSet: [1, 2] }
     },
+    // Servers that answer `textDocument/diagnostic` are asked after each change instead of publishing.
+    diagnostic: { dynamicRegistration: true, relatedDocumentSupport: false },
     completion: {
       dynamicRegistration: true,
       contextSupport: true,

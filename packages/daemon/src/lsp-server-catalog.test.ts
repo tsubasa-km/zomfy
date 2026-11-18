@@ -94,6 +94,15 @@ describe('language server catalog', () => {
     expect(resolved.argv.join(' ')).toContain('my-ls')
   })
 
+  test('in a monorepo the tool beside the file’s own package is found', async () => {
+    const root = workspace()
+    mkdirSync(join(root, 'packages', 'app', 'src'), { recursive: true })
+    tool(join(root, 'packages', 'app'), 'pkg-ls', 'pkg-ls 1.0')
+    const custom: LspServerSpec = { id: 'x', name: 'X', role: 'primary', languages: ['x'], candidates: [{ command: 'pkg-ls', args: [], where: 'workspace' }], rootMarkers: [], install: 'install x' }
+    expect((await resolveLspServer({ spec: custom, override: {} }, root, 'packages/app/src/a.x')).status).toBe('ready')
+    expect((await resolveLspServer({ spec: custom, override: {} }, root, 'packages/other/a.x')).status).toBe('missing')
+  })
+
   test('a command that is found but will not run counts as missing, with what it said', async () => {
     const root = workspace()
     // What rustup's `rust-analyzer` does until the component is added.

@@ -273,9 +273,18 @@ function addedSpecs(store: OverrideStore): LspServerSpec[] {
     }))
 }
 
-/** Tool folders inside a workspace, searched before PATH. */
-function workspaceBinDirs(root: string): string[] {
-  return ['node_modules/.bin', '.venv/bin', '.venv/Scripts', 'venv/bin', 'venv/Scripts'].map((dir) => join(root, dir)).filter((dir) => existsSync(dir))
+/**
+ * Tool folders inside a workspace, searched before PATH: the file's own package first, then each
+ * folder above it up to the workspace (a monorepo keeps its tools beside the package that uses them).
+ */
+function workspaceBinDirs(root: string, relativePath = ''): string[] {
+  const parts = relativePath.split('/').slice(0, -1)
+  const folders: string[] = []
+  for (; parts.length > 0; parts.pop()) folders.push(join(root, ...parts))
+  folders.push(root)
+  return folders.flatMap((folder) =>
+    ['node_modules/.bin', '.venv/bin', '.venv/Scripts', 'venv/bin', 'venv/Scripts'].map((dir) => join(folder, dir)).filter((dir) => existsSync(dir))
+  )
 }
 
 /** Where language toolchains put binaries that a GUI-launched daemon's PATH often lacks. */
@@ -285,9 +294,9 @@ function toolchainDirs(): string[] {
   return [join(home, '.cargo', 'bin'), join(go || join(home, 'go'), 'bin'), join(home, '.local', 'bin')].filter((dir) => existsSync(dir))
 }
 
-/** How this host would start the server for a workspace right now. */
-export async function resolveLspServer({ spec, override }: ServingServer, root: string): Promise<ResolvedLspServer> {
-  const workspace = workspaceBinDirs(root).join(delimiter)
+/** How this host would start the server right now, for a file (workspace-relative) of the workspace at `root`. */
+export async function resolveLspServer({ spec, override }: ServingServer, root: string, relativePath = ''): Promise<ResolvedLspServer> {
+  const workspace = workspaceBinDirs(root, relativePath).join(delimiter)
   const anywhere = [workspace, await hostPath(), ...toolchainDirs()].filter(Boolean).join(delimiter)
   if (override.command) {
     const [program = '', ...args] = splitCommand(override.command)

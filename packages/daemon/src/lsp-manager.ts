@@ -33,7 +33,7 @@ export interface LspManagerOptions {
   send(event: LspEvent): void
   /** Stand-ins for the catalog, for tests. */
   serversFor?: (languageId: string, editorLanguageId: string, path: string) => Promise<ServingServer[]>
-  resolve?: (server: ServingServer, root: string) => Promise<ResolvedLspServer>
+  resolve?: (server: ServingServer, workspaceRoot: string, relativePath: string) => Promise<ResolvedLspServer>
   timings?: Partial<LspTimings>
 }
 
@@ -65,7 +65,7 @@ export class LanguageServerManager {
         const key = `${params.clientId}\0${params.workspaceId}\0${spec.id}`
         let session = this.sessions.get(key)
         if (!session) {
-          const resolved = await (this.options.resolve ?? resolveLspServer)(server, root)
+          const resolved = await (this.options.resolve ?? resolveLspServer)(server, workspaceRoot, params.path)
           if (resolved.status === 'missing') {
             if (spec.install) hints.push(lspServerHint(spec))
             else result.failed.push({ serverId: spec.id, name: spec.name, message: resolved.detail })

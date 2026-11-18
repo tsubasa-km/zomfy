@@ -1,5 +1,8 @@
 import { DEFAULT_SETTINGS, setSetting, useSetting, type ChatAfterSend, type ChatSendKey } from '@/stores/settings-store'
 import { isMac } from '@/lib/terminal-shortcuts'
+import { useStore } from '@/session-store'
+import { sortedHosts } from './HostsPane'
+import { LanguageServerSettings } from './LanguageServerSettings'
 import {
   NumberField,
   SettingsRow,
@@ -18,6 +21,7 @@ export function InputEditingPane() {
   const sendKey = useSetting('chatSendKey')
   const memos = useSetting('chatMemosEnabled')
   const afterSend = useSetting('chatAfterSend')
+  const hosts = useStore((s) => s.hosts)
 
   return (
     <div className="space-y-6">
@@ -103,6 +107,17 @@ export function InputEditingPane() {
             onChange={(checked) => setSetting('editorMinimap', checked)}
           />
         </div>
+      </div>
+      <div className="space-y-2 not-has-[[data-setting-row]]:hidden">
+        <SettingsSubsectionHeader
+          title={t('Language servers')}
+          description={t('Completion, diagnostics and navigation come from language servers on the host where the files are. Zomfy starts the ones it finds there and installs none.')}
+        />
+        {sortedHosts(hosts)
+          .filter((host) => host.connection.kind === 'connected')
+          .map((host) => (
+            <LanguageServerSettings key={host.id} host={host} />
+          ))}
       </div>
     </div>
   )

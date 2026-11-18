@@ -489,6 +489,8 @@ export class LspSession {
       this.send({ kind: 'registrations', registrations: this.registrations })
     } else if (method === 'window/workDoneProgress/create' || REFRESH_REQUESTS.test(method)) {
       answer(null)
+      // Diagnostics the window pulls are stale now; it asks again for its open documents.
+      if (method === 'workspace/diagnostic/refresh') this.send({ kind: 'notification', method, params: null })
     } else if (method === 'workspace/workspaceFolders') {
       answer([this.folder()])
     } else if (method === 'workspace/applyEdit') {
