@@ -41,6 +41,7 @@ import type { StepToolUse, HandlerContext } from "./handlers/handler-context.ts"
 import { registerAutomationHandlers } from "./handlers/automation-handlers.ts";
 import { registerChatAgentHandlers } from "./handlers/chat-agent-handlers.ts";
 import { registerFileHandlers } from "./handlers/file-handlers.ts";
+import { registerLspHandlers } from "./handlers/lsp-handlers.ts";
 import { registerGitHandlers } from "./handlers/git-handlers.ts";
 import { registerHostingHandlers } from "./handlers/hosting-handlers.ts";
 import { registerPortHandlers } from "./handlers/port-handlers.ts";
@@ -625,6 +626,7 @@ export function createHarnessAgent(
     registerTurnRecoveryHandlers,
     registerProjectLinkHandlers,
     registerWorkflowHandlers,
+    registerLspHandlers,
   ]) {
     register(ctx);
   }

@@ -7,6 +7,8 @@ import {
   CHAT_AGENT_NOTIFICATIONS,
   HARNESS_METHODS,
   HARNESS_NOTIFICATIONS,
+  LSP_NOTIFICATIONS,
+  type LspEvent,
   MANAGER_METHODS,
   MANAGER_ROUTING_CAPABILITY,
   type AutomationSnapshot,
@@ -76,6 +78,7 @@ import { setChatAgents } from "./lib/chat-agents";
 import { runManagerTool } from "./manager/manager-tool-runner";
 import { applyAutomationSnapshot } from "./stores/automation-store";
 import { notifyAutoResumed } from "./agent-notifications";
+import { dispatchLspEvent } from "./lib/lsp/lsp-events";
 
 interface DaemonInfo {
   url: string;
@@ -296,6 +299,11 @@ async function openConnection(hostId: HostId): Promise<void> {
       (ctx) => {
         if (WINDOW_ROLE === "main") notifyAutoResumed(ctx.params.sessionId);
       },
+    )
+    .onNotification(
+      LSP_NOTIFICATIONS.lspEvent,
+      (raw: unknown) => raw as LspEvent,
+      (ctx) => dispatchLspEvent(hostId, ctx.params),
     )
     .connect(stream);
   opened.closed.finally(() => {

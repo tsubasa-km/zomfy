@@ -1,4 +1,4 @@
-import { Bot, Files, GitCompare, ListChecks, MessagesSquare, Plug, PlugZap, Search, Workflow, type LucideIcon } from 'lucide-react'
+import { Bot, CircleAlert, Files, GitCompare, ListChecks, MessagesSquare, Plug, PlugZap, Search, Workflow, type LucideIcon } from 'lucide-react'
 import { allWorkspaces, useStore } from '@/session-store'
 import { FileExplorer } from '@/components/right-sidebar/FileExplorer'
 import { SearchPanel } from '@/components/right-sidebar/SearchPanel'
@@ -9,6 +9,7 @@ import { SideChatPanel } from '@/components/right-sidebar/SideChatPanel'
 import { AgentPanel } from '@/components/right-sidebar/AgentPanel'
 import { WorkflowsPanel } from '@/components/right-sidebar/WorkflowsPanel'
 import { PluginPanel } from '@/components/right-sidebar/PluginPanel'
+import { ProblemsPanel } from '@/components/problems/ProblemsPanel'
 import { useActivePluginPanels } from '@/plugins/plugin-registry'
 import { resolvePluginPanelIcon } from '@/plugins/plugin-panel-icons'
 import { t } from '@/i18n/i18n'
@@ -27,6 +28,7 @@ export const PANELS: WorkspacePanel[] = [
   { id: 'panel:search', label: t('Search'), icon: Search },
   { id: 'panel:source-control', label: t('Source Control'), icon: GitCompare },
   { id: 'panel:checks', label: t('Checks'), icon: ListChecks },
+  { id: 'panel:problems', label: t('Problems'), icon: CircleAlert },
   { id: 'panel:ports', label: t('Ports'), icon: Plug },
   { id: 'panel:side-chat', label: t('Side chat'), icon: MessagesSquare },
   { id: 'panel:agent', label: t('Agent'), icon: Bot },
@@ -66,6 +68,8 @@ export function WorkspacePanelView({ id, workspaceId }: { id: string; workspaceI
       return <SourceControl key={workspaceId} workspaceId={workspaceId} />
     case 'panel:checks':
       return <ChecksPanel key={workspaceId} workspaceId={workspaceId} />
+    case 'panel:problems':
+      return <ProblemsPanel key={workspaceId} workspaceId={workspaceId} />
     case 'panel:ports':
       return <PortsPanel key={workspaceId} workspaceId={workspaceId} />
     case 'panel:side-chat':

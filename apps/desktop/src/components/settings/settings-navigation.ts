@@ -131,6 +131,10 @@ export const SETTINGS_SECTIONS: readonly SettingsNavSection[] = [
       { title: t('Editor Font Size'), keywords: ['editor', 'font size'] },
       { title: t('Word Wrap'), keywords: ['editor', 'wrap'] },
       { title: t('Minimap'), keywords: ['editor', 'minimap', 'overview'] },
+      {
+        title: t('Language servers'),
+        keywords: ['lsp', 'language server', 'completion', 'diagnostics', 'linter', 'typescript', 'python', 'pyright', 'ruff', 'rust-analyzer', 'gopls', 'clangd', 'eslint']
+      },
       { title: t('Send message with'), keywords: ['chat', 'composer', 'enter', 'ctrl', 'cmd', 'send', 'newline'] },
       { title: t('After sending'), keywords: ['chat', 'send', 'new chat', 'close tab', 'background', 'after sending'] },
       { title: t('Experimental: thread memos'), keywords: ['chat', 'memo', 'notes', 'markdown', 'experimental'] }

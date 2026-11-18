@@ -5,6 +5,8 @@ import JsonWorker from 'monaco-editor/esm/vs/language/json/json.worker?worker'
 import CssWorker from 'monaco-editor/esm/vs/language/css/css.worker?worker'
 import HtmlWorker from 'monaco-editor/esm/vs/language/html/html.worker?worker'
 import TsWorker from 'monaco-editor/esm/vs/language/typescript/ts.worker?worker'
+// Takes over registering Monaco's built-in TypeScript/JavaScript providers, before any file loads that mode.
+import './lsp/monaco-builtin-languages'
 
 // The app's CSP blocks @monaco-editor/react's default CDN loader, so Monaco and its workers are
 // bundled and served from the app itself, as Orca bundles them.
