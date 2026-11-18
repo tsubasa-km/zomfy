@@ -25,6 +25,15 @@ const ALLOWED_ORIGINS = new Set([
 
 export const DAEMON_INFO_PATH = join(HARNESS_HOME, "daemon.json");
 
+/**
+ * The largest message a window may send. Bun closes the connection (1006, "Received too big
+ * message") on a larger one, taking every thread and terminal on it down, so senders of big payloads
+ * split them: a file save goes up in pieces of at most a few hundred KB. 16 MiB is what Bun 1.4
+ * allows when nothing is set (measured: 16777216 bytes accepted, one more refused); it is pinned
+ * here so a new Bun cannot move it.
+ */
+export const MAX_INCOMING_FRAME_BYTES = 16 * 1024 * 1024;
+
 type WebSocketServerSocket = Parameters<PreparedWebSocketUpgrade["accept"]>[0];
 
 interface SocketData {
@@ -103,6 +112,7 @@ export async function serveWebSocket(
       return new Response("upgrade failed", { status: 400 });
     },
     websocket: {
+      maxPayloadLength: MAX_INCOMING_FRAME_BYTES,
       open(ws) {
         ws.data.bridge.attach(ws);
         ws.data.upgrade.accept(ws.data.bridge);

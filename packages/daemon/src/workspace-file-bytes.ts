@@ -2,6 +2,7 @@ import { readFile, stat } from 'node:fs/promises'
 import { dirname, relative, sep } from 'node:path'
 import type { FileBinaryContent, FileRevisionContent, FileRevisionParams, FileStat } from '@acp-harness/protocol'
 import { resolveInside } from './workspace-files.ts'
+import { bomLength, decodeBytes, detectBufferEncoding } from './text-encodings.ts'
 
 /** Images and PDFs past this are refused rather than shipped over the socket. */
 const BINARY_READ_LIMIT = 50 * 1024 * 1024
@@ -52,12 +53,15 @@ export async function readWorkspaceFileRevision(root: string, params: FileRevisi
   }
   if (code !== 0) return missing
   const buffer = Buffer.from(bytes)
-  const binary = buffer.subarray(0, 8192).includes(0)
   if (params.encoding === 'base64') {
+    const binary = buffer.subarray(0, 8192).includes(0)
     return { ...missing, exists: true, binary, content: buffer.toString('base64') }
   }
-  if (binary || buffer.length > TEXT_REVISION_LIMIT) return { ...missing, exists: true, binary: true }
-  return { ...missing, exists: true, content: buffer.toString('utf8') }
+  // The committed copy is decoded the way the working copy is, so a Shift_JIS file diffs as text.
+  const file = await detectBufferEncoding(buffer)
+  if (file.binary || buffer.length > TEXT_REVISION_LIMIT) return { ...missing, exists: true, binary: true }
+  const text = buffer.subarray(file.bom ? bomLength(buffer, file.encoding) : 0)
+  return { ...missing, exists: true, content: decodeBytes(text, file.encoding) }
 }
 
 /** The folder itself, or for a deleted one the nearest folder above it that is still there (never above root). */

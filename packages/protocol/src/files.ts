@@ -69,7 +69,15 @@ export const FILE_METHODS = {
   searchReplace: '_harness/search/replace',
   fsReadBinary: '_harness/fs/readBinary',
   fsReadRevision: '_harness/fs/readRevision',
-  fsStat: '_harness/fs/stat'
+  fsStat: '_harness/fs/stat',
+  fsReadText: '_harness/fs/readText',
+  fsWriteBegin: '_harness/fs/writeBegin',
+  fsWriteChunk: '_harness/fs/writeChunk',
+  fsWriteCommit: '_harness/fs/writeCommit',
+  fsWriteAbort: '_harness/fs/writeAbort',
+  fsLineIndex: '_harness/fs/lineIndex',
+  fsReadLines: '_harness/fs/readLines',
+  fsFindInFile: '_harness/fs/findInFile'
 } as const
 
 export interface FileRequests {
@@ -93,6 +101,134 @@ export interface FileRequests {
   [FILE_METHODS.fsReadBinary]: { params: { workspaceId: string; path: string }; result: FileBinaryContent }
   [FILE_METHODS.fsReadRevision]: { params: FileRevisionParams; result: FileRevisionContent }
   [FILE_METHODS.fsStat]: { params: { workspaceId: string; path: string }; result: FileStat }
+  /**
+   * One piece of a text file, decoded. `offset` is 0 or the `nextOffset` of the piece before; without
+   * `encoding` the host detects it (meant for offset 0). The file is read whole by asking until
+   * `nextOffset` reaches `size`.
+   */
+  [FILE_METHODS.fsReadText]: {
+    params: { workspaceId: string; path: string; offset: number; encoding?: TextEncoding; maxBytes?: number }
+    result: TextChunk
+  }
+  /**
+   * Starts a save that goes up in pieces: the host encodes each piece into a temp file and only the
+   * commit replaces the file. `content` is the first piece; with `commit` the save ends in this call.
+   */
+  [FILE_METHODS.fsWriteBegin]: {
+    params: {
+      workspaceId: string
+      path: string
+      encoding: TextEncoding
+      bom: boolean
+      expectedMtimeMs?: number
+      content?: string
+      commit?: boolean
+    }
+    result: { writeId: string; saved?: SavedFile }
+  }
+  /** The next piece, in order. Text the encoding cannot represent fails the call and drops the save. */
+  [FILE_METHODS.fsWriteChunk]: { params: { workspaceId: string; writeId: string; content: string }; result: { bytes: number } }
+  [FILE_METHODS.fsWriteCommit]: { params: { workspaceId: string; writeId: string }; result: SavedFile }
+  [FILE_METHODS.fsWriteAbort]: { params: { workspaceId: string; writeId: string }; result: Record<string, never> }
+  /**
+   * The file's line index, built once per version of the file and kept by the host. The first call
+   * starts it; ask again until `complete`. Lines counted so far can already be read.
+   */
+  [FILE_METHODS.fsLineIndex]: { params: { workspaceId: string; path: string; encoding?: TextEncoding }; result: FileLineIndex }
+  [FILE_METHODS.fsReadLines]: { params: FileLinesParams; result: FileLines }
+  [FILE_METHODS.fsFindInFile]: { params: FileFindParams; result: FileFindResult }
+}
+
+/** Encodings a text file is read and written in. */
+export const TEXT_ENCODINGS = ['utf8', 'utf16le', 'utf16be', 'shiftjis', 'eucjp', 'windows1252', 'gb18030', 'big5', 'euckr'] as const
+export type TextEncoding = (typeof TEXT_ENCODINGS)[number]
+
+export interface TextChunk {
+  /** The bytes from `offset` up to `nextOffset` as text; a piece never ends inside a character. */
+  content: string
+  /** Where the next piece starts; equal to `size` after the last one. */
+  nextOffset: number
+  size: number
+  mtimeMs: number
+  encoding: TextEncoding
+  /** The file starts with the encoding's byte order mark (not part of `content`). */
+  bom: boolean
+  /** Not text: `content` is empty and there is nothing more to read. */
+  binary: boolean
+  /** Some bytes are not valid in `encoding` and read as U+FFFD: in this piece, or where detection looked. */
+  malformed: boolean
+}
+
+export interface SavedFile {
+  mtimeMs: number
+  size: number
+}
+
+export interface FileLineIndex {
+  /** Lines found so far; final once `complete`. */
+  lineCount: number
+  indexedBytes: number
+  complete: boolean
+  /** The version of the file the index describes; line reads and finds name it. */
+  size: number
+  mtimeMs: number
+  encoding: TextEncoding
+  bom: boolean
+  binary: boolean
+  malformed: boolean
+}
+
+export interface FileLinesParams {
+  workspaceId: string
+  path: string
+  encoding: TextEncoding
+  /** The indexed version; a file that changed since answers with an error instead of other lines. */
+  mtimeMs: number
+  /** 1-based. */
+  startLine: number
+  count: number
+}
+
+export interface FileLine {
+  text: string
+  /** The line is longer than the host returns; `text` is its beginning. */
+  clipped?: boolean
+}
+
+export interface FileLines {
+  startLine: number
+  lines: FileLine[]
+  lineCount: number
+  complete: boolean
+}
+
+export interface FileFindParams {
+  workspaceId: string
+  path: string
+  encoding: TextEncoding
+  mtimeMs: number
+  query: string
+  regex?: boolean
+  caseSensitive?: boolean
+  wholeWord?: boolean
+  /** 1-based line the scan starts at. */
+  fromLine: number
+  /** The scan stops after the line that reaches this many matches. */
+  maxMatches?: number
+}
+
+export interface FileFindMatch {
+  line: number
+  /** 1-based, in UTF-16 characters. */
+  column: number
+  length: number
+}
+
+export interface FileFindResult {
+  matches: FileFindMatch[]
+  /** Where to continue; null when the scan reached the end of the file. */
+  nextLine: number | null
+  lineCount: number
 }
 
 /** Images and PDFs for the viewers; the text read path cannot carry bytes. */

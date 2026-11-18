@@ -1,6 +1,7 @@
 import { chmod, open, readdir, realpath, rename, stat, writeFile } from 'node:fs/promises'
 import { join, relative, resolve, sep } from 'node:path'
 import type { FileContent, FileEntry } from '@acp-harness/protocol'
+import { completeLength } from './text-encodings.ts'
 
 /** Previews stop here; larger files open truncated. */
 const READ_LIMIT = 1024 * 1024
@@ -48,9 +49,11 @@ export async function readWorkspaceFile(root: string, path: string): Promise<Fil
     await handle.read(buffer, 0, length, 0)
     // A NUL in the first 8 KB is git's own binary heuristic.
     const binary = buffer.subarray(0, 8192).includes(0)
+    // The cut must not land inside a character.
+    const whole = info.size > READ_LIMIT ? completeLength(buffer, 'utf8') : length
     return {
       path,
-      content: binary ? '' : buffer.toString('utf8'),
+      content: binary ? '' : buffer.toString('utf8', 0, whole),
       binary,
       truncated: info.size > READ_LIMIT,
       mtimeMs: info.mtimeMs

@@ -4,6 +4,8 @@ import { searchWorkspace } from "../workspace-search.ts";
 import { readWorkspaceFileBinary, readWorkspaceFileRevision, statWorkspaceFile } from "../workspace-file-bytes.ts";
 import { createEntry, deleteEntries, duplicateEntry, renameEntry } from "../workspace-file-ops.ts";
 import { replaceInWorkspace } from "../workspace-replace.ts";
+import { abortTextWrite, beginTextWrite, commitTextWrite, readTextChunk, writeTextChunk } from "../workspace-text-files.ts";
+import { fileLineIndex, findInFile, readFileLines } from "../workspace-file-lines.ts";
 import type { HandlerContext } from "./handler-context.ts";
 
 export function registerFileHandlers({ handle, workspaceRoot }: HandlerContext): void {
@@ -16,6 +18,17 @@ export function registerFileHandlers({ handle, workspaceRoot }: HandlerContext):
   handle(HARNESS_METHODS.fsReadBinary, async (p) => readWorkspaceFileBinary(workspaceRoot(p.workspaceId), p.path));
   handle(HARNESS_METHODS.fsReadRevision, async (p) => readWorkspaceFileRevision(workspaceRoot(p.workspaceId), p));
   handle(HARNESS_METHODS.fsStat, async (p) => statWorkspaceFile(workspaceRoot(p.workspaceId), p.path));
+  handle(HARNESS_METHODS.fsReadText, async (p) => readTextChunk(workspaceRoot(p.workspaceId), p));
+  handle(HARNESS_METHODS.fsWriteBegin, async (p) => beginTextWrite(workspaceRoot(p.workspaceId), p));
+  handle(HARNESS_METHODS.fsWriteChunk, async (p) => writeTextChunk(p.writeId, p.content));
+  handle(HARNESS_METHODS.fsWriteCommit, async (p) => commitTextWrite(p.writeId));
+  handle(HARNESS_METHODS.fsWriteAbort, async (p) => {
+    await abortTextWrite(p.writeId);
+    return {};
+  });
+  handle(HARNESS_METHODS.fsLineIndex, async (p) => fileLineIndex(workspaceRoot(p.workspaceId), p));
+  handle(HARNESS_METHODS.fsReadLines, async (p) => readFileLines(workspaceRoot(p.workspaceId), p));
+  handle(HARNESS_METHODS.fsFindInFile, async (p) => findInFile(workspaceRoot(p.workspaceId), p));
   handle(HARNESS_METHODS.fsCreate, async (p) => {
     await createEntry(workspaceRoot(p.workspaceId), p.path, p.kind);
     return {};
