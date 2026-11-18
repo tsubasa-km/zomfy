@@ -13,6 +13,8 @@ import { ExternalFileChangeCompareDialog } from '@/components/editor/ExternalFil
 import { updateEditorPreferences, useEditorPreferences } from '@/components/editor/editor-preferences'
 import { PREVIEW_MODES, textPreviewFor, usePreviewMode, type PreviewMode } from '@/components/editor/text-previews'
 import { describeDocumentError, readDocument, writeDocument, type OpenedDocument, type TextFormat } from '@/components/editor/file-document'
+import { claimEditorStatus, EditorStatusItems } from '@/components/editor/EditorStatus'
+import { EditorStatusSegments } from '@/components/editor/EditorStatusSegments'
 import { EncodingMenu, formatLabel, LineEndingMenu, type LineEnding } from '@/components/editor/TextFormatMenus'
 import { FileChangedNotice, formatBytes, LargeFileViewer } from '@/components/editor/LargeFileViewer'
 import { attachLanguageFeatures } from '@/components/editor/editor-language-features'
@@ -379,8 +381,25 @@ export function TextFileEditor({ tab }: { tab: EditorTab }) {
   const showPreview = preview !== null && viewMode !== 'source'
   const percent = (part: number, whole: number): string => `${whole > 0 ? Math.floor((part / whole) * 100) : 0}%`
 
+  const formatMenus = text ? (
+    <>
+      <EncodingMenu
+        format={text.format}
+        malformed={text.malformed}
+        onReopen={(encoding) => reloadFromDisk(encoding)}
+        onSaveAs={text.legacy || readOnly ? undefined : (format) => void save(format)}
+      />
+      <LineEndingMenu
+        value={lineEnding}
+        onChange={
+          readOnly ? undefined : (next) => codeEditor?.getModel()?.pushEOL(next === 'CRLF' ? monaco.editor.EndOfLineSequence.CRLF : monaco.editor.EndOfLineSequence.LF)
+        }
+      />
+    </>
+  ) : null
+
   return (
-    <div className="flex min-h-0 min-w-0 flex-1 flex-col bg-editor-surface" data-editor-tab={tab.id}>
+    <div className="flex min-h-0 min-w-0 flex-1 flex-col bg-editor-surface" data-editor-tab={tab.id} onFocusCapture={() => claimEditorStatus(tab.id)} onPointerDownCapture={() => claimEditorStatus(tab.id)}>
       <EditorPanelHeader
         workspaceId={tab.workspaceId}
         path={tab.path}
@@ -408,20 +427,9 @@ export function TextFileEditor({ tab }: { tab: EditorTab }) {
         controls={
           text ? (
             <>
-              <LineEndingMenu
-                value={lineEnding}
-                onChange={
-                  readOnly
-                    ? undefined
-                    : (next) => codeEditor?.getModel()?.pushEOL(next === 'CRLF' ? monaco.editor.EndOfLineSequence.CRLF : monaco.editor.EndOfLineSequence.LF)
-                }
-              />
-              <EncodingMenu
-                format={text.format}
-                malformed={text.malformed}
-                onReopen={(encoding) => reloadFromDisk(encoding)}
-                onSaveAs={text.legacy || readOnly ? undefined : (format) => void save(format)}
-              />
+              <EditorStatusItems owner={tab.id}>
+                {codeEditor && showSource ? <EditorStatusSegments editor={codeEditor}>{formatMenus}</EditorStatusSegments> : formatMenus}
+              </EditorStatusItems>
               {preview && <EditorViewToggle value={viewMode} modes={PREVIEW_MODES} onChange={setPreviewMode} />}
             </>
           ) : undefined

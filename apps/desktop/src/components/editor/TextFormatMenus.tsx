@@ -14,8 +14,9 @@ import {
 } from '@/components/ui/dropdown-menu'
 import { t } from '@/i18n/i18n'
 import type { TextFormat } from './document-transfer'
+import { editorStatusButtonClass } from './EditorStatus'
 
-// The header's encoding and line-ending buttons: what the file is in, and the menus that reopen it
+// The status bar's encoding and line-ending buttons: what the file is in, and the menus that reopen it
 // in another encoding, save it in another, or change its line endings.
 
 const ENCODING_NAMES: Record<TextEncoding, string> = {
@@ -65,8 +66,7 @@ const SAVE_FORMATS: TextFormat[] = TEXT_ENCODINGS.flatMap((encoding): TextFormat
 )
 
 const formatKey = (format: TextFormat): string => `${format.encoding}:${format.bom}`
-const buttonClass =
-  'flex-shrink-0 rounded px-1.5 py-0.5 text-[11px] text-muted-foreground transition-colors hover:bg-accent hover:text-foreground disabled:opacity-50 disabled:hover:bg-transparent'
+const buttonClass = editorStatusButtonClass
 
 function MenuEncoding({ format }: { format: TextFormat }): React.JSX.Element {
   const hint = encodingHint(format.encoding)

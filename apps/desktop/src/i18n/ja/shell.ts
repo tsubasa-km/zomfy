@@ -1227,5 +1227,16 @@ export const SHELL: Record<string, string> = {
 
   // components/tab-layout/ToolDrawer.tsx (resize)
   'Resize the drawer': '引き出しの高さを変更',
-  'Drag to change the height · double-click to reset': 'ドラッグで高さを変更 · ダブルクリックで元に戻す'
+  'Drag to change the height · double-click to reset': 'ドラッグで高さを変更 · ダブルクリックで元に戻す',
+
+  // components/editor/EditorStatus.tsx, EditorStatusSegments.tsx
+  'Ln {line}, Col {column}': '行 {line}、列 {column}',
+  '{count} selections': '{count} 個の選択範囲',
+  '{count} selected': '{count} 文字を選択',
+  'Go to Line/Column': '行/列へ移動',
+  Indentation: 'インデント',
+  'Spaces: {size}': 'スペース: {size}',
+  'Tab Size: {size}': 'タブのサイズ: {size}',
+  'Plain Text': 'プレーンテキスト',
+  'Editor file details': '編集中のファイルの情報'
 }

@@ -25,6 +25,7 @@ import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip
 import { HostsMenu } from './HostsMenu'
 import { cn } from '@/lib/utils'
 import { registerStatusBarItem } from './status-bar-registry'
+import { EditorStatusSlot } from '@/components/editor/EditorStatus'
 import { OWN_TITLE_BAR } from '@/components/TitleBar'
 import { t } from '@/i18n/i18n'
 
@@ -207,6 +208,7 @@ registerStatusBarItem({ id: 'hosts', label: t('Hosts'), side: 'left', order: 0, 
 registerStatusBarItem({ id: 'branch', label: t('Branch'), side: 'left', order: 10, render: () => <BranchSegment /> })
 registerStatusBarItem({ id: 'agents', label: t('Agent activity'), side: 'left', order: 20, render: () => <AgentsSegment /> })
 registerStatusBarItem({ id: 'problems', label: t('Problems'), side: 'left', order: 30, render: () => <ProblemsSegment /> })
+registerStatusBarItem({ id: 'editor', label: t('Editor file details'), side: 'right', order: 70, render: () => <EditorStatusSlot /> })
 registerStatusBarItem({ id: 'zoom', label: t('UI zoom'), side: 'right', order: 80, render: () => <ZoomSegment /> })
 registerStatusBarItem({ id: 'floating-workspace', label: t('Floating workspace'), side: 'right', order: 90, render: () => <FloatingWorkspaceSegment /> })
 // Where the window draws its own title bar, Settings sits there instead.

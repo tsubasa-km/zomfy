@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button'
 import { DropdownMenuItem } from '@/components/ui/dropdown-menu'
 import { EditorHeaderButton, EditorPanelHeader } from './EditorPanelHeader'
 import { EncodingMenu } from './TextFormatMenus'
+import { claimEditorStatus, EditorStatusItems } from './EditorStatus'
 import type { OpenedDocument } from './document-transfer'
 import { useFileDiskWatch } from './use-file-disk-watch'
 import { EDITOR_FONT_FAMILY } from './use-dark-class'
@@ -357,7 +358,7 @@ export function LargeFileViewer({
   const rowStyle = { height: ROW_PX, lineHeight: `${ROW_PX}px` }
 
   return (
-    <div className="flex min-h-0 min-w-0 flex-1 flex-col bg-editor-surface" data-editor-tab={tab.id} data-large-file onKeyDown={onKeyDown}>
+    <div className="flex min-h-0 min-w-0 flex-1 flex-col bg-editor-surface" data-editor-tab={tab.id} data-large-file onKeyDown={onKeyDown} onPointerDownCapture={() => claimEditorStatus(tab.id)}>
       <EditorPanelHeader
         workspaceId={workspaceId}
         path={path}
@@ -377,6 +378,7 @@ export function LargeFileViewer({
         }
         controls={
           index ? (
+            <EditorStatusItems owner={tab.id}>
             <EncodingMenu
               format={{ encoding: index.encoding, bom: index.bom }}
               malformed={index.malformed}
@@ -385,6 +387,7 @@ export function LargeFileViewer({
                 setGeneration((n) => n + 1)
               }}
             />
+            </EditorStatusItems>
           ) : undefined
         }
         menuItems={
