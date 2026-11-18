@@ -1,5 +1,6 @@
 import { useEffect, useRef } from 'react'
-import { FileText, Package } from 'lucide-react'
+import { FileIcon } from '@/components/FileIcon'
+import { Package } from 'lucide-react'
 import type { ChatCommand } from '@acp-harness/protocol'
 import { cn } from '@/lib/utils'
 import { t } from '@/i18n/i18n'
@@ -138,7 +139,7 @@ export function NativeChatAutocompleteMenu({
               selected={index === activeIndex}
               onChoose={() => onChoose(index)}
             >
-              <FileText className="mt-0.5 size-3.5 shrink-0 text-muted-foreground" />
+              <FileIcon name={path} className="mt-0.5 size-3.5" />
               <span className="flex min-w-0 items-baseline gap-1.5">
                 <span className="shrink-0 truncate">{path.slice(slash + 1)}</span>
                 {slash > 0 ? <span className="min-w-0 truncate text-xs text-muted-foreground">{path.slice(0, slash)}</span> : null}

@@ -61,9 +61,9 @@ export function InlineInputRow({
     <div className="flex h-[26px] w-full items-center gap-1 px-2" style={{ paddingLeft: `${input.depth * 16 + 8}px` }}>
       <span className="size-3 shrink-0" />
       {isFolder ? (
-        <Folder className="size-3 shrink-0 text-muted-foreground" />
+        <Folder className="size-4 shrink-0 text-muted-foreground" />
       ) : (
-        <File className="size-3 shrink-0 text-muted-foreground" />
+        <File className="size-4 shrink-0 text-muted-foreground" />
       )}
       <input
         ref={ref}

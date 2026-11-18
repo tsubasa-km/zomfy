@@ -1,4 +1,5 @@
-import { ChevronDown, Copy, Eye, File, FileText, Folder, FolderOpen, FolderSearch, SquareArrowOutUpRight } from 'lucide-react'
+import { ChevronDown, Copy, Eye, FileText, FolderSearch, SquareArrowOutUpRight } from 'lucide-react'
+import { FileIcon, FolderIcon } from '@/components/FileIcon'
 import type { GitChange } from '@acp-harness/protocol'
 import { allWorkspaces, openEditorTab, setRightSidebar, useStore } from '@/session-store'
 import { GIT_STATUS_COLOR, GIT_STATUS_LETTER } from '@/hooks/use-git-status'
@@ -229,7 +230,7 @@ export function ChangeRow({
           if (e.key === 'Enter') onOpenDiff()
         }}
       >
-        <File className="size-3.5 shrink-0" style={{ color }} />
+        <FileIcon name={entry.path} className="size-3.5" />
         <div className="min-w-0 flex-1 text-xs">
           <span className="block min-w-0 truncate" title={entry.oldPath ? `${entry.oldPath} → ${entry.path}` : entry.path}>
             <span className="text-foreground">{fileName}</span>
@@ -268,7 +269,7 @@ export function DirectoryRow({
     >
       <button type="button" className="flex min-w-0 flex-1 items-center gap-1 text-left" onClick={onToggle} aria-expanded={!collapsed}>
         <ChevronDown className={cn('size-3 shrink-0 transition-transform', collapsed && '-rotate-90')} />
-        {collapsed ? <Folder className="size-3 shrink-0" /> : <FolderOpen className="size-3 shrink-0" />}
+        <FolderIcon name={name} open={!collapsed} className="size-3.5" />
         <span className="min-w-0 flex-1 truncate">{name}</span>
       </button>
       <span className="w-4 shrink-0 text-center text-[10px] font-bold text-muted-foreground/80 tabular-nums">{fileCount}</span>

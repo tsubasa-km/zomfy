@@ -1,4 +1,5 @@
-import { FileCode2, GitCompare, Globe, SquarePen } from 'lucide-react'
+import { GitCompare, Globe, SquarePen } from 'lucide-react'
+import { FileIcon } from '@/components/FileIcon'
 import { TerminalTabIcon } from '@/components/terminal/TerminalTabIcon'
 import { TuiAgentIcon } from '@/components/terminal/TuiAgentIcon'
 import { sessionAgent } from '@/lib/chat-agents'
@@ -18,7 +19,7 @@ export function TabKindIcon({ tab, className }: { tab: WorkspaceTab; className?:
       return tab.editor.kind === 'diff' ? (
         <GitCompare className={cn('size-3.5', className)} />
       ) : (
-        <FileCode2 className={cn('size-3.5', className)} />
+        <FileIcon name={tab.editor.path} className={cn('size-3.5', className)} />
       )
     case 'browser':
       // Orca colours the globe so browser tabs stand out in a crowded strip.

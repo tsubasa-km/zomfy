@@ -1,4 +1,5 @@
-import { ChevronRight, Copy, File, Replace, ReplaceAll } from 'lucide-react'
+import { ChevronRight, Copy, Replace, ReplaceAll } from 'lucide-react'
+import { FileIcon } from '@/components/FileIcon'
 import type { SearchMatch } from '@acp-harness/protocol'
 import { Button } from '@/components/ui/button'
 import { ContextMenu, ContextMenuContent, ContextMenuItem, ContextMenuTrigger } from '@/components/ui/context-menu'
@@ -88,7 +89,7 @@ export function FileResultRow({
             onClick={onToggle}
           >
             <ChevronRight className={cn('size-3 shrink-0 text-muted-foreground transition-transform', !collapsed && 'rotate-90')} />
-            <File className="size-3.5 shrink-0 text-muted-foreground" />
+            <FileIcon name={path} className="size-3.5" />
             <div className="min-w-0 flex-1 text-xs">
               <span className="block min-w-0 truncate">
                 <span className="text-foreground">{path.slice(slash + 1)}</span>

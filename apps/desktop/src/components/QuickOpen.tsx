@@ -1,5 +1,5 @@
 import { useDeferredValue, useEffect, useMemo, useState } from 'react'
-import { File } from 'lucide-react'
+import { FileIcon } from '@/components/FileIcon'
 import { HARNESS_METHODS } from '@acp-harness/protocol'
 import { harnessRequest } from '@/daemon-connection'
 import { findWorkspace, floatingWorkspaceId, openEditorTab, setFloating, useStore } from '@/session-store'
@@ -96,7 +96,7 @@ export function QuickOpen() {
             return (
               <CommandItem key={item.path} value={item.path} onSelect={() => select(item.path)} className="min-w-0 !p-0" title={item.path}>
                 <div className="flex w-full min-w-0 items-center gap-2 px-3 py-1">
-                  <File className="size-3.5 shrink-0 text-muted-foreground" />
+                  <FileIcon name={item.path} className="size-3.5" />
                   <span className="max-w-full min-w-0 shrink-0 truncate text-foreground">{filename}</span>
                   {directory ? <span className="min-w-0 truncate text-muted-foreground">{directory}</span> : null}
                 </div>

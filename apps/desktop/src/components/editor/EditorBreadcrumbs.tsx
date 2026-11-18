@@ -1,5 +1,6 @@
 import { Fragment, useEffect, useState, type ReactNode } from 'react'
-import { Box, Braces, ChevronRight, File, Folder, Hash, SquareFunction, Variable } from 'lucide-react'
+import { FileIcon, FolderIcon } from '@/components/FileIcon'
+import { Box, Braces, ChevronRight, Hash, SquareFunction, Variable } from 'lucide-react'
 import { HARNESS_METHODS, type FileEntry } from '@acp-harness/protocol'
 import { harnessRequest } from '@/daemon-connection'
 import { findWorkspace, openEditorTab } from '@/session-store'
@@ -45,7 +46,7 @@ function FolderEntries({ workspaceId, dir, current }: { workspaceId: string; dir
         entry.kind === 'dir' ? (
           <DropdownMenuSub key={entry.path}>
             <DropdownMenuSubTrigger data-breadcrumb-entry={entry.path}>
-              <Folder className="size-3.5 text-muted-foreground" />
+              <FolderIcon name={entry.path} className="size-3.5" />
               <span className="truncate">{entry.name}</span>
             </DropdownMenuSubTrigger>
             <DropdownMenuSubContent className="max-h-[60vh] max-w-80 overflow-y-auto">
@@ -59,7 +60,7 @@ function FolderEntries({ workspaceId, dir, current }: { workspaceId: string; dir
             className={entry.path === current ? 'bg-accent/60' : undefined}
             onSelect={() => openEditorTab({ workspaceId, kind: 'file', path: entry.path, staged: false })}
           >
-            <File className="size-3.5 text-muted-foreground" />
+            <FileIcon name={entry.path} className="size-3.5" />
             <span className="truncate">{entry.name}</span>
           </DropdownMenuItem>
         )
@@ -122,7 +123,7 @@ export function EditorBreadcrumbs({
           {separator}
         </Fragment>
       ))}
-      <Crumb workspaceId={workspaceId} dir={folders.join('/')} current={path} label={fileName} last />
+      <Crumb workspaceId={workspaceId} dir={folders.join('/')} current={path} label={<><FileIcon name={path} className="size-3.5" /><span className="truncate">{fileName}</span></>} last />
       {symbols?.map((symbol, i) => (
         <Fragment key={`${i}:${symbol.name}`}>
           {separator}

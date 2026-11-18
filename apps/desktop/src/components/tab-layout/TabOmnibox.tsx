@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { FileText, Globe, Search } from 'lucide-react'
+import { FileIcon } from '@/components/FileIcon'
+import { Globe, Search } from 'lucide-react'
 import { createSession } from '@/daemon-connection'
 import { openEditorTab } from '@/session-store'
 import type { ChatAgentId } from '@acp-harness/protocol'
@@ -49,7 +50,7 @@ function presentation(option: Option): { icon: React.ReactNode; label: string; d
     case 'agent':
       return { icon: <TuiAgentIcon agent={option.id} size={14} />, label: t('Launch agent'), detail: option.label }
     case 'file':
-      return { icon: <FileText className="size-3.5 shrink-0" />, label: t('Open file'), detail: option.path }
+      return { icon: <FileIcon name={option.path} className="size-3.5" />, label: t('Open file'), detail: option.path }
     case 'url':
       return { icon: <Globe className="size-3.5 shrink-0" />, label: t('Open URL'), detail: option.url }
     case 'search':

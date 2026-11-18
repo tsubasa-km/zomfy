@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { Ellipsis, File, FilePlus, Folder, FolderPlus, ListCollapse, Loader2, RefreshCw, X } from 'lucide-react'
+import { FileIcon, FolderIcon } from '@/components/FileIcon'
+import { Ellipsis, FilePlus, FolderPlus, ListCollapse, Loader2, RefreshCw, X } from 'lucide-react'
 import { HARNESS_METHODS, type FileEntry, type GitChange } from '@acp-harness/protocol'
 import { harnessRequest } from '@/daemon-connection'
 import { allWorkspaces, closeEditorTab, getState, moveEditorTabs, openEditorTab, setRightSidebar, useStore } from '@/session-store'
@@ -377,7 +378,7 @@ export function FileExplorer({ workspaceId, rootName }: { workspaceId: string; r
       },
       preview: (
         <DragChip
-          icon={entry.kind === 'dir' ? <Folder className="size-3" /> : <File className="size-3" />}
+          icon={entry.kind === 'dir' ? <FolderIcon name={entry.path} className="size-3.5" /> : <FileIcon name={entry.path} className="size-3.5" />}
           label={paths.length > 1 ? t('{n} items', { n: paths.length }) : entry.name}
         />
       )

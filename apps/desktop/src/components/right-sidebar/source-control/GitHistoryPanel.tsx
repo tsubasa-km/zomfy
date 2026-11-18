@@ -1,5 +1,6 @@
 import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { ChevronDown, Copy, File, Hash, RefreshCw } from 'lucide-react'
+import { FileIcon } from '@/components/FileIcon'
+import { ChevronDown, Copy, Hash, RefreshCw } from 'lucide-react'
 import type { GitChange, GitCommitChanges, GitHistoryItem, GitHistoryItemRef, GitHistoryResult } from '@acp-harness/protocol'
 import { GIT_STATUS_COLOR, GIT_STATUS_LETTER } from '@/hooks/use-git-status'
 import { Button } from '@/components/ui/button'
@@ -367,7 +368,7 @@ function CommitFiles({
               data-commit-file={entry.path}
               onClick={() => onOpenFile(state.changes, entry)}
             >
-              <File className="size-3.5 shrink-0" style={{ color }} />
+              <FileIcon name={entry.path} className="size-3.5" />
               <span className="min-w-0 flex-1 truncate">
                 <span className="text-foreground">{entry.path.slice(slash + 1)}</span>
                 {slash > 0 && <span className="ml-1.5 text-[11px] text-muted-foreground">{entry.path.slice(0, slash)}</span>}

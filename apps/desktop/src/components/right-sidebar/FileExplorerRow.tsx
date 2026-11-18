@@ -1,4 +1,5 @@
-import { AppWindow, ChevronRight, CircleAlert, Copy, ExternalLink, File, FilePlus, Files, Folder, FolderOpen, FolderPlus, Link, Loader2, Pencil, Search, Trash2 } from 'lucide-react'
+import { AppWindow, ChevronRight, CircleAlert, Copy, ExternalLink, FilePlus, Files, FolderPlus, Link, Loader2, Pencil, Search, Trash2 } from 'lucide-react'
+import { FileIcon, FolderIcon } from '@/components/FileIcon'
 import type { FileEntry } from '@acp-harness/protocol'
 import {
   ContextMenu,
@@ -104,9 +105,9 @@ export function FileExplorerRow({
               ) : loadError ? (
                 <CircleAlert className="size-3 shrink-0 text-destructive" />
               ) : isExpanded ? (
-                <FolderOpen className="size-3 shrink-0 text-muted-foreground" />
+                <FolderIcon name={entry.path} open className="size-4" />
               ) : (
-                <Folder className="size-3 shrink-0 text-muted-foreground" />
+                <FolderIcon name={entry.path} className="size-4" />
               )}
             </>
           ) : (
@@ -115,7 +116,7 @@ export function FileExplorerRow({
               {entry.kind === 'symlink' ? (
                 <Link className="size-3 shrink-0 text-muted-foreground" />
               ) : (
-                <File className="size-3 shrink-0 text-muted-foreground" />
+                <FileIcon name={entry.path} className="size-4" />
               )}
             </>
           )}
