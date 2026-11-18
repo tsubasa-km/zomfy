@@ -4,7 +4,6 @@ import { projectLabel } from '@/components/sidebar/workspace-visibility'
 import { WorkspaceTabs } from '@/components/WorkspaceTabs'
 import { PaneSidebar, PaneSidebarToggle } from '@/components/tab-layout/PaneSidebar'
 import { OWN_TITLE_BAR } from '@/components/TitleBar'
-import { PaneMoreMenu } from '@/components/PaneMenu'
 import { WINDOW_TABS } from '@/stores/tab-layout-store'
 import { t } from '@/i18n/i18n'
 
@@ -44,10 +43,9 @@ export function WorkspaceMain() {
         workspaceId={WINDOW_TABS}
         emptyHint={EMPTY_HINT}
         trailing={
-          active ? (
+          active && !OWN_TITLE_BAR ? (
             <div className="flex shrink-0 items-center gap-0.5 pr-1.5 pl-1" data-window-tools>
-              {!OWN_TITLE_BAR && <PaneSidebarToggle workspaceId={active} />}
-              <PaneMoreMenu workspaceId={active} />
+              <PaneSidebarToggle workspaceId={active} />
             </div>
           ) : undefined
         }

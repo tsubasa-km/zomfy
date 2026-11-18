@@ -8,7 +8,6 @@ import { WorkspaceTabs } from '@/components/WorkspaceTabs'
 import { DragChip, PointerDragLayer } from '@/components/PointerDragLayer'
 import { usePaneTitle } from '@/components/WorkspaceColumns'
 import { PaneSidebar, PaneSidebarToggle } from '@/components/tab-layout/PaneSidebar'
-import { PaneMoreMenu } from '@/components/PaneMenu'
 import { paneDrag } from '@/components/pane-drop'
 import { Toaster } from '@/components/ui/sonner'
 import { ChatLightbox } from '@/components/native-chat/ChatLightbox'
@@ -119,7 +118,6 @@ function WindowPaneHeader({ workspaceId }: { workspaceId: string }) {
       {detail && <span className="min-w-0 truncate text-xs text-muted-foreground">{detail}</span>}
       <div className="ml-auto flex min-w-0 items-center gap-0.5">
         <PaneSidebarToggle workspaceId={workspaceId} />
-        <PaneMoreMenu workspaceId={workspaceId} />
       </div>
     </div>
   )
