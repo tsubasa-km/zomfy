@@ -8,6 +8,7 @@ import { CHAT_ATTACHMENT_METHODS, type ChatAttachmentRequests } from './chat-att
 import { FILE_METHODS, type FileRequests } from './files'
 import { GIT_METHODS, type GitRequests } from './git'
 import { HOSTING_METHODS, type HostingRequests } from './hosting'
+import { LSP_METHODS, type LspRequests } from './lsp'
 import { PLUGIN_METHODS, type PluginRequests } from './plugins'
 import { PORT_METHODS, type PortRequests } from './ports'
 import { PROJECT_LINK_METHODS, type ProjectLinkRequests } from './project-links'
@@ -34,6 +35,7 @@ export * from './chat-attachments'
 export * from './files'
 export * from './git'
 export * from './hosting'
+export * from './lsp'
 export * from './manager'
 export * from './plugins'
 export * from './ports'
@@ -80,7 +82,8 @@ export const HARNESS_METHODS = {
   ...WORKFLOW_METHODS,
   ...WORKFLOW_AGENT_METHODS,
   ...WORKFLOW_EXPERIMENT_METHODS,
-  ...WORKFLOW_SUGGESTION_METHODS
+  ...WORKFLOW_SUGGESTION_METHODS,
+  ...LSP_METHODS
 } as const
 
 export const HARNESS_NOTIFICATIONS = {
@@ -114,6 +117,7 @@ export interface HarnessRequests
     WorkflowRequests,
     WorkflowAgentRequests,
     WorkflowExperimentRequests,
-    WorkflowSuggestionRequests {}
+    WorkflowSuggestionRequests,
+    LspRequests {}
 
 export type HarnessMethod = keyof HarnessRequests
