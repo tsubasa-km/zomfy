@@ -1,9 +1,11 @@
 import { isTauri } from '@tauri-apps/api/core'
 import { openUrl } from '@tauri-apps/plugin-opener'
-import { getState, openEditorTab } from '@/session-store'
+import { LOCAL_HOST, findWorkspace, getState, openEditorTab, type HostId } from '@/session-store'
+import { isSshHost } from '@/daemon-connection'
+import { openWorkspaceIn } from '@/components/sidebar/WorkspaceMenu'
 import { openBrowserTab, workspacePath } from '@/components/tab-layout/workspace-tab-model'
 import { IS_MAC } from '@/keybindings/keybinding-chords'
-import { classifyLinkHref, workspaceRelativePath, type LinkTarget } from './link-targets'
+import { classifyLinkHref, isAbsolutePath, workspaceRelativePath, type LinkTarget } from './link-targets'
 
 // One route for every link the app shows, as Orca's http-link-routing: http(s) goes to the system
 // browser, Mod+click to an in-app browser tab, paths to the editor. The webview itself never
@@ -40,11 +42,13 @@ export function openLinkTarget(target: LinkTarget, options: { inApp: boolean; wo
       return
     case 'file': {
       const { workspaceId } = options
-      if (!workspaceId) return
-      const path = workspaceRelativePath(target.path, workspacePath(workspaceId))
-      // Outside the workspace the editor cannot read it; better nothing than a broken tab.
-      if (path === null) return
-      openEditorTab({ workspaceId, kind: 'file', path, staged: false, ...(target.line ? { line: target.line } : {}) })
+      const path = workspaceId ? workspaceRelativePath(target.path, workspacePath(workspaceId)) : null
+      if (workspaceId && path !== null) {
+        openEditorTab({ workspaceId, kind: 'file', path, staged: false, ...(target.line ? { line: target.line } : {}) })
+        return
+      }
+      // The editor reads only the workspace's files; one elsewhere goes to the OS.
+      openOutsideWorkspace(target.path, workspaceId)
       return
     }
     case 'anchor':
@@ -52,6 +56,28 @@ export function openLinkTarget(target: LinkTarget, options: { inApp: boolean; wo
       return
   }
 }
+
+/**
+ * A full path outside the workspace, opened as the file manager would open it: a folder in the file
+ * manager, a file in its app. Anything that could run is only shown selected in its folder, so a
+ * click on a path an agent wrote never starts a program.
+ */
+function openOutsideWorkspace(path: string, workspaceId: string | null): void {
+  if (!isTauri() || !isAbsolutePath(path)) return
+  const workspace = workspaceId ? findWorkspace(workspaceId) : null
+  let hostId: HostId = LOCAL_HOST
+  if (path.startsWith('/')) {
+    // A POSIX path is the workspace's host's own: WSL's, or this computer's where it is not Windows.
+    hostId = workspace?.hostId ?? LOCAL_HOST
+    if (isSshHost(hostId) || (hostId === LOCAL_HOST && IS_WINDOWS)) return
+  }
+  openWorkspaceIn(RUNNABLE_RE.test(path) ? 'reveal' : 'default', hostId, path)
+}
+
+const IS_WINDOWS = navigator.userAgent.includes('Windows')
+// What Windows (or a desktop) would run rather than show when handed the file.
+const RUNNABLE_RE =
+  /\.(exe|com|bat|cmd|ps1|psm1|vbs|vbe|js|jse|wsf|wsh|hta|msi|msp|scr|pif|cpl|reg|lnk|url|jar|py|pyw|sh|bash|zsh|command|app|appimage|desktop|run|bin|deb|rpm|dmg|pkg)$/i
 
 export function openHref(href: string, options: { inApp: boolean; workspaceId?: string | null }): void {
   openLinkTarget(classifyLinkHref(href), { inApp: options.inApp, workspaceId: options.workspaceId ?? getState().activeWorkspaceId })

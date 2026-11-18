@@ -44,8 +44,21 @@ describe('looksLikeFilePath', () => {
     }
   })
 
+  test('full paths, to folders, with spaces or in other scripts', () => {
+    for (const path of [
+      String.raw`C:\dev\acp-harness`,
+      String.raw`C:\Program Files (x86)\App\readme.txt`,
+      String.raw`G:\マイドライブ\Obsidian\メモ.md`,
+      String.raw`\\wsl.localhost\Ubuntu\home\me\a.ts`,
+      '/home/me/project',
+      '/tmp/out/flow.svg:3'
+    ]) {
+      expect(looksLikeFilePath(path)).toBe(true)
+    }
+  })
+
   test('code, commands and links do not', () => {
-    for (const text of ['console.log', 'a.b', 'npm run build', 'https://example.com/a.png', 'foo()', 'v1.2', '', 'x // y.ts']) {
+    for (const text of ['console.log', 'a.b', 'npm run build', 'https://example.com/a.png', 'foo()', 'v1.2', '', 'x // y.ts', '/compact', 'and/or', '@types/node', '//cdn.example.com/a.js', 'C:\\', 'C:\\x  y\\z', 'cd C:\\dev']) {
       expect(looksLikeFilePath(text)).toBe(false)
     }
   })
