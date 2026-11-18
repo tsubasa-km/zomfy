@@ -321,7 +321,15 @@ export function TextFileEditor({ tab }: { tab: EditorTab }) {
           </div>
           {showPreview && preview && (
             <div className="min-h-0 min-w-0 flex-1" data-text-preview={preview.id}>
-              <preview.Component content={liveText} workspaceId={tab.workspaceId} path={tab.path} />
+              <preview.Component
+                content={liveText}
+                workspaceId={tab.workspaceId}
+                path={tab.path}
+                revealLine={(line, column = 1) => {
+                  codeEditor?.revealLineInCenter(line)
+                  codeEditor?.setPosition({ lineNumber: line, column })
+                }}
+              />
             </div>
           )}
         </div>

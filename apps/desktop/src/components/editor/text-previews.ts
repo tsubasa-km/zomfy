@@ -8,14 +8,22 @@ import { updateEditorPreferences, useEditorPreferences, type MarkdownViewMode } 
 export type PreviewMode = MarkdownViewMode
 export const PREVIEW_MODES: readonly PreviewMode[] = ['source', 'split', 'preview']
 
+export interface TextPreviewProps {
+  /** The editor's current text, unsaved edits included. */
+  content: string
+  workspaceId: string
+  path: string
+  /** Puts the source's cursor on a line (1-based) and scrolls it into view; a no-op while only the preview shows. */
+  revealLine: (line: number, column?: number) => void
+}
+
 export interface TextPreview {
   id: string
   /** Whether the file at `path` (workspace-relative, '/'-separated) has this preview. */
   match: (path: string) => boolean
   /** How such a file opens until the person picks another mode. */
   defaultMode: PreviewMode
-  /** `content` is the editor's current text, unsaved edits included. */
-  Component: ComponentType<{ content: string; workspaceId: string; path: string }>
+  Component: ComponentType<TextPreviewProps>
 }
 
 const previews: TextPreview[] = []
