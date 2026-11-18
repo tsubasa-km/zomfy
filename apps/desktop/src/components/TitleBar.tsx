@@ -4,7 +4,7 @@ import { getCurrentWindow } from '@tauri-apps/api/window'
 import { PanelLeft, PanelRight, RefreshCw, Settings, type LucideIcon } from 'lucide-react'
 import { restartToUpdate, useAppUpdate } from '@/lib/app-update'
 import { WINDOW_ROLE } from '@/lib/window-role'
-import { toggleActivePaneSidebar, useStore } from '@/session-store'
+import { sidebarWorkspaceId, toggleActivePaneSidebar, useStore } from '@/session-store'
 import { usePaneSidebar } from '@/stores/pane-sidebar-store'
 import { getSetting, setSetting, useSetting } from '@/stores/settings-store'
 import { openSettings } from '@/stores/app-overlay-store'
@@ -59,7 +59,7 @@ function BarButton({ icon: Icon, label, command, pressed, onClick }: { icon: Luc
 
 /** Opens and closes the sidebar on the right, whose panels are along its own top. */
 function RightSidebarButton() {
-  const workspaceId = useStore((s) => s.activeWorkspaceId)
+  const workspaceId = useStore((s) => sidebarWorkspaceId(s))
   const open = usePaneSidebar(workspaceId ?? '').open
   return <BarButton icon={PanelRight} label={t('Toggle right sidebar')} command="sidebar.right.toggle" pressed={!!workspaceId && open} onClick={() => toggleActivePaneSidebar()} />
 }

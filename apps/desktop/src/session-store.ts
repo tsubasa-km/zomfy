@@ -260,8 +260,12 @@ const listeners = new Set<() => void>()
 let batchDepth = 0
 let batchDirty = false
 
+/** The last workspace in front, which the right sidebar keeps showing while none is (sidebarWorkspaceId). */
+let lastActiveWorkspaceId: string | null = null
+
 function set(next: StoreState): void {
   state = placeInColumns(next, state)
+  if (state.activeWorkspaceId) lastActiveWorkspaceId = state.activeWorkspaceId
   if (batchDepth > 0) {
     batchDirty = true
     return
@@ -923,8 +927,19 @@ export function setRightSidebar(change: Partial<StoreState['rightSidebar']>): vo
 }
 
 /** The active workspace's sidebar on `tab`, or closed when it already shows that (or, without `tab`, anything). */
+/**
+ * The workspace the right sidebar shows: the one in front, or with none in front (the "New
+ * thread" tab), the one that tab starts its chat in, else the one last in front. So opening a new
+ * thread does not take the sidebar away.
+ */
+export function sidebarWorkspaceId(s: StoreState = state): string | null {
+  const live = (id: string | null): id is string => id !== null && inWindowTabs(id, s) && allWorkspaces(s).some((w) => w.id === id)
+  for (const id of [s.activeWorkspaceId, s.startTab.workspaceId, lastActiveWorkspaceId]) if (live(id)) return id
+  return null
+}
+
 export function toggleActivePaneSidebar(tab?: RightSidebarTab): void {
-  const workspaceId = state.activeWorkspaceId
+  const workspaceId = sidebarWorkspaceId()
   if (workspaceId) togglePaneSidebar(workspaceId, tab ? panelOf(tab) : undefined)
 }
 
