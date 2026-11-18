@@ -13,13 +13,16 @@ import {
   useWorkspaceTabs,
   type WorkspaceTab
 } from './workspace-tab-model'
-import { PANELS, WorkspacePanelView, useWorkspacePanels } from './workspace-panels'
+import { WorkspacePanelView, useWorkspacePanels } from './workspace-panels'
+import { SurfaceList, type Surface } from './SurfaceList'
+import { allWorkspaces, useStore } from '@/session-store'
 import { useTabLayout } from '@/stores/tab-layout-store'
 import { takeDrawerRequest, useDrawerRequest } from '@/stores/drawer-request-store'
 import { cn } from '@/lib/utils'
 import { t } from '@/i18n/i18n'
 
-const OPEN_DELAY_MS = 250
+// Short enough to feel like pulling a tab, long enough that crossing the handle on the way to a tab opens nothing.
+const OPEN_DELAY_MS = 120
 const CLOSE_DELAY_MS = 400
 
 /** The pull tab: a filled shape, no outline, whose sides slope in to a rounded bottom. */
@@ -34,10 +37,21 @@ function TabShape({ className }: { className?: string }) {
 // What each tab's drawer was left showing, so coming back to a tab finds its drawer as it was.
 const remembered = new Map<string, { pinned: boolean; activeId: string | null }>()
 
+/** The keys of the drawer's list of surfaces, by panel id: T3 Code's where it has the same surface. */
+const PANEL_KEYS: Record<string, string> = {
+  'panel:explorer': 'F',
+  'panel:search': '/',
+  'panel:source-control': 'D',
+  'panel:checks': 'P',
+  'panel:side-chat': 'S'
+}
+/** Panels about a git checkout, which a plain folder cannot show. */
+const GIT_PANELS = new Set(['panel:source-control', 'panel:checks'])
+
 /**
  * The project's terminals, browsers and panels (explorer, search, source control, checks, ports, side
  * chat, agent), pulled down from under a tab strip: hovering the handle opens it, leaving it closes it
- * unless pinned. `tabId` is the tab it hangs from, whose pin and choice it remembers; `exclude` is the
+ * unless pinned. With nothing open in it, it lists what it can show. `tabId` is the tab it hangs from, whose pin and choice it remembers; `exclude` is the
  * pane's own active tab. The focused pane's drawer also answers what opens a panel from elsewhere.
  */
 export function ToolDrawer({
@@ -95,7 +109,27 @@ export function ToolDrawer({
   const panels = useWorkspacePanels()
   const panel = panels.find((p) => p.id === activeId)
   const activeTool = panel ? undefined : (tools.find((t) => t.id === activeId) ?? tools[0])
-  const activePanel = panel?.id ?? (activeTool ? undefined : PANELS[0].id)
+  const activePanel = panel?.id
+  const git = useStore((s) => Boolean(allWorkspaces(s).find((w) => w.id === workspaceId)?.branch))
+  // Nothing open here yet: the drawer offers its surfaces instead of guessing one.
+  const surfaces: Surface[] = [
+    {
+      id: 'terminal',
+      key: 'T',
+      label: t('Terminal'),
+      icon: <SquareTerminal className="size-4" />,
+      open: () => void newTerminalTab(workspaceId, undefined, { select: false, drawer: true })
+    },
+    { id: 'browser', key: 'B', label: t('Browser'), icon: <Globe className="size-4" />, open: () => newDrawerBrowser(workspaceId) },
+    ...panels.map(({ id, label, icon: Icon }) => ({
+      id,
+      key: PANEL_KEYS[id],
+      label,
+      icon: <Icon className="size-4" />,
+      open: () => setActiveId(id),
+      unavailable: GIT_PANELS.has(id) && !git
+    }))
+  ]
   const terminals = tools.filter((t) => t.kind === 'terminal').length
   const browsers = tools.filter((t) => t.kind === 'browser').length
 
@@ -225,7 +259,8 @@ export function ToolDrawer({
                 title={label}
                 aria-label={label}
                 data-drawer-panel={id}
-                onClick={() => setActiveId(id)}
+                // A second click puts the panel away, back to the terminals or the list of surfaces.
+                onClick={() => setActiveId(id === activePanel ? null : id)}
                 className={cn(
                   'flex size-6 items-center justify-center rounded-md',
                   id === activePanel ? 'bg-background text-foreground shadow-sm' : 'text-muted-foreground hover:bg-accent/50 hover:text-foreground'
@@ -263,6 +298,12 @@ export function ToolDrawer({
           {activePanel && (
             <div className="absolute inset-0 flex flex-col overflow-hidden bg-sidebar text-sidebar-foreground">
               <WorkspacePanelView key={activePanel} id={activePanel} workspaceId={workspaceId} />
+            </div>
+          )}
+          {!activePanel && !activeTool && shown && (
+            // It shows under the pointer while the person may be typing elsewhere, so it takes the keys only when clicked.
+            <div className="absolute inset-0 flex flex-col" data-drawer-surfaces>
+              <SurfaceList surfaces={surfaces} focus="never" />
             </div>
           )}
         </div>
