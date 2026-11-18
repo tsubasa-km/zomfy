@@ -44,7 +44,8 @@ export function TabItem({
   groupTabs,
   active,
   groupActiveId,
-  hasSplit
+  hasSplit,
+  groupFocused = true
 }: {
   workspaceId: string
   groupId: string
@@ -54,6 +55,8 @@ export function TabItem({
   /** The group's open tab, which joins the first Ctrl-click's selection. */
   groupActiveId: string | null
   hasSplit: boolean
+  /** Whether its pane is the one being worked in; only that pane's active tab is marked in colour. */
+  groupFocused?: boolean
 }) {
   // A tab acts in its own workspace, which among the window's tabs is not always its pane's.
   const workspaceId = tabWorkspaceId(tab) ?? paneWorkspaceId
@@ -241,7 +244,14 @@ export function TabItem({
               )}
             </button>
           ))}
-        {active && <span className="pointer-events-none absolute inset-x-0 bottom-0 z-20 h-[2px] bg-highlight" />}
+        {active && (
+          <span
+            className={cn(
+              'pointer-events-none absolute inset-x-0 bottom-0 z-20 h-[2px]',
+              groupFocused || !hasSplit ? 'bg-highlight' : 'bg-muted-foreground/30'
+            )}
+          />
+        )}
       </div>
       {menu && (
         <TabContextMenu

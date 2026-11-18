@@ -5,6 +5,7 @@ import {
   layoutFor,
   moveTab,
   placeTab,
+  showChat,
   splitWithTab,
   type SplitSide
 } from '@/stores/tab-layout-store'
@@ -35,18 +36,32 @@ export function moveTabTo(workspaceId: string, tabId: string, groupId: string, i
  * of that pane's tabs. A file already open moves there. Tabs opened this way are kept, not previews.
  */
 export function openFilesAt(layoutWorkspaceId: string, fileWorkspaceId: string, paths: string[], target: TabDropTarget): void {
+  placeTabsAt(layoutWorkspaceId, target, (path) => {
+    openEditorTab({ workspaceId: fileWorkspaceId, kind: 'file', path, staged: false })
+    return getState().editorTabs.find((t) => t.workspaceId === fileWorkspaceId && t.kind === 'file' && t.path === path && !t.staged)?.id ?? null
+  }, paths)
+}
+
+/** A thread dragged from the left sidebar onto a pane: its tab opens there as a file's does. */
+export function openChatAt(layoutWorkspaceId: string, sessionId: string, target: TabDropTarget): void {
+  placeTabsAt(layoutWorkspaceId, target, (id) => {
+    showChat(id)
+    return id
+  }, [sessionId])
+}
+
+/** Puts the tabs `open` gives for `items` where a drop on a pane says, the first one splitting. */
+function placeTabsAt<T>(layoutWorkspaceId: string, target: TabDropTarget, open: (item: T) => string | null, items: T[]): void {
   if (target.kind === 'none') return
   let groupId = target.groupId
   let index = target.kind === 'insert' ? target.index : Number.MAX_SAFE_INTEGER
-  for (const [i, path] of paths.entries()) {
-    const spec = { workspaceId: fileWorkspaceId, kind: 'file' as const, path, staged: false }
-    openEditorTab(spec)
-    const tab = getState().editorTabs.find((t) => t.workspaceId === fileWorkspaceId && t.kind === 'file' && t.path === path && !t.staged)
-    if (!tab) continue
-    keepTab(tab.id)
-    placeTab(layoutWorkspaceId, tab.id, groupId, index)
+  for (const [i, item] of items.entries()) {
+    const tabId = open(item)
+    if (!tabId) continue
+    keepTab(tabId)
+    placeTab(layoutWorkspaceId, tabId, groupId, index)
     if (target.kind === 'split' && i === 0) {
-      splitWithTab(layoutWorkspaceId, tab.id, groupId, target.side)
+      splitWithTab(layoutWorkspaceId, tabId, groupId, target.side)
       // The rest follow the first into the new pane.
       groupId = layoutFor(layoutWorkspaceId).focusedGroupId
     }
