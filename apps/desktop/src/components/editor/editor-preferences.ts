@@ -10,6 +10,8 @@ export interface EditorPreferences {
   diffShowWhitespace: boolean
   diffCollapseUnchangedRegions: boolean
   markdownViewMode: MarkdownViewMode
+  /** The mode each other kind of preview (text-previews) was left in, by preview id. */
+  previewModes?: Record<string, MarkdownViewMode>
 }
 
 export type MarkdownViewMode = 'source' | 'split' | 'preview'
