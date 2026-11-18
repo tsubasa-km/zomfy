@@ -58,9 +58,8 @@ export function openLinkTarget(target: LinkTarget, options: { inApp: boolean; wo
 }
 
 /**
- * A full path outside the workspace, opened as the file manager would open it: a folder in the file
- * manager, a file in its app. Anything that could run is only shown selected in its folder, so a
- * click on a path an agent wrote never starts a program.
+ * A full path outside the workspace, shown selected in the file manager. It is never handed to the
+ * app the OS opens it with, so a click on a path an agent wrote never starts a program.
  */
 function openOutsideWorkspace(path: string, workspaceId: string | null): void {
   if (!isTauri() || !isAbsolutePath(path)) return
@@ -71,13 +70,10 @@ function openOutsideWorkspace(path: string, workspaceId: string | null): void {
     hostId = workspace?.hostId ?? LOCAL_HOST
     if (isSshHost(hostId) || (hostId === LOCAL_HOST && IS_WINDOWS)) return
   }
-  openWorkspaceIn(RUNNABLE_RE.test(path) ? 'reveal' : 'default', hostId, path)
+  openWorkspaceIn('reveal', hostId, path)
 }
 
 const IS_WINDOWS = navigator.userAgent.includes('Windows')
-// What Windows (or a desktop) would run rather than show when handed the file.
-const RUNNABLE_RE =
-  /\.(exe|com|bat|cmd|ps1|psm1|vbs|vbe|js|jse|wsf|wsh|hta|msi|msp|scr|pif|cpl|reg|lnk|url|jar|py|pyw|sh|bash|zsh|command|app|appimage|desktop|run|bin|deb|rpm|dmg|pkg)$/i
 
 export function openHref(href: string, options: { inApp: boolean; workspaceId?: string | null }): void {
   openLinkTarget(classifyLinkHref(href), { inApp: options.inApp, workspaceId: options.workspaceId ?? getState().activeWorkspaceId })

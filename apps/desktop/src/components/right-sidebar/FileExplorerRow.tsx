@@ -51,6 +51,7 @@ export function FileExplorerRow({
   selectionSize,
   actions,
   onClick,
+  onDoubleClick,
   onContextMenu,
   onDragPointerDown
 }: {
@@ -68,6 +69,7 @@ export function FileExplorerRow({
   selectionSize: number
   actions: FileExplorerRowActions
   onClick: (event: React.MouseEvent<HTMLButtonElement>) => void
+  onDoubleClick?: () => void
   onContextMenu: () => void
   onDragPointerDown: (event: React.PointerEvent<HTMLButtonElement>) => void
 }) {
@@ -93,6 +95,7 @@ export function FileExplorerRow({
           )}
           style={{ paddingLeft: `${depth * 16 + 8}px` }}
           onClick={onClick}
+          onDoubleClick={onDoubleClick}
           onPointerDown={onDragPointerDown}
         >
           {isDir ? (

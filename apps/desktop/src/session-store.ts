@@ -801,8 +801,8 @@ export function selectTerminal(terminalId: string): void {
 // ── Editor tabs and layout ───────────────────────────────────────────────
 
 /** Opens (or refocuses) a file preview or diff tab in its workspace. */
-export function openEditorTab(tab: Omit<EditorTab, 'id' | 'createdAt'>): void {
-  const existing = state.editorTabs.find(
+function findEditorTab(tab: Omit<EditorTab, 'id' | 'createdAt'>): EditorTab | undefined {
+  return state.editorTabs.find(
     (t) =>
       t.workspaceId === tab.workspaceId &&
       t.kind === tab.kind &&
@@ -811,6 +811,32 @@ export function openEditorTab(tab: Omit<EditorTab, 'id' | 'createdAt'>): void {
       t.compare?.base === tab.compare?.base &&
       t.compare?.head === tab.compare?.head
   )
+}
+
+/**
+ * Opens a file picked in the explorer as VS Code does: in a preview tab, which the next file picked
+ * there takes the place of. A file that already has a tab just comes to the front, and a preview tab
+ * the person keeps (a double click, an edit, a move) stays for good.
+ */
+export function previewEditorFile(workspaceId: string, path: string): void {
+  const spec = { workspaceId, kind: 'file' as const, path, staged: false }
+  if (findEditorTab(spec)) return openEditorTab(spec)
+  const oldId = previewTabOf(workspaceId)
+  const old = oldId ? state.editorTabs.find((t) => t.id === oldId && !t.dirty) : undefined
+  const slot = old ? groupOfTab(layoutFor(workspaceId), old.id) : null
+  openEditorTab(spec)
+  const opened = findEditorTab(spec)
+  if (!opened) return
+  if (old && slot) {
+    placeTab(workspaceId, opened.id, slot.id, slot.tabOrder.indexOf(old.id))
+    removeTabsFromLayout(workspaceId, [old.id])
+    closeEditorTab(old.id)
+  }
+  setPreviewTab(workspaceId, opened.id)
+}
+
+export function openEditorTab(tab: Omit<EditorTab, 'id' | 'createdAt'>): void {
+  const existing = findEditorTab(tab)
   const target = existing
     ? { ...existing, ...(tab.line !== undefined ? { line: tab.line } : {}) }
     : { ...tab, id: `${tab.kind}:${crypto.randomUUID()}`, createdAt: Date.now() }
@@ -819,6 +845,8 @@ export function openEditorTab(tab: Omit<EditorTab, 'id' | 'createdAt'>): void {
 }
 
 export function setEditorDirty(id: string, dirty: boolean): void {
+  // An edited file's preview tab stays, as in VS Code.
+  if (dirty) keepTab(id)
   if (state.editorTabs.find((t) => t.id === id)?.dirty === dirty) return
   set({ ...state, editorTabs: state.editorTabs.map((t) => (t.id === id ? { ...t, dirty } : t)) })
 }

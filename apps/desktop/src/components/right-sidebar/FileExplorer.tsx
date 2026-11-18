@@ -3,7 +3,8 @@ import { FileIcon, FolderIcon } from '@/components/FileIcon'
 import { Ellipsis, FilePlus, FolderPlus, ListCollapse, Loader2, RefreshCw, X } from 'lucide-react'
 import { HARNESS_METHODS, type FileEntry, type GitChange } from '@acp-harness/protocol'
 import { harnessRequest } from '@/daemon-connection'
-import { allWorkspaces, closeEditorTab, getState, moveEditorTabs, openEditorTab, setRightSidebar, useStore } from '@/session-store'
+import { allWorkspaces, closeEditorTab, getState, moveEditorTabs, openEditorTab, previewEditorFile, setRightSidebar, useStore } from '@/session-store'
+import { keepTab } from '@/stores/tab-layout-store'
 import { GIT_STATUS_COLOR, GIT_STATUS_LETTER, useGitStatus } from '@/hooks/use-git-status'
 import { Button } from '@/components/ui/button'
 import { ContextMenu, ContextMenuContent, ContextMenuItem, ContextMenuTrigger } from '@/components/ui/context-menu'
@@ -180,7 +181,14 @@ export function FileExplorer({ workspaceId, rootName }: { workspaceId: string; r
 
   function activate(entry: FileEntry) {
     if (entry.kind === 'dir') toggle(entry.path)
-    else openEditorTab({ workspaceId, kind: 'file', path: entry.path, staged: false })
+    else previewEditorFile(workspaceId, entry.path)
+  }
+
+  /** A double click keeps the file's tab, which a single click opened as a preview. */
+  function onRowDoubleClick(entry: FileEntry) {
+    if (entry.kind === 'dir') return
+    const tab = getState().editorTabs.find((t) => t.workspaceId === workspaceId && t.kind === 'file' && t.path === entry.path && !t.staged)
+    if (tab) keepTab(tab.id)
   }
 
   function onRowClick(entry: FileEntry, event: React.MouseEvent) {
@@ -509,6 +517,7 @@ export function FileExplorer({ workspaceId, rootName }: { workspaceId: string; r
                   selectionSize={selected.has(entry.path) ? selected.size : 1}
                   actions={actionsFor(entry)}
                   onClick={(event) => onRowClick(entry, event)}
+                  onDoubleClick={() => onRowDoubleClick(entry)}
                   onContextMenu={() => !selected.has(entry.path) && select(entry.path)}
                   onDragPointerDown={(event) => beginRowDrag(event, entry)}
                 />
