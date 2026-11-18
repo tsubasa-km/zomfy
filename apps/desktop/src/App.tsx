@@ -9,6 +9,7 @@ import { ChatLightbox } from '@/components/native-chat/ChatLightbox'
 import { PointerDragLayer } from '@/components/PointerDragLayer'
 import { Toaster } from '@/components/ui/sonner'
 import { WorkflowStartConfirmDialog } from '@/components/workflows/WorkflowStartConfirm'
+import { ImportThreadsDialog } from '@/components/ImportThreadsDialog'
 import { AgentDashboard } from '@/components/AgentDashboard'
 import { SettingsPage } from '@/components/settings/SettingsPage'
 import { AutomationsPage } from '@/components/automations/AutomationsPage'
@@ -144,6 +145,7 @@ export default function App() {
       <Toaster />
       <ChatLightbox />
       <WorkflowStartConfirmDialog />
+      <ImportThreadsDialog />
       <CloseGuardDialog />
       <UpdateConfirmDialog />
       <InboxPanel />

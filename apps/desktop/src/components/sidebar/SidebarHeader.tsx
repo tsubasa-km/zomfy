@@ -9,6 +9,7 @@ import {
   Server,
   SquarePlus,
   Folders,
+  MessagesSquare,
   TerminalSquare
 } from 'lucide-react'
 import { connectHost } from '@/daemon-connection'
@@ -17,6 +18,7 @@ import { setBoardOpen, useSidebarStore } from '@/stores/sidebar-store'
 import { SidebarFilterMenu } from '@/components/sidebar/SidebarFilterMenu'
 import { WorkspaceOptionsMenu } from '@/components/sidebar/WorkspaceOptionsMenu'
 import { openAddProjectDialog, setOrcaImportOpen } from '@/lib/project-dialogs'
+import { openImportThreads } from '@/stores/thread-import-store'
 import { SshConnectDialog } from '@/components/sidebar/SshConnectDialog'
 import { Button } from '@/components/ui/button'
 import {
@@ -110,6 +112,10 @@ function AddMenu({ onNewGroup }: { onNewGroup: (hostId: HostId) => void }) {
         <DropdownMenuItem data-add="orca-import" onSelect={() => setOrcaImportOpen(true)}>
           <Download className="size-4" />
           {t('Import from Orca…')}
+        </DropdownMenuItem>
+        <DropdownMenuItem data-add="import-threads" onSelect={() => openImportThreads()}>
+          <MessagesSquare className="size-4" />
+          {t('Import threads…')}
         </DropdownMenuItem>
         <DropdownMenuSeparator />
         <DropdownMenuItem data-add="group" onSelect={() => onNewGroup(LOCAL_HOST)}>
