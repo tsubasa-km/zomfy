@@ -22,6 +22,7 @@ import {
   type ProjectLink,
   TURN_RECOVERY_NOTIFICATIONS,
   type ChatAgentId,
+  type ChatPermissionMode,
   type CreateTerminalParams,
   type HarnessMethod,
   type HarnessRequests,
@@ -409,19 +410,20 @@ export async function addProject(pickedPath: string): Promise<Project> {
 /**
  * Opens a new chat tab (Claude unless `agent` says otherwise) and makes it the workspace's active tab.
  * `hostId` is for a workspace this window may not have heard about yet; `focus: false` leaves the
- * visible tab alone (a manager starting agents in the background).
+ * visible tab alone (a manager starting agents in the background). `permissionMode` is the mode a
+ * Claude chat starts in when the person picked one for it; otherwise their default.
  */
 export async function createSession(
   workspaceId: string,
   agent?: ChatAgentId,
-  extra: { hostId?: HostId; role?: SessionRole; focus?: boolean } = {},
+  extra: { hostId?: HostId; role?: SessionRole; focus?: boolean; permissionMode?: ChatPermissionMode } = {},
 ): Promise<string> {
   const hostId = extra.hostId ?? hostOf({ workspaceId });
   const params = {
     workspaceId,
     ...(agent && agent !== "claude" ? { agent } : {}),
     ...(extra.role ? { role: extra.role } : {}),
-    ...(!agent || agent === "claude" ? { permissionMode: getSetting("defaultPermissionMode") } : {}),
+    ...(!agent || agent === "claude" ? { permissionMode: extra.permissionMode ?? getSetting("defaultPermissionMode") } : {}),
   };
   const info = await harnessRequest(HARNESS_METHODS.sessionCreate, params, hostId);
   addSession({ ...info, hostId, workspaceId, items: [], loaded: true }, extra.focus ?? true);
