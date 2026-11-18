@@ -16,6 +16,7 @@ import { getEditorFileKind, imageMimeType } from '@/components/editor/editor-fil
 import { updateEditorPreferences, useEditorPreferences, type MarkdownViewMode } from '@/components/editor/editor-preferences'
 import { hasGitConflictMarkers } from '@/components/editor/monaco-conflict-decorations'
 import { useFileDiskWatch } from '@/components/editor/use-file-disk-watch'
+import { describeDocumentError, readDocument, writeDocument, type TextFormat } from '@/components/editor/file-document'
 import { DiffReviewNotes } from '@/components/editor/DiffReviewNotes'
 import { SendToAgentMenu } from '@/components/SendToAgentMenu'
 import { formatReviewNotes, getReviewNotes, markReviewNotesSent, useReviewNotes } from '@/stores/review-notes-store'
@@ -24,7 +25,16 @@ import { t } from '@/i18n/i18n'
 type DiffEditorInstance = Parameters<DiffOnMount>[0]
 
 type DiffContent =
-  | { kind: 'text'; original: string; modified: string; modifiedExists: boolean; modifiedMtimeMs?: number; editable: boolean }
+  | {
+      kind: 'text'
+      original: string
+      modified: string
+      modifiedExists: boolean
+      modifiedMtimeMs?: number
+      /** The working copy's encoding; absent for sides that come from git. */
+      modifiedFormat?: TextFormat
+      editable: boolean
+    }
   | { kind: 'image'; original: string | null; modified: string | null }
   | { kind: 'binary' }
   | { kind: 'conflict' }
@@ -62,8 +72,10 @@ async function loadDiffContent(tab: EditorTab): Promise<DiffContent> {
     if (index.binary) return { kind: 'binary' }
     return { kind: 'text', original: original.content, modified: index.content, modifiedExists: index.exists, editable: false }
   }
-  const disk = await harnessRequest(HARNESS_METHODS.fsRead, { workspaceId, path }).catch(() => null)
-  if (disk?.binary) return { kind: 'binary' }
+  // The working copy in its own encoding, which a save from here keeps.
+  const disk = await readDocument(workspaceId, path).catch(() => null)
+  // A file too large to edit is too large to diff in the window.
+  if (disk && disk.kind !== 'text') return { kind: 'binary' }
   if (disk && hasGitConflictMarkers(disk.content)) return { kind: 'conflict' }
   return {
     kind: 'text',
@@ -71,6 +83,7 @@ async function loadDiffContent(tab: EditorTab): Promise<DiffContent> {
     modified: disk?.content ?? '',
     modifiedExists: disk !== null,
     modifiedMtimeMs: disk?.mtimeMs,
+    modifiedFormat: disk?.format,
     editable: disk !== null && !disk.truncated
   }
 }
@@ -149,18 +162,14 @@ export function DiffTabView({ tab }: { tab: EditorTab }) {
     async (text: string) => {
       if (content?.kind !== 'text' || !content.editable) return
       try {
-        const result = await harnessRequest(HARNESS_METHODS.fsWrite, {
-          workspaceId: tab.workspaceId,
-          path: tab.path,
-          content: text,
-          ...(mtime.current !== undefined ? { expectedMtimeMs: mtime.current } : {})
-        })
+        const format = content.modifiedFormat ?? { encoding: 'utf8', bom: false }
+        const result = await writeDocument(tab.workspaceId, tab.path, text, format, mtime.current)
         mtime.current = result.mtimeMs
         savedText.current = text
         setExternalChange(false)
         setEditorDirty(tab.id, false)
       } catch (e) {
-        const message = e instanceof Error ? e.message : String(e)
+        const message = describeDocumentError(e)
         if (message.includes('changed on disk')) setExternalChange(true)
         else setError(message)
       }

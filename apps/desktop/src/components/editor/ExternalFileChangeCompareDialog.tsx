@@ -1,6 +1,5 @@
 import { useEffect, useState } from 'react'
-import { HARNESS_METHODS } from '@acp-harness/protocol'
-import { harnessRequest } from '@/daemon-connection'
+import { describeDocumentError, readDocument } from './file-document'
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { MonacoDiffView } from './MonacoDiffView'
@@ -28,9 +27,9 @@ export function ExternalFileChangeCompareDialog({
   const prefs = useEditorPreferences()
 
   useEffect(() => {
-    void harnessRequest(HARNESS_METHODS.fsRead, { workspaceId, path })
+    void readDocument(workspaceId, path)
       .then((file) => setDisk(file.content))
-      .catch((e: unknown) => setError(e instanceof Error ? e.message : String(e)))
+      .catch((e: unknown) => setError(describeDocumentError(e)))
   }, [workspaceId, path])
 
   return (
