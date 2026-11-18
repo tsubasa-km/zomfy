@@ -819,7 +819,12 @@ function findEditorTab(tab: Omit<EditorTab, 'id' | 'createdAt'>): EditorTab | un
  * the person keeps (a double click, an edit, a move) stays for good.
  */
 export function previewEditorFile(workspaceId: string, path: string): void {
-  const spec = { workspaceId, kind: 'file' as const, path, staged: false }
+  previewEditorTab({ workspaceId, kind: 'file', path, staged: false })
+}
+
+/** The same for any editor tab: a search hit, a change's diff. */
+export function previewEditorTab(spec: Omit<EditorTab, 'id' | 'createdAt'>): void {
+  const { workspaceId } = spec
   if (findEditorTab(spec)) return openEditorTab(spec)
   const oldId = previewTabOf(workspaceId)
   const old = oldId ? state.editorTabs.find((t) => t.id === oldId && !t.dirty) : undefined
@@ -833,6 +838,12 @@ export function previewEditorFile(workspaceId: string, path: string): void {
     closeEditorTab(old.id)
   }
   setPreviewTab(workspaceId, opened.id)
+}
+
+/** A double click on what opened a preview tab keeps that tab. */
+export function keepEditorTab(spec: Omit<EditorTab, 'id' | 'createdAt'>): void {
+  const tab = findEditorTab(spec)
+  if (tab) keepTab(tab.id)
 }
 
 export function openEditorTab(tab: Omit<EditorTab, 'id' | 'createdAt'>): void {

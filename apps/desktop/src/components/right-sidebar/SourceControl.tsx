@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { ChevronDown, FolderGit2, Minus, Plus, Trash, Undo2 } from 'lucide-react'
 import { HARNESS_METHODS, type GitChange, type GitCommitChanges, type GitDiscardArea, type GitHistoryItem, type GitRepository } from '@acp-harness/protocol'
 import { harnessRequest } from '@/daemon-connection'
-import { allWorkspaces, openEditorTab, useStore } from '@/session-store'
+import { allWorkspaces, previewEditorTab, useStore } from '@/session-store'
 import { useGitRepositories, useGitStatus } from '@/hooks/use-git-status'
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
 import { cn } from '@/lib/utils'
@@ -235,7 +235,7 @@ function RepositoryChanges({ workspaceId, repo }: { workspaceId: string; repo: s
 
   const openDiff = useCallback(
     (section: SectionId, entry: GitChange) =>
-      openEditorTab({ workspaceId, kind: 'diff', path: inWorkspace(entry.path), staged: section === 'staged' }),
+      previewEditorTab({ workspaceId, kind: 'diff', path: inWorkspace(entry.path), staged: section === 'staged' }),
     [workspaceId, inWorkspace]
   )
 
@@ -324,14 +324,14 @@ function RepositoryChanges({ workspaceId, repo }: { workspaceId: string; repo: s
       compare: { base: compareSummary.mergeBase, head: compareSummary.headOid, label: t('vs {ref}', { ref: compareSummary.baseRef }) }
     }
     if (event && isSourceControlSplitOpenModifier(event, isMac)) void openEditorTabInSplit(tab)
-    else openEditorTab(tab)
+    else previewEditorTab(tab)
   }
   const loadCommitFiles = useCallback(
     (item: GitHistoryItem) => harnessRequest(HARNESS_METHODS.gitCommitChanges, { workspaceId, repo, commit: item.id }),
     [workspaceId, repo]
   )
   const openCommitFile = (item: GitHistoryItem, changes: GitCommitChanges, entry: GitChange) =>
-    openEditorTab({
+    previewEditorTab({
       workspaceId,
       kind: 'diff',
       path: inWorkspace(entry.path),

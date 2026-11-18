@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { CaseSensitive, ChevronRight, ChevronsDownUp, ChevronsUpDown, Loader2, Regex, ReplaceAll, Search as SearchIcon, WholeWord, X } from 'lucide-react'
 import { HARNESS_METHODS, type SearchMatch, type SearchParams, type SearchResult } from '@acp-harness/protocol'
 import { harnessRequest } from '@/daemon-connection'
-import { openEditorTab } from '@/session-store'
+import { keepEditorTab, previewEditorTab } from '@/session-store'
 import { ImeInput } from '@/lib/ime-text-field'
 import { Button } from '@/components/ui/button'
 import {
@@ -307,7 +307,8 @@ export function SearchPanel({ workspaceId }: { workspaceId: string }) {
                         match={match}
                         parts={parts}
                         replacement={form.showReplace ? replacementFor(parts.hit, form, form.replacement) : null}
-                        onOpen={() => openEditorTab({ workspaceId, kind: 'file', path, staged: false, line: match.line })}
+                        onOpen={() => previewEditorTab({ workspaceId, kind: 'file', path, staged: false, line: match.line })}
+                        onKeep={() => keepEditorTab({ workspaceId, kind: 'file', path, staged: false })}
                         onReplace={form.showReplace ? () => void replace({ paths: [path], line: match.line, count: hitCount(match, pattern) }) : undefined}
                       />
                     )
