@@ -75,12 +75,24 @@ export interface ChatCatalog {
   commands: ChatCommand[]
 }
 
-/** A Claude conversation on disk for this folder, open in a tab or not. */
+/**
+ * A conversation an agent's own CLI recorded on this host (Claude Code, Codex, an ACP agent that
+ * lists its sessions), shown by a thread or not.
+ */
 export interface PastConversation {
+  /** The agent that recorded it. Absent from older daemons, which list Claude's only. */
+  agent?: ChatAgentId
+  /** The agent's own id for the conversation. Absent from older daemons (see `claudeSessionId`). */
+  conversationId?: string
+  /** The same id, under the name windows read before other agents' conversations were listed. */
   claudeSessionId: string
   title: string
   lastModified: number
   gitBranch: string | null
+  /** The folder it ran in, when the agent recorded one. Absent from older daemons. */
+  cwd?: string | null
+  /** The workspace whose folder that is, if any: where importing it puts the thread. */
+  workspaceId?: string | null
   /** The harness session already showing it, if any. */
   openSessionId: string | null
 }
@@ -192,8 +204,27 @@ export interface SessionRequests {
   [SESSION_METHODS.sessionFork]: { params: { sessionId: string; fromMessageId?: string }; result: SessionInfo }
   /** Drops the conversation from this user message on; returns the message's text for the composer. */
   [SESSION_METHODS.sessionRewind]: { params: { sessionId: string; messageId: string }; result: { text: string } }
-  [SESSION_METHODS.sessionHistory]: { params: { workspaceId: string }; result: PastConversation[] }
-  [SESSION_METHODS.sessionResume]: { params: { workspaceId: string; claudeSessionId: string }; result: SessionInfo }
+  /**
+   * The conversations agents recorded on this host, newest first. `workspaceId` keeps those of that
+   * workspace's folder; without it every folder's are listed (older daemons need it). `agents`
+   * names whose to list; without it Claude's only, which is all an older daemon lists.
+   */
+  [SESSION_METHODS.sessionHistory]: {
+    params: { workspaceId?: string; agents?: ChatAgentId[] }
+    result: PastConversation[]
+  }
+  /**
+   * Imports a listed conversation as a thread with its transcript, or returns the thread that
+   * already shows it. `agent` defaults to Claude, and `claudeSessionId` is `conversationId` under
+   * its older name. The thread goes to `workspaceId`, else to the workspace of the conversation's
+   * own folder, which is added as a project when no workspace has it. In the conversation's own
+   * folder the next message continues the agent's conversation itself; in any other, the agent
+   * starts a new one and is handed a selection of the imported thread. The agent's files are only read.
+   */
+  [SESSION_METHODS.sessionResume]: {
+    params: { workspaceId?: string; agent?: ChatAgentId; conversationId?: string; claudeSessionId?: string }
+    result: SessionInfo
+  }
   /** Workspace-relative paths for the composer's @ menu, gitignore respected. */
   [SESSION_METHODS.sessionMentionFiles]: { params: { workspaceId: string }; result: string[] }
   /** Sets one of an external agent's own session options (see ChatAgentOption). */

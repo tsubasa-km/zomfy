@@ -32,6 +32,8 @@ export interface SessionRecord extends SessionInfo {
    * turn's prompt starts with it, ahead of `seedContext`. Kept apart from it: activity notes rewrite that.
    */
   handoffContext?: string | null
+  /** The conversation of an agent's own CLI this thread was imported from, so it is not offered again. */
+  importedFrom?: { agent: ChatAgentId; conversationId: string }
 }
 
 /** Records saved before a chat could change agents kept one `agentSessionId`, its only agent's. */
@@ -105,7 +107,25 @@ export class SessionRegistry {
 
   create(
     fields: Pick<SessionInfo, 'workspaceId' | 'cwd'> &
-      Partial<Pick<SessionRecord, 'title' | 'claudeSessionId' | 'options' | 'agent' | 'role' | 'sideOf' | 'parentId' | 'seedContext' | 'handoffContext' | 'localOnly'>>
+      Partial<
+        Pick<
+          SessionRecord,
+          | 'title'
+          | 'claudeSessionId'
+          | 'options'
+          | 'agent'
+          | 'role'
+          | 'sideOf'
+          | 'parentId'
+          | 'seedContext'
+          | 'handoffContext'
+          | 'localOnly'
+          | 'agentSessionIds'
+          | 'agentState'
+          | 'importedFrom'
+          | 'lastActivityAt'
+        >
+      >
   ): SessionRecord {
     const record: SessionRecord = {
       id: crypto.randomUUID(),
@@ -261,6 +281,13 @@ function notePath(id: string): string {
 }
 
 export function publicInfo(record: SessionRecord): SessionInfo {
-  const { claudeSessionId: _hidden, agentSessionIds: _agentHidden, seedContext: _seedHidden, handoffContext: _handoffHidden, ...info } = record
+  const {
+    claudeSessionId: _hidden,
+    agentSessionIds: _agentHidden,
+    seedContext: _seedHidden,
+    handoffContext: _handoffHidden,
+    importedFrom: _importHidden,
+    ...info
+  } = record
   return info
 }
