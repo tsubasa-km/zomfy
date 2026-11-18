@@ -83,7 +83,8 @@ await rollout(CODEX.modern, day(4), [
   response({ type: 'custom_tool_call', name: 'exec', call_id: 'x1', input: 'tools.exec()' }),
   modelAgent('Fixed it in auth.ts.'),
   item({ type: 'AgentMessage', id: 'a1', phase: 'final_answer', content: [{ type: 'Text', text: 'Fixed it in auth.ts.' }] }),
-  item({ type: 'UserMessage', id: 'u2', content: [{ type: 'text', text: 'Add a test for it' }] }),
+  // A prompt this app sent after handing the chat to Codex: the handoff block is not the person's words.
+  item({ type: 'UserMessage', id: 'u2', content: [{ type: 'text', text: '<agent-handoff>\nYou are taking over.\n</agent-handoff>' }, { type: 'text', text: 'Add a test for it' }] }),
   item({ type: 'McpToolCall', id: 'mcp1', server: 'docs', tool: 'search', arguments: { query: 'login' }, status: 'failed', error: { message: 'offline' } }),
   item({ type: 'AgentMessage', id: 'a2', phase: 'commentary', content: [{ type: 'Text', text: 'Writing the test.' }] }),
   item({ type: 'AgentMessage', id: 'a3', phase: 'final_answer', content: [{ type: 'Text', text: 'Added auth.test.ts.' }] }),
@@ -145,6 +146,7 @@ writeFileSync(
         { sessionUpdate: 'tool_call', toolCallId: 't1', title: 'bun run build', kind: 'execute', status: 'pending' },
         { sessionUpdate: 'tool_call_update', toolCallId: 't1', status: 'completed', rawOutput: { output: 'built in 2s' } },
         said('agent_message_chunk', 'It builds in 2s now.'),
+        said('user_message_chunk', '<agent-handoff>\nYou are this chat’s agent again.\n</agent-handoff>'),
         said('user_message_chunk', 'Thanks')
       ]
     },

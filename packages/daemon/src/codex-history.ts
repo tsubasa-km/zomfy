@@ -2,6 +2,7 @@ import { open, readdir, readFile, stat } from 'node:fs/promises'
 import { homedir } from 'node:os'
 import { join } from 'node:path'
 import type * as acp from '@agentclientprotocol/sdk'
+import { HANDOFF_CLOSE, HANDOFF_OPEN } from './agent-handoff.ts'
 import { chatAgentLaunch } from './chat-agent-launch-settings.ts'
 import type { AgentConversation } from './agent-conversations.ts'
 
@@ -232,7 +233,9 @@ export function codexUpdates(records: Json[]): acp.SessionUpdate[] {
   let saidByUser = new Set<string>()
   let saidByAgent = new Set<string>()
   const user = (value: string): void => {
-    const said = value.trim()
+    // A chat this app handed to Codex opened with the conversation so far, which the person never typed.
+    const handedOver = value.trimStart().startsWith(HANDOFF_OPEN) ? value.indexOf(HANDOFF_CLOSE) : -1
+    const said = (handedOver === -1 ? value : value.slice(handedOver + HANDOFF_CLOSE.length)).trim()
     if (!said || saidByUser.has(said)) return
     saidByUser.add(said)
     saidByAgent = new Set()

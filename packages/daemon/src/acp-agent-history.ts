@@ -2,6 +2,7 @@ import { homedir } from 'node:os'
 import * as acp from '@agentclientprotocol/sdk'
 import { chatAgentLabel, type ChatAgentId } from '@acp-harness/protocol'
 import { stdinWriter, withOutputText } from './acp-agent-session.ts'
+import { HANDOFF_OPEN } from './agent-handoff.ts'
 import { resolveChatAgent } from './chat-agent-launch-specs.ts'
 import { killTree, trackChild } from './process-tree.ts'
 import { hostPath } from './tui-agent-detection.ts'
@@ -109,6 +110,8 @@ export function transcriptOf(replayed: acp.SessionUpdate[]): acp.SessionUpdate[]
   for (const update of replayed) {
     if (!TRANSCRIPT_UPDATES.has(update.sessionUpdate)) continue
     if (update.sessionUpdate === 'user_message_chunk') {
+      // A chat this app handed to the agent opened with the conversation so far, which the person never typed.
+      if (update.content.type === 'text' && update.content.text.trimStart().startsWith(HANDOFF_OPEN)) continue
       // Chunks of one prompt arrive together; an agent that does not id its messages gets ours.
       if (!inPrompt) prompts++
       updates.push(update.messageId ? update : { ...update, messageId: `imported-${prompts}` })
