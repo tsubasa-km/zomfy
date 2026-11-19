@@ -1,13 +1,13 @@
 import { useEffect, useState } from 'react'
-import { ClipboardCopy, FolderOpen, Trash2 } from 'lucide-react'
-import { HARNESS_METHODS, type DiscoveredSkill } from '@acp-harness/protocol'
+import { Check, ClipboardCopy, FolderOpen, Plus, Trash2 } from 'lucide-react'
+import { HARNESS_METHODS, type DiscoveredSkill, type SkillDiscoveryResult } from '@acp-harness/protocol'
 import { harnessRequest } from '@/daemon-connection'
 import type { HostId } from '@/session-store'
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group'
 import { NativeChatMarkdown } from '@/components/native-chat/NativeChatMarkdown'
-import { skillAgentLabel, skillAgents, sourceKindLabel } from './skills-filter'
+import { skillAgentLabel, skillAgents, skillCopyTargets, sourceKindLabel } from './skills-filter'
 import { t } from '@/i18n/i18n'
 
 // Orca's SkillDetailDialog.tsx, plus the SKILL.md itself (read on the skill's host) so a skill can
@@ -34,18 +34,24 @@ export function SkillDetailDialog({
   skill,
   hostId,
   agentByRootPath,
+  result,
   deleteBlockedReason,
   onOpenChange,
   onReveal,
-  onDelete
+  onDelete,
+  onCopied
 }: {
   skill: DiscoveredSkill | null
   hostId: HostId
   agentByRootPath: ReadonlyMap<string, string>
+  /** The scan the skill came from: where else it can go. */
+  result: SkillDiscoveryResult | null
   deleteBlockedReason: string | null
   onOpenChange: (open: boolean) => void
   onReveal: () => void
   onDelete: () => void
+  /** A copy landed: the list scans again. */
+  onCopied: () => void
 }) {
   const [markdown, setMarkdown] = useState<Markdown>({ status: 'loading' })
   const [view, setView] = useState<'preview' | 'source'>('preview')
@@ -100,6 +106,9 @@ export function SkillDetailDialog({
               </span>
             </DetailRow>
           </dl>
+          {skill.sourceKind === 'home' || skill.sourceKind === 'repo' ? (
+            <SkillCopySection skill={skill} hostId={hostId} result={result} onCopied={onCopied} />
+          ) : null}
           <section className="space-y-2 border-t border-border pt-4">
             <div className="flex items-center justify-between gap-2">
               <h3 className="text-xs font-medium text-muted-foreground">SKILL.md</h3>
@@ -161,5 +170,62 @@ export function SkillDetailDialog({
         </DialogFooter>
       </DialogContent>
     </Dialog>
+  )
+}
+
+/** Orca's install picker, for a skill already on the host: one click puts it in another agent's folder. */
+function SkillCopySection({
+  skill,
+  hostId,
+  result,
+  onCopied
+}: {
+  skill: DiscoveredSkill
+  hostId: HostId
+  result: SkillDiscoveryResult | null
+  onCopied: () => void
+}) {
+  const [busy, setBusy] = useState<string | null>(null)
+  const [error, setError] = useState<string | null>(null)
+  const targets = skillCopyTargets(skill, result)
+  if (targets.length === 0) return null
+  const copy = (sourceId: string) => {
+    setBusy(sourceId)
+    setError(null)
+    harnessRequest(HARNESS_METHODS.skillCopy, { skillFilePath: skill.skillFilePath, sourceIds: [sourceId] }, hostId)
+      .then(({ outcomes }) => {
+        const failed = outcomes.find((o) => o.status === 'failed')
+        if (failed) setError(failed.error ?? t('Could not add the skill'))
+        else onCopied()
+      }, (e: unknown) => setError(e instanceof Error ? e.message : String(e)))
+      .finally(() => setBusy(null))
+  }
+  return (
+    <section className="space-y-2 border-t border-border pt-4" data-skill-copy>
+      <div>
+        <h3 className="text-xs font-medium text-muted-foreground">{t('Use with other agents')}</h3>
+        <p className="mt-0.5 text-[11px] text-muted-foreground">{t("Copies this skill into the agent's skill folder, where that agent finds it.")}</p>
+      </div>
+      <ul className="divide-y divide-border/50 rounded-md border border-border/60">
+        {targets.map((target) => (
+          <li key={target.sourceId} className="flex items-center gap-2 px-3 py-1.5 text-xs" data-skill-copy-target={target.sourceId}>
+            <span className="font-medium">{target.agent}</span>
+            <span className="min-w-0 flex-1 truncate text-muted-foreground">{target.scope}</span>
+            {target.has ? (
+              <span className="inline-flex items-center gap-1 text-muted-foreground">
+                <Check className="size-3.5" />
+                {t('Added')}
+              </span>
+            ) : (
+              <Button type="button" variant="outline" size="xs" disabled={busy !== null} onClick={() => copy(target.sourceId)}>
+                <Plus className="size-3" />
+                {busy === target.sourceId ? t('Adding…') : t('Add')}
+              </Button>
+            )}
+          </li>
+        ))}
+      </ul>
+      {error ? <p className="text-xs text-destructive">{error}</p> : null}
+    </section>
   )
 }

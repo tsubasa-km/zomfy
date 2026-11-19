@@ -111,3 +111,39 @@ export function skillDeleteBlockReason(skill: DiscoveredSkill): string | null {
   if (skill.sourceKind === 'plugin') return t('Installed by a plugin — remove the plugin instead')
   return null
 }
+
+/** A skill folder a skill can be copied into, as the detail dialog lists it. */
+export interface SkillCopyTarget {
+  sourceId: string
+  agent: string
+  /** Every project (a home folder), or the project it belongs to. */
+  scope: string
+  /** It is there already: this skill, or another of the same folder name. */
+  has: boolean
+}
+
+// The agents most people use get a row even before their folder exists; others once it does.
+const ALWAYS_OFFERED = new Set(['home-claude', 'home-codex', 'home-agents'])
+
+function folderName(path: string): string {
+  return path.replace(/[\\/]+$/, '').split(/[\\/]/).at(-1) ?? path
+}
+
+/**
+ * Where a skill can go with one click, as Orca's install picker offers: agents' home folders (every
+ * project) and the skill folders projects already have. Plugin and bundled folders are not ours to add to.
+ */
+export function skillCopyTargets(skill: DiscoveredSkill, result: SkillDiscoveryResult | null): SkillCopyTarget[] {
+  if (!result) return []
+  const name = folderName(skill.directoryPath)
+  const taken = new Set(result.skills.flatMap((s) => skillRoots(s).map((root) => `${root}\n${folderName(s.directoryPath)}`)))
+  return result.sources
+    .filter((source) => (source.sourceKind === 'home' && (source.exists || ALWAYS_OFFERED.has(source.id))) || (source.sourceKind === 'repo' && source.exists))
+    .map((source) => ({
+      sourceId: source.id,
+      agent: skillAgentLabel(source.owner ?? SHARED_SKILL_AGENT),
+      scope: source.sourceKind === 'home' ? t('All projects') : source.label.replace(/^Repo /, '').replace(/ \S+$/, ''),
+      has: skillRoots(skill).includes(source.path) || taken.has(`${source.path}\n${name}`)
+    }))
+    .sort((a, b) => Number(a.scope !== t('All projects')) - Number(b.scope !== t('All projects')) || a.scope.localeCompare(b.scope) || a.agent.localeCompare(b.agent))
+}

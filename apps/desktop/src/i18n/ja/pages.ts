@@ -1057,6 +1057,11 @@ export const PAGES: Record<string, string> = {
   'Delete {name}?': '{name} を削除しますか？',
   'Moves the skill folder on {host} to the trash, so every agent that reads it stops seeing the skill.': '{host} 上のスキルフォルダーをゴミ箱に移動します。読み込んでいるすべてのエージェントから見えなくなります。',
   'Delete skill': 'スキルを削除',
+  'Use with other agents': 'ほかのエージェントでも使う',
+  "Copies this skill into the agent's skill folder, where that agent finds it.": 'このスキルを各エージェントのスキルフォルダにコピーします。コピー先のエージェントが読み込むようになります。',
+  'All projects': 'すべてのプロジェクト',
+  Added: '追加済み',
+  'Could not add the skill': 'スキルを追加できませんでした',
 
   // components/onboarding/onboarding-steps.tsx
   'No chat agents found on this computer. Pick one to install later; Claude Code is the default.': 'このコンピューターにスレッドエージェントが見つかりません。後でインストールするものを選んでください。既定は Claude Code です。',

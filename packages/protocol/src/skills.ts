@@ -40,8 +40,17 @@ export interface SkillDiscoveryResult {
 export const SKILL_METHODS = {
   skillsDiscover: '_harness/skills/discover',
   skillRead: '_harness/skills/read',
-  skillTrash: '_harness/skills/trash'
+  skillTrash: '_harness/skills/trash',
+  skillCopy: '_harness/skills/copy'
 } as const
+
+/** What copying a skill into one skill folder came to. */
+export interface SkillCopyOutcome {
+  /** A source id from the scan: the skill folder it went to. */
+  sourceId: string
+  status: 'copied' | 'exists' | 'failed'
+  error?: string
+}
 
 export interface SkillRequests {
   [SKILL_METHODS.skillsDiscover]: { params: Record<string, never>; result: SkillDiscoveryResult }
@@ -49,4 +58,9 @@ export interface SkillRequests {
   [SKILL_METHODS.skillRead]: { params: { skillFilePath: string }; result: { content: string; truncated: boolean } }
   /** Moves a home or workspace skill's folder to the host's trash. */
   [SKILL_METHODS.skillTrash]: { params: { skillFilePath: string }; result: Record<string, never> }
+  /**
+   * Copies a skill's folder into other agents' skill folders (source ids from the scan), so those
+   * agents load it too. A folder that already has one by that name keeps its own.
+   */
+  [SKILL_METHODS.skillCopy]: { params: { skillFilePath: string; sourceIds: string[] }; result: { outcomes: SkillCopyOutcome[] } }
 }

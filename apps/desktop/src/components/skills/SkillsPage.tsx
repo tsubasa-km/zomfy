@@ -292,10 +292,12 @@ export function SkillsPage() {
         skill={detail}
         hostId={hostId}
         agentByRootPath={agentByRootPath}
+        result={result}
         deleteBlockedReason={detail ? skillDeleteBlockReason(detail) : null}
         onOpenChange={(open) => !open && setDetail(null)}
         onReveal={() => detail && revealSkill(hostId, detail)}
         onDelete={() => detail && setDeleting(detail)}
+        onCopied={() => void load()}
       />
       <DeleteSkillDialog
         skill={deleting}
