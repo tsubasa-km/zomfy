@@ -51,6 +51,7 @@ import { selectionMarkdown } from '@/components/native-chat/selection-markdown'
 import { NativeChatTranscriptRow, type TranscriptRowActions } from '@/components/native-chat/NativeChatTranscriptRow'
 import { buildTranscript } from '@/components/native-chat/native-chat-transcript-model'
 import { useNativeChatFind } from '@/components/native-chat/use-native-chat-find'
+import { ContinueInTerminalContextMenuItem } from '@/components/native-chat/NativeChatTerminalMenuItem'
 import '@/components/native-chat/native-chat-appearance.css'
 import { t } from '@/i18n/i18n'
 
@@ -61,6 +62,17 @@ const TRANSCRIPT_COLUMN_CLASS = 'mx-auto flex w-full max-w-(--chat-content-max-w
 /** Within this of the bottom the transcript follows new output (Orca's autoscroll). */
 const STICK_DISTANCE_PX = 80
 const isMac = navigator.userAgent.includes('Mac')
+
+type PendingPermission = Extract<ThreadItem, { kind: 'permission' }>
+
+function isPendingPermission(item: ThreadItem): item is PendingPermission {
+  return item.kind === 'permission' && item.chosen === null
+}
+
+/** The first helper chat working for `parentId` with an unanswered ask, if any. */
+function helperAsking(sessions: Session[], parentId: string): Session | undefined {
+  return sessions.find((child) => child.parentId === parentId && child.origin === 'workflow' && child.items.some(isPendingPermission))
+}
 
 /** `onSendToMain`: a side chat's hand-off of a message or selection to the main chat's composer. */
 export function ThreadView({ session, onSendToMain }: { session: Session; onSendToMain?: (text: string) => void }) {
@@ -134,9 +146,12 @@ export function ThreadView({ session, onSendToMain }: { session: Session; onSend
     if (scroller && stick.current) scroller.scrollTop = scroller.scrollHeight
   }, [session.items, session.turnStartedAt])
 
-  const pendingPermission = session.items.findLast(
-    (item): item is Extract<ThreadItem, { kind: 'permission' }> => item.kind === 'permission' && item.chosen === null
-  )
+  const ownPermission = session.items.findLast(isPendingPermission)
+  // A helper working for this thread (split_work's parts, a workflow's steps) asks here, so the
+  // person answers in the thread they talk to instead of opening the helper's chat.
+  const helper = useStore((s) => (ownPermission ? undefined : helperAsking(s.sessions, session.id)))
+  const helperPermission = helper?.items.find(isPendingPermission)
+  const pendingPermission = ownPermission ?? helperPermission
   const railItems = useMemo(
     (): RailItem[] =>
       model.rows.flatMap((row, index) =>
@@ -265,6 +280,7 @@ export function ThreadView({ session, onSendToMain }: { session: Session; onSend
               {t('Fork Thread')}
               {forkReason ? <span className="ml-auto pl-3 text-xs text-muted-foreground">{t('Claude only')}</span> : null}
             </ContextMenuItem>
+            <ContinueInTerminalContextMenuItem session={session} />
           </ContextMenuContent>
         </ContextMenu>
         {find.open ? <NativeChatFindBar find={find} /> : null}
@@ -273,7 +289,7 @@ export function ThreadView({ session, onSendToMain }: { session: Session; onSend
       </div>
       </NativeChatCommandRunContext.Provider>
       <NativeChatSelectionQuote rootRef={rootRef} onQuote={quote} onAskInSideChat={askSide} />
-      {pendingPermission && <NativeChatApprovalCard permission={pendingPermission} cwd={session.cwd} />}
+      {pendingPermission && <NativeChatApprovalCard permission={pendingPermission} cwd={helper?.cwd ?? session.cwd} from={helper?.title} />}
       <NativeChatDockedTaskList list={model.taskList} />
       <NativeChatQueuedMessageList sessionId={session.id} working={working} />
       {showLimitBanner ? (

@@ -260,6 +260,11 @@ export class SessionRegistry {
     }
   }
 
+  /** Resolves once every change so far is on disk. */
+  flushed(): Promise<void> {
+    return this.saveQueue.catch(() => undefined)
+  }
+
   private changed(): void {
     const sessions = this.list()
     for (const listener of this.listeners) listener(sessions)

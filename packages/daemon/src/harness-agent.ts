@@ -7,6 +7,7 @@ import {
   QUICK_CHAT_SYSTEM_PROMPT,
   SESSION_REPLAY_META,
   PROMPT_ORIGIN_META,
+  PROMPT_NOT_SENT_META,
   TURN_RECOVERY_META,
   TURN_RECOVERY_NOTIFICATIONS,
   chatAgentLabel,
@@ -19,11 +20,15 @@ import {
   type ManagerToolName,
 } from "@acp-harness/protocol";
 import type { WorkflowStepContext, WorkflowStepUsage } from "@acp-harness/protocol";
-import { runClaudeTurn, type StepOptions } from "./claude-turn.ts";
+import { releaseFinishedTurn, runClaudeTurn, type StepOptions } from "./claude-turn.ts";
 import { WorktreeClaims } from "./worktree-claims.ts";
 import { finishWorktree } from "./worktree-finish.ts";
 import { hostingContext } from "./handlers/hosting-handlers.ts";
-import { runArchiveHook } from "./project-hooks.ts";
+import { runArchiveHook, runSetupHook } from "./project-hooks.ts";
+import { HELPER_RESULT_SCHEMA, helperResult, reportIn, splitWorkHint } from "./split-work.ts";
+import { SplitStore } from "./split-store.ts";
+import { SplitCoordinator } from "./split-coordinator.ts";
+import { CliConversations } from "./cli-conversations.ts";
 import { hostPath } from "./tui-agent-detection.ts";
 import { TurnAutoResume } from "./turn-auto-resume.ts";
 import { recoveryPrompt } from "./turn-recovery.ts";
@@ -66,6 +71,17 @@ import { log } from "./log.ts";
 import { compactTranscript } from "./transcript-compaction.ts";
 import { toolCallCommand, toolCallPaths } from "./conversation-messages.ts";
 
+const SPLIT_TOOL = `mcp__${MANAGER_MCP_SERVER_NAME}__split_work`;
+
+/** How a turn ended short, from the notice it left (a usage limit, an error), if it did. */
+function turnEndOf(updates: acp.SessionUpdate[]): TurnEndMeta | null {
+  for (const update of [...updates].reverse()) {
+    const meta = (update as { _meta?: Record<string, unknown> })._meta?.[TURN_RECOVERY_META.turnEnd];
+    if (meta && typeof meta === "object") return meta as TurnEndMeta;
+  }
+  return null;
+}
+
 /** One agent app shared by every transport, so sessions outlive the connection that made them. */
 export function createHarnessAgent(
   workspaces: WorkspaceManager,
@@ -79,6 +95,61 @@ export function createHarnessAgent(
   const localTools = new Map<ManagerToolName, { route: ManagerRoute; offeredTo: (sessionId: string) => boolean }>();
   managerMcp.setRoute((caller, tool, args) => (localTools.get(tool)?.route ?? managerRouting.route)(caller, tool, args));
   managerMcp.setStepToolOffers((sessionId, tool) => localTools.get(tool)?.offeredTo(sessionId) ?? false);
+  /** Chats whose permission asks are answered "allow" for the person (a workflow's steps). */
+  const autoApprove = new Set<string>();
+  // Made before anything that uses it; what it is given is only called once turns and tools run.
+  const splits = new SplitCoordinator({
+    sessions,
+    workspaces,
+    pendingTurns,
+    isStepTurn: (sessionId) => stepTurns.has(sessionId),
+    leaving: (sessionId) => finishing.has(sessionId) || mover.hasPending(sessionId),
+    autoApprove,
+    cliHasConversation: (sessionId) => cli.has(sessionId),
+    notice: (sessionId, title) => void emit(sessionId, { sessionUpdate: "notice", severity: "info", title }).catch(() => undefined),
+    // The window shows the plan (the goal, each part's task and files) from the request's input.
+    confirm: async (sessionId, input) => {
+      sessions.update(sessionId, { status: "needs-you" });
+      try {
+        const answer = await askAnyClient({
+          sessionId,
+          toolCall: { toolCallId: crypto.randomUUID(), title: "Split work", kind: "other", rawInput: input, _meta: { [CHAT_META.toolName]: SPLIT_TOOL } },
+          options: [
+            { kind: "allow_once", name: "Split it", optionId: "allow" },
+            { kind: "reject_once", name: "Don't split", optionId: "reject" },
+          ],
+        });
+        return answer.outcome.outcome === "selected" && answer.outcome.optionId === "allow";
+      } finally {
+        if (pendingTurns.has(sessionId)) sessions.update(sessionId, { status: "working" });
+      }
+    },
+    // Never in place of a turn already running: prompt() would stop it.
+    startTurn: async (sessionId, text, origin) => {
+      if (pendingTurns.has(sessionId)) return "not-sent";
+      const reply = await prompt({ sessionId, prompt: [{ type: "text", text }] }, askAnyClient, null, undefined, origin);
+      return reply._meta?.[PROMPT_NOT_SENT_META] === true ? "not-sent" : reply.stopReason;
+    },
+    runHelperTurn: async (sessionId, text, origin) => {
+      const before = (await sessions.transcript(sessionId)).length;
+      const turn = await ctx.runStepTurn(sessionId, text, { outputFormat: { type: "json_schema", schema: HELPER_RESULT_SCHEMA } }, origin);
+      const result = helperResult(turn.structured);
+      const said = result?.summary || turn.text.trim() || agentText((await sessions.transcript(sessionId)).slice(before));
+      const ended = turnEndOf((await sessions.transcript(sessionId)).slice(before));
+      return {
+        text: said,
+        stopReason: turn.stopReason,
+        ...(result ? { done: result.done } : {}),
+        ...(ended?.reason === "usage-limit" ? { why: "it hit the usage limit" } : {}),
+      };
+    },
+    releaseFinishedTurn,
+    closeTerminals: (workspaceId) => terminals.closeWorkspace(workspaceId),
+    runSetupHook,
+    runArchiveHook,
+    store: new SplitStore(),
+  });
+  void splits.recover();
   const claims = new WorktreeClaims({
     projectWorkspaces: () => workspaces.projectWorkspaces(),
     chatsIn: (workspaceId) =>
@@ -86,6 +157,8 @@ export function createHarnessAgent(
         .list()
         .filter((s) => s.workspaceId === workspaceId)
         .map((s) => ({ id: s.id, busy: pendingTurns.has(s.id) || s.status === "needs-you" })),
+    // Listing part worktrees would change the chat's instructions, and so its prompt cache, as they come and go.
+    listed: (workspaceId) => !splits.isPartWorktree(workspaceId),
   });
   /** Chats whose worktree was merged this turn: they move to the main checkout and it goes when the turn ends. */
   const finishing = new Map<string, { workspaceId: string; primaryId: string }>();
@@ -94,6 +167,8 @@ export function createHarnessAgent(
     route: async (caller, _tool, args) => {
       const session = sessions.get(caller);
       if (!session) return { result: "Unknown chat.", isError: true };
+      if (splits.isHelper(caller)) return { result: "A split_work helper commits on its own branch; the chat that split the work merges it.", isError: true };
+      if (splits.running(caller)) return { result: "Parts you split off still run from this worktree; wait for their report first.", isError: true };
       try {
         const done = await finishWorktree(
           {
@@ -109,11 +184,21 @@ export function createHarnessAgent(
           typeof args.title === "string" ? args.title : undefined,
         );
         if (done.kind === "merged") finishing.set(caller, { workspaceId: done.workspaceId, primaryId: done.primaryId });
-        return { result: done.message };
+        const kept = splits.keptParts(caller);
+        const note = kept > 0 ? ` You still have ${kept} kept part${kept === 1 ? "" : "s"} from split_work: bring in what you need, then call manage_split with action "tidy".` : "";
+        return { result: done.message + note };
       } catch (error) {
         return { result: error instanceof Error ? error.message : String(error), isError: true };
       }
     },
+  });
+  /** The terminal running a chat's conversation in the CLI ("Continue in Terminal"), by chat. */
+  const cli = new CliConversations((terminalId) => {
+    try {
+      return terminals.get(terminalId).exitCode !== null;
+    } catch {
+      return true;
+    }
   });
   localTools.set("claim_worktree", {
     offeredTo: () => true,
@@ -121,6 +206,7 @@ export function createHarnessAgent(
       const session = sessions.get(caller);
       const workspaceId = typeof args.workspaceId === "string" ? args.workspaceId : "";
       if (!session) return { result: "Unknown chat.", isError: true };
+      if (splits.isHelper(caller)) return { result: "A split_work helper changes only its own worktree.", isError: true };
       try {
         return { result: claims.claim(caller, session.workspaceId, workspaceId) };
       } catch (error) {
@@ -135,6 +221,9 @@ export function createHarnessAgent(
       if (ids.has(id)) continue;
       managerMcp.forgetSession(id);
       managerRouting.forgetSession(id);
+      // A deleted chat's split has no one to report to: its helpers stop, their worktrees stay.
+      splits.forget(id);
+      cli.forget(id);
       mover.forget(id);
     }
     knownSessionIds = ids;
@@ -168,8 +257,10 @@ export function createHarnessAgent(
    * permission asks reach whichever window is open.
    */
   async function startRecovery(sessionId: string, kind: TurnResumeKind): Promise<"started" | "busy" | "gone"> {
-    if (!sessions.get(sessionId)) return "gone";
-    if (pendingTurns.has(sessionId)) return "busy";
+    const session = sessions.get(sessionId);
+    if (!session) return "gone";
+    // A turn would be refused (the CLI has the conversation) or kept waiting (parts are merging).
+    if (pendingTurns.has(sessionId) || cli.has(sessionId) || splits.hold(session.workspaceId)) return "busy";
     const blocks = recoveryPrompt(await sessions.transcript(sessionId));
     void prompt({ sessionId, prompt: blocks }, askAnyClient, null, kind).catch(() => undefined);
     return "started";
@@ -218,8 +309,6 @@ export function createHarnessAgent(
     });
   }
 
-  /** Chats whose permission asks are answered "allow" for the person (a workflow's steps). */
-  const autoApprove = new Set<string>();
   const autoApproved = (request: acp.RequestPermissionRequest): acp.RequestPermissionResponse | null => {
     if (!autoApprove.has(request.sessionId)) return null;
     const allow = request.options.find((o) => o.kind === "allow_once") ?? request.options.find((o) => o.kind === "allow_always");
@@ -261,8 +350,46 @@ export function createHarnessAgent(
     resumed?: TurnResumeKind,
     origin?: PromptOrigin,
   ): Promise<acp.PromptResponse> {
+    // split_work merging into this chat's folder: the turn starts once that is done.
+    const folder = sessions.get(params.sessionId)?.workspaceId ?? null;
+    if (splits.hold(folder)) {
+      // Registered while it waits (unless a turn already is), so Stop reaches it.
+      const waiting = pendingTurns.has(params.sessionId) ? null : new AbortController();
+      if (waiting) pendingTurns.set(params.sessionId, waiting);
+      await emit(params.sessionId, { sessionUpdate: "notice", severity: "info", title: "Waiting for the split-off parts to be merged before going on" }).catch(() => undefined);
+      // Every prompt waits out every hold, however many arrive meanwhile; a Stop ends the wait.
+      const stopped = new Promise<void>((resolve) => waiting?.signal.addEventListener("abort", () => resolve(), { once: true }));
+      for (let hold = splits.hold(folder); hold && !waiting?.signal.aborted; hold = splits.hold(folder)) await Promise.race([hold, stopped]);
+      if (waiting && pendingTurns.get(params.sessionId) === waiting) pendingTurns.delete(params.sessionId);
+      if (waiting?.signal.aborted && !pendingTurns.has(params.sessionId)) {
+        sessions.update(params.sessionId, { status: "idle", turnStartedAt: null });
+        // Never sent: the window puts the message back in the box.
+        return { stopReason: "cancelled", _meta: { [PROMPT_NOT_SENT_META]: true } };
+      }
+    }
     const session = sessions.get(params.sessionId);
     if (!session) throw new Error(`Unknown session ${params.sessionId}`);
+    // A helper at work on its part: a message now would cut its turn short and keep the part out.
+    if (splits.isHelper(session.id) && stepTurns.has(session.id) && pendingTurns.has(session.id)) {
+      await emit(session.id, {
+        sessionUpdate: "notice",
+        severity: "error",
+        title: "This chat is working on its part of a split. Talk to the thread it works for; this chat takes messages once its part is done.",
+      }).catch(() => undefined);
+      return { stopReason: "refusal", _meta: { [PROMPT_NOT_SENT_META]: true } };
+    }
+    // "Continue in Terminal": while the CLI has the conversation, a second writer would split it.
+    if (cli.has(session.id)) {
+      await emit(session.id, {
+        sessionUpdate: "notice",
+        severity: "error",
+        title: "This conversation is open in a Claude terminal. Exit claude there (or close that terminal) to continue here.",
+      }).catch(() => undefined);
+      // The window marked the chat working when it sent the prompt: no turn runs, and the window
+      // puts the message back in the box (PROMPT_NOT_SENT_META).
+      sessions.update(session.id, { status: "idle", turnStartedAt: null });
+      return { stopReason: "refusal", _meta: { [PROMPT_NOT_SENT_META]: true } };
+    }
 
     pendingTurns.get(session.id)?.abort();
     const abort = new AbortController();
@@ -285,6 +412,16 @@ export function createHarnessAgent(
       // Orca renames a fresh agent tab after its first message.
       ...(firstTurn && text ? { title: text.replace(/\s+/g, " ").slice(0, 40) } : {}),
     });
+    // A split's report this turn takes from the saved context (the person spoke first) is shown too.
+    const report = origin?.kind === "harness-note" ? null : reportIn(session.seedContext);
+    if (report) {
+      await emit(session.id, {
+        sessionUpdate: "user_message_chunk",
+        messageId: crypto.randomUUID(),
+        content: { type: "text", text: report },
+        _meta: { [PROMPT_ORIGIN_META]: { kind: "harness-note", title: "Split work: every part has finished" } },
+      });
+    }
     const messageId = crypto.randomUUID();
     for (const block of params.prompt) {
       await emit(session.id, {
@@ -320,7 +457,8 @@ export function createHarnessAgent(
     let handoff: string | null | undefined;
     const promptWithSeed = (): acp.ContentBlock[] => {
       handoff = session.handoffContext;
-      const seed = [handoff, session.seedContext].filter((part) => !!part).join("\n\n");
+      // A running split's note goes with every turn while its parts run; it is never stored.
+      const seed = [handoff, session.seedContext, splits.turnNote(session.id)].filter((part) => !!part).join("\n\n");
       if (!seed) return params.prompt;
       sessions.update(session.id, { seedContext: null, handoffContext: null });
       return [{ type: "text", text: seed }, ...params.prompt];
@@ -354,7 +492,15 @@ export function createHarnessAgent(
     };
 
     const quickChat = workspaces.isScratch(session.workspaceId);
-    const worktreePrompt = quickChat ? null : claims.prompt(session.workspaceId);
+    const worktreePrompt =
+      [
+        // A helper's own instructions say what it may touch; the sibling-worktree rules are for chats.
+        quickChat || splits.isHelper(session.id) ? null : claims.prompt(session.workspaceId),
+        // Fixed for the chat's life, so it never breaks the prompt cache; a running split's state goes in the turn's own text.
+        splits.offered(session.id) ? splitWorkHint(SPLIT_TOOL) : null,
+      ]
+        .filter((p): p is string => !!p)
+        .join("\n\n") || null;
     try {
       const stopReason = external
         ? await external.prompt(promptWithSeed, abort, askPermission)
@@ -568,10 +714,16 @@ export function createHarnessAgent(
       const { stopReason } = await prompt({ sessionId, prompt: [{ type: "text", text }] }, askAnyClient, null);
       return stopReason;
     },
-    moveSession: (params) => mover.move(params),
+    // A chat whose parts are still running stays in the folder they merge into.
+    moveSession: (params) => {
+      const busy = splits.busy(params.sessionId);
+      return busy ? Promise.reject(new Error(`${busy} Move the chat once they are done.`)) : mover.move(params);
+    },
     followFolder: (sessionId, cwd) => mover.follow(sessionId, cwd),
     serveTool: (tool, route, offeredTo) => localTools.set(tool, { route, offeredTo }),
     autoApprove,
+    cli,
+    splitBusy: (sessionId) => splits.busy(sessionId),
     async runStepTurn(sessionId, text, step, origin) {
       let result: { text: string; structured: unknown; usage?: WorkflowStepUsage; context?: WorkflowStepContext } = { text: "", structured: undefined };
       stepTurns.set(sessionId, { step, onResult: (r) => (result = r) });
@@ -603,6 +755,19 @@ export function createHarnessAgent(
       return root;
     },
   };
+  localTools.set("split_work", { offeredTo: (sessionId) => splits.offered(sessionId), route: (caller, _tool, args) => splits.call(caller, args) });
+  // A chat whose parts are still running stays in the folder they merge into.
+  localTools.set("move_chat", {
+    offeredTo: () => true,
+    route: (caller, tool, args) =>
+      splits.isHelper(caller)
+        ? Promise.resolve({ result: "A split_work helper stays in its own worktree.", isError: true })
+        : splits.running(caller)
+          ? Promise.resolve({ result: "Parts you split off still merge into this folder; move once their report is in (or stop them with manage_split).", isError: true })
+          : managerRouting.route(caller, tool, args),
+  });
+  localTools.set("manage_split", { offeredTo: (sessionId) => splits.manageOffered(sessionId), route: (caller, _tool, args) => splits.manage(caller, args) });
+
   // One register function per area, so each area's handlers live (and change) in their own file.
   for (const register of [
     registerWorkspaceHandlers,

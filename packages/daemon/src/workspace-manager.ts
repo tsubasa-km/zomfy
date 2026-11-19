@@ -20,6 +20,7 @@ import { branchPrefixFromUserName, firstFreeCandidate, sanitizeWorkspaceName } f
 import { log } from './log.ts'
 import { HARNESS_HOME, WORKSPACE_ROOT } from './harness-home.ts'
 import { moveToTrash } from './host-trash.ts'
+import { copyWorktreeIncludesSafely } from './worktree-include.ts'
 
 const STATE_PATH = join(HARNESS_HOME, 'state.json')
 const FLOATING_FALLBACK = join(HARNESS_HOME, 'floating-workspace')
@@ -294,6 +295,7 @@ export class WorkspaceManager {
       const path = join(projectRoot, name)
       await add([path, branch])
       log(`created worktree ${path} on existing ${branch}`)
+      await copyWorktreeIncludesSafely(project.path, path)
       return this.addWorkspace({ projectId: project.id, name, path, branch, ...extra })
     }
 
@@ -315,6 +317,7 @@ export class WorkspaceManager {
 
     await add(['--no-track', '-b', branch, path, base])
     log(`created worktree ${path} on ${branch} from ${base}`)
+    await copyWorktreeIncludesSafely(project.path, path)
     return this.addWorkspace({ projectId: project.id, name, path, branch, ...extra })
   }
 

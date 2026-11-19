@@ -4,10 +4,21 @@ A comfy desktop for running coding agents. Zomfy keeps chats, terminals and edit
 project in one window, on this computer, inside WSL, or on SSH hosts, so you steer the work
 without juggling windows and contexts.
 
-- **Hosts side by side**: Windows, WSL distros and SSH hosts in one sidebar. A small daemon runs
-  next to the files on each host; the app only connects.
+- **Windows, WSL and SSH as real hosts**: a repository inside WSL or on an SSH host is worked on
+  where it lives, not through a slow network drive. A small daemon runs next to the files on each
+  host and outlives the app, so a crash or an update never loses a running chat or terminal.
+- **One thread, the harness does the rest**: a new thread in a git project gets a worktree of its
+  own, so threads working at once never edit the same checkout. When a request is large, the
+  thread splits it into parts that run in parallel worktrees and merges them back one by one
+  (`split_work`, which you approve once); you keep talking to one thread, and a part's questions
+  show up there too. Gitignored files a worktree needs, such as `.env`,
+  are copied in from the main checkout when the repository lists them in `.worktreeinclude`.
 - **Chats with Claude Code** (and other ACP agents): fork a chat, continue after an interruption,
   resume automatically once a usage limit resets, keep a markdown memo beside the chat.
+- **Continue in Terminal**: a thread's menu runs its conversation in the `claude` CLI, which has
+  been reported to use less of the usage limit than a chat does for the same work
+  (anthropics/claude-code#97074); the thread waits while that terminal runs and picks the
+  conversation up again afterwards.
 - **Side chat**: select text in a reply and ask about it in a side chat without disturbing the
   main conversation.
 - **Run commands from the chat**: shell code blocks get a Run button; the output appears under the

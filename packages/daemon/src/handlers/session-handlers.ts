@@ -12,6 +12,8 @@ import { agentEras, agentSwitchNotice, answeredBefore, pendingHandoff, type Agen
 import { emptyAgentState } from "../acp-agent-session.ts";
 import { resolveChatAgent } from "../chat-agent-launch-specs.ts";
 import { releaseFinishedTurn } from "../claude-turn.ts";
+import { resolveClaudeExecutable } from "../claude-executable.ts";
+import { chatAgentLaunch } from "../chat-agent-launch-settings.ts";
 import { mentionFiles } from "../mention-files.ts";
 import { noteActivity } from "../session-activity.ts";
 import { consultRequester } from "../requester-consult.ts";
@@ -19,10 +21,58 @@ import { log } from "../log.ts";
 
 type UserChunk = Extract<acp.SessionUpdate, { sessionUpdate: "user_message_chunk" }>;
 
+/** The chat's model and permission mode, as the CLI takes them, so the conversation carries on as it was. */
+function cliOptions(options: SessionRecord["options"]): string[] {
+  return [
+    ...(options.model ? ["--model", options.model] : []),
+    ...(options.permissionMode !== "default" ? ["--permission-mode", options.permissionMode] : []),
+  ];
+}
+
 export function registerSessionHandlers(ctx: HandlerContext): void {
   const { handle, sessions, pendingTurns, acpAgents, autoResume, emit, workspaceRoot, moveSession } = ctx;
   handle(HARNESS_METHODS.sessionsList, async () => sessions.list());
   handle(HARNESS_METHODS.sessionMove, (p) => moveSession(p));
+  handle(HARNESS_METHODS.sessionContinueInTerminal, async (p) => {
+    const record = sessions.get(p.sessionId);
+    if (!record?.workspaceId) throw new Error("This thread has no folder to open a terminal in.");
+    if (record.agent && record.agent !== "claude") throw new Error("Only Claude threads continue in a terminal.");
+    if (pendingTurns.has(record.id) || record.status === "working") throw new Error("Wait for the thread's turn to end, or stop it, first.");
+    if (!record.claudeSessionId) throw new Error("The thread has no conversation to continue yet: send it a message first.");
+    const split = ctx.splitBusy(record.id);
+    if (split) throw new Error(`${split} The CLI would work in this folder without knowing about them.`);
+    // Taken before anything is awaited, so no turn (an auto-resume, a split's report) starts meanwhile.
+    if (!ctx.cli.reserve(record.id)) throw new Error("This thread's conversation is already open in a Claude terminal.");
+    let terminalId: string | null = null;
+    try {
+      const exe = await resolveClaudeExecutable();
+      if (!exe) throw new Error("Claude Code was not found on this host. Install it and run claude once to sign in.");
+      // The last turn's process may still hold the conversation for its prompt suggestion.
+      await releaseFinishedTurn(record.id);
+      // Started as the terminal's program, with the env the chat's turns get (a config dir, say), so
+      // it opens the same conversation under the same account; the tab keeps its output after exit.
+      const info = await ctx.terminals.create({
+        workspaceId: record.workspaceId,
+        cwd: record.cwd,
+        cols: 120,
+        rows: 30,
+        program: {
+          argv: [exe, "--resume", record.claudeSessionId, ...cliOptions(record.options)],
+          title: "Claude",
+          env: (await chatAgentLaunch("claude")).env,
+        },
+      });
+      terminalId = info.id;
+      await emit(record.id, {
+        sessionUpdate: "notice",
+        severity: "info",
+        title: "Continued in a Claude terminal. This thread waits until claude exits there; what you do in the terminal is not shown here.",
+      }).catch(() => undefined);
+      return info;
+    } finally {
+      ctx.cli.settle(record.id, terminalId);
+    }
+  });
   handle(HARNESS_METHODS.sessionConsultLead, (p) => consultRequester(ctx, p.leadSessionId, p.from, p.question));
   handle(HARNESS_METHODS.sessionAddContext, async (p) => {
     noteActivity(sessions, p.sessionId, p.text);

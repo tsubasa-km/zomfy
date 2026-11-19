@@ -1,6 +1,7 @@
 import type { ChatAgentId, ChatAgentSessionState } from './chat-agents'
 import type { SessionRole } from './manager'
 import type { AutoResumeState } from './turn-recovery'
+import type { TerminalInfo } from './terminals'
 
 /** The execution host owns session status; clients only present it (Orca's agent-status rule). */
 export type SessionStatus = 'idle' | 'working' | 'needs-you' | 'error'
@@ -147,6 +148,13 @@ export interface ContextUsageMeta {
   items?: { kind: 'skill' | 'mcp' | 'memory' | 'agent'; name: string; tokens: number }[]
 }
 
+/**
+ * Set (true) in a prompt reply's `_meta` when no turn ran for the prompt (its conversation is open in
+ * a Claude terminal, its chat is a split's helper at work, or it was stopped while it waited): the
+ * message was not sent and goes back to its box.
+ */
+export const PROMPT_NOT_SENT_META = 'acp-harness/notSent'
+
 export const SESSION_METHODS = {
   sessionsList: '_harness/sessions/list',
   sessionCreate: '_harness/sessions/create',
@@ -165,7 +173,9 @@ export const SESSION_METHODS = {
   /** Absent from older daemons: the request fails as an unknown method. */
   sessionRename: '_harness/sessions/rename',
   sessionSetArchived: '_harness/sessions/setArchived',
-  sessionSetAgent: '_harness/sessions/setAgent'
+  sessionSetAgent: '_harness/sessions/setAgent',
+  /** Absent from older daemons: the request fails as an unknown method. */
+  sessionContinueInTerminal: '_harness/sessions/continueInTerminal'
 } as const
 
 /** What a chat made of a question put to it by another session (sessionConsultLead). */
@@ -235,6 +245,12 @@ export interface SessionRequests {
     result: SessionInfo
   }
   [SESSION_METHODS.sessionMove]: { params: MoveSessionParams; result: MoveSessionResult }
+  /**
+   * Opens a terminal in the chat's folder running the `claude` CLI on the chat's conversation
+   * (`claude --resume`). The CLI is reported to use less of the person's usage limit than the Agent
+   * SDK the chat runs on; the chat picks the conversation up again, terminal turns included, on its next prompt.
+   */
+  [SESSION_METHODS.sessionContinueInTerminal]: { params: { sessionId: string }; result: TerminalInfo }
   /** Queues a line the session's next turn starts with, unseen in its transcript (a lead's project activity). */
   [SESSION_METHODS.sessionAddContext]: { params: { sessionId: string; text: string }; result: Record<string, never> }
   /** Puts a session's question to another chat (a run's starting chat) as a turn of its own, once it is free: an answer, or the question for the person. */

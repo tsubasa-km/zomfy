@@ -54,6 +54,8 @@ export interface ManagerToolDefinition {
   selfOnly?: boolean
   /** Offered only to a workflow step's session, and served by the daemon running the step. */
   stepOnly?: boolean
+  /** Served by the chat's own daemon, and offered only to the chats it says may use it. */
+  daemonOffered?: boolean
 }
 
 const str = (description: string) => ({ type: 'string', description })
@@ -269,6 +271,54 @@ export const MANAGER_TOOLS = [
     },
     readOnly: false,
     selfOnly: true
+  },
+  {
+    name: 'split_work',
+    description:
+      "Splits a large task into parts that run at the same time, each by a helper agent in a git worktree of its own branched from your last commit. It returns at once; end your turn. When every part is done and your turn has ended, the harness merges each finished part into your branch, one at a time and in the order given, and starts your next turn with every part's report and merge outcome. Use it for work with parts that touch different files; do shared groundwork (types, schemas, interfaces) yourself and commit it first. Your folder must have no uncommitted changes. A part that conflicts is not merged: its worktree and branch are kept and the report says how to bring it in. The person is asked to approve each split; manage_split stops a running one or tidies up after one.",
+    inputSchema: {
+      type: 'object',
+      properties: {
+        goal: str('The whole task in a few sentences, so every helper knows what its part is for.'),
+        parts: {
+          type: 'array',
+          description: 'Two to six parts, in the order they should be merged (the most foundational first).',
+          items: {
+            type: 'object',
+            properties: {
+              title: str('A few words naming the part; also names its branch.'),
+              task: str('The part, self-contained: goal, constraints, and how to check it.'),
+              owns: {
+                type: 'array',
+                items: { type: 'string' },
+                description:
+                  "Files or folders this part may change, relative to the repository root. Parts may not overlap; lockfiles and other shared files belong to at most one part."
+              }
+            },
+            required: ['title', 'task', 'owns']
+          }
+        }
+      },
+      required: ['parts']
+    },
+    // Auto-allowed: the harness itself asks the person, after checking the plan and in every
+    // permission mode; that one approval is what lets the helpers edit without asking.
+    readOnly: false,
+    selfOnly: true,
+    daemonOffered: true
+  },
+  {
+    name: 'manage_split',
+    description:
+      "For parts you split off with split_work: 'status' says where each part is; 'stop' stops the split: running parts stop and nothing more is merged (what every part did stays in its worktree, and the report still starts your next turn); 'tidy' removes the worktrees of kept parts whose work is now in your branch, and says which hold work your branch does not have yet.",
+    inputSchema: {
+      type: 'object',
+      properties: { action: { type: 'string', enum: ['status', 'stop', 'tidy'], description: 'What to do.' } },
+      required: ['action']
+    },
+    readOnly: false,
+    selfOnly: true,
+    daemonOffered: true
   },
   {
     name: 'spawn_agents',

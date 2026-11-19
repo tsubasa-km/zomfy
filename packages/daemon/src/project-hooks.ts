@@ -10,6 +10,7 @@ import { log } from './log.ts'
 
 const HOOK_FILES = ['acp-harness.yaml', 'orca.yaml']
 const ARCHIVE_TIMEOUT_MS = 120_000
+const SETUP_TIMEOUT_MS = 10 * 60_000
 
 export type HookKind = keyof ProjectHooks
 
@@ -76,10 +77,22 @@ export async function writeHookRunner(
 
 /** The archive hook runs unattended before a worktree is removed; a failure is logged, not fatal. */
 export async function runArchiveHook(project: Project, worktreePath: string): Promise<void> {
-  const script = await effectiveHook(project, 'archive', worktreePath)
-  if (!script) return
+  await runHookUnattended(project, 'archive', worktreePath, ARCHIVE_TIMEOUT_MS)
+}
+
+/**
+ * The setup hook, run to the end with no terminal, for a worktree an agent starts in right away
+ * (split_work's helpers). Null when it ran cleanly or there is none; otherwise what went wrong.
+ */
+export async function runSetupHook(project: Project, worktreePath: string): Promise<string | null> {
+  return runHookUnattended(project, 'setup', worktreePath, SETUP_TIMEOUT_MS)
+}
+
+async function runHookUnattended(project: Project, kind: HookKind, worktreePath: string, timeoutMs: number): Promise<string | null> {
+  const script = await effectiveHook(project, kind, worktreePath)
+  if (!script) return null
   try {
-    const launch = await writeHookRunner(project, worktreePath, 'archive', script)
+    const launch = await writeHookRunner(project, worktreePath, kind, script)
     const proc = Bun.spawn(launch.argv, {
       cwd: worktreePath,
       env: { ...process.env, ...launch.env },
@@ -87,16 +100,24 @@ export async function runArchiveHook(project: Project, worktreePath: string): Pr
       stderr: 'pipe',
       windowsHide: true
     })
-    const timer = setTimeout(() => proc.kill(), ARCHIVE_TIMEOUT_MS)
+    let timedOut = false
+    const timer = setTimeout(() => {
+      timedOut = true
+      proc.kill()
+    }, timeoutMs)
     const [out, err, code] = await Promise.all([
       new Response(proc.stdout).text(),
       new Response(proc.stderr).text(),
       proc.exited
     ])
     clearTimeout(timer)
-    log(`archive hook in ${worktreePath} exited ${code}${code ? `: ${(err || out).trim().slice(-500)}` : ''}`)
+    const tail = (err || out).trim().slice(-500)
+    log(`${kind} hook in ${worktreePath} exited ${code}${code ? `: ${tail}` : ''}`)
+    if (timedOut) return `The ${kind} script was stopped after ${Math.round(timeoutMs / 60_000)} minutes.`
+    return code === 0 ? null : `The ${kind} script exited with ${code}${tail ? `: ${tail}` : ''}`
   } catch (error) {
-    log(`archive hook in ${worktreePath} failed: ${String(error)}`)
+    log(`${kind} hook in ${worktreePath} failed: ${String(error)}`)
+    return `The ${kind} script could not run: ${error instanceof Error ? error.message : String(error)}`
   }
 }
 

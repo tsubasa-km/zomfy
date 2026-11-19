@@ -84,6 +84,8 @@ export type ThreadItem =
       title: string
       /** The tool call's input (an ExitPlanMode plan, a command). */
       input?: unknown
+      /** The tool asking, as the agent names it (absent from older daemons and other agents). */
+      toolName?: string
       options: acp.PermissionOption[]
       /** The picked option's id, EXPIRED_APPROVAL, or null while it waits. */
       chosen: string | null

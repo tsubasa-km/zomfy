@@ -10,6 +10,8 @@ export interface ClaimDeps {
   projectWorkspaces(): { workspace: Workspace; project: Project }[];
   /** Chats in a workspace and whether each has a turn running or waiting on the person. */
   chatsIn(workspaceId: string): { id: string; busy: boolean }[];
+  /** False for worktrees left out of the chat's instructions (split_work's parts, which come and go). */
+  listed?(workspaceId: string): boolean;
 }
 
 export class WorktreeClaims {
@@ -50,7 +52,7 @@ export class WorktreeClaims {
 
   /** What the chat should know about the worktrees around it, or null outside a multi-worktree project. */
   prompt(workspaceId: string | null): string | null {
-    const siblings = this.siblings(workspaceId);
+    const siblings = this.siblings(workspaceId).filter((w) => this.deps.listed?.(w.workspace.id) !== false);
     if (siblings.length === 0) return null;
     const own = this.deps.projectWorkspaces().find((w) => w.workspace.id === workspaceId)?.workspace;
     const lines =siblings.map(({ workspace }) => `- ${label(workspace)}: ${workspace.path} (workspace id ${workspace.id})`);

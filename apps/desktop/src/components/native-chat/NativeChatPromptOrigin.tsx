@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { ChevronRight, MessageCircleQuestion, Workflow } from 'lucide-react'
+import { ChevronRight, GitMerge, MessageCircleQuestion, Workflow } from 'lucide-react'
 import type { PromptOrigin } from '@acp-harness/protocol'
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible'
 import { cn } from '@/lib/utils'
@@ -7,7 +7,8 @@ import { NativeChatMarkdown } from './NativeChatMarkdown'
 import { t } from '@/i18n/i18n'
 
 // A prompt the harness wrote into a chat, not the person: a workflow step's question to the chat
-// that started the run, or a step's instructions to its agent. It reads as a card from the left,
+// that started the run, a step's instructions to its agent, or a note on how something the chat
+// started went. It reads as a card from the left,
 // apart from the person's own messages on the right.
 
 export function NativeChatPromptOrigin({ origin, text, rowKey }: { origin: PromptOrigin; text: string; rowKey: string }) {
@@ -23,6 +24,22 @@ export function NativeChatPromptOrigin({ origin, text, rowKey }: { origin: Promp
           <span className="truncate">{t('Question from {from}', { from: senderLabel(origin.from) })}</span>
         </div>
         <NativeChatMarkdown rowKey={rowKey} content={origin.question} className="text-sm" />
+      </div>
+    )
+  }
+  if (origin.kind === 'harness-note') {
+    // What the person needs to see as much as the agent does (a split's report): shown in full.
+    return (
+      <div
+        className="rounded-xl border border-border bg-muted/40 px-4 py-3"
+        data-native-chat-prompt-origin="harness-note"
+        data-native-chat-message-text={text}
+      >
+        <div className="mb-1.5 flex items-center gap-1.5 text-xs text-chat-foreground-faint">
+          <GitMerge className="size-3.5 shrink-0" />
+          <span className="truncate">{t(origin.title)}</span>
+        </div>
+        <NativeChatMarkdown rowKey={rowKey} content={text} className="text-sm" />
       </div>
     )
   }

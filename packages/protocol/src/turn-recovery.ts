@@ -65,6 +65,8 @@ export type PromptOrigin =
   | { kind: 'step-question'; from: string; question: string }
   /** A workflow step's instructions to its agent. */
   | { kind: 'step-task'; workflow: string; step: string }
+  /** The harness telling a chat how something it started went (split_work's report), shown in full. */
+  | { kind: 'harness-note'; title: string }
 
 export function promptOrigin(meta: Record<string, unknown> | null | undefined, text: string): PromptOrigin | null {
   const value = meta?.[PROMPT_ORIGIN_META]
@@ -74,6 +76,9 @@ export function promptOrigin(meta: Record<string, unknown> | null | undefined, t
     }
     if (value.kind === 'step-task' && 'workflow' in value && 'step' in value && typeof value.workflow === 'string' && typeof value.step === 'string') {
       return { kind: 'step-task', workflow: value.workflow, step: value.step }
+    }
+    if (value.kind === 'harness-note' && 'title' in value && typeof value.title === 'string') {
+      return { kind: 'harness-note', title: value.title }
     }
   }
   return legacyOrigin(text)

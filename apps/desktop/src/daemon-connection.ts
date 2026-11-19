@@ -5,7 +5,9 @@ import { t } from "@/i18n/i18n";
 import {
   AUTOMATION_NOTIFICATIONS,
   CHAT_AGENT_NOTIFICATIONS,
+  CHAT_META,
   HARNESS_METHODS,
+  PROMPT_NOT_SENT_META,
   HARNESS_NOTIFICATIONS,
   LSP_NOTIFICATIONS,
   type LspEvent,
@@ -545,6 +547,15 @@ export async function createTerminal(
   return info.id;
 }
 
+/** Opens a terminal running the `claude` CLI on a chat's conversation, as the active tab. */
+export async function continueChatInTerminal(sessionId: string, hostId: HostId): Promise<string> {
+  const info = await harnessRequest(HARNESS_METHODS.sessionContinueInTerminal, { sessionId }, hostId);
+  const others = getState().terminals.filter((t) => t.hostId === hostId && t.id !== info.id);
+  setTerminals(hostId, [...others, info]);
+  selectTerminal(info.id);
+  return info.id;
+}
+
 /** Live output for one terminal; returns the unsubscribe function. */
 export function subscribeTerminalOutput(terminalId: string, listener: (data: string) => void): () => void {
   const set = terminalOutputListeners.get(terminalId) ?? new Set();
@@ -605,13 +616,19 @@ export async function sendPrompt(sessionId: string, text: string, images: ChatIm
   }
   try {
     // A Stop is recorded by the daemon (a "Stopped" row that offers Continue).
-    await conn.agent.request(acp.methods.agent.session.prompt, {
+    const reply = await conn.agent.request(acp.methods.agent.session.prompt, {
       sessionId,
       prompt: [
         ...images.map((image): acp.ContentBlock => ({ type: "image", data: image.data, mimeType: image.mimeType })),
         ...(text ? [{ type: "text" as const, text }] : []),
       ],
     });
+    // No turn ran for it (its conversation is open in a Claude terminal, the chat is a split's helper
+    // at work, or it was stopped while waiting on a merge): the message goes back into the box.
+    if (reply._meta?.[PROMPT_NOT_SENT_META] === true) {
+      updateSession(sessionId, (s) => ({ ...s, status: before, turnStartedAt: null }));
+      return false;
+    }
   } catch (error) {
     // The link dropped, not the turn: it goes on there, and the reconnect replays what it did.
     if (conn.signal.aborted) return true;
@@ -669,6 +686,7 @@ async function requestPermission(
         requestId,
         title: params.toolCall.title ?? t("Tool call"),
         input: params.toolCall.rawInput ?? null,
+        ...(typeof params.toolCall._meta?.[CHAT_META.toolName] === "string" ? { toolName: params.toolCall._meta[CHAT_META.toolName] as string } : {}),
         options: params.options,
         chosen: null,
       },

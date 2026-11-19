@@ -85,7 +85,12 @@ export async function serveWebSocket(
     fetch(req, srv) {
       const url = new URL(req.url);
       // Agents on this host reach the manager tools here; a per-session bearer token guards it.
-      if (url.pathname === MANAGER_MCP_PATH) return managerMcp.handleHttp(req);
+      if (url.pathname === MANAGER_MCP_PATH) {
+        // Bun drops a request still open after 10s by default, and harness tool calls
+        // (wait_for_session, spawn_agents) stay open for minutes; MANAGER_TOOL_TIMEOUT_MS bounds them.
+        srv.timeout(req, 0);
+        return managerMcp.handleHttp(req);
+      }
       if (url.pathname.startsWith(PLUGIN_PANEL_PATH_PREFIX)) return pluginPanels.handleHttp(req);
       if (url.pathname !== "/acp") return new Response("not found", { status: 404 });
       const origin = req.headers.get("origin");

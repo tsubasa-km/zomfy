@@ -1,3 +1,5 @@
+import { existsSync } from "node:fs";
+import { dirname, join } from "node:path";
 import type { ClaudeCliStatus, ClaudeCliUpdateResult } from "@acp-harness/protocol";
 // The SDK's exports map hides its package.json; Bun inlines this at build time.
 import sdkPackage from "../node_modules/@anthropic-ai/claude-agent-sdk/package.json" with { type: "json" };
@@ -7,7 +9,20 @@ import { hostPath } from "./tui-agent-detection.ts";
 // Why: the user's installed CLI carries their login and settings; the SDK's bundled copy would not.
 // Found on the host's full PATH (saved and login-shell entries), like every other agent.
 async function detected(): Promise<string | undefined> {
-  return process.env.HARNESS_CLAUDE_PATH ?? Bun.which("claude", { PATH: await hostPath() }) ?? undefined;
+  if (process.env.HARNESS_CLAUDE_PATH) return process.env.HARNESS_CLAUDE_PATH;
+  const found = Bun.which("claude", { PATH: await hostPath() });
+  return found ? throughNpmShim(found) : undefined;
+}
+
+/**
+ * `npm i -g @anthropic-ai/claude-code` on Windows puts `claude.cmd` (and `claude.ps1`) on PATH: shims
+ * that call the real `claude.exe` in the package. The SDK starts the CLI as a process, which a `.cmd`
+ * cannot be, so the binary behind the shim is used instead; anything else is returned as found.
+ */
+export function throughNpmShim(found: string, exists: (path: string) => boolean = existsSync): string {
+  if (!/\.(cmd|ps1|bat)$/i.test(found)) return found;
+  const binary = join(dirname(found), "node_modules", "@anthropic-ai", "claude-code", "bin", "claude.exe");
+  return exists(binary) ? binary : found;
 }
 
 /** The Claude Code release the bundled Agent SDK was built against. */

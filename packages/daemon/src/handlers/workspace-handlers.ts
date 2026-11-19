@@ -6,7 +6,7 @@ import { inspectWorkspace, workspaceSummary } from "../workspace-git-summary.ts"
 import { log } from "../log.ts";
 import type { HandlerContext } from "./handler-context.ts";
 
-export function registerWorkspaceHandlers({ handle, workspaces, sessions, terminals, followFolder }: HandlerContext): void {
+export function registerWorkspaceHandlers({ handle, workspaces, sessions, terminals, followFolder, splitBusy }: HandlerContext): void {
   handle(HARNESS_METHODS.stateGet, () => workspaces.snapshot());
   handle(HARNESS_METHODS.projectAdd, (p) =>
     workspaces.addProject(expandHome(p.path), { requireGit: p.requireGit === true }),
@@ -44,6 +44,9 @@ export function registerWorkspaceHandlers({ handle, workspaces, sessions, termin
   });
   handle(HARNESS_METHODS.workspaceCreateScratch, () => workspaces.createScratchWorkspace());
   handle(HARNESS_METHODS.workspaceRemove, async (p) => {
+    // Parts split off merge into this folder: it stays until they are done.
+    const busy = sessions.all().filter((s) => s.workspaceId === p.workspaceId).map((s) => splitBusy(s.id)).find((b) => b);
+    if (busy) throw new Error(`${busy} Remove the folder once they are done.`);
     const scratch = (await workspaces.snapshot()).workspaces.some((w) => w.id === p.workspaceId && w.scratch);
     if (!scratch) {
       const { workspace, project } = workspaces.requireWorkspace(p.workspaceId);

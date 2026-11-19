@@ -4,6 +4,7 @@ import type { ThreadItem } from '@/session-store'
 import { cn } from '@/lib/utils'
 import { NativeChatMarkdown } from './NativeChatMarkdown'
 import { shortenPaths } from './native-chat-transcript-model'
+import { splitPartCount, splitPlanOf } from './split-plan'
 import { t } from '@/i18n/i18n'
 
 type Permission = Extract<ThreadItem, { kind: 'permission' }>
@@ -13,14 +14,25 @@ function planOf(input: unknown): string | null {
   return typeof input.plan === 'string' && input.plan.trim() ? input.plan : null
 }
 
-/** Orca's NativeChatApprovalCard; an ExitPlanMode request shows the plan it asks to start. */
-export function NativeChatApprovalCard({ permission, cwd }: { permission: Permission; cwd: string }) {
+/** Orca's NativeChatApprovalCard; an ExitPlanMode request shows the plan it asks to start, a split its parts. */
+export function NativeChatApprovalCard({
+  permission,
+  cwd,
+  from
+}: {
+  permission: Permission
+  cwd: string
+  /** The helper chat asking, when the ask is shown in the thread it works for. */
+  from?: string
+}) {
   // Allow first, as Orca puts the primary choice first.
   const options = [...permission.options].sort(
     (a, b) => Number(b.kind.startsWith('allow')) - Number(a.kind.startsWith('allow'))
   )
   const plan = planOf(permission.input)
-  const Icon = plan ? NotebookPen : ShieldQuestion
+  const parts = splitPartCount(permission)
+  const details = plan ?? splitPlanOf(permission)
+  const Icon = details ? NotebookPen : ShieldQuestion
   return (
     <div className="min-h-0 shrink overflow-hidden bg-chat-canvas">
       <div className="mx-auto flex h-full max-h-full min-h-0 w-full max-w-(--chat-content-max-width) px-3 pt-2 pb-1 sm:px-4">
@@ -32,14 +44,23 @@ export function NativeChatApprovalCard({ permission, cwd }: { permission: Permis
           <div className="flex shrink-0 items-start gap-2">
             <Icon className="mt-0.5 size-4 shrink-0 text-muted-foreground" />
             <div className="min-w-0 flex-1">
+              {from ? (
+                <p className="truncate text-xs text-muted-foreground" data-approval-from>
+                  {t('From "{helper}", working for this thread', { helper: from })}
+                </p>
+              ) : null}
               <p className="line-clamp-2 text-sm font-semibold break-words text-foreground">
-                {plan ? permission.title : t('Allow {action}?', { action: shortenPaths(permission.title, cwd) })}
+                {plan
+                  ? permission.title
+                  : parts !== null
+                    ? t('Split this work into {count} parts?', { count: parts })
+                    : t('Allow {action}?', { action: shortenPaths(permission.title, cwd) })}
               </p>
             </div>
           </div>
-          {plan ? (
+          {details ? (
             <div className="scrollbar-sleek max-h-72 min-h-0 overflow-y-auto rounded-md border border-border px-3 py-2 text-sm">
-              <NativeChatMarkdown rowKey={`plan:${permission.requestId}`} content={plan} className="text-sm" />
+              <NativeChatMarkdown rowKey={`plan:${permission.requestId}`} content={details} className="text-sm" />
             </div>
           ) : null}
           <div className="flex shrink-0 flex-wrap gap-2">

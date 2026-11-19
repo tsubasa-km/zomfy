@@ -17,6 +17,7 @@ import type { SessionRegistry } from "../session-registry.ts";
 import type { TerminalManager } from "../terminal-manager.ts";
 import type { WorkspaceManager } from "../workspace-manager.ts";
 import type { ManagerRoute } from "../manager-mcp-server.ts";
+import type { CliConversations } from "../cli-conversations.ts";
 
 /** Files a step turn read and edited, and the commands it ran. */
 export interface StepToolUse {
@@ -58,6 +59,10 @@ export interface HandlerContext {
   workspaceRoot(workspaceId: string): string;
   /** Sessions whose permission asks are answered "allow" without a window (a comparison's runs). */
   autoApprove: Set<string>;
+  /** Chats whose conversation a `claude` terminal runs ("Continue in Terminal"); their turns wait for it to exit. */
+  cli: CliConversations;
+  /** Why parts split off (split_work) keep the chat's folder busy, or null. */
+  splitBusy(sessionId: string): string | null;
   /** One workflow step's turn: the step's tools for this turn only, and its final text and structured result. */
   runStepTurn(
     sessionId: string,

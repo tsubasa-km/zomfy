@@ -1,4 +1,4 @@
-import { expect, test } from 'bun:test'
+import { describe, expect, test } from 'bun:test'
 import { PROMPT_ORIGIN_META, promptOrigin } from '@acp-harness/protocol'
 
 // The chat tells the harness's prompts from the person's: by the marker, or for older records by the
@@ -45,4 +45,14 @@ test("an older record's question and step instructions are recognised by their w
 test("the person's own messages have no origin", () => {
   expect(promptOrigin(undefined, 'Please fix the [Question from] parser')).toBeNull()
   expect(promptOrigin({}, 'You are great')).toBeNull()
+})
+
+describe('promptOrigin, harness notes', () => {
+  test("reads a harness note (split_work's report) back from the transcript", () => {
+    expect(promptOrigin({ [PROMPT_ORIGIN_META]: { kind: 'harness-note', title: 'Split work: every part has finished' } }, 'report')).toEqual({
+      kind: 'harness-note',
+      title: 'Split work: every part has finished'
+    })
+    expect(promptOrigin({ [PROMPT_ORIGIN_META]: { kind: 'harness-note' } }, 'report')).toBeNull()
+  })
 })

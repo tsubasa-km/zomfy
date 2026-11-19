@@ -77,6 +77,11 @@ export class SessionMover {
     return `This chat now runs in ${where}, which is your working directory from here on. Continue the task.`;
   }
 
+  /** A move waits for the chat's running turn to end. */
+  hasPending(sessionId: string): boolean {
+    return this.pending.has(sessionId);
+  }
+
   forget(sessionId: string): void {
     this.pending.delete(sessionId);
     this.following.delete(sessionId);

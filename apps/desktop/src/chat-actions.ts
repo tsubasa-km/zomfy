@@ -1,7 +1,7 @@
 import { HARNESS_METHODS, type ChatAgentId, type SessionInfo, type SessionOptions, type TurnResumeKind } from '@acp-harness/protocol'
 import { isExternalAgentSession, sessionAgent } from '@/lib/chat-agents'
 import { keepTab } from '@/stores/tab-layout-store'
-import { cancelTurn, ensureSessionLoaded, harnessRequest, reloadSessionTranscript, sendPrompt } from '@/daemon-connection'
+import { cancelTurn, continueChatInTerminal, ensureSessionLoaded, harnessRequest, reloadSessionTranscript, sendPrompt } from '@/daemon-connection'
 import {
   addSession,
   getState,
@@ -220,6 +220,30 @@ function openSession(info: SessionInfo, hostId: string): void {
 /** Why a chat cannot fork, or null: ACP has no stable fork, so other agents' chats go without (as in Orca). */
 export function forkUnavailableReason(s: Pick<Session, 'agent'>): string | null {
   return isExternalAgentSession(s) ? t('Forking works in Claude threads only') : null
+}
+
+/** Why a thread cannot continue in the `claude` CLI right now, or null when it can. */
+export function continueInTerminalUnavailableReason(s: Pick<Session, 'agent' | 'status'>): string | null {
+  if (isExternalAgentSession(s)) return t('Claude only')
+  if (isWorking(s)) return t('While it is idle')
+  return null
+}
+
+/**
+ * Runs the thread's conversation in the `claude` CLI in a terminal tab. The CLI uses less of the usage
+ * limit than the chat for the same work; the chat picks the conversation up again on its next prompt.
+ */
+export async function continueInTerminal(sessionId: string): Promise<void> {
+  const source = session(sessionId)
+  if (!source || continueInTerminalUnavailableReason(source)) return
+  try {
+    await continueChatInTerminal(source.id, source.hostId)
+  } catch (error) {
+    updateSession(sessionId, (s) => ({
+      ...s,
+      items: [...s.items, { kind: 'notice', text: error instanceof Error ? error.message : String(error), severity: 'error' }]
+    }))
+  }
 }
 
 /** A new tab continuing a copy of the conversation; `fromMessageId` ends the copy with that prompt's exchange. */

@@ -2,7 +2,9 @@
 // bumps the version, builds the signed Windows installer, commits and tags, pushes, and uploads the
 // installer with latest.json to a GitHub Release of tsubasa-km/zomfy.
 //
-//   bun scripts/release.ts [patch|minor|major|<x.y.z>]   (default: patch)
+//   bun scripts/release.ts [patch|minor|major|<x.y.z>] [--skip-checks]   (default: patch)
+//
+// It first runs the typecheck and both test suites, as CI does; --skip-checks is for emergencies.
 //
 // Signs with ~/.ssh/zomfy-updater.key (or TAURI_SIGNING_PRIVATE_KEY); losing that key strands installed copies.
 import { existsSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
@@ -46,9 +48,17 @@ if (!signingKey) throw new Error(`No signing key: ${keyPath} is missing and TAUR
 // The fork's owner account, without switching gh's active account.
 const token = run(['gh', 'auth', 'token', '--user', 'tsubasa-km'], { quiet: true })
 
+// The same checks as CI (.github/workflows/ci.yml): a release never ships what they would refuse.
+if (!process.argv.includes('--skip-checks')) {
+  run(['bun', 'run', 'typecheck'])
+  run(['bun', 'test'], { cwd: join(root, 'packages', 'daemon') })
+  run(['bun', 'test'], { cwd: desktop })
+}
+
 const conf = JSON.parse(readFileSync(confPath, 'utf8'))
 const previous: string = conf.version
-const version = nextVersion(previous, process.argv[2] ?? 'patch')
+const bump = process.argv.slice(2).find((arg) => !arg.startsWith('--'))
+const version = nextVersion(previous, bump ?? 'patch')
 const tag = `v${version}`
 conf.version = version
 writeFileSync(confPath, `${JSON.stringify(conf, null, 2)}\n`)
@@ -56,6 +66,8 @@ writeFileSync(cargoPath, readFileSync(cargoPath, 'utf8').replace(/^version = ".*
 const pkg = JSON.parse(readFileSync(pkgPath, 'utf8'))
 pkg.version = version
 writeFileSync(pkgPath, `${JSON.stringify(pkg, null, 2)}\n`)
+// bun.lock records each workspace's version: without this the next `bun install` rewrites it.
+run(['bun', 'install'], { quiet: true })
 
 run(['bun', 'run', 'tauri', 'build'], {
   cwd: desktop,
@@ -85,7 +97,7 @@ writeFileSync(
   )}\n`
 )
 
-run(['git', 'add', confPath, cargoPath, pkgPath, join(desktop, 'src-tauri', 'Cargo.lock')])
+run(['git', 'add', confPath, cargoPath, pkgPath, join(desktop, 'src-tauri', 'Cargo.lock'), join(root, 'bun.lock')])
 run(['git', 'commit', '-m', `Release ${tag}`])
 run(['git', 'tag', tag])
 run(['git', 'push', REMOTE, 'main', tag], { env: { GH_TOKEN: token } })

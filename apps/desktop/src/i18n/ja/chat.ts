@@ -112,6 +112,16 @@ export const CHAT: Record<string, string> = {
 
   // components/native-chat/NativeChatApprovalCard.tsx
   'Allow {action}?': '{action} を許可しますか？',
+  'Split work: every part has finished': '分担した作業: すべて終わりました',
+  'Split work: cut short by a restart': '分担した作業: 再起動で中断されました',
+  'Split work: commit before merging': '分担した作業: マージ前のコミットを依頼',
+  'Split work': '作業を分担',
+  'Untitled part': '名前のない作業',
+  'The parts run at once, each in a worktree of its own, and are merged into this branch when done. Their edits are not asked about one by one, and several agents at once use more of your usage limit.':
+    '各作業はそれぞれ専用の worktree で同時に進み、終わったものからこのブランチにマージされます。各作業での編集は 1 件ずつ確認しません。また、複数のエージェントが同時に動くため、使用量の上限を多く消費します。',
+  'Split this work into {count} parts?': 'この作業を {count} つに分けて進めますか？',
+  Files: 'ファイル',
+  'From "{helper}", working for this thread': 'このスレッドの作業を分担している「{helper}」から',
 
   // components/native-chat/NativeChatAttachMenu.tsx
   Attach: '添付',
@@ -216,6 +226,12 @@ export const CHAT: Record<string, string> = {
   // components/native-chat/NativeChatForkMenuItem.tsx
   'Fork Thread': 'スレッドをフォーク',
   'Claude only': 'Claude のみ',
+
+  // components/native-chat/NativeChatTerminalMenuItem.tsx
+  'Continue in Terminal': 'ターミナルで続ける',
+  'While it is idle': '待機中のみ',
+  'Run this conversation in the claude CLI, which is reported to use less of the usage limit. The thread picks it up again on its next message.':
+    'この会話を claude CLI で続けます。CLI のほうが使用量の上限を消費しにくいという報告があります。次にこのスレッドへ送ったときに、続きから再開します。',
 
   // components/native-chat/NativeChatInlineTerminal.tsx
   ' · ended when the app closed': ' · アプリの終了時に終了',

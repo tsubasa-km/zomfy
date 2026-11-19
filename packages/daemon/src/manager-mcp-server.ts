@@ -52,7 +52,9 @@ class ManagerMcpServer {
   }
 
   private offered(sessionId: string) {
-    return MANAGER_TOOLS.filter((t) => !("stepOnly" in t && t.stepOnly) || this.offers(sessionId, t.name));
+    return MANAGER_TOOLS.filter(
+      (t) => !(("stepOnly" in t && t.stepOnly) || ("daemonOffered" in t && t.daemonOffered)) || this.offers(sessionId, t.name),
+    );
   }
 
   /** Where a session's agent reaches the tools, with its own token; null when not served. */

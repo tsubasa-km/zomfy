@@ -46,6 +46,7 @@ import {
 import { closeGroup, splitTabTo } from './tab-group-commands'
 import { shortcutLabel } from './tab-shortcuts'
 import { ForkChatTabMenuItem } from '@/components/native-chat/NativeChatForkMenuItem'
+import { ContinueInTerminalTabMenuItem } from '@/components/native-chat/NativeChatTerminalMenuItem'
 import { setChatArchived } from '@/chat-rename-archive'
 import { t } from '@/i18n/i18n'
 
@@ -176,6 +177,7 @@ export function TabContextMenu({
         {tab.kind === 'chat' && (
           <>
             <ForkChatTabMenuItem session={tab.session} />
+            <ContinueInTerminalTabMenuItem session={tab.session} />
             <DropdownMenuItem
               data-menu-action={tab.session.archived ? 'unarchive' : 'archive'}
               onSelect={() => void setChatArchived(tab.session.id, !tab.session.archived)}
