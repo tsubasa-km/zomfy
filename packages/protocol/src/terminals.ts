@@ -35,6 +35,8 @@ export interface TerminalInfo {
   inline?: InlineTerminalAnchor | null
   /** Its host stopped while it ran (an app restart); the output is what it printed before. */
   endedWithHost?: boolean
+  /** The saved SSH connection the tab logs in to (ssh-connections.ts); absent for a local shell. */
+  connection?: import('./ssh-connections').TerminalConnection | null
 }
 
 export interface ShellOption {
