@@ -1,6 +1,8 @@
 // Publishes a Zomfy release the installed app updates itself from (plugins.updater in tauri.conf.json):
-// bumps the version, builds the signed Windows installer, commits and tags, pushes, and uploads the
-// installer with latest.json to a GitHub Release of tsubasa-km/zomfy.
+// bumps the version on development, builds the signed Windows installer, and brings development into
+// main through a pull request merged with a merge commit once CI passes on it (main takes no pushes;
+// see AGENTS.md). Then it tags that merge, uploads the installer with latest.json to a GitHub
+// Release of tsubasa-km/zomfy, and moves development up to it so the next release's notes start there.
 //
 //   bun scripts/release.ts [patch|minor|major|<x.y.z>] [--skip-checks]   (default: patch)
 //
@@ -30,6 +32,16 @@ function run(cmd: string[], opts: { cwd?: string; env?: Record<string, string>; 
   return result.stdout?.toString().trim() ?? ''
 }
 
+/** Waits for the pull request's checks, which take a moment to appear; throws when one fails. */
+function waitForChecks(pr: string, env: Record<string, string>): void {
+  for (let attempt = 0; attempt < 30; attempt++) {
+    Bun.sleepSync(10_000)
+    const listed = Bun.spawnSync(['gh', 'pr', 'checks', pr, '--repo', REPO], { cwd: root, env: { ...process.env, ...env } })
+    if (listed.stdout.toString().trim()) break
+  }
+  run(['gh', 'pr', 'checks', pr, '--repo', REPO, '--watch', '--fail-fast', '--interval', '20'], { env })
+}
+
 function nextVersion(current: string, how: string): string {
   if (/^\d+\.\d+\.\d+$/.test(how)) return how
   const [major, minor, patch] = current.split('.').map(Number)
@@ -40,7 +52,11 @@ function nextVersion(current: string, how: string): string {
 }
 
 if (run(['git', 'status', '--porcelain'], { quiet: true })) throw new Error('Commit or stash your changes first.')
-if (run(['git', 'branch', '--show-current'], { quiet: true }) !== 'main') throw new Error('Release from main.')
+if (run(['git', 'branch', '--show-current'], { quiet: true }) !== 'development') throw new Error('Release from development.')
+run(['git', 'fetch', REMOTE, 'main', 'development'], { quiet: true })
+if (run(['git', 'rev-parse', 'HEAD'], { quiet: true }) !== run(['git', 'rev-parse', `${REMOTE}/development`], { quiet: true })) {
+  throw new Error(`development differs from ${REMOTE}/development: push or pull it first.`)
+}
 
 const keyPath = join(homedir(), '.ssh', 'zomfy-updater.key')
 const signingKey = process.env.TAURI_SIGNING_PRIVATE_KEY ?? (existsSync(keyPath) ? keyPath : null)
@@ -78,7 +94,7 @@ const installerName = `Zomfy_${version}_x64-setup.exe`
 const installer = join(desktop, 'src-tauri', 'target', 'release', 'bundle', 'nsis', installerName)
 const signature = readFileSync(`${installer}.sig`, 'utf8').trim()
 const lastTag = Bun.spawnSync(['git', 'describe', '--tags', '--abbrev=0'], { cwd: root }).stdout.toString().trim()
-const log = run(['git', 'log', '--format=- %s', ...(lastTag ? [`${lastTag}..HEAD`] : ['-20'])], { quiet: true })
+const log = run(['git', 'log', '--no-merges', '--format=- %s', ...(lastTag ? [`${lastTag}..HEAD`] : ['-20'])], { quiet: true })
 const notes = log || '- Maintenance'
 const latestPath = join(desktop, 'src-tauri', 'target', 'release', 'bundle', 'latest.json')
 writeFileSync(
@@ -97,13 +113,28 @@ writeFileSync(
   )}\n`
 )
 
+const gh = { GH_TOKEN: token }
 run(['git', 'add', confPath, cargoPath, pkgPath, join(desktop, 'src-tauri', 'Cargo.lock'), join(root, 'bun.lock')])
 run(['git', 'commit', '-m', `Release ${tag}`])
-run(['git', 'tag', tag])
-run(['git', 'push', REMOTE, 'main', tag], { env: { GH_TOKEN: token } })
-run(['gh', 'release', 'create', tag, installer, `${installer}.sig`, latestPath, '--repo', REPO, '--title', `Zomfy ${version}`, '--notes', notes], {
-  env: { GH_TOKEN: token }
+run(['git', 'push', REMOTE, 'development'], { env: gh })
+
+// main changes only through a pull request; its required check is CI's.
+const pr = run(['gh', 'pr', 'create', '--repo', REPO, '--base', 'main', '--head', 'development', '--title', `Release ${tag}`, '--body', notes], {
+  env: gh,
+  quiet: true
 })
+waitForChecks(pr, gh)
+run(['gh', 'pr', 'merge', pr, '--repo', REPO, '--merge', '--subject', `Merge development for ${tag}`], { env: gh })
+
+run(['git', 'fetch', REMOTE, 'main'], { quiet: true })
+run(['git', 'tag', tag, `${REMOTE}/main`])
+run(['git', 'push', REMOTE, tag], { env: gh })
+run(['gh', 'release', 'create', tag, installer, `${installer}.sig`, latestPath, '--repo', REPO, '--title', `Zomfy ${version}`, '--notes', notes], { env: gh })
+// development moves up to the merge, so the tag is in its history and the next notes start after it.
+run(['git', 'merge', '--ff-only', `${REMOTE}/main`])
+run(['git', 'push', REMOTE, 'development'], { env: gh })
+// The local main follows the remote one; it is checked out nowhere, or this is skipped.
+Bun.spawnSync(['git', 'branch', '-f', 'main', `${REMOTE}/main`], { cwd: root })
 // Each release leaves a ~130 MB installer behind; once this one is uploaded the older ones are dead weight.
 const nsisDir = join(desktop, 'src-tauri', 'target', 'release', 'bundle', 'nsis')
 for (const name of readdirSync(nsisDir)) {
