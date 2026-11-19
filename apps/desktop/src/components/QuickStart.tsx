@@ -114,7 +114,12 @@ export function QuickStart() {
     }
   }
 
-  const hostBadge = (id: HostId) => (id !== defaultHost ? ` · ${hosts[id]?.label ?? id}` : '')
+  // Every project says which host it is on, quietly, so two of the same name are told apart.
+  const hostBadge = (id: HostId) => (
+    <span className="ml-1.5 text-[10px] text-muted-foreground/70" data-quick-start-project-host>
+      {hosts[id]?.label ?? id}
+    </span>
+  )
   const where = workspace
     ? t('Starts in {place}.', {
         place: workspaceProject ? `${projectLabel(workspaceProject)} · ${workspace.branch ?? workspaceLabel(workspace)}` : workspaceLabel(workspace)

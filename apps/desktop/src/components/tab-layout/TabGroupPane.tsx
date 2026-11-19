@@ -11,6 +11,7 @@ import { FileEditorView } from '@/components/FileEditorView'
 import { BrowserTabView } from './BrowserTabView'
 import { ToolDrawer } from './ToolDrawer'
 import { EmptyPane } from './EmptyPane'
+import { WindowEmptyPane } from './WindowEmptyPane'
 import { WorkspacePanelView } from './workspace-panels'
 import { TabStrip } from './TabStrip'
 import { resolveTabDropTarget, setInsertionMark, tabDrag, type DraggedTab, type DropZone } from './tab-drag'
@@ -185,10 +186,8 @@ export function TabGroupPane({
         ) : home ? (
           <EmptyPane workspaceId={home} groupId={groupId} hint={emptyHint} />
         ) : (
-          // Nothing open and no workspace in front: the window offers what its "New thread" tab does.
-          <div className="flex min-h-0 flex-1 flex-col overflow-y-auto">
-            <QuickStart />
-          </div>
+          // Nothing open and no workspace in front: the list a project's empty pane shows, for the window.
+          <WindowEmptyPane />
         )}
         {/* The drawer belongs to the tab on show: none without one, and each tab keeps its own. */}
         {active && home && active.kind !== 'start' && (

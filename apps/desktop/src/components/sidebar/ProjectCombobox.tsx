@@ -41,9 +41,7 @@ export function ProjectCombobox({
           <span className="flex min-w-0 items-center gap-1.5">
             <FolderGit2 className="size-3.5 shrink-0 text-muted-foreground" />
             <span className={cn('truncate text-sm', !value && 'text-muted-foreground')}>{value ? projectLabel(value) : t('Choose project')}</span>
-            {value && byHost.length > 1 ? (
-              <span className="shrink-0 truncate text-xs text-muted-foreground">{hosts[value.hostId]?.label}</span>
-            ) : null}
+            {value ? <span className="shrink-0 truncate text-[10px] text-muted-foreground/70">{hosts[value.hostId]?.label ?? value.hostId}</span> : null}
           </span>
           <ChevronsUpDown className="size-3.5 shrink-0 opacity-50" />
         </Button>
@@ -54,7 +52,7 @@ export function ProjectCombobox({
           <CommandList className="max-h-60">
             <CommandEmpty className="py-4 text-xs">{t('No projects match')}</CommandEmpty>
             {byHost.map(({ host, projects: list }) => (
-              <CommandGroup key={host.id} heading={byHost.length > 1 ? host.label : undefined}>
+              <CommandGroup key={host.id} heading={host.label}>
                 {list.map((p) => (
                   <CommandItem
                     key={`${p.hostId}|${p.id}`}
