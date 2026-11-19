@@ -44,6 +44,8 @@ type CreateParams = CreateTerminalParams & {
   cwd: string
   /** A program to run instead of a shell (setup scripts); the tab keeps its output after exit. */
   program?: { argv: string[]; title: string; env?: Record<string, string> }
+  /** The saved SSH connection `program` logs in to. */
+  connection?: TerminalInfo['connection']
 }
 
 export class TerminalManager {
@@ -107,7 +109,8 @@ export class TerminalManager {
       exitCode: null,
       agent: params.agent ?? null,
       customTitle: null,
-      inline: params.inline ?? null
+      inline: params.inline ?? null,
+      ...(params.connection ? { connection: params.connection } : {})
     }
     // Built before spawning so a bad agent id fails the request instead of leaving a stray shell.
     const plan = params.agent ? buildAgentLaunchPlan(params.agent, params.prompt, spec.kind) : null
