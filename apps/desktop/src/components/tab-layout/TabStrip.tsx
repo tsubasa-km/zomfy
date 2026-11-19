@@ -150,8 +150,12 @@ export function TabStrip({
       <div
         ref={ref}
         role="tablist"
-        // A narrow pane still shows a tab's worth of its row before the buttons beside it.
-        className={cn('terminal-tab-strip flex h-full min-w-[96px] flex-[0_1_auto] items-stretch overflow-x-auto overflow-y-hidden', fade)}
+        // A narrow pane still shows a tab's worth of its row before the buttons beside it; with no tab, the buttons start the row.
+        className={cn(
+          'terminal-tab-strip flex h-full flex-[0_1_auto] items-stretch overflow-x-auto overflow-y-hidden',
+          tabs.length > 0 && 'min-w-[96px]',
+          fade
+        )}
       >
         {tabs.map((tab) => (
           <TabItem
