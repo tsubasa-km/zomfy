@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { CornerDownLeft, MessageSquarePlus, Plus } from 'lucide-react'
-import { SIDE_CHAT_DEFAULT_CONTEXT_MESSAGES, isChatAgentId, type ChatAgentId } from '@acp-harness/protocol'
+import { SIDE_CHAT_DEFAULT_CONTEXT_MESSAGES, isChatAgentId, isGuardedChatAgent, type ChatAgentId } from '@acp-harness/protocol'
 import { ensureSessionLoaded } from '@/daemon-connection'
 import { useStore, type Session } from '@/session-store'
 import { mainChatOf, sendToMainChat, sideChatOf, startSideChat } from '@/side-chat-actions'
@@ -110,7 +110,8 @@ function SideChatSetup({
   onCancel?: () => void
 }) {
   const { agents } = useChatAgents(hostId)
-  const ready = agents.filter((a) => a.id !== 'claude' && a.status === 'ready')
+  // A side chat is handed the main conversation, which Antigravity never takes (GUARDED_CHAT_AGENTS).
+  const ready = agents.filter((a) => a.id !== 'claude' && a.status === 'ready' && !isGuardedChatAgent(a.id))
   const [agent, setAgent] = useState<ChatAgentId>('claude')
   const [withContext, setWithContext] = useState(true)
   return (

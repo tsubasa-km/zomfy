@@ -1,5 +1,5 @@
 import { useState, type ReactNode } from 'react'
-import { ChevronRight, ExternalLink, RefreshCw } from 'lucide-react'
+import { ChevronRight, ExternalLink, RefreshCw, ShieldAlert } from 'lucide-react'
 import { HARNESS_METHODS, type ChatAgentId, type ChatAgentInfo } from '@acp-harness/protocol'
 import { harnessRequest } from '@/daemon-connection'
 import type { HostEntry } from '@/session-store'
@@ -22,10 +22,11 @@ const STATUS_LABEL: Record<ChatAgentInfo['status'], string> = {
   ready: t('Ready'),
   missing: t('Not installed'),
   'needs-adapter': t('Needs adapter'),
-  unsupported: t('No chat mode')
+  unsupported: t('No chat mode'),
+  'needs-consent': t('Off')
 }
 
-type LaunchPatch = { command?: string | null; env?: { name: string; value: string | null } }
+type LaunchPatch = { command?: string | null; env?: { name: string; value: string | null }; consent?: boolean }
 
 async function setLaunch(host: HostEntry, agent: ChatAgentId, patch: LaunchPatch): Promise<void> {
   setChatAgents(host.id, await harnessRequest(HARNESS_METHODS.chatAgentSetLaunch, { agent, ...patch }, host.id))
@@ -124,7 +125,8 @@ function ChatAgentRow({ host, agent }: { host: HostEntry; agent: ChatAgentInfo }
       </SearchableSetting>
       <CollapsibleContent animation="height">
         <div className="space-y-2 pb-3 pl-6">
-          {agent.detail ? <p className="font-mono text-xs break-all text-muted-foreground">{agent.detail}</p> : null}
+          {agent.consent !== undefined ? <ConsentSection agent={agent} onChange={(consent) => run({ consent })} /> : null}
+          {agent.detail && agent.status !== 'needs-consent' ? <p className="font-mono text-xs break-all text-muted-foreground">{agent.detail}</p> : null}
           {agent.update ? (
             <InstallHint>
               {t('{package} {installed} is installed; {latest} is out. Update it the way you installed it.', {
@@ -133,7 +135,7 @@ function ChatAgentRow({ host, agent }: { host: HostEntry; agent: ChatAgentInfo }
                 latest: agent.update.latest
               })}
             </InstallHint>
-          ) : agent.status !== 'ready' ? (
+          ) : agent.status !== 'ready' && agent.status !== 'needs-consent' ? (
             <InstallHint>{t('Install it on {host} from the official page, then press Reload.', { host: host.label })}</InstallHint>
           ) : null}
           {agent.id !== 'claude' ? (
@@ -157,7 +159,7 @@ function ChatAgentRow({ host, agent }: { host: HostEntry; agent: ChatAgentInfo }
 
 /** The vendor's page for what this host lacks: the agent, its adapter, or a newer release. */
 function InstallLink({ agent }: { agent: ChatAgentInfo }) {
-  if ((agent.status === 'ready' && !agent.update) || !agent.installUrl) return null
+  if (((agent.status === 'ready' || agent.status === 'needs-consent') && !agent.update) || !agent.installUrl) return null
   const url = agent.installUrl
   const label =
     agent.status === 'needs-adapter'
@@ -170,6 +172,60 @@ function InstallLink({ agent }: { agent: ChatAgentInfo }) {
       <ExternalLink className="size-3" />
       {label}
     </Button>
+  )
+}
+
+const ANTIGRAVITY_FAQ_URL = 'https://antigravity.google/docs/faq'
+
+/**
+ * A guarded agent (GUARDED_CHAT_AGENTS): off until the person turns it on, having read why. On, it
+ * still runs only in threads they start; automations, workflows, side chats and agent switches refuse it.
+ */
+function ConsentSection({ agent, onChange }: { agent: ChatAgentInfo; onChange: (consent: boolean) => Promise<void> }) {
+  const [asking, setAsking] = useState(false)
+  return (
+    <div className="space-y-2 rounded-md border border-status-warning/40 bg-status-warning/5 p-3 text-xs" data-chat-agent-consent={agent.consent ? 'on' : 'off'}>
+      <p className="flex items-start gap-2 font-medium">
+        <ShieldAlert className="mt-0.5 size-3.5 shrink-0 text-status-warning" />
+        {t('Google forbids using {agent} from other apps on consumer plans, and suspends accounts that do.', { agent: agent.label })}
+      </p>
+      <p className="text-muted-foreground">
+        {t(
+          'Zomfy starts it only in threads you start yourself, never from automations, workflows, side chats or by switching a thread’s agent. Even so, Google may treat any use from Zomfy as a breach. With a Google AI Studio or Gemini Enterprise API key, use Gemini CLI instead.'
+        )}
+      </p>
+      <div className="flex flex-wrap items-center gap-2">
+        <Button type="button" variant="link" size="xs" className="h-auto px-0" onClick={() => window.open(ANTIGRAVITY_FAQ_URL, '_blank', 'noopener')}>
+          <ExternalLink className="size-3" />
+          {t('Read Google’s FAQ')}
+        </Button>
+        <span className="flex-1" />
+        {agent.consent ? (
+          <Button type="button" variant="outline" size="xs" onClick={() => void onChange(false)} data-chat-agent-consent-off>
+            {t('Turn off')}
+          </Button>
+        ) : asking ? (
+          <>
+            <Button type="button" variant="ghost" size="xs" onClick={() => setAsking(false)}>
+              {t('Cancel')}
+            </Button>
+            <Button
+              type="button"
+              variant="destructive"
+              size="xs"
+              onClick={() => void onChange(true).then(() => setAsking(false))}
+              data-chat-agent-consent-confirm
+            >
+              {t('I accept the risk, turn it on')}
+            </Button>
+          </>
+        ) : (
+          <Button type="button" variant="outline" size="xs" onClick={() => setAsking(true)} data-chat-agent-consent-on>
+            {t('Turn on…')}
+          </Button>
+        )}
+      </div>
+    </div>
   )
 }
 

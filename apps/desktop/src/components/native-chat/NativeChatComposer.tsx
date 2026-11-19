@@ -261,6 +261,7 @@ function Composer({ session, editorRef }: ComposerProps) {
                     disabledReason={agentLocked}
                     note={AGENT_SWITCH_NOTE}
                     closeOnSelect
+                    switching
                     onSelect={agentChangeable ? (agent) => void setSessionAgent(session.id, agent) : undefined}
                   >
                     {(close) =>
@@ -285,6 +286,7 @@ function Composer({ session, editorRef }: ComposerProps) {
                     disabledReason={agentLocked}
                     note={AGENT_SWITCH_NOTE}
                     closeOnSelect
+                    switching
                     onSelect={agentChangeable ? (agent) => void setSessionAgent(session.id, agent) : undefined}
                   >
                     {(close) =>

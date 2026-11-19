@@ -1,4 +1,4 @@
-import { chatAgentLabel, isChatAgentId, type ChatAgentId } from '@acp-harness/protocol'
+import { chatAgentLabel, isChatAgentId, isGuardedChatAgent, type ChatAgentId } from '@acp-harness/protocol'
 import { useChatAgents } from '@/lib/chat-agents'
 import type { HostId } from '@/session-store'
 import { TuiAgentIcon } from '@/components/terminal/TuiAgentIcon'
@@ -18,7 +18,8 @@ export function WorkflowStepAgentField({
   onChange: (agent: ChatAgentId | undefined) => void
 }) {
   const { agents } = useChatAgents(hostId)
-  const ready = agents.filter((a) => a.id !== 'claude' && a.status === 'ready').map((a) => a.id)
+  // Antigravity never runs a workflow step (GUARDED_CHAT_AGENTS).
+  const ready = agents.filter((a) => a.id !== 'claude' && a.status === 'ready' && !isGuardedChatAgent(a.id)).map((a) => a.id)
   const current = agent ?? 'claude'
   // A saved choice this host cannot run still shows, so the step does not silently change agent.
   const choices: ChatAgentId[] = ['claude', ...ready, ...(current !== 'claude' && !ready.includes(current) ? [current] : [])]

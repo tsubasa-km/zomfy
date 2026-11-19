@@ -1,5 +1,5 @@
 import { useEffect, useState, useSyncExternalStore } from 'react'
-import { TUI_AGENTS, supportsAgentPromptQuickCommand, type QuickCommand, type TuiAgentId } from '@acp-harness/protocol'
+import { TUI_AGENTS, isGuardedChatAgent, supportsAgentPromptQuickCommand, type QuickCommand, type TuiAgentId } from '@acp-harness/protocol'
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
@@ -19,7 +19,8 @@ import { t, tc } from '@/i18n/i18n'
 const TOGGLE_ITEM_CLASS =
   'data-[state=on]:border-foreground/20 data-[state=on]:bg-foreground/10 data-[state=on]:text-foreground data-[state=on]:shadow-xs data-[state=on]:hover:bg-foreground/15 data-[state=on]:hover:text-foreground'
 
-const PROMPT_AGENTS = TUI_AGENTS.filter((agent) => supportsAgentPromptQuickCommand(agent.id))
+// Typing a saved prompt into Antigravity is driving it from another app (GUARDED_CHAT_AGENTS).
+const PROMPT_AGENTS = TUI_AGENTS.filter((agent) => supportsAgentPromptQuickCommand(agent.id) && !isGuardedChatAgent(agent.id))
 
 interface EditorRequest {
   workspaceId: string

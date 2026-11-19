@@ -1317,5 +1317,14 @@ export const PAGES: Record<string, string> = {
   'This quote is never closed, so the rest of the file is read as one field.':
     'この引用符は閉じられていないため、ファイルの残りが 1 つのフィールドとして読み取られます。',
   'Rows are not checked here in files over {size}. The table view still counts uneven rows and open quotes.':
-    '{size} を超えるファイルでは、ここでの行のチェックを行いません。テーブル表示では、フィールド数の合わない行と閉じていない引用符を引き続き数えます。'
+    '{size} を超えるファイルでは、ここでの行のチェックを行いません。テーブル表示では、フィールド数の合わない行と閉じていない引用符を引き続き数えます。',
+  Off: 'オフ',
+  'Google forbids using {agent} from other apps on consumer plans, and suspends accounts that do.':
+    'Google は個人向けプランで {agent} を他のアプリから使うことを禁止しており、違反したアカウントを停止しています。',
+  'Zomfy starts it only in threads you start yourself, never from automations, workflows, side chats or by switching a thread’s agent. Even so, Google may treat any use from Zomfy as a breach. With a Google AI Studio or Gemini Enterprise API key, use Gemini CLI instead.':
+    'Zomfy では、あなたが自分で始めたスレッドでだけ起動し、自動化・ワークフロー・サイドチャット・スレッドのエージェント切り替えからは起動しません。それでも、Zomfy からの利用自体を Google が違反とみなす可能性があります。Google AI Studio か Gemini Enterprise の API キーがあれば、代わりに Gemini CLI を使ってください。',
+  'Read Google’s FAQ': 'Google の FAQ を読む',
+  'Turn off': 'オフにする',
+  'Turn on…': 'オンにする…',
+  'I accept the risk, turn it on': 'リスクを理解したうえでオンにする'
 }

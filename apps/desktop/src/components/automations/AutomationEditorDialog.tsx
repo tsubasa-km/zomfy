@@ -11,7 +11,8 @@ import {
   type AutomationTrigger,
   type ChatAgentId,
   type ChatEffort,
-  type ChatPermissionMode
+  type ChatPermissionMode,
+  isGuardedChatAgent
 } from '@acp-harness/protocol'
 import { harnessRequest } from '@/daemon-connection'
 import { LOCAL_HOST, allProjects, allWorkspaces, useStore, type HostId } from '@/session-store'
@@ -159,7 +160,8 @@ function EditorBody({
   const hosts = useStore((s) => s.hosts)
   const patch = (change: Partial<Draft>) => setDraft((d) => ({ ...d, ...change }))
   const { agents } = useChatAgents(draft.hostId)
-  const readyAgents = agents.filter((a) => a.id !== 'claude' && a.status === 'ready')
+  // Antigravity never runs on a schedule (GUARDED_CHAT_AGENTS).
+  const readyAgents = agents.filter((a) => a.id !== 'claude' && a.status === 'ready' && !isGuardedChatAgent(a.id))
   const connectedHosts = Object.values(hosts).filter((h) => h.connection.kind === 'connected')
   const workspaces = useMemo(
     () => allWorkspaces({ hosts }).filter((w) => w.hostId === draft.hostId),

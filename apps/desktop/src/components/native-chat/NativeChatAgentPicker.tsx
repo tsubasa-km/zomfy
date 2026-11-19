@@ -1,6 +1,6 @@
 import { useRef, useState } from 'react'
 import { ChevronDown } from 'lucide-react'
-import { chatAgentLabel, type ChatAgentId, type ChatAgentInfo } from '@acp-harness/protocol'
+import { chatAgentLabel, isGuardedChatAgent, type ChatAgentId, type ChatAgentInfo } from '@acp-harness/protocol'
 import { Button } from '@/components/ui/button'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
@@ -18,11 +18,20 @@ import { t } from '@/i18n/i18n'
 
 type Choice = Pick<ChatAgentInfo, 'id' | 'label' | 'status' | 'detail'>
 
-/** Claude first, then the host's other installed agents; the chat's own agent is always listed. */
-function agentChoices(agents: ChatAgentInfo[], current: ChatAgentId): Choice[] {
+/**
+ * Claude first, then the host's other installed agents; the chat's own agent is always listed. A
+ * guarded agent (Antigravity) shows why it cannot be picked: off in settings, or, in an open chat,
+ * that it never takes over another agent's conversation.
+ */
+function agentChoices(agents: ChatAgentInfo[], current: ChatAgentId, switching: boolean): Choice[] {
   const known = (id: ChatAgentId): Choice => agents.find((a) => a.id === id) ?? { id, label: chatAgentLabel(id), status: 'ready', detail: null }
   const others = agents.filter((a) => a.id !== 'claude' && (a.status !== 'missing' || a.id === current))
-  return [known('claude'), ...(current !== 'claude' && !others.some((a) => a.id === current) ? [known(current)] : []), ...others]
+  const guard = (choice: Choice): Choice => {
+    if (!isGuardedChatAgent(choice.id) || choice.id === current) return choice
+    if (choice.status === 'needs-consent') return { ...choice, detail: t('Off · turn it on in Settings › Agents') }
+    return switching && choice.status === 'ready' ? { ...choice, status: 'needs-consent', detail: t('Only in a new thread') } : choice
+  }
+  return [known('claude'), ...(current !== 'claude' && !others.some((a) => a.id === current) ? [known(current)] : []), ...others].map(guard)
 }
 
 export function NativeChatAgentPicker({
@@ -35,6 +44,7 @@ export function NativeChatAgentPicker({
   note,
   onSelect,
   closeOnSelect,
+  switching = false,
   children
 }: {
   hostId: HostId
@@ -53,13 +63,15 @@ export function NativeChatAgentPicker({
   onSelect?: (agent: ChatAgentId) => void
   /** An open chat's agent changes in the background: the menu shuts instead of showing the old one's models. */
   closeOnSelect?: boolean
+  /** A pick replaces an open chat's agent, rather than choosing the one a new thread starts with. */
+  switching?: boolean
   /** The picked agent's models; `close` shuts the menu. */
   children: (close: () => void) => React.ReactNode
 }) {
   const [open, setOpen] = useState(false)
   const body = useRef<HTMLDivElement>(null)
   const { agents } = useChatAgents(hostId)
-  const choices = onSelect ? agentChoices(agents, current) : []
+  const choices = onSelect ? agentChoices(agents, current, switching) : []
   // One agent to pick from is no choice: the menu is then the model list.
   const rail = choices.length > 1
   const title = t('Agent')

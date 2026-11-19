@@ -657,5 +657,7 @@ export const CHAT: Record<string, string> = {
   // session-store.ts
   'This computer': 'このコンピューター',
   'Worked for {seconds}s': '{seconds} 秒間作業しました',
-  Tool: 'ツール'
+  Tool: 'ツール',
+  'Off · turn it on in Settings › Agents': 'オフ · 設定 › エージェントでオンにできます',
+  'Only in a new thread': '新しいスレッドでのみ使えます'
 }
