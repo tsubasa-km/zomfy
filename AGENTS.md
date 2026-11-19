@@ -32,3 +32,20 @@ merges cheap:
 - Commit on your own branch; do not merge, rebase or switch branches unless asked.
 - Before you say the work is done, run what CI runs: `bun run typecheck`, then `bun test` in
   `packages/daemon` and in `apps/desktop`.
+
+# Branches
+
+The GitHub repository is `tsubasa-km/zomfy` (remote `github`); push and merge there with the
+`tsubasa-km` account (`gh auth switch -u tsubasa-km`, and back to `zenk-t-suzuki` afterwards).
+
+- `main` is what has been released. Nobody pushes to it: it changes only through a pull request
+  from `development`, merged with a merge commit, which `bun run release` opens and merges.
+- `development` is where finished work gathers. It takes only merges of topic branches, never
+  commits of its own; it is never force-pushed or deleted.
+- Every change starts on a topic branch from `development`: `feat/…`, `fix/…`, `chore/…` or
+  `docs/…`, named for the change. Push it as you go, so no work lives only on one machine.
+- A finished topic branch is merged into `development` with `git merge --no-ff`, so the merge
+  commit keeps the branch's history together, after CI's checks pass on it. Push `development`,
+  then delete the topic branch locally and on GitHub. A pull request into `development` merges
+  the same way, and GitHub deletes its branch.
+- Only merge commits are allowed on GitHub: squash and rebase merging are off.
