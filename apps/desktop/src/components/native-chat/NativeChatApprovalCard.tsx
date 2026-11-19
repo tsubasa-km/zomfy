@@ -14,6 +14,12 @@ function planOf(input: unknown): string | null {
   return typeof input.plan === 'string' && input.plan.trim() ? input.plan : null
 }
 
+/** A split's two answers come from the harness in English; this window says them in its own language. */
+function optionLabel(option: Permission['options'][number], split: boolean): string {
+  if (!split) return option.name
+  return option.kind.startsWith('allow') ? t('Split it') : t("Don't split")
+}
+
 /** Orca's NativeChatApprovalCard; an ExitPlanMode request shows the plan it asks to start, a split its parts. */
 export function NativeChatApprovalCard({
   permission,
@@ -77,7 +83,7 @@ export function NativeChatApprovalCard({
                     : 'border border-border bg-background text-foreground hover:bg-accent'
                 )}
               >
-                {option.name}
+                {optionLabel(option, parts !== null)}
               </button>
             ))}
           </div>

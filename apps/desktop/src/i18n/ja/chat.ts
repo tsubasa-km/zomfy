@@ -120,6 +120,8 @@ export const CHAT: Record<string, string> = {
   'The parts run at once, each in a worktree of its own, and are merged into this branch when done. Their edits are not asked about one by one, and several agents at once use more of your usage limit.':
     '各作業はそれぞれ専用の worktree で同時に進み、終わったものからこのブランチにマージされます。各作業での編集は 1 件ずつ確認しません。また、複数のエージェントが同時に動くため、使用量の上限を多く消費します。',
   'Split this work into {count} parts?': 'この作業を {count} つに分けて進めますか？',
+  'Split it': '分けて進める',
+  "Don't split": '分けずに進める',
   Files: 'ファイル',
   'From "{helper}", working for this thread': 'このスレッドの作業を分担している「{helper}」から',
 
