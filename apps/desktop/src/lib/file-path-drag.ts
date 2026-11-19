@@ -5,6 +5,8 @@ import { CHAT_COMPOSER_DROP_SELECTOR, chatComposerDropTarget } from '@/lib/chat-
 export interface DraggedPaths {
   workspaceId: string
   paths: string[]
+  /** Those of `paths` that are files, which a pane can open as tabs. */
+  files?: string[]
 }
 
 export const filePathDrag = createPointerDragChannel<DraggedPaths>([

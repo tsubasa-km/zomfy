@@ -1,20 +1,21 @@
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
+import { filePathDrag, type DraggedPaths } from '@/lib/file-path-drag'
 import { ensureSessionLoaded } from '@/daemon-connection'
-import { useStore } from '@/session-store'
+import { getState, useStore } from '@/session-store'
 import { tabScope, WINDOW_TABS } from '@/stores/tab-layout-store'
 import { QuickStart } from '@/components/QuickStart'
 import { ThreadView } from '@/components/ThreadView'
 import { TerminalTabBody } from '@/components/terminal/TerminalPaneTree'
 import { DiffTabView } from '@/components/EditorTabViews'
 import { FileEditorView } from '@/components/FileEditorView'
-import { cn } from '@/lib/utils'
 import { BrowserTabView } from './BrowserTabView'
 import { ToolDrawer } from './ToolDrawer'
 import { EmptyPane } from './EmptyPane'
 import { WorkspacePanelView } from './workspace-panels'
 import { TabStrip } from './TabStrip'
-import { resolveTabDropTarget, setInsertionMark, tabDrag, type DropZone } from './tab-drag'
-import { focusGroup, moveTabTo, splitTabTo } from './tab-group-commands'
+import { resolveTabDropTarget, setInsertionMark, tabDrag, type DraggedTab, type DropZone } from './tab-drag'
+import { focusGroup, moveTabTo, openChatAt, openFilesAt, splitTabTo } from './tab-group-commands'
+import { sidebarDrag, type DragItem } from '@/components/sidebar/sidebar-drag'
 import './pane-split-commands'
 import { tabWorkspaceId, type WorkspaceTab } from './workspace-tab-model'
 import { t } from '@/i18n/i18n'
@@ -110,12 +111,63 @@ export function TabGroupPane({
     }
   })
 
+  // Files from the explorer open here, or in a new split from the pane's edge. As a drag they come
+  // from no tab, so every edge splits and the body adds them to this pane.
+  const asTab = (drag: DraggedPaths): DraggedTab => ({ workspaceId: drag.workspaceId, tabId: '', groupId: '', kind: 'editor' })
+  const fileDropRef = filePathDrag.useDropTarget({
+    accepts: (drag) => (drag.files?.length ?? 0) > 0 && tabScope(drag.workspaceId) === tabScope(workspaceId),
+    over: (drag, { point, element }) => {
+      const target = resolveTabDropTarget(asTab(drag), groupId, element, point)
+      setInsertionMark(target.kind === 'insert' ? target.mark : null)
+      setZone(target.kind === 'split' ? target.side : target.kind === 'move' ? 'center' : null)
+    },
+    leave: () => {
+      setInsertionMark(null)
+      setZone(null)
+    },
+    drop: (drag, { point, element }) => {
+      const target = resolveTabDropTarget(asTab(drag), groupId, element, point)
+      openFilesAt(workspaceId, drag.workspaceId, drag.files ?? [], target)
+    }
+  })
+  // A thread dragged from the left sidebar opens as a tab the same way.
+  const droppedChat = (item: DragItem) => {
+    const session = item.sessionId ? getState().sessions.find((s) => s.id === item.sessionId) : undefined
+    return session && !session.sideOf && tabScope(session.workspaceId) === tabScope(workspaceId) ? session : null
+  }
+  const chatAsTab = (workspace: string): DraggedTab => ({ workspaceId: workspace, tabId: '', groupId: '', kind: 'chat' })
+  const chatDropRef = sidebarDrag.useDropTarget({
+    accepts: (item) => droppedChat(item) !== null,
+    over: (item, { point, element }) => {
+      const target = resolveTabDropTarget(chatAsTab(droppedChat(item)!.workspaceId), groupId, element, point)
+      setInsertionMark(target.kind === 'insert' ? target.mark : null)
+      setZone(target.kind === 'split' ? target.side : target.kind === 'move' ? 'center' : null)
+    },
+    leave: () => {
+      setInsertionMark(null)
+      setZone(null)
+    },
+    drop: (item, { point, element }) => {
+      const session = droppedChat(item)
+      if (!session) return
+      openChatAt(workspaceId, session.id, resolveTabDropTarget(chatAsTab(session.workspaceId), groupId, element, point))
+    }
+  })
+  const paneRef = useCallback(
+    (element: HTMLDivElement | null) => {
+      dropRef(element)
+      fileDropRef(element)
+      chatDropRef(element)
+    },
+    [dropRef, fileDropRef, chatDropRef]
+  )
+
   return (
     <div
-      ref={dropRef}
+      ref={paneRef}
       data-tab-group-id={groupId}
       data-focused={isFocused ? 'true' : 'false'}
-      className={cn('relative flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden', hasSplit && !isFocused && 'opacity-95')}
+      className="relative flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden"
       onPointerDown={() => !isFocused && focusGroup(workspaceId, groupId)}
     >
       <TabStrip
@@ -143,6 +195,10 @@ export function TabGroupPane({
           <ToolDrawer key={active.id} workspaceId={home} tabId={active.id} exclude={active.id} focused={isFocused} />
         )}
       </div>
+      {/* Split, the pane being worked in is outlined, so where a keystroke goes is plain to see. */}
+      {hasSplit && isFocused && (
+        <div aria-hidden data-focused-pane-outline className="pointer-events-none absolute inset-0 z-30 border border-highlight/60" />
+      )}
       {zone && (
         <div aria-hidden data-tab-drop-zone={zone} className="tab-drop-overlay" style={OVERLAY_RECT[zone]}>
           {zone !== 'center' && (

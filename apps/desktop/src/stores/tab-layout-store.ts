@@ -281,7 +281,11 @@ export function reconcileLayout(
   const added = liveIds.filter((id) => !placed.has(id))
   if (added.length > 0) {
     const focused = next.groups[next.focusedGroupId]!
-    let group: TabGroup = { ...focused, tabOrder: [...focused.tabOrder, ...added] }
+    // As in VS Code, a new tab opens just right of the active one, and never among the pinned.
+    const order = focused.tabOrder
+    const active = focused.activeTabId ? order.indexOf(focused.activeTabId) : -1
+    const at = active === -1 ? order.length : Math.max(active + 1, pinnedCount(order))
+    let group: TabGroup = { ...focused, tabOrder: [...order.slice(0, at), ...added, ...order.slice(at)] }
     if (group.activeTabId === null) group = touch(group, added.at(-1)!)
     next = { ...next, groups: { ...next.groups, [group.id]: group } }
   }
@@ -358,16 +362,23 @@ export function moveTab(workspaceId: string, tabId: string, targetGroupId: strin
   if (!source || !target) return
   const groups = { ...layout.groups }
   let insertAt = index
+  // Pinned tabs stay before the rest, wherever either is dropped.
+  const pinned = state.meta[tabId]?.pinned === true
+  const slot = (order: string[]) => {
+    const at = Math.max(0, Math.min(insertAt, order.length))
+    const edge = pinnedCount(order)
+    return pinned ? Math.min(at, edge) : Math.max(at, edge)
+  }
   if (source.id === target.id) {
     const from = source.tabOrder.indexOf(tabId)
     if (from < index) insertAt -= 1
     const order = source.tabOrder.filter((id) => id !== tabId)
-    order.splice(Math.max(0, Math.min(insertAt, order.length)), 0, tabId)
+    order.splice(slot(order), 0, tabId)
     groups[target.id] = touch({ ...source, tabOrder: order }, tabId)
   } else {
     groups[source.id] = withoutTabs(source, new Set([tabId]))
     const order = [...target.tabOrder]
-    order.splice(Math.max(0, Math.min(insertAt, order.length)), 0, tabId)
+    order.splice(slot(order), 0, tabId)
     groups[target.id] = touch({ ...target, tabOrder: order }, tabId)
   }
   setLayout(workspaceId, collapseEmptyGroups({ ...layout, groups, focusedGroupId: target.id }))
@@ -407,7 +418,35 @@ export function setTabMeta(tabId: string, patch: Partial<TabMeta>): void {
   for (const key of Object.keys(merged) as (keyof TabMeta)[]) {
     if (merged[key] === undefined || merged[key] === null || merged[key] === '') delete merged[key]
   }
+  const pinChanged = 'pinned' in patch && Boolean(current.pinned) !== Boolean(merged.pinned)
   commit({ ...state, meta: { ...state.meta, [tabId]: merged } })
+  if (pinChanged) settlePinned(tabId)
+}
+
+/** How many tabs at the start of an order are pinned. */
+function pinnedCount(order: string[]): number {
+  const first = order.findIndex((id) => !state.meta[id]?.pinned)
+  return first === -1 ? order.length : first
+}
+
+/**
+ * Pinned tabs sit at the start of their group, as in VS Code: a tab pinned goes after the pinned
+ * ones, a tab unpinned right after them.
+ */
+function settlePinned(tabId: string): void {
+  const layouts = { ...state.layouts }
+  let changed = false
+  for (const [scope, layout] of Object.entries(state.layouts)) {
+    const group = groupOfTab(layout, tabId)
+    if (!group) continue
+    const rest = group.tabOrder.filter((id) => id !== tabId)
+    const tabOrder = [...rest]
+    tabOrder.splice(pinnedCount(rest), 0, tabId)
+    if (tabOrder.join('\n') === group.tabOrder.join('\n')) continue
+    layouts[scope] = { ...layout, groups: { ...layout.groups, [group.id]: { ...group, tabOrder } } }
+    changed = true
+  }
+  if (changed) commit({ ...state, layouts })
 }
 
 export function forgetTabMeta(ids: string[]): void {

@@ -123,6 +123,7 @@ export function MatchResultRow({
   parts,
   replacement,
   onOpen,
+  onKeep,
   onReplace
 }: {
   path: string
@@ -131,6 +132,8 @@ export function MatchResultRow({
   /** The hit's replacement while the replace field is shown. */
   replacement: string | null
   onOpen: () => void
+  /** A double click keeps the preview tab a click opened. */
+  onKeep?: () => void
   onReplace?: () => void
 }) {
   return (
@@ -144,6 +147,7 @@ export function MatchResultRow({
           // Focus goes to the opened editor, not back to this button.
           onMouseDown={(event) => event.button === 0 && event.preventDefault()}
           onClick={onOpen}
+          onDoubleClick={onKeep}
         >
           <span className="mt-px shrink-0 text-[10px] text-muted-foreground tabular-nums">{match.line}</span>
           <span className="flex min-w-0 flex-1 items-baseline text-xs whitespace-pre">

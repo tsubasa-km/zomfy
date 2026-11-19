@@ -1,4 +1,4 @@
-import { allProjects, allWorkspaces, getState, selectSession, selectWorkspace, useStore } from '@/session-store'
+import { allProjects, allWorkspaces, getState, selectSession, selectWorkspace, sidebarWorkspaceId, useStore } from '@/session-store'
 import { sidebarDrag, type DragItem } from '@/components/sidebar/sidebar-drag'
 import { projectLabel } from '@/components/sidebar/workspace-visibility'
 import { WorkspaceTabs } from '@/components/WorkspaceTabs'
@@ -24,7 +24,8 @@ function draggedWorkspace(item: DragItem): string | null {
 }
 
 export function WorkspaceMain() {
-  const active = useStore((s) => s.activeWorkspaceId)
+  // The sidebar stays on the "New thread" tab, showing the workspace that was in front.
+  const active = useStore((s) => sidebarWorkspaceId(s))
   // A chat or workspace dropped here from the sidebar opens, as a click on it does.
   const dropRef = sidebarDrag.useDropTarget({
     accepts: (item) => draggedWorkspace(item) !== null,

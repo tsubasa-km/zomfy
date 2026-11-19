@@ -80,21 +80,34 @@ const FILE_EXTENSIONS = new Set(
   'png jpg jpeg gif webp svg bmp ico pdf md mdx txt csv json jsonc yaml yml toml xml html htm css scss js jsx ts tsx mjs cjs py rb go rs java kt cs c cpp h hpp sh ps1 bat sql mmd drawio env lock'.split(' ')
 )
 
+/** `C:\x`, `\\server\share\x` or `/x/y`: a path that names where it is without a workspace. */
+export function isAbsolutePath(path: string): boolean {
+  return WINDOWS_DRIVE_RE.test(path) || /^\\\\[^\\]/.test(path) || path.startsWith('/')
+}
+
 /**
- * Whether inline code reads as a path worth opening: no spaces or scheme, and either a folder in it
+ * Whether inline code reads as a path worth opening: no scheme, and either a folder in it
  * (`src/a.ts`, `C:\x\y.png`, `./run.sh`) or a bare name with a file extension (`diagram.png`). A
- * `:12` line suffix is allowed.
+ * `:12` line suffix is allowed. A full path may also name a folder, and a Windows one may have
+ * spaces in it (`C:\Program Files\x`), since nothing but a path starts with a drive.
  */
 export function looksLikeFilePath(text: string): boolean {
   const value = text.trim()
-  if (!value || /\s/.test(value) || value.length > 400) return false
+  if (!value || value.length > 400) return false
   if (SCHEME_RE.test(value) && !WINDOWS_DRIVE_RE.test(value)) return false
   const path = value.replace(/(?::\d+){1,2}$|#L\d+$/i, '')
+  const windows = WINDOWS_DRIVE_RE.test(path) || /^\\\\[^\\\s]/.test(path)
+  if (/\s/.test(path) && (!windows || /^\s|\s$|\s{2}/.test(path))) return false
   const name = path.split(/[\\/]/).at(-1) ?? ''
-  const extension = /\.([A-Za-z0-9]{1,8})$/.exec(name)?.[1]?.toLowerCase()
-  if (!extension) return false
-  if (/[\\/]/.test(path)) return /^[\w.~:\\/@-]+$/.test(path) && !path.includes('//')
-  return FILE_EXTENSIONS.has(extension) && /^[\w.@-]+$/.test(name)
+  const extension = /\.([\p{L}\p{N}]{1,8})$/u.exec(name)?.[1]?.toLowerCase()
+  if (/[\\/]/.test(path)) {
+    if (!/^[\p{L}\p{N}_.~:\\/@ ()+,-]+$/u.test(path) || path.includes('//')) return false
+    if (extension) return true
+    // A folder: only a full path, and not a lone `/word`, which is as likely a command.
+    const parts = path.split(/[\\/]/).filter(Boolean)
+    return (windows && parts.length >= 2) || (path.startsWith('/') && parts.length >= 2)
+  }
+  return extension !== undefined && FILE_EXTENSIONS.has(extension) && /^[\p{L}\p{N}_.@-]+$/u.test(name)
 }
 
 /** An image the chat can show itself, by its extension. */

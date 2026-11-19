@@ -262,8 +262,12 @@ const listeners = new Set<() => void>()
 let batchDepth = 0
 let batchDirty = false
 
+/** The last workspace in front, which the right sidebar keeps showing while none is (sidebarWorkspaceId). */
+let lastActiveWorkspaceId: string | null = null
+
 function set(next: StoreState): void {
   state = placeInColumns(next, state)
+  if (state.activeWorkspaceId) lastActiveWorkspaceId = state.activeWorkspaceId
   if (batchDepth > 0) {
     batchDirty = true
     return
@@ -803,8 +807,8 @@ export function selectTerminal(terminalId: string): void {
 // ── Editor tabs and layout ───────────────────────────────────────────────
 
 /** Opens (or refocuses) a file preview or diff tab in its workspace. */
-export function openEditorTab(tab: Omit<EditorTab, 'id' | 'createdAt'>): void {
-  const existing = state.editorTabs.find(
+function findEditorTab(tab: Omit<EditorTab, 'id' | 'createdAt'>): EditorTab | undefined {
+  return state.editorTabs.find(
     (t) =>
       t.workspaceId === tab.workspaceId &&
       t.kind === tab.kind &&
@@ -813,6 +817,43 @@ export function openEditorTab(tab: Omit<EditorTab, 'id' | 'createdAt'>): void {
       t.compare?.base === tab.compare?.base &&
       t.compare?.head === tab.compare?.head
   )
+}
+
+/**
+ * Opens a file picked in the explorer as VS Code does: in a preview tab, which the next file picked
+ * there takes the place of. A file that already has a tab just comes to the front, and a preview tab
+ * the person keeps (a double click, an edit, a move) stays for good.
+ */
+export function previewEditorFile(workspaceId: string, path: string): void {
+  previewEditorTab({ workspaceId, kind: 'file', path, staged: false })
+}
+
+/** The same for any editor tab: a search hit, a change's diff. */
+export function previewEditorTab(spec: Omit<EditorTab, 'id' | 'createdAt'>): void {
+  const { workspaceId } = spec
+  if (findEditorTab(spec)) return openEditorTab(spec)
+  const oldId = previewTabOf(workspaceId)
+  const old = oldId ? state.editorTabs.find((t) => t.id === oldId && !t.dirty) : undefined
+  const slot = old ? groupOfTab(layoutFor(workspaceId), old.id) : null
+  openEditorTab(spec)
+  const opened = findEditorTab(spec)
+  if (!opened) return
+  if (old && slot) {
+    placeTab(workspaceId, opened.id, slot.id, slot.tabOrder.indexOf(old.id))
+    removeTabsFromLayout(workspaceId, [old.id])
+    closeEditorTab(old.id)
+  }
+  setPreviewTab(workspaceId, opened.id)
+}
+
+/** A double click on what opened a preview tab keeps that tab. */
+export function keepEditorTab(spec: Omit<EditorTab, 'id' | 'createdAt'>): void {
+  const tab = findEditorTab(spec)
+  if (tab) keepTab(tab.id)
+}
+
+export function openEditorTab(tab: Omit<EditorTab, 'id' | 'createdAt'>): void {
+  const existing = findEditorTab(tab)
   const target = existing
     ? { ...existing, ...(tab.line !== undefined ? { line: tab.line } : {}) }
     : { ...tab, id: `${tab.kind}:${crypto.randomUUID()}`, createdAt: Date.now() }
@@ -821,6 +862,8 @@ export function openEditorTab(tab: Omit<EditorTab, 'id' | 'createdAt'>): void {
 }
 
 export function setEditorDirty(id: string, dirty: boolean): void {
+  // An edited file's preview tab stays, as in VS Code.
+  if (dirty) keepTab(id)
   if (state.editorTabs.find((t) => t.id === id)?.dirty === dirty) return
   set({ ...state, editorTabs: state.editorTabs.map((t) => (t.id === id ? { ...t, dirty } : t)) })
 }
@@ -886,8 +929,19 @@ export function setRightSidebar(change: Partial<StoreState['rightSidebar']>): vo
 }
 
 /** The active workspace's sidebar on `tab`, or closed when it already shows that (or, without `tab`, anything). */
+/**
+ * The workspace the right sidebar shows: the one in front, or with none in front (the "New
+ * thread" tab), the one that tab starts its chat in, else the one last in front. So opening a new
+ * thread does not take the sidebar away.
+ */
+export function sidebarWorkspaceId(s: StoreState = state): string | null {
+  const live = (id: string | null): id is string => id !== null && inWindowTabs(id, s) && allWorkspaces(s).some((w) => w.id === id)
+  for (const id of [s.activeWorkspaceId, s.startTab.workspaceId, lastActiveWorkspaceId]) if (live(id)) return id
+  return null
+}
+
 export function toggleActivePaneSidebar(tab?: RightSidebarTab): void {
-  const workspaceId = state.activeWorkspaceId
+  const workspaceId = sidebarWorkspaceId()
   if (workspaceId) togglePaneSidebar(workspaceId, tab ? panelOf(tab) : undefined)
 }
 

@@ -44,7 +44,8 @@ export function TabItem({
   groupTabs,
   active,
   groupActiveId,
-  hasSplit
+  hasSplit,
+  groupFocused = true
 }: {
   workspaceId: string
   groupId: string
@@ -54,6 +55,8 @@ export function TabItem({
   /** The group's open tab, which joins the first Ctrl-click's selection. */
   groupActiveId: string | null
   hasSplit: boolean
+  /** Whether its pane is the one being worked in; only that pane's active tab is marked in colour. */
+  groupFocused?: boolean
 }) {
   // A tab acts in its own workspace, which among the window's tabs is not always its pane's.
   const workspaceId = tabWorkspaceId(tab) ?? paneWorkspaceId
@@ -149,7 +152,8 @@ export function TabItem({
           setMenu({ x: e.clientX, y: e.clientY, open: true })
         }}
         className={cn(
-          'group relative flex h-full w-[180px] min-w-[72px] shrink cursor-pointer items-center gap-1.5 border-r border-border px-1.5 text-xs select-none min-[1280px]:w-[220px]',
+          // Sized to its name, as VS Code's tabs are; the strip scrolls once they no longer fit.
+          'group relative flex h-full max-w-[280px] min-w-[80px] shrink-0 cursor-pointer items-center gap-1.5 border-r border-border pr-1.5 pl-2.5 text-xs select-none',
           active || selected
             ? 'bg-[color-mix(in_srgb,var(--foreground)_6%,var(--card))] text-foreground'
             : 'bg-card text-muted-foreground hover:text-foreground',
@@ -160,7 +164,6 @@ export function TabItem({
         <span className="flex size-4 shrink-0 items-center justify-center">
           {dot ? <AgentStateDot state={dot} size="sm" /> : <TabKindIcon tab={tab} />}
         </span>
-        {pinned && renaming === null && <Pin className="size-3 shrink-0 text-muted-foreground" aria-hidden />}
         {renaming !== null ? (
           <Input
             autoFocus
@@ -198,26 +201,57 @@ export function TabItem({
         {meta?.color && renaming === null && (
           <span className="size-2 shrink-0 rounded-full" style={{ backgroundColor: meta.color }} />
         )}
-        {dirty && <span aria-label={t('Unsaved changes')} className="size-2 shrink-0 rounded-full bg-foreground/60" />}
-        {!pinned && renaming === null && (
-          <button
-            type="button"
-            aria-label={t('Close {title}', { title })}
+        {/* VS Code's close slot: a pin to unpin, an unsaved file's dot that turns into the close
+            button under the pointer, or the close button on the active tab and the hovered one. */}
+        {renaming === null &&
+          (pinned ? (
+            <button
+              type="button"
+              aria-label={t('Unpin Tab')}
+              title={t('Unpin Tab')}
+              data-tab-unpin
+              className="flex h-4 w-4 shrink-0 items-center justify-center rounded-sm text-muted-foreground hover:bg-muted hover:text-foreground"
+              onPointerDown={(e) => e.stopPropagation()}
+              onClick={(e) => {
+                e.stopPropagation()
+                setTabMeta(tab.id, { pinned: false })
+              }}
+            >
+              <Pin className="size-3" />
+            </button>
+          ) : (
+            <button
+              type="button"
+              aria-label={t('Close {title}', { title })}
+              className={cn(
+                'group/close flex h-4 w-4 shrink-0 items-center justify-center rounded-sm',
+                active || dirty
+                  ? 'text-muted-foreground hover:bg-muted hover:text-foreground'
+                  : 'text-transparent group-hover:text-muted-foreground hover:!bg-muted hover:!text-foreground'
+              )}
+              onClick={(e) => {
+                e.stopPropagation()
+                close()
+              }}
+            >
+              {dirty ? (
+                <>
+                  <span aria-label={t('Unsaved changes')} className="size-2 rounded-full bg-foreground/60 group-hover/close:hidden" />
+                  <X className="hidden size-3 group-hover/close:block" />
+                </>
+              ) : (
+                <X className="size-3" />
+              )}
+            </button>
+          ))}
+        {active && (
+          <span
             className={cn(
-              'flex h-4 w-4 shrink-0 items-center justify-center rounded-sm',
-              active
-                ? 'text-muted-foreground hover:bg-muted hover:text-foreground'
-                : 'text-transparent group-hover:text-muted-foreground hover:!bg-muted hover:!text-foreground'
+              'pointer-events-none absolute inset-x-0 bottom-0 z-20 h-[2px]',
+              groupFocused || !hasSplit ? 'bg-highlight' : 'bg-muted-foreground/30'
             )}
-            onClick={(e) => {
-              e.stopPropagation()
-              close()
-            }}
-          >
-            <X className="size-3" />
-          </button>
+          />
         )}
-        {active && <span className="pointer-events-none absolute inset-x-0 bottom-0 z-20 h-[2px] bg-highlight" />}
       </div>
       {menu && (
         <TabContextMenu

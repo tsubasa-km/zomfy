@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
-import { RefreshCw } from 'lucide-react'
+import { ChevronRight, RefreshCw } from 'lucide-react'
 import { HARNESS_METHODS, type LspServerStatus, type LspSetServerParams } from '@acp-harness/protocol'
 import { harnessRequest } from '@/daemon-connection'
 import type { HostEntry } from '@/session-store'
@@ -8,7 +8,7 @@ import { Input } from '@/components/ui/input'
 import { Switch } from '@/components/ui/switch'
 import { cn } from '@/lib/utils'
 import { SettingsRow, TextField } from './settings-form-controls'
-import { SearchableSetting } from './SettingsSection'
+import { SearchableSetting, useSettingsSearchQuery } from './SettingsSection'
 import { t } from '@/i18n/i18n'
 
 // Per host, the language servers the editor uses there: what was found for each known one, the
@@ -64,17 +64,34 @@ export function LanguageServerSettings({ host }: { host: HostEntry }) {
   )
 }
 
+/**
+ * One server, folded to a line by default: its name, languages, whether it was found, and its
+ * switch. Unfolded (or while settings are searched) it shows where it was found and its command.
+ */
 function ServerRow({ server, onSave }: { server: LspServerStatus; onSave: (params: LspSetServerParams) => Promise<void> }) {
   const found = server.resolved !== null
+  const [open, setOpen] = useState(false)
+  const searching = useSettingsSearchQuery().trim() !== ''
+  const expanded = open || searching
   return (
-    <div className="py-1" data-language-server={server.id} data-language-server-found={found}>
+    <div className="py-1" data-language-server={server.id} data-language-server-found={found} data-expanded={expanded || undefined}>
       <SearchableSetting entry={{ title: server.name, keywords: ['language server', 'lsp', server.id, ...server.languages] }}>
-        <div className="flex items-center gap-2 pt-2">
-          <span className="text-sm font-medium">{server.name}</span>
-          <span className="min-w-0 flex-1 truncate text-xs text-muted-foreground">
-            {server.role === 'linter' ? `${t('Linter')} · ` : ''}
-            {server.languages.join(', ')}
-          </span>
+        <div className="flex items-center gap-2 py-1">
+          <button
+            type="button"
+            aria-expanded={expanded}
+            data-language-server-toggle
+            onClick={() => setOpen(!open)}
+            className="flex min-w-0 flex-1 items-center gap-2 rounded-sm text-left outline-none focus-visible:ring-1 focus-visible:ring-ring"
+          >
+            <ChevronRight className={cn('size-3.5 shrink-0 text-muted-foreground transition-transform', expanded && 'rotate-90')} />
+            <span className="text-sm font-medium">{server.name}</span>
+            <span className="min-w-0 flex-1 truncate text-xs text-muted-foreground">
+              {server.role === 'linter' ? `${t('Linter')} · ` : ''}
+              {server.languages.join(', ')}
+            </span>
+            {!found && !server.disabled ? <span className="shrink-0 text-xs text-status-warning">{t('Not found')}</span> : null}
+          </button>
           {!server.builtin ? (
             <Button type="button" variant="ghost" size="xs" onClick={() => void onSave({ id: server.id, remove: true })}>
               {t('Remove')}
@@ -82,11 +99,23 @@ function ServerRow({ server, onSave }: { server: LspServerStatus; onSave: (param
           ) : null}
           <Switch checked={!server.disabled} aria-label={t('Use {name}', { name: server.name })} onCheckedChange={(checked) => void onSave({ id: server.id, disabled: !checked })} />
         </div>
-        <p className={cn('font-mono text-xs break-all', found ? 'text-muted-foreground' : 'text-status-warning')} data-language-server-status>
-          {found ? server.resolved : server.detail}
-        </p>
-        {!found && server.install ? <p className="text-xs text-muted-foreground">{t('To install it on this host: {command}', { command: server.install })}</p> : null}
+        {expanded ? (
+          <div className="pl-5.5">
+            <p className={cn('font-mono text-xs break-all', found ? 'text-muted-foreground' : 'text-status-warning')} data-language-server-status>
+              {found ? server.resolved : server.detail}
+            </p>
+            {!found && server.install ? <p className="text-xs text-muted-foreground">{t('To install it on this host: {command}', { command: server.install })}</p> : null}
+          </div>
+        ) : null}
       </SearchableSetting>
+      {expanded ? <ServerCommand server={server} onSave={onSave} /> : null}
+    </div>
+  )
+}
+
+function ServerCommand({ server, onSave }: { server: LspServerStatus; onSave: (params: LspSetServerParams) => Promise<void> }) {
+  return (
+    <div className="pl-5.5">
       <TextField
         label={t('{name} command', { name: server.name })}
         description={server.builtin ? t('Starts this language server over stdio. Empty looks for it on the host.') : t('Starts this language server over stdio.')}
