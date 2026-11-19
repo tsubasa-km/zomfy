@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { filePathDrag, type DraggedPaths } from '@/lib/file-path-drag'
 import { ensureSessionLoaded } from '@/daemon-connection'
-import { getState, useStore } from '@/session-store'
+import { getState, sidebarWorkspaceId, useStore } from '@/session-store'
 import { tabScope, WINDOW_TABS } from '@/stores/tab-layout-store'
 import { QuickStart } from '@/components/QuickStart'
 import { ThreadView } from '@/components/ThreadView'
@@ -86,6 +86,8 @@ export function TabGroupPane({
   const front = useStore((s) => s.activeWorkspaceId)
   const home = workspaceId !== WINDOW_TABS ? workspaceId : ((active ? tabWorkspaceId(active) : null) ?? front)
   const placed = home ?? workspaceId
+  // With no tab at all, the empty pane still offers the project the sidebar shows, as its drawer would.
+  const recent = useStore((s) => (home ? null : sidebarWorkspaceId(s)))
   const [zone, setZone] = useState<DropZone | null>(null)
 
   useEffect(() => {
@@ -185,8 +187,10 @@ export function TabGroupPane({
           <TabBody tab={active} />
         ) : home ? (
           <EmptyPane workspaceId={home} groupId={groupId} hint={emptyHint} />
+        ) : recent ? (
+          <EmptyPane workspaceId={recent} groupId={groupId} hint={emptyHint} />
         ) : (
-          // Nothing open and no workspace in front: the list a project's empty pane shows, for the window.
+          // Nothing open and no project to offer: the list a project's empty pane shows, for the window.
           <WindowEmptyPane />
         )}
         {/* The drawer belongs to the tab on show: none without one, and each tab keeps its own. */}
