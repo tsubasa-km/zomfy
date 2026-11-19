@@ -15,6 +15,18 @@ export function chatAgentLabel(id: string): string {
   return tuiAgentSpec(id)?.label ?? id
 }
 
+/**
+ * Agents whose vendor forbids driving them from another app on consumer plans, and suspends accounts
+ * that do (Antigravity's terms and FAQ). They run only after the person turns them on for the host,
+ * and only in chats the person starts: never from automations, workflows, side chats or a switch of
+ * a chat's agent, where another agent's conversation or a schedule would drive them.
+ */
+export const GUARDED_CHAT_AGENTS: readonly ChatAgentId[] = ['antigravity']
+
+export function isGuardedChatAgent(id: string | null | undefined): boolean {
+  return !!id && GUARDED_CHAT_AGENTS.some((g) => g === id)
+}
+
 /** What a chat is called until its first message names it. Windows show it in their own language. */
 export const NEW_CHAT_TITLE = 'New thread'
 /** The same, from daemons that still called a thread a chat. */
@@ -26,8 +38,9 @@ export function isUntitledChat(title: string): boolean {
 }
 
 /** `ready`: the ACP server runs here. `missing`: not on this host's PATH. `needs-adapter`: the CLI
- *  is installed but its ACP server is a separate program. `unsupported`: this release has no ACP mode. */
-export type ChatAgentStatus = 'ready' | 'missing' | 'needs-adapter' | 'unsupported'
+ *  is installed but its ACP server is a separate program. `unsupported`: this release has no ACP mode.
+ *  `needs-consent`: a guarded agent (GUARDED_CHAT_AGENTS) the person has not turned on for this host. */
+export type ChatAgentStatus = 'ready' | 'missing' | 'needs-adapter' | 'unsupported' | 'needs-consent'
 
 export interface ChatAgentInfo {
   id: ChatAgentId
@@ -45,6 +58,8 @@ export interface ChatAgentInfo {
   installUrl?: string | null
   /** A newer release of one of the agent's npm packages, found by the daemon's periodic check. */
   update?: ChatAgentUpdate | null
+  /** For a guarded agent: whether the person turned it on for this host. Absent on the others. */
+  consent?: boolean
 }
 
 export interface ChatAgentUpdate {
@@ -87,9 +102,9 @@ export const CHAT_AGENT_NOTIFICATIONS = {
 
 export interface ChatAgentRequests {
   [CHAT_AGENT_METHODS.chatAgentsList]: { params: { refresh?: boolean }; result: ChatAgentInfo[] }
-  /** `env.value: null` removes the variable; `command: null` restores the catalog command. */
+  /** `env.value: null` removes the variable; `command: null` restores the catalog command; `consent` turns a guarded agent on or off. */
   [CHAT_AGENT_METHODS.chatAgentSetLaunch]: {
-    params: { agent: ChatAgentId; command?: string | null; env?: { name: string; value: string | null } }
+    params: { agent: ChatAgentId; command?: string | null; env?: { name: string; value: string | null }; consent?: boolean }
     result: ChatAgentInfo[]
   }
 }
