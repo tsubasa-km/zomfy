@@ -13,6 +13,8 @@ const PATH = join(HARNESS_HOME, 'chat-agents.json')
 export interface ChatAgentLaunch {
   command: string | null
   env: Record<string, string>
+  /** A guarded agent (GUARDED_CHAT_AGENTS) the person turned on for this host. */
+  consent?: boolean
 }
 
 type Store = Partial<Record<ChatAgentId, ChatAgentLaunch>>
@@ -31,16 +33,18 @@ function load(): Promise<Store> {
 
 export async function chatAgentLaunch(agent: ChatAgentId): Promise<ChatAgentLaunch> {
   const saved = (await load())[agent]
-  return { command: saved?.command ?? null, env: { ...saved?.env } }
+  return { command: saved?.command ?? null, env: { ...saved?.env }, ...(saved?.consent ? { consent: true } : {}) }
 }
 
 export async function updateChatAgentLaunch(
   agent: ChatAgentId,
-  patch: { command?: string | null; env?: { name: string; value: string | null } }
+  patch: { command?: string | null; env?: { name: string; value: string | null }; consent?: boolean }
 ): Promise<void> {
   const store = await load()
   const next = await chatAgentLaunch(agent)
   if (patch.command !== undefined) next.command = patch.command?.trim() || null
+  if (patch.consent === true) next.consent = true
+  if (patch.consent === false) delete next.consent
   if (patch.env) {
     const name = patch.env.name.trim()
     if (!/^[A-Za-z_][A-Za-z0-9_]*$/.test(name)) throw new Error(`${name || 'An empty name'} is not a variable name`)

@@ -3,6 +3,7 @@ import { dirname, join } from 'node:path'
 import {
   CHAT_AGENT_IDS,
   chatAgentLabel,
+  isGuardedChatAgent,
   tuiAgentSpec,
   type ChatAgentId,
   type ChatAgentInfo
@@ -93,8 +94,28 @@ export type ResolvedChatAgent =
   | { status: 'ready'; argv: string[]; env: Record<string, string>; display: string }
   | { status: Exclude<ChatAgentInfo['status'], 'ready'>; detail: string }
 
-/** How this host starts the agent's ACP server right now (custom command, PATH, probes). */
+/**
+ * How this host starts the agent's ACP server right now (custom command, PATH, probes). A guarded
+ * agent the person has not turned on is never started, however it is installed.
+ */
 export async function resolveChatAgent(agent: ChatAgentId): Promise<ResolvedChatAgent> {
+  const resolved = await resolveInstalledChatAgent(agent)
+  if (resolved.status !== 'ready' || !isGuardedChatAgent(agent) || (await chatAgentLaunch(agent)).consent) return resolved
+  return { status: 'needs-consent', detail: guardedAgentNotice(agent) }
+}
+
+/** Why a guarded agent waits for the person, as settings and a refused start say it. */
+export function guardedAgentNotice(agent: ChatAgentId): string {
+  return `${chatAgentLabel(agent)}'s terms forbid using it from another app on consumer plans, and Google suspends accounts that do. Turn it on in Settings › Agents only if you accept that risk.`
+}
+
+/** Refuses a guarded agent where no person starts it: a schedule, a workflow, another agent's conversation. */
+export function refuseUnattended(agent: string | null | undefined, where: string): void {
+  if (!agent || !isGuardedChatAgent(agent)) return
+  throw new Error(`${chatAgentLabel(agent)} runs only in threads you start yourself, not in ${where}: its terms forbid driving it from another app, and accounts that do are suspended.`)
+}
+
+async function resolveInstalledChatAgent(agent: ChatAgentId): Promise<ResolvedChatAgent> {
   const launch = await chatAgentLaunch(agent)
   if (agent === 'claude') {
     const cli = await resolveClaudeExecutable()
@@ -146,7 +167,8 @@ export async function listChatAgents(refresh: boolean): Promise<ChatAgentInfo[]>
         command: launch.command,
         envNames: Object.keys(launch.env).sort(),
         installUrl: installUrl(id, resolved.status),
-        update: launch.command ? null : agentUpdate(id)
+        update: launch.command ? null : agentUpdate(id),
+        ...(isGuardedChatAgent(id) ? { consent: !!launch.consent } : {})
       }
     })
   )

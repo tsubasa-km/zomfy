@@ -31,6 +31,7 @@ import {
 } from "@acp-harness/protocol";
 import type { StepOptions } from "./claude-turn.ts";
 import type { HandlerContext, StepToolUse } from "./handlers/handler-context.ts";
+import { refuseUnattended } from "./chat-agent-launch-specs.ts";
 import { noteActivity } from "./session-activity.ts";
 import { consultRequester } from "./requester-consult.ts";
 import type { WorkflowRunStore } from "./workflow-run-store.ts";
@@ -512,7 +513,7 @@ export class WorkflowEngine {
         title: `${node.label}${count > 1 ? ` ${i + 1}` : ""} · ${run.workflow.name}`,
         origin: "workflow",
         ...this.parentOf(run),
-        ...(stepAgent(node) ? { agent: stepAgent(node) } : {}),
+        ...startedStepAgent(node),
         options: {
           model: !stepAgent(node) && node.config.model ? node.config.model : null,
           effort: null,
@@ -700,7 +701,7 @@ export class WorkflowEngine {
       title: `${node.label} · helper: ${part.title}`,
       origin: "workflow",
       ...this.parentOf(run),
-      ...(stepAgent(node) ? { agent: stepAgent(node) } : {}),
+      ...startedStepAgent(node),
       ...(this.heldBack(run, node.id) ? { localOnly: true } : {}),
       options: { model: null, effort: null, permissionMode: stepPermissionMode(run, node) },
     });
@@ -1194,6 +1195,13 @@ function parseVerdict(value: unknown, outcomes: WorkflowOutcome[]): Verdict | nu
 function stepAgent(node: WorkflowNode): ChatAgentId | undefined {
   const agent = node.config.agent;
   return node.config.runBy !== "lead" && agent && agent !== "claude" ? agent : undefined;
+}
+
+/** A step's agent for a session about to start, refusing one only the person may start (refuseUnattended). */
+function startedStepAgent(node: WorkflowNode): { agent?: ChatAgentId } {
+  const agent = stepAgent(node);
+  refuseUnattended(agent, "workflows");
+  return agent ? { agent } : {};
 }
 
 /** The last JSON object in an agent's reply that carries an "outcome", fenced or bare. */

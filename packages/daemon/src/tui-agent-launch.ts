@@ -1,4 +1,4 @@
-import { tuiAgentSpec, type TerminalShellKind } from '@acp-harness/protocol'
+import { isGuardedChatAgent, tuiAgentSpec, type TerminalShellKind } from '@acp-harness/protocol'
 
 // Ported from Orca's tui-agent-startup.ts / tui-agent-startup-shell.ts: the launch line is typed
 // into the shell, so the prompt is quoted for whichever shell grammar will read it.
@@ -16,6 +16,8 @@ export function buildAgentLaunchPlan(agentId: string, prompt: string | undefined
   const command = spec.launchCmd ?? spec.detectCmd
   const text = prompt?.trim() ?? ''
   if (!text) return { command, followupPrompt: null }
+  // Starting Antigravity in a terminal is the person's own use; typing a prompt into it is driving it.
+  if (isGuardedChatAgent(agentId)) throw new Error(`${spec.label} starts without a prompt here: its terms forbid driving it from another app.`)
   const quoted = quoteShellArg(text, shell)
   switch (spec.promptInjectionMode) {
     case 'argv':

@@ -9,6 +9,7 @@ import type { HandlerContext } from "./handler-context.ts";
 import { DEFAULT_SESSION_OPTIONS, publicInfo } from "../session-registry.ts";
 import { conversationMessages } from "../conversation-messages.ts";
 import { log } from "../log.ts";
+import { refuseUnattended } from "../chat-agent-launch-specs.ts";
 
 /** Long answers are clipped so the seed stays a small part of the side chat's context. */
 const MESSAGE_CHAR_LIMIT = 2000;
@@ -26,6 +27,8 @@ export function registerSideChatHandlers({ handle, sessions, acpAgents }: Handle
     if (!main) throw new Error(`Unknown session ${p.sessionId}`);
     if (p.agent !== undefined && !isChatAgentId(p.agent)) throw new Error(`Unknown agent ${String(p.agent)}`);
     const agent: ChatAgentId = p.agent ?? "claude";
+    // A side chat is handed the main conversation: another agent's words would drive it.
+    refuseUnattended(agent, "side chats");
     const count = Math.max(0, Math.min(40, Math.floor(p.contextMessages ?? SIDE_CHAT_DEFAULT_CONTEXT_MESSAGES)));
     const recent = count > 0 ? spokenMessages(await sessions.transcript(main.id)).slice(-count) : [];
 

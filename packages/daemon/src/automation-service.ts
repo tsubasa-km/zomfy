@@ -17,6 +17,7 @@ import { RUNS_KEPT_PER_AUTOMATION, loadAutomations, saveAutomations } from './au
 import { DEFAULT_SESSION_OPTIONS, type SessionRegistry } from './session-registry.ts'
 import type { WorkspaceManager } from './workspace-manager.ts'
 import { log } from './log.ts'
+import { refuseUnattended } from './chat-agent-launch-specs.ts'
 
 const TICK_MS = 15_000
 
@@ -207,6 +208,8 @@ export class AutomationService {
       const session = previous?.sessionId ? this.deps.sessions.get(previous.sessionId) : undefined
       if (session && session.status !== 'working' && session.status !== 'needs-you') return session.id
     }
+    // One saved before the agent was guarded still never starts it.
+    refuseUnattended(automation.agent, 'automations')
     const record = this.deps.sessions.create({
       workspaceId,
       cwd,
@@ -275,6 +278,7 @@ export class AutomationService {
     if (!name) throw new Error('Give the automation a name')
     if (!prompt) throw new Error('Write the prompt the automation runs')
     if (!isChatAgentId(input.agent)) throw new Error(`Unknown agent ${String(input.agent)}`)
+    refuseUnattended(input.agent, 'automations')
     const trigger = input.trigger
     if (trigger.kind === 'schedule') {
       parseAutomationRrule(trigger.rrule)

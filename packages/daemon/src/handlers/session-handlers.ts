@@ -10,7 +10,7 @@ import { importConversation, pastConversations } from "../agent-conversations.ts
 import { liveClaudeQueries } from "../live-claude-queries.ts";
 import { agentEras, agentSwitchNotice, answeredBefore, pendingHandoff, type AgentEra } from "../agent-handoff.ts";
 import { emptyAgentState } from "../acp-agent-session.ts";
-import { resolveChatAgent } from "../chat-agent-launch-specs.ts";
+import { refuseUnattended, resolveChatAgent } from "../chat-agent-launch-specs.ts";
 import { releaseFinishedTurn } from "../claude-turn.ts";
 import { resolveClaudeExecutable } from "../claude-executable.ts";
 import { chatAgentLaunch } from "../chat-agent-launch-settings.ts";
@@ -140,6 +140,8 @@ export function registerSessionHandlers(ctx: HandlerContext): void {
     if (!isChatAgentId(p.agent)) throw new Error(`Unknown agent ${String(p.agent)}`);
     const to = p.agent;
     if (to === (session.agent ?? "claude")) return publicInfo(session);
+    // The agent taking over is handed another agent's conversation.
+    refuseUnattended(to, "a thread another agent has worked in");
     const refuseBusy = () => {
       if (pendingTurns.has(session.id) || session.status === "working" || session.status === "needs-you") {
         throw new Error("Stop the agent, or answer what it asks, before changing this chat's agent");
