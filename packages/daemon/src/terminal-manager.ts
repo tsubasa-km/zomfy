@@ -44,6 +44,8 @@ type CreateParams = CreateTerminalParams & {
   cwd: string
   /** A program to run instead of a shell (setup scripts); the tab keeps its output after exit. */
   program?: { argv: string[]; title: string; env?: Record<string, string> }
+  /** The saved SSH connection `program` logs in to. */
+  connection?: TerminalInfo['connection']
 }
 
 export class TerminalManager {
@@ -107,7 +109,8 @@ export class TerminalManager {
       exitCode: null,
       agent: params.agent ?? null,
       customTitle: null,
-      inline: params.inline ?? null
+      inline: params.inline ?? null,
+      ...(params.connection ? { connection: params.connection } : {})
     }
     // Built before spawning so a bad agent id fails the request instead of leaving a stray shell.
     const plan = params.agent ? buildAgentLaunchPlan(params.agent, params.prompt, spec.kind) : null
@@ -320,7 +323,8 @@ export class TerminalManager {
     // An agent tab keeps the agent's name over ConPTY's program-path title.
     const agent = live.info.agent ? (tuiAgentSpec(live.info.agent)?.label ?? null) : null
     const osc = agent && live.oscTitleIsProgram ? null : live.oscTitle
-    const title = live.info.customTitle || osc || agent || live.spec.label
+    // A saved SSH login keeps the connection's name: the server's own titles (user@host:~) vary by shell.
+    const title = live.info.customTitle || live.info.connection?.name || osc || agent || live.spec.label
     if (title === live.info.title) return false
     live.info = { ...live.info, title }
     return true

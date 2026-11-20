@@ -23,6 +23,7 @@ import {
   useWorkspacePlace,
   type WorkspaceTab
 } from './workspace-tab-model'
+import { SshTagBadge } from '@/components/ssh/SshTagBadge'
 import { t } from '@/i18n/i18n'
 
 // Tab chrome follows Orca's SortableTab / EditorFileTab / BrowserTab (drop-indicator.ts, tab-width-rules.ts).
@@ -192,6 +193,8 @@ export function TabItem({
           // The name keeps its room; where the tab belongs gives way first, as a tab's description does in VS Code.
           <span className={cn('min-w-[4ch] flex-[1_1_auto] truncate', preview && 'italic')}>{title}</span>
         )}
+        {/* A login to a saved server says how careful to be there, production above all. */}
+        {tab.kind === 'terminal' && tab.terminal.connection?.tag && renaming === null && <SshTagBadge tag={tab.terminal.connection.tag} />}
         {/* A chat says where it works in the sidebar and the header; a shell, a file or a panel needs it on the tab. */}
         {showPlace && place && tab.kind !== 'chat' && renaming === null && (
           <span className="max-w-[45%] min-w-0 flex-[0_1000_auto] truncate text-[10px] text-muted-foreground/70" data-tab-place>

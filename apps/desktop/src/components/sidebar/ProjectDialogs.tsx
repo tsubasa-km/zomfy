@@ -1,6 +1,7 @@
 import { OrcaImportDialog } from '@/components/OrcaImportDialog'
 import { AddRepoDialog } from '@/components/sidebar/AddRepoDialog'
 import { NonGitFolderDialog } from '@/components/sidebar/NonGitFolderDialog'
+import { SshConnectionsDialog } from '@/components/ssh/SshConnectionsDialog'
 import { setOrcaImportOpen, useOrcaImportOpen } from '@/lib/project-dialogs'
 
 /** The dialogs lib/project-dialogs opens from anywhere, mounted once (by the sidebar). */
@@ -10,6 +11,7 @@ export function ProjectDialogs() {
     <>
       <AddRepoDialog />
       <NonGitFolderDialog />
+      <SshConnectionsDialog />
       <OrcaImportDialog open={importing} onClose={() => setOrcaImportOpen(false)} />
     </>
   )

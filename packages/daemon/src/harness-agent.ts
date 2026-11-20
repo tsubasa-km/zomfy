@@ -63,6 +63,7 @@ import { registerWorkspaceHandlers } from "./handlers/workspace-handlers.ts";
 import type { WorkspaceManager } from "./workspace-manager.ts";
 import { registerTodoHandlers } from "./handlers/todo-handlers.ts";
 import { registerSkillHandlers } from "./handlers/skill-handlers.ts";
+import { registerSshConnectionHandlers } from "./handlers/ssh-connection-handlers.ts";
 import { registerPluginHandlers } from "./handlers/plugin-handlers.ts";
 import { registerVoiceHandlers } from "./handlers/voice-handlers.ts";
 import { managerMcp, type ManagerRoute } from "./manager-mcp-server.ts";
@@ -792,6 +793,7 @@ export function createHarnessAgent(
     registerProjectLinkHandlers,
     registerWorkflowHandlers,
     registerLspHandlers,
+    registerSshConnectionHandlers,
   ]) {
     register(ctx);
   }
