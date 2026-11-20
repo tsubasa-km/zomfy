@@ -4,6 +4,7 @@ import { WINDOW_ROLE } from "./lib/window-role";
 import { installLinkRouting } from "./lib/link-routing";
 import { followLanguageChanges } from "./i18n/i18n";
 import { STORAGE_KEY } from "./stores/settings-store";
+import { ErrorBoundary, ViewError } from "./components/ErrorBoundary";
 
 // Both roots show links (chats, panels), and the webview has no opener of its own.
 installLinkRouting();
@@ -19,8 +20,11 @@ const Root =
 
 ReactDOM.createRoot(document.getElementById("root") as HTMLElement).render(
   <React.StrictMode>
-    <React.Suspense fallback={null}>
-      <Root />
-    </React.Suspense>
+    {/* A render error shows what broke instead of a blank window. */}
+    <ErrorBoundary fallback={(error, reset) => <div className="flex h-screen bg-background text-foreground"><ViewError error={error} onRetry={reset} whole /></div>}>
+      <React.Suspense fallback={null}>
+        <Root />
+      </React.Suspense>
+    </ErrorBoundary>
   </React.StrictMode>,
 );

@@ -12,6 +12,7 @@ import { BrowserTabView } from './BrowserTabView'
 import { ToolDrawer } from './ToolDrawer'
 import { EmptyPane } from './EmptyPane'
 import { WindowEmptyPane } from './WindowEmptyPane'
+import { ErrorBoundary, ViewError } from '@/components/ErrorBoundary'
 import { WorkspacePanelView } from './workspace-panels'
 import { TabStrip } from './TabStrip'
 import { resolveTabDropTarget, setInsertionMark, tabDrag, type DraggedTab, type DropZone } from './tab-drag'
@@ -184,7 +185,10 @@ export function TabGroupPane({
       />
       <div data-tab-group-body-id={groupId} className="relative flex min-h-0 min-w-0 flex-1 flex-col">
         {active ? (
-          <TabBody tab={active} />
+          // One tab that fails to render keeps to its own pane; switching tabs remounts the boundary.
+          <ErrorBoundary key={active.id} fallback={(error, reset) => <ViewError error={error} onRetry={reset} />}>
+            <TabBody tab={active} />
+          </ErrorBoundary>
         ) : home ? (
           <EmptyPane workspaceId={home} groupId={groupId} hint={emptyHint} />
         ) : recent ? (
