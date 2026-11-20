@@ -34,7 +34,7 @@ import { toast } from 'sonner'
 import { HARNESS_METHODS } from '@acp-harness/protocol'
 import { harnessRequest } from '@/daemon-connection'
 import { projectOfSession } from '@/lib/session-project'
-import { linkOf } from '@/stores/project-links-store'
+import { mainLocationOf } from '@/stores/project-catalog-store'
 import { upsertWorkflowRun } from '@/stores/workflow-runs-store'
 import { confirmWorkflowStart } from '@/components/workflows/WorkflowStartConfirm'
 import { allWorkspaces, getState, hostLabel, useStore } from '@/session-store'
@@ -83,7 +83,7 @@ function Composer({ session, editorRef }: ComposerProps) {
   const [workflow, setWorkflow] = useState<{ id: string; name: string } | null>(null)
   // Workflows are saved with the project's main member, which may be on another host.
   const chatProject = projectOfSession(session)
-  const mainMember = chatProject ? (linkOf({ hostId: chatProject.hostId, projectId: chatProject.id })?.members[0] ?? null) : null
+  const mainMember = chatProject ? mainLocationOf({ hostId: chatProject.hostId, projectId: chatProject.id }) : null
   const workflowHome: WorkflowHome = {
     hostId: mainMember?.hostId ?? session.hostId,
     projectId: mainMember?.projectId ?? chatProject?.id ?? null,

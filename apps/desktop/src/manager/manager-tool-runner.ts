@@ -26,7 +26,7 @@ import {
   type ThreadItem
 } from '@/session-store'
 import { addTodo, getInbox } from '@/stores/inbox-store'
-import { linkOf } from '@/stores/project-links-store'
+import { catalogEntryOf, mainLocationOf } from '@/stores/project-catalog-store'
 import { projectOfSession } from '@/lib/session-project'
 import { upsertWorkflowRun } from '@/stores/workflow-runs-store'
 import { confirmWorkflowStart } from '@/components/workflows/WorkflowStartConfirm'
@@ -103,8 +103,7 @@ function workflowProject(callerSessionId: string): { hostId: HostId; projectId: 
   const session = requireSession(callerSessionId)
   const project = projectOfSession(session)
   if (!project) throw new ToolError('This chat is not in a project, so it has no workflows.')
-  const main = linkOf({ hostId: project.hostId, projectId: project.id })?.members[0]
-  return main ?? { hostId: project.hostId, projectId: project.id }
+  return mainLocationOf({ hostId: project.hostId, projectId: project.id })
 }
 
 /** The chat that started the caller's run answers first; what is the person's call goes to them through that run. */
@@ -300,8 +299,8 @@ function listWorkspaces(hostId?: string): unknown {
         kind: p.kind,
         path: p.path,
         // The same project on other hosts (Add Workspace on Another Host); its workspaces are this project's too.
-        linkedWith: (linkOf({ hostId: p.hostId, projectId: p.id })?.members ?? [])
-          .filter((m) => m.hostId !== p.hostId || m.projectId !== p.id),
+        linkedWith: catalogEntryOf({ hostId: p.hostId, projectId: p.id })
+          .locations.filter((m) => m.hostId !== p.hostId || m.projectId !== p.id),
         workspaces: workspaces.filter((w) => w.projectId === p.id && w.hostId === p.hostId).map(describe)
       })),
     floatingWorkspace: workspaces.filter((w) => w.id === floating).map(describe)[0] ?? null
