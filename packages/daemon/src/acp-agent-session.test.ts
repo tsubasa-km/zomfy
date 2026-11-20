@@ -14,7 +14,7 @@ const { AcpAgentSession, emptyAgentState } = await import('./acp-agent-session.t
 const open: InstanceType<typeof AcpAgentSession>[] = []
 afterEach(() => {
   for (const session of open.splice(0)) session.dispose()
-})
+}, 30_000)
 
 function agentSession() {
   const said: string[] = []

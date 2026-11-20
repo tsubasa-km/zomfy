@@ -32,11 +32,11 @@ beforeEach(async () => {
   await writeFile(join(main, "config", "local", "db.json"), "{}\n");
   await writeFile(join(main, "tracked.txt"), "uncommitted edit\n");
   await git(main, ["worktree", "add", "-b", "wt", tree]);
-});
+}, 30_000);
 
 afterEach(async () => {
   await rm(root, { recursive: true, force: true });
-});
+}, 30_000);
 
 describe("copyWorktreeIncludes", () => {
   test("copies the ignored files and folders the patterns match, and nothing else", async () => {

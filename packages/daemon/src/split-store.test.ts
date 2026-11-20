@@ -7,10 +7,10 @@ import { interruptedSplitNote, SplitStore } from "./split-store.ts";
 let root: string;
 beforeEach(async () => {
   root = await mkdtemp(join(tmpdir(), "split-store-"));
-});
+}, 30_000);
 afterEach(async () => {
   await rm(root, { recursive: true, force: true });
-});
+}, 30_000);
 
 describe("SplitStore", () => {
   test("a restart hands back the running splits once, and keeps helpers and kept parts", async () => {

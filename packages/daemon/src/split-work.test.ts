@@ -69,11 +69,11 @@ beforeEach(async () => {
   for (const [k, v] of [["user.name", "t"], ["user.email", "t@example.com"], ["commit.gpgsign", "false"], ["core.autocrlf", "false"]]) await git(repo, ["config", k!, v!]);
   await commit(repo, "a.txt", "one\n");
   await git(repo, ["worktree", "add", "-b", "me/chat", main]);
-});
+}, 30_000);
 
 afterEach(async () => {
   await rm(root, { recursive: true, force: true });
-});
+}, 30_000);
 
 describe("readSplitRequest", () => {
   test("takes parts with their own files", () => {

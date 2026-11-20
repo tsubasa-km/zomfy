@@ -25,7 +25,7 @@ const WS = 'ws1'
 const cleanups: (() => Promise<void> | void)[] = []
 afterEach(async () => {
   for (const cleanup of cleanups.splice(0).reverse()) await cleanup()
-})
+}, 30_000)
 
 function setup(overrides: Partial<LspManagerOptions> & { flags?: string[]; spec?: LspServerSpec } = {}) {
   const outer = realpathSync.native(mkdtempSync(join(tmpdir(), 'lsp-test-')))

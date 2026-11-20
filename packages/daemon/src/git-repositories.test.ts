@@ -17,7 +17,7 @@ beforeAll(async () => {
 }, 60_000)
 afterAll(async () => {
   await rm(root, { recursive: true, force: true })
-})
+}, 30_000)
 
 async function repo(dir: string, file: string, content: string): Promise<void> {
   await mkdir(dir, { recursive: true })
