@@ -4,6 +4,8 @@ import { open } from '@tauri-apps/plugin-dialog'
 import { HARNESS_METHODS, type BranchList, type ProjectHookInfo } from '@acp-harness/protocol'
 import { harnessRequest, hostForPath } from '@/daemon-connection'
 import type { HostedProject } from '@/session-store'
+import { projectLabel } from '@/components/sidebar/workspace-visibility'
+import { catalogEntryOf, renameProject } from '@/stores/project-catalog-store'
 import { BranchCombobox } from '@/components/sidebar/BranchCombobox'
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
@@ -35,7 +37,7 @@ export function ProjectSettingsDialog({ project, onClose }: { project: HostedPro
 
   useEffect(() => {
     setFolder(project?.path ?? '')
-    setDisplayName(project?.displayName ?? project?.name ?? '')
+    setDisplayName(project ? projectLabel(project) : '')
     setBaseRef(project?.defaultBaseRef ?? '')
     setWorktreeRoot(project?.worktreeRoot ?? '')
     setSetup(project?.hooks?.setup ?? '')
@@ -73,6 +75,12 @@ export function ProjectSettingsDialog({ project, onClose }: { project: HostedPro
       const moved = folder.trim() !== '' && folder.trim() !== project.path
       // Pointed at another folder first, so a bad path changes nothing else.
       if (moved) await harnessRequest(HARNESS_METHODS.projectRelocate, { projectId: project.id, path: folder.trim() }, project.hostId)
+      // A project on several hosts is named in the catalog, the same on each; one on a single host
+      // is named on that host, so every computer connecting to it sees the name.
+      const location = { hostId: project.hostId, projectId: project.id }
+      const entry = catalogEntryOf(location)
+      const shared = entry.locations.length > 1 || entry.name !== undefined
+      if (shared && displayName.trim() !== projectLabel(project)) await renameProject(location, displayName.trim())
       // An unchanged name follows the folder's new name.
       const ownName = displayName.trim() === project.name
       await harnessRequest(
@@ -80,7 +88,7 @@ export function ProjectSettingsDialog({ project, onClose }: { project: HostedPro
         {
           projectId: project.id,
           patch: {
-            displayName: ownName ? '' : displayName,
+            ...(shared ? {} : { displayName: ownName ? '' : displayName }),
             ...(project.kind === 'git' ? { defaultBaseRef: baseRef, worktreeRoot, hooks: { setup, archive }, finishWith } : {})
           }
         },

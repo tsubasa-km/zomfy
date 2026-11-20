@@ -27,6 +27,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Switch } from '@/components/ui/switch'
 import { Textarea } from '@/components/ui/textarea'
 import { t } from '@/i18n/i18n'
+import { projectLabel } from '@/components/sidebar/workspace-visibility'
+import { useProjectCatalog } from '@/stores/project-catalog-store'
 
 // Fields follow Orca's AutomationEditorDialog (prompt, schedule picker, workspace, agent,
 // reuse session); event triggers are the harness's addition.
@@ -167,6 +169,7 @@ function EditorBody({
     () => allWorkspaces({ hosts }).filter((w) => w.hostId === draft.hostId),
     [hosts, draft.hostId]
   )
+  useProjectCatalog()
   const projects = useMemo(() => allProjects(hosts).filter((p) => p.hostId === draft.hostId), [hosts, draft.hostId])
 
   async function save() {
@@ -326,7 +329,7 @@ function EditorBody({
                 <SelectItem value={ANY}>{t('Any project')}</SelectItem>
                 {projects.map((p) => (
                   <SelectItem key={p.id} value={p.id}>
-                    {p.displayName || p.name}
+                    {projectLabel(p)}
                   </SelectItem>
                 ))}
               </SelectContent>

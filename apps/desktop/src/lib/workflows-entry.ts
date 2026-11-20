@@ -4,6 +4,7 @@ import { openWorkflows } from '@/stores/workflows-store'
 import { registerKeybindingDefinitions } from '@/keybindings/keybinding-definitions'
 import { registerCommandHandler } from '@/keybindings/keybinding-registry'
 import { t } from '@/i18n/i18n'
+import { projectLabel } from '@/components/sidebar/workspace-visibility'
 
 /** The Workflows page of the project in front (else the first project); false when there is none. */
 export function openWorkflowsHere(): boolean {
@@ -15,7 +16,7 @@ export function openWorkflowsHere(): boolean {
     toast(t('Add a project first'), { description: t('Workflows belong to a project.') })
     return false
   }
-  openWorkflows({ hostId: project.hostId, projectId: project.id, projectName: project.displayName ?? project.name })
+  openWorkflows({ hostId: project.hostId, projectId: project.id, projectName: projectLabel(project) })
   return true
 }
 

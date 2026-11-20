@@ -34,11 +34,12 @@ import { toast } from 'sonner'
 import { HARNESS_METHODS } from '@acp-harness/protocol'
 import { harnessRequest } from '@/daemon-connection'
 import { projectOfSession } from '@/lib/session-project'
-import { linkOf } from '@/stores/project-links-store'
+import { mainLocationOf } from '@/stores/project-catalog-store'
 import { upsertWorkflowRun } from '@/stores/workflow-runs-store'
 import { confirmWorkflowStart } from '@/components/workflows/WorkflowStartConfirm'
 import { allWorkspaces, getState, hostLabel, useStore } from '@/session-store'
 import { t } from '@/i18n/i18n'
+import { projectLabel } from '@/components/sidebar/workspace-visibility'
 
 // An open chat's composer: what the chat adds to the shared input (use-native-chat-composer) and
 // box (NativeChatComposerBox). The "New thread" tab's is NewThreadComposer.
@@ -83,11 +84,11 @@ function Composer({ session, editorRef }: ComposerProps) {
   const [workflow, setWorkflow] = useState<{ id: string; name: string } | null>(null)
   // Workflows are saved with the project's main member, which may be on another host.
   const chatProject = projectOfSession(session)
-  const mainMember = chatProject ? (linkOf({ hostId: chatProject.hostId, projectId: chatProject.id })?.members[0] ?? null) : null
+  const mainMember = chatProject ? mainLocationOf({ hostId: chatProject.hostId, projectId: chatProject.id }) : null
   const workflowHome: WorkflowHome = {
     hostId: mainMember?.hostId ?? session.hostId,
     projectId: mainMember?.projectId ?? chatProject?.id ?? null,
-    projectName: chatProject ? (chatProject.displayName ?? chatProject.name) : ''
+    projectName: chatProject ? projectLabel(chatProject) : ''
   }
   // Memos belong to main chats; a side chat's notes would be the main chat's.
   const memos = useSetting('chatMemosEnabled') && !session.sideOf

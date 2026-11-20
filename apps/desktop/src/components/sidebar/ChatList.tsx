@@ -4,13 +4,13 @@ import type { Workspace } from '@acp-harness/protocol'
 import { floatingWorkspaceId, selectWorkspace, useStore, type HostedProject, type HostId, type Session } from '@/session-store'
 import { toggleProjectCollapsed, toggleSectionCollapsed, useSidebarStore } from '@/stores/sidebar-store'
 import { setInboxOpen } from '@/stores/inbox-store'
-import { useProjectLinks } from '@/stores/project-links-store'
+import { useProjectCatalog } from '@/stores/project-catalog-store'
 import { useSetting } from '@/stores/settings-store'
 import { SessionRow } from '@/components/sidebar/SessionRow'
 import type { ChatCardInfo } from '@/components/sidebar/ChatCard'
 import type { SidebarActions } from '@/components/sidebar/sidebar-actions'
 import { ProjectActionsMenuItems } from '@/components/sidebar/ProjectActionsMenu'
-import { linkedEntries, shortHostNames, type LinkedEntry } from '@/components/sidebar/project-entries'
+import { projectEntries, shortHostNames, type ProjectEntry } from '@/components/sidebar/project-entries'
 import { mergeOrder, projectLabel, sortProjects, workspaceLabel } from '@/components/sidebar/workspace-visibility'
 import { sortedHosts } from '@/components/settings/HostsPane'
 import { Button } from '@/components/ui/button'
@@ -114,7 +114,7 @@ export function ChatList({ actions }: { actions: SidebarActions }) {
   const expanded = useSidebarStore((s) => s.expandedChats)
   const summaries = useSidebarStore((s) => s.summaries)
   const projectOrder = useSidebarStore((s) => s.projectOrder)
-  const links = useProjectLinks()
+  const catalog = useProjectCatalog()
   useSetting('defaultHost')
   const defaultHost = defaultHostId()
 
@@ -221,8 +221,8 @@ export function ChatList({ actions }: { actions: SidebarActions }) {
   }
 
   // By project: pinned chats stay on top and archived ones at the bottom, as in the state view.
-  const entryKey = (e: LinkedEntry) => `${e.primary.hostId}:${e.primary.id}`
-  const unordered = linkedEntries(projects, links)
+  const entryKey = (e: ProjectEntry) => `${e.primary.hostId}:${e.primary.id}`
+  const unordered = projectEntries(projects, catalog)
   const rank = new Map(mergeOrder(unordered.map(entryKey), projectOrder).map((key, i) => [key, i]))
   const entries = [...unordered].sort((a, b) => rank.get(entryKey(a))! - rank.get(entryKey(b))!)
   const pinnedSection = sections.find((s) => s.id === 'pinned')

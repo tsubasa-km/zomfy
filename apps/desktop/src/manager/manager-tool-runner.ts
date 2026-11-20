@@ -26,12 +26,13 @@ import {
   type ThreadItem
 } from '@/session-store'
 import { addTodo, getInbox } from '@/stores/inbox-store'
-import { linkOf } from '@/stores/project-links-store'
+import { catalogEntryOf, mainLocationOf } from '@/stores/project-catalog-store'
 import { projectOfSession } from '@/lib/session-project'
 import { upsertWorkflowRun } from '@/stores/workflow-runs-store'
 import { confirmWorkflowStart } from '@/components/workflows/WorkflowStartConfirm'
 import { validateWorkflow } from '@/components/workflows/workflow-model'
 import { copyOfWorkflow, workflowFromSpec } from './workflow-tools'
+import { projectLabel } from '@/components/sidebar/workspace-visibility'
 
 // Runs the manager agent's tool calls in this window, which is linked to every host. Status is
 // the hosts' (broadcast into the session store); this file only reads it and presents it, and a
@@ -103,8 +104,7 @@ function workflowProject(callerSessionId: string): { hostId: HostId; projectId: 
   const session = requireSession(callerSessionId)
   const project = projectOfSession(session)
   if (!project) throw new ToolError('This chat is not in a project, so it has no workflows.')
-  const main = linkOf({ hostId: project.hostId, projectId: project.id })?.members[0]
-  return main ?? { hostId: project.hostId, projectId: project.id }
+  return mainLocationOf({ hostId: project.hostId, projectId: project.id })
 }
 
 /** The chat that started the caller's run answers first; what is the person's call goes to them through that run. */
@@ -145,7 +145,7 @@ async function requesterOf(session: Session): Promise<Session | null> {
 function projectById(projectId: string): { hostId: HostId; projectId: string; name: string } {
   const project = allProjects().find((p) => p.id === projectId)
   if (!project) throw new ToolError(`Unknown project ${projectId}; use list_workspaces for ids.`)
-  return { hostId: project.hostId, projectId: project.id, name: project.displayName ?? project.name }
+  return { hostId: project.hostId, projectId: project.id, name: projectLabel(project) }
 }
 
 async function listWorkflows(callerSessionId: string, otherProjectId?: string, includeGraph = false): Promise<unknown> {
@@ -296,12 +296,12 @@ function listWorkspaces(hostId?: string): unknown {
       .map((p) => ({
         projectId: p.id,
         hostId: p.hostId,
-        name: p.displayName ?? p.name,
+        name: projectLabel(p),
         kind: p.kind,
         path: p.path,
         // The same project on other hosts (Add Workspace on Another Host); its workspaces are this project's too.
-        linkedWith: (linkOf({ hostId: p.hostId, projectId: p.id })?.members ?? [])
-          .filter((m) => m.hostId !== p.hostId || m.projectId !== p.id),
+        linkedWith: catalogEntryOf({ hostId: p.hostId, projectId: p.id })
+          .locations.filter((m) => m.hostId !== p.hostId || m.projectId !== p.id),
         workspaces: workspaces.filter((w) => w.projectId === p.id && w.hostId === p.hostId).map(describe)
       })),
     floatingWorkspace: workspaces.filter((w) => w.id === floating).map(describe)[0] ?? null
@@ -320,7 +320,7 @@ function sessionSummary(s: Session, callerSessionId: string): Record<string, unk
     hostId: s.hostId,
     workspaceId: s.workspaceId,
     workspace: workspace ? (workspace.displayName ?? workspace.name) : null,
-    project: project ? (project.displayName ?? project.name) : null,
+    project: project ? projectLabel(project) : null,
     status: statusOf(s),
     ...(s.turnStartedAt ? { workingForSeconds: Math.round((Date.now() - s.turnStartedAt) / 1000) } : {}),
     unseenResult: Boolean(state.unread[s.id]),

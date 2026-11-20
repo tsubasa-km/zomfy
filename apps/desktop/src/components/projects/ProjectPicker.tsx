@@ -1,17 +1,21 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { Check, ChevronsUpDown, Folder, FolderPlus, GitBranch, Plus } from 'lucide-react'
 import { useStore, type HostedProject, type HostId } from '@/session-store'
 import { openAddProjectDialog, type AddProjectStep } from '@/lib/project-dialogs'
-import { projectLabel, sortProjects } from '@/components/sidebar/workspace-visibility'
+import { projectLabel } from '@/components/sidebar/workspace-visibility'
 import { sortedHosts } from '@/components/settings/HostsPane'
+import { shortHostNames } from '@/components/sidebar/project-entries'
+import { listedProjects, type ListedProject } from '@/lib/catalog-projects'
+import { useProjectCatalog } from '@/stores/project-catalog-store'
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList, CommandSeparator } from '@/components/ui/command'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { cn } from '@/lib/utils'
 import { t } from '@/i18n/i18n'
 
-// Where a thread starts, chosen and created in one place: every connected host's projects (each
-// naming its host), then adding a folder, cloning a repository or creating a project. A project
-// added from here is picked once it appears.
+// Where a thread starts, chosen and created in one place: every project on a connected host, then
+// adding a folder, cloning a repository or creating a project. A project is one row whatever hosts
+// it lives on; the picked one's hosts show beside it to choose from. A project added from here is
+// picked once it appears.
 
 export const projectKey = (p: Pick<HostedProject, 'hostId' | 'id'>) => `${p.hostId}:${p.id}`
 
@@ -32,13 +36,18 @@ export function ProjectPicker({
   className?: string
 }) {
   const hosts = useStore((s) => s.hosts)
+  const catalog = useProjectCatalog()
   const [open, setOpen] = useState(false)
-  const connected = sortedHosts(hosts).filter((h) => h.connection.kind === 'connected')
-  const groups = connected
-    .map((h) => ({ host: h, projects: sortProjects(h.harness?.projects ?? []).map((p) => ({ ...p, hostId: h.id })) }))
-    .filter((g) => g.projects.length > 0)
-  const all = groups.flatMap((g) => g.projects)
+  const { listed, names } = useMemo(() => {
+    const connected = sortedHosts(hosts).filter((h) => h.connection.kind === 'connected')
+    return { listed: listedProjects(connected, catalog), names: shortHostNames(connected) }
+  }, [hosts, catalog])
+  const all = listed.flatMap((p) => p.locations)
   const picked = all.find((p) => projectKey(p) === value) ?? null
+  const pickedProject = picked ? listed.find((p) => p.locations.includes(picked)) : undefined
+  /** A project keeps the host already picked, else takes the host new projects go to, else its main one. */
+  const locationFor = (project: ListedProject) =>
+    project.locations.find((l) => projectKey(l) === value) ?? project.locations.find((l) => l.hostId === hostId) ?? project.locations[0]!
 
   // A project added through the dialog this picker opened is picked as soon as its host lists it.
   const waiting = useRef<Set<string> | null>(null)
@@ -84,10 +93,32 @@ export function ProjectPicker({
         >
           <Folder className="size-3.5 shrink-0 text-muted-foreground" />
           <span className="min-w-0 truncate">{picked ? projectLabel(picked) : t('No project')}</span>
-          {picked ? <span className="shrink-0 text-[10px] text-muted-foreground/70">{hosts[picked.hostId]?.label ?? picked.hostId}</span> : null}
+          {picked && (pickedProject?.locations.length ?? 0) < 2 ? (
+            <span className="shrink-0 text-[10px] text-muted-foreground/70">{names[picked.hostId] ?? picked.hostId}</span>
+          ) : null}
           <ChevronsUpDown className="size-3 shrink-0 opacity-50" />
         </button>
       </PopoverTrigger>
+      {picked && pickedProject && pickedProject.locations.length > 1 ? (
+        <span className="inline-flex shrink-0 items-center gap-0.5" role="radiogroup" aria-label={t('Host')} data-project-hosts>
+          {pickedProject.locations.map((l) => (
+            <button
+              key={projectKey(l)}
+              type="button"
+              role="radio"
+              aria-checked={l === picked}
+              onClick={() => onChange(projectKey(l))}
+              className={cn(
+                'h-5 rounded px-1.5 text-[10px] outline-none focus-visible:ring-2 focus-visible:ring-ring',
+                l === picked ? 'bg-accent text-foreground' : 'text-muted-foreground/70 hover:text-foreground'
+              )}
+              data-project-host={l.hostId}
+            >
+              {names[l.hostId] ?? l.hostId}
+            </button>
+          ))}
+        </span>
+      ) : null}
       <PopoverContent align="start" className="w-80 p-0" data-project-picker-list>
         <Command>
           <CommandInput placeholder={t('Search projects...')} className="h-8 text-xs" />
@@ -109,26 +140,31 @@ export function ProjectPicker({
                 </CommandItem>
               </CommandGroup>
             ) : null}
-            {groups.map(({ host, projects }) => (
-              <CommandGroup key={host.id} heading={host.label}>
-                {projects.map((p) => (
-                  <CommandItem
-                    key={projectKey(p)}
-                    value={`${projectLabel(p)} ${host.label} ${p.path}`}
-                    onSelect={() => {
-                      onChange(projectKey(p))
-                      setOpen(false)
-                    }}
-                    className="text-xs"
-                    data-project-option={projectKey(p)}
-                  >
-                    <span className="min-w-0 flex-1 truncate">{projectLabel(p)}</span>
-                    <span className="shrink-0 text-[10px] text-muted-foreground/70">{host.label}</span>
-                    {projectKey(p) === value ? <Check className="size-3 shrink-0" /> : null}
-                  </CommandItem>
-                ))}
+            {listed.length > 0 ? (
+              <CommandGroup>
+                {listed.map((project) => {
+                  const main = project.locations[0]!
+                  return (
+                    <CommandItem
+                      key={project.id}
+                      value={`${projectLabel(main)} ${project.locations.map((l) => `${names[l.hostId] ?? ''} ${l.path}`).join(' ')}`}
+                      onSelect={() => {
+                        onChange(projectKey(locationFor(project)))
+                        setOpen(false)
+                      }}
+                      className="text-xs"
+                      data-project-option={project.id}
+                    >
+                      <span className="min-w-0 flex-1 truncate">{projectLabel(main)}</span>
+                      <span className="shrink-0 text-[10px] text-muted-foreground/70">
+                        {project.locations.map((l) => names[l.hostId] ?? l.hostId).join(' · ')}
+                      </span>
+                      {project === pickedProject ? <Check className="size-3 shrink-0" /> : null}
+                    </CommandItem>
+                  )
+                })}
               </CommandGroup>
-            ))}
+            ) : null}
             <CommandSeparator />
             <CommandGroup>
               <CommandItem value="__add__ add a project folder" onSelect={() => add('start')} className="text-xs text-muted-foreground" data-project-option="add">

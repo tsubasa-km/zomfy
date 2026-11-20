@@ -18,12 +18,12 @@ import {
   SESSION_REPLAY_META,
   SETTINGS_NOTIFICATIONS,
   TODO_NOTIFICATIONS,
-  PROJECT_LINK_NOTIFICATIONS,
+  PROJECT_CATALOG_NOTIFICATIONS,
   WORKFLOW_EXPERIMENT_NOTIFICATIONS,
   WORKFLOW_NOTIFICATIONS,
   type WorkflowExperiment,
   type WorkflowRun,
-  type ProjectLink,
+  type CatalogProject,
   TURN_RECOVERY_NOTIFICATIONS,
   type ChatAgentId,
   type ChatPermissionMode,
@@ -73,7 +73,7 @@ import {
 import { applyHostSettings } from "./stores/host-settings-store";
 import { getSetting } from "./stores/settings-store";
 import { setTodos } from "./stores/inbox-store";
-import { setProjectLinks } from "./stores/project-links-store";
+import { setProjectCatalog, startProjectCatalog } from "./stores/project-catalog-store";
 import { noteRunChange, offerInterruptedRuns } from "./lib/run-interruptions";
 import { upsertWorkflowExperiment } from "./stores/workflow-experiments-store";
 import { setChatAgents } from "./lib/chat-agents";
@@ -238,10 +238,10 @@ async function openConnection(hostId: HostId): Promise<void> {
       (ctx) => upsertWorkflowExperiment(hostId, ctx.params),
     )
     .onNotification(
-      PROJECT_LINK_NOTIFICATIONS.projectLinksChanged,
-      (raw: unknown) => raw as ProjectLink[],
+      PROJECT_CATALOG_NOTIFICATIONS.projectCatalogChanged,
+      (raw: unknown) => raw as CatalogProject[],
       (ctx) => {
-        if (hostId === LOCAL_HOST) setProjectLinks(ctx.params);
+        if (hostId === LOCAL_HOST) setProjectCatalog(ctx.params);
       },
     )
     .onNotification(
@@ -352,10 +352,8 @@ async function openConnection(hostId: HostId): Promise<void> {
     void offerInterruptedRuns(hostId);
     // The person's todos live on this computer's daemon; an older daemon has none.
     if (hostId === LOCAL_HOST) void opened.agent.request<TodoItem[]>(HARNESS_METHODS.todosList, {}).then(setTodos, () => undefined);
-    // Linked projects live on this computer's daemon too; an older daemon has none.
-    if (hostId === LOCAL_HOST) {
-      void opened.agent.request<ProjectLink[]>(HARNESS_METHODS.projectLinksList, {}).then(setProjectLinks, () => undefined);
-    }
+    // The project catalog lives on this computer's daemon too; an older daemon has none.
+    if (hostId === LOCAL_HOST) void startProjectCatalog();
     reconnectAttempts.delete(hostId);
   } catch (error) {
     opened.close();

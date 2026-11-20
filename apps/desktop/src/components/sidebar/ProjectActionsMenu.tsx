@@ -6,7 +6,7 @@ import type { SidebarActions } from '@/components/sidebar/sidebar-actions'
 import { projectLabel } from '@/components/sidebar/workspace-visibility'
 import { DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator } from '@/components/ui/dropdown-menu'
 import { openAddProjectDialog } from '@/lib/project-dialogs'
-import { unlinkProject } from '@/stores/project-links-store'
+import { detachFromProject } from '@/stores/project-catalog-store'
 import { openWorkflows } from '@/stores/workflows-store'
 import { startChat } from '@/lib/chat-worktree'
 import { t } from '@/i18n/i18n'
@@ -90,7 +90,7 @@ export function ProjectActionsMenuItems({
             <Settings2 className="size-3.5" />
             {t('Project Settings…')}
           </DropdownMenuItem>
-          <DropdownMenuItem onSelect={() => void unlinkProject({ hostId: copy.hostId, projectId: copy.id })}>
+          <DropdownMenuItem onSelect={() => void detachFromProject({ hostId: copy.hostId, projectId: copy.id })}>
             <Unlink className="size-3.5" />
             {t('Detach from {project}', { project: label })}
           </DropdownMenuItem>

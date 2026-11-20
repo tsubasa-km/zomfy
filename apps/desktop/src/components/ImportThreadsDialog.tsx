@@ -14,6 +14,7 @@ import { Input } from '@/components/ui/input'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { cn } from '@/lib/utils'
 import { t } from '@/i18n/i18n'
+import { projectLabel } from '@/components/sidebar/workspace-visibility'
 
 type Listing = { status: 'loading' } | { status: 'ready'; threads: ImportableThread[] } | { status: 'failed'; error: string }
 type RowState = 'importing' | { sessionId: string } | { error: string }
@@ -104,7 +105,7 @@ function ImportThreads({ request }: { request: ImportThreadsRequest }) {
   const place = (workspace: HostedWorkspace): string => {
     const project = projects.find((p) => p.id === workspace.projectId && p.hostId === workspace.hostId)
     const name = workspace.displayName ?? workspace.name
-    const projectName = project ? (project.displayName ?? project.name) : null
+    const projectName = project ? projectLabel(project) : null
     return projectName && !workspace.isPrimary ? `${projectName} · ${name}` : (projectName ?? name)
   }
 

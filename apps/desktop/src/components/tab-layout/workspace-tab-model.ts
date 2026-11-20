@@ -49,6 +49,8 @@ import { requestDrawer } from '@/stores/drawer-request-store'
 import { panelLabel } from './workspace-panels'
 import { tabPaneTerminalIds } from '@/components/terminal/terminal-pane-commands'
 import { t } from '@/i18n/i18n'
+import { projectLabel } from '@/components/sidebar/workspace-visibility'
+import { useProjectCatalog } from '@/stores/project-catalog-store'
 
 /** Every kind of tab the tab groups hold, in one shape. */
 export type WorkspaceTab =
@@ -83,13 +85,15 @@ export const TabPlacesContext = createContext(false)
 
 /** A short name for where a workspace is: its project, and its branch when it is a worktree of it. */
 export function useWorkspacePlace(workspaceId: string | null): string {
+  // Re-renders when a project is renamed: its name is in the catalog.
+  useProjectCatalog()
   return useStore((s) => {
     const w = workspaceId ? allWorkspaces(s).find((x) => x.id === workspaceId) : undefined
     if (!w) return ''
     const project = w.projectId ? s.hosts[w.hostId]?.harness?.projects.find((p) => p.id === w.projectId) : undefined
     const own = w.displayName ?? w.name
     if (!project) return w.scratch ? t('Quick thread') : own
-    const name = project.displayName ?? project.name
+    const name = projectLabel({ ...project, hostId: w.hostId })
     return w.isPrimary ? name : `${name} · ${(w.branch ?? own).split('/').pop()}`
   })
 }

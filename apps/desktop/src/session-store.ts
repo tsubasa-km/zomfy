@@ -323,6 +323,12 @@ export function useStore<T>(select: (s: StoreState) => T): T {
   )
 }
 
+/** Calls `listener` after every change to the store; returns the unsubscribe. */
+export function subscribeStore(listener: () => void): () => void {
+  listeners.add(listener)
+  return () => listeners.delete(listener)
+}
+
 /** Resolves once `test` holds for the store, or false after `ms`. */
 export function whenState(test: (s: StoreState) => boolean, ms: number): Promise<boolean> {
   if (test(state)) return Promise.resolve(true)

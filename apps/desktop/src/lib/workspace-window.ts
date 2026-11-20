@@ -6,6 +6,7 @@ import { allProjects, findWorkspace, getState, onPoppedOutSelect, openInColumn, 
 import { dropPaneAt } from '@/components/pane-drop'
 import type { DragPoint } from '@/lib/pointer-drag'
 import { t } from '@/i18n/i18n'
+import { projectLabel } from '@/components/sidebar/workspace-visibility'
 
 // A workspace popped out into a window of its own (`?window=workspace&workspace=<id>`), so two
 // projects can sit on separate monitors. The main window keeps the workspace out of its own view
@@ -26,7 +27,7 @@ export function workspaceWindowTitle(workspaceId: string): string {
   const workspace = findWorkspace(workspaceId)
   const project = allProjects().find((p) => p.id === workspace?.projectId)
   const name = workspace?.displayName ?? workspace?.name ?? t('Workspace')
-  return `${project ? `${project.displayName ?? project.name} · ` : ''}${name} — Zomfy`
+  return `${project ? `${projectLabel(project)} · ` : ''}${name} — Zomfy`
 }
 
 /** `at` (screen CSS pixels) puts the new window's top left near where the pane was dropped. */

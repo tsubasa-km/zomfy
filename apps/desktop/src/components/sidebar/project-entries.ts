@@ -1,4 +1,4 @@
-import type { ProjectLink } from '@acp-harness/protocol'
+import type { CatalogProject } from '@acp-harness/protocol'
 import type { HostEntry, HostedProject, HostId } from '@/session-store'
 
 // One list of projects across every host: where a project lives is a badge, not a section, so the
@@ -12,28 +12,28 @@ export function shortHostNames(hosts: HostEntry[]): Record<HostId, string> {
   return Object.fromEntries(hosts.map((h) => [h.id, short(h)]))
 }
 
-export interface LinkedEntry {
-  /** The link's main member present here (its first), or the project itself when unlinked. */
+export interface ProjectEntry {
+  /** The project's main location present here (its first), or the host project itself when alone. */
   primary: HostedProject
   copies: HostedProject[]
 }
 
-/** Projects in display order, each link folded into the place of its first member listed. */
-export function linkedEntries(projects: HostedProject[], links: ProjectLink[]): LinkedEntry[] {
+/** Projects in display order, each catalog project folded into the place of its first location listed. */
+export function projectEntries(projects: HostedProject[], catalog: CatalogProject[]): ProjectEntry[] {
   const key = (hostId: HostId, projectId: string) => `${hostId}:${projectId}`
   const byKey = new Map(projects.map((p) => [key(p.hostId, p.id), p]))
-  const linkOfKey = new Map(links.flatMap((l) => l.members.map((m) => [key(m.hostId, m.projectId), l] as const)))
+  const entryOfKey = new Map(catalog.flatMap((e) => e.locations.map((l) => [key(l.hostId, l.projectId), e] as const)))
   const done = new Set<string>()
-  const entries: LinkedEntry[] = []
+  const entries: ProjectEntry[] = []
   for (const project of projects) {
-    const link = linkOfKey.get(key(project.hostId, project.id))
-    if (!link) {
+    const entry = entryOfKey.get(key(project.hostId, project.id))
+    if (!entry || entry.locations.length < 2) {
       entries.push({ primary: project, copies: [] })
       continue
     }
-    if (done.has(link.id)) continue
-    done.add(link.id)
-    const present = link.members.flatMap((m) => byKey.get(key(m.hostId, m.projectId)) ?? [])
+    if (done.has(entry.id)) continue
+    done.add(entry.id)
+    const present = entry.locations.flatMap((l) => byKey.get(key(l.hostId, l.projectId)) ?? [])
     entries.push({ primary: present[0]!, copies: present.slice(1) })
   }
   return entries

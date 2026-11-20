@@ -7,8 +7,9 @@ import { setBoardOpen } from '@/stores/sidebar-store'
 import { setTasks } from '@/stores/tasks-store'
 import { defaultChatAgent } from '@/lib/default-chat-agent'
 import { addTarget, confirmNonGitFolder } from '@/lib/project-dialogs'
-import { linkProjects } from '@/stores/project-links-store'
+import { placeInProject } from '@/stores/project-catalog-store'
 import { t } from '@/i18n/i18n'
+import { projectLabel } from '@/components/sidebar/workspace-visibility'
 
 // Orca's repo-add-actions + finishProjectAddWithDefaultCheckout: toast, then land in the project's
 // own checkout; a new folder project also starts a chat with the default agent.
@@ -19,13 +20,22 @@ export async function completeProjectAdd(hostId: HostId, add: () => Promise<Proj
   const target = addTarget()
   const project = await add()
   const alreadyAdded = known.has(project.id)
-  const name = project.displayName || project.name
+  const name = projectLabel({ ...project, hostId })
   if (target) {
     // "Add Workspace on Another Host": the folder joins that project instead of standing alone.
-    await linkProjects({ hostId: target.hostId, projectId: target.projectId }, { hostId, projectId: project.id })
-    toast.success(t('Added to {name}', { name: target.name }), {
-      description: t('{name} on {host}', { name, host: getState().hosts[hostId]?.label ?? hostId })
-    })
+    // The folder is added either way; only its joining the project can fail, and says so.
+    const placed = await placeInProject({ hostId: target.hostId, projectId: target.projectId }, { hostId, projectId: project.id }).then(
+      () => true,
+      (error: unknown) => {
+        toast.error(t('Could not add it to {name}', { name: target.name }), { description: error instanceof Error ? error.message : String(error) })
+        return false
+      }
+    )
+    if (placed) {
+      toast.success(t('Added to {name}', { name: target.name }), {
+        description: t('{name} on {host}', { name, host: getState().hosts[hostId]?.label ?? hostId })
+      })
+    }
   } else if (alreadyAdded) toast.info(t('Project already added'), { description: name })
   else toast.success(project.kind === 'git' ? t('Project added') : t('Folder added'), { description: name })
 
