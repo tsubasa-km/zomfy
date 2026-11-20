@@ -17,6 +17,7 @@ import { Switch } from '@/components/ui/switch'
 import { cn } from '@/lib/utils'
 import { canPopOutDashboard, popOutDashboard } from '@/lib/dashboard-window'
 import { WINDOW_ROLE } from '@/lib/window-role'
+import { agentQuestionsOf } from '@/components/native-chat/agent-questions'
 import { t } from '@/i18n/i18n'
 
 // Follows Orca's agent dashboard (dashboard-popout/AgentKanbanBoard.tsx, AgentKanbanCard.tsx):
@@ -171,7 +172,11 @@ function AgentCard({
         {pendingAsk?.kind === 'permission' && (
           <div className="flex w-full items-start gap-1 rounded-md bg-agent-question/15 px-1.5 py-1 text-[11px] text-agent-question-text ring-1 ring-agent-question/25 ring-inset">
             <AgentQuestionIcon className="mt-px size-3 shrink-0" />
-            <span className="line-clamp-2">{t('Allow {title}?', { title: pendingAsk.title })}</span>
+            <span className="line-clamp-2">
+              {agentQuestionsOf(pendingAsk.input).length > 0
+                ? agentQuestionsOf(pendingAsk.input).map((q) => q.question).join(' ')
+                : t('Allow {title}?', { title: pendingAsk.title })}
+            </span>
           </div>
         )}
       </button>

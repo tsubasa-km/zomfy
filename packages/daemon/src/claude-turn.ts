@@ -24,6 +24,7 @@ import { explainClaudeFailure, resolveClaudeExecutable } from "./claude-executab
 import { CHAT_ATTACHMENT_DIR, deferAttachmentMentions } from "./chat-attachment-files.ts";
 import { detectUsageLimit } from "./usage-limit.ts";
 import { log } from "./log.ts";
+import { QUESTION_OPTIONS, QUESTION_TOOL, questionResult } from "./ask-user-question.ts";
 import { pathGuardHooks, type PathGuard } from "./step-path-guard.ts";
 
 export interface ClaudeSessionState {
@@ -465,6 +466,21 @@ function permissionBridge(
 ): CanUseTool {
   return async (toolName, input, options) => {
     const planExit = toolName === "ExitPlanMode";
+    if (toolName === QUESTION_TOOL) {
+      const response = await askPermission({
+        sessionId: acpSessionId,
+        toolCall: {
+          toolCallId: options.toolUseID,
+          title: options.title ?? toolTitle(toolName, input),
+          kind: toolKind(toolName),
+          status: "pending",
+          rawInput: input,
+          _meta: { [CHAT_META.toolName]: toolName },
+        },
+        options: QUESTION_OPTIONS,
+      });
+      return questionResult(input, response);
+    }
     const response = await askPermission({
       sessionId: acpSessionId,
       toolCall: {

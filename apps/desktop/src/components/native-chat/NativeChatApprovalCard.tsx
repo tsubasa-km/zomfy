@@ -6,6 +6,8 @@ import { NativeChatMarkdown } from './NativeChatMarkdown'
 import { shortenPaths } from './native-chat-transcript-model'
 import { splitPartCount, splitPlanOf } from './split-plan'
 import { terminalSendDetails, terminalSendTitle } from './terminal-send-request'
+import { questionsToAnswer } from './agent-questions'
+import { NativeChatQuestionCard } from './NativeChatQuestionCard'
 import { t } from '@/i18n/i18n'
 
 type Permission = Extract<ThreadItem, { kind: 'permission' }>
@@ -32,6 +34,8 @@ export function NativeChatApprovalCard({
   /** The helper chat asking, when the ask is shown in the thread it works for. */
   from?: string
 }) {
+  const questions = questionsToAnswer(permission)
+  if (questions.length > 0) return <NativeChatQuestionCard key={permission.requestId} permission={permission} questions={questions} from={from} />
   // Allow first, as Orca puts the primary choice first.
   const options = [...permission.options].sort(
     (a, b) => Number(b.kind.startsWith('allow')) - Number(a.kind.startsWith('allow'))
