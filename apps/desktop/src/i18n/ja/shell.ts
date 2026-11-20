@@ -755,6 +755,13 @@ export const SHELL: Record<string, string> = {
   'Include recent messages from “{title}”': '「{title}」の最近のメッセージを含める',
   'Starting…': '開始中…',
   'Start side chat': 'サイドチャットを開始',
+  // components/right-sidebar/SideChatComposer.tsx
+  'Ask about this workspace without interrupting': 'このワークスペースについて、作業を止めずに質問',
+  'Starting the side chat…': 'サイドチャットを開始中…',
+  'Sees recent messages from “{title}”': '「{title}」の最近のメッセージを見る',
+  'Claude answers a side chat on low effort; its model and effort can be changed once it has started.': 'サイドチャットの Claude は思考量「低」で答えます。モデルと思考量は、始まったあとに変えられます。',
+  'Back to the side chat': 'サイドチャットに戻る',
+  'The side chat did not start.': 'サイドチャットを開始できませんでした。',
 
   // components/right-sidebar/checks/ChecksPanel.tsx
   'GitHub or GitLab': 'GitHub または GitLab',
@@ -1188,6 +1195,8 @@ export const SHELL: Record<string, string> = {
   '{n}m': '{n}分',
   '{n}h': '{n}時間',
   '{n}d': '{n}日',
+  '{n}s': '{n}秒',
+  Settled: '一段落',
   'Working · {age}': '作業中 · {age}',
   'Pin to the top': '上にピン留め',
   'for {age}': '{age}',
@@ -1294,5 +1303,13 @@ export const SHELL: Record<string, string> = {
   'Reopen without tabs': 'タブを閉じて開き直す',
   '{n} projects': '{n} 件のプロジェクト',
   'Could not add it to {name}': '{name} に加えられませんでした',
-  'Projects on {hosts} show once they connect.': '{hosts} のプロジェクトは、接続すると表示されます。'
+  'Projects on {hosts} show once they connect.': '{hosts} のプロジェクトは、接続すると表示されます。',
+
+  // components/projects/ProjectsPage.tsx (selection)
+  'Select {name}': '{name} を選択',
+  'Remove from the list…': '一覧から外す…',
+  'Remove {n} projects from acp-harness? Their folders and worktrees on disk are kept.':
+    '{n} 件のプロジェクトを acp-harness から削除しますか？ディスク上のフォルダーとワークツリーはそのまま残ります。',
+  'Hosts that are not connected keep theirs.': '接続していないホストにあるものはそのまま残ります。',
+  'Could not remove {n} of the projects': '{n} 件のプロジェクトを外せませんでした'
 }

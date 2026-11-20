@@ -30,6 +30,9 @@ type HostedWorkspace = Workspace & { hostId: HostId }
 
 const NO_PROJECT = 'none'
 
+/** The sections held at the list's top; the rest sit at its bottom. */
+const TOP_SECTIONS: ChatSectionId[] = ['pinned', 'needs-you', 'unread']
+
 /** How many chats the list holds and how many the search keeps, for the search field's counter. */
 export function useChatListCounts(): { total: number; matched: number } {
   const sessions = useStore((s) => s.sessions)
@@ -71,7 +74,8 @@ function SectionHeader({
       tabIndex={0}
       aria-expanded={!collapsed}
       data-chat-section-header={id}
-      className="flex h-7 min-w-0 cursor-pointer items-center gap-1 pt-1 pr-1 pl-1 select-none"
+      // As T3 Code's: the name on the left, the count and the fold on the right.
+      className="flex h-8 min-w-0 cursor-pointer items-center gap-1.5 pt-2 pr-2 pl-2 select-none"
       onClick={() => toggleSectionCollapsed(id)}
       onKeyDown={(e) => {
         if (e.key !== 'Enter' && e.key !== ' ') return
@@ -79,22 +83,24 @@ function SectionHeader({
         toggleSectionCollapsed(id)
       }}
     >
-      <ChevronRight className={cn('size-3 shrink-0 text-muted-foreground transition-transform', !collapsed && 'rotate-90')} />
       {id === 'needs-you' && <span className="block size-1.5 shrink-0 rounded-full bg-agent-question" />}
       <div
         className={cn(
-          'min-w-0 truncate pl-0.5 text-[12px] leading-none font-semibold',
+          'min-w-0 truncate text-[12px] leading-none font-semibold',
           id === 'needs-you' ? 'text-agent-question-text' : 'text-muted-foreground'
         )}
       >
         {label}
       </div>
-      <span className="text-[11px] text-muted-foreground tabular-nums">{count}</span>
-      {trailing && (
-        <div className="ml-auto flex items-center" onClick={(e) => e.stopPropagation()}>
-          {trailing}
-        </div>
-      )}
+      <div className="ml-auto flex shrink-0 items-center gap-1">
+        {trailing && (
+          <div className="flex items-center" onClick={(e) => e.stopPropagation()}>
+            {trailing}
+          </div>
+        )}
+        <span className="text-[11px] text-muted-foreground tabular-nums">{count}</span>
+        <ChevronRight className={cn('size-3.5 shrink-0 text-muted-foreground transition-transform', !collapsed && 'rotate-90')} />
+      </div>
     </div>
   )
 }
@@ -135,6 +141,7 @@ export function ChatList({ actions }: { actions: SidebarActions }) {
     const project = projectOf(w)
     return {
       project: project ? projectLabel(project) : w?.scratch ? t('Quick thread') : w ? workspaceLabel(w) : '',
+      quick: !project && Boolean(w?.scratch),
       // Under its project's folder a row need not repeat the project.
       foldered: groupBy === 'project' && project !== undefined && !pinned.includes(session.id) && !session.archived,
       workspaceId: session.workspaceId,
@@ -189,6 +196,14 @@ export function ChatList({ actions }: { actions: SidebarActions }) {
   }
 
   const section = (id: ChatSectionId, list: ChatNode[], trailing?: ReactNode) => {
+    // What finished since the person last looked heads the list with no header, as in T3 Code.
+    if (id === 'unread') {
+      return (
+        <section key={id} className="mb-1.5 space-y-px pt-1 pr-1" data-chat-section={id}>
+          {list.map(row)}
+        </section>
+      )
+    }
     const collapsed = collapsedSections.includes(id) && !needle
     return (
       <section key={id} className="mb-1.5" data-chat-section={id}>
@@ -204,7 +219,7 @@ export function ChatList({ actions }: { actions: SidebarActions }) {
     </button>
   )
 
-  const sections = chatSections(nodes, pinned)
+  const sections = chatSections(nodes, pinned, (id) => Boolean(unread[id]))
   const empty = (
     <div className="flex flex-col items-center gap-2 px-4 pt-8 text-center text-xs text-muted-foreground" data-chat-list-empty>
       <MessageSquare className="size-5 opacity-60" />
@@ -213,9 +228,23 @@ export function ChatList({ actions }: { actions: SidebarActions }) {
   )
 
   if (groupBy === 'state') {
+    // As T3 Code's: what wants the person sits at the top, what is working and what has settled at
+    // the bottom, so each stays where the eye expects it however long the other gets.
+    const draw = (s: (typeof sections)[number]) => section(s.id, s.nodes, s.id === 'needs-you' ? inbox : undefined)
+    const top = sections.filter((s) => TOP_SECTIONS.includes(s.id))
+    const bottom = sections.filter((s) => !TOP_SECTIONS.includes(s.id))
     return (
-      <div data-chat-list="state">
-        {sections.length === 0 ? empty : sections.map((s) => section(s.id, s.nodes, s.id === 'needs-you' ? inbox : undefined))}
+      <div data-chat-list="state" className="flex flex-1 flex-col">
+        {sections.length === 0 ? (
+          empty
+        ) : (
+          <>
+            <div data-chat-list-top>{top.map(draw)}</div>
+            <div data-chat-list-bottom className="mt-auto pt-3">
+              {bottom.map(draw)}
+            </div>
+          </>
+        )}
       </div>
     )
   }

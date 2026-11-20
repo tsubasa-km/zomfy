@@ -33,6 +33,7 @@ import {
   WINDOW_TABS
 } from '@/stores/tab-layout-store'
 import { openWorkflows } from '@/stores/workflows-store'
+import { getSidebarState, useSidebarStore } from '@/stores/sidebar-store'
 import { hidePaneSidebar, showPaneSidebar, togglePaneSidebar } from '@/stores/pane-sidebar-store'
 import { forgetHostSnapshot, saveHostSnapshot } from '@/lib/host-snapshots'
 import {
@@ -90,6 +91,8 @@ export type ThreadItem =
       options: acp.PermissionOption[]
       /** The picked option's id, EXPIRED_APPROVAL, or null while it waits. */
       chosen: string | null
+      /** The person's answers, when the ask was an agent's questions (AskUserQuestion). */
+      answers?: Record<string, string>
     }
 
 /** 'local' is the desktop's own OS; 'wsl:<distro>' a daemon inside WSL; 'ssh:<alias or user@host[:port]>' one on an SSH host. */
@@ -932,14 +935,26 @@ export function setRightSidebar(change: Partial<StoreState['rightSidebar']>): vo
 
 /** The active workspace's sidebar on `tab`, or closed when it already shows that (or, without `tab`, anything). */
 /**
- * The workspace the right sidebar shows: the one in front, or with none in front (the "New
- * thread" tab), the one that tab starts its chat in, else the one last in front. So opening a new
- * thread does not take the sidebar away.
+ * The workspace the right sidebar shows: the one in front. With the "New thread" tab in front, the
+ * one its chat starts in: the workspace it was opened from, else the main checkout of the project
+ * picked there (as its composer uses), else none, for a quick thread has no project yet. With no
+ * tab in front at all, the one last in front, so closing the last tab does not take it away.
  */
-export function sidebarWorkspaceId(s: StoreState = state): string | null {
+export function sidebarWorkspaceId(s: StoreState = state, startProject: string | null = getSidebarState().startProject): string | null {
   const live = (id: string | null): id is string => id !== null && inWindowTabs(id, s) && allWorkspaces(s).some((w) => w.id === id)
-  for (const id of [s.activeWorkspaceId, s.startTab.workspaceId, lastActiveWorkspaceId]) if (live(id)) return id
-  return null
+  if (live(s.activeWorkspaceId)) return s.activeWorkspaceId
+  if (s.startTab.open && s.activeSessionByWorkspace[WINDOW_TABS] === START_TAB) {
+    if (live(s.startTab.workspaceId)) return s.startTab.workspaceId
+    const folder = allWorkspaces(s).find((w) => w.isPrimary && `${w.hostId}:${w.projectId}` === startProject)?.id ?? null
+    return live(folder) ? folder : null
+  }
+  return live(lastActiveWorkspaceId) ? lastActiveWorkspaceId : null
+}
+
+/** sidebarWorkspaceId, re-rendering also when the "New thread" tab's project changes. */
+export function useSidebarWorkspaceId(): string | null {
+  const startProject = useSidebarStore((s) => s.startProject)
+  return useStore((s) => sidebarWorkspaceId(s, startProject))
 }
 
 export function toggleActivePaneSidebar(tab?: RightSidebarTab): void {

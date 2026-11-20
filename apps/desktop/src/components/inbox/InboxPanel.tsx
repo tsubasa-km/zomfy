@@ -12,6 +12,7 @@ import { Input } from '@/components/ui/input'
 import { useShortcutLabel } from '@/keybindings/keybinding-registry'
 import { sessionAgent } from '@/lib/chat-agents'
 import { inboxEntries, questionsOf, type Approval, type InboxEntry } from './inbox-entries'
+import { questionsToAnswer } from '@/components/native-chat/agent-questions'
 import type { TodoItem, TodoLink } from '@acp-harness/protocol'
 import { t } from '@/i18n/i18n'
 
@@ -181,7 +182,7 @@ function EntryRow({ entry, where, offline }: { entry: InboxEntry; where: string;
         )}
       </button>
       <div className="truncate text-[11px] text-muted-foreground">{where}</div>
-      {entry.kind === 'approval' && <ApprovalBody approval={entry.approval} />}
+      {entry.kind === 'approval' && <ApprovalBody approval={entry.approval} sessionId={session.id} />}
       {entry.kind === 'needs-you' && (
         <p className="mt-1 text-[11px] text-agent-question-text">{t('Waiting on an answer in its thread; open it to reply.')}</p>
       )}
@@ -203,8 +204,10 @@ function EntryRow({ entry, where, offline }: { entry: InboxEntry; where: string;
   )
 }
 
-function ApprovalBody({ approval }: { approval: Approval }) {
+function ApprovalBody({ approval, sessionId }: { approval: Approval; sessionId: string }) {
   const questions = questionsOf(approval)
+  // An agent's questions want choices picked and maybe words typed: that happens in its thread.
+  const answeredInThread = questionsToAnswer(approval).length > 0
   const options = [...approval.options].sort((a, b) => Number(b.kind.startsWith('allow')) - Number(a.kind.startsWith('allow')))
   return (
     <div className="mt-1">
@@ -213,7 +216,20 @@ function ApprovalBody({ approval }: { approval: Approval }) {
         <span className="line-clamp-3 break-words">{questions.length > 0 ? questions.join(' ') : t('Allow {title}?', { title: approval.title })}</span>
       </div>
       <div className="mt-1.5 flex flex-wrap gap-1">
-        {options.map((option, i) => (
+        {answeredInThread && (
+          <button
+            type="button"
+            data-inbox-answer-questions
+            onClick={() => {
+              setInboxOpen(false)
+              selectSession(sessionId)
+            }}
+            className="rounded-md bg-primary px-2 py-0.5 text-[11px] font-semibold text-primary-foreground hover:bg-primary/90"
+          >
+            {t('Answer in its thread')}
+          </button>
+        )}
+        {!answeredInThread && options.map((option, i) => (
           <button
             key={option.optionId}
             type="button"

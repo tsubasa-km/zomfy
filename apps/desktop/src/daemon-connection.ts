@@ -6,6 +6,7 @@ import {
   AUTOMATION_NOTIFICATIONS,
   CHAT_AGENT_NOTIFICATIONS,
   CHAT_META,
+  type QuestionAnswers,
   HARNESS_METHODS,
   PROMPT_NOT_SENT_META,
   HARNESS_NOTIFICATIONS,
@@ -93,7 +94,7 @@ interface DaemonInfo {
 const connections = new Map<HostId, acp.ClientConnection>();
 const connecting = new Map<HostId, Promise<void>>();
 /** Approvals this window was asked, by request id; settled when answered or when the ask is gone. */
-const pendingPermissions = new Map<string, { sessionId: string; hostId: HostId; settle: (optionId: string | null) => void }>();
+const pendingPermissions = new Map<string, { sessionId: string; hostId: HostId; settle: (optionId: string | null, answers?: Record<string, string>) => void }>();
 
 /** The daemon no longer waits on these (the turn ended, or the link carrying them closed). */
 function expirePermissions(match: (entry: { sessionId: string; hostId: HostId }) => boolean): void {
@@ -649,11 +650,14 @@ export function cancelTurn(sessionId: string): void {
   void connections.get(session.hostId)?.agent.notify(acp.methods.agent.session.cancel, { sessionId });
 }
 
-/** False when the request is not held by this window (another window ran the turn). */
-export function answerPermission(requestId: string, optionId: string | null): boolean {
+/**
+ * False when the request is not held by this window (another window ran the turn). `answers` are
+ * the person's replies to an agent's questions (AskUserQuestion), keyed by question.
+ */
+export function answerPermission(requestId: string, optionId: string | null, answers?: Record<string, string>): boolean {
   const entry = pendingPermissions.get(requestId);
   if (entry) {
-    entry.settle(optionId);
+    entry.settle(optionId, answers);
     return true;
   }
   // A card this window drew whose ask is gone (a reloaded module): nobody waits on it any more.
@@ -691,18 +695,19 @@ async function requestPermission(
     ],
   }));
   return new Promise((resolve) => {
-    pendingPermissions.set(requestId, { sessionId: params.sessionId, hostId, settle: (optionId) => {
+    pendingPermissions.set(requestId, { sessionId: params.sessionId, hostId, settle: (optionId, answers) => {
       if (!pendingPermissions.delete(requestId)) return;
       updateSession(params.sessionId, (s) => ({
         ...s,
         items: s.items.map((item) =>
           item.kind === "permission" && item.requestId === requestId
-            ? { ...item, chosen: optionId ?? EXPIRED_APPROVAL }
+            ? { ...item, chosen: optionId ?? EXPIRED_APPROVAL, ...(optionId && answers ? { answers } : {}) }
             : item,
         ),
       }));
       resolve({
         outcome: optionId ? { outcome: "selected", optionId } : { outcome: "cancelled" },
+        ...(optionId && answers ? { _meta: { [CHAT_META.answers]: { answers } satisfies QuestionAnswers } } : {}),
       });
     } });
   });

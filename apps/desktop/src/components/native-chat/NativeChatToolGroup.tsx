@@ -37,7 +37,13 @@ export function toolRunSummary(tools: ToolNode[]): string {
   return text.charAt(0).toUpperCase() + text.slice(1)
 }
 
-const OUTCOME_LABELS: Record<ApprovalOutcome, string> = { allowed: t('Allowed'), rejected: t('Rejected'), expired: t('Expired') }
+const OUTCOME_LABELS: Record<ApprovalOutcome, string> = {
+  allowed: t('Allowed'),
+  rejected: t('Rejected'),
+  expired: t('Expired'),
+  answered: t('Answered'),
+  skipped: t('Skipped')
+}
 
 export function NativeChatDecisionLine({ title, outcome, cwd }: { title: string; outcome: ApprovalOutcome; cwd: string }) {
   return (

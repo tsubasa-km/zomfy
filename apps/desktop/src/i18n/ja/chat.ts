@@ -665,5 +665,21 @@ export const CHAT: Record<string, string> = {
   'Type into "{name}"?': '「{name}」に入力しますか？',
   'Presses {key}.': '{key} を押します。',
   'Without pressing Enter.': 'Enter は押しません。',
-  'Then presses Enter.': 'そのあと Enter を押します。'
+  'Then presses Enter.': 'そのあと Enter を押します。',
+
+  // components/native-chat/NativeChatQuestionCard.tsx
+  'Questions from the agent': 'エージェントからの質問',
+  'The agent has a question': 'エージェントから質問があります',
+  'The agent has {n} questions': 'エージェントから {n} 件の質問があります',
+  'Pick any that apply': '当てはまるものをすべて選択',
+  Other: 'その他',
+  'Your answer to "{question}"': '「{question}」への回答',
+  'Type your answer': '回答を入力',
+  'Send answers': '回答を送信',
+  Skip: 'スキップ',
+  // components/inbox/InboxPanel.tsx
+  'Answer in its thread': 'スレッドで回答',
+  // components/native-chat/NativeChatToolGroup.tsx
+  Answered: '回答済み',
+  Skipped: 'スキップ'
 }

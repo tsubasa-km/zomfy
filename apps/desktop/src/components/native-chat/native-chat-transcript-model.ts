@@ -2,6 +2,8 @@ import { diffFromToolCall, type NativeChatDiffLine } from '@/shared/native-chat-
 import type { TurnEndMeta } from '@acp-harness/protocol'
 import type { ThreadItem } from '@/session-store'
 import { EXPIRED_APPROVAL } from '@/lib/expired-approval'
+import { QUESTION_OPTION_IDS } from '@acp-harness/protocol'
+import { questionsToAnswer } from './agent-questions'
 import {
   isTaskListTool,
   normalizeNativeChatTaskList,
@@ -17,11 +19,16 @@ export type UserItem = Extract<ThreadItem, { kind: 'user' }>
 /** `decision` is the approval asked for this call, when there was one. */
 export type ToolNode = { tool: ToolItem; children: ToolItem[]; decision?: { title: string; outcome: ApprovalOutcome } }
 
-/** How an answered approval ended; 'expired' when nobody answered before its ask went away. */
-export type ApprovalOutcome = 'allowed' | 'rejected' | 'expired'
+/**
+ * How an answered approval ended; 'expired' when nobody answered before its ask went away.
+ * An agent's questions are 'answered' or 'skipped'.
+ */
+export type ApprovalOutcome = 'allowed' | 'rejected' | 'expired' | 'answered' | 'skipped'
 
 export function approvalOutcome(item: Extract<ThreadItem, { kind: 'permission' }>): ApprovalOutcome {
   if (item.chosen === EXPIRED_APPROVAL) return 'expired'
+  if (item.answers) return 'answered'
+  if (questionsToAnswer(item).length > 0 && item.chosen === QUESTION_OPTION_IDS.skip) return 'skipped'
   const option = item.options.find((o) => o.optionId === item.chosen)
   // Other agents name their options freely; the kind says what the pick meant.
   if (option) return option.kind.startsWith('reject') ? 'rejected' : 'allowed'
@@ -120,7 +127,9 @@ export function buildTranscript(items: ThreadItem[], turnRunning: boolean, cwd: 
         // The answer belongs to the call that asked, so it stays inside that run of tools.
         const last = rows.at(-1)
         const node = last?.kind === 'tools' ? last.tools.at(-1) : undefined
-        const decision = { title: item.title, outcome: approvalOutcome(item) }
+        const outcome = approvalOutcome(item)
+        // Answered questions read as the answers given, not as the tool that asked.
+        const decision = { title: outcome === 'answered' && item.answers ? Object.values(item.answers).join(' / ') : item.title, outcome }
         if (node && !node.decision) node.decision = decision
         else rows.push({ kind: 'decision', ...decision })
         break

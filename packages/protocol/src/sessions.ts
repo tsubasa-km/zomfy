@@ -109,8 +109,25 @@ export const CHAT_META = {
   /** usage_update: per-category breakdown and whether it is an estimate. */
   contextUsage: 'harness/contextUsage',
   /** notice: the chat's agent changed here (AgentSwitchMeta). */
-  agentSwitch: 'harness/agentSwitch'
+  agentSwitch: 'harness/agentSwitch',
+  /** session/request_permission response: the person's answers to an AskUserQuestion (QuestionAnswers). */
+  answers: 'harness/answers'
 } as const
+
+/**
+ * The options of an AskUserQuestion permission request: answering it sends `QuestionAnswers` on the
+ * response's `_meta`, skipping it tells the agent the person declined.
+ */
+export const QUESTION_OPTION_IDS = {
+  answer: 'answer',
+  skip: 'reject'
+} as const
+
+/** The person's answers to an agent's questions, keyed by each question's text. */
+export interface QuestionAnswers {
+  /** The picked option's label, several joined by ", ", or the person's own words. */
+  answers: Record<string, string>
+}
 
 /** Which agent a chat left and which took over, on the notice that marks the change in its transcript. */
 export interface AgentSwitchMeta {
