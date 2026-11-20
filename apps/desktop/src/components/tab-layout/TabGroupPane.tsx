@@ -186,7 +186,9 @@ export function TabGroupPane({
       <div data-tab-group-body-id={groupId} className="relative flex min-h-0 min-w-0 flex-1 flex-col">
         {active ? (
           // One tab that fails to render keeps to its own pane; switching tabs remounts the boundary.
-          <ErrorBoundary key={active.id} fallback={(error, reset) => <ViewError error={error} onRetry={reset} />}>
+          // Its key differs from the drawer's beside it: siblings sharing a key leave a closed tab's
+          // view on screen.
+          <ErrorBoundary key={`body:${active.id}`} fallback={(error, reset) => <ViewError error={error} onRetry={reset} />}>
             <TabBody tab={active} />
           </ErrorBoundary>
         ) : home ? (
@@ -199,7 +201,7 @@ export function TabGroupPane({
         )}
         {/* The drawer belongs to the tab on show: none without one, and each tab keeps its own. */}
         {active && home && active.kind !== 'start' && (
-          <ToolDrawer key={active.id} workspaceId={home} tabId={active.id} exclude={active.id} focused={isFocused} />
+          <ToolDrawer key={`drawer:${active.id}`} workspaceId={home} tabId={active.id} exclude={active.id} focused={isFocused} />
         )}
       </div>
       {/* Split, the pane being worked in is outlined, so where a keystroke goes is plain to see. */}
