@@ -91,6 +91,8 @@ export type ThreadItem =
       options: acp.PermissionOption[]
       /** The picked option's id, EXPIRED_APPROVAL, or null while it waits. */
       chosen: string | null
+      /** The person's answers, when the ask was an agent's questions (AskUserQuestion). */
+      answers?: Record<string, string>
     }
 
 /** 'local' is the desktop's own OS; 'wsl:<distro>' a daemon inside WSL; 'ssh:<alias or user@host[:port]>' one on an SSH host. */

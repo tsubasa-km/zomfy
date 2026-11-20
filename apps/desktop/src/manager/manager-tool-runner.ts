@@ -2,6 +2,7 @@ import {
   HARNESS_METHODS,
   isChatAgentId,
   localOnlySteps,
+  QUESTION_OPTION_IDS,
   type ManagedSessionStatus,
   type ManagerCallParams,
   type ManagerCallResult,
@@ -33,6 +34,7 @@ import { confirmWorkflowStart } from '@/components/workflows/WorkflowStartConfir
 import { validateWorkflow } from '@/components/workflows/workflow-model'
 import { copyOfWorkflow, workflowFromSpec } from './workflow-tools'
 import { projectLabel } from '@/components/sidebar/workspace-visibility'
+import { questionsToAnswer } from '@/components/native-chat/agent-questions'
 
 // Runs the manager agent's tool calls in this window, which is linked to every host. Status is
 // the hosts' (broadcast into the session store); this file only reads it and presents it, and a
@@ -542,6 +544,9 @@ function answerApproval(requestId: string, optionId: string): unknown {
   for (const session of getState().sessions) {
     const pending = pendingApprovalsOf(session).find((p) => p.requestId === requestId)
     if (!pending) continue
+    if (questionsToAnswer(pending).length > 0 && optionId !== QUESTION_OPTION_IDS.skip) {
+      throw new ToolError('These are questions for the person, answered in its thread; forward_to_person, or skip them with optionId "reject".')
+    }
     if (!pending.options.some((o) => o.optionId === optionId)) {
       throw new ToolError(`Not an option of that request: ${pending.options.map((o) => o.optionId).join(', ')}`)
     }
