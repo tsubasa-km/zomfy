@@ -32,6 +32,7 @@ import { upsertWorkflowRun } from '@/stores/workflow-runs-store'
 import { confirmWorkflowStart } from '@/components/workflows/WorkflowStartConfirm'
 import { validateWorkflow } from '@/components/workflows/workflow-model'
 import { copyOfWorkflow, workflowFromSpec } from './workflow-tools'
+import { projectLabel } from '@/components/sidebar/workspace-visibility'
 
 // Runs the manager agent's tool calls in this window, which is linked to every host. Status is
 // the hosts' (broadcast into the session store); this file only reads it and presents it, and a
@@ -144,7 +145,7 @@ async function requesterOf(session: Session): Promise<Session | null> {
 function projectById(projectId: string): { hostId: HostId; projectId: string; name: string } {
   const project = allProjects().find((p) => p.id === projectId)
   if (!project) throw new ToolError(`Unknown project ${projectId}; use list_workspaces for ids.`)
-  return { hostId: project.hostId, projectId: project.id, name: project.displayName ?? project.name }
+  return { hostId: project.hostId, projectId: project.id, name: projectLabel(project) }
 }
 
 async function listWorkflows(callerSessionId: string, otherProjectId?: string, includeGraph = false): Promise<unknown> {
@@ -295,7 +296,7 @@ function listWorkspaces(hostId?: string): unknown {
       .map((p) => ({
         projectId: p.id,
         hostId: p.hostId,
-        name: p.displayName ?? p.name,
+        name: projectLabel(p),
         kind: p.kind,
         path: p.path,
         // The same project on other hosts (Add Workspace on Another Host); its workspaces are this project's too.
@@ -319,7 +320,7 @@ function sessionSummary(s: Session, callerSessionId: string): Record<string, unk
     hostId: s.hostId,
     workspaceId: s.workspaceId,
     workspace: workspace ? (workspace.displayName ?? workspace.name) : null,
-    project: project ? (project.displayName ?? project.name) : null,
+    project: project ? projectLabel(project) : null,
     status: statusOf(s),
     ...(s.turnStartedAt ? { workingForSeconds: Math.round((Date.now() - s.turnStartedAt) / 1000) } : {}),
     unseenResult: Boolean(state.unread[s.id]),

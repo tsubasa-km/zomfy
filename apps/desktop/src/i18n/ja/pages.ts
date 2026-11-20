@@ -1331,7 +1331,6 @@ export const PAGES: Record<string, string> = {
   'Clone a repository…': 'リポジトリをクローン…',
   'Create a new project…': '新しいプロジェクトを作成…',
   'Close projects': 'プロジェクトを閉じる',
-  '{n} projects on {hosts} hosts': '{hosts} 台のホストに {n} 件のプロジェクト',
   'No projects yet. Add a folder, clone a repository or create one.': 'プロジェクトはまだありません。フォルダーを追加するか、リポジトリをクローンするか、新しく作成してください。',
   '{n} worktrees': 'ワークツリー {n} 件',
   'Show Projects Button': 'プロジェクトボタンを表示'

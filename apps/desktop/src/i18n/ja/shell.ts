@@ -1292,5 +1292,7 @@ export const SHELL: Record<string, string> = {
   'Copy details': '詳細をコピー',
   'Copy the details to report it, then reload. If it happens again, reopen without tabs: chats and projects stay.': '詳細をコピーして報告し、再読み込みしてください。それでも同じなら「タブを閉じて開き直す」を押してください。スレッドとプロジェクトは消えません。',
   'Reopen without tabs': 'タブを閉じて開き直す',
-  '{n} projects': '{n} 件のプロジェクト'
+  '{n} projects': '{n} 件のプロジェクト',
+  'Could not add it to {name}': '{name} に加えられませんでした',
+  'Projects on {hosts} show once they connect.': '{hosts} のプロジェクトは、接続すると表示されます。'
 }

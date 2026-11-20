@@ -12,19 +12,19 @@ export function shortHostNames(hosts: HostEntry[]): Record<HostId, string> {
   return Object.fromEntries(hosts.map((h) => [h.id, short(h)]))
 }
 
-export interface LinkedEntry {
+export interface ProjectEntry {
   /** The project's main location present here (its first), or the host project itself when alone. */
   primary: HostedProject
   copies: HostedProject[]
 }
 
 /** Projects in display order, each catalog project folded into the place of its first location listed. */
-export function linkedEntries(projects: HostedProject[], catalog: CatalogProject[]): LinkedEntry[] {
+export function projectEntries(projects: HostedProject[], catalog: CatalogProject[]): ProjectEntry[] {
   const key = (hostId: HostId, projectId: string) => `${hostId}:${projectId}`
   const byKey = new Map(projects.map((p) => [key(p.hostId, p.id), p]))
   const entryOfKey = new Map(catalog.flatMap((e) => e.locations.map((l) => [key(l.hostId, l.projectId), e] as const)))
   const done = new Set<string>()
-  const entries: LinkedEntry[] = []
+  const entries: ProjectEntry[] = []
   for (const project of projects) {
     const entry = entryOfKey.get(key(project.hostId, project.id))
     if (!entry || entry.locations.length < 2) {

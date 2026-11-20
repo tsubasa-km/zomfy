@@ -28,6 +28,7 @@ import { Switch } from '@/components/ui/switch'
 import { cn } from '@/lib/utils'
 import { t } from '@/i18n/i18n'
 import { projectLabel } from '@/components/sidebar/workspace-visibility'
+import { useProjectCatalog } from '@/stores/project-catalog-store'
 
 // Orca's Automations page (AutomationsPage.tsx, AutomationsListPanel, AutomationsDetailPane,
 // AutomationRunHistory): the list on the left, the selected automation and its runs on the right.
@@ -74,6 +75,7 @@ function formatTime(ms: number | null): string {
 
 function useNames(): Map<string, string> {
   const hosts = useStore((s) => s.hosts)
+  useProjectCatalog()
   return new Map([
     ...allWorkspaces({ hosts }).map((w): [string, string] => [w.id, w.displayName || w.name]),
     ...allProjects(hosts).map((p): [string, string] => [p.id, projectLabel(p)])
