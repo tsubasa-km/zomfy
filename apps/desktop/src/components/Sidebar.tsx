@@ -67,7 +67,7 @@ export function Sidebar() {
       <SidebarHeader />
       <SidebarSearch matchCount={chatCounts.matched} totalCount={chatCounts.total} />
 
-      <div className="worktree-sidebar-scrollbar mt-1 min-h-0 flex-1 overflow-x-hidden overflow-y-auto px-1 pb-3" data-chat-list-scroll>
+      <div className="worktree-sidebar-scrollbar mt-1 flex min-h-0 flex-1 flex-col overflow-x-hidden overflow-y-auto px-1 pb-3" data-chat-list-scroll>
         <ChatList actions={actions} />
       </div>
 

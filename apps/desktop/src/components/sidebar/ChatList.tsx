@@ -30,6 +30,9 @@ type HostedWorkspace = Workspace & { hostId: HostId }
 
 const NO_PROJECT = 'none'
 
+/** The sections held at the list's top; the rest sit at its bottom. */
+const TOP_SECTIONS: ChatSectionId[] = ['pinned', 'needs-you', 'unread']
+
 /** How many chats the list holds and how many the search keeps, for the search field's counter. */
 export function useChatListCounts(): { total: number; matched: number } {
   const sessions = useStore((s) => s.sessions)
@@ -225,9 +228,23 @@ export function ChatList({ actions }: { actions: SidebarActions }) {
   )
 
   if (groupBy === 'state') {
+    // As T3 Code's: what wants the person sits at the top, what is working and what has settled at
+    // the bottom, so each stays where the eye expects it however long the other gets.
+    const draw = (s: (typeof sections)[number]) => section(s.id, s.nodes, s.id === 'needs-you' ? inbox : undefined)
+    const top = sections.filter((s) => TOP_SECTIONS.includes(s.id))
+    const bottom = sections.filter((s) => !TOP_SECTIONS.includes(s.id))
     return (
-      <div data-chat-list="state">
-        {sections.length === 0 ? empty : sections.map((s) => section(s.id, s.nodes, s.id === 'needs-you' ? inbox : undefined))}
+      <div data-chat-list="state" className="flex flex-1 flex-col">
+        {sections.length === 0 ? (
+          empty
+        ) : (
+          <>
+            <div data-chat-list-top>{top.map(draw)}</div>
+            <div data-chat-list-bottom className="mt-auto pt-3">
+              {bottom.map(draw)}
+            </div>
+          </>
+        )}
       </div>
     )
   }
