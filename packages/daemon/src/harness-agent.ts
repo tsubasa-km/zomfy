@@ -64,6 +64,8 @@ import type { WorkspaceManager } from "./workspace-manager.ts";
 import { registerTodoHandlers } from "./handlers/todo-handlers.ts";
 import { registerSkillHandlers } from "./handlers/skill-handlers.ts";
 import { registerSshConnectionHandlers } from "./handlers/ssh-connection-handlers.ts";
+import { createTerminalTools } from "./terminal-agent-tools.ts";
+import { TerminalScreens } from "./terminal-screen.ts";
 import { registerPluginHandlers } from "./handlers/plugin-handlers.ts";
 import { registerVoiceHandlers } from "./handlers/voice-handlers.ts";
 import { managerMcp, type ManagerRoute } from "./manager-mcp-server.ts";
@@ -239,6 +241,22 @@ export function createHarnessAgent(
   terminals.onOutput((terminalId, data) =>
     broadcast(HARNESS_NOTIFICATIONS.terminalOutput, { terminalId, data }),
   );
+  // Agents read and type into the workspace's terminals (terminal_* tools), as the person watches.
+  const screens = new TerminalScreens({ replay: (id) => terminals.replay(id), size: (id) => terminals.size(id) });
+  terminals.onOutput((terminalId, data) => screens.feed(terminalId, data));
+  terminals.onChange((list) => screens.retain(list.map((t) => t.id)));
+  const terminalTools = createTerminalTools({
+    terminals,
+    screens,
+    chat: (sessionId) => {
+      const session = sessions.get(sessionId);
+      return session?.workspaceId ? { workspaceId: session.workspaceId, title: session.title } : null;
+    },
+  });
+  localTools.set("terminal_list", { offeredTo: () => true, route: async (caller) => terminalTools.list(caller) });
+  localTools.set("terminal_read", { offeredTo: () => true, route: (caller, _tool, args) => terminalTools.read(caller, args) });
+  localTools.set("terminal_send", { offeredTo: () => true, route: (caller, _tool, args) => terminalTools.send(caller, args) });
+  localTools.set("terminal_wait", { offeredTo: () => true, route: (caller, _tool, args) => terminalTools.wait(caller, args) });
 
   /** Recorded for replay, then sent to every client so a reconnected window sees live turns. */
   async function emit(sessionId: string, update: acp.SessionUpdate): Promise<void> {
