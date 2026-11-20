@@ -36,11 +36,11 @@ beforeEach(async () => {
   for (const [k, v] of [["user.name", "t"], ["user.email", "t@example.com"], ["commit.gpgsign", "false"]]) await git(main, ["config", k!, v!]);
   await commit(main, "a.txt", "one\n");
   await git(main, ["worktree", "add", "-b", "me/wt", tree]);
-});
+}, 30_000);
 
 afterEach(async () => {
   await rm(root, { recursive: true, force: true });
-});
+}, 30_000);
 
 describe("finishWorktree", () => {
   test("merges the worktree's commits into the main checkout", async () => {

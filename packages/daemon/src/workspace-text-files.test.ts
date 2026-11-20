@@ -45,10 +45,10 @@ const DETECTED: TextEncoding[] = ["utf8", "shiftjis", "eucjp"]
 let root = ""
 beforeAll(async () => {
   root = await realpath(await mkdtemp(join(tmpdir(), 'zomfy-text-files-')))
-})
+}, 30_000)
 afterAll(async () => {
   await rm(root, { recursive: true, force: true })
-})
+}, 30_000)
 
 async function put(name: string, bytes: Buffer | string): Promise<string> {
   await writeFile(join(root, name), bytes)

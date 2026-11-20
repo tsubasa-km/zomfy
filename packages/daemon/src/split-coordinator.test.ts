@@ -162,14 +162,14 @@ beforeEach(async () => {
   workspaces.set("main", { id: "main", projectId: "p", name: "repo", path: repo, branch: "main", isPrimary: true, createdAt: 0 });
   workspaces.set("chat", { id: "chat", projectId: "p", name: "chat", path: chatPath, branch: "me/chat", isPrimary: false, createdAt: 0 });
   chat({ id: "c1", workspaceId: "chat", cwd: chatPath });
-});
+}, 30_000);
 
 afterEach(async () => {
   // On Windows a folder git still works in cannot be removed: let every split finish first.
   await Promise.all(made.map((m) => m.settled()));
   made = [];
   await rm(root, { recursive: true, force: true });
-});
+}, 30_000);
 
 describe("SplitCoordinator", () => {
   test("is offered to a chat in a worktree, not the main checkout, a side chat or a manager", () => {
