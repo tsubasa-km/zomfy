@@ -11,6 +11,7 @@ import {
 } from '@/stores/terminal-pane-store'
 import { cn } from '@/lib/utils'
 import { focusPaneTerminal } from './terminal-pane-commands'
+import { TerminalAgentControlBar } from './TerminalAgentControlBar'
 import { t } from '@/i18n/i18n'
 
 // Orca's split terminal panes: panes are laid out absolutely from the tree so splitting or closing
@@ -105,12 +106,14 @@ function Pane({ terminalId, rect, active, dimmed, hidden, tabId }: { terminalId:
     <div
       data-terminal-pane={terminalId}
       data-active={active ? 'true' : 'false'}
-      className={cn('absolute flex min-h-0 min-w-0 transition-opacity duration-150', hidden && 'invisible')}
+      className={cn('absolute flex min-h-0 min-w-0 flex-col transition-opacity duration-150', hidden && 'invisible')}
       style={{ left: pct(rect.x), top: pct(rect.y), width: pct(rect.w), height: pct(rect.h), opacity: dimmed ? INACTIVE_PANE_OPACITY : 1, zIndex: active ? 1 : 0 }}
       onFocusCapture={() => setActivePane(tabId, terminalId)}
       onPointerDown={() => setActivePane(tabId, terminalId)}
     >
       {terminal ? <TerminalView terminal={terminal} /> : <div className="m-auto text-xs text-muted-foreground">{t('Starting terminal…')}</div>}
+      {/* Under the screen: the top edge holds the drawer's handle. */}
+      {terminal ? <TerminalAgentControlBar terminal={terminal} /> : null}
     </div>
   )
 }

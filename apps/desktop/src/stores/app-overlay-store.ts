@@ -12,6 +12,8 @@ export interface AppOverlays {
   commandPaletteMode: CommandPaletteMode
   /** Orca's Skills page, which also replaces the app view. */
   skills: boolean
+  /** Every project on every host, which also replaces the app view. */
+  projects: boolean
   /** Orca's first-run flow; reopened from Settings › General. */
   onboarding: boolean
   /** The guided tour over the live window. */
@@ -24,6 +26,7 @@ const store = createExternalStore<AppOverlays>({
   commandPalette: false,
   commandPaletteMode: 'all',
   skills: false,
+  projects: false,
   onboarding: false,
   tour: false
 })
@@ -71,6 +74,10 @@ export function setSkillsPageOpen(open: boolean): void {
   store.update((s) => ({ ...s, skills: open, settings: open ? { ...s.settings, open: false } : s.settings, commandPalette: false }))
 }
 
+export function setProjectsPageOpen(open: boolean): void {
+  store.update((s) => ({ ...s, projects: open, settings: open ? { ...s.settings, open: false } : s.settings, commandPalette: false }))
+}
+
 export function setOnboardingOpen(open: boolean): void {
   store.update((s) => ({ ...s, onboarding: open, settings: open ? { ...s.settings, open: false } : s.settings, commandPalette: false }))
 }
@@ -80,6 +87,6 @@ export function setTourOpen(open: boolean): void {
   store.update((s) => ({
     ...s,
     tour: open,
-    ...(open ? { settings: { ...s.settings, open: false }, skills: false, commandPalette: false, quickOpen: { ...s.quickOpen, open: false } } : {})
+    ...(open ? { settings: { ...s.settings, open: false }, skills: false, projects: false, commandPalette: false, quickOpen: { ...s.quickOpen, open: false } } : {})
   }))
 }

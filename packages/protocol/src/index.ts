@@ -22,6 +22,7 @@ import { SESSION_NOTE_METHODS, type SessionNoteRequests } from './session-notes'
 import { SETTINGS_METHODS, type SettingsRequests } from './settings'
 import { SIDE_CHAT_METHODS, type SideChatRequests } from './side-chats'
 import { SKILL_METHODS, type SkillRequests } from './skills'
+import { SSH_CONNECTION_METHODS, type SshConnectionRequests } from './ssh-connections'
 import { TERMINAL_METHODS, type TerminalRequests } from './terminals'
 import { TODO_METHODS, type TodoRequests } from './todos'
 import { TURN_RECOVERY_METHODS, type TurnRecoveryRequests } from './turn-recovery'
@@ -46,6 +47,7 @@ export * from './session-notes'
 export * from './settings'
 export * from './side-chats'
 export * from './skills'
+export * from './ssh-connections'
 export * from './terminals'
 export * from './todos'
 export * from './tui-agents'
@@ -83,7 +85,8 @@ export const HARNESS_METHODS = {
   ...WORKFLOW_AGENT_METHODS,
   ...WORKFLOW_EXPERIMENT_METHODS,
   ...WORKFLOW_SUGGESTION_METHODS,
-  ...LSP_METHODS
+  ...LSP_METHODS,
+  ...SSH_CONNECTION_METHODS
 } as const
 
 export const HARNESS_NOTIFICATIONS = {
@@ -118,6 +121,7 @@ export interface HarnessRequests
     WorkflowAgentRequests,
     WorkflowExperimentRequests,
     WorkflowSuggestionRequests,
-    LspRequests {}
+    LspRequests,
+    SshConnectionRequests {}
 
 export type HarnessMethod = keyof HarnessRequests

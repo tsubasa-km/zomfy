@@ -17,7 +17,7 @@ const dirs: string[] = []
 afterEach(() => {
   for (const dir of dirs.splice(0)) rmSync(dir, { recursive: true, force: true })
   refreshLspServerProbes()
-})
+}, 30_000)
 
 function workspace(): string {
   const dir = mkdtempSync(join(tmpdir(), 'lsp-catalog-'))

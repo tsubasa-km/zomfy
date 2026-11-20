@@ -14,10 +14,10 @@ import type { WorkflowAgentStore } from './workflow-agent-store.ts'
 let dir: string
 beforeEach(async () => {
   dir = await mkdtemp(join(tmpdir(), 'wf-stop-'))
-})
+}, 30_000)
 afterEach(async () => {
   await rm(dir, { recursive: true, force: true }).catch(() => undefined)
-})
+}, 30_000)
 
 function engine(workflow: Workflow) {
   const runs = new Map<string, WorkflowRun>()

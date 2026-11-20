@@ -1,9 +1,11 @@
 import { useState } from 'react'
-import { Globe, Plus, SquareTerminal } from 'lucide-react'
+import { Globe, Plus, Server, SquareTerminal } from 'lucide-react'
 import { createSession } from '@/daemon-connection'
 import { LOCAL_HOST, allWorkspaces, useStore } from '@/session-store'
 import { TuiAgentIcon } from '@/components/terminal/TuiAgentIcon'
 import { useChatAgents } from '@/lib/chat-agents'
+import { openSshConnection, openSshConnectionsDialog, useSshConnections } from '@/lib/ssh-connections'
+import { SshTagBadge } from '@/components/ssh/SshTagBadge'
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -79,6 +81,31 @@ function TerminalSection({ workspaceId }: { workspaceId: string }) {
   )
 }
 
+/** The host's saved SSH logins, each a tab in one click, and the list that manages them. */
+function SshSection({ workspaceId }: { workspaceId: string }) {
+  const hostId = useStore((s) => allWorkspaces(s).find((w) => w.id === workspaceId)?.hostId ?? LOCAL_HOST)
+  const connections = useSshConnections(hostId) ?? []
+  return (
+    <>
+      {connections.length > 0 ? <DropdownMenuLabel className="text-xs text-muted-foreground">{t('SSH')}</DropdownMenuLabel> : null}
+      {[...connections]
+        .sort((a, b) => a.name.localeCompare(b.name))
+        .slice(0, 8)
+        .map((connection) => (
+          <DropdownMenuItem key={connection.id} data-new-tab={`ssh:${connection.id}`} onSelect={() => void openSshConnection(workspaceId, connection.id)}>
+            <Server className="size-4" />
+            <span className="min-w-0 flex-1 truncate">{connection.name}</span>
+            {connection.tag ? <SshTagBadge tag={connection.tag} /> : null}
+          </DropdownMenuItem>
+        ))}
+      <DropdownMenuItem data-new-tab="ssh-connections" onSelect={() => openSshConnectionsDialog(workspaceId)}>
+        <Server className="size-4" />
+        {t('SSH connections…')}
+      </DropdownMenuItem>
+    </>
+  )
+}
+
 function BrowserSection({ workspaceId }: { workspaceId: string }) {
   return (
     <DropdownMenuItem data-new-tab="browser" onSelect={() => openBrowserTab(workspaceId)}>
@@ -143,6 +170,8 @@ export function NewTabMenu({ workspaceId, groupId }: { workspaceId: string; grou
             <DropdownMenuSeparator />
             <TerminalSection workspaceId={workspaceId} />
             <AgentLaunchMenuItems workspaceId={workspaceId} />
+            <DropdownMenuSeparator />
+            <SshSection workspaceId={workspaceId} />
             <DropdownMenuSeparator />
             <BrowserSection workspaceId={workspaceId} />
             <DropdownMenuSeparator />

@@ -55,6 +55,7 @@ export interface AppSettings {
   showSkillsButton: boolean
   /** Sidebar nav rows, each hideable from its context menu (Orca's show*Button settings). */
   showTasksButton: boolean
+  showProjectsButton: boolean
   showNewChatButton: boolean
   showAutomationsButton: boolean
   showAgentDashboardButton: boolean
@@ -124,6 +125,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
   keybindings: {},
   showSkillsButton: false,
   showTasksButton: true,
+  showProjectsButton: true,
   showNewChatButton: true,
   showAutomationsButton: true,
   showAgentDashboardButton: true,

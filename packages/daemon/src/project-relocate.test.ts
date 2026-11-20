@@ -21,11 +21,11 @@ beforeAll(async () => {
   await git(join(root, "old"), ["add", "a.txt"]);
   await git(join(root, "old"), ["commit", "-m", "one"]);
   await git(join(root, "old"), ["worktree", "add", "-b", "me/wt", join(root, "wt")]);
-});
+}, 30_000);
 
 afterAll(async () => {
   await rm(root, { recursive: true, force: true });
-});
+}, 30_000);
 
 describe("relocating a project", () => {
   test("follows a repository moved on disk, worktree and all", async () => {

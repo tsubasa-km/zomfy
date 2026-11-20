@@ -424,6 +424,63 @@ export const MANAGER_TOOLS = [
     description: 'A workflow run: status, the step it is on, each step with its outcome and summary, and what it waits for.',
     inputSchema: { type: 'object', properties: { runId: str('From run_workflow or list_workflows.') }, required: ['runId'] },
     readOnly: true
+  },
+  {
+    name: 'terminal_list',
+    description:
+      "Lists the terminal tabs open in your workspace, which the person sees too: local shells and logins to saved SSH servers, with each server's environment (production, staging, development). Read one with terminal_read and type into it with terminal_send; the person watches and can take a terminal back at any time.",
+    inputSchema: { type: 'object', properties: {} },
+    readOnly: true
+  },
+  {
+    name: 'terminal_read',
+    description:
+      'What a terminal shows: its last lines as text, and whether you may type into it. While it asks for a password or passphrase its screen is withheld, since the person types those.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        terminalId: str('From terminal_list.'),
+        lines: { type: 'number', description: 'How many of the last lines to read, up to 200; default 40.' }
+      },
+      required: ['terminalId']
+    },
+    readOnly: true
+  },
+  {
+    name: 'terminal_send',
+    description:
+      "Types into a terminal the person sees, as at its keyboard: `text`, then Enter unless `enter` is false, or one `key`. Send one command at a time, then read the result with terminal_wait. On a production server, say what you will run and why before you send it. Refused while the terminal asks for a password, and after the person took the terminal back until they hand it to you again.",
+    inputSchema: {
+      type: 'object',
+      properties: {
+        terminalId: str('From terminal_list.'),
+        text: str('What to type: a command, or an answer to a prompt.'),
+        enter: { type: 'boolean', description: 'Press Enter after the text; default true.' },
+        key: {
+          type: 'string',
+          enum: ['ctrl-c', 'ctrl-d', 'escape', 'tab', 'up', 'down', 'enter'],
+          description: 'A key to press instead of typing text (ctrl-c stops a running command).'
+        }
+      },
+      required: ['terminalId']
+    },
+    readOnly: false
+  },
+  {
+    name: 'terminal_wait',
+    description:
+      "Waits until a terminal shows `text`, or its output stays quiet for `quietMs`, or `timeoutSeconds` pass, then returns its screen as terminal_read does. It returns early when the person types into it.",
+    inputSchema: {
+      type: 'object',
+      properties: {
+        terminalId: str('From terminal_list.'),
+        text: str('Stop waiting once the screen shows this text (a prompt, a line the command prints).'),
+        quietMs: { type: 'number', description: 'Stop once nothing was printed for this long; default 1500.' },
+        timeoutSeconds: { type: 'number', description: 'Give up after this long, up to 300; default 30.' }
+      },
+      required: ['terminalId']
+    },
+    readOnly: true
   }
 ] as const satisfies readonly ManagerToolDefinition[]
 

@@ -16,6 +16,7 @@ import { AutomationsPage } from '@/components/automations/AutomationsPage'
 import { useAutomationState } from '@/stores/automation-store'
 import { useOnePageAtATime } from '@/lib/app-pages'
 import { SkillsPage } from '@/components/skills/SkillsPage'
+import { ProjectsPage } from '@/components/projects/ProjectsPage'
 import { installSkillsCommands } from '@/components/skills/skills-commands'
 import { installChatCommands } from '@/components/native-chat/native-chat-commands'
 import { usePluginBootstrap } from '@/plugins/plugin-registry'
@@ -70,6 +71,7 @@ export default function App() {
   const settingsOpen = useAppOverlays((s) => s.settings.open)
   const automationsOpen = useAutomationState((s) => s.pageOpen)
   const skillsOpen = useAppOverlays((s) => s.skills)
+  const projectsOpen = useAppOverlays((s) => s.projects)
   usePluginBootstrap()
   const boardOpen = useSidebarStore((s) => s.boardOpen)
   const tasksOpen = useTasks((s) => s.open)
@@ -81,7 +83,8 @@ export default function App() {
     board: boardOpen,
     tasks: tasksOpen,
     automations: automationsOpen,
-    skills: skillsOpen
+    skills: skillsOpen,
+    projects: projectsOpen
   })
 
   useEffect(() => {
@@ -136,6 +139,11 @@ export default function App() {
           {skillsOpen && (
             <div className="absolute inset-0 z-30 flex">
               <SkillsPage />
+            </div>
+          )}
+          {projectsOpen && (
+            <div className="absolute inset-0 z-30 flex">
+              <ProjectsPage />
             </div>
           )}
         </div>

@@ -1,8 +1,10 @@
 name: CI
 
+# Every pushed branch: topic branches are pushed as they go, and their checks gate the merge into
+# development. Pull requests into development and main run them again on the merged result.
 on:
   push:
-    branches: [main]
+    branches: ['**']
   pull_request:
 
 permissions:
