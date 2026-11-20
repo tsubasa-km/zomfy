@@ -39,6 +39,7 @@ import { upsertWorkflowRun } from '@/stores/workflow-runs-store'
 import { confirmWorkflowStart } from '@/components/workflows/WorkflowStartConfirm'
 import { allWorkspaces, getState, hostLabel, useStore } from '@/session-store'
 import { t } from '@/i18n/i18n'
+import { projectLabel } from '@/components/sidebar/workspace-visibility'
 
 // An open chat's composer: what the chat adds to the shared input (use-native-chat-composer) and
 // box (NativeChatComposerBox). The "New thread" tab's is NewThreadComposer.
@@ -87,7 +88,7 @@ function Composer({ session, editorRef }: ComposerProps) {
   const workflowHome: WorkflowHome = {
     hostId: mainMember?.hostId ?? session.hostId,
     projectId: mainMember?.projectId ?? chatProject?.id ?? null,
-    projectName: chatProject ? (chatProject.displayName ?? chatProject.name) : ''
+    projectName: chatProject ? projectLabel(chatProject) : ''
   }
   // Memos belong to main chats; a side chat's notes would be the main chat's.
   const memos = useSetting('chatMemosEnabled') && !session.sideOf

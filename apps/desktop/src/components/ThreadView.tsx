@@ -54,6 +54,7 @@ import { useNativeChatFind } from '@/components/native-chat/use-native-chat-find
 import { ContinueInTerminalContextMenuItem } from '@/components/native-chat/NativeChatTerminalMenuItem'
 import '@/components/native-chat/native-chat-appearance.css'
 import { t } from '@/i18n/i18n'
+import { projectLabel } from '@/components/sidebar/workspace-visibility'
 
 // Layout and classes follow Orca's native chat (NativeChatMessageList, NativeChatResolvedView,
 // NativeChatComposer, NativeChatWorkingStatus).
@@ -102,7 +103,7 @@ export function ThreadView({ session, onSendToMain }: { session: Session; onSend
   const workflowHome = {
     hostId: main?.hostId ?? session.hostId,
     projectId: main?.projectId ?? project?.id ?? null,
-    projectName: project ? (project.displayName ?? project.name) : ''
+    projectName: project ? projectLabel(project) : ''
   }
   const recoveryRow = turnEnd ? model.rows.findLastIndex((row) => row.kind === 'notice' && row.turnEnd !== undefined) : -1
   // One actions object for every row, kept while nothing in it changes: rows render only when theirs do.

@@ -1,6 +1,7 @@
 import { HARNESS_METHODS, locationKey, type CatalogProject, type ProjectLocation } from '@acp-harness/protocol'
 import { harnessRequest } from '@/daemon-connection'
 import { getState, LOCAL_HOST, subscribeStore, type HostId } from '@/session-store'
+import { setProjectNameLookup } from '@/components/sidebar/workspace-visibility'
 import { createExternalStore } from './external-store'
 
 // The project catalog (protocol project-catalog.ts), kept on this computer's daemon: which host
@@ -30,6 +31,29 @@ export function catalogEntryOf(location: ProjectLocation, catalog: CatalogProjec
 /** Where the project `location` belongs to has its name, its workflows and its lead agent. */
 export function mainLocationOf(location: ProjectLocation): ProjectLocation {
   return catalogEntryOf(location).locations[0] ?? location
+}
+
+/**
+ * The name the project holding `location` goes by when it is not `location`'s own: the name the
+ * person gave it, else its main location's name when that is on another host project.
+ */
+export function catalogNameOf(location: ProjectLocation, catalog: CatalogProject[] = store.get()): string | null {
+  const entry = catalog.find((p) => p.locations.some((l) => sameLocation(l, location)))
+  if (!entry) return null
+  if (entry.name) return entry.name
+  const main = entry.locations[0]
+  if (!main || sameLocation(main, location)) return null
+  const project = getState().hosts[main.hostId]?.harness?.projects.find((p) => p.id === main.projectId)
+  return project ? (project.displayName ?? project.name) : null
+}
+
+setProjectNameLookup((hostId, projectId) => catalogNameOf({ hostId, projectId }))
+
+/** Names the project holding `location`; null goes back to its main location's name. */
+export async function renameProject(location: ProjectLocation, name: string | null): Promise<void> {
+  const entry = catalogEntryOf(location)
+  if (!store.get().some((p) => p.id === entry.id)) await syncHost(location.hostId as HostId, true)
+  setProjectCatalog(await harnessRequest(HARNESS_METHODS.projectCatalogRename, { id: catalogEntryOf(location).id, name }, LOCAL_HOST))
 }
 
 /** Moves `location` into the project `to` belongs to. */

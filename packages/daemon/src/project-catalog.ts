@@ -52,6 +52,16 @@ export function detachLocation(catalog: CatalogProject[], location: ProjectLocat
   return [...rest, { id: freshId(rest, location), locations: [location] }]
 }
 
+/** Names entry `id`; an empty name or null takes the name away. */
+export function renameProject(catalog: CatalogProject[], id: string, name: string | null): CatalogProject[] {
+  const trimmed = name?.trim()
+  return catalog.map((p) => {
+    if (p.id !== id) return p
+    const { name: _old, ...rest } = p
+    return trimmed ? { ...rest, name: trimmed } : rest
+  })
+}
+
 /** The links that came before the catalog (project-links.json) become its first entries. */
 export function fromLinks(raw: unknown): CatalogProject[] {
   if (!Array.isArray(raw)) return []
@@ -101,6 +111,10 @@ export class ProjectCatalogStore {
 
   detach(location: ProjectLocation) {
     return this.change((c) => detachLocation(c, location))
+  }
+
+  rename(id: string, name: string | null) {
+    return this.change((c) => renameProject(c, id, name))
   }
 
   /** Resolves with the catalog and whether it changed. */

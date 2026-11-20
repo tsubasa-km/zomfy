@@ -14,4 +14,5 @@ export function registerProjectCatalogHandlers({ handle, broadcast }: HandlerCon
   handle(HARNESS_METHODS.projectCatalogSync, (p) => reply(store.sync(p.hostId, p.projectIds)));
   handle(HARNESS_METHODS.projectCatalogPlace, (p) => reply(store.place(p.to, p.location)));
   handle(HARNESS_METHODS.projectCatalogDetach, (p) => reply(store.detach(p.location)));
+  handle(HARNESS_METHODS.projectCatalogRename, (p) => reply(store.rename(p.id, p.name)));
 }

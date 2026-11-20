@@ -2,7 +2,7 @@ import { describe, expect, test } from 'bun:test'
 import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { detachLocation, fromLinks, placeLocation, ProjectCatalogStore, syncHost } from './project-catalog.ts'
+import { detachLocation, fromLinks, placeLocation, ProjectCatalogStore, renameProject, syncHost } from './project-catalog.ts'
 
 const wsl = (projectId: string) => ({ hostId: 'wsl:Ubuntu', projectId })
 const local = (projectId: string) => ({ hostId: 'local', projectId })
@@ -45,6 +45,14 @@ describe('project catalog', () => {
     expect(alone!.id).not.toBe('local:a')
     expect(alone!.locations).toEqual([local('a')])
     expect(detachLocation([{ id: 'local:a', locations: [local('a')] }], local('a'))).toEqual([{ id: 'local:a', locations: [local('a')] }])
+  })
+
+  test('a name is set, kept through syncs, and taken away by an empty one', () => {
+    const named = renameProject([{ id: 'x', locations: [local('a'), wsl('w')] }], 'x', '  Zomfy ')
+    expect(named).toEqual([{ id: 'x', locations: [local('a'), wsl('w')], name: 'Zomfy' }])
+    expect(syncHost(named, 'local', ['a'])[0]!.name).toBe('Zomfy')
+    expect(renameProject(named, 'x', '')).toEqual([{ id: 'x', locations: [local('a'), wsl('w')] }])
+    expect(renameProject(named, 'x', null)).toEqual([{ id: 'x', locations: [local('a'), wsl('w')] }])
   })
 
   test('links become entries, a host project in one only', () => {
