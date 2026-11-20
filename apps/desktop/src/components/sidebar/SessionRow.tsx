@@ -100,6 +100,10 @@ export function SessionRow({
     setRenaming(null)
     void renameChat(session.id, renaming)
   }
+  // The chat list's row: the most pressing state of the chat and those under it, which decides its look.
+  const shown = fold && fold.status !== 'idle' && session.status === 'idle' ? fold.status : session.status
+  const compact = Boolean(card) && shown === 'idle' && !card?.unread
+  const working = Boolean(card) && shown === 'working' && !child
   const title =
     renaming !== null ? (
       <Input
@@ -126,11 +130,33 @@ export function SessionRow({
         spellCheck={false}
       />
     ) : (
-      <span className={cn('min-w-0 flex-1 truncate', card && 'text-foreground/90', card?.unread && 'font-semibold text-foreground')}>
+      <span className={cn('min-w-0 flex-1 truncate', card && !compact && 'text-foreground', card?.unread && 'font-semibold text-foreground')}>
         {showWorkspace ? `${workspaceName} · ` : ''}
         {session.title}
       </span>
     )
+  // On the chat list's rows the count of chats under one is also what folds them, so the row's
+  // start stays free for the project's badge.
+  const cardFold = card && fold && (
+    <button
+      type="button"
+      aria-label={fold.expanded ? t('Hide threads under this one') : t('Show threads under this one')}
+      aria-expanded={fold.expanded}
+      title={fold.count === 1 ? t('{n} thread under this one', { n: fold.count }) : t('{n} threads under this one', { n: fold.count })}
+      data-chat-fold
+      data-chat-children={fold.count}
+      className="flex h-4 shrink-0 items-center gap-0.5 rounded-sm px-0.5 text-[10px] text-muted-foreground/80 tabular-nums hover:bg-worktree-sidebar-accent hover:text-foreground"
+      onPointerDown={(e) => e.stopPropagation()}
+      onClick={(e) => {
+        e.stopPropagation()
+        toggleChatExpanded(session.id)
+      }}
+    >
+      {fold.count}
+      {!fold.expanded && fold.status !== 'idle' && <AgentStateDot state={SESSION_DOT[fold.status]} size="sm" />}
+      <ChevronRight className={cn('size-3 transition-transform', fold.expanded && 'rotate-90')} />
+    </button>
+  )
   const foldBadge = fold && !fold.expanded && (
     <span
       className="flex shrink-0 items-center gap-1 text-[10px] text-muted-foreground/80 tabular-nums"
@@ -160,8 +186,10 @@ export function SessionRow({
       title={!card && session.archived ? t('Archived: click to open it') : undefined}
       className={cn(
         'group/chat relative flex min-w-0 cursor-pointer rounded-md pr-1 text-muted-foreground hover:bg-worktree-sidebar-accent/60 hover:text-foreground',
-        card ? 'items-start gap-2 py-1.5 pr-1.5 text-[13px]' : 'items-center gap-1.5 py-0.5 text-[12px]',
-        child ? 'pl-[34px]' : card ? 'pl-5' : 'pl-[22px]',
+        card ? cn('gap-2 pr-2 text-[13px]', compact ? 'items-center py-1' : 'items-start py-1.5') : 'items-center gap-1.5 py-0.5 text-[12px]',
+        card ? (child ? 'pl-7' : 'pl-2') : child ? 'pl-[34px]' : 'pl-[22px]',
+        // A chat at work stands out as a card of its own, as T3 Code's does.
+        working && 'my-0.5 border border-border bg-card shadow-xs hover:bg-card',
         !card && session.archived && renaming === null && 'opacity-60',
         selected && 'bg-worktree-sidebar-accent text-foreground opacity-100',
         open && 'bg-worktree-sidebar-accent/70 text-foreground opacity-100'
@@ -184,17 +212,13 @@ export function SessionRow({
         else selectSession(session.id)
       }}
     >
-      {fold && (
+      {fold && !card && (
         <button
           type="button"
           aria-label={fold.expanded ? t('Hide threads under this one') : t('Show threads under this one')}
           aria-expanded={fold.expanded}
           data-chat-fold
-          className={cn(
-            'absolute flex size-4 items-center justify-center rounded-sm text-muted-foreground/70 hover:bg-worktree-sidebar-accent hover:text-foreground',
-            // Beside the title, which is the row's second line unless the row sits under its project's folder.
-            card ? (card.foldered ? 'top-2 left-0.5' : 'top-6 left-0.5') : 'left-[5px]'
-          )}
+          className="absolute left-[5px] flex size-4 items-center justify-center rounded-sm text-muted-foreground/70 hover:bg-worktree-sidebar-accent hover:text-foreground"
           onPointerDown={(e) => e.stopPropagation()}
           onClick={(e) => {
             e.stopPropagation()
@@ -209,10 +233,11 @@ export function SessionRow({
           <ChatCardBody
             session={session}
             card={card}
-            status={fold && fold.status !== 'idle' && session.status === 'idle' ? fold.status : session.status}
+            status={shown}
             title={title}
-            trailing={foldBadge}
+            trailing={cardFold}
             busy={renaming !== null}
+            compact={compact}
           />
         </>
       ) : (

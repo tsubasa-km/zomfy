@@ -1,25 +1,28 @@
-import type { ReactNode } from 'react'
-import { Archive, ArchiveRestore, Folder, FolderGit2, GitBranch, MessagesSquare, Monitor, Pin, PinOff, SquareTerminal } from 'lucide-react'
+import { useEffect, useState, type ReactNode } from 'react'
+import { Archive, ArchiveRestore, FolderGit2, GitBranch, MessageSquare, MessagesSquare, Monitor, Pin, PinOff, SquareTerminal } from 'lucide-react'
 import { chatAgentLabel, CHAT_AGENT_OPTION_IDS, type WorkspaceSummary } from '@acp-harness/protocol'
 import type { Session } from '@/session-store'
 import { AgentStateDot, agentStateLabel } from '@/components/AgentStateDot'
 import { TuiAgentIcon } from '@/components/terminal/TuiAgentIcon'
 import { ReviewBadge, SESSION_DOT } from '@/components/sidebar/WorkspaceCardBadges'
 import { sessionAgent } from '@/lib/chat-agents'
-import { activityOf, compactAge, useCoarseNow } from '@/lib/chat-list'
+import { activityOf, compactAge, elapsed, useCoarseNow } from '@/lib/chat-list'
 import { setChatArchived } from '@/chat-rename-archive'
 import { setChatPinned } from '@/stores/sidebar-store'
 import { cn } from '@/lib/utils'
 import { t } from '@/i18n/i18n'
 
-// A chat as the chat list draws it, with what T3 Code's thread rows show: its project and what it is
-// doing on the first line, its title on the second, and where it works on the third (branch, running
-// terminals, pull request, uncommitted lines, agent). The card beside a hovered row has the rest.
+// A chat as the chat list draws it, as T3 Code's thread rows: a chat that wants a look has its
+// project (a coloured badge and its name) and what it is doing on the first line and its title on
+// the second; a settled one is a single quiet line of badge, title and age. The card beside a
+// hovered row has the rest: branch, terminals, pull request, uncommitted lines, agent.
 
 /** What a chat row shows beyond the chat itself. */
 export interface ChatCardInfo {
   /** The project's name, or what stands in for it (a quick chat). */
   project: string
+  /** A quick thread, which has no project to name. */
+  quick: boolean
   /** Under its project's folder the row leaves the project line out. */
   foldered: boolean
   workspaceId: string
@@ -54,24 +57,83 @@ function DiffStats({ summary }: { summary: WorkspaceSummary | undefined }) {
   )
 }
 
+// Literal class names, so Tailwind keeps them.
+const BADGE_COLORS = [
+  'bg-orange-500/15 text-orange-700 dark:text-orange-300',
+  'bg-violet-500/15 text-violet-700 dark:text-violet-300',
+  'bg-sky-500/15 text-sky-700 dark:text-sky-300',
+  'bg-emerald-500/15 text-emerald-700 dark:text-emerald-300',
+  'bg-rose-500/15 text-rose-700 dark:text-rose-300',
+  'bg-amber-500/15 text-amber-700 dark:text-amber-300',
+  'bg-teal-500/15 text-teal-700 dark:text-teal-300',
+  'bg-fuchsia-500/15 text-fuchsia-700 dark:text-fuchsia-300'
+]
+
+/** Two letters for a project: its first two words' initials, else its first two letters. */
+export function projectInitials(name: string): string {
+  const words = name.split(/[\s\-_./]+/).filter(Boolean)
+  const letters = words.length >= 2 ? [Array.from(words[0]!)[0], Array.from(words[1]!)[0]] : Array.from(words[0] ?? '').slice(0, 2)
+  return letters.join('').toUpperCase()
+}
+
+/** The same project gets the same colour on every row. */
+export function projectColor(name: string): string {
+  let hash = 0
+  for (const char of name) hash = (hash * 31 + char.codePointAt(0)!) | 0
+  return BADGE_COLORS[Math.abs(hash) % BADGE_COLORS.length]!
+}
+
+/** The project's badge: its initials on its colour, or grey on a settled row. */
+function ProjectBadge({ card, muted }: { card: ChatCardInfo; muted: boolean }) {
+  return (
+    <span
+      aria-hidden
+      data-chat-project-badge
+      className={cn(
+        'flex h-4 w-[18px] shrink-0 items-center justify-center rounded-[4px] text-[8.5px] leading-none font-bold tracking-tight',
+        muted ? 'bg-muted text-muted-foreground/80' : projectColor(card.project)
+      )}
+    >
+      {card.quick ? <MessageSquare className="size-2.5" /> : projectInitials(card.project)}
+    </span>
+  )
+}
+
+/** The time, every second, while a turn runs. */
+function useSecondsNow(running: boolean): number {
+  const [now, setNow] = useState(() => Date.now())
+  useEffect(() => {
+    if (!running) return
+    setNow(Date.now())
+    const timer = setInterval(() => setNow(Date.now()), 1000)
+    return () => clearInterval(timer)
+  }, [running])
+  return now
+}
+
 /** What the chat is doing, in a word with its mark; a chat at rest shows how long ago it last did something. */
 function ChatStatus({ session, status, unread }: { session: Session; status: Session['status']; unread: boolean }) {
-  const now = useCoarseNow()
+  const coarse = useCoarseNow()
+  const now = useSecondsNow(status === 'working')
   const label =
     status === 'needs-you' ? t('Needs you') : status === 'error' ? t('Failed') : status === 'working' ? t('Working') : unread ? t('Done') : null
-  if (!label) return <span className="tabular-nums">{compactAge(activityOf(session), now)}</span>
+  if (!label) return <span className="tabular-nums">{compactAge(activityOf(session), coarse)}</span>
   return (
     <span
       className={cn(
         'inline-flex items-center gap-1 font-medium',
         status === 'needs-you' && 'text-agent-question-text',
         status === 'error' && 'text-destructive',
+        status === 'working' && 'text-sky-600 dark:text-sky-400',
         status === 'idle' && 'text-foreground/80'
       )}
       data-chat-status={status}
     >
       <AgentStateDot state={SESSION_DOT[status]} size="sm" />
       {label}
+      {status === 'working' && session.turnStartedAt != null && (
+        <span className="tabular-nums">{elapsed(session.turnStartedAt, now)}</span>
+      )}
     </span>
   )
 }
@@ -102,7 +164,8 @@ export function ChatCardBody({
   status,
   title,
   trailing,
-  busy
+  busy,
+  compact
 }: {
   session: Session
   card: ChatCardInfo
@@ -112,6 +175,8 @@ export function ChatCardBody({
   trailing?: ReactNode
   /** Renaming: the hover actions stay out of the way. */
   busy: boolean
+  /** A settled chat: one line of badge, title and age. */
+  compact: boolean
 }) {
   const agent = <TuiAgentIcon agent={sessionAgent(session)} size={12} />
   // What the chat is doing, which the pointer trades for the row's actions.
@@ -142,52 +207,35 @@ export function ChatCardBody({
       )}
     </>
   )
-  const where = card.branch || card.terminals > 0 || (card.summary && card.summary.additions + card.summary.deletions > 0)
+  const pin = card.pinned && <Pin className="size-3 shrink-0 text-muted-foreground/70" aria-label={t('Pinned')} data-chat-pinned />
+  if (compact || card.foldered) {
+    // One line; under its project's folder the badge has nothing to add.
+    return (
+      <div className="flex h-5 min-w-0 flex-1 items-center gap-2">
+        {!card.foldered && <ProjectBadge card={card} muted={compact} />}
+        {title}
+        {pin}
+        {trailing}
+        {corner}
+      </div>
+    )
+  }
   return (
-    <div className="flex min-w-0 flex-1 flex-col">
-      {!card.foldered && (
-        <div className="flex h-4 min-w-0 items-center gap-1 text-[11px] leading-none text-muted-foreground/80">
-          <Folder className="size-3 shrink-0 opacity-70" />
-          <span className="min-w-0 truncate" data-chat-project>
-            {card.project}
-            {card.host && ` · ${card.host}`}
-          </span>
-          {corner}
-        </div>
-      )}
+    <div className="flex min-w-0 flex-1 flex-col gap-1">
+      <div className="flex h-4 min-w-0 items-center gap-2 text-[11px] leading-none text-muted-foreground">
+        <ProjectBadge card={card} muted={false} />
+        <span className="min-w-0 truncate" data-chat-project>
+          {card.project}
+          {card.host && ` · ${card.host}`}
+        </span>
+        {corner}
+      </div>
       <div className="flex h-5 min-w-0 items-center gap-1.5">
         {title}
-        {card.pinned && <Pin className="size-3 shrink-0 text-muted-foreground/70" aria-label={t('Pinned')} data-chat-pinned />}
+        {pin}
         {trailing}
-        {card.foldered && corner}
-        {/* With no third line to sit on, the agent's mark closes the title's. */}
-        {!where && <span className="flex shrink-0 opacity-70">{agent}</span>}
+        <span className="flex shrink-0 opacity-80">{agent}</span>
       </div>
-      {where && (
-        <div className="flex h-4 min-w-0 items-center gap-1.5 text-[11px] leading-none text-muted-foreground/80" data-chat-where>
-          {card.branch ? (
-            <span className="flex min-w-0 flex-1 items-center gap-1" title={card.worktree ? t('In a worktree of its own') : undefined}>
-              <GitBranch className="size-3 shrink-0 opacity-70" />
-              <span className="min-w-0 truncate font-mono text-[10px]">{card.branch}</span>
-            </span>
-          ) : (
-            <span className="flex-1" />
-          )}
-          {card.terminals > 0 && (
-            <span
-              className="inline-flex shrink-0 items-center gap-0.5 tabular-nums"
-              title={card.terminals === 1 ? t('{n} terminal running', { n: card.terminals }) : t('{n} terminals running', { n: card.terminals })}
-              data-chat-terminals={card.terminals}
-            >
-              <SquareTerminal className="size-3" />
-              {card.terminals > 1 && card.terminals}
-            </span>
-          )}
-          <ReviewBadge workspaceId={card.workspaceId} showNumber />
-          <DiffStats summary={card.summary} />
-          <span className="flex shrink-0 opacity-70">{agent}</span>
-        </div>
-      )}
     </div>
   )
 }
@@ -230,6 +278,11 @@ export function ChatHoverDetails({ session, card, childCount }: { session: Sessi
             <span className="font-mono text-[11px]">{card.branch}</span>
             {card.worktree && <span className="text-muted-foreground"> · {t('worktree')}</span>}
           </DetailLine>
+        )}
+        {card.branch && (
+          <div className="flex items-center gap-2 pl-[22px] empty:hidden" data-chat-hover-review>
+            <ReviewBadge workspaceId={card.workspaceId} showNumber />
+          </div>
         )}
         <DetailLine icon={<TuiAgentIcon agent={agent} size={13} />}>
           {chatAgentLabel(agent)}

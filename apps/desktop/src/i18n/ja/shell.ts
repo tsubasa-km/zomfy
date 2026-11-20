@@ -1188,6 +1188,8 @@ export const SHELL: Record<string, string> = {
   '{n}m': '{n}分',
   '{n}h': '{n}時間',
   '{n}d': '{n}日',
+  '{n}s': '{n}秒',
+  Settled: '一段落',
   'Working · {age}': '作業中 · {age}',
   'Pin to the top': '上にピン留め',
   'for {age}': '{age}',
