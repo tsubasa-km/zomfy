@@ -36,9 +36,14 @@ export function ProjectsPage() {
     return () => window.removeEventListener('keydown', onKey)
   }, [])
 
-  const { projects, names } = useMemo(() => {
+  const { projects, names, unlisted } = useMemo(() => {
     const ordered = sortedHosts(hosts)
-    return { projects: listedProjects(ordered, catalog), names: shortHostNames(ordered) }
+    return {
+      projects: listedProjects(ordered, catalog),
+      names: shortHostNames(ordered),
+      // Hosts that have not listed their projects yet (never connected here): theirs show once they do.
+      unlisted: ordered.filter((h) => !h.harness)
+    }
   }, [hosts, catalog])
   const shown = useMemo(() => {
     const q = query.trim().toLowerCase()
@@ -148,6 +153,11 @@ export function ProjectsPage() {
               ))}
             </ul>
           )}
+          {unlisted.length > 0 && !query ? (
+            <p className="mt-3 text-xs text-muted-foreground" data-projects-unlisted>
+              {t('Projects on {hosts} show once they connect.', { hosts: unlisted.map((h) => names[h.id] ?? h.label).join(', ') })}
+            </p>
+          ) : null}
         </div>
       </div>
     </main>

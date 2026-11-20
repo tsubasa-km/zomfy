@@ -147,7 +147,7 @@ export function ProjectPicker({
                   return (
                     <CommandItem
                       key={project.id}
-                      value={`${project.id} ${projectLabel(main)} ${project.locations.map((l) => `${names[l.hostId] ?? ''} ${l.path}`).join(' ')}`}
+                      value={`${projectLabel(main)} ${project.locations.map((l) => `${names[l.hostId] ?? ''} ${l.path}`).join(' ')}`}
                       onSelect={() => {
                         onChange(projectKey(locationFor(project)))
                         setOpen(false)

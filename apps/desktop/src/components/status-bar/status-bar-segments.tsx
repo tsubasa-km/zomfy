@@ -29,6 +29,7 @@ import { EditorStatusSlot } from '@/components/editor/EditorStatus'
 import { OWN_TITLE_BAR } from '@/components/TitleBar'
 import { t } from '@/i18n/i18n'
 import { projectLabel } from '@/components/sidebar/workspace-visibility'
+import { useProjectCatalog } from '@/stores/project-catalog-store'
 
 // Built-in segments, styled like Orca's (SshStatusSegment, the floating-terminal toggle):
 // compact text-xs buttons with a hover wash, each with a tooltip.
@@ -68,6 +69,8 @@ export function Segment({
 function BranchSegment() {
   const workspaceId = useStore((s) => (s.dashboardOpen ? null : s.activeWorkspaceId))
   useStore((s) => s.hosts)
+  // Re-renders when a project is renamed: its name is in the catalog.
+  useProjectCatalog()
   const workspace = workspaceId ? findWorkspace(workspaceId) : null
   const label = useShortcutLabel('sidebar.sourceControl.toggle')
   if (!workspace) return null

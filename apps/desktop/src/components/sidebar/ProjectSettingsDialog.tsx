@@ -3,9 +3,9 @@ import { isTauri } from '@tauri-apps/api/core'
 import { open } from '@tauri-apps/plugin-dialog'
 import { HARNESS_METHODS, type BranchList, type ProjectHookInfo } from '@acp-harness/protocol'
 import { harnessRequest, hostForPath } from '@/daemon-connection'
-import { getState, type HostedProject } from '@/session-store'
+import type { HostedProject } from '@/session-store'
 import { projectLabel } from '@/components/sidebar/workspace-visibility'
-import { mainLocationOf, renameProject } from '@/stores/project-catalog-store'
+import { catalogEntryOf, renameProject } from '@/stores/project-catalog-store'
 import { BranchCombobox } from '@/components/sidebar/BranchCombobox'
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
@@ -75,20 +75,20 @@ export function ProjectSettingsDialog({ project, onClose }: { project: HostedPro
       const moved = folder.trim() !== '' && folder.trim() !== project.path
       // Pointed at another folder first, so a bad path changes nothing else.
       if (moved) await harnessRequest(HARNESS_METHODS.projectRelocate, { projectId: project.id, path: folder.trim() }, project.hostId)
-      // The name is the project's on every host, kept in the catalog; an unchanged one is left as it is.
-      const renamed = displayName.trim() !== projectLabel(project)
-      if (renamed) {
-        const main = mainLocationOf({ hostId: project.hostId, projectId: project.id })
-        const mainProject = getState().hosts[main.hostId]?.harness?.projects.find((p) => p.id === main.projectId)
-        await renameProject({ hostId: project.hostId, projectId: project.id }, displayName.trim() === mainProject?.name ? null : displayName)
-      }
+      // A project on several hosts is named in the catalog, the same on each; one on a single host
+      // is named on that host, so every computer connecting to it sees the name.
+      const location = { hostId: project.hostId, projectId: project.id }
+      const entry = catalogEntryOf(location)
+      const shared = entry.locations.length > 1 || entry.name !== undefined
+      if (shared && displayName.trim() !== projectLabel(project)) await renameProject(location, displayName.trim())
+      // An unchanged name follows the folder's new name.
+      const ownName = displayName.trim() === project.name
       await harnessRequest(
         HARNESS_METHODS.projectUpdate,
         {
           projectId: project.id,
           patch: {
-            // A host's own name for the project gives way to the catalog's.
-            ...(renamed ? { displayName: '' } : {}),
+            ...(shared ? {} : { displayName: ownName ? '' : displayName }),
             ...(project.kind === 'git' ? { defaultBaseRef: baseRef, worktreeRoot, hooks: { setup, archive }, finishWith } : {})
           }
         },

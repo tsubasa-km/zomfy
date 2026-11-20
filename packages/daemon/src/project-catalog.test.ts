@@ -1,8 +1,8 @@
 import { describe, expect, test } from 'bun:test'
-import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
+import { mkdtemp, readdir, readFile, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { detachLocation, fromLinks, placeLocation, ProjectCatalogStore, renameProject, syncHost } from './project-catalog.ts'
+import { cleanCatalog, detachLocation, fromLinks, placeLocation, ProjectCatalogStore, renameProject, syncHost } from './project-catalog.ts'
 
 const wsl = (projectId: string) => ({ hostId: 'wsl:Ubuntu', projectId })
 const local = (projectId: string) => ({ hostId: 'local', projectId })
@@ -31,7 +31,7 @@ describe('project catalog', () => {
   test('placing moves a location between entries', () => {
     const catalog = syncHost(syncHost([], 'local', ['a']), 'wsl:Ubuntu', ['w'])
     expect(placeLocation(catalog, 'local:a', wsl('w'))).toEqual([{ id: 'local:a', locations: [local('a'), wsl('w')] }])
-    expect(placeLocation(catalog, 'nope', wsl('w'))).toEqual(catalog)
+    expect(() => placeLocation(catalog, 'nope', wsl('w'))).toThrow()
   })
 
   test('detaching gives a location its own entry, with a fresh id when its key is taken', () => {
@@ -53,6 +53,24 @@ describe('project catalog', () => {
     expect(syncHost(named, 'local', ['a'])[0]!.name).toBe('Zomfy')
     expect(renameProject(named, 'x', '')).toEqual([{ id: 'x', locations: [local('a'), wsl('w')] }])
     expect(renameProject(named, 'x', null)).toEqual([{ id: 'x', locations: [local('a'), wsl('w')] }])
+    expect(() => renameProject(named, 'nope', 'Zomfy')).toThrow()
+  })
+
+  test('a catalog file is cleaned of what does not fit', () => {
+    expect(
+      cleanCatalog([
+        { id: 'x', locations: [local('a'), { hostId: 1 }], name: 'Zomfy' },
+        { id: 'y', locations: [local('a'), wsl('w')], name: 3 },
+        { id: 'x', locations: [wsl('v')] },
+        { locations: [wsl('u')] },
+        { id: 'z' },
+        null
+      ])
+    ).toEqual([
+      { id: 'x', locations: [local('a')], name: 'Zomfy' },
+      { id: 'y', locations: [wsl('w')] }
+    ])
+    expect(() => cleanCatalog({})).toThrow()
   })
 
   test('links become entries, a host project in one only', () => {
@@ -81,6 +99,34 @@ describe('project catalog', () => {
       ])
       expect(JSON.parse(await readFile(join(home, 'project-catalog.json'), 'utf8'))).toEqual(second.catalog)
       expect((await store.sync('local', ['a', 'b'])).changed).toBe(false)
+    } finally {
+      await rm(home, { recursive: true, force: true })
+    }
+  })
+
+  test('the links are read once: a catalog file written from them stays the source', async () => {
+    const home = await mkdtemp(join(tmpdir(), 'catalog-'))
+    try {
+      await writeFile(join(home, 'project-links.json'), JSON.stringify([{ id: 'l1', members: [local('a'), wsl('w')] }]))
+      expect(await new ProjectCatalogStore(home).list()).toEqual([{ id: 'l1', locations: [local('a'), wsl('w')] }])
+      expect(JSON.parse(await readFile(join(home, 'project-catalog.json'), 'utf8'))).toEqual([{ id: 'l1', locations: [local('a'), wsl('w')] }])
+      const store = new ProjectCatalogStore(home)
+      await store.detach(wsl('w'))
+      expect((await new ProjectCatalogStore(home).list()).length).toBe(2)
+    } finally {
+      await rm(home, { recursive: true, force: true })
+    }
+  })
+
+  test('an unreadable catalog file is kept aside, and the links are not read again', async () => {
+    const home = await mkdtemp(join(tmpdir(), 'catalog-'))
+    try {
+      await writeFile(join(home, 'project-links.json'), JSON.stringify([{ id: 'l1', members: [local('a'), wsl('w')] }]))
+      await writeFile(join(home, 'project-catalog.json'), '{ not json')
+      expect(await new ProjectCatalogStore(home).list()).toEqual([])
+      const files = await readdir(home)
+      expect(files.some((f) => f.startsWith('project-catalog.json.unreadable-'))).toBe(true)
+      expect(JSON.parse(await readFile(join(home, 'project-catalog.json'), 'utf8'))).toEqual([])
     } finally {
       await rm(home, { recursive: true, force: true })
     }

@@ -1,6 +1,6 @@
 import type { CatalogProject } from '@acp-harness/protocol'
 import type { HostEntry, HostedProject } from '@/session-store'
-import { linkedEntries } from '@/components/sidebar/project-entries'
+import { projectEntries } from '@/components/sidebar/project-entries'
 import { sortProjects } from '@/components/sidebar/workspace-visibility'
 import { catalogEntryOf } from '@/stores/project-catalog-store'
 
@@ -17,7 +17,7 @@ export interface ListedProject {
 /** `hosts` in the order to list them; a host with no project list (still connecting) adds nothing. */
 export function listedProjects(hosts: HostEntry[], catalog: CatalogProject[]): ListedProject[] {
   const projects = hosts.flatMap((h) => sortProjects(h.harness?.projects ?? []).map((p): HostedProject => ({ ...p, hostId: h.id })))
-  return linkedEntries(projects, catalog).map(({ primary, copies }) => ({
+  return projectEntries(projects, catalog).map(({ primary, copies }) => ({
     id: catalogEntryOf({ hostId: primary.hostId, projectId: primary.id }, catalog).id,
     locations: [primary, ...copies]
   }))
