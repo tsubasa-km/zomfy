@@ -15,6 +15,8 @@ export interface CatalogProject {
   id: string
   /** Never empty. The first is the main location: the project's name, and where its lead agent runs. */
   locations: ProjectLocation[]
+  /** The name the person gave it; absent, it goes by its main location's name. */
+  name?: string
 }
 
 /** The id a host project's own entry gets when it joins the catalog alone. */
@@ -30,7 +32,9 @@ export const PROJECT_CATALOG_METHODS = {
   /** Moves a location into the entry `to` (it leaves the entry it was in). */
   projectCatalogPlace: '_harness/projectCatalog/place',
   /** Takes a location out of its entry into an entry of its own. */
-  projectCatalogDetach: '_harness/projectCatalog/detach'
+  projectCatalogDetach: '_harness/projectCatalog/detach',
+  /** Names a project; null goes back to its main location's name. */
+  projectCatalogRename: '_harness/projectCatalog/rename'
 } as const
 
 export const PROJECT_CATALOG_NOTIFICATIONS = {
@@ -43,4 +47,5 @@ export interface ProjectCatalogRequests {
   [PROJECT_CATALOG_METHODS.projectCatalogSync]: { params: { hostId: string; projectIds: string[] }; result: CatalogProject[] }
   [PROJECT_CATALOG_METHODS.projectCatalogPlace]: { params: { to: string; location: ProjectLocation }; result: CatalogProject[] }
   [PROJECT_CATALOG_METHODS.projectCatalogDetach]: { params: { location: ProjectLocation }; result: CatalogProject[] }
+  [PROJECT_CATALOG_METHODS.projectCatalogRename]: { params: { id: string; name: string | null }; result: CatalogProject[] }
 }
