@@ -1,5 +1,5 @@
 import { useContext, useEffect, useRef, useState } from 'react'
-import { Pin, X } from 'lucide-react'
+import { Bot, Pin, X } from 'lucide-react'
 import type { Session } from '@/session-store'
 import { AgentStateDot, type AgentDotState } from '@/components/AgentStateDot'
 import { Input } from '@/components/ui/input'
@@ -195,6 +195,10 @@ export function TabItem({
         )}
         {/* A login to a saved server says how careful to be there, production above all. */}
         {tab.kind === 'terminal' && tab.terminal.connection?.tag && renaming === null && <SshTagBadge tag={tab.terminal.connection.tag} />}
+        {/* An agent is typing into it (terminal_send): the bar over the terminal says who, and stops it. */}
+        {tab.kind === 'terminal' && tab.terminal.agentControl?.state === 'driving' && renaming === null && (
+          <Bot className="size-3 shrink-0 text-highlight" aria-label={t('An agent is typing here')} data-tab-agent-driving />
+        )}
         {/* A chat says where it works in the sidebar and the header; a shell, a file or a panel needs it on the tab. */}
         {showPlace && place && tab.kind !== 'chat' && renaming === null && (
           <span className="max-w-[45%] min-w-0 flex-[0_1000_auto] truncate text-[10px] text-muted-foreground/70" data-tab-place>

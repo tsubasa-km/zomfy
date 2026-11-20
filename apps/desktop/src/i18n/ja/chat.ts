@@ -659,5 +659,11 @@ export const CHAT: Record<string, string> = {
   'Worked for {seconds}s': '{seconds} 秒間作業しました',
   Tool: 'ツール',
   'Off · turn it on in Settings › Agents': 'オフ · 設定 › エージェントでオンにできます',
-  'Only in a new thread': '新しいスレッドでのみ使えます'
+  'Only in a new thread': '新しいスレッドでのみ使えます',
+  'a terminal': 'ターミナル',
+  'Type into "{name}", a production server?': '本番サーバー「{name}」に入力しますか？',
+  'Type into "{name}"?': '「{name}」に入力しますか？',
+  'Presses {key}.': '{key} を押します。',
+  'Without pressing Enter.': 'Enter は押しません。',
+  'Then presses Enter.': 'そのあと Enter を押します。'
 }
