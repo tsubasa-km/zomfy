@@ -323,7 +323,8 @@ export class TerminalManager {
     // An agent tab keeps the agent's name over ConPTY's program-path title.
     const agent = live.info.agent ? (tuiAgentSpec(live.info.agent)?.label ?? null) : null
     const osc = agent && live.oscTitleIsProgram ? null : live.oscTitle
-    const title = live.info.customTitle || osc || agent || live.spec.label
+    // A saved SSH login keeps the connection's name: the server's own titles (user@host:~) vary by shell.
+    const title = live.info.customTitle || live.info.connection?.name || osc || agent || live.spec.label
     if (title === live.info.title) return false
     live.info = { ...live.info, title }
     return true

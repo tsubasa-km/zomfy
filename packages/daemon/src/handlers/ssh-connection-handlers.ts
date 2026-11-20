@@ -1,7 +1,21 @@
+import { existsSync } from "node:fs";
+import { join } from "node:path";
 import { HARNESS_METHODS } from "@acp-harness/protocol";
 import { SshConnectionStore, sshArgs, terminalConnection } from "../ssh-connections.ts";
 import { hostPath } from "../tui-agent-detection.ts";
 import type { HandlerContext } from "./handler-context.ts";
+
+/**
+ * Windows' own OpenSSH first: it reaches the Windows ssh-agent and the person's %USERPROFILE%\.ssh,
+ * where Git's ssh.exe (often earlier on PATH) has an agent and settings of its own.
+ */
+async function sshProgram(): Promise<string | null> {
+  if (process.platform === "win32") {
+    const system = join(process.env.SystemRoot ?? "C:\\Windows", "System32", "OpenSSH", "ssh.exe");
+    if (existsSync(system)) return system;
+  }
+  return Bun.which("ssh", { PATH: await hostPath() });
+}
 
 export function registerSshConnectionHandlers({ handle, terminals, workspaceRoot }: HandlerContext): void {
   const connections = new SshConnectionStore();
@@ -12,7 +26,7 @@ export function registerSshConnectionHandlers({ handle, terminals, workspaceRoot
   // The tab runs this host's ssh itself, not a shell: its arguments never pass through one.
   handle(HARNESS_METHODS.sshConnectionOpen, async (p) => {
     const connection = await connections.get(p.id);
-    const ssh = Bun.which("ssh", { PATH: await hostPath() });
+    const ssh = await sshProgram();
     if (!ssh) throw new Error("ssh is not installed on this host (on Windows: Settings › System › Optional features › OpenSSH Client)");
     return terminals.create({
       workspaceId: p.workspaceId,
