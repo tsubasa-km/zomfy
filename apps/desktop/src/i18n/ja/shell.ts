@@ -755,6 +755,13 @@ export const SHELL: Record<string, string> = {
   'Include recent messages from “{title}”': '「{title}」の最近のメッセージを含める',
   'Starting…': '開始中…',
   'Start side chat': 'サイドチャットを開始',
+  // components/right-sidebar/SideChatComposer.tsx
+  'Ask about this workspace without interrupting': 'このワークスペースについて、作業を止めずに質問',
+  'Starting the side chat…': 'サイドチャットを開始中…',
+  'Sees recent messages from “{title}”': '「{title}」の最近のメッセージを見る',
+  'Claude answers a side chat on low effort; its model and effort can be changed once it has started.': 'サイドチャットの Claude は思考量「低」で答えます。モデルと思考量は、始まったあとに変えられます。',
+  'Back to the side chat': 'サイドチャットに戻る',
+  'The side chat did not start.': 'サイドチャットを開始できませんでした。',
 
   // components/right-sidebar/checks/ChecksPanel.tsx
   'GitHub or GitLab': 'GitHub または GitLab',

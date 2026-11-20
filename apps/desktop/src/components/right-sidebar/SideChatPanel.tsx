@@ -1,17 +1,15 @@
 import { useEffect, useState } from 'react'
-import { CornerDownLeft, MessageSquarePlus, Plus } from 'lucide-react'
-import { SIDE_CHAT_DEFAULT_CONTEXT_MESSAGES, isChatAgentId, isGuardedChatAgent, type ChatAgentId } from '@acp-harness/protocol'
+import { CornerDownLeft, MessagesSquare, Plus, Undo2 } from 'lucide-react'
+import { SIDE_CHAT_DEFAULT_CONTEXT_MESSAGES, type ChatAgentId } from '@acp-harness/protocol'
 import { ensureSessionLoaded } from '@/daemon-connection'
-import { useStore, type Session } from '@/session-store'
+import { getState, useStore, type ChatImage } from '@/session-store'
 import { mainChatOf, sendToMainChat, sideChatOf, startSideChat } from '@/side-chat-actions'
-import { useChatAgents } from '@/lib/chat-agents'
+import { submitPrompt } from '@/chat-actions'
+import { patchChatSession } from '@/stores/chat-store'
 import { ThreadView } from '@/components/ThreadView'
-import { TuiAgentIcon } from '@/components/terminal/TuiAgentIcon'
 import { Button } from '@/components/ui/button'
-import { Checkbox } from '@/components/ui/checkbox'
-import { Label } from '@/components/ui/label'
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
+import { SideChatComposer, sideChatDraftId } from './SideChatComposer'
 import { t } from '@/i18n/i18n'
 
 // Orca has no side chat; this follows Claude Code's /btw: a short-lived chat in the same workspace
@@ -26,20 +24,25 @@ export function SideChatPanel({ workspaceId }: { workspaceId: string }) {
   const anchor = (side?.sideOf && sessions.find((s) => s.id === side.sideOf)) || main
   const [starting, setStarting] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const [setupOpen, setSetupOpen] = useState(false)
+  // "New side chat" shows an empty box; the old side chat closes once the new one starts.
+  const [fresh, setFresh] = useState(false)
 
   const sideId = side?.id
   useEffect(() => {
     if (sideId) void ensureSessionLoaded(sideId)
   }, [sideId])
 
-  async function start(agent: ChatAgentId, contextMessages: number) {
+  async function start(text: string, images: ChatImage[], agent: ChatAgentId, withContext: boolean) {
     if (!main) return
     setStarting(true)
     setError(null)
     try {
-      await startSideChat(main, agent, contextMessages)
-      setSetupOpen(false)
+      await startSideChat(main, agent, withContext ? SIDE_CHAT_DEFAULT_CONTEXT_MESSAGES : 0)
+      const started = sideChatOf(getState().sessions, workspaceId)
+      if (!started) throw new Error(t('The side chat did not start.'))
+      patchChatSession(sideChatDraftId(workspaceId), { draft: '', draftImages: [] })
+      submitPrompt(started.id, text, images)
+      setFresh(false)
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e))
     } finally {
@@ -47,6 +50,7 @@ export function SideChatPanel({ workspaceId }: { workspaceId: string }) {
     }
   }
 
+  const composing = Boolean(main) && (!side || fresh)
   const lastAnswer = side?.items.findLast((i) => i.kind === 'agent')
   return (
     <div className="flex min-h-0 flex-1 flex-col" data-side-chat-panel>
@@ -55,7 +59,7 @@ export function SideChatPanel({ workspaceId }: { workspaceId: string }) {
           {anchor ? t('Beside “{title}”', { title: anchor.title }) : t('No thread in this workspace')}
         </span>
         <div className="ml-auto flex shrink-0 items-center">
-          {side && anchor && lastAnswer?.kind === 'agent' ? (
+          {side && !composing && anchor && lastAnswer?.kind === 'agent' ? (
             <IconAction
               label={t('Send last answer to main thread')}
               data="send-last"
@@ -64,106 +68,46 @@ export function SideChatPanel({ workspaceId }: { workspaceId: string }) {
               <CornerDownLeft className="size-3.5" />
             </IconAction>
           ) : null}
-          {side && main ? (
-            <IconAction label={t('New side chat')} data="new" onClick={() => setSetupOpen((open) => !open)}>
+          {side && main && !composing ? (
+            <IconAction label={t('New side chat')} data="new" onClick={() => setFresh(true)}>
               <Plus className="size-3.5" />
+            </IconAction>
+          ) : null}
+          {side && fresh ? (
+            <IconAction label={t('Back to the side chat')} data="back" onClick={() => setFresh(false)}>
+              <Undo2 className="size-3.5" />
             </IconAction>
           ) : null}
         </div>
       </div>
       {error ? <p className="border-b border-border px-3 py-2 text-xs text-destructive">{error}</p> : null}
-      {main && (!side || setupOpen) ? (
-        <SideChatSetup
-          hostId={main.hostId}
-          mainTitle={main.title}
-          starting={starting}
-          onStart={(agent, context) => void start(agent, context)}
-          onCancel={side ? () => setSetupOpen(false) : undefined}
-        />
-      ) : null}
-      {side ? (
+      {composing && main ? (
+        <>
+          <div className="flex min-h-0 flex-1 flex-col items-center justify-center gap-2 px-6 text-center" data-side-chat-empty>
+            <MessagesSquare className="size-5 text-muted-foreground/70" />
+            <p className="text-xs leading-relaxed text-muted-foreground">
+              {t('Ask a quick question about this workspace. The main thread keeps working and its conversation is not touched.')}
+            </p>
+          </div>
+          <SideChatComposer
+            hostId={main.hostId}
+            workspaceId={workspaceId}
+            mainTitle={main.title}
+            busy={starting}
+            onStart={(text, images, agent, withContext) => void start(text, images, agent, withContext)}
+          />
+        </>
+      ) : side ? (
         <ThreadView
           key={side.id}
           session={side}
           onSendToMain={anchor ? (text) => sendToMainChat(anchor, text) : undefined}
         />
-      ) : !main ? (
+      ) : (
         <p className="px-3 py-6 text-center text-xs text-muted-foreground">
           {t('Start a thread in this workspace first; a side chat asks about it without interrupting.')}
         </p>
-      ) : null}
-    </div>
-  )
-}
-
-function SideChatSetup({
-  hostId,
-  mainTitle,
-  starting,
-  onStart,
-  onCancel
-}: {
-  hostId: Session['hostId']
-  mainTitle: string
-  starting: boolean
-  onStart: (agent: ChatAgentId, contextMessages: number) => void
-  onCancel?: () => void
-}) {
-  const { agents } = useChatAgents(hostId)
-  // A side chat is handed the main conversation, which Antigravity never takes (GUARDED_CHAT_AGENTS).
-  const ready = agents.filter((a) => a.id !== 'claude' && a.status === 'ready' && !isGuardedChatAgent(a.id))
-  const [agent, setAgent] = useState<ChatAgentId>('claude')
-  const [withContext, setWithContext] = useState(true)
-  return (
-    <div className="flex shrink-0 flex-col gap-3 border-b border-border px-3 py-3" data-side-chat-setup>
-      <p className="text-xs text-muted-foreground">
-        {t('Ask a quick question about this workspace. The main thread keeps working and its conversation is not touched.')}
-      </p>
-      <div className="flex items-center gap-2">
-        <Select value={agent} onValueChange={(value) => isChatAgentId(value) && setAgent(value)}>
-          <SelectTrigger size="sm" className="min-w-0 flex-1" aria-label={t('Side chat agent')}>
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent position="popper">
-            <SelectItem value="claude">
-              <TuiAgentIcon agent="claude" size={14} />
-              {t('Claude (low effort)')}
-            </SelectItem>
-            {ready.map((a) => (
-              <SelectItem key={a.id} value={a.id}>
-                <TuiAgentIcon agent={a.id} size={14} />
-                {a.label}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-      </div>
-      <div className="flex items-center gap-2">
-        <Checkbox
-          id="side-chat-context"
-          checked={withContext}
-          onCheckedChange={(checked) => setWithContext(checked === true)}
-        />
-        <Label htmlFor="side-chat-context" className="min-w-0 text-xs font-normal">
-          <span className="truncate">{t('Include recent messages from “{title}”', { title: mainTitle })}</span>
-        </Label>
-      </div>
-      <div className="flex justify-end gap-2">
-        {onCancel ? (
-          <Button size="sm" variant="ghost" onClick={onCancel}>
-            {t('Cancel')}
-          </Button>
-        ) : null}
-        <Button
-          size="sm"
-          disabled={starting}
-          data-side-chat-start
-          onClick={() => onStart(agent, withContext ? SIDE_CHAT_DEFAULT_CONTEXT_MESSAGES : 0)}
-        >
-          <MessageSquarePlus />
-          {starting ? t('Starting…') : t('Start side chat')}
-        </Button>
-      </div>
+      )}
     </div>
   )
 }
