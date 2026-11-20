@@ -32,12 +32,12 @@ export function SideChatPanel({ workspaceId }: { workspaceId: string }) {
     if (sideId) void ensureSessionLoaded(sideId)
   }, [sideId])
 
-  async function start(text: string, images: ChatImage[], agent: ChatAgentId, withContext: boolean) {
+  async function start(text: string, images: ChatImage[], agent: ChatAgentId) {
     if (!main) return
     setStarting(true)
     setError(null)
     try {
-      await startSideChat(main, agent, withContext ? SIDE_CHAT_DEFAULT_CONTEXT_MESSAGES : 0)
+      await startSideChat(main, agent, SIDE_CHAT_DEFAULT_CONTEXT_MESSAGES)
       const started = sideChatOf(getState().sessions, workspaceId)
       if (!started) throw new Error(t('The side chat did not start.'))
       patchChatSession(sideChatDraftId(workspaceId), { draft: '', draftImages: [] })
@@ -92,9 +92,8 @@ export function SideChatPanel({ workspaceId }: { workspaceId: string }) {
           <SideChatComposer
             hostId={main.hostId}
             workspaceId={workspaceId}
-            mainTitle={main.title}
             busy={starting}
-            onStart={(text, images, agent, withContext) => void start(text, images, agent, withContext)}
+            onStart={(text, images, agent) => void start(text, images, agent)}
           />
         </>
       ) : side ? (
