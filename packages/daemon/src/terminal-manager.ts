@@ -15,6 +15,18 @@ const FLUSH_MS = 8
 const TITLE_NOTIFY_MS = 150
 /** An inline terminal's screen is saved this long after its output settles. */
 const INLINE_SAVE_MS = 1000
+/** An agent that typed nothing for this long no longer shows as driving the terminal. */
+const AGENT_DRIVING_MS = 2 * 60_000
+
+/**
+ * What the terminal sends back on its own (cursor and device reports, focus changes, colour
+ * replies): input, but not the person at the keyboard taking over from an agent.
+ */
+const TERMINAL_REPORT = /^(?:\x1b\[[?>]?[\d;]*[cnR]|\x1b\[[IO]|\x1b\][^\x07\x1b]*(?:\x07|\x1b\\)|\x1bP[\s\S]*?\x1b\\)+$/
+
+export function isPersonInput(data: string): boolean {
+  return data.length > 0 && !TERMINAL_REPORT.test(data)
+}
 
 interface ShellSpec extends ShellOption {
   argv: string[]
@@ -57,6 +69,8 @@ export class TerminalManager {
   /** Inline terminals from before this host last stopped: their output only, no process. */
   private readonly ended = new Map<string, SavedInlineTerminal>()
   private readonly saveTimers = new Map<string, ReturnType<typeof setTimeout>>()
+  private readonly drivingTimers = new Map<string, ReturnType<typeof setTimeout>>()
+  private readonly personInputListeners = new Set<(terminalId: string) => void>()
 
   /** `chatExists` tells restored inline terminals whose chat is gone. */
   constructor(private readonly chatExists: (sessionId: string) => boolean = () => true) {
@@ -173,10 +187,61 @@ export class TerminalManager {
     return live.replay + live.pending
   }
 
+  /** The person's keystrokes. Typing into a terminal an agent drives takes it back from the agent. */
   write(terminalId: string, data: string): void {
     if (this.ended.has(terminalId)) return
     const live = this.require(terminalId)
     if (live.info.exitCode === null) live.pty.write(data)
+    if (!isPersonInput(data)) return
+    for (const listener of this.personInputListeners) listener(terminalId)
+    if (live.info.agentControl?.state === 'driving') this.setControl(live, { ...live.info.agentControl, state: 'held', since: Date.now() })
+  }
+
+  /** Called when the person types into a terminal (not its own reports). */
+  onPersonInput(listener: (terminalId: string) => void): () => void {
+    this.personInputListeners.add(listener)
+    return () => this.personInputListeners.delete(listener)
+  }
+
+  size(terminalId: string): { cols: number; rows: number } {
+    const live = this.require(terminalId)
+    return { cols: live.cols, rows: live.rows }
+  }
+
+  /** An agent typing (terminal_send): refused once the person took the terminal back. */
+  agentWrite(terminalId: string, data: string, by: { sessionId: string; chatTitle: string }): void {
+    const live = this.require(terminalId)
+    if (live.info.exitCode !== null) throw new Error('The terminal has exited; the person can restart it.')
+    if (live.info.agentControl?.state === 'held') {
+      throw new Error('The person took this terminal back. Ask them to hand it back (the button on the terminal) before typing again.')
+    }
+    live.pty.write(data)
+    this.setControl(live, { state: 'driving', sessionId: by.sessionId, chatTitle: by.chatTitle, since: Date.now() })
+    clearTimeout(this.drivingTimers.get(terminalId))
+    this.drivingTimers.set(
+      terminalId,
+      setTimeout(() => {
+        this.drivingTimers.delete(terminalId)
+        const current = this.terminals.get(terminalId)
+        if (current?.info.agentControl?.state === 'driving') this.setControl(current, null)
+      }, AGENT_DRIVING_MS)
+    )
+  }
+
+  /** The person's Stop (`hold`) or hand-back (`release`) on a terminal agents type into. */
+  setAgentControl(terminalId: string, action: 'hold' | 'release'): TerminalInfo {
+    const live = this.require(terminalId)
+    clearTimeout(this.drivingTimers.get(terminalId))
+    this.drivingTimers.delete(terminalId)
+    const current = live.info.agentControl
+    this.setControl(live, action === 'release' ? null : { state: 'held', sessionId: current?.sessionId ?? '', chatTitle: current?.chatTitle ?? '', since: Date.now() })
+    return live.info
+  }
+
+  private setControl(live: LiveTerminal, control: TerminalInfo['agentControl']): void {
+    if (!control && !live.info.agentControl) return
+    live.info = { ...live.info, agentControl: control }
+    this.changed()
   }
 
   resize(terminalId: string, cols: number, rows: number): void {

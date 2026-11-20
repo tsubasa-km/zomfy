@@ -5,6 +5,7 @@ import { cn } from '@/lib/utils'
 import { NativeChatMarkdown } from './NativeChatMarkdown'
 import { shortenPaths } from './native-chat-transcript-model'
 import { splitPartCount, splitPlanOf } from './split-plan'
+import { terminalSendDetails, terminalSendTitle } from './terminal-send-request'
 import { t } from '@/i18n/i18n'
 
 type Permission = Extract<ThreadItem, { kind: 'permission' }>
@@ -37,8 +38,9 @@ export function NativeChatApprovalCard({
   )
   const plan = planOf(permission.input)
   const parts = splitPartCount(permission)
-  const details = plan ?? splitPlanOf(permission)
-  const Icon = details ? NotebookPen : ShieldQuestion
+  const typing = terminalSendTitle(permission)
+  const details = plan ?? splitPlanOf(permission) ?? terminalSendDetails(permission)
+  const Icon = details && !typing ? NotebookPen : ShieldQuestion
   return (
     <div className="min-h-0 shrink overflow-hidden bg-chat-canvas">
       <div className="mx-auto flex h-full max-h-full min-h-0 w-full max-w-(--chat-content-max-width) px-3 pt-2 pb-1 sm:px-4">
@@ -60,7 +62,7 @@ export function NativeChatApprovalCard({
                   ? permission.title
                   : parts !== null
                     ? t('Split this work into {count} parts?', { count: parts })
-                    : t('Allow {action}?', { action: shortenPaths(permission.title, cwd) })}
+                    : (typing ?? t('Allow {action}?', { action: shortenPaths(permission.title, cwd) }))}
               </p>
             </div>
           </div>

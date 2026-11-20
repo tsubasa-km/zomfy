@@ -37,6 +37,20 @@ export interface TerminalInfo {
   endedWithHost?: boolean
   /** The saved SSH connection the tab logs in to (ssh-connections.ts); absent for a local shell. */
   connection?: import('./ssh-connections').TerminalConnection | null
+  /** An agent typing into the terminal (terminal_send), or held back by the person; absent when none is. */
+  agentControl?: TerminalAgentControl | null
+}
+
+/**
+ * `driving`: a chat's agent typed into the terminal lately. `held`: the person took it back (typed in
+ * it, or pressed Stop), and agents may not type until they hand it back.
+ */
+export interface TerminalAgentControl {
+  state: 'driving' | 'held'
+  /** The chat whose agent typed last. */
+  sessionId: string
+  chatTitle: string
+  since: number
 }
 
 export interface ShellOption {
@@ -94,6 +108,7 @@ export const TERMINAL_METHODS = {
   terminalRename: '_harness/terminals/rename',
   terminalSetInline: '_harness/terminals/setInline',
   terminalResolvePaths: '_harness/terminals/resolvePaths',
+  terminalAgentControl: '_harness/terminals/agentControl',
   agentsDetect: '_harness/terminals/agents',
   quickCommandsList: '_harness/quickCommands/list',
   quickCommandSave: '_harness/quickCommands/save',
@@ -129,6 +144,8 @@ export interface TerminalRequests {
     params: { terminalId: string; paths: string[] }
     result: (string | null)[]
   }
+  /** `hold` stops agents typing into the terminal; `release` lets them again. */
+  [TERMINAL_METHODS.terminalAgentControl]: { params: { terminalId: string; action: 'hold' | 'release' }; result: TerminalInfo }
   [TERMINAL_METHODS.agentsDetect]: { params: { refresh?: boolean }; result: DetectedAgents }
   [TERMINAL_METHODS.quickCommandsList]: { params: Record<string, never>; result: QuickCommand[] }
   /** Adds the command, or replaces the one with the same id. */

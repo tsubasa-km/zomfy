@@ -43,6 +43,7 @@ export function registerTerminalHandlers({ handle, terminals, workspaceRoot }: H
     const info = terminals.get(p.terminalId);
     return resolveTerminalPaths(info.cwd, workspaceRoot(info.workspaceId), p.paths);
   });
+  handle(HARNESS_METHODS.terminalAgentControl, async (p) => terminals.setAgentControl(p.terminalId, p.action));
   handle(HARNESS_METHODS.agentsDetect, async (p) => detectInstalledAgents(p.refresh === true));
   handle(HARNESS_METHODS.quickCommandsList, async () => quickCommands.list());
   handle(HARNESS_METHODS.quickCommandSave, async (p) => quickCommands.save(p.command));

@@ -1279,5 +1279,10 @@ export const SHELL: Record<string, string> = {
   'Development': '開発',
   'SSH connections…': 'SSH 接続先…',
   'Enter a host name, address or ~/.ssh/config alias': 'ホスト名、アドレス、または ~/.ssh/config の別名を入力してください',
-  'Not a valid host': 'ホストとして使えない値です'
+  'Not a valid host': 'ホストとして使えない値です',
+  'An agent': 'エージェント',
+  '{chat} is typing in this terminal. Type here or press Stop to take it back.': '「{chat}」がこのターミナルに入力しています。ここで入力するか「停止」を押すと、操作を取り戻せます。',
+  'You have this terminal: agents cannot type into it.': 'このターミナルはあなたが操作中です。エージェントは入力できません。',
+  'Let agents type again': 'エージェントに戻す',
+  'An agent is typing here': 'エージェントが入力中'
 }
