@@ -83,8 +83,8 @@ function PanelButtons({ workspaceId }: { workspaceId: string }) {
 
 export function PaneSidebar({ workspaceId }: { workspaceId: string }) {
   const { open, shown } = useShownPanel(workspaceId)
-  // A chat needs more room than a file tree, so it keeps a width of its own.
-  const widthKey = shown === 'panel:side-chat' ? 'right:side-chat' : 'right'
+  // One width for every panel, so switching panels never moves the edge.
+  const widthKey = 'right'
   const width = useSidebarWidth(widthKey)
   if (!open) return null
   return (
