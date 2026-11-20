@@ -1284,5 +1284,12 @@ export const SHELL: Record<string, string> = {
   '{chat} is typing in this terminal. Type here or press Stop to take it back.': '「{chat}」がこのターミナルに入力しています。ここで入力するか「停止」を押すと、操作を取り戻せます。',
   'You have this terminal: agents cannot type into it.': 'このターミナルはあなたが操作中です。エージェントは入力できません。',
   'Let agents type again': 'エージェントに戻す',
-  'An agent is typing here': 'エージェントが入力中'
+  'An agent is typing here': 'エージェントが入力中',
+  'Zomfy hit an error and could not show this window.': 'エラーが起きたため、このウィンドウを表示できませんでした。',
+  'This view hit an error.': 'この画面でエラーが起きました。',
+  'Copy the details to report it. The rest of the app keeps working.': '詳細をコピーして報告してください。ほかの画面はそのまま使えます。',
+  'Try again': 'もう一度試す',
+  'Copy details': '詳細をコピー',
+  'Copy the details to report it, then reload. If it happens again, reopen without tabs: chats and projects stay.': '詳細をコピーして報告し、再読み込みしてください。それでも同じなら「タブを閉じて開き直す」を押してください。スレッドとプロジェクトは消えません。',
+  'Reopen without tabs': 'タブを閉じて開き直す'
 }
