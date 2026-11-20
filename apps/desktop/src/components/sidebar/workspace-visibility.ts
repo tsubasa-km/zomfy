@@ -2,8 +2,19 @@ import type { Project, Workspace } from '@acp-harness/protocol'
 
 // How projects and workspaces are named and ordered wherever they are listed.
 
-export function projectLabel(project: Pick<Project, 'name' | 'displayName'>): string {
-  return project.displayName ?? project.name
+type ProjectNameLookup = (hostId: string, projectId: string) => string | null
+
+let catalogName: ProjectNameLookup = () => null
+
+/** The project catalog's store names host projects; this file stays free of stores. */
+export function setProjectNameLookup(lookup: ProjectNameLookup): void {
+  catalogName = lookup
+}
+
+/** A host project (with its host) goes by its project's name, which may be another host's. */
+export function projectLabel(project: Pick<Project, 'name' | 'displayName'> & { hostId?: string; id?: string }): string {
+  const named = project.hostId && project.id ? catalogName(project.hostId, project.id) : null
+  return named ?? project.displayName ?? project.name
 }
 
 export function workspaceLabel(workspace: Pick<Workspace, 'name' | 'displayName'>): string {

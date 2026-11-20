@@ -49,6 +49,7 @@ import { requestDrawer } from '@/stores/drawer-request-store'
 import { panelLabel } from './workspace-panels'
 import { tabPaneTerminalIds } from '@/components/terminal/terminal-pane-commands'
 import { t } from '@/i18n/i18n'
+import { projectLabel } from '@/components/sidebar/workspace-visibility'
 
 /** Every kind of tab the tab groups hold, in one shape. */
 export type WorkspaceTab =
@@ -89,7 +90,7 @@ export function useWorkspacePlace(workspaceId: string | null): string {
     const project = w.projectId ? s.hosts[w.hostId]?.harness?.projects.find((p) => p.id === w.projectId) : undefined
     const own = w.displayName ?? w.name
     if (!project) return w.scratch ? t('Quick thread') : own
-    const name = project.displayName ?? project.name
+    const name = projectLabel({ ...project, hostId: w.hostId })
     return w.isPrimary ? name : `${name} · ${(w.branch ?? own).split('/').pop()}`
   })
 }

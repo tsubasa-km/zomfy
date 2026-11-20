@@ -11,7 +11,7 @@ import { HOSTING_METHODS, type HostingRequests } from './hosting'
 import { LSP_METHODS, type LspRequests } from './lsp'
 import { PLUGIN_METHODS, type PluginRequests } from './plugins'
 import { PORT_METHODS, type PortRequests } from './ports'
-import { PROJECT_LINK_METHODS, type ProjectLinkRequests } from './project-links'
+import { PROJECT_CATALOG_METHODS, type ProjectCatalogRequests } from './project-catalog'
 import { WORKFLOW_METHODS, type WorkflowRequests } from './workflows'
 import { WORKFLOW_AGENT_METHODS, type WorkflowAgentRequests } from './workflow-access'
 import { WORKFLOW_EXPERIMENT_METHODS, type WorkflowExperimentRequests } from './workflow-experiments'
@@ -40,7 +40,7 @@ export * from './lsp'
 export * from './manager'
 export * from './plugins'
 export * from './ports'
-export * from './project-links'
+export * from './project-catalog'
 export * from './quick-open'
 export * from './sessions'
 export * from './session-notes'
@@ -80,7 +80,7 @@ export const HARNESS_METHODS = {
   ...PLUGIN_METHODS,
   ...VOICE_METHODS,
   ...TURN_RECOVERY_METHODS,
-  ...PROJECT_LINK_METHODS,
+  ...PROJECT_CATALOG_METHODS,
   ...WORKFLOW_METHODS,
   ...WORKFLOW_AGENT_METHODS,
   ...WORKFLOW_EXPERIMENT_METHODS,
@@ -116,7 +116,7 @@ export interface HarnessRequests
     PluginRequests,
     VoiceRequests,
     TurnRecoveryRequests,
-    ProjectLinkRequests,
+    ProjectCatalogRequests,
     WorkflowRequests,
     WorkflowAgentRequests,
     WorkflowExperimentRequests,

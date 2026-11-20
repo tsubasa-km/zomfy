@@ -1291,5 +1291,6 @@ export const SHELL: Record<string, string> = {
   'Try again': 'もう一度試す',
   'Copy details': '詳細をコピー',
   'Copy the details to report it, then reload. If it happens again, reopen without tabs: chats and projects stay.': '詳細をコピーして報告し、再読み込みしてください。それでも同じなら「タブを閉じて開き直す」を押してください。スレッドとプロジェクトは消えません。',
-  'Reopen without tabs': 'タブを閉じて開き直す'
+  'Reopen without tabs': 'タブを閉じて開き直す',
+  '{n} projects': '{n} 件のプロジェクト'
 }

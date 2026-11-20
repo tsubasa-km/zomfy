@@ -3,10 +3,13 @@ import { FolderGit2, FolderOpen, FolderPlus, Folders, GitBranch, Plus, Search, S
 import { allWorkspaces, openStartTab, selectWorkspace, showQuickStart, useStore, type HostedProject, type HostId } from '@/session-store'
 import { setStartProject } from '@/stores/sidebar-store'
 import { setProjectsPageOpen } from '@/stores/app-overlay-store'
+import { useProjectCatalog } from '@/stores/project-catalog-store'
 import { openAddProjectDialog, type AddProjectStep } from '@/lib/project-dialogs'
+import { listedProjects } from '@/lib/catalog-projects'
 import { defaultHostId } from '@/lib/default-host'
 import { openWorkspaceIn } from '@/components/sidebar/WorkspaceMenu'
-import { projectLabel, sortProjects } from '@/components/sidebar/workspace-visibility'
+import { projectLabel } from '@/components/sidebar/workspace-visibility'
+import { shortHostNames } from '@/components/sidebar/project-entries'
 import { sortedHosts } from '@/components/settings/HostsPane'
 import { PageCloseButton } from '@/components/PageCloseButton'
 import { Button } from '@/components/ui/button'
@@ -14,13 +17,15 @@ import { Input } from '@/components/ui/input'
 import { projectKey } from './ProjectPicker'
 import { t } from '@/i18n/i18n'
 
-// Every project on every host in one list: where it lives, what it holds, and the way into it. The
-// same page adds, clones and creates projects, so finding one and making one are in one place.
+// Every project in one list, whatever hosts it lives on: each host it is on is a line of its own,
+// with what it holds there and the way into it. The same page adds, clones and creates projects, so
+// finding one and making one are in one place.
 
 const COLUMN = 'w-full px-5 md:px-8'
 
 export function ProjectsPage() {
   const hosts = useStore((s) => s.hosts)
+  const catalog = useProjectCatalog()
   // allWorkspaces builds a new list each call: derived from hosts, not selected, so the store's snapshot stays stable.
   const workspaces = useMemo(() => allWorkspaces({ hosts }), [hosts])
   const [query, setQuery] = useState('')
@@ -31,19 +36,17 @@ export function ProjectsPage() {
     return () => window.removeEventListener('keydown', onKey)
   }, [])
 
-  const groups = useMemo(() => {
+  const { projects, names } = useMemo(() => {
+    const ordered = sortedHosts(hosts)
+    return { projects: listedProjects(ordered, catalog), names: shortHostNames(ordered) }
+  }, [hosts, catalog])
+  const shown = useMemo(() => {
     const q = query.trim().toLowerCase()
-    return sortedHosts(hosts)
-      .map((host) => ({
-        host,
-        projects: sortProjects(host.harness?.projects ?? [])
-          .map((p): HostedProject => ({ ...p, hostId: host.id }))
-          .filter((p) => !q || `${projectLabel(p)} ${p.path} ${host.label}`.toLowerCase().includes(q))
-      }))
-      .filter((g) => g.projects.length > 0 || (!q && g.host.connection.kind !== 'connected'))
-  }, [hosts, query])
-  const total = groups.reduce((n, g) => n + g.projects.length, 0)
+    if (!q) return projects
+    return projects.filter((p) => p.locations.some((l) => `${projectLabel(l)} ${l.path} ${names[l.hostId] ?? ''}`.toLowerCase().includes(q)))
+  }, [projects, names, query])
 
+  const connected = (hostId: HostId) => hosts[hostId]?.connection.kind === 'connected'
   const add = (step: AddProjectStep, hostId: HostId = defaultHostId()) => openAddProjectDialog({ hostId, step })
   const primaryOf = (p: HostedProject) => workspaces.find((w) => w.hostId === p.hostId && w.projectId === p.id && w.isPrimary)
   const open = (p: HostedProject) => {
@@ -68,7 +71,7 @@ export function ProjectsPage() {
           <Folders className="size-4 shrink-0 text-muted-foreground" />
           <div className="min-w-0 flex-1">
             <h1 className="truncate text-sm font-semibold">{t('Projects')}</h1>
-            <p className="text-xs text-muted-foreground">{t('{n} projects on {hosts} hosts', { n: total, hosts: groups.length })}</p>
+            <p className="text-xs text-muted-foreground">{t('{n} projects', { n: projects.length })}</p>
           </div>
           <Button type="button" size="sm" onClick={() => add('start')} data-projects-add>
             <FolderPlus className="size-3.5" />
@@ -91,51 +94,60 @@ export function ProjectsPage() {
         </div>
       </header>
       <div className="scrollbar-sleek min-h-0 flex-1 overflow-y-auto">
-        <div className={`${COLUMN} space-y-6 py-5`}>
-          {groups.length === 0 ? (
+        <div className={`${COLUMN} py-5`}>
+          {shown.length === 0 ? (
             <p className="text-sm text-muted-foreground">{query ? t('No projects match') : t('No projects yet. Add a folder, clone a repository or create one.')}</p>
-          ) : null}
-          {groups.map(({ host, projects }) => (
-            <section key={host.id} className="space-y-2" data-projects-host={host.id}>
-              <h2 className="flex items-baseline gap-2 text-xs font-medium text-muted-foreground">
-                {host.label}
-                {host.connection.kind !== 'connected' ? <span className="font-normal">{t('Not connected')}</span> : null}
-              </h2>
-              {projects.length > 0 ? (
-                <ul className="divide-y divide-border/50 rounded-lg border border-border/60">
-                  {projects.map((p) => {
-                    const count = workspaces.filter((w) => w.hostId === p.hostId && w.projectId === p.id).length
-                    return (
-                      <li key={projectKey(p)} className="flex items-center gap-3 px-3 py-2" data-project-row={projectKey(p)}>
-                        <FolderGit2 className="size-4 shrink-0 text-muted-foreground" />
-                        <button type="button" className="min-w-0 flex-1 text-left" onClick={() => open(p)} disabled={!primaryOf(p)}>
-                          <span className="block truncate text-sm font-medium">{projectLabel(p)}</span>
-                          <span className="block truncate font-mono text-[11px] text-muted-foreground">{p.path}</span>
-                        </button>
-                        <span className="shrink-0 text-xs text-muted-foreground">
-                          {p.kind === 'git' ? t('{n} worktrees', { n: count }) : t('Folder')}
-                        </span>
-                        <Button type="button" size="xs" variant="outline" onClick={() => newThread(p)} data-project-new-thread>
-                          <SquarePen className="size-3" />
-                          {t('New thread')}
-                        </Button>
-                        <Button
-                          type="button"
-                          size="icon-xs"
-                          variant="ghost"
-                          aria-label={t('Reveal in File Explorer')}
-                          title={t('Reveal in File Explorer')}
-                          onClick={() => openWorkspaceIn('reveal', p.hostId, p.path)}
-                        >
-                          <FolderOpen className="size-3.5" />
-                        </Button>
-                      </li>
-                    )
-                  })}
-                </ul>
-              ) : null}
-            </section>
-          ))}
+          ) : (
+            <ul className="divide-y divide-border/50 rounded-lg border border-border/60">
+              {shown.map((project) => (
+                <li key={project.id} className="px-3 py-2.5" data-project-row={project.id}>
+                  <div className="flex items-center gap-2">
+                    <FolderGit2 className="size-4 shrink-0 text-muted-foreground" />
+                    <span className="min-w-0 flex-1 truncate text-sm font-medium">{projectLabel(project.locations[0]!)}</span>
+                  </div>
+                  {/* Where the project lives: a line per host, each its own way in. */}
+                  <ul className="mt-1.5 space-y-1 pl-6">
+                    {project.locations.map((l) => {
+                      const online = connected(l.hostId)
+                      const count = workspaces.filter((w) => w.hostId === l.hostId && w.projectId === l.id).length
+                      return (
+                        <li key={projectKey(l)} className="flex items-center gap-3" data-project-location={projectKey(l)}>
+                          <span className="w-16 shrink-0 truncate text-[11px] font-medium text-muted-foreground">{names[l.hostId] ?? l.hostId}</span>
+                          <button
+                            type="button"
+                            className="min-w-0 flex-1 truncate text-left font-mono text-[11px] text-muted-foreground enabled:hover:text-foreground"
+                            onClick={() => open(l)}
+                            disabled={!online || !primaryOf(l)}
+                            title={l.path}
+                          >
+                            {l.path}
+                          </button>
+                          <span className="shrink-0 text-xs text-muted-foreground">
+                            {!online ? t('Not connected') : l.kind === 'git' ? t('{n} worktrees', { n: count }) : t('Folder')}
+                          </span>
+                          <Button type="button" size="xs" variant="outline" onClick={() => newThread(l)} disabled={!online} data-project-new-thread>
+                            <SquarePen className="size-3" />
+                            {t('New thread')}
+                          </Button>
+                          <Button
+                            type="button"
+                            size="icon-xs"
+                            variant="ghost"
+                            aria-label={t('Reveal in File Explorer')}
+                            title={t('Reveal in File Explorer')}
+                            onClick={() => openWorkspaceIn('reveal', l.hostId, l.path)}
+                            disabled={!online}
+                          >
+                            <FolderOpen className="size-3.5" />
+                          </Button>
+                        </li>
+                      )
+                    })}
+                  </ul>
+                </li>
+              ))}
+            </ul>
+          )}
         </div>
       </div>
     </main>
