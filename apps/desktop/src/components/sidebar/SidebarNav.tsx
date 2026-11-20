@@ -1,11 +1,11 @@
 import { memo, type ReactNode } from 'react'
-import { BookOpen, CalendarClock, Github, Gitlab, LayoutDashboard, List, Search, SquarePen, Workflow, type LucideIcon } from 'lucide-react'
+import { BookOpen, CalendarClock, Folders, Github, Gitlab, LayoutDashboard, List, Search, SquarePen, Workflow, type LucideIcon } from 'lucide-react'
 import type { HostingProviderId } from '@acp-harness/protocol'
 import { allProjects, getState, setDashboardOpen, showQuickStart, START_TAB, useStore } from '@/session-store'
 import { WINDOW_TABS } from '@/stores/tab-layout-store'
 import { setBoardOpen, useSidebarStore } from '@/stores/sidebar-store'
 import { setAutomationsPageOpen, useAutomationState } from '@/stores/automation-store'
-import { setCommandPalette, setSkillsPageOpen, useAppOverlays } from '@/stores/app-overlay-store'
+import { setCommandPalette, setProjectsPageOpen, setSkillsPageOpen, useAppOverlays } from '@/stores/app-overlay-store'
 import { getTasks, setTasks, useTasks } from '@/stores/tasks-store'
 import { openWorkflows, useWorkflowsPage } from '@/stores/workflows-store'
 import { openWorkflowsHere } from '@/lib/workflows-entry'
@@ -205,11 +205,13 @@ function DashboardCounts() {
 
 export const SidebarNav = memo(function SidebarNav() {
   const showSkills = useSetting('showSkillsButton')
+  const showProjects = useSetting('showProjectsButton')
   const showAutomations = useSetting('showAutomationsButton')
   const showDashboard = useSetting('showAgentDashboardButton')
   const showWorkflows = useSetting('showWorkflowsButton')
   const workflowsOpen = useWorkflowsPage() !== null
   const skillsOpen = useAppOverlays((s) => s.skills)
+  const projectsOpen = useAppOverlays((s) => s.projects)
   const automationsOpen = useAutomationState((s) => s.pageOpen)
   const dashboardOpen = useStore((s) => s.dashboardOpen)
   const showNewChat = useSetting('showNewChatButton')
@@ -222,7 +224,8 @@ export const SidebarNav = memo(function SidebarNav() {
     board: boardOpen,
     tasks: tasksOpen,
     automations: automationsOpen,
-    skills: skillsOpen
+    skills: skillsOpen,
+    projects: projectsOpen
   }
   return (
     <div className="flex flex-col gap-0.5 px-2 pt-2 pb-1" data-sidebar-navigation>
@@ -241,6 +244,16 @@ export const SidebarNav = memo(function SidebarNav() {
       ) : null}
       <SetupChecklistSidebarEntry />
       <TasksRow />
+      {showProjects ? (
+        <NavRow
+          icon={Folders}
+          label={t('Projects')}
+          data="projects"
+          active={projectsOpen}
+          onClick={() => setProjectsPageOpen(!projectsOpen)}
+          hideSetting="showProjectsButton"
+        />
+      ) : null}
       {showSkills ? (
         <NavRow
           icon={BookOpen}
