@@ -1,5 +1,4 @@
 import { useEffect, useRef, useState } from 'react'
-import { History } from 'lucide-react'
 import { chatAgentLabel, isGuardedChatAgent, type ChatAgentId } from '@acp-harness/protocol'
 import type { MarkdownEditorHandle } from '@/components/markdown-editor/MarkdownEditor'
 import type { ChatImage, HostId } from '@/session-store'
@@ -7,12 +6,11 @@ import { NativeChatAgentPicker } from '@/components/native-chat/NativeChatAgentP
 import { NativeChatAttachMenu } from '@/components/native-chat/NativeChatAttachMenu'
 import { NativeChatComposerAction, NativeChatComposerBox, SEND_LABEL } from '@/components/native-chat/NativeChatComposerBox'
 import { useNativeChatComposer } from '@/components/native-chat/use-native-chat-composer'
-import { cn } from '@/lib/utils'
 import { t } from '@/i18n/i18n'
 
 // A side chat before it exists: the same box as an open chat's, so asking aside feels like asking
-// in the main thread. The first message starts the side chat and is sent in it; there is no setup
-// step. Whether it is handed the main thread's recent messages is a toggle under the box.
+// in the main thread. The first message starts the side chat, handed the main thread's recent
+// messages, and is sent in it; there is no setup step.
 
 const NO_PROMPTS: readonly string[] = []
 
@@ -22,19 +20,16 @@ export const sideChatDraftId = (workspaceId: string) => `draft:side-chat:${works
 export function SideChatComposer({
   hostId,
   workspaceId,
-  mainTitle,
   busy,
   onStart
 }: {
   hostId: HostId
   workspaceId: string
-  mainTitle: string
   busy: boolean
-  onStart: (text: string, images: ChatImage[], agent: ChatAgentId, withContext: boolean) => void
+  onStart: (text: string, images: ChatImage[], agent: ChatAgentId) => void
 }) {
   const editorRef = useRef<MarkdownEditorHandle>(null)
   const [agent, setAgent] = useState<ChatAgentId>('claude')
-  const [withContext, setWithContext] = useState(true)
   const composer = useNativeChatComposer({
     draftId: sideChatDraftId(workspaceId),
     hostId,
@@ -50,7 +45,7 @@ export function SideChatComposer({
 
   function submit() {
     if (busy || !canSend) return
-    onStart(draft.trim(), draftImages, agent, withContext)
+    onStart(draft.trim(), draftImages, agent)
   }
 
   useEffect(() => {
@@ -90,22 +85,6 @@ export function SideChatComposer({
           )
         }
       />
-      <div className="px-2">
-        <button
-          type="button"
-          aria-pressed={withContext}
-          data-side-chat-context
-          onClick={() => setWithContext(!withContext)}
-          title={t('Include recent messages from “{title}”', { title: mainTitle })}
-          className={cn(
-            'inline-flex max-w-full items-center gap-1 rounded-md px-1.5 py-0.5 text-[11px] transition-colors',
-            withContext ? 'text-foreground/80 hover:bg-accent' : 'text-muted-foreground line-through hover:bg-accent'
-          )}
-        >
-          <History className="size-3 shrink-0" />
-          <span className="truncate">{t('Sees recent messages from “{title}”', { title: mainTitle })}</span>
-        </button>
-      </div>
     </div>
   )
 }
