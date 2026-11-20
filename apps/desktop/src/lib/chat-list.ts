@@ -6,7 +6,7 @@ import { t } from '@/i18n/i18n'
 // person rather than by where it lives. A workflow's step chats and a side chat stay folded under
 // the chat they work for.
 
-export type ChatSectionId = 'pinned' | 'needs-you' | 'working' | 'recent' | 'archived'
+export type ChatSectionId = 'pinned' | 'needs-you' | 'unread' | 'working' | 'recent' | 'archived'
 
 export interface ChatNode {
   chat: Session
@@ -55,17 +55,27 @@ export function byUrgency(a: ChatNode, b: ChatNode): number {
   return RANK[a.status] - RANK[b.status] || activityOf(b.chat) - activityOf(a.chat)
 }
 
-/** The list cut by state. Pinned chats keep the order they were pinned in; archived ones sit in their own shelf. */
-export function chatSections(nodes: ChatNode[], pinned: string[]): { id: ChatSectionId; nodes: ChatNode[] }[] {
+/**
+ * The list cut by state, as T3 Code's: what needs the person, then what finished since they last
+ * looked, then what is working, then the rest, settled. Pinned chats keep the order they were
+ * pinned in; archived ones sit in their own shelf.
+ */
+export function chatSections(
+  nodes: ChatNode[],
+  pinned: string[],
+  unread: (sessionId: string) => boolean = () => false
+): { id: ChatSectionId; nodes: ChatNode[] }[] {
   const pinOrder = new Map(pinned.map((id, i) => [id, i]))
   const live = nodes.filter((n) => !n.chat.archived)
   const rest = live.filter((n) => !pinOrder.has(n.chat.id))
   const recent = (list: ChatNode[]) => [...list].sort((a, b) => activityOf(b.chat) - activityOf(a.chat))
+  const idle = rest.filter((n) => n.status === 'idle')
   return [
     { id: 'pinned' as const, nodes: live.filter((n) => pinOrder.has(n.chat.id)).sort((a, b) => pinOrder.get(a.chat.id)! - pinOrder.get(b.chat.id)!) },
     { id: 'needs-you' as const, nodes: recent(rest.filter((n) => n.status === 'needs-you' || n.status === 'error')) },
+    { id: 'unread' as const, nodes: recent(idle.filter((n) => unread(n.chat.id))) },
     { id: 'working' as const, nodes: recent(rest.filter((n) => n.status === 'working')) },
-    { id: 'recent' as const, nodes: recent(rest.filter((n) => n.status === 'idle')) },
+    { id: 'recent' as const, nodes: recent(idle.filter((n) => !unread(n.chat.id))) },
     { id: 'archived' as const, nodes: recent(nodes.filter((n) => n.chat.archived)) }
   ].filter((section) => section.nodes.length > 0)
 }
@@ -76,10 +86,12 @@ export function chatSectionLabel(id: ChatSectionId): string {
       return t('Pinned')
     case 'needs-you':
       return t('Needs you')
+    case 'unread':
+      return t('Done')
     case 'working':
       return t('Working')
     case 'recent':
-      return t('Recent')
+      return t('Settled')
     case 'archived':
       return t('Archived')
   }
@@ -95,6 +107,13 @@ export function compactAge(then: number, now: number): string {
   const days = Math.floor(hours / 24)
   if (days < 30) return t('{n}d', { n: days })
   return new Date(then).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })
+}
+
+/** How long a turn has run: "3s", "5m", "2h", for a working chat's status. */
+export function elapsed(then: number, now: number): string {
+  const seconds = Math.max(0, Math.floor((now - then) / 1000))
+  if (seconds < 60) return t('{n}s', { n: seconds })
+  return compactAge(then, now)
 }
 
 // One shared clock for every row's age, so a long list costs one timer.
