@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Folder, FolderPlus, GitBranch, X } from 'lucide-react'
+import { Folder, X } from 'lucide-react'
 import { toast } from 'sonner'
 import { HARNESS_METHODS } from '@acp-harness/protocol'
 import { createSession, harnessRequest } from '@/daemon-connection'
@@ -12,7 +12,6 @@ import {
   START_TAB,
   useStore,
   type ChatImage,
-  type HostedProject,
   type HostId
 } from '@/session-store'
 import { groupOfTab, layoutFor, placeTab, WINDOW_TABS } from '@/stores/tab-layout-store'
@@ -23,13 +22,12 @@ import { setSessionOptions, submitPrompt } from '@/chat-actions'
 import { announceSent } from '@/lib/chat-after-send'
 import { suggestWorkspaceName } from '@/lib/workspace-name-suggestion'
 import { useSetting } from '@/stores/settings-store'
-import { openAddProjectDialog } from '@/lib/project-dialogs'
 import { projectLabel, sortProjects, workspaceLabel } from '@/components/sidebar/workspace-visibility'
 import { sortedHosts } from '@/components/settings/HostsPane'
 import { defaultHostId } from '@/lib/default-host'
 import { NewThreadComposer } from '@/components/native-chat/NewThreadComposer'
-import { Button } from '@/components/ui/button'
-import { Select, SelectContent, SelectItem, SelectSeparator, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { ProjectPicker, projectKey } from '@/components/projects/ProjectPicker'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { t } from '@/i18n/i18n'
 
 // The "New thread" tab, as in the Claude apps: type and go. With no project picked the chat starts in
@@ -38,8 +36,6 @@ import { t } from '@/i18n/i18n'
 // so chats working at once never edit the same checkout. The composer is an open chat's own
 // (NewThreadComposer); under it, as under T3 Code's new thread, sits where the thread starts.
 
-const NO_PROJECT = 'none'
-const projectKey = (p: HostedProject) => `${p.hostId}:${p.id}`
 
 export function QuickStart() {
   const hosts = useStore((s) => s.hosts)
@@ -114,12 +110,6 @@ export function QuickStart() {
     }
   }
 
-  // Every project says which host it is on, quietly, so two of the same name are told apart.
-  const hostBadge = (id: HostId) => (
-    <span className="ml-1.5 text-[10px] text-muted-foreground/70" data-quick-start-project-host>
-      {hosts[id]?.label ?? id}
-    </span>
-  )
   const where = workspace
     ? t('Starts in {place}.', {
         place: workspaceProject ? `${projectLabel(workspaceProject)} · ${workspace.branch ?? workspaceLabel(workspace)}` : workspaceLabel(workspace)
@@ -169,22 +159,8 @@ export function QuickStart() {
                 </button>
               </span>
             ) : (
-              <Select value={project ? projectKey(project) : NO_PROJECT} onValueChange={(v) => setStartProject(v === NO_PROJECT ? null : v)}>
-                <SelectTrigger size="sm" className="h-7 w-auto max-w-56 border-0 text-xs shadow-none" aria-label={t('Project')} data-quick-start-project>
-                  <Folder className="size-3.5 shrink-0 text-muted-foreground" />
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value={NO_PROJECT}>{t('No project')}</SelectItem>
-                  {projects.length > 0 && <SelectSeparator />}
-                  {projects.map((p) => (
-                    <SelectItem key={projectKey(p)} value={projectKey(p)}>
-                      {projectLabel(p)}
-                      {hostBadge(p.hostId)}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              // Choosing and creating a project are one control: its list ends with add, clone and create.
+              <ProjectPicker value={project ? projectKey(project) : null} onChange={setStartProject} hostId={target} />
             )}
             {!workspace && !project && connected.length > 1 && (
               <Select value={target} onValueChange={setHostId}>
@@ -200,21 +176,6 @@ export function QuickStart() {
                 </SelectContent>
               </Select>
             )}
-          </div>
-          <div className="ml-auto flex items-center">
-            <Button variant="ghost" size="xs" className="h-7 text-muted-foreground" onClick={() => openAddProjectDialog({ hostId: target })}>
-              <FolderPlus className="size-3.5" />
-              {t('Add a project')}
-            </Button>
-            <Button
-              variant="ghost"
-              size="xs"
-              className="h-7 text-muted-foreground"
-              onClick={() => openAddProjectDialog({ hostId: target, step: 'clone' })}
-            >
-              <GitBranch className="size-3.5" />
-              {t('Clone a repository')}
-            </Button>
           </div>
         </div>
       </div>
