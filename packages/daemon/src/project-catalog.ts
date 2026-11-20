@@ -2,6 +2,7 @@ import { mkdir, readFile, rename, writeFile } from 'node:fs/promises'
 import { dirname, join } from 'node:path'
 import { locationKey, type CatalogProject, type ProjectLocation } from '@acp-harness/protocol'
 import { HARNESS_HOME } from './harness-home.ts'
+import { log } from './log.ts'
 
 // The project catalog (protocol project-catalog.ts). The changes are pure functions over the list,
 // so the store only orders them and writes the file.
@@ -33,9 +34,9 @@ export function syncHost(catalog: CatalogProject[], hostId: string, projectIds: 
   return [...kept, ...added]
 }
 
-/** Moves `location` into entry `to`; unchanged when `to` is unknown. */
+/** Moves `location` into entry `to`; throws when `to` is unknown, so a caller does not report it done. */
 export function placeLocation(catalog: CatalogProject[], to: string, location: ProjectLocation): CatalogProject[] {
-  if (!catalog.some((p) => p.id === to)) return catalog
+  if (!catalog.some((p) => p.id === to)) throw new Error(`No project ${to} in the catalog`)
   return withoutEmpty(
     catalog.map((p) => {
       const rest = p.locations.filter((l) => !sameLocation(l, location))
@@ -52,8 +53,9 @@ export function detachLocation(catalog: CatalogProject[], location: ProjectLocat
   return [...rest, { id: freshId(rest, location), locations: [location] }]
 }
 
-/** Names entry `id`; an empty name or null takes the name away. */
+/** Names entry `id`; an empty name or null takes the name away. Throws when `id` is unknown. */
 export function renameProject(catalog: CatalogProject[], id: string, name: string | null): CatalogProject[] {
+  if (!catalog.some((p) => p.id === id)) throw new Error(`No project ${id} in the catalog`)
   const trimmed = name?.trim()
   return catalog.map((p) => {
     if (p.id !== id) return p
@@ -76,6 +78,32 @@ export function fromLinks(raw: unknown): CatalogProject[] {
   return catalog
 }
 
+const isLocation = (v: unknown): v is ProjectLocation =>
+  typeof (v as ProjectLocation)?.hostId === 'string' && typeof (v as ProjectLocation)?.projectId === 'string'
+
+/**
+ * What a catalog file holds, cleaned: entries with an id and at least one well-formed location, a
+ * host project in the first entry naming it only, and a name only when it is a string.
+ */
+export function cleanCatalog(raw: unknown): CatalogProject[] {
+  if (!Array.isArray(raw)) throw new Error('The project catalog is not a list')
+  const catalog: CatalogProject[] = []
+  const ids = new Set<string>()
+  for (const entry of raw as Partial<CatalogProject>[]) {
+    if (typeof entry?.id !== 'string' || ids.has(entry.id) || !Array.isArray(entry.locations)) continue
+    const locations = entry.locations
+      .filter(isLocation)
+      .filter((l) => !catalog.some((p) => p.locations.some((m) => sameLocation(m, l))))
+      .map((l) => ({ hostId: l.hostId, projectId: l.projectId }))
+    if (locations.length === 0) continue
+    ids.add(entry.id)
+    catalog.push(typeof entry.name === 'string' && entry.name.trim() ? { id: entry.id, locations, name: entry.name } : { id: entry.id, locations })
+  }
+  return catalog
+}
+
+const missing = (error: unknown) => (error as NodeJS.ErrnoException)?.code === 'ENOENT'
+
 export class ProjectCatalogStore {
   private catalog: Promise<CatalogProject[]> | null = null
   /** Changes run one at a time, so two hosts syncing at once both land. */
@@ -88,17 +116,40 @@ export class ProjectCatalogStore {
   }
 
   list(): Promise<CatalogProject[]> {
-    this.catalog ??= readFile(this.file, 'utf8')
-      .then((text) => {
-        const parsed: unknown = JSON.parse(text)
-        return Array.isArray(parsed) ? (parsed as CatalogProject[]) : []
-      })
-      .catch(() =>
-        readFile(join(this.home, 'project-links.json'), 'utf8')
-          .then((text) => fromLinks(JSON.parse(text)))
-          .catch(() => [])
-      )
+    // A read that failed (a locked file) is tried again next time rather than kept.
+    this.catalog ??= this.load().catch((error) => {
+      this.catalog = null
+      throw error
+    })
     return this.catalog
+  }
+
+  /**
+   * The catalog file; with none yet, the links that came before it, written out at once so they are
+   * read only this one time. A file that cannot be read as a catalog is kept aside, not overwritten.
+   */
+  private async load(): Promise<CatalogProject[]> {
+    let text: string
+    try {
+      text = await readFile(this.file, 'utf8')
+    } catch (error) {
+      if (!missing(error)) throw error
+      const links = await readFile(join(this.home, 'project-links.json'), 'utf8').then(
+        (t) => fromLinks(JSON.parse(t)),
+        () => []
+      )
+      await this.write(links)
+      return links
+    }
+    try {
+      return cleanCatalog(JSON.parse(text))
+    } catch (error) {
+      const aside = `${this.file}.unreadable-${Date.now()}`
+      log(`project catalog: ${this.file} could not be read (${String(error)}); kept as ${aside}`)
+      await rename(this.file, aside).catch(() => undefined)
+      await this.write([])
+      return []
+    }
   }
 
   sync(hostId: string, projectIds: string[]) {
@@ -123,7 +174,10 @@ export class ProjectCatalogStore {
       const before = await this.list()
       const after = apply(before)
       const changed = JSON.stringify(after) !== JSON.stringify(before)
-      if (changed) await this.write(after)
+      if (changed) {
+        await this.write(after)
+        this.catalog = Promise.resolve(after)
+      }
       return { catalog: after, changed }
     })
     this.queue = run.catch(() => undefined)
@@ -131,7 +185,6 @@ export class ProjectCatalogStore {
   }
 
   private async write(list: CatalogProject[]): Promise<void> {
-    this.catalog = Promise.resolve(list)
     await mkdir(dirname(this.file), { recursive: true })
     const temp = `${this.file}.tmp`
     await writeFile(temp, JSON.stringify(list, null, 2))
