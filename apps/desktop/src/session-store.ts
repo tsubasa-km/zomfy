@@ -51,6 +51,7 @@ import {
   type PaneNode,
   type PaneSide
 } from '@/lib/pane-tree'
+import { hostedProjects, hostedWorkspaces } from '@/lib/host-lists'
 import { t } from '@/i18n/i18n'
 
 export type { SessionStatus }
@@ -402,17 +403,12 @@ export function setHarnessState(hostId: HostId, harness: HarnessState): void {
 
 /** Every project, tagged with the host whose daemon owns it. */
 export function allProjects(hosts: StoreState['hosts'] = state.hosts): HostedProject[] {
-  return Object.values(hosts).flatMap((h) => h.harness?.projects.map((p) => ({ ...p, hostId: h.id })) ?? [])
+  return hostedProjects(hosts)
 }
 
 /** Every workspace; only this computer's floating workspace is used, so other hosts' are left out. */
 export function allWorkspaces(s: Pick<StoreState, 'hosts'> = state): HostedWorkspace[] {
-  return Object.values(s.hosts).flatMap(
-    (h) =>
-      h.harness?.workspaces
-        .filter((w) => h.id === LOCAL_HOST || w.id !== h.harness?.floatingWorkspaceId)
-        .map((w) => ({ ...w, hostId: h.id })) ?? []
-  )
+  return hostedWorkspaces(s.hosts, LOCAL_HOST)
 }
 
 export function findWorkspace(workspaceId: string): HostedWorkspace | null {
