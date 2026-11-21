@@ -52,6 +52,7 @@ import {
   allProjects,
   findWorkspace,
   batchUpdates,
+  batchUntilFrame,
   forgetHost,
   getState,
   whenState,
@@ -255,7 +256,8 @@ async function openConnection(hostId: HostId): Promise<void> {
     .onNotification("session/update", (ctx) => {
       const replay = replayBuffers.get(ctx.params.sessionId);
       if (replay) replay.push(ctx.params);
-      else applyChatUpdate(ctx.params);
+      // Streamed chunks are drawn once a frame, however many arrive in it.
+      else batchUntilFrame(() => applyChatUpdate(ctx.params));
     })
     .onNotification(
       HARNESS_NOTIFICATIONS.stateChanged,
