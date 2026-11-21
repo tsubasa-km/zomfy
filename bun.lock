@@ -3,7 +3,7 @@
   "configVersion": 1,
   "workspaces": {
     "": {
-      "name": "acp-harness",
+      "name": "zomfy",
     },
     "apps/desktop": {
       "name": "@zomfy/desktop",
