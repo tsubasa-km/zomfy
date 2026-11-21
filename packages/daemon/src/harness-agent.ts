@@ -10,7 +10,9 @@ import {
   PROMPT_NOT_SENT_META,
   TURN_RECOVERY_META,
   TURN_RECOVERY_NOTIFICATIONS,
+  WRAP_UP_HINT,
   chatAgentLabel,
+  normalizeWrapUp,
   isUntitledChat,
   type HarnessMethod,
   type HarnessRequests,
@@ -272,6 +274,14 @@ export function createHarnessAgent(
   localTools.set("terminal_read", { offeredTo: () => true, route: (caller, _tool, args) => terminalTools.read(caller, args) });
   localTools.set("terminal_send", { offeredTo: () => true, route: (caller, _tool, args) => terminalTools.send(caller, args) });
   localTools.set("terminal_wait", { offeredTo: () => true, route: (caller, _tool, args) => terminalTools.wait(caller, args) });
+  // The call itself is the card: the window draws it from the call's input, so nothing waits here.
+  localTools.set("wrap_up", {
+    offeredTo: () => true,
+    route: async (_caller, _tool, args) =>
+      normalizeWrapUp(args)
+        ? { result: "Shown to the person as a Next steps card under your reply. Write your final message now." }
+        : { result: "Nothing to show: give a summary and at least one step ({ owner, text }).", isError: true },
+  });
 
   /** Recorded for replay, then sent to every client so a reconnected window sees live turns. */
   async function emit(sessionId: string, update: acp.SessionUpdate): Promise<void> {
@@ -534,6 +544,8 @@ export function createHarnessAgent(
         splits.offered(session.id) && !projectToolRefusal(projectOfSession(session.id), "split_work") ? splitWorkHint(SPLIT_TOOL) : null,
         // Changes only when the person changes the project's settings.
         quickChat || splits.isHelper(session.id) ? null : projectToolsOffNote(projectOfSession(session.id)),
+        // A chat's turns end with the person; a helper's and a step's end with whoever started them.
+        splits.isHelper(session.id) || stepTurns.has(session.id) ? null : WRAP_UP_HINT,
       ]
         .filter((p): p is string => !!p)
         .join("\n\n") || null;
