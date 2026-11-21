@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { memo, useEffect, useRef, useState } from 'react'
 import { Bot, Pin, X } from 'lucide-react'
 import type { Session } from '@/session-store'
 import { AgentStateDot, type AgentDotState } from '@/components/AgentStateDot'
@@ -37,7 +37,8 @@ const TAB_DOT: Partial<Record<Session['status'], AgentDotState>> = {
 const DROP_BEFORE = "before:absolute before:inset-y-0 before:left-0 before:z-10 before:w-[2px] before:bg-blue-500 before:content-['']"
 const DROP_AFTER = "after:absolute after:inset-y-0 after:right-0 after:z-10 after:w-[2px] after:bg-blue-500 after:content-['']"
 
-export function TabItem({
+/** Memoised: the strip's tabs keep their objects while unchanged (keepUnchangedTabs). */
+export const TabItem = memo(function TabItem({
   workspaceId: paneWorkspaceId,
   groupId,
   tab,
@@ -50,7 +51,8 @@ export function TabItem({
   workspaceId: string
   groupId: string
   tab: WorkspaceTab
-  groupTabs: WorkspaceTab[]
+  /** The group's tabs in strip order, as of the strip's last render. */
+  groupTabs: { readonly current: WorkspaceTab[] }
   active: boolean
   /** The group's open tab, which joins the first Ctrl-click's selection. */
   groupActiveId: string | null
@@ -128,7 +130,7 @@ ${place}` : title}
         onClick={(e) => {
           const gesture = gestureOf(e)
           if (gesture) {
-            tabSelection.gesture(groupId, tab.id, gesture, groupActiveId, groupTabs.map((t) => t.id))
+            tabSelection.gesture(groupId, tab.id, gesture, groupActiveId, groupTabs.current.map((t) => t.id))
             return
           }
           tabSelection.reset(groupId, tab.id)
@@ -266,7 +268,7 @@ ${place}` : title}
           workspaceId={workspaceId}
           groupId={groupId}
           tab={tab}
-          groupTabs={groupTabs}
+          groupTabs={groupTabs.current}
           hasSplit={hasSplit}
           open={menu.open}
           point={menu}
@@ -279,4 +281,4 @@ ${place}` : title}
       )}
     </>
   )
-}
+})

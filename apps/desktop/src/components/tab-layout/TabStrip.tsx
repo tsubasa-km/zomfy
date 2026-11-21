@@ -137,6 +137,9 @@ export function TabStrip({
   trailing?: React.ReactNode
 }) {
   const { ref, overflow, scrollBy } = useStripOverflow(tabs.length)
+  // Read by the tabs when clicked or right-clicked, so a change to one tab does not redraw the others.
+  const groupTabs = useRef(tabs)
+  groupTabs.current = tabs
   const fade = cn(overflow.canScrollStart && 'terminal-tab-strip--fade-start', overflow.canScrollEnd && 'terminal-tab-strip--fade-end')
 
   return (
@@ -163,7 +166,7 @@ export function TabStrip({
             workspaceId={workspaceId}
             groupId={groupId}
             tab={tab}
-            groupTabs={tabs}
+            groupTabs={groupTabs}
             active={tab.id === activeId}
             groupActiveId={activeId}
             hasSplit={hasSplit}
