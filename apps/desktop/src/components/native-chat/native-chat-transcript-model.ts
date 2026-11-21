@@ -67,56 +67,147 @@ export function isSubagentTool(tool: ToolItem): boolean {
   return SUBAGENT_TOOLS.has(toolNameOf(tool))
 }
 
+/** Each top-level tool call's subagent calls, in order, from `items[from]` on. */
+function childrenOf(items: readonly ThreadItem[], from = 0): Map<string, ToolItem[]> {
+  const children = new Map<string, ToolItem[]>()
+  for (let i = from; i < items.length; i++) {
+    const item = items[i]!
+    if (item.kind === 'tool' && item.parentId) {
+      const list = children.get(item.parentId)
+      if (list) list.push(item)
+      else children.set(item.parentId, [item])
+    }
+  }
+  return children
+}
+
 /**
  * Groups the flat transcript the way Orca draws it: consecutive tools fold into one run, a
  * subagent's calls sit under its Task, TodoWrite reads as a task list, and each finished turn
  * that edited files ends with a changed-files rollup.
  */
 export function buildTranscript(items: ThreadItem[], turnRunning: boolean, cwd: string): TranscriptModel {
-  const children = new Map<string, ToolItem[]>()
-  for (const item of items) {
-    if (item.kind === 'tool' && item.parentId) {
-      children.set(item.parentId, [...(children.get(item.parentId) ?? []), item])
+  const builder = new TranscriptBuilder(cwd, true)
+  const children = childrenOf(items)
+  for (const item of items) builder.feed(item, children)
+  return builder.finish(turnRunning)
+}
+
+/**
+ * buildTranscript for one chat that is rebuilt as it streams. The items up to the latest prompt
+ * do not change while a turn streams, so they are grouped once and their rows kept (the same
+ * objects, which rows compare by identity); each build groups only the latest turn. A change to
+ * any of those earlier items groups everything again.
+ */
+export function createTranscriptBuilder(): (items: ThreadItem[], turnRunning: boolean, cwd: string) => TranscriptModel {
+  let cwd: string | null = null
+  /** The items `settled` has grouped: none, or up to and including a prompt. */
+  let settledItems: readonly ThreadItem[] = []
+  let settled = new TranscriptBuilder('', true)
+  return (items, turnRunning, nextCwd) => {
+    const boundary = items.findLastIndex((item) => item.kind === 'user') + 1
+    let reuse = nextCwd === cwd && boundary >= settledItems.length
+    for (let i = 0; reuse && i < settledItems.length; i++) reuse = items[i] === settledItems[i]
+    // A subagent call that arrives after its Task was settled belongs in a settled row.
+    for (let i = settledItems.length; reuse && i < items.length; i++) {
+      const item = items[i]!
+      if (item.kind === 'tool' && item.parentId && settled.topLevelTools.has(item.parentId) && !settled.childTools.has(item)) reuse = false
     }
+    if (!reuse) {
+      cwd = nextCwd
+      settledItems = []
+      settled = new TranscriptBuilder(nextCwd, true)
+    }
+    if (boundary > settledItems.length) {
+      const children = childrenOf(items, settledItems.length)
+      const next = settled.fork(true)
+      for (let i = settledItems.length; i < boundary; i++) next.feed(items[i]!, children)
+      settled = next
+      settledItems = items.slice(0, boundary)
+    }
+    const latest = settled.fork(false)
+    const children = childrenOf(items, boundary)
+    for (let i = boundary; i < items.length; i++) latest.feed(items[i]!, children)
+    return latest.finish(turnRunning)
+  }
+}
+
+/** The grouping state carried from item to item. */
+class TranscriptBuilder {
+  rows: TranscriptRowModel[] = []
+  taskList: NativeChatTaskList | null = null
+  board = new TaskBoard()
+  turnEdits: ToolItem[] = []
+  /** With `trackTools`: the top-level tool calls grouped, and the subagent calls put under them. */
+  topLevelTools = new Set<string>()
+  childTools = new Set<ToolItem>()
+
+  constructor(
+    private readonly cwd: string,
+    private readonly trackTools: boolean
+  ) {}
+
+  /**
+   * A builder that goes on from this one, which is left as it was. Rows made so far are shared,
+   * not copied: forks are only made after a prompt, and nothing changes a row before a prompt.
+   * A tracking fork takes over the tracked tools; this builder is dropped once it has one.
+   */
+  fork(trackTools: boolean): TranscriptBuilder {
+    const copy = new TranscriptBuilder(this.cwd, trackTools)
+    copy.rows = this.rows.slice()
+    copy.taskList = this.taskList
+    copy.board = this.board.clone()
+    copy.turnEdits = this.turnEdits.slice()
+    if (trackTools) {
+      copy.topLevelTools = this.topLevelTools
+      copy.childTools = this.childTools
+    }
+    return copy
   }
 
-  const rows: TranscriptRowModel[] = []
-  let taskList: NativeChatTaskList | null = null
-  const board = new TaskBoard()
-  let turnEdits: ToolItem[] = []
-  const closeTurn = (): void => {
-    const diff = turnDiff(turnEdits, cwd)
-    if (diff) rows.push({ kind: 'turn-diff', diff })
-    turnEdits = []
+  private closeTurn(): void {
+    const diff = turnDiff(this.turnEdits, this.cwd)
+    if (diff) this.rows.push({ kind: 'turn-diff', diff })
+    this.turnEdits = []
   }
 
-  for (const item of items) {
+  finish(turnRunning: boolean): TranscriptModel {
+    if (!turnRunning) this.closeTurn()
+    return { rows: this.rows, taskList: this.taskList }
+  }
+
+  feed(item: ThreadItem, children: Map<string, ToolItem[]>): void {
+    const { rows } = this
     switch (item.kind) {
       case 'tool': {
         if (item.parentId) {
-          if (item.status === 'completed') turnEdits.push(item)
+          if (item.status === 'completed') this.turnEdits.push(item)
           break
         }
         const name = toolNameOf(item)
         if (isTaskListTool(name)) {
           const list = normalizeNativeChatTaskList(item.input)
           if (list) {
-            rows.push({ kind: 'tasks', list, previous: taskList })
-            taskList = list
+            rows.push({ kind: 'tasks', list, previous: this.taskList })
+            this.taskList = list
           }
           break
         }
-        if (board.apply(name, item)) {
+        if (this.board.apply(name, item)) {
           // A burst of TaskCreate/TaskUpdate calls reads as one change to the list.
-          const list = board.snapshot()
+          const list = this.board.snapshot()
           const last = rows.at(-1)
           if (last?.kind === 'tasks' && last.fromBoard) last.list = list
-          else rows.push({ kind: 'tasks', list, previous: taskList, fromBoard: true })
-          taskList = list
+          else rows.push({ kind: 'tasks', list, previous: this.taskList, fromBoard: true })
+          this.taskList = list
           break
         }
-        if (item.status === 'completed') turnEdits.push(item)
+        if (item.status === 'completed') this.turnEdits.push(item)
         const node: ToolNode = { tool: item, children: children.get(item.id) ?? [] }
+        if (this.trackTools) {
+          this.topLevelTools.add(item.id)
+          for (const child of node.children) this.childTools.add(child)
+        }
         const last = rows.at(-1)
         if (last?.kind === 'tools') last.tools.push(node)
         else rows.push({ kind: 'tools', tools: [node] })
@@ -135,7 +226,7 @@ export function buildTranscript(items: ThreadItem[], turnRunning: boolean, cwd: 
         break
       }
       case 'user': {
-        closeTurn()
+        this.closeTurn()
         const { notifications, rest } = splitTaskNotifications(item.text)
         for (const n of notifications) rows.push({ kind: 'background', ...n })
         if (notifications.length === 0 || rest || item.images?.length) rows.push({ kind: 'user', item: { ...item, text: rest } })
@@ -160,8 +251,6 @@ export function buildTranscript(items: ThreadItem[], turnRunning: boolean, cwd: 
         break
     }
   }
-  if (!turnRunning) closeTurn()
-  return { rows, taskList }
 }
 
 /**
@@ -267,6 +356,13 @@ class TaskBoard {
     const activeForm = text(input.activeForm) ?? task.activeForm
     this.tasks.set(id, { content: text(input.subject) ?? task.content, status, ...(activeForm ? { activeForm } : {}) })
     return true
+  }
+
+  clone(): TaskBoard {
+    const copy = new TaskBoard()
+    for (const [id, task] of this.tasks) copy.tasks.set(id, task)
+    copy.created = this.created
+    return copy
   }
 
   snapshot(): NativeChatTaskList {

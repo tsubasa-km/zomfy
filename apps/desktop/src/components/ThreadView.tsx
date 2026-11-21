@@ -49,7 +49,7 @@ import { NativeChatQueuedMessageList } from '@/components/native-chat/NativeChat
 import { NativeChatSelectionQuote, formatNativeChatQuote } from '@/components/native-chat/NativeChatSelectionQuote'
 import { selectionMarkdown } from '@/components/native-chat/selection-markdown'
 import { NativeChatTranscriptRow, type TranscriptRowActions } from '@/components/native-chat/NativeChatTranscriptRow'
-import { buildTranscript } from '@/components/native-chat/native-chat-transcript-model'
+import { createTranscriptBuilder } from '@/components/native-chat/native-chat-transcript-model'
 import { useNativeChatFind } from '@/components/native-chat/use-native-chat-find'
 import { ContinueInTerminalContextMenuItem } from '@/components/native-chat/NativeChatTerminalMenuItem'
 import '@/components/native-chat/native-chat-appearance.css'
@@ -101,7 +101,9 @@ export function ThreadView({ session, onSendToMain }: { session: Session; onSend
   const claudeOnly = !isExternalAgentSession(session)
   const forkReason = forkUnavailableReason(session)
   const running = working || session.turnStartedAt !== null
-  const model = useMemo(() => buildTranscript(session.items, running, session.cwd), [session.items, running, session.cwd])
+  // Grouped again on every streamed chunk, but only from the latest prompt on.
+  const [buildTranscript] = useState(createTranscriptBuilder)
+  const model = useMemo(() => buildTranscript(session.items, running, session.cwd), [buildTranscript, session.items, running, session.cwd])
   // The latest turn ended short and nothing came after: its row offers Continue or Retry.
   const turnEnd = running ? null : latestTurnEnd(session.items)
   // Runs this chat starts live with the project's main member (workflows are saved there).
