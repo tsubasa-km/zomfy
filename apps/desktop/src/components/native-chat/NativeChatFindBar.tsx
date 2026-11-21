@@ -17,7 +17,7 @@ export function NativeChatFindBar({ find }: { find: NativeChatFind }) {
     <div
       role="search"
       data-native-chat-find-bar="true"
-      className="absolute top-2 right-4 z-20 flex w-85 max-w-[calc(100%-2rem)] items-center gap-1 rounded-lg border border-border bg-popover/95 px-2 py-1 text-popover-foreground shadow-floating backdrop-blur-sm"
+      className="absolute top-[calc(--spacing(2)+var(--tab-top-inset,0px))] right-4 z-20 flex w-85 max-w-[calc(100%-2rem)] items-center gap-1 rounded-lg border border-border bg-popover/95 px-2 py-1 text-popover-foreground shadow-floating backdrop-blur-sm"
       onMouseDown={(event) => {
         // A press on the count or padding keeps typing in the find input.
         if (!(event.target instanceof Element) || !event.target.closest('button, input')) {

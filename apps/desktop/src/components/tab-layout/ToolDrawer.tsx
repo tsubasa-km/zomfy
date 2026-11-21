@@ -35,6 +35,12 @@ function TabShape({ className }: { className?: string }) {
   )
 }
 
+/**
+ * The pull tab's height (its h-5): a tab's content starts this far down, so none of it begins under
+ * the handle; scrolled, it may pass beneath. Content reads it as `var(--tab-top-inset, 0px)`.
+ */
+export const DRAWER_HANDLE_INSET = { '--tab-top-inset': '1.25rem' } as React.CSSProperties
+
 // What each tab's drawer was left showing, so coming back to a tab finds its drawer as it was.
 const remembered = new Map<string, { pinned: boolean; activeId: string | null }>()
 
@@ -196,7 +202,8 @@ export function ToolDrawer({
   }, [request, focused, workspaceId])
 
   return (
-    <div ref={rootRef} className="pointer-events-none absolute inset-0 z-10 flex flex-col">
+    // What the drawer shows hangs from nothing: the inset its tab's content keeps is not its own.
+    <div ref={rootRef} className="pointer-events-none absolute inset-0 z-10 flex flex-col [--tab-top-inset:0px]">
       {/* A pull tab hanging off the tab strip; its chevron points the way the drawer comes. */}
       <div
         className="group pointer-events-auto mx-auto flex h-5 w-32 shrink-0 justify-center overflow-hidden"

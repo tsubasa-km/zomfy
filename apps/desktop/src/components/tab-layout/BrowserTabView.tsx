@@ -41,7 +41,7 @@ export function BrowserTabView({ tab }: { tab: BrowserTab }) {
 
   return (
     <div className="flex min-h-0 min-w-0 flex-1 flex-col" data-browser-tab={tab.id}>
-      <div className="relative z-10 flex shrink-0 items-center gap-2 border-b border-border/70 bg-background/95 px-3 py-1.5">
+      <div className="relative z-10 flex shrink-0 items-center gap-2 border-b border-border/70 bg-background/95 px-3 pt-[calc(--spacing(1.5)+var(--tab-top-inset,0px))] pb-1.5">
         <Button
           size="icon"
           variant="ghost"

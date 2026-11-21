@@ -209,7 +209,7 @@ export function ThreadView({ session, onSendToMain }: { session: Session; onSend
                   message: row?.getAttribute('data-native-chat-message-text') ?? null
                 })
               }}
-              className="scrollbar-sleek relative h-full overflow-y-auto outline-none [overflow-anchor:none] [scrollbar-gutter:stable_both-edges]"
+              className="scrollbar-sleek relative h-full overflow-y-auto pt-(--tab-top-inset) outline-none [overflow-anchor:none] [scrollbar-gutter:stable_both-edges]"
             >
               {empty ? (
                 session.role === 'manager' ? <ManagerEmptyState /> : <NativeChatEmptyState session={session} />
