@@ -1001,6 +1001,24 @@ export const SHELL: Record<string, string> = {
   'Reviews that sent work back, plus failed checks.': '差し戻したレビューと失敗したチェックの合計です。',
   'Open the run': '実行を開く',
 
+  // components/right-sidebar/ProjectPanel.tsx
+  '{first} (+{n} more)': '{first}（ほか {n} 行）',
+  "This thread's folder belongs to no project.": 'このスレッドのフォルダーはどのプロジェクトにも属していません。',
+  'Git repository': 'Git リポジトリ',
+  'Also on': 'ほかのホスト',
+  'This workspace': 'このワークスペース',
+  Kind: '種類',
+  'Main checkout': 'メインのチェックアウト',
+  Worktree: 'ワークツリー',
+  Worktrees: 'ワークツリー',
+  'When done': '作業が終わったら',
+  'Open a pull request': 'プルリクエストを作成',
+  'Merge into the main checkout': 'メインのチェックアウトにマージ',
+  Default: 'デフォルト',
+  'Scripts file': 'スクリプトのファイル',
+  'Agents on their own': 'エージェントの自律的な操作',
+  'Turned off': 'オフ',
+
   // components/right-sidebar/SearchPanel.tsx
   '{total} result in {files} file': '{files} 件のファイルに {total} 件の結果',
   '{total} result in {files} files': '{files} 件のファイルに {total} 件の結果',
