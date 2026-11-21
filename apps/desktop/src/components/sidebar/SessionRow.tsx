@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react'
+import { memo, useRef, useState } from 'react'
 import { ChevronRight } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { allWorkspaces, getState, previewSession, selectSession, useStore, type Session } from '@/session-store'
@@ -54,7 +54,11 @@ function deleteChats(sessions: Session[]): void {
 }
 
 // Orca's worktree-card-compact-agent-row: one agent tab under its workspace card.
-export function SessionRow({
+/**
+ * Memoised: lists rebuild `card`, `drag` and `fold` on every render, so those compare by their
+ * fields; a chat streaming into one row then redraws that row alone.
+ */
+export const SessionRow = memo(function SessionRow({
   session,
   showWorkspace,
   place,
@@ -337,4 +341,17 @@ export function SessionRow({
       </ContextMenuContent>
     </ContextMenu>
   )
+}, sameRowProps)
+
+function sameRowProps<P extends object>(a: P, b: P): boolean {
+  const keys = new Set([...Object.keys(a), ...Object.keys(b)] as (keyof P)[])
+  for (const key of keys) {
+    const x = a[key]
+    const y = b[key]
+    if (x === y) continue
+    if (typeof x !== 'object' || typeof y !== 'object' || x === null || y === null || Array.isArray(x) || Array.isArray(y)) return false
+    const fields = new Set([...Object.keys(x), ...Object.keys(y)])
+    for (const field of fields) if ((x as Record<string, unknown>)[field] !== (y as Record<string, unknown>)[field]) return false
+  }
+  return true
 }

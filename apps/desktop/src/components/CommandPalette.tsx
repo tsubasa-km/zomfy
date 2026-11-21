@@ -1,5 +1,5 @@
 import { CornerDownLeft, FolderGit2, PanelBottomClose, PanelRightClose, Terminal } from 'lucide-react'
-import { allWorkspaces, floatingWorkspaceId, selectWorkspace, setDashboardOpen, useStore, workspaceStatus } from '@/session-store'
+import { allWorkspaces, floatingWorkspaceId, selectWorkspace, setDashboardOpen, useStore, workspaceStatus, type Session } from '@/session-store'
 import { closeSettings, setCommandPalette, useAppOverlays } from '@/stores/app-overlay-store'
 import { keybindingDefinitions } from '@/keybindings/keybinding-definitions'
 import { effectiveBindings, hasCommandHandler, runCommand, useCommandRegistryVersion } from '@/keybindings/keybinding-registry'
@@ -14,13 +14,16 @@ import { t } from '@/i18n/i18n'
 // Ctrl/Cmd+Shift+P and Ctrl/Cmd+J: Orca's Cmd+J palette (switch workspace, quick actions) merged
 // with a command list drawn from the keybinding registry, so every command shows its shortcut.
 
+const NO_SESSIONS: Session[] = []
+
 export function CommandPalette() {
   const open = useAppOverlays((s) => s.commandPalette)
   const workspacesOnly = useAppOverlays((s) => s.commandPaletteMode === 'workspaces')
   useCommandRegistryVersion()
   const overrides = useSetting('keybindings')
   const hosts = useStore((s) => s.hosts)
-  const sessions = useStore((s) => s.sessions)
+  // Read only while the palette is open: closed, a chat streaming has nothing here to redraw.
+  const sessions = useStore((s) => (open ? s.sessions : NO_SESSIONS))
   const activeWorkspaceId = useStore((s) => s.activeWorkspaceId)
   const floating = useStore((s) => floatingWorkspaceId(s))
   const workspaces = allWorkspaces({ hosts }).filter((w) => w.id !== floating)

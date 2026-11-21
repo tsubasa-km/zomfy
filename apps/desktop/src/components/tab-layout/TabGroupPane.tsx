@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react'
+import { memo, useCallback, useEffect, useState } from 'react'
 import { filePathDrag, type DraggedPaths } from '@/lib/file-path-drag'
 import { ensureSessionLoaded } from '@/daemon-connection'
 import { getState, sidebarWorkspaceId, useStore } from '@/session-store'
@@ -30,7 +30,8 @@ const OVERLAY_RECT: Record<DropZone, React.CSSProperties> = {
   center: { inset: 0 }
 }
 
-function TabBody({ tab }: { tab: WorkspaceTab }) {
+/** Memoised: the tab objects are kept while unchanged, so another tab's change leaves this view alone. */
+const TabBody = memo(function TabBody({ tab }: { tab: WorkspaceTab }) {
   switch (tab.kind) {
     case 'start':
       return (
@@ -58,10 +59,10 @@ function TabBody({ tab }: { tab: WorkspaceTab }) {
         </div>
       )
   }
-}
+})
 
-/** Orca's TabGroupPanel: one split pane with its own tab row, body, and drop targets. */
-export function TabGroupPane({
+/** Orca's TabGroupPanel: one split pane with its own tab row, body, and drop targets. Memoised (see WorkspaceTabs). */
+export const TabGroupPane = memo(function TabGroupPane({
   workspaceId,
   groupId,
   tabs,
@@ -226,4 +227,4 @@ export function TabGroupPane({
       )}
     </div>
   )
-}
+})

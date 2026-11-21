@@ -75,6 +75,11 @@ export function WorkspaceTabs({
   const rootRef = useRef<HTMLDivElement>(null)
   const switcher = useTabKeyboard({ workspaceId, rootRef, tabs, layout })
   const byId = useMemo(() => new Map(tabs.map((t) => [t.id, t])), [tabs])
+  // Each group's tabs, kept while neither the layout nor any tab changed, so its (memoised) pane does not redraw.
+  const tabsByGroup = useMemo(
+    () => new Map(Object.values(layout.groups).map((g) => [g.id, g.tabOrder.flatMap((id) => byId.get(id) ?? [])])),
+    [layout, byId]
+  )
   const hasSplit = leafGroupIds(layout.root).length > 1
   const trailingGroup = topRightGroupId(layout.root)
 
@@ -86,7 +91,7 @@ export function WorkspaceTabs({
         renderLeaf={(groupId) => {
           const group = layout.groups[groupId]
           if (!group) return null
-          const groupTabs = group.tabOrder.flatMap((id) => byId.get(id) ?? [])
+          const groupTabs = tabsByGroup.get(groupId) ?? []
           const activeId =
             groupTabs.find((t) => t.id === group.activeTabId)?.id ??
             [...group.recentTabIds].reverse().find((id) => byId.has(id) && group.tabOrder.includes(id)) ??
