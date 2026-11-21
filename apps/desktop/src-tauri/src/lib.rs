@@ -149,6 +149,9 @@ fn window_ready(window: tauri::WebviewWindow, dark: bool) {
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
+        // First, so a second launch (the Start menu while this one sits in the tray, an updater
+        // relaunch) brings this window forward and exits instead of adding another app and tray icon.
+        .plugin(tauri_plugin_single_instance::init(|app, _args, _cwd| tray::show_main(app)))
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_notification::init())
         .plugin(tauri_plugin_opener::init())
