@@ -54,6 +54,7 @@ import { useNativeChatFind } from '@/components/native-chat/use-native-chat-find
 import { ContinueInTerminalContextMenuItem } from '@/components/native-chat/NativeChatTerminalMenuItem'
 import '@/components/native-chat/native-chat-appearance.css'
 import { t } from '@/i18n/i18n'
+import { getTabLayoutState } from '@/stores/tab-layout-store'
 import { projectLabel } from '@/components/sidebar/workspace-visibility'
 
 // Layout and classes follow Orca's native chat (NativeChatMessageList, NativeChatResolvedView,
@@ -63,6 +64,12 @@ const TRANSCRIPT_COLUMN_CLASS = 'mx-auto flex w-full max-w-(--chat-content-max-w
 /** Within this of the bottom the transcript follows new output (Orca's autoscroll). */
 const STICK_DISTANCE_PX = 80
 const isMac = navigator.userAgent.includes('Mac')
+
+/**
+ * Where each chat was left, kept while its tab stays open: switching back to a tab finds the
+ * transcript where it was, while a chat opened afresh starts at its latest message.
+ */
+const leftAt = new Map<string, { top: number; stick: boolean }>()
 
 type PendingPermission = Extract<ThreadItem, { kind: 'permission' }>
 
@@ -81,8 +88,8 @@ export function ThreadView({ session, onSendToMain }: { session: Session; onSend
   const scrollRef = useRef<HTMLDivElement>(null)
   const columnRef = useRef<HTMLDivElement>(null)
   const composerRef = useRef<MarkdownEditorHandle>(null)
-  const stick = useRef(true)
-  const [atBottom, setAtBottom] = useState(true)
+  const stick = useRef(leftAt.get(session.id)?.stick ?? true)
+  const [atBottom, setAtBottom] = useState(stick.current)
   const [menuTarget, setMenuTarget] = useState<{ selection: string; markdown: string; message: string | null }>({
     selection: '',
     markdown: '',
@@ -142,10 +149,36 @@ export function ThreadView({ session, onSendToMain }: { session: Session; onSend
 
   // Showing a session is reading it: it leaves the dashboard's Done lane.
   useEffect(() => markSeen(session.id), [session.id, session.status])
+  // Shown again, a chat goes back where it was left; shown for the first time, to its latest message.
+  useLayoutEffect(() => {
+    const scroller = scrollRef.current
+    const kept = leftAt.get(session.id)
+    stick.current = kept?.stick ?? true
+    setAtBottom(stick.current)
+    if (scroller) scroller.scrollTop = stick.current ? scroller.scrollHeight : (kept?.top ?? 0)
+    return () => {
+      // Its tab closed: opened again later, it starts at the bottom.
+      if (!getTabLayoutState().open[session.id]) leftAt.delete(session.id)
+    }
+  }, [session.id])
   useLayoutEffect(() => {
     const scroller = scrollRef.current
     if (scroller && stick.current) scroller.scrollTop = scroller.scrollHeight
   }, [session.items, session.turnStartedAt])
+  // Rows that grow after they render (code, images, a transcript that has just loaded) keep a
+  // transcript followed to the bottom there.
+  const empty = session.loaded && session.items.length === 0 && !running
+  useEffect(() => {
+    const scroller = scrollRef.current
+    if (!scroller) return
+    const follow = () => {
+      if (stick.current) scroller.scrollTop = scroller.scrollHeight
+    }
+    const observer = new ResizeObserver(follow)
+    observer.observe(scroller)
+    if (columnRef.current) observer.observe(columnRef.current)
+    return () => observer.disconnect()
+  }, [empty])
 
   const ownPermission = session.items.findLast(isPendingPermission)
   // A helper working for this thread (split_work's parts, a workflow's steps) asks here, so the
@@ -160,8 +193,6 @@ export function ThreadView({ session, onSendToMain }: { session: Session; onSend
       ),
     [model.rows, session.id]
   )
-  const empty = session.loaded && session.items.length === 0 && !running
-
   const jumpToLatest = () => {
     const scroller = scrollRef.current
     if (!scroller) return
@@ -200,6 +231,7 @@ export function ThreadView({ session, onSendToMain }: { session: Session; onSend
                 const near = el.scrollHeight - el.scrollTop - el.clientHeight < STICK_DISTANCE_PX
                 stick.current = near
                 setAtBottom(near)
+                leftAt.set(session.id, { top: el.scrollTop, stick: near })
               }}
               onContextMenu={(event) => {
                 const row = event.target instanceof Element ? event.target.closest('[data-native-chat-message-text]') : null
