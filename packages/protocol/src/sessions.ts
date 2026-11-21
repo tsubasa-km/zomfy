@@ -160,9 +160,17 @@ export const SESSION_REPLAY_META = {
 
 export interface ContextUsageMeta {
   estimated: boolean
-  categories: { name: string; tokens: number }[]
+  /**
+   * The window's rows. Without `kind` (older daemons) a row is content in the window; newer daemons
+   * also send the free space, the autocompact buffer and the deferred tools (out of the window).
+   */
+  categories: { name: string; tokens: number; id?: string; kind?: 'used' | 'free' | 'buffer' | 'deferred' }[]
   /** Claude: each skill, MCP server, memory file and subagent in the context (absent from older daemons). */
   items?: { kind: 'skill' | 'mcp' | 'memory' | 'agent'; name: string; tokens: number }[]
+  /** Claude: each MCP tool, and whether its schema is loaded or deferred (absent from older daemons). */
+  mcpTools?: { name: string; server: string; tokens: number; loaded: boolean }[]
+  /** Claude: each memory file (CLAUDE.md, AGENTS.md, auto-memory) in the context (absent from older daemons). */
+  memoryFiles?: { path: string; type: string; tokens: number }[]
 }
 
 /**
