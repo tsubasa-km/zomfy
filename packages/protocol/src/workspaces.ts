@@ -26,6 +26,10 @@ export interface Project {
   sortOrder?: number
   /** How a chat's finished worktree comes home (finish_worktree): merged into the main checkout (default) or as a pull request. */
   finishWith?: 'merge' | 'pull-request'
+  /** false keeps agents in this project from starting workflows themselves (run_workflow); unset allows it. */
+  agentWorkflows?: boolean
+  /** false keeps agents in this project from splitting work into parallel worktrees (split_work); unset allows it. */
+  agentSplitWork?: boolean
 }
 
 /** Orca's project groups: a named folder of projects in the sidebar. */
@@ -38,7 +42,7 @@ export interface ProjectGroup {
 
 /** null (or '') clears a field; JSON drops undefined, so it cannot. */
 export type ProjectPatch = {
-  [K in 'displayName' | 'defaultBaseRef' | 'worktreeRoot' | 'hooks' | 'groupId' | 'finishWith']?: Project[K] | null
+  [K in 'displayName' | 'defaultBaseRef' | 'worktreeRoot' | 'hooks' | 'groupId' | 'finishWith' | 'agentWorkflows' | 'agentSplitWork']?: Project[K] | null
 }
 
 export interface Workspace {
