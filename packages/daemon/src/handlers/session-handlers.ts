@@ -80,9 +80,14 @@ export function registerSessionHandlers(ctx: HandlerContext): void {
   });
   handle(HARNESS_METHODS.sessionCreate, async (p) => {
     if (p.agent !== undefined && !isChatAgentId(p.agent)) throw new Error(`Unknown agent ${String(p.agent)}`);
+    // A chat an agent started sits under that agent's chat, one level deep; a parent on another
+    // host is kept as given, for the window that lists both.
+    const requested = typeof p.parentId === "string" && p.parentId ? p.parentId : undefined;
+    const parentId = requested && !p.role ? (sessions.parentFor(requested) ?? requested) : undefined;
     const record = sessions.create({
       workspaceId: p.workspaceId,
       cwd: workspaceRoot(p.workspaceId),
+      ...(parentId ? { parentId } : {}),
       ...(p.agent && p.agent !== "claude" ? { agent: p.agent } : {}),
       ...(p.role === "manager" ? { role: p.role, title: "Manager" } : {}),
       ...(p.role === "lead" ? { role: p.role, title: "Lead" } : {}),
