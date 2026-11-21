@@ -69,6 +69,7 @@ import { TerminalScreens } from "./terminal-screen.ts";
 import { registerPluginHandlers } from "./handlers/plugin-handlers.ts";
 import { registerVoiceHandlers } from "./handlers/voice-handlers.ts";
 import { managerMcp, type ManagerRoute } from "./manager-mcp-server.ts";
+import { projectToolRefusal, projectToolsOffNote } from "./project-agent-tools.ts";
 import { ManagerRouting, autoAllowedManagerTools } from "./manager-routing.ts";
 import { log } from "./log.ts";
 import { ConnectionClients } from "./connection-clients.ts";
@@ -156,6 +157,17 @@ export function createHarnessAgent(
     store: new SplitStore(),
   });
   void splits.recover();
+  /** The project a chat works in, for its settings; null for a quick chat or the floating workspace. */
+  const projectOfSession = (sessionId: string) => {
+    const workspaceId = sessions.get(sessionId)?.workspaceId;
+    if (!workspaceId) return null;
+    try {
+      return workspaces.requireWorkspace(workspaceId).project;
+    } catch {
+      return null;
+    }
+  };
+  managerMcp.setToolRefusal((sessionId, tool) => projectToolRefusal(projectOfSession(sessionId), tool));
   const claims = new WorktreeClaims({
     projectWorkspaces: () => workspaces.projectWorkspaces(),
     chatsIn: (workspaceId) =>
@@ -519,7 +531,9 @@ export function createHarnessAgent(
         // A helper's own instructions say what it may touch; the sibling-worktree rules are for chats.
         quickChat || splits.isHelper(session.id) ? null : claims.prompt(session.workspaceId),
         // Fixed for the chat's life, so it never breaks the prompt cache; a running split's state goes in the turn's own text.
-        splits.offered(session.id) ? splitWorkHint(SPLIT_TOOL) : null,
+        splits.offered(session.id) && !projectToolRefusal(projectOfSession(session.id), "split_work") ? splitWorkHint(SPLIT_TOOL) : null,
+        // Changes only when the person changes the project's settings.
+        quickChat || splits.isHelper(session.id) ? null : projectToolsOffNote(projectOfSession(session.id)),
       ]
         .filter((p): p is string => !!p)
         .join("\n\n") || null;

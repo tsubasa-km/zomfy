@@ -210,6 +210,12 @@ export class WorkspaceManager {
       if (patch.finishWith === 'merge' || patch.finishWith === 'pull-request') project.finishWith = patch.finishWith
       else delete project.finishWith
     }
+    // Only an explicit false is kept: unset is the default, which allows the tool.
+    for (const key of ['agentWorkflows', 'agentSplitWork'] as const) {
+      if (!(key in patch)) continue
+      if (patch[key] === false) project[key] = false
+      else delete project[key]
+    }
     if ('hooks' in patch) {
       const setup = patch.hooks?.setup?.trim()
       const archive = patch.hooks?.archive?.trim()

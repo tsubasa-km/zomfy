@@ -541,6 +541,11 @@ export const SHELL: Record<string, string> = {
   'Additional local commands': '追加のローカル コマンド',
   'One command per line, e.g. pnpm install': '1 行に 1 コマンド（例: pnpm install）',
   'On Windows the script runs with cmd unless it starts with #!, which runs it in Git Bash.': 'Windows では、スクリプトは cmd で実行されます。#! で始まる場合は Git Bash で実行されます。',
+  'What agents may do on their own': 'エージェントが自分の判断でできること',
+  'Agents can start workflows': 'エージェントがワークフローを開始できる',
+  "An agent in this project may run one of the project's workflows on a task.": 'このプロジェクトのエージェントが、タスクにプロジェクトのワークフローを実行できます。',
+  'Agents can split work into parallel worktrees': 'エージェントが作業を並列のワークツリーに分割できる',
+  'An agent may hand separate parts of a large task to helpers, each in a worktree of its own.': '大きなタスクの独立した部分を、それぞれ専用のワークツリーで動くヘルパーに任せられます。',
 
   // components/sidebar/WorkspaceMenu.tsx
   'Open in': 'アプリで開く',
@@ -995,6 +1000,24 @@ export const SHELL: Record<string, string> = {
   Rounds: 'ラウンド',
   'Reviews that sent work back, plus failed checks.': '差し戻したレビューと失敗したチェックの合計です。',
   'Open the run': '実行を開く',
+
+  // components/right-sidebar/ProjectPanel.tsx
+  '{first} (+{n} more)': '{first}（ほか {n} 行）',
+  "This thread's folder belongs to no project.": 'このスレッドのフォルダーはどのプロジェクトにも属していません。',
+  'Git repository': 'Git リポジトリ',
+  'Also on': 'ほかのホスト',
+  'This workspace': 'このワークスペース',
+  Kind: '種類',
+  'Main checkout': 'メインのチェックアウト',
+  Worktree: 'ワークツリー',
+  Worktrees: 'ワークツリー',
+  'When done': '作業が終わったら',
+  'Open a pull request': 'プルリクエストを作成',
+  'Merge into the main checkout': 'メインのチェックアウトにマージ',
+  Default: 'デフォルト',
+  'Scripts file': 'スクリプトのファイル',
+  'Agents on their own': 'エージェントの自律的な操作',
+  'Turned off': 'オフ',
 
   // components/right-sidebar/SearchPanel.tsx
   '{total} result in {files} file': '{files} 件のファイルに {total} 件の結果',
