@@ -18,7 +18,7 @@ import { closeGroup } from './tab-group-commands'
 import type { WorkspaceTab } from './workspace-tab-model'
 import { t } from '@/i18n/i18n'
 
-// Orca's tab-bar-surface.tsx + tab-strip-overflow-navigation.ts: tabs shrink to their floor, then
+// Orca's tab-bar-surface.tsx + tab-strip-overflow-navigation.ts: tabs keep one fixed width, and
 // the strip scrolls (wheel, chevrons) with fading edges and keeps the active tab in view.
 
 const SCROLL_FRACTION = 0.75

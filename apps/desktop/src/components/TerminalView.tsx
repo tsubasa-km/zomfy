@@ -275,7 +275,7 @@ export function TerminalView({ terminal, embedded = false }: { terminal: Termina
         dropRef.current(paths)
       }}
     >
-      <div ref={host} data-terminal-id={terminal.id} className="min-h-0 flex-1 px-3 pt-2" />
+      <div ref={host} data-terminal-id={terminal.id} className="min-h-0 flex-1 px-3 pt-[calc(--spacing(2)+var(--terminal-top-inset,0px))]" />
       {/* With copy/paste right-clicks the menu has no click of its own; this shows on hover. */}
       {rightClick === 'copy-paste' && !searchOpen && (
         <button

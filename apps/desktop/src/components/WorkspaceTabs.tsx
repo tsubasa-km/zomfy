@@ -14,7 +14,7 @@ import {
 import { SplitLayout } from '@/components/tab-layout/SplitLayout'
 import { TabGroupPane } from '@/components/tab-layout/TabGroupPane'
 import { useTabKeyboard } from '@/components/tab-layout/use-tab-keyboard'
-import { syncWorkspaceFocus, TabPlacesContext, tabWorkspaceId, useWorkspaceTabs } from '@/components/tab-layout/workspace-tab-model'
+import { syncWorkspaceFocus, useWorkspaceTabs } from '@/components/tab-layout/workspace-tab-model'
 import { TerminalWorkspaceDialogs } from '@/components/terminal/TerminalWorkspaceDialogs'
 import { reconcileWorkspacePanes } from '@/components/terminal/terminal-pane-commands'
 import { paneOwnerTab, setActivePane, useTerminalPaneState } from '@/stores/terminal-pane-store'
@@ -76,13 +76,10 @@ export function WorkspaceTabs({
   const switcher = useTabKeyboard({ workspaceId, rootRef, tabs, layout })
   const byId = useMemo(() => new Map(tabs.map((t) => [t.id, t])), [tabs])
   const hasSplit = leafGroupIds(layout.root).length > 1
-  // With tabs of several workspaces side by side, each says which one it belongs to.
-  const manyPlaces = useMemo(() => new Set(tabs.flatMap((t) => tabWorkspaceId(t) ?? [])).size > 1, [tabs])
   const trailingGroup = topRightGroupId(layout.root)
 
   return (
     <div ref={rootRef} data-workspace-tabs={workspaceId} className="flex min-h-0 min-w-0 flex-1 flex-col">
-      <TabPlacesContext.Provider value={manyPlaces}>
       <SplitLayout
         workspaceId={workspaceId}
         node={layout.root}
@@ -110,7 +107,6 @@ export function WorkspaceTabs({
           )
         }}
       />
-      </TabPlacesContext.Provider>
       {switcher}
       {dialogsFor && <TerminalWorkspaceDialogs workspaceId={dialogsFor} />}
     </div>

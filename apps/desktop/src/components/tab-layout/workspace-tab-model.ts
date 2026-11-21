@@ -1,4 +1,4 @@
-import { createContext, useMemo } from 'react'
+import { useMemo } from 'react'
 import type { TerminalInfo } from '@acp-harness/protocol'
 import { closeTerminal, createTerminal } from '@/daemon-connection'
 import {
@@ -79,9 +79,6 @@ export function tabWorkspaceId(tab: WorkspaceTab): string | null {
       return tab.panel.workspaceId
   }
 }
-
-/** Whether tabs say where they belong: set for a set of tabs that holds more than one workspace's. */
-export const TabPlacesContext = createContext(false)
 
 /** A short name for where a workspace is: its project, and its branch when it is a worktree of it. */
 export function useWorkspacePlace(workspaceId: string | null): string {

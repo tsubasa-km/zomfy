@@ -107,7 +107,16 @@ function Pane({ terminalId, rect, active, dimmed, hidden, tabId }: { terminalId:
       data-terminal-pane={terminalId}
       data-active={active ? 'true' : 'false'}
       className={cn('absolute flex min-h-0 min-w-0 flex-col transition-opacity duration-150', hidden && 'invisible')}
-      style={{ left: pct(rect.x), top: pct(rect.y), width: pct(rect.w), height: pct(rect.h), opacity: dimmed ? INACTIVE_PANE_OPACITY : 1, zIndex: active ? 1 : 0 }}
+      style={{
+        left: pct(rect.x),
+        top: pct(rect.y),
+        width: pct(rect.w),
+        height: pct(rect.h),
+        opacity: dimmed ? INACTIVE_PANE_OPACITY : 1,
+        zIndex: active ? 1 : 0,
+        // Only the panes along the top edge sit under the drawer's handle.
+        ['--terminal-top-inset' as string]: rect.y === 0 ? 'var(--tab-top-inset, 0px)' : '0px'
+      }}
       onFocusCapture={() => setActivePane(tabId, terminalId)}
       onPointerDown={() => setActivePane(tabId, terminalId)}
     >
