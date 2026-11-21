@@ -71,6 +71,7 @@ import { registerVoiceHandlers } from "./handlers/voice-handlers.ts";
 import { managerMcp, type ManagerRoute } from "./manager-mcp-server.ts";
 import { ManagerRouting, autoAllowedManagerTools } from "./manager-routing.ts";
 import { log } from "./log.ts";
+import { ConnectionClients } from "./connection-clients.ts";
 import { compactTranscript } from "./transcript-compaction.ts";
 import { toolCallCommand, toolCallPaths } from "./conversation-messages.ts";
 
@@ -92,6 +93,8 @@ export function createHarnessAgent(
   terminals: TerminalManager,
 ): acp.AgentApp {
   const clients = new Set<acp.AgentContext>();
+  /** Maps a request's `ctx.client` to its window's connection client (see connection-clients.ts). */
+  const connectionClients = new ConnectionClients();
   const pendingTurns = new Map<string, AbortController>();
   const managerRouting = new ManagerRouting();
   /** Tools the daemon serves itself (a workflow step's spawn_agents); the rest go to a window. */
@@ -597,16 +600,18 @@ export function createHarnessAgent(
     .agent({ name: "acp-harness" })
     .onConnect((connection) => {
       clients.add(connection.client);
+      connectionClients.add(connection.client);
       clientClosed.set(connection.client, connection.closed.then(() => undefined, () => undefined));
       for (const wake of clientWaiters.splice(0)) wake();
       void connection.closed.finally(() => {
         clients.delete(connection.client);
+        connectionClients.delete(connection.client);
         clientClosed.delete(connection.client);
         managerRouting.forgetClient(connection.client);
       });
     })
     .onRequest("initialize", (ctx) => {
-      managerRouting.noteInitialize(ctx.client, ctx.params);
+      managerRouting.noteInitialize(connectionClients.canonical(ctx.client), ctx.params);
       return {
       protocolVersion: acp.PROTOCOL_VERSION,
       agentCapabilities: {
@@ -652,8 +657,8 @@ export function createHarnessAgent(
       prompt(
         ctx.params,
         // When the window that started the turn is gone, any window (or the next to connect) answers.
-        (request) => askClient(ctx.client, request).catch(() => askAnyClient(request)),
-        ctx.client,
+        (request) => askClient(connectionClients.canonical(ctx.client), request).catch(() => askAnyClient(request)),
+        connectionClients.canonical(ctx.client),
       ),
     )
     .onNotification("session/cancel", (ctx) => {
