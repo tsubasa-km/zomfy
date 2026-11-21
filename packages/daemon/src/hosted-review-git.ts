@@ -39,10 +39,13 @@ export async function reviewDiffRevisions(
 }
 
 const LINK_KEY = 'zomfyReview'
+/** What branches linked before the rename carry; read when the current key is unset. */
+const LEGACY_LINK_KEY = 'acpHarnessReview'
 
 /** The review a branch was checked out for (Orca's linked PR), so fork heads still find theirs. */
 export async function linkedReviewNumber(cwd: string, branch: string): Promise<number | null> {
-  const out = await git(cwd, ['config', '--get', `branch.${branch}.${LINK_KEY}`], { quiet: true }).catch(() => '')
+  const read = (key: string) => git(cwd, ['config', '--get', `branch.${branch}.${key}`], { quiet: true }).catch(() => '')
+  const out = (await read(LINK_KEY)).trim() || (await read(LEGACY_LINK_KEY))
   const number = Number(out.trim())
   return Number.isInteger(number) && number > 0 ? number : null
 }

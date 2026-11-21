@@ -7,7 +7,7 @@ import {
 } from "@agentclientprotocol/sdk/experimental/server";
 import type { ServerWebSocket } from "bun";
 import { mkdir, writeFile, rm } from "node:fs/promises";
-import { HARNESS_HOME } from "./harness-home.ts";
+import { HARNESS_HOME, envVar } from "./harness-home.ts";
 import { join } from "node:path";
 import { log } from "./log.ts";
 import { MANAGER_MCP_PATH, managerMcp } from "./manager-mcp-server.ts";
@@ -20,7 +20,7 @@ const ALLOWED_ORIGINS = new Set([
   "http://tauri.localhost", // Tauri on Windows
   "tauri://localhost", // Tauri on macOS/Linux
   // Browser previews (scripts/preview.ts) serve the UI from their own port.
-  ...(process.env.ZOMFY_ALLOWED_ORIGINS?.split(",").filter(Boolean) ?? []),
+  ...(envVar("ALLOWED_ORIGINS")?.split(",").filter(Boolean) ?? []),
 ]);
 
 export const DAEMON_INFO_PATH = join(HARNESS_HOME, "daemon.json");

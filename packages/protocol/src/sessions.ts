@@ -180,6 +180,15 @@ export interface ContextUsageMeta {
  * message was not sent and goes back to its box.
  */
 export const PROMPT_NOT_SENT_META = 'zomfy/notSent'
+/** The key daemons set before the rename; still read, and still sent for apps not yet updated. */
+export const LEGACY_PROMPT_NOT_SENT_META = 'acp-harness/notSent'
+/** `_meta` for a reply whose prompt was not sent. */
+export const PROMPT_NOT_SENT_REPLY_META = { [PROMPT_NOT_SENT_META]: true, [LEGACY_PROMPT_NOT_SENT_META]: true }
+
+/** Whether a prompt reply's `_meta` says no turn ran, under the current or the legacy key. */
+export function promptNotSent(meta: Record<string, unknown> | null | undefined): boolean {
+  return meta?.[PROMPT_NOT_SENT_META] === true || meta?.[LEGACY_PROMPT_NOT_SENT_META] === true
+}
 
 export const SESSION_METHODS = {
   sessionsList: '_harness/sessions/list',
