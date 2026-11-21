@@ -7,7 +7,7 @@ use std::process::{Command, Stdio};
 use std::sync::{Mutex, mpsc};
 use std::time::Duration;
 
-use crate::daemon_process::{built_binary, hidden, port_of, reachable, spawn_detached, stamp, wait_for};
+use crate::daemon_process::{LEGACY_HOME_MIGRATION, built_binary, hidden, port_of, reachable, spawn_detached, stamp, wait_for};
 
 const WSL_DAEMON_PORT: u16 = 7811;
 const INSTALLED_BINARY: &str = "$HOME/.zomfy/bin/zomfy-daemon";
@@ -73,7 +73,7 @@ fn install(distro: &str) -> Result<bool, String> {
     let linux_path = run(wsl().args(["-d", distro, "--exec", "wslpath", "-u", &source.to_string_lossy()]))?;
     // The source path and stamp are passed as $1/$2, never spliced into the script.
     let script = format!(
-        "set -e; target=\"{INSTALLED_BINARY}\"; mkdir -p \"$(dirname \"$target\")\"; \
+        "set -e\n{LEGACY_HOME_MIGRATION}target=\"{INSTALLED_BINARY}\"; mkdir -p \"$(dirname \"$target\")\"; \
          if [ \"$(cat \"$target.stamp\" 2>/dev/null)\" != \"$2\" ] || [ ! -x \"$target\" ]; then \
          cp \"$1\" \"$target.new\"; chmod +x \"$target.new\"; pkill -f \"$target --port\" || true; \
          mv -f \"$target.new\" \"$target\"; echo \"$2\" > \"$target.stamp\"; echo upgraded; fi"

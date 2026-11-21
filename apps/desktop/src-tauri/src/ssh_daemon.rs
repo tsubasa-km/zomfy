@@ -21,7 +21,7 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, LazyLock, Mutex};
 use std::time::{Duration, Instant};
 
-use crate::daemon_process::{built_binary, hidden, port_of, reachable, stamp};
+use crate::daemon_process::{LEGACY_HOME_MIGRATION, built_binary, hidden, port_of, reachable, stamp};
 
 const COMMON_OPTIONS: [&str; 10] = [
     "-o",
@@ -128,9 +128,9 @@ else
 fi
 echo "@acp:info=$(cat "$L/daemon.json" 2>/dev/null)""#;
 
-/// $1 = stamp, $2 = byte count; the binary arrives on stdin. Stops the old daemon, as WSL upgrades do.
-const INSTALL_SCRIPT: &str = r#"set -e
-L="$HOME/.zomfy"; t="$L/bin/zomfy-daemon"
+/// $1 = stamp, $2 = byte count; the binary arrives on stdin. Stops the old daemon, as WSL upgrades do,
+/// after moving a legacy home into place (see install_script).
+const INSTALL_BODY: &str = r#"L="$HOME/.zomfy"; t="$L/bin/zomfy-daemon"
 mkdir -p "$L/bin"
 cat > "$t.new"
 size=$(wc -c < "$t.new" | tr -d ' ')
@@ -139,6 +139,10 @@ chmod +x "$t.new"
 pkill -f "$t --port" 2>/dev/null || true
 mv -f "$t.new" "$t"
 echo "$1" > "$t.stamp""#;
+
+fn install_script() -> String {
+    format!("set -e\n{LEGACY_HOME_MIGRATION}{INSTALL_BODY}")
+}
 
 /// Port 0: a shared remote may have other users' daemons, so the kernel picks a free port and the
 /// daemon records it in daemon.json. A login shell gives it the user's PATH (claude in ~/.local/bin).
@@ -397,7 +401,7 @@ pub fn prepare_daemon(
     if upgrade {
         let size = std::fs::metadata(&source).map(|m| m.len().to_string()).unwrap_or_default();
         transport
-            .run(INSTALL_SCRIPT, &[&build, &size], Some(&source), Duration::from_secs(15 * 60))
+            .run(&install_script(), &[&build, &size], Some(&source), Duration::from_secs(15 * 60))
             .map_err(fail)?;
     }
     let out = transport.run(START_SCRIPT, &[], None, Duration::from_secs(60)).map_err(|e| match e {
@@ -694,6 +698,60 @@ mod tests {
     }
 
     #[test]
+    fn install_moves_a_legacy_home_once_and_keeps_its_state() {
+        let Some(sh) = local_sh() else { return };
+        let root = std::env::temp_dir().join(format!("zomfy-ssh-legacy-home-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&root);
+        let home = root.join("home");
+        let legacy = home.join(".acp-harness"); // legacy
+        std::fs::create_dir_all(legacy.join("sessions")).unwrap();
+        std::fs::create_dir_all(legacy.join("bin")).unwrap();
+        std::fs::write(legacy.join("sessions/s1.json"), "{}").unwrap();
+        std::fs::write(legacy.join("settings.json"), "{\"a\":1}").unwrap();
+        std::fs::write(legacy.join("bin/acp-harness-daemon"), "old").unwrap(); // legacy binary
+        std::fs::write(legacy.join("daemon.json"), "{\"pid\":1}").unwrap();
+        let fake = root.join("fake-daemon");
+        std::fs::write(&fake, "#!/bin/sh\n").unwrap();
+        let size = std::fs::metadata(&fake).unwrap().len().to_string();
+        let host = LocalSh { home: home.clone(), sh };
+
+        host.run(&install_script(), &["s1", &size], Some(&fake), Duration::from_secs(20)).unwrap_or_else(|e| panic!("{e:?}"));
+        let new_home = home.join(".zomfy");
+        assert_eq!(std::fs::read_to_string(new_home.join("sessions/s1.json")).unwrap(), "{}");
+        assert_eq!(std::fs::read_to_string(new_home.join("settings.json")).unwrap(), "{\"a\":1}");
+        assert!(new_home.join("bin/zomfy-daemon").exists());
+        assert!(!new_home.join("bin/acp-harness-daemon").exists()); // legacy binary
+        assert!(!new_home.join("daemon.json").exists());
+
+        // A second install leaves the moved home as it is.
+        std::fs::write(new_home.join("settings.json"), "{\"a\":2}").unwrap();
+        host.run(&install_script(), &["s2", &size], Some(&fake), Duration::from_secs(20)).unwrap_or_else(|e| panic!("{e:?}"));
+        assert_eq!(std::fs::read_to_string(new_home.join("settings.json")).unwrap(), "{\"a\":2}");
+        let _ = std::fs::remove_dir_all(&root);
+    }
+
+    #[test]
+    fn install_keeps_both_homes_when_the_new_one_already_exists() {
+        let Some(sh) = local_sh() else { return };
+        let root = std::env::temp_dir().join(format!("zomfy-ssh-both-homes-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&root);
+        let home = root.join("home");
+        let legacy = home.join(".acp-harness"); // legacy
+        std::fs::create_dir_all(&legacy).unwrap();
+        std::fs::create_dir_all(home.join(".zomfy")).unwrap();
+        std::fs::write(legacy.join("settings.json"), "old").unwrap();
+        std::fs::write(home.join(".zomfy/settings.json"), "new").unwrap();
+        let fake = root.join("fake-daemon");
+        std::fs::write(&fake, "#!/bin/sh\n").unwrap();
+        let size = std::fs::metadata(&fake).unwrap().len().to_string();
+        let host = LocalSh { home: home.clone(), sh };
+        host.run(&install_script(), &["s1", &size], Some(&fake), Duration::from_secs(20)).unwrap_or_else(|e| panic!("{e:?}"));
+        assert_eq!(std::fs::read_to_string(home.join(".zomfy/settings.json")).unwrap(), "new");
+        assert_eq!(std::fs::read_to_string(legacy.join("settings.json")).unwrap(), "old");
+        let _ = std::fs::remove_dir_all(&root);
+    }
+
+    #[test]
     fn unreachable_host_is_unverifiable_not_exited() {
         let err = prepare_daemon(&NoHost, |_| Err("unused".into())).err().unwrap();
         assert_eq!(err.verdict, Some("unverifiable"));
@@ -741,11 +799,11 @@ mod tests {
             assert!(!probe.alive);
             let err = prepare_daemon(&host, source_for).err().unwrap();
             assert_eq!(err.verdict, Some("exited"));
-            host.run(INSTALL_SCRIPT, &["s1", &std::fs::metadata(&fake).unwrap().len().to_string()], Some(&fake), Duration::from_secs(20))
+            host.run(&install_script(), &["s1", &std::fs::metadata(&fake).unwrap().len().to_string()], Some(&fake), Duration::from_secs(20))
                 .unwrap();
             let out = host.run(START_SCRIPT, &[], None, Duration::from_secs(40)).unwrap_or_else(|e| panic!("{e:?}"));
             assert_eq!(parse_probe(&out).unwrap().info.as_deref().and_then(port_of), Some(4321));
-            let truncated = host.run(INSTALL_SCRIPT, &["s2", "999999999"], Some(&fake), Duration::from_secs(20));
+            let truncated = host.run(&install_script(), &["s2", "999999999"], Some(&fake), Duration::from_secs(20));
             assert!(matches!(truncated, Err(RemoteError::Script(e)) if e.contains("upload incomplete")));
         }
         let _ = std::fs::remove_dir_all(&root);
