@@ -51,8 +51,9 @@ import { NativeChatMessageRail, type RailItem } from '@/components/native-chat/N
 import { NativeChatQueuedMessageList } from '@/components/native-chat/NativeChatQueuedMessageList'
 import { NativeChatSelectionQuote, formatNativeChatQuote } from '@/components/native-chat/NativeChatSelectionQuote'
 import { selectionMarkdown } from '@/components/native-chat/selection-markdown'
-import { NativeChatTranscriptRow, type TranscriptRowActions } from '@/components/native-chat/NativeChatTranscriptRow'
-import { buildTranscript } from '@/components/native-chat/native-chat-transcript-model'
+import type { TranscriptRowActions } from '@/components/native-chat/NativeChatTranscriptRow'
+import { NativeChatTranscriptRows } from '@/components/native-chat/NativeChatTranscriptRows'
+import { createTranscriptBuilder } from '@/components/native-chat/native-chat-transcript-model'
 import { useNativeChatFind } from '@/components/native-chat/use-native-chat-find'
 import { ContinueInTerminalContextMenuItem } from '@/components/native-chat/NativeChatTerminalMenuItem'
 import '@/components/native-chat/native-chat-appearance.css'
@@ -104,7 +105,9 @@ export function ThreadView({ session, onSendToMain }: { session: Session; onSend
   const claudeOnly = !isExternalAgentSession(session)
   const forkReason = forkUnavailableReason(session)
   const running = working || session.turnStartedAt !== null
-  const model = useMemo(() => buildTranscript(session.items, running, session.cwd), [session.items, running, session.cwd])
+  // Grouped again on every streamed chunk, but only from the latest prompt on.
+  const [buildTranscript] = useState(createTranscriptBuilder)
+  const model = useMemo(() => buildTranscript(session.items, running, session.cwd), [buildTranscript, session.items, running, session.cwd])
   // The latest turn ended short and nothing came after: its row offers Continue or Retry.
   const turnEnd = running ? null : latestTurnEnd(session.items)
   // Runs this chat starts live with the project's main member (workflows are saved there).
@@ -259,14 +262,13 @@ export function ThreadView({ session, onSendToMain }: { session: Session; onSend
               ) : (
                 <div className={TRANSCRIPT_OUTER_CLASS}>
                   <div ref={columnRef} data-native-chat-transcript-column className={TRANSCRIPT_COLUMN_CLASS}>
-                    {model.rows.map((row, index) => (
-                      <NativeChatTranscriptRow
-                        key={index}
-                        row={row}
-                        rowKey={`${session.id}:${index}`}
-                        actions={index === recoveryRow ? recoveryActions : rowActions}
-                      />
-                    ))}
+                    <NativeChatTranscriptRows
+                      rows={model.rows}
+                      sessionId={session.id}
+                      actions={rowActions}
+                      recoveryRow={recoveryRow}
+                      recoveryActions={recoveryActions}
+                    />
                     {session.turnStartedAt !== null && <WorkingStatus startedAt={session.turnStartedAt} />}
                   </div>
                 </div>
