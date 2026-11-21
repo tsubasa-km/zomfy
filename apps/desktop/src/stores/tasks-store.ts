@@ -1,4 +1,4 @@
-import type { HostedWorkItem, HostingProviderId, WorkItemKind, WorkItemPreset, Workspace } from '@acp-harness/protocol'
+import type { HostedWorkItem, HostingProviderId, WorkItemKind, WorkItemPreset, Workspace } from '@zomfy/protocol'
 import type { HostedProject } from '@/session-store'
 import { createExternalStore } from './external-store'
 
@@ -14,7 +14,7 @@ export interface TasksState {
   providerByProject: Record<string, HostingProviderId>
 }
 
-const KEY = 'acp-harness.tasks.v1'
+const KEY = 'zomfy.tasks.v1'
 
 function readSaved(): Partial<TasksState> {
   try {

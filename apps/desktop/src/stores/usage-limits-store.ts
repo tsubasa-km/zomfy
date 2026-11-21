@@ -1,5 +1,5 @@
 import { useEffect } from 'react'
-import { HARNESS_METHODS, type ProviderUsageLimits } from '@acp-harness/protocol'
+import { HARNESS_METHODS, type ProviderUsageLimits } from '@zomfy/protocol'
 import { harnessRequest } from '@/daemon-connection'
 import type { HostId } from '@/session-store'
 import { createExternalStore } from './external-store'

@@ -1,6 +1,6 @@
 import { homedir } from 'node:os'
 import * as acp from '@agentclientprotocol/sdk'
-import { chatAgentLabel, type ChatAgentId } from '@acp-harness/protocol'
+import { chatAgentLabel, type ChatAgentId } from '@zomfy/protocol'
 import { stdinWriter, withOutputText } from './acp-agent-session.ts'
 import { HANDOFF_OPEN } from './agent-handoff.ts'
 import { resolveChatAgent } from './chat-agent-launch-specs.ts'
@@ -174,7 +174,7 @@ async function start(agent: ExternalAgent): Promise<Reader | null> {
   void new Response(proc.stderr).text().catch(() => undefined)
   const replays = new Map<string, acp.SessionUpdate[]>()
   const conn = acp
-    .client({ name: 'acp-harness' })
+    .client({ name: 'zomfy' })
     // Reading a conversation asks for nothing; an agent that asks anyway is told no.
     .onRequest('session/request_permission', (): acp.RequestPermissionResponse => ({ outcome: { outcome: 'cancelled' } }))
     .onNotification('session/update', (ctx) => {
@@ -192,7 +192,7 @@ async function start(agent: ExternalAgent): Promise<Reader | null> {
       conn.agent.request(acp.methods.agent.initialize, {
         protocolVersion: acp.PROTOCOL_VERSION,
         clientCapabilities: { fs: { readTextFile: false, writeTextFile: false }, terminal: false },
-        clientInfo: { name: 'acp-harness', title: 'Zomfy', version: '0.0.1' }
+        clientInfo: { name: 'zomfy', title: 'Zomfy', version: '0.0.1' }
       }),
       START_TIMEOUT_MS,
       `${chatAgentLabel(agent)} did not start`

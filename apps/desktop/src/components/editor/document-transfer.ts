@@ -1,4 +1,4 @@
-import { HARNESS_METHODS, type HarnessMethod, type HarnessRequests, type SavedFile, type TextEncoding } from '@acp-harness/protocol'
+import { HARNESS_METHODS, type HarnessMethod, type HarnessRequests, type SavedFile, type TextEncoding } from '@zomfy/protocol'
 
 // Moving a document's text between the window and its host in pieces, and falling back to the
 // whole-file calls of a host whose daemon predates them. Free of the app's own modules, so it runs

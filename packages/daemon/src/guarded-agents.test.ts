@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test'
-import { isGuardedChatAgent } from '@acp-harness/protocol'
+import { isGuardedChatAgent } from '@zomfy/protocol'
 import { guardedAgentNotice, refuseUnattended } from './chat-agent-launch-specs.ts'
 
 describe('guarded agents', () => {

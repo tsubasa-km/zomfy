@@ -13,7 +13,7 @@ import { useShortcutLabel } from '@/keybindings/keybinding-registry'
 import { sessionAgent } from '@/lib/chat-agents'
 import { inboxEntries, questionsOf, type Approval, type InboxEntry } from './inbox-entries'
 import { questionsToAnswer } from '@/components/native-chat/agent-questions'
-import type { TodoItem, TodoLink } from '@acp-harness/protocol'
+import type { TodoItem, TodoLink } from '@zomfy/protocol'
 import { t } from '@/i18n/i18n'
 
 // One place for everything waiting on the person across hosts (the sidebar's "Waiting for you" and

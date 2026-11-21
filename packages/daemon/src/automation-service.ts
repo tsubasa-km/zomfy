@@ -12,7 +12,7 @@ import {
   type AutomationRunTrigger,
   type AutomationSnapshot,
   type SessionInfo
-} from '@acp-harness/protocol'
+} from '@zomfy/protocol'
 import { RUNS_KEPT_PER_AUTOMATION, loadAutomations, saveAutomations } from './automation-store.ts'
 import { DEFAULT_SESSION_OPTIONS, type SessionRegistry } from './session-registry.ts'
 import type { WorkspaceManager } from './workspace-manager.ts'

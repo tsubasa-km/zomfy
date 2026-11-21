@@ -1,4 +1,4 @@
-import type { GitCommitChanges, GitHistoryItem, GitHistoryItemRef, GitHistoryResult } from '@acp-harness/protocol'
+import type { GitCommitChanges, GitHistoryItem, GitHistoryItemRef, GitHistoryResult } from '@zomfy/protocol'
 import { assertRevisions, changesBetween } from './git-changes.ts'
 import { git } from './git-cli.ts'
 

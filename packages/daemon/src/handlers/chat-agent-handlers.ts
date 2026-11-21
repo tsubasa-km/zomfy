@@ -1,4 +1,4 @@
-import { CHAT_AGENT_NOTIFICATIONS, HARNESS_METHODS, isChatAgentId, isGuardedChatAgent } from "@acp-harness/protocol";
+import { CHAT_AGENT_NOTIFICATIONS, HARNESS_METHODS, isChatAgentId, isGuardedChatAgent } from "@zomfy/protocol";
 import { updateChatAgentLaunch } from "../chat-agent-launch-settings.ts";
 import { checkUpdates, listChatAgents } from "../chat-agent-launch-specs.ts";
 import { scheduleAgentUpdateChecks } from "../chat-agent-updates.ts";

@@ -1,5 +1,5 @@
 {
-  "name": "acp-harness",
+  "name": "zomfy",
   "private": true,
   "type": "module",
   "workspaces": ["packages/*", "apps/*"],

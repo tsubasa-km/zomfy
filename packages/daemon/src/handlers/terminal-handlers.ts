@@ -1,4 +1,4 @@
-import { HARNESS_METHODS } from "@acp-harness/protocol";
+import { HARNESS_METHODS } from "@zomfy/protocol";
 import { QuickCommandStore } from "../quick-command-store.ts";
 import { resolveTerminalPaths } from "../terminal-path-links.ts";
 import { detectInstalledAgents } from "../tui-agent-detection.ts";

@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { Loader2, Minus, Plus, Trash, Undo2, X } from 'lucide-react'
-import type { GitDiscardArea } from '@acp-harness/protocol'
+import type { GitDiscardArea } from '@zomfy/protocol'
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'

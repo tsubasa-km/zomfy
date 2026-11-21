@@ -1,4 +1,4 @@
-import type { Project, Workspace } from "@acp-harness/protocol";
+import type { Project, Workspace } from "@zomfy/protocol";
 import { git, GitError } from "./git-cli.ts";
 import { sanitizeWorkspaceName } from "./worktree-naming.ts";
 

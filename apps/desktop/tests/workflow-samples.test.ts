@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test'
-import { unboundedLoops, workflowCycles } from '@acp-harness/protocol'
+import { unboundedLoops, workflowCycles } from '@zomfy/protocol'
 import { WORKFLOW_TEMPLATES } from '../src/components/workflows/workflow-samples.ts'
 import { validateWorkflow } from '../src/components/workflows/workflow-model.ts'
 

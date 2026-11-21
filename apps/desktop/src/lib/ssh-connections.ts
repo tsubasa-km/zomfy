@@ -1,5 +1,5 @@
 import { useEffect } from 'react'
-import { HARNESS_METHODS, type SshConnection, type SshConnectionInput, type SshConnectionTag } from '@acp-harness/protocol'
+import { HARNESS_METHODS, type SshConnection, type SshConnectionInput, type SshConnectionTag } from '@zomfy/protocol'
 import { harnessRequest } from '@/daemon-connection'
 import { allWorkspaces, getState, LOCAL_HOST, selectTerminal, setTerminals, type HostId } from '@/session-store'
 import { createExternalStore } from '@/stores/external-store'

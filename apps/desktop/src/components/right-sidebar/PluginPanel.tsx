@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { isTauri } from '@tauri-apps/api/core'
 import { isPermissionGranted, requestPermission, sendNotification } from '@tauri-apps/plugin-notification'
-import { HARNESS_METHODS, type PluginCapabilityKind } from '@acp-harness/protocol'
+import { HARNESS_METHODS, type PluginCapabilityKind } from '@zomfy/protocol'
 import { harnessRequest } from '@/daemon-connection'
 import { LOCAL_HOST, findWorkspace, getState } from '@/session-store'
 import { enabledPlugins, type ActivePluginPanel } from '@/plugins/plugin-registry'
@@ -48,7 +48,7 @@ async function runAction(action: string, params: unknown, workspaceId: string, p
     return { ok: true, value: { delivered: granted } }
   }
   // terminal.sendText types into a terminal; not offered to plugins in the harness yet.
-  return { ok: false, errorCode: 'unavailable', error: `${action} is not available in acp-harness` }
+  return { ok: false, errorCode: 'unavailable', error: `${action} is not available in Zomfy` }
 }
 
 /** The app's scheme; the frame is re-issued when it flips, so its baked-in tokens follow. */

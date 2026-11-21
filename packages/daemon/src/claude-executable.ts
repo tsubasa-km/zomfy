@@ -1,6 +1,6 @@
 import { existsSync } from "node:fs";
 import { dirname, join } from "node:path";
-import type { ClaudeCliStatus, ClaudeCliUpdateResult } from "@acp-harness/protocol";
+import type { ClaudeCliStatus, ClaudeCliUpdateResult } from "@zomfy/protocol";
 // The SDK's exports map hides its package.json; Bun inlines this at build time.
 import sdkPackage from "../node_modules/@anthropic-ai/claude-agent-sdk/package.json" with { type: "json" };
 import { loadHostSettings } from "./host-settings.ts";

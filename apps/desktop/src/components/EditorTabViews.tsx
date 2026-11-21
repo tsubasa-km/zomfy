@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import type { DiffOnMount } from '@monaco-editor/react'
 import { ArrowDown, ArrowUp, Columns2, FileText, Rows2 } from 'lucide-react'
-import { HARNESS_METHODS } from '@acp-harness/protocol'
+import { HARNESS_METHODS } from '@zomfy/protocol'
 import { harnessRequest } from '@/daemon-connection'
 import { getState, openEditorTab, setEditorDirty, type EditorTab } from '@/session-store'
 import { DropdownMenuCheckboxItem, DropdownMenuItem, DropdownMenuSeparator } from '@/components/ui/dropdown-menu'

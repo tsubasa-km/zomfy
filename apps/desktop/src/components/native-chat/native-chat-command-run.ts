@@ -1,4 +1,4 @@
-import type { ShellOption } from '@acp-harness/protocol'
+import type { ShellOption } from '@zomfy/protocol'
 import { t } from '@/i18n/i18n'
 
 // Which code fences a chat can run in a terminal, in which of the host's shells, and what gets

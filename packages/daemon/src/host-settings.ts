@@ -1,6 +1,6 @@
 import { mkdir, readFile, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
-import { DEFAULT_HOST_SETTINGS, type HostSettings } from '@acp-harness/protocol'
+import { DEFAULT_HOST_SETTINGS, type HostSettings } from '@zomfy/protocol'
 import { HARNESS_HOME } from './harness-home.ts'
 import { log } from './log.ts'
 

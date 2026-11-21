@@ -1,4 +1,4 @@
-import type { Workspace, WorkspaceInspection, WorkspaceSummary } from '@acp-harness/protocol'
+import type { Workspace, WorkspaceInspection, WorkspaceSummary } from '@zomfy/protocol'
 import { git } from './git-cli.ts'
 
 // Card badges and delete-dialog facts. Git 2.25: diff --numstat, rev-list --left-right --count, @{u}.

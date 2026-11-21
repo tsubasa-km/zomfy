@@ -1,6 +1,6 @@
 import { useEffect, useRef } from 'react'
 import { ExternalLink } from 'lucide-react'
-import { chatAgentLabel, workflowScorecard } from '@acp-harness/protocol'
+import { chatAgentLabel, workflowScorecard } from '@zomfy/protocol'
 import { allProjects, allWorkspaces, useStore, type Session } from '@/session-store'
 import { useChatSession } from '@/stores/chat-store'
 import { loadWorkflowRuns, useWorkflowRuns, type HostedWorkflowRun } from '@/stores/workflow-runs-store'

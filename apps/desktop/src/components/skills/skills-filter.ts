@@ -1,4 +1,4 @@
-import type { DiscoveredSkill, SkillDiscoveryResult, SkillSourceKind } from '@acp-harness/protocol'
+import type { DiscoveredSkill, SkillDiscoveryResult, SkillSourceKind } from '@zomfy/protocol'
 import { t } from '@/i18n/i18n'
 
 // Orca's skills-filter.ts, skill-agent-filter.ts and skill-display-labels.ts.

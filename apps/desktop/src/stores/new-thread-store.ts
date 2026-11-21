@@ -1,4 +1,4 @@
-import { isChatAgentId, type ChatAgentId, type ChatEffort, type ChatPermissionMode, type SessionOptions } from '@acp-harness/protocol'
+import { isChatAgentId, type ChatAgentId, type ChatEffort, type ChatPermissionMode, type SessionOptions } from '@zomfy/protocol'
 import { defaultChatAgent } from '@/lib/default-chat-agent'
 import { getSetting, useSetting } from './settings-store'
 import { createExternalStore } from './external-store'
@@ -24,7 +24,7 @@ interface NewThreadChoices {
   effort: ChatEffort | null
 }
 
-const STORAGE_KEY = 'acp-harness.new-thread.v1'
+const STORAGE_KEY = 'zomfy.new-thread.v1'
 const EMPTY: NewThreadChoices = { agent: null, permissionMode: null, model: null, effort: null }
 
 function load(): NewThreadChoices {

@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { ChevronDown, FileDiff, LoaderCircle } from 'lucide-react'
-import { HARNESS_METHODS, type HostedReview, type HostedReviewFile } from '@acp-harness/protocol'
+import { HARNESS_METHODS, type HostedReview, type HostedReviewFile } from '@zomfy/protocol'
 import { harnessRequest } from '@/daemon-connection'
 import { openEditorTab } from '@/session-store'
 import { cn } from '@/lib/utils'

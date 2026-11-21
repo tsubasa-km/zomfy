@@ -1,4 +1,4 @@
-import { HARNESS_METHODS, PROJECT_CATALOG_NOTIFICATIONS } from "@acp-harness/protocol";
+import { HARNESS_METHODS, PROJECT_CATALOG_NOTIFICATIONS } from "@zomfy/protocol";
 import { ProjectCatalogStore } from "../project-catalog.ts";
 import type { HandlerContext } from "./handler-context.ts";
 

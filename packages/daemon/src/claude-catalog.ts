@@ -1,5 +1,5 @@
 import { query, type SDKUserMessage } from "@anthropic-ai/claude-agent-sdk";
-import type { ChatCatalog, ChatEffort } from "@acp-harness/protocol";
+import type { ChatCatalog, ChatEffort } from "@zomfy/protocol";
 import { resolveClaudeExecutable } from "./claude-executable.ts";
 import { log } from "./log.ts";
 

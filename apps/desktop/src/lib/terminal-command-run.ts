@@ -1,4 +1,4 @@
-import { HARNESS_METHODS, type InlineTerminalAnchor } from '@acp-harness/protocol'
+import { HARNESS_METHODS, type InlineTerminalAnchor } from '@zomfy/protocol'
 import { closeTerminal, createTerminal, harnessRequest } from '@/daemon-connection'
 import { getState, selectTerminal, setTerminals } from '@/session-store'
 

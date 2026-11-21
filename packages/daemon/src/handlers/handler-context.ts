@@ -8,8 +8,8 @@ import type {
   TurnResumeKind,
   WorkflowStepContext,
   WorkflowStepUsage,
-} from "@acp-harness/protocol";
-import type { PromptOrigin } from "@acp-harness/protocol";
+} from "@zomfy/protocol";
+import type { PromptOrigin } from "@zomfy/protocol";
 import type { TurnAutoResume } from "../turn-auto-resume.ts";
 import type { StepOptions } from "../claude-turn.ts";
 import type { AcpAgentSessions } from "../acp-agent-sessions.ts";

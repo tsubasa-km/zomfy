@@ -8,7 +8,7 @@ import {
   type ManagerCallResult,
   type TodoLink,
   type Workflow
-} from '@acp-harness/protocol'
+} from '@zomfy/protocol'
 import {
   answerPermission,
   createSession,

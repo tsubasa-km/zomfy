@@ -1,4 +1,4 @@
-import type { LeadConsultResult } from "@acp-harness/protocol";
+import type { LeadConsultResult } from "@zomfy/protocol";
 import type { HandlerContext } from "./handlers/handler-context.ts";
 
 // A workflow step's question put to the chat that started its run, as a turn of that chat's own. It

@@ -1,4 +1,4 @@
-import { normalizeWrapUp, wrapUpOwner, type WrapUpCard, type WrapUpStep } from '@acp-harness/protocol'
+import { normalizeWrapUp, wrapUpOwner, type WrapUpCard, type WrapUpStep } from '@zomfy/protocol'
 
 // The Next steps card's two sources: an agent's wrap_up call, and, for replies made without it,
 // the recap agents end a turn with ("### ネクストステップ" + a numbered list tagged 〔owner〕).

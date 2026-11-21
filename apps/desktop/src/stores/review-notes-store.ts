@@ -20,7 +20,7 @@ export interface ReviewNote {
   compare?: { base: string; head: string; label: string }
 }
 
-const KEY = 'acp-harness.review-notes.v1'
+const KEY = 'zomfy.review-notes.v1'
 
 function readSaved(): Record<string, ReviewNote[]> {
   try {

@@ -5,7 +5,7 @@ import {
   isManagerToolName,
   type ManagerCallResult,
   type ManagerToolName,
-} from "@acp-harness/protocol";
+} from "@zomfy/protocol";
 import { log } from "./log.ts";
 
 // The manager tools as a Streamable HTTP MCP server on the daemon's own port (POST /mcp/harness,
@@ -158,7 +158,7 @@ class ManagerMcpServer {
         return rpcResult(id, {
           protocolVersion: PROTOCOL_VERSIONS.includes(asked) ? asked : PROTOCOL_VERSIONS[0],
           capabilities: { tools: { listChanged: false } },
-          serverInfo: { name: "acp-harness-manager", version: "0.0.1" },
+          serverInfo: { name: "zomfy-manager", version: "0.0.1" },
           instructions:
             "Tools to see and drive agent sessions across this person's hosts and projects. Ids come from the list_* tools.",
         });

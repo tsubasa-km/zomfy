@@ -1,4 +1,4 @@
-import type { AutoResumeState, TurnEndMeta } from "@acp-harness/protocol";
+import type { AutoResumeState, TurnEndMeta } from "@zomfy/protocol";
 import type { SessionRegistry } from "./session-registry.ts";
 import { log } from "./log.ts";
 

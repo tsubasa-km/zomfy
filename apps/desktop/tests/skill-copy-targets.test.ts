@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test'
-import type { DiscoveredSkill, SkillDiscoveryResult, SkillDiscoverySource } from '@acp-harness/protocol'
+import type { DiscoveredSkill, SkillDiscoveryResult, SkillDiscoverySource } from '@zomfy/protocol'
 import { skillCopyTargets } from '../src/components/skills/skills-filter.ts'
 
 const source = (id: string, path: string, kind: SkillDiscoverySource['sourceKind'], owner: string | null, exists: boolean, label = id): SkillDiscoverySource => ({

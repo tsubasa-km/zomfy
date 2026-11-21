@@ -1,6 +1,6 @@
 import { useId, useRef } from 'react'
 import { Check, ChevronDown } from 'lucide-react'
-import type { ChatAgentOption } from '@acp-harness/protocol'
+import type { ChatAgentOption } from '@zomfy/protocol'
 import { Button } from '@/components/ui/button'
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command'
 import {

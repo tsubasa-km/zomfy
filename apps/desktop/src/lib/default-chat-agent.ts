@@ -1,4 +1,4 @@
-import { isChatAgentId, type ChatAgentId } from '@acp-harness/protocol'
+import { isChatAgentId, type ChatAgentId } from '@zomfy/protocol'
 import { getSetting } from '@/stores/settings-store'
 
 /** The agent new chats start with (Orca's defaultTuiAgent), set by onboarding or Settings › Agents. */

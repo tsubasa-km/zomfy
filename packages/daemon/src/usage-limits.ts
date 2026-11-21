@@ -2,7 +2,7 @@ import { readFile } from "node:fs/promises";
 import { homedir } from "node:os";
 import { join } from "node:path";
 import type { Query } from "@anthropic-ai/claude-agent-sdk";
-import type { ProviderUsageLimits, UsageLimitWindow, UsageLimitsResult } from "@acp-harness/protocol";
+import type { ProviderUsageLimits, UsageLimitWindow, UsageLimitsResult } from "@zomfy/protocol";
 import { log } from "./log.ts";
 
 // How much of the host's accounts' usage limits is spent, as Orca's rate-limit service reads it:

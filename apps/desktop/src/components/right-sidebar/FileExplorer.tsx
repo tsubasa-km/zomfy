@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { FileIcon, FolderIcon } from '@/components/FileIcon'
 import { Ellipsis, FilePlus, FolderPlus, ListCollapse, Loader2, RefreshCw, X } from 'lucide-react'
-import { HARNESS_METHODS, type FileEntry, type GitChange } from '@acp-harness/protocol'
+import { HARNESS_METHODS, type FileEntry, type GitChange } from '@zomfy/protocol'
 import { harnessRequest } from '@/daemon-connection'
 import { allWorkspaces, closeEditorTab, getState, moveEditorTabs, openEditorTab, previewEditorFile, setRightSidebar, useStore } from '@/session-store'
 import { keepTab } from '@/stores/tab-layout-store'

@@ -2,7 +2,7 @@ import { Database } from 'bun:sqlite'
 import { copyFile, mkdtemp, readFile, rm } from 'node:fs/promises'
 import { homedir, tmpdir } from 'node:os'
 import { join } from 'node:path'
-import type { OrcaProject } from '@acp-harness/protocol'
+import type { OrcaProject } from '@zomfy/protocol'
 
 /** Orca's Electron userData folder for the packaged app (not the `orca-dev` build). */
 function orcaUserData(): string {
@@ -28,7 +28,7 @@ export async function readOrcaProjects(): Promise<OrcaProject[]> {
   const profileId: string = index.activeProfileId
   const source = join(userData, 'profiles', profileId, 'profile-state.db')
 
-  const scratch = await mkdtemp(join(tmpdir(), 'acp-harness-orca-'))
+  const scratch = await mkdtemp(join(tmpdir(), 'zomfy-orca-'))
   try {
     const copy = join(scratch, 'profile-state.db')
     await copyFile(source, copy)

@@ -1,6 +1,6 @@
 import { homedir } from "node:os";
 import type { Query } from "@anthropic-ai/claude-agent-sdk";
-import { HARNESS_METHODS, MANAGER_MCP_SERVER_NAME, type ChatMcpStatusResult } from "@acp-harness/protocol";
+import { HARNESS_METHODS, MANAGER_MCP_SERVER_NAME, type ChatMcpStatusResult } from "@zomfy/protocol";
 import type { HandlerContext } from "./handler-context.ts";
 import { ClaudeControl, SIGN_IN_MS, chatMcpServer, startMcpSignIn, submitMcpCallback } from "../claude-control.ts";
 import { UsageLimits } from "../usage-limits.ts";

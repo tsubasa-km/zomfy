@@ -1,6 +1,6 @@
 import { useEffect, useRef } from 'react'
 import { List, ListTree, Loader2, MoreHorizontal, RefreshCw, Search, Settings2, X } from 'lucide-react'
-import type { GitBranchCompareSummary } from '@acp-harness/protocol'
+import type { GitBranchCompareSummary } from '@zomfy/protocol'
 import { Button } from '@/components/ui/button'
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'

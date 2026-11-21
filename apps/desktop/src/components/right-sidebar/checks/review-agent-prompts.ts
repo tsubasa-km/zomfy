@@ -1,4 +1,4 @@
-import type { HostedCheck, HostedReview, HostedReviewComment } from '@acp-harness/protocol'
+import type { HostedCheck, HostedReview, HostedReviewComment } from '@zomfy/protocol'
 import { checkStatusText, reviewShortLabel } from './review-presentation'
 
 // Orca's pr-checks-fix-prompt.ts and pr-comments-resolution-prompt.ts, without the log tails and

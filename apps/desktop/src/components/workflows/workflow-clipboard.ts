@@ -1,4 +1,4 @@
-import type { Workflow, WorkflowCycleSettings, WorkflowEdge, WorkflowNode } from '@acp-harness/protocol'
+import type { Workflow, WorkflowCycleSettings, WorkflowEdge, WorkflowNode } from '@zomfy/protocol'
 
 // Copying steps: the steps, the edges between them, and the names and limits of loops they start.
 // Kept per window, so steps copied from one workflow paste into another.

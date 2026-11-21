@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { isTauri } from '@tauri-apps/api/core'
 import { open } from '@tauri-apps/plugin-dialog'
-import { HARNESS_METHODS, type BranchList, type ProjectHookInfo } from '@acp-harness/protocol'
+import { HARNESS_METHODS, type BranchList, type ProjectHookInfo } from '@zomfy/protocol'
 import { harnessRequest, hostForPath } from '@/daemon-connection'
 import type { HostedProject } from '@/session-store'
 import { projectLabel } from '@/components/sidebar/workspace-visibility'

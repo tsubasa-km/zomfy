@@ -1,4 +1,4 @@
-import type { CatalogProject } from '@acp-harness/protocol'
+import type { CatalogProject } from '@zomfy/protocol'
 import type { HostEntry, HostedProject } from '@/session-store'
 import { projectEntries } from '@/components/sidebar/project-entries'
 import { sortProjects } from '@/components/sidebar/workspace-visibility'

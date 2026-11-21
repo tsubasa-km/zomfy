@@ -1,5 +1,5 @@
 import { Terminal } from '@xterm/xterm'
-import { HARNESS_METHODS } from '@acp-harness/protocol'
+import { HARNESS_METHODS } from '@zomfy/protocol'
 import { harnessRequest } from '@/daemon-connection'
 
 /** The terminal's text as a screen shows it: escapes applied, wrapped rows joined, trailing blanks gone. */

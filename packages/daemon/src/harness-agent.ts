@@ -7,7 +7,8 @@ import {
   QUICK_CHAT_SYSTEM_PROMPT,
   SESSION_REPLAY_META,
   PROMPT_ORIGIN_META,
-  PROMPT_NOT_SENT_META,
+  PROMPT_NOT_SENT_REPLY_META,
+  promptNotSent,
   TURN_RECOVERY_META,
   TURN_RECOVERY_NOTIFICATIONS,
   WRAP_UP_HINT,
@@ -20,8 +21,8 @@ import {
   type PromptOrigin,
   type TurnResumeKind,
   type ManagerToolName,
-} from "@acp-harness/protocol";
-import type { WorkflowStepContext, WorkflowStepUsage } from "@acp-harness/protocol";
+} from "@zomfy/protocol";
+import type { WorkflowStepContext, WorkflowStepUsage } from "@zomfy/protocol";
 import { releaseFinishedTurn, runClaudeTurn, type StepOptions } from "./claude-turn.ts";
 import { WorktreeClaims } from "./worktree-claims.ts";
 import { finishWorktree } from "./worktree-finish.ts";
@@ -138,7 +139,7 @@ export function createHarnessAgent(
     startTurn: async (sessionId, text, origin) => {
       if (pendingTurns.has(sessionId)) return "not-sent";
       const reply = await prompt({ sessionId, prompt: [{ type: "text", text }] }, askAnyClient, null, undefined, origin);
-      return reply._meta?.[PROMPT_NOT_SENT_META] === true ? "not-sent" : reply.stopReason;
+      return promptNotSent(reply._meta) ? "not-sent" : reply.stopReason;
     },
     runHelperTurn: async (sessionId, text, origin) => {
       const before = (await sessions.transcript(sessionId)).length;
@@ -409,7 +410,7 @@ export function createHarnessAgent(
       if (waiting?.signal.aborted && !pendingTurns.has(params.sessionId)) {
         sessions.update(params.sessionId, { status: "idle", turnStartedAt: null });
         // Never sent: the window puts the message back in the box.
-        return { stopReason: "cancelled", _meta: { [PROMPT_NOT_SENT_META]: true } };
+        return { stopReason: "cancelled", _meta: { ...PROMPT_NOT_SENT_REPLY_META } };
       }
     }
     const session = sessions.get(params.sessionId);
@@ -421,7 +422,7 @@ export function createHarnessAgent(
         severity: "error",
         title: "This chat is working on its part of a split. Talk to the thread it works for; this chat takes messages once its part is done.",
       }).catch(() => undefined);
-      return { stopReason: "refusal", _meta: { [PROMPT_NOT_SENT_META]: true } };
+      return { stopReason: "refusal", _meta: { ...PROMPT_NOT_SENT_REPLY_META } };
     }
     // "Continue in Terminal": while the CLI has the conversation, a second writer would split it.
     if (cli.has(session.id)) {
@@ -433,7 +434,7 @@ export function createHarnessAgent(
       // The window marked the chat working when it sent the prompt: no turn runs, and the window
       // puts the message back in the box (PROMPT_NOT_SENT_META).
       sessions.update(session.id, { status: "idle", turnStartedAt: null });
-      return { stopReason: "refusal", _meta: { [PROMPT_NOT_SENT_META]: true } };
+      return { stopReason: "refusal", _meta: { ...PROMPT_NOT_SENT_REPLY_META } };
     }
 
     pendingTurns.get(session.id)?.abort();
@@ -624,7 +625,7 @@ export function createHarnessAgent(
   }
 
   const app = acp
-    .agent({ name: "acp-harness" })
+    .agent({ name: "zomfy" })
     .onConnect((connection) => {
       clients.add(connection.client);
       connectionClients.add(connection.client);
@@ -645,7 +646,7 @@ export function createHarnessAgent(
         loadSession: true,
         promptCapabilities: { embeddedContext: true, image: true },
       },
-      agentInfo: { name: "acp-harness", title: "Zomfy", version: "0.0.1" },
+      agentInfo: { name: "zomfy", title: "Zomfy", version: "0.0.1" },
       };
     })
     .onRequest("authenticate", () => ({}))

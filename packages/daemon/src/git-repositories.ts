@@ -1,6 +1,6 @@
 import { readdir, stat } from 'node:fs/promises'
 import { isAbsolute, join, relative, resolve, sep } from 'node:path'
-import type { GitRepository } from '@acp-harness/protocol'
+import type { GitRepository } from '@zomfy/protocol'
 import { currentBranch, isGitRepository } from './git-cli.ts'
 
 // Repositories inside a workspace folder: its own, and ones below it (a separate repository kept in a

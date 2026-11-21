@@ -1,5 +1,5 @@
 import { Maximize2, Minimize2, Minus } from 'lucide-react'
-import { chatAgentLabel, isChatAgentId } from '@acp-harness/protocol'
+import { chatAgentLabel, isChatAgentId } from '@zomfy/protocol'
 import { createSession } from '@/daemon-connection'
 import { useSetting } from '@/stores/settings-store'
 import { useShortcutLabel } from '@/keybindings/keybinding-registry'

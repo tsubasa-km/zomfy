@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { invoke, isTauri } from '@tauri-apps/api/core'
 import { BookOpen, ChevronDown, RefreshCw, Search } from 'lucide-react'
-import { HARNESS_METHODS, type DiscoveredSkill, type SkillDiscoveryResult } from '@acp-harness/protocol'
+import { HARNESS_METHODS, type DiscoveredSkill, type SkillDiscoveryResult } from '@zomfy/protocol'
 import { harnessRequest } from '@/daemon-connection'
 import { LOCAL_HOST, allWorkspaces, useStore, type HostId } from '@/session-store'
 import { setSkillsPageOpen } from '@/stores/app-overlay-store'

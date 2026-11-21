@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { HARNESS_METHODS, type Workspace } from '@acp-harness/protocol'
+import { HARNESS_METHODS, type Workspace } from '@zomfy/protocol'
 import { harnessRequest } from '@/daemon-connection'
 import { useStore, type HostedProject } from '@/session-store'
 import { setSummaries, useSidebarStore } from '@/stores/sidebar-store'

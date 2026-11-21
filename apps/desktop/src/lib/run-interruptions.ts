@@ -1,5 +1,5 @@
 import { toast } from 'sonner'
-import { HARNESS_METHODS, type WorkflowRun } from '@acp-harness/protocol'
+import { HARNESS_METHODS, type WorkflowRun } from '@zomfy/protocol'
 import { harnessRequest } from '@/daemon-connection'
 import type { HostId } from '@/session-store'
 import { WINDOW_ROLE } from '@/lib/window-role'
@@ -10,7 +10,7 @@ import { t } from '@/i18n/i18n'
 // offered back: a toast with Resume, once as it happens and again when a host connects, until the
 // person resumes it or says not now. Only the main window asks.
 
-const DISMISSED_KEY = 'acp-harness.dismissed-run-toasts.v1'
+const DISMISSED_KEY = 'zomfy.dismissed-run-toasts.v1'
 /** One toast per run per window. */
 const shown = new Set<string>()
 

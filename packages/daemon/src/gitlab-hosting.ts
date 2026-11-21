@@ -7,7 +7,7 @@ import type {
   HostedReviewFile,
   HostedWorkItem,
   WorkItemPreset
-} from '@acp-harness/protocol'
+} from '@zomfy/protocol'
 import { TtlCache } from './hosting-cache.ts'
 import { parseJson } from './hosting-cli.ts'
 import { countPatchLines, pickBranchReview, type HostingContext, type HostingProvider } from './hosting-provider.ts'

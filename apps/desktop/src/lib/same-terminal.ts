@@ -1,4 +1,4 @@
-import type { TerminalInfo } from '@acp-harness/protocol'
+import type { TerminalInfo } from '@zomfy/protocol'
 
 /** Whether a host's terminal info says what the stored one does (shallow; nested values compared as JSON). */
 export function sameTerminal(stored: TerminalInfo & { hostId: string }, info: TerminalInfo): boolean {

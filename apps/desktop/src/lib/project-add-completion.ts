@@ -1,5 +1,5 @@
 import { toast } from 'sonner'
-import { HARNESS_METHODS, NOT_A_GIT_REPOSITORY, type Project } from '@acp-harness/protocol'
+import { HARNESS_METHODS, NOT_A_GIT_REPOSITORY, type Project } from '@zomfy/protocol'
 import { createSession, harnessRequest } from '@/daemon-connection'
 import { allProjects, getState, selectWorkspace, setDashboardOpen, setHarnessState, type HostId } from '@/session-store'
 import { closeSettings } from '@/stores/app-overlay-store'

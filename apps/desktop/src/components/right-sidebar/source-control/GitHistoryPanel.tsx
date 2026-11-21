@@ -1,7 +1,7 @@
 import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { FileIcon } from '@/components/FileIcon'
 import { ChevronDown, Copy, Hash, RefreshCw } from 'lucide-react'
-import type { GitChange, GitCommitChanges, GitHistoryItem, GitHistoryItemRef, GitHistoryResult } from '@acp-harness/protocol'
+import type { GitChange, GitCommitChanges, GitHistoryItem, GitHistoryItemRef, GitHistoryResult } from '@zomfy/protocol'
 import { GIT_STATUS_COLOR, GIT_STATUS_LETTER } from '@/hooks/use-git-status'
 import { Button } from '@/components/ui/button'
 import { ContextMenu, ContextMenuContent, ContextMenuItem, ContextMenuTrigger } from '@/components/ui/context-menu'

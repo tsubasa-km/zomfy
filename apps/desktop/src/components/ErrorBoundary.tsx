@@ -32,7 +32,7 @@ export class ErrorBoundary extends Component<Props, { error: Error | null }> {
  * What the window restores its tabs from. A tab saved in a state that fails to render would fail
  * again on every reload; reopening without them keeps every chat and project (those live on hosts).
  */
-const TAB_STORAGE_KEYS = ['acp-harness.layout.v1', 'acp-harness.tab-layout.v1', 'acp-harness.browser-tabs.v1', 'acp-harness.panel-tabs.v1']
+const TAB_STORAGE_KEYS = ['zomfy.layout.v1', 'zomfy.tab-layout.v1', 'zomfy.browser-tabs.v1', 'zomfy.panel-tabs.v1']
 
 function reopenWithoutTabs(): void {
   for (const key of TAB_STORAGE_KEYS) {

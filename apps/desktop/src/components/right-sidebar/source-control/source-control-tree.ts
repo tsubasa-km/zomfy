@@ -1,4 +1,4 @@
-import type { GitChange } from '@acp-harness/protocol'
+import type { GitChange } from '@zomfy/protocol'
 
 // Orca's source-control-tree.ts: path tree per section, single-child folder chains compacted
 // (as VS Code does), flattened against the collapsed set for rendering.

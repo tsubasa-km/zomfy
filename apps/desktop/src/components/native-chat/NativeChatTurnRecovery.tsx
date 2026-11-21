@@ -1,6 +1,6 @@
 import { useEffect, useId, useState } from 'react'
 import { CircleAlert, Hourglass, Play, RotateCw } from 'lucide-react'
-import type { AutoResumeState, TurnResumeKind } from '@acp-harness/protocol'
+import type { AutoResumeState, TurnResumeKind } from '@zomfy/protocol'
 import { Button } from '@/components/ui/button'
 import { Switch } from '@/components/ui/switch'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'

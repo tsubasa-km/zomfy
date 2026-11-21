@@ -1,4 +1,4 @@
-import type { GitBranchCompareResult, GitBranchCompareSummary } from '@acp-harness/protocol'
+import type { GitBranchCompareResult, GitBranchCompareSummary } from '@zomfy/protocol'
 import { changesBetween } from './git-changes.ts'
 import { git } from './git-cli.ts'
 import { defaultBaseRef } from './workspace-manager.ts'

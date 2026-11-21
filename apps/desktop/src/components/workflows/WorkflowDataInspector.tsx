@@ -1,5 +1,5 @@
 import { Lock, Trash2 } from 'lucide-react'
-import type { Workflow, WorkflowDataLink, WorkflowDataSource } from '@acp-harness/protocol'
+import type { Workflow, WorkflowDataLink, WorkflowDataSource } from '@zomfy/protocol'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'

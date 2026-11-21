@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, test, setDefaultTimeout } from
 import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import type { Project, Workspace } from "@acp-harness/protocol";
+import type { Project, Workspace } from "@zomfy/protocol";
 import { git } from "./git-cli.ts";
 import { finishWorktree, type FinishDeps } from "./worktree-finish.ts";
 

@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test'
-import type { Workflow } from '@acp-harness/protocol'
+import type { Workflow } from '@zomfy/protocol'
 import { copyOfWorkflow, workflowFromSpec } from '../src/manager/workflow-tools.ts'
 
 const spec = {

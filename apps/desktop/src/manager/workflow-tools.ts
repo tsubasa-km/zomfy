@@ -1,4 +1,4 @@
-import { WORKFLOW_PERMISSION_MODES, type Workflow, type WorkflowEdge, type WorkflowNode, type WorkflowNodeKind } from '@acp-harness/protocol'
+import { WORKFLOW_PERMISSION_MODES, type Workflow, type WorkflowEdge, type WorkflowNode, type WorkflowNodeKind } from '@zomfy/protocol'
 
 // The pieces behind the agent's save_workflow and copy_workflow tools and the Workflows page's
 // "Copy from another project": a workflow built from the plain graph an agent writes, laid out on the

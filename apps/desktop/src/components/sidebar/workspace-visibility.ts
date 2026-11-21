@@ -1,4 +1,4 @@
-import type { Project, Workspace } from '@acp-harness/protocol'
+import type { Project, Workspace } from '@zomfy/protocol'
 
 // How projects and workspaces are named and ordered wherever they are listed.
 

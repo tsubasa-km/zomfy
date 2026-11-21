@@ -1,4 +1,4 @@
-import { HARNESS_METHODS, type ChatAttachmentKind } from '@acp-harness/protocol'
+import { HARNESS_METHODS, type ChatAttachmentKind } from '@zomfy/protocol'
 import { ensureSessionLoaded, harnessRequest } from '@/daemon-connection'
 import { requestComposerFocus } from '@/chat-actions'
 import { patchChatSession } from '@/stores/chat-store'

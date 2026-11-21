@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Check, ClipboardCopy, FolderOpen, Plus, Trash2 } from 'lucide-react'
-import { HARNESS_METHODS, type DiscoveredSkill, type SkillDiscoveryResult } from '@acp-harness/protocol'
+import { HARNESS_METHODS, type DiscoveredSkill, type SkillDiscoveryResult } from '@zomfy/protocol'
 import { harnessRequest } from '@/daemon-connection'
 import type { HostId } from '@/session-store'
 import { Button } from '@/components/ui/button'

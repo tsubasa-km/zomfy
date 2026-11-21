@@ -1,6 +1,6 @@
 import { ChevronRight, Copy, Replace, ReplaceAll } from 'lucide-react'
 import { FileIcon } from '@/components/FileIcon'
-import type { SearchMatch } from '@acp-harness/protocol'
+import type { SearchMatch } from '@zomfy/protocol'
 import { Button } from '@/components/ui/button'
 import { ContextMenu, ContextMenuContent, ContextMenuItem, ContextMenuTrigger } from '@/components/ui/context-menu'
 import { cn } from '@/lib/utils'

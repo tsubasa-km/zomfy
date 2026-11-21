@@ -1,5 +1,5 @@
 import { HardDrive, Pencil, Plus } from 'lucide-react'
-import { chatAgentLabel, type WorkflowAgentProfile } from '@acp-harness/protocol'
+import { chatAgentLabel, type WorkflowAgentProfile } from '@zomfy/protocol'
 import { TuiAgentIcon } from '@/components/terminal/TuiAgentIcon'
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog'

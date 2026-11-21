@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { ChevronDown, CircleCheck, CircleDashed, CircleX, ExternalLink, LoaderCircle } from 'lucide-react'
-import type { HostedCheck } from '@acp-harness/protocol'
+import type { HostedCheck } from '@zomfy/protocol'
 import { Button } from '@/components/ui/button'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { cn } from '@/lib/utils'

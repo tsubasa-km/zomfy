@@ -1,4 +1,4 @@
-import { HARNESS_METHODS } from '@acp-harness/protocol'
+import { HARNESS_METHODS } from '@zomfy/protocol'
 import { harnessRequest } from '@/daemon-connection'
 
 // The omnibox's file list: a bounded breadth-first walk of the workspace through fs/list, cached

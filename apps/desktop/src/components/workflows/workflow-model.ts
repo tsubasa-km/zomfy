@@ -10,7 +10,7 @@ import {
   type WorkflowNode,
   type WorkflowNodeKind,
   type WorkflowOutcome
-} from '@acp-harness/protocol'
+} from '@zomfy/protocol'
 import { t } from '@/i18n/i18n'
 
 // The editor's model of a workflow: what each step kind is, the starting template, and the checks

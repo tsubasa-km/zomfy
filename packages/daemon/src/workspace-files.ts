@@ -1,6 +1,6 @@
 import { chmod, open, readdir, realpath, rename, stat, writeFile } from 'node:fs/promises'
 import { join, relative, resolve, sep } from 'node:path'
-import type { FileContent, FileEntry } from '@acp-harness/protocol'
+import type { FileContent, FileEntry } from '@zomfy/protocol'
 import { completeLength } from './text-encodings.ts'
 
 /** Previews stop here; larger files open truncated. */
@@ -75,7 +75,7 @@ export async function writeWorkspaceFile(
   if (current && expectedMtimeMs !== undefined && Math.abs(current.mtimeMs - expectedMtimeMs) > 1) {
     throw new Error(`${path} changed on disk since it was opened; reload it before saving`)
   }
-  const temp = `${absolute}.acp-harness-${process.pid}.tmp`
+  const temp = `${absolute}.zomfy-${process.pid}.tmp`
   await writeFile(temp, content)
   // Keep the executable bit and other mode flags the original had.
   if (current) await chmod(temp, current.mode & 0o7777).catch(() => undefined)

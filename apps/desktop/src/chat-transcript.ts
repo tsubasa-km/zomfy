@@ -9,7 +9,7 @@ import { WORKFLOW_META,
   type TurnEndMeta,
   type PromptOrigin,
   type TurnResumeKind
-} from '@acp-harness/protocol'
+} from '@zomfy/protocol'
 import { appendText, getState, updateSession, upsertTool, type ChatImage, type ThreadItem } from '@/session-store'
 import { patchChatSession } from '@/stores/chat-store'
 import { t } from '@/i18n/i18n'

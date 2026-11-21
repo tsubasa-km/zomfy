@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test'
-import type { Workflow } from '@acp-harness/protocol'
+import type { Workflow } from '@zomfy/protocol'
 import { EditHistory } from '../src/components/workflows/workflow-edit-history.ts'
 import { pasteSnippet, snippetOf } from '../src/components/workflows/workflow-clipboard.ts'
 import { newAgentStep, reviewLoopTemplate, validateWorkflow, withoutData, withoutSteps } from '../src/components/workflows/workflow-model.ts'

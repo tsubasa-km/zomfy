@@ -20,6 +20,22 @@ const CREATE_BREAKAWAY_FROM_JOB: u32 = 0x0100_0000;
 
 static RESOURCE_DIR: OnceLock<PathBuf> = OnceLock::new();
 
+/// Run on a WSL or SSH host before a daemon is installed: stops a daemon still running under the
+/// legacy name and moves its home to `~/.zomfy`, leaving a link at the old path, so the host keeps
+/// one home with its sessions, tokens and settings. A host whose home cannot be moved fails the
+/// install rather than starting a second, empty home beside it.
+pub const LEGACY_HOME_MIGRATION: &str = r#"O="$HOME/.acp-harness"; N="$HOME/.zomfy" # legacy home, and where it moves
+if [ -d "$O" ] && [ ! -L "$O" ]; then
+  pkill -f "$O/bin/acp-harness-daemon --port" 2>/dev/null || true # stop the legacy daemon
+  i=0; while pgrep -f "$O/bin/acp-harness-daemon --port" >/dev/null 2>&1 && [ $i -lt 40 ]; do sleep 0.25; i=$((i+1)); done # legacy
+  if [ ! -e "$N" ]; then
+    mv "$O" "$N" || { echo "Could not move the legacy ~/.acp-harness to ~/.zomfy" >&2; exit 5; }
+    ln -s "$N" "$O" 2>/dev/null || true
+    rm -f "$N/bin/acp-harness-daemon" "$N/bin/acp-harness-daemon.stamp" "$N/daemon.json" # legacy binary
+  fi
+fi
+"#;
+
 /// The installed app's resource folder, where the installer put the daemon binaries.
 pub fn set_resource_dir(dir: PathBuf) {
     let _ = RESOURCE_DIR.set(dir);

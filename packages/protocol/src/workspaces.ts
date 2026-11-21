@@ -164,7 +164,7 @@ export interface WorkspaceInspection {
 }
 
 export interface ProjectHookInfo {
-  /** orca.yaml or acp-harness.yaml at the project root, when present. */
+  /** orca.yaml or zomfy.yaml at the project root, when present. */
   file: string | null
   fileHooks: ProjectHooks
   localHooks: ProjectHooks
@@ -180,9 +180,9 @@ export interface OrcaProject {
 
 /** Where the Add Project dialog's Clone and Create steps start, resolved on the daemon's own host. */
 export interface ProjectCreationDefaults {
-  /** `<home>/acp-harness/projects` (Orca's `~/orca/projects`). */
+  /** `<home>/zomfy/projects` (Orca's `~/orca/projects`). */
   createParent: string
-  /** `<home>/acp-harness`, beside the workspaces. */
+  /** `<home>/zomfy`, beside the workspaces. */
   cloneParent: string
   /** null when the probe could not tell. */
   gitAvailable: boolean | null

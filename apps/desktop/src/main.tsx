@@ -1,3 +1,5 @@
+// First: renames legacy storage keys before the stores below read theirs.
+import "./lib/migrate-legacy-storage";
 import React from "react";
 import ReactDOM from "react-dom/client";
 import { WINDOW_ROLE } from "./lib/window-role";

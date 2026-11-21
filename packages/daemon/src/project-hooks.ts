@@ -1,14 +1,18 @@
 import { existsSync } from 'node:fs'
 import { chmod, mkdir, readFile, writeFile } from 'node:fs/promises'
 import { basename, dirname, join, resolve } from 'node:path'
-import type { Project, ProjectHookInfo, ProjectHooks } from '@acp-harness/protocol'
+import type { Project, ProjectHookInfo, ProjectHooks } from '@zomfy/protocol'
 import { git } from './git-cli.ts'
 import { log } from './log.ts'
 
 // Orca's orca.yaml `scripts.setup` / `scripts.archive` (src/main/hooks.ts, worktree-runner-script.ts).
-// acp-harness.yaml is read first so a repo can carry harness-specific hooks next to Orca's.
+// zomfy.yaml is read first so a repo can carry harness-specific hooks next to Orca's; repos set up
+// before the rename may still carry the legacy name for it.
 
-const HOOK_FILES = ['acp-harness.yaml', 'orca.yaml']
+const LEGACY_HOOK_FILE = 'acp-harness.yaml'
+const HOOK_FILES = ['zomfy.yaml', LEGACY_HOOK_FILE, 'orca.yaml']
+/** Hook scripts written before the rename read these names. */
+const LEGACY_HOOK_ENV_PREFIX = 'ACP_HARNESS_'
 const ARCHIVE_TIMEOUT_MS = 120_000
 const SETUP_TIMEOUT_MS = 10 * 60_000
 
@@ -58,7 +62,7 @@ export async function writeHookRunner(
   script: string
 ): Promise<HookLaunch> {
   const posix = process.platform !== 'win32' || script.trimStart().startsWith('#!')
-  const rel = `acp-harness/${kind}-runner.${posix ? 'sh' : 'cmd'}`
+  const rel = `zomfy/${kind}-runner.${posix ? 'sh' : 'cmd'}`
   const runner = resolve(worktreePath, await git(worktreePath, ['rev-parse', '--git-path', rel]))
   await mkdir(dirname(runner), { recursive: true })
   await writeFile(runner, posix ? posixRunner(script) : windowsRunner(script))
@@ -127,9 +131,12 @@ function hookEnv(project: Project, worktreePath: string): Record<string, string>
     ORCA_ROOT_PATH: project.path,
     ORCA_WORKTREE_PATH: worktreePath,
     ORCA_WORKSPACE_NAME: name,
-    ACP_HARNESS_ROOT_PATH: project.path,
-    ACP_HARNESS_WORKTREE_PATH: worktreePath,
-    ACP_HARNESS_WORKSPACE_NAME: name
+    ZOMFY_ROOT_PATH: project.path,
+    ZOMFY_WORKTREE_PATH: worktreePath,
+    ZOMFY_WORKSPACE_NAME: name,
+    [`${LEGACY_HOOK_ENV_PREFIX}ROOT_PATH`]: project.path,
+    [`${LEGACY_HOOK_ENV_PREFIX}WORKTREE_PATH`]: worktreePath,
+    [`${LEGACY_HOOK_ENV_PREFIX}WORKSPACE_NAME`]: name
   }
 }
 

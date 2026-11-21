@@ -1,6 +1,6 @@
 import type { JSX } from 'react'
 import { ClipboardCopy, FolderOpen, Info, MoreHorizontal, Trash2 } from 'lucide-react'
-import type { DiscoveredSkill } from '@acp-harness/protocol'
+import type { DiscoveredSkill } from '@zomfy/protocol'
 import { Button } from '@/components/ui/button'
 import { ContextMenu, ContextMenuContent, ContextMenuItem, ContextMenuTrigger } from '@/components/ui/context-menu'
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'

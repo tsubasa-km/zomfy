@@ -14,7 +14,7 @@ export interface BrowserTab {
 
 export const BLANK_URL = 'about:blank'
 
-const STORAGE_KEY = 'acp-harness.browser-tabs.v1'
+const STORAGE_KEY = 'zomfy.browser-tabs.v1'
 
 function readSaved(): BrowserTab[] {
   try {

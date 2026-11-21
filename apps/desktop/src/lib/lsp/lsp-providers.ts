@@ -1,5 +1,5 @@
 import { toast } from 'sonner'
-import { parseLspDocumentUri } from '@acp-harness/protocol'
+import { parseLspDocumentUri } from '@zomfy/protocol'
 import { monaco } from '@/lib/monaco-setup'
 import { openEditorTab } from '@/session-store'
 import { t } from '@/i18n/i18n'

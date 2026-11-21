@@ -1,5 +1,5 @@
 import { useSyncExternalStore } from 'react'
-import type { ChatCatalog } from '@acp-harness/protocol'
+import type { ChatCatalog } from '@zomfy/protocol'
 import type { ChatImage } from '@/session-store'
 
 /** Context-window use the daemon reported after the session's latest turn. */

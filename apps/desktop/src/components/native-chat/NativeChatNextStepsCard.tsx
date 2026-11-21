@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { Check, ChevronRight, ListTodo, MessageSquareReply, SquareArrowRight } from 'lucide-react'
-import type { WrapUpStep } from '@acp-harness/protocol'
+import type { WrapUpStep } from '@zomfy/protocol'
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible'
 import { cn } from '@/lib/utils'
 import { useInbox } from '@/stores/inbox-store'

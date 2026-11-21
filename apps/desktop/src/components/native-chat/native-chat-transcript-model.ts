@@ -1,8 +1,8 @@
 import { diffFromToolCall, type NativeChatDiffLine } from '@/shared/native-chat-diff'
-import type { TurnEndMeta } from '@acp-harness/protocol'
+import type { TurnEndMeta } from '@zomfy/protocol'
 import type { ThreadItem } from '@/session-store'
 import { EXPIRED_APPROVAL } from '@/lib/expired-approval'
-import { QUESTION_OPTION_IDS } from '@acp-harness/protocol'
+import { QUESTION_OPTION_IDS } from '@zomfy/protocol'
 import { questionsToAnswer } from './agent-questions'
 import {
   isTaskListTool,

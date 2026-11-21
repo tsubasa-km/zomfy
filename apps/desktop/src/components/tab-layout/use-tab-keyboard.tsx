@@ -16,7 +16,7 @@ import { TabKindIcon } from './TabKindIcon'
 import { closeActivePane } from './pane-split-commands'
 import { t } from '@/i18n/i18n'
 
-export const RENAME_TAB_EVENT = 'acp-harness:rename-tab'
+export const RENAME_TAB_EVENT = 'zomfy:rename-tab'
 
 export function requestTabRename(tabId: string): void {
   window.dispatchEvent(new CustomEvent<string>(RENAME_TAB_EVENT, { detail: tabId }))

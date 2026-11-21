@@ -1,6 +1,6 @@
 import { mkdir, readFile, rename, writeFile } from 'node:fs/promises'
 import { dirname, join } from 'node:path'
-import type { QuickCommand } from '@acp-harness/protocol'
+import type { QuickCommand } from '@zomfy/protocol'
 import { HARNESS_HOME } from './harness-home.ts'
 
 /** Saved terminal commands live on the host that runs them, as Orca keeps them per execution host. */

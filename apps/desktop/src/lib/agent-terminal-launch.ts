@@ -1,4 +1,4 @@
-import type { TuiAgentId } from '@acp-harness/protocol'
+import type { TuiAgentId } from '@zomfy/protocol'
 import { createTerminal } from '@/daemon-connection'
 
 /** Starts an agent CLI in a new terminal tab of the workspace, as Orca's launchAgentInNewTab. */

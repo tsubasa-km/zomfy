@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { isTauri } from '@tauri-apps/api/core'
-import { HARNESS_METHODS } from '@acp-harness/protocol'
+import { HARNESS_METHODS } from '@zomfy/protocol'
 import { harnessRequest } from '@/daemon-connection'
 import { LOCAL_HOST, findWorkspace, type ChatImage } from '@/session-store'
 import { readDroppedImage } from '@/lib/chat-file-drop'

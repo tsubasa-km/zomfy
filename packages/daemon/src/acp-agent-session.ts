@@ -7,7 +7,7 @@ import {
   type ChatAgentOption,
   type ChatAgentSessionState,
   type WorkflowStepUsage
-} from '@acp-harness/protocol'
+} from '@zomfy/protocol'
 import { resolveChatAgent } from './chat-agent-launch-specs.ts'
 import { hostPath } from './tui-agent-detection.ts'
 import { log } from './log.ts'
@@ -203,7 +203,7 @@ export class AcpAgentSession {
     trackChild(proc)
     void pipeStderr(proc.stderr, this.agent)
     const conn = acp
-      .client({ name: 'acp-harness' })
+      .client({ name: 'zomfy' })
       .onRequest('session/request_permission', (ctx) => this.permission(ctx.params))
       .onNotification('session/update', (ctx) => this.onUpdate(ctx.params))
       .connect(acp.ndJsonStream(stdinWriter(proc.stdin), proc.stdout))
@@ -218,7 +218,7 @@ export class AcpAgentSession {
         protocolVersion: acp.PROTOCOL_VERSION,
         // No fs or terminal: the agent edits and runs commands itself, on this same host.
         clientCapabilities: { fs: { readTextFile: false, writeTextFile: false }, terminal: false },
-        clientInfo: { name: 'acp-harness', title: 'Zomfy', version: '0.0.1' }
+        clientInfo: { name: 'zomfy', title: 'Zomfy', version: '0.0.1' }
       })
       const capabilities = init.agentCapabilities ?? {}
       const { agentSessionId, setup } = await this.openSession(conn, capabilities)

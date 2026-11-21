@@ -1,4 +1,4 @@
-import type { Workflow } from '@acp-harness/protocol'
+import type { Workflow } from '@zomfy/protocol'
 
 // The editor's undo and redo. Changes that come in a quick burst (a drag, typing a name) undo as one.
 

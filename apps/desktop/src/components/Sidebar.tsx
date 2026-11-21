@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { HARNESS_METHODS, type Workspace } from '@acp-harness/protocol'
+import { HARNESS_METHODS, type Workspace } from '@zomfy/protocol'
 import { harnessRequest } from '@/daemon-connection'
 import type { HostedProject } from '@/session-store'
 import { DeleteWorkspaceDialog, UpdateWorkspaceDialog } from '@/components/workspace-dialogs'
@@ -45,7 +45,7 @@ export function Sidebar() {
     projectSettings: setSettingsFor,
     cleanUp: setCleanUp,
     removeProject: (project) => {
-      if (window.confirm(t('Remove {name} from acp-harness? Its folders and worktrees on disk are kept.', { name: projectLabel(project) }))) {
+      if (window.confirm(t('Remove {name} from Zomfy? Its folders and worktrees on disk are kept.', { name: projectLabel(project) }))) {
         void harnessRequest(HARNESS_METHODS.projectRemove, { projectId: project.id }, project.hostId)
       }
     }

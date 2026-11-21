@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test'
-import type { TerminalInfo } from '@acp-harness/protocol'
+import type { TerminalInfo } from '@zomfy/protocol'
 import { createTerminalTools } from './terminal-agent-tools.ts'
 import { isPersonInput } from './terminal-manager.ts'
 import { asksForSecret, TerminalScreens } from './terminal-screen.ts'

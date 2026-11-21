@@ -1,4 +1,4 @@
-import type { Workflow, WorkflowNode, WorkflowNodeKind, WorkflowOutcome } from '@acp-harness/protocol'
+import type { Workflow, WorkflowNode, WorkflowNodeKind, WorkflowOutcome } from '@zomfy/protocol'
 import { blankWorkflow, leadCycleTemplate, newNode, reviewLoopTemplate } from './workflow-model'
 
 // Workflows to start from, from a straight line to nested loops, so the shapes can be compared side by side.

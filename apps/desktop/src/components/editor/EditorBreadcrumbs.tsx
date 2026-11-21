@@ -1,7 +1,7 @@
 import { Fragment, useEffect, useState, type ReactNode } from 'react'
 import { FileIcon, FolderIcon } from '@/components/FileIcon'
 import { Box, Braces, ChevronRight, Hash, SquareFunction, Variable } from 'lucide-react'
-import { HARNESS_METHODS, type FileEntry } from '@acp-harness/protocol'
+import { HARNESS_METHODS, type FileEntry } from '@zomfy/protocol'
 import { harnessRequest } from '@/daemon-connection'
 import { findWorkspace, openEditorTab } from '@/session-store'
 import type { monaco } from '@/lib/monaco-setup'

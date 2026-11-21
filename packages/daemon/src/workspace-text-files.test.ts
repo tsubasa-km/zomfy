@@ -3,7 +3,7 @@ import { chmod, mkdtemp, readdir, readFile, realpath, rm, stat, utimes, writeFil
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import iconv from 'iconv-lite'
-import { TEXT_ENCODINGS, type TextEncoding } from '@acp-harness/protocol'
+import { TEXT_ENCODINGS, type TextEncoding } from '@zomfy/protocol'
 import { completeLength, decodeBytes, detectBufferEncoding, encodeText, UnrepresentableTextError } from './text-encodings.ts'
 import { readWorkspaceFile } from './workspace-files.ts'
 import {
@@ -224,9 +224,9 @@ describe('saving in pieces', () => {
     const { saved } = await beginTextWrite(root, { path, encoding: 'utf16le', bom: true, content: 'new', commit: true })
     expect(saved?.size).toBe(8)
     const { writeId } = await beginTextWrite(root, { path, encoding: 'utf8', bom: false, content: 'half' })
-    expect((await readdir(root)).some((name) => name.startsWith('small.txt.acp-harness-'))).toBe(true)
+    expect((await readdir(root)).some((name) => name.startsWith('small.txt.zomfy-'))).toBe(true)
     await abortTextWrite(writeId)
-    expect((await readdir(root)).some((name) => name.startsWith('small.txt.acp-harness-'))).toBe(false)
+    expect((await readdir(root)).some((name) => name.startsWith('small.txt.zomfy-'))).toBe(false)
     expect((await readWhole(path)).content).toBe('new')
     await expect(writeTextChunk(writeId, 'more')).rejects.toThrow('no longer open')
   })

@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { GitBranch, History, MessageSquare } from 'lucide-react'
-import { HARNESS_METHODS, chatAgentLabel, type PastConversation } from '@acp-harness/protocol'
+import { HARNESS_METHODS, chatAgentLabel, type PastConversation } from '@zomfy/protocol'
 import { harnessRequest } from '@/daemon-connection'
 import { selectSession, type Session } from '@/session-store'
 import { resumeConversation } from '@/chat-actions'

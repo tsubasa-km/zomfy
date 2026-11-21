@@ -1,5 +1,5 @@
 import { useEffect } from 'react'
-import { HARNESS_METHODS, type PluginListEntry, type PluginsSnapshot } from '@acp-harness/protocol'
+import { HARNESS_METHODS, type PluginListEntry, type PluginsSnapshot } from '@zomfy/protocol'
 import { harnessRequest } from '@/daemon-connection'
 import { LOCAL_HOST, useStore } from '@/session-store'
 import { createExternalStore } from '@/stores/external-store'
@@ -38,9 +38,9 @@ const ALIASABLE_ACTIONS = new Set([
 
 /** Why a contributed command cannot run here, or null when it can. */
 export function pluginCommandUnavailableReason(action: string | undefined): string | null {
-  if (!action) return t('Needs a plugin worker, which acp-harness does not run')
+  if (!action) return t('Needs a plugin worker, which Zomfy does not run')
   if (!ALIASABLE_ACTIONS.has(action)) return t('{action} is not an action plugins may alias', { action })
-  if (!hasCommandHandler(action)) return t('{action} is not available in acp-harness', { action })
+  if (!hasCommandHandler(action)) return t('{action} is not available in Zomfy', { action })
   return null
 }
 

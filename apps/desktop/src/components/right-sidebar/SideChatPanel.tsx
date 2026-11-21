@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { CornerDownLeft, MessagesSquare, Plus, Undo2 } from 'lucide-react'
-import { SIDE_CHAT_DEFAULT_CONTEXT_MESSAGES, type ChatAgentId } from '@acp-harness/protocol'
+import { SIDE_CHAT_DEFAULT_CONTEXT_MESSAGES, type ChatAgentId } from '@zomfy/protocol'
 import { ensureSessionLoaded } from '@/daemon-connection'
 import { getState, useStore, type ChatImage } from '@/session-store'
 import { mainChatOf, sendToMainChat, sideChatOf, startSideChat } from '@/side-chat-actions'

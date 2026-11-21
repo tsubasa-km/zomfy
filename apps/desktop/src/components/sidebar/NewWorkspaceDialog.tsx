@@ -7,7 +7,7 @@ import {
   type ChatAgentId,
   type HostedWorkItem,
   type ProjectHookInfo
-} from '@acp-harness/protocol'
+} from '@zomfy/protocol'
 import { createSession, harnessRequest, sendPrompt } from '@/daemon-connection'
 import { LOCAL_HOST, selectTerminal, selectWorkspace, useStore, type HostedProject } from '@/session-store'
 import { TuiAgentIcon } from '@/components/terminal/TuiAgentIcon'
