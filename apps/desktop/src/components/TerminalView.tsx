@@ -1,16 +1,13 @@
 import { useEffect, useRef, useState } from 'react'
 import { Ellipsis } from 'lucide-react'
-import { Terminal } from '@xterm/xterm'
-import { FitAddon } from '@xterm/addon-fit'
-import { SearchAddon } from '@xterm/addon-search'
-import { WebLinksAddon } from '@xterm/addon-web-links'
-import { isLinkModifier, openHref } from '@/lib/link-routing'
+import type { Terminal } from '@xterm/xterm'
+import type { FitAddon } from '@xterm/addon-fit'
+import type { SearchAddon } from '@xterm/addon-search'
 import { HARNESS_METHODS, type TerminalInfo } from '@acp-harness/protocol'
-import { harnessRequest, subscribeTerminalOutput } from '@/daemon-connection'
+import { harnessRequest } from '@/daemon-connection'
 import { closeTerminalPane, splitTerminalPane } from '@/components/terminal/terminal-pane-commands'
 import { currentTerminalTheme, useTerminalTheme } from '@/lib/terminal-themes'
 import { matchTerminalShortcut } from '@/lib/terminal-shortcuts'
-import { registerFileLinks } from '@/lib/terminal-file-links'
 import { dropPathsText, pathsFromDataTransfer, registerTerminalDropTarget } from '@/lib/terminal-file-drop'
 import { filePathDrag } from '@/lib/file-path-drag'
 import { commandsForProject, newQuickCommand, runQuickCommandInTerminal, useQuickCommands } from '@/lib/quick-commands'
@@ -22,11 +19,22 @@ import { TerminalSearch } from '@/components/terminal/TerminalSearch'
 import { TerminalProcessExitOverlay } from '@/components/terminal/TerminalProcessExitOverlay'
 import { SetTerminalTitleDialog } from '@/components/terminal/SetTerminalTitleDialog'
 import { requestQuickCommandEditor } from '@/components/terminal/QuickCommandDialog'
+import { hideTerminal, showTerminal, type LiveTerminal } from '@/components/terminal/terminal-instances'
 import '@xterm/xterm/css/xterm.css'
 
 /** Input and resizes stop once a terminal is closed or its shell exited; the daemon would refuse them. */
 function isRunning(terminalId: string): boolean {
   return getState().terminals.some((t) => t.id === terminalId && t.exitCode === null)
+}
+
+/** Sends the xterm's size to the PTY when it differs from what the PTY last got. */
+function syncPtySize(live: LiveTerminal): void {
+  const { cols, rows } = live.xterm
+  if (!isRunning(live.terminalId) || (live.ptySize?.cols === cols && live.ptySize.rows === rows)) return
+  live.ptySize = { cols, rows }
+  void harnessRequest(HARNESS_METHODS.terminalResize, { terminalId: live.terminalId, cols, rows }).catch(() => {
+    live.ptySize = null
+  })
 }
 
 function cssVar(name: string): string {
@@ -58,6 +66,7 @@ export function TerminalView({ terminal, embedded = false }: { terminal: Termina
   const host = useRef<HTMLDivElement>(null)
   const xtermRef = useRef<Terminal | null>(null)
   const fitRef = useRef<FitAddon | null>(null)
+  const liveRef = useRef<LiveTerminal | null>(null)
   const theme = useTerminalTheme()
   const optionsKey = useSettings(terminalOptionsKey)
   const cwdRef = useRef(terminal.cwd)
@@ -94,80 +103,53 @@ export function TerminalView({ terminal, embedded = false }: { terminal: Termina
   useEffect(() => {
     const element = host.current
     if (!element) return
-    const xterm = new Terminal({
-      ...terminalOptions(getSettings()),
-      // The search addon's match decorations use the proposed decoration API.
-      allowProposedApi: true,
-      theme: currentTerminalTheme()
+    // A terminal shown before keeps its xterm while hidden, so this is a reattach, not a replay.
+    const live = showTerminal({
+      terminalId: terminal.id,
+      workspaceId: terminal.workspaceId,
+      startedAt: terminal.startedAt,
+      host: element,
+      xtermOptions: { ...terminalOptions(getSettings()), theme: currentTerminalTheme() }
     })
+    const { xterm, fit, search } = live
     xtermRef.current = xterm
-    const fit = new FitAddon()
+    liveRef.current = live
     fitRef.current = fit
-    const search = new SearchAddon()
-    xterm.loadAddon(fit)
-    xterm.loadAddon(search)
-    // Same route as every other link: system browser, Mod+click to an in-app tab.
-    xterm.loadAddon(new WebLinksAddon((event, uri) => openHref(uri, { inApp: isLinkModifier(event), workspaceId: terminal.workspaceId })))
-    xterm.open(element)
-    // xterm 6 draws no cursor until its first focus; an alternate-screen round trip starts it, so a
-    // terminal nobody has clicked yet (a drawer's, a background split pane's) still shows one.
-    xterm.write('[?1047h[?1047l')
     setSearchAddon(search)
-    const fileLinks = registerFileLinks(xterm, terminal.id, terminal.workspaceId, () => cwdRef.current)
 
-    // Live output that arrives before the replay is written waits, so the screen stays in order.
-    let replayed = false
-    const queued: string[] = []
-    const unsubscribe = subscribeTerminalOutput(terminal.id, (data) => {
-      if (replayed) xterm.write(data)
-      else queued.push(data)
-    })
-    void harnessRequest(HARNESS_METHODS.terminalAttach, { terminalId: terminal.id })
-      .then(({ buffer }) => {
-        xterm.write(buffer)
-        for (const data of queued) xterm.write(data)
-        queued.length = 0
-        replayed = true
-      })
-      .catch(() => undefined)
-
-    const input = xterm.onData((data) => sendRef.current(data))
-
-    xterm.attachCustomKeyEventHandler((e) => {
-      // The keyboard's way to the menu, which copy/paste right-clicks leave without a click.
-      if (e.type === 'keydown' && (e.key === 'ContextMenu' || (e.key === 'F10' && e.shiftKey && !e.ctrlKey && !e.altKey))) {
+    live.handlers = {
+      input: (data) => sendRef.current(data),
+      cwd: () => cwdRef.current,
+      key: (e) => {
+        // The keyboard's way to the menu, which copy/paste right-clicks leave without a click.
+        if (e.type === 'keydown' && (e.key === 'ContextMenu' || (e.key === 'F10' && e.shiftKey && !e.ctrlKey && !e.altKey))) {
+          e.preventDefault()
+          openMenuAtCursorRef.current()
+          return false
+        }
+        const action = matchTerminalShortcut(e, xterm.hasSelection())
+        if (!action) return true
+        // Paste is left to the browser's paste event, which xterm turns into a (bracketed) paste.
+        if (action === 'paste') return false
         e.preventDefault()
-        openMenuAtCursorRef.current()
+        if (action === 'copy') {
+          void navigator.clipboard.writeText(xterm.getSelection())
+          xterm.clearSelection()
+        } else if (action === 'selectAll') xterm.selectAll()
+        else if (action === 'clear') xterm.clear()
+        else setSearchOpen(true)
         return false
       }
-      const action = matchTerminalShortcut(e, xterm.hasSelection())
-      if (!action) return true
-      // Paste is left to the browser's paste event, which xterm turns into a (bracketed) paste.
-      if (action === 'paste') return false
-      e.preventDefault()
-      if (action === 'copy') {
-        void navigator.clipboard.writeText(xterm.getSelection())
-        xterm.clearSelection()
-      } else if (action === 'selectAll') xterm.selectAll()
-      else if (action === 'clear') xterm.clear()
-      else setSearchOpen(true)
-      return false
-    })
+    }
 
     let resizeTimer: ReturnType<typeof setTimeout> | undefined
+    // Fires once on showing too, so a terminal hidden while its pane changed size fits it again.
     const observer = new ResizeObserver(() => {
       if (element.clientWidth === 0 || element.clientHeight === 0) return
       fit.fit()
       clearTimeout(resizeTimer)
       // The PTY resize is debounced; xterm itself reflows on every frame.
-      resizeTimer = setTimeout(() => {
-        if (!isRunning(terminal.id)) return
-        void harnessRequest(HARNESS_METHODS.terminalResize, {
-          terminalId: terminal.id,
-          cols: xterm.cols,
-          rows: xterm.rows
-        }).catch(() => undefined)
-      }, 80)
+      resizeTimer = setTimeout(() => syncPtySize(live), 80)
     })
     observer.observe(element)
     if (!embedded) xterm.focus()
@@ -178,13 +160,11 @@ export function TerminalView({ terminal, embedded = false }: { terminal: Termina
       clearTimeout(resizeTimer)
       observer.disconnect()
       unregisterDrop()
-      fileLinks.dispose()
-      input.dispose()
-      unsubscribe()
       setSearchAddon(null)
       xtermRef.current = null
+      liveRef.current = null
       fitRef.current = null
-      xterm.dispose()
+      hideTerminal(live)
     }
     // A restart bumps startedAt: the old screen goes and the new shell's output replays.
   }, [terminal.id, terminal.workspaceId, terminal.startedAt])
@@ -203,10 +183,7 @@ export function TerminalView({ terminal, embedded = false }: { terminal: Termina
     const element = host.current
     if (!element || element.clientWidth === 0 || element.clientHeight === 0) return
     fitRef.current?.fit()
-    if (!isRunning(terminal.id)) return
-    void harnessRequest(HARNESS_METHODS.terminalResize, { terminalId: terminal.id, cols: xterm.cols, rows: xterm.rows }).catch(
-      () => undefined
-    )
+    if (liveRef.current) syncPtySize(liveRef.current)
   }, [optionsKey, terminal.id])
 
   const focus = () => xtermRef.current?.focus()
