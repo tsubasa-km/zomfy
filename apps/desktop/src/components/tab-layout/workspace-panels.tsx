@@ -31,7 +31,7 @@ export const PANELS: WorkspacePanel[] = [
   { id: 'panel:problems', label: t('Problems'), icon: CircleAlert },
   { id: 'panel:ports', label: t('Ports'), icon: Plug },
   { id: 'panel:side-chat', label: t('Side chat'), icon: MessagesSquare },
-  { id: 'panel:agent', label: t('Agent'), icon: Bot },
+  { id: 'panel:agent', label: t('Session'), icon: Bot },
   { id: 'panel:workflows', label: t('Workflows'), icon: Workflow }
 ]
 
