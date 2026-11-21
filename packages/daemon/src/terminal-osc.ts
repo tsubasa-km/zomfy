@@ -16,6 +16,8 @@ export class OscScanner {
 
   /** Facts from this chunk; the latest of each kind wins. */
   scan(data: string): OscFacts {
+    // Most reads carry no OSC at all (an escape split across reads leaves `pending`).
+    if (!this.pending && !data.includes('\x1b')) return {}
     const text = this.pending + data
     this.pending = ''
     const facts: OscFacts = {}

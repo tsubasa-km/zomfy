@@ -4,6 +4,7 @@ import { tuiAgentSpec, type CreateTerminalParams, type ShellOption, type Termina
 import { log } from './log.ts'
 import { forgetInlineTerminal, loadInlineTerminals, saveInlineTerminal, type SavedInlineTerminal } from './inline-terminal-store.ts'
 import { OscScanner } from './terminal-osc.ts'
+import { ReplayBuffer } from './terminal-replay.ts'
 import { buildAgentLaunchPlan } from './tui-agent-launch.ts'
 import { hostPath } from './tui-agent-detection.ts'
 
@@ -39,7 +40,7 @@ interface LiveTerminal {
   spec: ShellSpec
   pty: Bun.Terminal
   proc: Bun.Subprocess
-  replay: string
+  replay: ReplayBuffer
   pending: string
   flushTimer: ReturnType<typeof setTimeout> | null
   osc: OscScanner
@@ -184,7 +185,7 @@ export class TerminalManager {
     const ended = this.ended.get(terminalId)
     if (ended) return ended.replay
     const live = this.require(terminalId)
-    return live.replay + live.pending
+    return live.replay.text() + live.pending
   }
 
   /** The person's keystrokes. Typing into a terminal an agent drives takes it back from the agent. */
@@ -301,7 +302,7 @@ export class TerminalManager {
       spec,
       pty,
       proc,
-      replay: '',
+      replay: new ReplayBuffer(REPLAY_LIMIT),
       pending: '',
       flushTimer: null,
       osc: new OscScanner(),
@@ -345,7 +346,7 @@ export class TerminalManager {
     if (!followupPrompt) return
     await this.waitForQuiet(live, before + 1, 1_500, 20_000)
     if (!this.isCurrent(live)) return
-    const screen = live.replay + live.pending
+    const screen = live.replay.text() + live.pending
     const bracketed = screen.lastIndexOf('\x1b[?2004h') > screen.lastIndexOf('\x1b[?2004l')
     live.pty.write(bracketed ? `\x1b[200~${followupPrompt}\x1b[201~` : followupPrompt.replace(/\r?\n/g, ' '))
     await Bun.sleep(300)
@@ -408,7 +409,7 @@ export class TerminalManager {
     if (!live.pending) return
     const data = live.pending
     live.pending = ''
-    live.replay = (live.replay + data).slice(-REPLAY_LIMIT)
+    live.replay.append(data)
     for (const listener of this.outputListeners) listener(live.info.id, data)
     this.saveInlineSoon(live.info.id)
   }
@@ -426,7 +427,7 @@ export class TerminalManager {
         const live = this.terminals.get(terminalId)
         if (!live) return
         const saved = live.info.inline
-          ? saveInlineTerminal({ info: live.info, replay: live.replay + live.pending })
+          ? saveInlineTerminal({ info: live.info, replay: live.replay.text() + live.pending })
           : forgetInlineTerminal(terminalId)
         void saved.catch((error) => log(`inline terminal ${terminalId} not saved: ${error}`))
       }, INLINE_SAVE_MS)
