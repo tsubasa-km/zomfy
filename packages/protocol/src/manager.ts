@@ -481,6 +481,41 @@ export const MANAGER_TOOLS = [
       required: ['terminalId']
     },
     readOnly: true
+  },
+  {
+    name: 'wrap_up',
+    description:
+      "Call once at the end of a turn in which you worked, just before your final message. It shows the person a Next steps card under your reply: a 2-3 sentence summary of what you did and what is still unchecked, the next steps (most important first, at most five) with who owns each, and a button per step to hand it back to you or put it in their todos. Add a question with 2-4 short answers only when the first step waits on the person's decision; pressing an answer sends it to you as their next prompt. It returns at once and does not end the turn; write your final message as usual afterwards.",
+    inputSchema: {
+      type: 'object',
+      properties: {
+        summary: str('Two or three sentences: what was done, and what is still unchecked.'),
+        steps: {
+          type: 'array',
+          description: 'Next steps, most important first, at most five.',
+          items: {
+            type: 'object',
+            properties: {
+              owner: str("'agent' for what you can do next, 'person' for what the person must do or decide, or the name of someone else."),
+              text: str('The step, in one line.')
+            },
+            required: ['owner', 'text']
+          }
+        },
+        question: {
+          type: 'object',
+          description: 'Only when the first step waits on the person: the decision, with its answers as buttons.',
+          properties: {
+            text: str('The question.'),
+            options: { type: 'array', items: { type: 'string' }, description: 'Two to four short answer labels.' }
+          },
+          required: ['text', 'options']
+        }
+      },
+      required: ['summary', 'steps']
+    },
+    readOnly: false,
+    selfOnly: true
   }
 ] as const satisfies readonly ManagerToolDefinition[]
 

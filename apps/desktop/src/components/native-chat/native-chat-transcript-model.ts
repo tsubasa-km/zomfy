@@ -10,6 +10,7 @@ import {
   type NativeChatTaskList
 } from './native-chat-task-list'
 import { splitTaskNotifications } from './native-chat-task-notification'
+import { isWrapUpTool, parseRecap, wrapUpCardOf, type ParsedRecap, type WrapUpCard } from './next-steps'
 import { t } from '@/i18n/i18n'
 
 export type ToolItem = Extract<ThreadItem, { kind: 'tool' }>
@@ -49,6 +50,19 @@ export type TranscriptRowModel =
   | { kind: 'notice'; text: string; severity?: string; turnEnd?: TurnEndMeta; runId?: string }
   | { kind: 'compaction'; status: string }
   | { kind: 'turn-diff'; diff: TurnDiff }
+  | NextStepsRow
+
+/**
+ * A turn's Next steps card, under the agent's reply: from its wrap_up call, or read from a final
+ * message that ends with a next-steps recap (then `recap` holds that message, shown with the card).
+ */
+export type NextStepsRow = {
+  kind: 'next-steps'
+  card: WrapUpCard
+  recap?: { text: string; parsed: ParsedRecap }
+  /** The prompt that came next, so a step already asked for or an answer already given reads so. */
+  followUp?: string
+}
 
 export type TranscriptModel = {
   rows: TranscriptRowModel[]
@@ -84,10 +98,29 @@ export function buildTranscript(items: ThreadItem[], turnRunning: boolean, cwd: 
   let taskList: NativeChatTaskList | null = null
   const board = new TaskBoard()
   let turnEdits: ToolItem[] = []
-  const closeTurn = (): void => {
+  let turnStart = 0
+  let wrapUp: WrapUpCard | null = null
+  const closeTurn = (followUp?: string): void => {
     const diff = turnDiff(turnEdits, cwd)
     if (diff) rows.push({ kind: 'turn-diff', diff })
+    const at = rows.findLastIndex((row, index) => index >= turnStart && row.kind === 'agent')
+    const reply = at >= 0 ? rows[at] : undefined
+    const parsed = reply?.kind === 'agent' ? parseRecap(reply.text) : null
+    const card = wrapUp ?? (parsed ? { summary: '', steps: parsed.steps } : null)
+    if (card) {
+      const row: NextStepsRow = {
+        kind: 'next-steps',
+        card,
+        ...(parsed && reply?.kind === 'agent' ? { recap: { text: reply.text, parsed } } : {}),
+        ...(followUp !== undefined ? { followUp } : {})
+      }
+      // The recap becomes the card; otherwise the card sits right under the reply (or ends the turn).
+      if (parsed) rows[at] = row
+      else rows.splice(at >= 0 ? at + 1 : rows.length, 0, row)
+    }
     turnEdits = []
+    wrapUp = null
+    turnStart = rows.length
   }
 
   for (const item of items) {
@@ -98,6 +131,11 @@ export function buildTranscript(items: ThreadItem[], turnRunning: boolean, cwd: 
           break
         }
         const name = toolNameOf(item)
+        // wrap_up reads as the card at the turn's end; only a call that failed stays a tool line.
+        if (isWrapUpTool(name) && item.status !== 'failed') {
+          wrapUp = wrapUpCardOf(item.input) ?? wrapUp
+          break
+        }
         if (isTaskListTool(name)) {
           const list = normalizeNativeChatTaskList(item.input)
           if (list) {
@@ -135,7 +173,7 @@ export function buildTranscript(items: ThreadItem[], turnRunning: boolean, cwd: 
         break
       }
       case 'user': {
-        closeTurn()
+        closeTurn(item.text)
         const { notifications, rest } = splitTaskNotifications(item.text)
         for (const n of notifications) rows.push({ kind: 'background', ...n })
         if (notifications.length === 0 || rest || item.images?.length) rows.push({ kind: 'user', item: { ...item, text: rest } })
@@ -185,6 +223,8 @@ export function sameTranscriptRow(a: TranscriptRowModel, b: TranscriptRowModel):
     case 'turn-diff':
       // A turn's diff is made of completed edits, which no longer change.
       return sameJson(diffShape(a.diff), diffShape((b as typeof a).diff))
+    case 'next-steps':
+      return sameJson(a, b)
     default:
       return shallowEqual(a, b)
   }

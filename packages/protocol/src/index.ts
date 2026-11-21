@@ -61,6 +61,7 @@ export * from './workflow-scorecard'
 export * from './workflow-experiments'
 export * from './workflow-suggestions'
 export * from './chat-status'
+export * from './wrap-up'
 
 export const HARNESS_METHODS = {
   ...WORKSPACE_METHODS,

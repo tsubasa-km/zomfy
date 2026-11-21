@@ -17,6 +17,7 @@ import {
 import { NATIVE_CHAT_QUOTE_SOURCE_PROPS } from './NativeChatSelectionQuote'
 import { NativeChatWorkflowRunCard } from './NativeChatWorkflowRunCard'
 import { NativeChatPromptOrigin } from './NativeChatPromptOrigin'
+import { NativeChatNextStepsCard, type NextStepsActions } from './NativeChatNextStepsCard'
 import { sameTranscriptRow, type TranscriptRowModel } from './native-chat-transcript-model'
 import { t } from '@/i18n/i18n'
 
@@ -41,6 +42,8 @@ export type TranscriptRowActions = {
   cwd: string
   /** Where this chat's workflow runs live: its host and (main) project. */
   workflows: { hostId: string; projectId: string | null; projectName: string }
+  /** What a Next steps card's buttons do. */
+  nextSteps: NextStepsActions
 }
 
 type TranscriptRowProps = { row: TranscriptRowModel; rowKey: string; actions: TranscriptRowActions }
@@ -126,6 +129,8 @@ function TranscriptRow({ row, rowKey, actions }: TranscriptRowProps) {
       return <NativeChatToolGroup tools={row.tools} rowKey={rowKey} cwd={actions.cwd} />
     case 'tasks':
       return <NativeChatTaskList list={row.list} previous={row.previous} />
+    case 'next-steps':
+      return <NativeChatNextStepsCard row={row} rowKey={rowKey} actions={actions.nextSteps} />
     case 'turn-diff':
       return <NativeChatTurnDiffRollup diff={row.diff} onReveal={actions.onRevealFile} />
     case 'decision':
