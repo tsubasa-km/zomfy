@@ -15,6 +15,7 @@ import { hideChats, removeTabsFromLayout, useTabLayout } from '@/stores/tab-layo
 import { chatSelection, gestureOf, keepTextUnselected } from '@/stores/list-selection'
 import { beginSidebarDrag, type DragItem } from '@/components/sidebar/sidebar-drag'
 import { setChatPinned, toggleChatExpanded } from '@/stores/sidebar-store'
+import { closePagesBesideSidebar } from '@/lib/app-pages'
 import { HoverCard, HoverCardContent, HoverCardTrigger } from '@/components/ui/hover-card'
 import { ChatCardBody, ChatHoverDetails, type ChatCardInfo } from '@/components/sidebar/ChatCard'
 import { t } from '@/i18n/i18n'
@@ -212,6 +213,7 @@ export function SessionRow({
           return
         }
         chatSelection.reset(SCOPE, session.id)
+        closePagesBesideSidebar()
         // One click looks at the chat; a second one keeps its tab, as in an editor's file tree.
         if (card && e.detail < 2) previewSession(session.id)
         else selectSession(session.id)

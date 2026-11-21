@@ -1,4 +1,4 @@
-import { useEffect } from 'react'
+import { useEffect, useRef } from 'react'
 import { connectAllHosts } from '@/daemon-connection'
 import { useStore } from '@/session-store'
 import { useAppOverlays } from '@/stores/app-overlay-store'
@@ -14,7 +14,7 @@ import { AgentDashboard } from '@/components/AgentDashboard'
 import { SettingsPage } from '@/components/settings/SettingsPage'
 import { AutomationsPage } from '@/components/automations/AutomationsPage'
 import { useAutomationState } from '@/stores/automation-store'
-import { useOnePageAtATime } from '@/lib/app-pages'
+import { closePagesBesideSidebar, useOnePageAtATime } from '@/lib/app-pages'
 import { SkillsPage } from '@/components/skills/SkillsPage'
 import { ProjectsPage } from '@/components/projects/ProjectsPage'
 import { installSkillsCommands } from '@/components/skills/skills-commands'
@@ -87,6 +87,15 @@ export default function App() {
     projects: projectsOpen
   })
 
+  // A chat brought to the front (from the palette, a notification, a link) leaves the pages beside the sidebar.
+  const front = useStore((s) => (s.activeWorkspaceId ? `${s.activeWorkspaceId}:${s.activeSessionByWorkspace[s.activeWorkspaceId] ?? ''}` : ''))
+  const frontBefore = useRef(front)
+  useEffect(() => {
+    if (frontBefore.current === front) return
+    frontBefore.current = front
+    if (automationsOpen || projectsOpen) closePagesBesideSidebar()
+  }, [front, automationsOpen, projectsOpen])
+
   useEffect(() => {
     // index.html shows a themed boot screen until the shell mounts.
     document.getElementById('boot')?.remove()
@@ -107,30 +116,39 @@ export default function App() {
         {OWN_TITLE_BAR && <TitleBar />}
         <div className="relative flex min-h-0 flex-1 overflow-hidden">
           <Sidebar />
-          <main className="flex min-w-0 flex-1">
-            {gridPreview ? (
-              <ProjectGridPreview />
-            ) : workflowsPage ? (
-              <WorkflowsPage
-                key={`${workflowsPage.hostId}:${workflowsPage.projectId}:${workflowsPage.runId ?? ''}`}
-                target={workflowsPage}
-              />
-            ) : dashboardOpen ? (
-              <AgentDashboard />
-            ) : boardOpen ? (
-              <WorkspaceBoard />
-            ) : tasksOpen ? (
-              <TasksPage />
-            ) : (
-              <WorkspaceMain />
+          {/* Projects and Automations cover the main area only, so the sidebar stays beside them. */}
+          <div className="relative flex min-w-0 flex-1">
+            <main className="flex min-w-0 flex-1">
+              {gridPreview ? (
+                <ProjectGridPreview />
+              ) : workflowsPage ? (
+                <WorkflowsPage
+                  key={`${workflowsPage.hostId}:${workflowsPage.projectId}:${workflowsPage.runId ?? ''}`}
+                  target={workflowsPage}
+                />
+              ) : dashboardOpen ? (
+                <AgentDashboard />
+              ) : boardOpen ? (
+                <WorkspaceBoard />
+              ) : tasksOpen ? (
+                <TasksPage />
+              ) : (
+                <WorkspaceMain />
+              )}
+            </main>
+            {/* The views stay mounted underneath to keep their state. */}
+            {automationsOpen && (
+              <div className="absolute inset-0 z-20 flex">
+                <AutomationsPage />
+              </div>
             )}
-          </main>
-          {/* Orca's settings replace the app view; the views stay mounted underneath to keep their state. */}
-          {automationsOpen && (
-            <div className="absolute inset-0 z-20 flex">
-              <AutomationsPage />
-            </div>
-          )}
+            {projectsOpen && (
+              <div className="absolute inset-0 z-20 flex">
+                <ProjectsPage />
+              </div>
+            )}
+          </div>
+          {/* Orca's settings replace the app view. */}
           {settingsOpen && (
             <div className="absolute inset-0 z-30 flex">
               <SettingsPage />
@@ -139,11 +157,6 @@ export default function App() {
           {skillsOpen && (
             <div className="absolute inset-0 z-30 flex">
               <SkillsPage />
-            </div>
-          )}
-          {projectsOpen && (
-            <div className="absolute inset-0 z-30 flex">
-              <ProjectsPage />
             </div>
           )}
         </div>
