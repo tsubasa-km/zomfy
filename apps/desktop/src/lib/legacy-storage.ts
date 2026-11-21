@@ -1,5 +1,5 @@
 /**
- * Window storage keys were prefixed `acp-harness.` / `acp-harness:` before the rename. Each one is
+ * Before the rename, window storage keys had the legacy prefix `acp-harness.` / `acp-harness:`. Each one is
  * copied to its `zomfy` name, unless that name already holds a value, and the legacy key removed, so
  * layout, settings and drafts carry over. Runs before any store reads its key (see
  * migrate-legacy-storage.ts) and again harmlessly in every window.
