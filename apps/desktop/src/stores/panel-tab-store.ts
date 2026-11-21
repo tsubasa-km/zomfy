@@ -9,7 +9,7 @@ export interface PanelTab {
   panel: string
 }
 
-const STORAGE_KEY = 'acp-harness.panel-tabs.v1'
+const STORAGE_KEY = 'zomfy.panel-tabs.v1'
 
 function readSaved(): PanelTab[] {
   try {

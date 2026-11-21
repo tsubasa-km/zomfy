@@ -312,7 +312,7 @@ There is no Orca auth service to mint tokens, so pairing is a shared secret set 
    the key and burns the code.
 3. Each WebSocket connect is authenticated by a signed challenge (nonce from the Hub, signature by
    the daemon's key), or by a short-lived token the Hub mints after a signed `POST /v1/token`. The
-   private key stays in the harness home (`~/.acp-harness/connector-key`, mode 0600), like Orca's
+   private key stays in the harness home (`~/.zomfy/connector-key`, mode 0600), like Orca's
    host key. Revoking a machine = deleting its key row.
 4. Several daemons (laptop, WSL, an always-on server) can pair; each `hello` lists the bots it hosts
    and the Hub routes a bot's deliveries to the machine that hosts it.

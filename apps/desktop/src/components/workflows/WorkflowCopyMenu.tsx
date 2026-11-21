@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { CopyPlus, Loader2 } from 'lucide-react'
-import { HARNESS_METHODS, type Workflow } from '@acp-harness/protocol'
+import { HARNESS_METHODS, type Workflow } from '@zomfy/protocol'
 import { harnessRequest } from '@/daemon-connection'
 import { allProjects } from '@/session-store'
 import { projectLabel } from '@/components/sidebar/workspace-visibility'

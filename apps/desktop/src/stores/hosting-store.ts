@@ -5,7 +5,7 @@ import {
   type HostedChecksStatus,
   type HostedReview,
   type HostingAvailability
-} from '@acp-harness/protocol'
+} from '@zomfy/protocol'
 import { harnessRequest } from '@/daemon-connection'
 import { getState, useStore } from '@/session-store'
 import { createExternalStore } from './external-store'

@@ -1,4 +1,4 @@
-import { isGuardedChatAgent, tuiAgentSpec, type TerminalShellKind } from '@acp-harness/protocol'
+import { isGuardedChatAgent, tuiAgentSpec, type TerminalShellKind } from '@zomfy/protocol'
 
 // Ported from Orca's tui-agent-startup.ts / tui-agent-startup-shell.ts: the launch line is typed
 // into the shell, so the prompt is quoted for whichever shell grammar will read it.

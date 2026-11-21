@@ -1,4 +1,4 @@
-import { HARNESS_METHODS, TODO_NOTIFICATIONS } from "@acp-harness/protocol";
+import { HARNESS_METHODS, TODO_NOTIFICATIONS } from "@zomfy/protocol";
 import { TodoStore } from "../todo-store.ts";
 import type { HandlerContext } from "./handler-context.ts";
 

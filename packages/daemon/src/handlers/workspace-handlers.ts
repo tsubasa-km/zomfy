@@ -1,4 +1,4 @@
-import { HARNESS_METHODS, type WorkspaceSummary } from "@acp-harness/protocol";
+import { HARNESS_METHODS, type WorkspaceSummary } from "@zomfy/protocol";
 import { readOrcaProjects } from "../orca-import.ts";
 import { effectiveHook, projectHookInfo, runArchiveHook, writeHookRunner } from "../project-hooks.ts";
 import { cloneRepository, createRepository, expandHome, projectCreationDefaults } from "../repo-bootstrap.ts";

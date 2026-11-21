@@ -11,7 +11,7 @@ import {
   type PluginListEntry,
   type PluginManifest,
   type PluginsSnapshot
-} from '@acp-harness/protocol'
+} from '@zomfy/protocol'
 import { HARNESS_HOME } from './harness-home.ts'
 
 // Orca's plugin discovery and enablement (main/plugins/plugin-discovery.ts, plugin-enablement.ts,

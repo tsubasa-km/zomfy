@@ -26,6 +26,10 @@ export interface Project {
   sortOrder?: number
   /** How a chat's finished worktree comes home (finish_worktree): merged into the main checkout (default) or as a pull request. */
   finishWith?: 'merge' | 'pull-request'
+  /** false keeps agents in this project from starting workflows themselves (run_workflow); unset allows it. */
+  agentWorkflows?: boolean
+  /** false keeps agents in this project from splitting work into parallel worktrees (split_work); unset allows it. */
+  agentSplitWork?: boolean
 }
 
 /** Orca's project groups: a named folder of projects in the sidebar. */
@@ -38,7 +42,7 @@ export interface ProjectGroup {
 
 /** null (or '') clears a field; JSON drops undefined, so it cannot. */
 export type ProjectPatch = {
-  [K in 'displayName' | 'defaultBaseRef' | 'worktreeRoot' | 'hooks' | 'groupId' | 'finishWith']?: Project[K] | null
+  [K in 'displayName' | 'defaultBaseRef' | 'worktreeRoot' | 'hooks' | 'groupId' | 'finishWith' | 'agentWorkflows' | 'agentSplitWork']?: Project[K] | null
 }
 
 export interface Workspace {
@@ -160,7 +164,7 @@ export interface WorkspaceInspection {
 }
 
 export interface ProjectHookInfo {
-  /** orca.yaml or acp-harness.yaml at the project root, when present. */
+  /** orca.yaml or zomfy.yaml at the project root, when present. */
   file: string | null
   fileHooks: ProjectHooks
   localHooks: ProjectHooks
@@ -176,9 +180,9 @@ export interface OrcaProject {
 
 /** Where the Add Project dialog's Clone and Create steps start, resolved on the daemon's own host. */
 export interface ProjectCreationDefaults {
-  /** `<home>/acp-harness/projects` (Orca's `~/orca/projects`). */
+  /** `<home>/zomfy/projects` (Orca's `~/orca/projects`). */
   createParent: string
-  /** `<home>/acp-harness`, beside the workspaces. */
+  /** `<home>/zomfy`, beside the workspaces. */
   cloneParent: string
   /** null when the probe could not tell. */
   gitAvailable: boolean | null

@@ -1,6 +1,6 @@
 import { useSyncExternalStore } from 'react'
 import { nextSelection, type Gesture } from './list-selection'
-import type { WorkspaceStatusId, WorkspaceSummary } from '@acp-harness/protocol'
+import type { WorkspaceStatusId, WorkspaceSummary } from '@zomfy/protocol'
 import type { HostId } from '@/session-store'
 import { t } from '@/i18n/i18n'
 
@@ -74,7 +74,7 @@ interface SidebarState {
   dropTarget: DropTarget | null
 }
 
-const KEY = 'acp-harness.sidebar.v1'
+const KEY = 'zomfy.sidebar.v1'
 type Saved = Pick<
   SidebarState,
   'filters' | 'cardLayout' | 'cardProperties' | 'collapsedProjects' | 'expandedChats' | 'projectOrder' | 'pinnedChats' | 'collapsedSections' | 'startProject'

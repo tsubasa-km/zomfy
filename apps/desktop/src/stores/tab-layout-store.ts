@@ -88,7 +88,7 @@ interface TabLayoutState {
   preview: Record<string, string>
 }
 
-const STORAGE_KEY = 'acp-harness.tab-layout.v1'
+const STORAGE_KEY = 'zomfy.tab-layout.v1'
 const MAX_CLOSED = 20
 const MAX_RECENT = 30
 

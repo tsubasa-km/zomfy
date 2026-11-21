@@ -1,4 +1,4 @@
-import type { FileEntry } from '@acp-harness/protocol'
+import type { FileEntry } from '@zomfy/protocol'
 import { parentDir } from './explorer-paths'
 
 // Orca's useFileExplorerKeys + file-explorer-keyboard-navigation (VS Code's tree keys): arrows walk

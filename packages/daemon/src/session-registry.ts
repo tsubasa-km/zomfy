@@ -8,7 +8,7 @@ import {
   type SessionInfo,
   type SessionOptions,
   type TurnEndMeta
-} from '@acp-harness/protocol'
+} from '@zomfy/protocol'
 import { log } from './log.ts'
 import { HARNESS_HOME } from './harness-home.ts'
 import { CHAT_ATTACHMENT_DIR } from './chat-attachment-files.ts'

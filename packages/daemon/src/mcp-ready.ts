@@ -19,7 +19,7 @@ function answered(server: Extract<acp.McpServer, { command: string }>): Promise<
     detached: process.platform !== 'win32'
   })
   trackChild(proc)
-  const init = { jsonrpc: '2.0', id: 1, method: 'initialize', params: { protocolVersion: '2025-06-18', capabilities: {}, clientInfo: { name: 'acp-harness', version: '0' } } }
+  const init = { jsonrpc: '2.0', id: 1, method: 'initialize', params: { protocolVersion: '2025-06-18', capabilities: {}, clientInfo: { name: 'zomfy', version: '0' } } }
   proc.stdin.write(`${JSON.stringify(init)}\n`)
   void proc.stdin.flush()
   const reply = (async () => {

@@ -1,6 +1,6 @@
 import { readFile, realpath } from 'node:fs/promises'
 import { dirname, join } from 'node:path'
-import type { ChatAgentId, ChatAgentUpdate } from '@acp-harness/protocol'
+import type { ChatAgentId, ChatAgentUpdate } from '@zomfy/protocol'
 import { log } from './log.ts'
 
 // Newer releases of the npm packages chat agents run (Codex and its ACP adapter, OpenCode…).

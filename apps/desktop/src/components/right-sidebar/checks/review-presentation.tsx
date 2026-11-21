@@ -11,7 +11,7 @@ import {
   GitPullRequestDraft,
   LoaderCircle
 } from 'lucide-react'
-import type { HostedCheck, HostedChecksStatus, HostedReview, HostedReviewDecision, HostingProviderId } from '@acp-harness/protocol'
+import type { HostedCheck, HostedChecksStatus, HostedReview, HostedReviewDecision, HostingProviderId } from '@zomfy/protocol'
 import { cn } from '@/lib/utils'
 import { t } from '@/i18n/i18n'
 

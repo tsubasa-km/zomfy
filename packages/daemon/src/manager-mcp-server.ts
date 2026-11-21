@@ -5,7 +5,7 @@ import {
   isManagerToolName,
   type ManagerCallResult,
   type ManagerToolName,
-} from "@acp-harness/protocol";
+} from "@zomfy/protocol";
 import { log } from "./log.ts";
 
 // The manager tools as a Streamable HTTP MCP server on the daemon's own port (POST /mcp/harness,
@@ -34,6 +34,7 @@ class ManagerMcpServer {
   private baseUrl: string | null = null;
   private route: ManagerRoute | null = null;
   private offers: (sessionId: string, tool: ManagerToolName) => boolean = () => false;
+  private refusal: (sessionId: string, tool: ManagerToolName) => string | null = () => null;
   private readonly tokens = new Map<string, string>();
   private readonly tokenBySession = new Map<string, string>();
 
@@ -51,9 +52,16 @@ class ManagerMcpServer {
     this.offers = offers;
   }
 
+  /** Why a session's agent may not use a tool (its project's settings turn it off); null when it may. */
+  setToolRefusal(refusal: (sessionId: string, tool: ManagerToolName) => string | null): void {
+    this.refusal = refusal;
+  }
+
   private offered(sessionId: string) {
     return MANAGER_TOOLS.filter(
-      (t) => !(("stepOnly" in t && t.stepOnly) || ("daemonOffered" in t && t.daemonOffered)) || this.offers(sessionId, t.name),
+      (t) =>
+        (!(("stepOnly" in t && t.stepOnly) || ("daemonOffered" in t && t.daemonOffered)) || this.offers(sessionId, t.name)) &&
+        this.refusal(sessionId, t.name) === null,
     );
   }
 
@@ -150,7 +158,7 @@ class ManagerMcpServer {
         return rpcResult(id, {
           protocolVersion: PROTOCOL_VERSIONS.includes(asked) ? asked : PROTOCOL_VERSIONS[0],
           capabilities: { tools: { listChanged: false } },
-          serverInfo: { name: "acp-harness-manager", version: "0.0.1" },
+          serverInfo: { name: "zomfy-manager", version: "0.0.1" },
           instructions:
             "Tools to see and drive agent sessions across this person's hosts and projects. Ids come from the list_* tools.",
         });
@@ -176,6 +184,9 @@ class ManagerMcpServer {
   private async callTool(sessionId: string, params: Record<string, unknown>): Promise<object> {
     const name = String(params.name ?? "");
     const args = (typeof params.arguments === "object" && params.arguments !== null ? params.arguments : {}) as Record<string, unknown>;
+    // A call from a tool list fetched before the project turned the tool off hears why, not "unknown".
+    const refused = isManagerToolName(name) ? this.refusal(sessionId, name) : null;
+    if (refused) return toolText(refused, true);
     if (!isManagerToolName(name) || !this.offered(sessionId).some((t) => t.name === name)) return toolText(`Unknown tool ${name}`, true);
     if (!this.route) return toolText("Manager tools are not available on this daemon.", true);
     try {

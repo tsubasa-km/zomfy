@@ -1,5 +1,5 @@
 import { Copy, Ellipsis, ExternalLink, RefreshCw, Wrench } from 'lucide-react'
-import type { HostingAvailability, HostedReview } from '@acp-harness/protocol'
+import type { HostingAvailability, HostedReview } from '@zomfy/protocol'
 import { allProjects, allWorkspaces, useStore } from '@/session-store'
 import { useGitStatus } from '@/hooks/use-git-status'
 import { loadChecks, loadReview, useReviewPolling, useWorkspaceReview } from '@/stores/hosting-store'

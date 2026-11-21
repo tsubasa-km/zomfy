@@ -1,5 +1,6 @@
-import { createContext, useMemo } from 'react'
-import type { TerminalInfo } from '@acp-harness/protocol'
+import { useMemo, useRef } from 'react'
+import { keepUnchangedTabs } from './keep-unchanged-tabs'
+import type { TerminalInfo } from '@zomfy/protocol'
 import { closeTerminal, createTerminal } from '@/daemon-connection'
 import {
   allWorkspaces,
@@ -13,7 +14,8 @@ import {
   START_TAB,
   useStore,
   type EditorTab,
-  type Session
+  type Session,
+  type StoreState
 } from '@/session-store'
 import {
   addBrowserTab,
@@ -80,9 +82,6 @@ export function tabWorkspaceId(tab: WorkspaceTab): string | null {
   }
 }
 
-/** Whether tabs say where they belong: set for a set of tabs that holds more than one workspace's. */
-export const TabPlacesContext = createContext(false)
-
 /** A short name for where a workspace is: its project, and its branch when it is a worktree of it. */
 export function useWorkspacePlace(workspaceId: string | null): string {
   // Re-renders when a project is renamed: its name is in the catalog.
@@ -117,8 +116,11 @@ export function workspaceOfTab(tabId: string): string | null {
  * terminals and browsers kept in a workspace's pull-down drawer instead of the strip.
  */
 export function useWorkspaceTabs(workspaceId: string, where: 'strip' | 'drawer' = 'strip'): WorkspaceTab[] {
-  const sessions = useStore((s) => s.sessions)
-  const terminals = useStore((s) => s.terminals)
+  // Only the chats and terminals this set of tabs can hold, kept while none of them changed: a
+  // chat streaming or a terminal retitling elsewhere does not redraw these tabs.
+  const inScope = (id: string, s: StoreState) => (workspaceId === WINDOW_TABS ? inWindowTabs(id, s) : id === workspaceId)
+  const sessions = useStableList((s) => s.sessions.filter((x) => !x.sideOf && inScope(x.workspaceId, s)))
+  const terminals = useStableList((s) => s.terminals.filter((t) => !t.inline && inScope(t.workspaceId, s)))
   const editorTabs = useStore((s) => s.editorTabs)
   const browserTabs = useBrowserTabs()
   const panelTabs = usePanelTabs()
@@ -132,7 +134,8 @@ export function useWorkspaceTabs(workspaceId: string, where: 'strip' | 'drawer' 
   const poppedOut = useStore((s) => s.poppedOut)
   // A string, not a list: the store hands out fresh workspace objects on every read.
   const known = useStore((s) => allWorkspaces(s).map((w) => w.id).join(' '))
-  return useMemo(() => {
+  const previous = useRef<WorkspaceTab[]>([])
+  const fresh = useMemo(() => {
     // A page or panel left behind by a deleted workspace is nobody's tab.
     const exists = new Set(known.split(' '))
     const here = (id: string) => (workspaceId === WINDOW_TABS ? exists.has(id) && inWindowTabs(id) : id === workspaceId)
@@ -155,6 +158,21 @@ export function useWorkspaceTabs(workspaceId: string, where: 'strip' | 'drawer' 
     return tabs.filter((tab) => (meta[tab.id]?.drawer === true) === (where === 'drawer')).sort((a, b) => a.createdAt - b.createdAt)
     // eslint-disable-next-line react-hooks/exhaustive-deps -- `floating` and `poppedOut` change what inWindowTabs answers
   }, [sessions, terminals, editorTabs, browserTabs, panelTabs, workspaceId, panes, open, meta, where, startOpen, floating, poppedOut, known])
+  const tabs = useMemo(() => keepUnchangedTabs(previous.current, fresh), [fresh])
+  previous.current = tabs
+  return tabs
+}
+
+/** A list from the store that keeps its identity while its items do, so an unrelated change re-renders nothing. */
+function useStableList<T>(select: (s: StoreState) => T[]): T[] {
+  const last = useRef<T[]>([])
+  return useStore((s) => {
+    const list = select(s)
+    const before = last.current
+    if (list.length === before.length && list.every((item, i) => item === before[i])) return before
+    last.current = list
+    return list
+  })
 }
 
 function fileName(path: string): string {

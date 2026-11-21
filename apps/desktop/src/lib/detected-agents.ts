@@ -1,5 +1,5 @@
 import { useEffect, useSyncExternalStore } from 'react'
-import { HARNESS_METHODS, type TuiAgentId } from '@acp-harness/protocol'
+import { HARNESS_METHODS, type TuiAgentId } from '@zomfy/protocol'
 import { harnessRequest } from '@/daemon-connection'
 import type { HostId } from '@/session-store'
 

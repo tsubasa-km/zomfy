@@ -7,7 +7,7 @@ import {
   type WorkflowAgentProfile,
   type WorkflowNodeKind,
   type WorkflowOutcome
-} from '@acp-harness/protocol'
+} from '@zomfy/protocol'
 import { homedir } from 'node:os'
 import { guardedUse, type PathGuard } from './step-path-guard.ts'
 

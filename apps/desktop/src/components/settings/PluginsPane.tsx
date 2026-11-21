@@ -1,7 +1,7 @@
 import { useRef, useState } from 'react'
 import { invoke, isTauri } from '@tauri-apps/api/core'
 import { AlertTriangle, Check, FolderOpen, Loader2, RefreshCw } from 'lucide-react'
-import type { PluginCapabilityKind, PluginListEntry } from '@acp-harness/protocol'
+import type { PluginCapabilityKind, PluginListEntry } from '@zomfy/protocol'
 import { LOCAL_HOST } from '@/session-store'
 import { loadPlugins, pluginCommandUnavailableReason, setPluginEnabled, usePlugins } from '@/plugins/plugin-registry'
 import { Badge } from '@/components/ui/badge'
@@ -166,7 +166,7 @@ function PluginConsentDialog({ plugin, onClose }: { plugin: PluginListEntry | nu
                 <Check className="mt-1 size-3.5 shrink-0 text-muted-foreground" />
                 <span>
                   {CAPABILITY_COPY[kind].text} <span className="font-mono text-[11px] text-muted-foreground">({kind})</span>
-                  {!CAPABILITY_COPY[kind].available ? <span className="text-xs text-muted-foreground">{t(' — not offered by acp-harness yet')}</span> : null}
+                  {!CAPABILITY_COPY[kind].available ? <span className="text-xs text-muted-foreground">{t(' — not offered by Zomfy yet')}</span> : null}
                 </span>
               </div>
             ))}
@@ -197,8 +197,8 @@ function PluginConsentDialog({ plugin, onClose }: { plugin: PluginListEntry | nu
           <AlertTriangle className="mt-1 size-4 shrink-0" />
           <span>
             {manifest.main
-              ? t('This plugin ships a background worker. acp-harness does not run plugin workers, so only its panels and declarative commands take effect.')
-              : t('These permissions limit how the plugin uses acp-harness. Panels run in a sandbox with no network access; the plugin has no background worker.')}
+              ? t('This plugin ships a background worker. Zomfy does not run plugin workers, so only its panels and declarative commands take effect.')
+              : t('These permissions limit how the plugin uses Zomfy. Panels run in a sandbox with no network access; the plugin has no background worker.')}
           </span>
         </div>
         {error ? <p className="text-xs text-destructive">{error}</p> : null}

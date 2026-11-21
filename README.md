@@ -40,7 +40,7 @@ Zomfy started as a port of [Orca](https://github.com/stablyai/orca)'s interface 
    The installer is not code-signed yet, so Windows SmartScreen asks first: choose
    **More info → Run anyway**.
 3. Optional: WSL distros show up by themselves; add SSH hosts from the sidebar (Zomfy uses your
-   system `ssh` and `~/.ssh/config`, and copies its daemon to `~/.acp-harness/bin` on the host).
+   system `ssh` and `~/.ssh/config`, and copies its daemon to `~/.zomfy/bin` on the host).
 
 ## How it fits together
 
@@ -61,16 +61,25 @@ The app starts the daemons itself and stops the ones it used when it quits. They
 the app's process tree, so a crash or a dev rebuild of the app leaves them (and their terminals)
 running, and the next launch reconnects:
 
-- This computer: `packages/daemon/dist` is copied to `%LOCALAPPDATA%\acp-harness\bin` and run from
+- This computer: `packages/daemon/dist` is copied to `%LOCALAPPDATA%\zomfy\bin` and run from
   there on 127.0.0.1:7801. A daemon that answers with the same build is reused; a different build
   is replaced.
-- WSL: the Linux binary is copied to `~/.acp-harness/bin` in the distro and started through a
+- WSL: the Linux binary is copied to `~/.zomfy/bin` in the distro and started through a
   detached `wsl.exe` on 127.0.0.1:7811, which also keeps the distro awake.
 
 `bun run build` in `packages/daemon` only rewrites a binary whose bytes changed, so an unchanged
 rebuild never restarts a daemon. Each daemon writes its URL and a random token to
-`~/.acp-harness/daemon.json`; connections without that token, or from another origin, are refused.
+`~/.zomfy/daemon.json`; connections without that token, or from another origin, are refused.
 `bun run daemon` still runs one from source by hand.
+
+Builds before the rename to Zomfy used the legacy name acp-harness for all of this. On each host
+the first start under the new name stops a daemon still running under the legacy name and moves its
+`~/.acp-harness` home to `~/.zomfy`, leaving a link at the legacy path; a home that cannot be renamed
+is copied and marked with `MOVED-TO-ZOMFY.txt`. `ZOMFY_HOME` and `ZOMFY_ALLOWED_ORIGINS` fall back to
+their legacy `ACP_HARNESS_*` names, and window storage keys move from the legacy `acp-harness.` prefix
+to `zomfy.` on first load. New worktrees go under `~/zomfy/workspaces`; existing ones stay where their
+records point (including the legacy `~/acp-harness/workspaces`). `scripts/rename-to-zomfy.ts` is the
+codemod that did the rename, safe to re-run after merging a branch that still uses the legacy name.
 
 Claude runs from the `claude` CLI on PATH (override with `HARNESS_CLAUDE_PATH`), so it uses that
 CLI's login and settings.

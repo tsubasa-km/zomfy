@@ -8,7 +8,7 @@ import type {
   FileLines,
   FileLinesParams,
   TextEncoding
-} from '@acp-harness/protocol'
+} from '@zomfy/protocol'
 import { bomLength, completeLength, decodeBytes, unitSize } from './text-encodings.ts'
 import { resolveInside } from './workspace-files.ts'
 import { describeTextFile } from './workspace-text-files.ts'

@@ -1,5 +1,5 @@
 import { toast } from 'sonner'
-import { HARNESS_METHODS } from '@acp-harness/protocol'
+import { HARNESS_METHODS } from '@zomfy/protocol'
 import { harnessRequest } from '@/daemon-connection'
 import { getState, updateSession } from '@/session-store'
 import { hideChats, removeTabsFromLayout, showChat } from '@/stores/tab-layout-store'

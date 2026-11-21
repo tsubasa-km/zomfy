@@ -1,4 +1,4 @@
-import { HARNESS_METHODS, LSP_DOCUMENT_ROOT, LSP_EXTERNAL_ROOT, lspDocumentUri, parseLspDocumentUri } from '@acp-harness/protocol'
+import { HARNESS_METHODS, LSP_DOCUMENT_ROOT, LSP_EXTERNAL_ROOT, lspDocumentUri, parseLspDocumentUri } from '@zomfy/protocol'
 import { harnessRequest } from '@/daemon-connection'
 import { monaco } from '@/lib/monaco-setup'
 import { LSP_CLIENT_ID, type LspSession } from './lsp-client'

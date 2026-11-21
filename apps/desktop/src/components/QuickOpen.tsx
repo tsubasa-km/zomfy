@@ -1,6 +1,6 @@
 import { useDeferredValue, useEffect, useMemo, useState } from 'react'
 import { FileIcon } from '@/components/FileIcon'
-import { HARNESS_METHODS } from '@acp-harness/protocol'
+import { HARNESS_METHODS } from '@zomfy/protocol'
 import { harnessRequest } from '@/daemon-connection'
 import { findWorkspace, floatingWorkspaceId, openEditorTab, setFloating, useStore } from '@/session-store'
 import { setQuickOpen, useAppOverlays, closeSettings } from '@/stores/app-overlay-store'

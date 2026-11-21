@@ -11,8 +11,8 @@ import type {
   TurnResumeKind,
   PromptOrigin,
   Workspace
-} from '@acp-harness/protocol'
-import { LEGACY_NEW_CHAT_TITLE, NEW_CHAT_TITLE } from '@acp-harness/protocol'
+} from '@zomfy/protocol'
+import { LEGACY_NEW_CHAT_TITLE, NEW_CHAT_TITLE } from '@zomfy/protocol'
 import { WINDOW_ROLE } from '@/lib/window-role'
 import {
   carriesOverOpenChats,
@@ -53,6 +53,7 @@ import {
   type PaneSide
 } from '@/lib/pane-tree'
 import { hostedProjects, hostedWorkspaces } from '@/lib/host-lists'
+import { sameTerminal } from '@/lib/same-terminal'
 import { t } from '@/i18n/i18n'
 
 export type { SessionStatus }
@@ -208,7 +209,7 @@ export function onSessionTransition(listener: (t: SessionTransition) => void): (
 
 export const LOCAL_HOST: HostId = 'local'
 
-const LAYOUT_KEY = 'acp-harness.layout.v1'
+const LAYOUT_KEY = 'zomfy.layout.v1'
 type SavedLayout = Pick<
   StoreState,
   | 'activeWorkspaceId'
@@ -293,6 +294,31 @@ export function batchUpdates(apply: () => void): void {
   }
 }
 
+/** The timer that ends the batch `batchUntilFrame` opened, while one is open. */
+let frameBatch: ReturnType<typeof setTimeout> | null = null
+
+/**
+ * Applies a change at once but publishes it with the rest of the frame's: a streaming chat sends a
+ * chunk at a time, and drawing each one would redraw every view of the store many times a frame.
+ */
+export function batchUntilFrame(apply: () => void): void {
+  if (frameBatch === null) {
+    batchDepth++
+    frameBatch = setTimeout(() => {
+      frameBatch = null
+      batchDepth--
+      if (batchDepth === 0 && batchDirty) {
+        batchDirty = false
+        publish(state)
+      }
+    }, 16)
+  }
+  apply()
+}
+
+/** The layout last written to storage, so a change elsewhere (a chat streaming) does not write it again. */
+let savedLayout: SavedLayout | null = null
+
 function publish(next: StoreState): void {
   for (const listener of listeners) listener()
   // Only the main window owns the saved layout; a pop-out's stale copy must not overwrite it.
@@ -310,6 +336,9 @@ function publish(next: StoreState): void {
       paneTree: next.paneTree,
       startTab: next.startTab
     }
+    const before = savedLayout
+    if (before && (Object.keys(layout) as (keyof SavedLayout)[]).every((key) => layout[key] === before[key])) return
+    savedLayout = layout
     localStorage.setItem(LAYOUT_KEY, JSON.stringify(layout))
   } catch {
     // Storage can be unavailable; the layout then starts fresh next time.
@@ -473,7 +502,9 @@ export function selectWorkspace(workspaceId: string): void {
   const last = state.activeSessionByWorkspace[workspaceId]
   const tab = last && open.includes(last) ? last : open.find((id) => workspaceOfKnownTab(id) === workspaceId)
   if (tab) return set(withTabFocus(state, workspaceId, tab))
-  const chat = state.sessions.findLast((s) => s.workspaceId === workspaceId && !s.sideOf && !s.parentId && !s.archived)
+  // A chat of its own first; a workspace another chat made may hold only that chat's child.
+  const live = state.sessions.filter((s) => s.workspaceId === workspaceId && !s.sideOf && !s.archived)
+  const chat = live.findLast((s) => !s.parentId) ?? live.findLast((s) => s.origin !== 'workflow')
   if (chat) return focusTab(workspaceId, chat.id)
   openStartTab(workspaceId)
 }
@@ -794,14 +825,21 @@ export function setTerminals(hostId: HostId, terminals: TerminalInfo[]): void {
     else drawerTerminalsDue.delete(terminal.workspaceId)
     setTabMeta(terminal.id, { drawer: true })
   }
-  set({
-    ...state,
-    terminals: [
-      ...state.terminals.filter((t) => t.hostId !== hostId),
-      ...terminals.map((t) => ({ ...t, hostId }))
-    ]
-  })
+  // A host resends its whole list whenever one terminal's title changes (an agent's spinner does
+  // that many times a second): unchanged terminals keep their objects, and a list with no change
+  // at all is not published, so tabs and views that show other terminals do not redraw.
+  const before = new Map(state.terminals.map((t) => [t.id, t]))
+  const next = [
+    ...state.terminals.filter((t) => t.hostId !== hostId),
+    ...terminals.map((t) => {
+      const old = before.get(t.id)
+      return old && old.hostId === hostId && sameTerminal(old, t) ? old : { ...t, hostId }
+    })
+  ]
+  if (next.length === state.terminals.length && next.every((t, i) => t === state.terminals[i])) return
+  set({ ...state, terminals: next })
 }
+
 
 /** Focuses a terminal tab, opening the floating panel when it lives there. */
 export function selectTerminal(terminalId: string): void {

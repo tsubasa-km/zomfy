@@ -1,4 +1,4 @@
-import type { WorkflowRun } from '@acp-harness/protocol'
+import type { WorkflowRun } from '@zomfy/protocol'
 import { t } from '@/i18n/i18n'
 
 // How a run's status reads, wherever a run is listed.

@@ -1,4 +1,4 @@
-import { LSP_EXTERNAL_ROOT, encodeLspUriSegment, lspDocumentUri, parseLspDocumentUri } from '@acp-harness/protocol'
+import { LSP_EXTERNAL_ROOT, encodeLspUriSegment, lspDocumentUri, parseLspDocumentUri } from '@zomfy/protocol'
 
 // The window names documents by its editor's model URIs; a language server needs the real path on
 // its host. Everything that crosses the daemon is rewritten here, in both directions.

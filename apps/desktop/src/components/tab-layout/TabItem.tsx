@@ -1,4 +1,4 @@
-import { useContext, useEffect, useRef, useState } from 'react'
+import { memo, useEffect, useRef, useState } from 'react'
 import { Bot, Pin, X } from 'lucide-react'
 import type { Session } from '@/session-store'
 import { AgentStateDot, type AgentDotState } from '@/components/AgentStateDot'
@@ -18,7 +18,6 @@ import {
   canRenameTab,
   closeWorkspaceTabs,
   defaultTabTitle,
-  TabPlacesContext,
   tabWorkspaceId,
   useWorkspacePlace,
   type WorkspaceTab
@@ -38,7 +37,8 @@ const TAB_DOT: Partial<Record<Session['status'], AgentDotState>> = {
 const DROP_BEFORE = "before:absolute before:inset-y-0 before:left-0 before:z-10 before:w-[2px] before:bg-blue-500 before:content-['']"
 const DROP_AFTER = "after:absolute after:inset-y-0 after:right-0 after:z-10 after:w-[2px] after:bg-blue-500 after:content-['']"
 
-export function TabItem({
+/** Memoised: the strip's tabs keep their objects while unchanged (keepUnchangedTabs). */
+export const TabItem = memo(function TabItem({
   workspaceId: paneWorkspaceId,
   groupId,
   tab,
@@ -51,7 +51,8 @@ export function TabItem({
   workspaceId: string
   groupId: string
   tab: WorkspaceTab
-  groupTabs: WorkspaceTab[]
+  /** The group's tabs in strip order, as of the strip's last render. */
+  groupTabs: { readonly current: WorkspaceTab[] }
   active: boolean
   /** The group's open tab, which joins the first Ctrl-click's selection. */
   groupActiveId: string | null
@@ -61,7 +62,7 @@ export function TabItem({
 }) {
   // A tab acts in its own workspace, which among the window's tabs is not always its pane's.
   const workspaceId = tabWorkspaceId(tab) ?? paneWorkspaceId
-  const showPlace = useContext(TabPlacesContext)
+  // Every tab names its project (and worktree branch) on a second line, whatever else is open.
   const place = useWorkspacePlace(tabWorkspaceId(tab))
   const meta = useTabLayout((s) => s.meta[tab.id])
   const preview = useTabLayout((s) => s.preview[tabScope(workspaceId)] === tab.id)
@@ -113,7 +114,8 @@ export function TabItem({
         data-pinned={pinned ? 'true' : 'false'}
         data-tab-selected={selected || undefined}
         data-tab-preview={preview || undefined}
-        title={showPlace && place ? `${title} · ${place}` : undefined}
+        title={place ? `${title}
+${place}` : title}
         onPointerDown={(e) => {
           if (renaming !== null) return
           tabDrag.begin(e, {
@@ -128,7 +130,7 @@ export function TabItem({
         onClick={(e) => {
           const gesture = gestureOf(e)
           if (gesture) {
-            tabSelection.gesture(groupId, tab.id, gesture, groupActiveId, groupTabs.map((t) => t.id))
+            tabSelection.gesture(groupId, tab.id, gesture, groupActiveId, groupTabs.current.map((t) => t.id))
             return
           }
           tabSelection.reset(groupId, tab.id)
@@ -153,8 +155,8 @@ export function TabItem({
           setMenu({ x: e.clientX, y: e.clientY, open: true })
         }}
         className={cn(
-          // Sized to its name, as VS Code's tabs are; the strip scrolls once they no longer fit.
-          'group relative flex h-full max-w-[280px] min-w-[80px] shrink-0 cursor-pointer items-center gap-1.5 border-r border-border pr-1.5 pl-2.5 text-xs select-none',
+          // One width for every tab, whatever its name: long names end in an ellipsis, the tooltip has them whole.
+          'group relative flex h-full w-[184px] shrink-0 cursor-pointer items-center gap-1.5 border-r border-border pr-1.5 pl-2.5 text-xs select-none',
           active || selected
             ? 'bg-[color-mix(in_srgb,var(--foreground)_6%,var(--card))] text-foreground'
             : 'bg-card text-muted-foreground hover:text-foreground',
@@ -190,20 +192,21 @@ export function TabItem({
             spellCheck={false}
           />
         ) : (
-          // The name keeps its room; where the tab belongs gives way first, as a tab's description does in VS Code.
-          <span className={cn('min-w-[4ch] flex-[1_1_auto] truncate', preview && 'italic')}>{title}</span>
+          // The name over the project it belongs to, both cut short with an ellipsis at the tab's fixed width.
+          <span className="flex min-w-0 flex-1 flex-col justify-center leading-tight">
+            <span className={cn('truncate', preview && 'italic')}>{title}</span>
+            {place && (
+              <span className="truncate text-[10px] text-muted-foreground/70" data-tab-place>
+                {place}
+              </span>
+            )}
+          </span>
         )}
         {/* A login to a saved server says how careful to be there, production above all. */}
         {tab.kind === 'terminal' && tab.terminal.connection?.tag && renaming === null && <SshTagBadge tag={tab.terminal.connection.tag} />}
         {/* An agent is typing into it (terminal_send): the bar over the terminal says who, and stops it. */}
         {tab.kind === 'terminal' && tab.terminal.agentControl?.state === 'driving' && renaming === null && (
           <Bot className="size-3 shrink-0 text-highlight" aria-label={t('An agent is typing here')} data-tab-agent-driving />
-        )}
-        {/* A chat says where it works in the sidebar and the header; a shell, a file or a panel needs it on the tab. */}
-        {showPlace && place && tab.kind !== 'chat' && renaming === null && (
-          <span className="max-w-[45%] min-w-0 flex-[0_1000_auto] truncate text-[10px] text-muted-foreground/70" data-tab-place>
-            {place}
-          </span>
         )}
         {meta?.color && renaming === null && (
           <span className="size-2 shrink-0 rounded-full" style={{ backgroundColor: meta.color }} />
@@ -265,7 +268,7 @@ export function TabItem({
           workspaceId={workspaceId}
           groupId={groupId}
           tab={tab}
-          groupTabs={groupTabs}
+          groupTabs={groupTabs.current}
           hasSplit={hasSplit}
           open={menu.open}
           point={menu}
@@ -278,4 +281,4 @@ export function TabItem({
       )}
     </>
   )
-}
+})

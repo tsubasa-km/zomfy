@@ -1,6 +1,6 @@
 // Agent marks copied from Orca's agent-catalog.tsx, agent-icon-glyphs.tsx and bundled favicon PNGs
 // (MIT). Bundled, not fetched: the app's CSP only allows its own images.
-import { tuiAgentSpec } from '@acp-harness/protocol'
+import { tuiAgentSpec } from '@zomfy/protocol'
 import { ClaudeIcon, OpenAIIcon } from '@/components/agent-icons'
 import ampUrl from '@/assets/agent-icons/amp.png'
 import antigravityUrl from '@/assets/agent-icons/antigravity.png'

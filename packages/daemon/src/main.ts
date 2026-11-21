@@ -8,6 +8,7 @@ import { TerminalManager } from "./terminal-manager.ts";
 import { log } from "./log.ts";
 import { runManagerMcpBridge } from "./manager-mcp-bridge.ts";
 import { pruneChatAttachments } from "./chat-attachment-files.ts";
+import { takeHomeMigrationLog } from "./harness-home.ts";
 
 const DEFAULT_PORT = 7801;
 const bridgeIndex = process.argv.indexOf("--mcp-bridge");
@@ -16,6 +17,7 @@ if (bridgeIndex !== -1) {
   await runManagerMcpBridge(process.argv[bridgeIndex + 1] ?? "");
   process.exit(0);
 }
+for (const line of takeHomeMigrationLog()) log(line);
 const workspaces = new WorkspaceManager();
 await workspaces.load();
 const sessions = new SessionRegistry();

@@ -27,7 +27,7 @@ import {
   type WorkflowNodeConfig,
   type WorkflowNodeKind,
   type WorkflowOutcome
-} from '@acp-harness/protocol'
+} from '@zomfy/protocol'
 import { harnessRequest } from '@/daemon-connection'
 import { useWorkflowAgents } from '@/stores/workflow-agents-store'
 import { TuiAgentIcon } from '@/components/terminal/TuiAgentIcon'

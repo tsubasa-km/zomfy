@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { CircleDot, List, LoaderCircle, RefreshCw, Search, X } from 'lucide-react'
-import type { HostedWorkItem, HostingProviderId, WorkItemKind, WorkItemPreset } from '@acp-harness/protocol'
+import type { HostedWorkItem, HostingProviderId, WorkItemKind, WorkItemPreset } from '@zomfy/protocol'
 import { allProjects, allWorkspaces, getState, useStore, type HostedProject } from '@/session-store'
 import { openNewWorkspace, rememberProjectProvider, setTasks, useTasks } from '@/stores/tasks-store'
 import { projectLabel } from '@/components/sidebar/workspace-visibility'

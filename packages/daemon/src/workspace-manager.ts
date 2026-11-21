@@ -13,8 +13,8 @@ import type {
   RemoveWorkspaceParams,
   Workspace,
   WorkspacePatch
-} from '@acp-harness/protocol'
-import { NOT_A_GIT_REPOSITORY } from '@acp-harness/protocol'
+} from '@zomfy/protocol'
+import { NOT_A_GIT_REPOSITORY } from '@zomfy/protocol'
 import { branchExists, currentBranch, git, isGitRepository, localBranches } from './git-cli.ts'
 import { branchPrefixFromUserName, firstFreeCandidate, sanitizeWorkspaceName } from './worktree-naming.ts'
 import { log } from './log.ts'
@@ -209,6 +209,12 @@ export class WorkspaceManager {
     if ('finishWith' in patch) {
       if (patch.finishWith === 'merge' || patch.finishWith === 'pull-request') project.finishWith = patch.finishWith
       else delete project.finishWith
+    }
+    // Only an explicit false is kept: unset is the default, which allows the tool.
+    for (const key of ['agentWorkflows', 'agentSplitWork'] as const) {
+      if (!(key in patch)) continue
+      if (patch[key] === false) project[key] = false
+      else delete project[key]
     }
     if ('hooks' in patch) {
       const setup = patch.hooks?.setup?.trim()

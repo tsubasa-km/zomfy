@@ -1,24 +1,23 @@
 import { useEffect, useRef } from 'react'
 import { ExternalLink } from 'lucide-react'
-import { chatAgentLabel, MANAGER_MCP_SERVER_NAME, workflowScorecard } from '@acp-harness/protocol'
+import { chatAgentLabel, workflowScorecard } from '@zomfy/protocol'
 import { allProjects, allWorkspaces, useStore, type Session } from '@/session-store'
-import { useChatSession, type ContextUsage } from '@/stores/chat-store'
+import { useChatSession } from '@/stores/chat-store'
 import { loadWorkflowRuns, useWorkflowRuns, type HostedWorkflowRun } from '@/stores/workflow-runs-store'
 import { openWorkflows } from '@/stores/workflows-store'
 import { TuiAgentIcon } from '@/components/terminal/TuiAgentIcon'
 import { Button } from '@/components/ui/button'
 import { formatDuration, formatTokens } from '@/components/workflows/WorkflowRunScorecard'
-import { cn } from '@/lib/utils'
+import { Section } from './session-panel/panel-parts'
+import { EnvironmentSection } from './session-panel/EnvironmentSection'
+import { ContextSection } from './session-panel/ContextSection'
+import { UsageLimitsSection } from './session-panel/UsageLimitsSection'
+import { ConnectorsSection } from './session-panel/ConnectorsSection'
 import { t } from '@/i18n/i18n'
 
-// The Agent tab: for the chat in front, what fills its context (and whether this chat used it),
-// what it has done, and the workflow run it belongs to or the project's recent runs.
-
-/** Below this, an unused item is not worth flagging. */
-const NOTABLE_TOKENS = 300
-
-type ItemKind = ContextUsage['items'][number]['kind']
-const KIND_LABELS: Record<ItemKind, string> = { skill: t('Skill'), mcp: 'MCP', memory: t('Memory'), agent: t('Agent') }
+// The Session tab, after the Claude app's session sidebar: for the chat in front, where it runs,
+// what fills its context (with Compact), the account's usage limits, its MCP connectors, what it
+// has done, and the workflow run it belongs to.
 
 /** The chat in front in this workspace; the last one shown while a terminal or file is in front. */
 function useFrontChat(workspaceId: string): Session | null {
@@ -49,26 +48,6 @@ function chatActivity(session: Session) {
     if (server) bump(used.mcp, server)
   }
   return { turns, tools: [...tools].sort((a, b) => b[1] - a[1]), used }
-}
-
-function Section({ title, children, aside }: { title: string; children: React.ReactNode; aside?: React.ReactNode }) {
-  return (
-    <section className="space-y-2 border-b border-border px-3 py-3">
-      <div className="flex items-center gap-2">
-        <h3 className="text-[11px] font-medium tracking-wide text-muted-foreground uppercase">{title}</h3>
-        <div className="ml-auto">{aside}</div>
-      </div>
-      {children}
-    </section>
-  )
-}
-
-function Bar({ value, max, warn }: { value: number; max: number; warn?: boolean }) {
-  return (
-    <div className="h-1.5 w-full overflow-hidden rounded-full bg-muted">
-      <div className={cn('h-full rounded-full', warn ? 'bg-status-warning' : 'bg-highlight')} style={{ width: `${Math.min(100, max ? (value / max) * 100 : 0)}%` }} />
-    </div>
-  )
 }
 
 export function AgentPanel({ workspaceId }: { workspaceId: string }) {
@@ -110,7 +89,13 @@ export function AgentPanel({ workspaceId }: { workspaceId: string }) {
         </div>
       </div>
 
-      <ContextSection usage={usage} agent={agent} used={activity.used} />
+      <EnvironmentSection workspaceId={workspaceId} />
+
+      <ContextSection session={session} usage={usage} used={activity.used} />
+
+      <UsageLimitsSection hostId={session.hostId} sessionId={session.id} />
+
+      {agent === 'claude' && <ConnectorsSection key={session.id} sessionId={session.id} />}
 
       <Section title={t('This thread')}>
         <div className="grid grid-cols-3 gap-2">
@@ -161,89 +146,6 @@ function Figure({ label, value, hint }: { label: string; value: string; hint?: s
       <div className="truncate text-sm font-medium tabular-nums">{value}</div>
       <div className="truncate text-[11px] text-muted-foreground">{label}</div>
     </div>
-  )
-}
-
-function ContextSection({
-  usage,
-  agent,
-  used
-}: {
-  usage: ContextUsage | null
-  agent: string
-  used: ReturnType<typeof chatActivity>['used']
-}) {
-  if (!usage) {
-    return (
-      <Section title={t('Context')}>
-        <p className="text-muted-foreground">
-          {agent === 'claude'
-            ? t('Shown after the thread’s first turn.')
-            : t('{agent} does not report what fills its context.', { agent: chatAgentLabel(agent) })}
-        </p>
-      </Section>
-    )
-  }
-  const share = usage.size ? Math.round((usage.used / usage.size) * 100) : 0
-  const uses = (kind: ItemKind, name: string) => (kind === 'memory' ? null : (used[kind].get(name) ?? 0))
-  const idle = (kind: ItemKind, name: string, tokens: number) =>
-    uses(kind, name) === 0 && tokens >= NOTABLE_TOKENS && !(kind === 'mcp' && name === MANAGER_MCP_SERVER_NAME)
-  const idleTokens = usage.items.filter((i) => idle(i.kind, i.name, i.tokens)).reduce((n, i) => n + i.tokens, 0)
-  const items = [...usage.items].sort((a, b) => b.tokens - a.tokens)
-  return (
-    <Section title={t('Context')} aside={<span className="text-[11px] text-muted-foreground tabular-nums">{share}%</span>}>
-      <div className="space-y-1">
-        <Bar value={usage.used} max={usage.size} warn={share >= 80} />
-        <div className="text-[11px] text-muted-foreground tabular-nums">
-          {t('{used} of {size}', { used: formatTokens(usage.used), size: formatTokens(usage.size) })}
-          {usage.estimated ? ` ${t('(estimated)')}` : ''}
-        </div>
-      </div>
-      {usage.categories.length > 0 && (
-        <ul className="space-y-1" data-agent-context-categories>
-          {[...usage.categories]
-            .sort((a, b) => b.tokens - a.tokens)
-            .map((c) => (
-              <li key={c.name} className="space-y-0.5">
-                <div className="flex items-center gap-2">
-                  <span className="min-w-0 flex-1 truncate">{c.name}</span>
-                  <span className="text-muted-foreground tabular-nums">{formatTokens(c.tokens)}</span>
-                </div>
-                <Bar value={c.tokens} max={usage.used} />
-              </li>
-            ))}
-        </ul>
-      )}
-      {items.length > 0 && (
-        <div className="space-y-1">
-          <div className="text-[11px] text-muted-foreground">
-            {t('Loaded every turn')}
-            {idleTokens > 0 && (
-              <span className="text-status-warning"> · {t('{tokens} unused in this thread', { tokens: formatTokens(idleTokens) })}</span>
-            )}
-          </div>
-          <ul className="max-h-64 space-y-0.5 overflow-y-auto" data-agent-context-items>
-            {items.map((i) => {
-              const count = uses(i.kind, i.name)
-              return (
-                <li
-                  key={`${i.kind}:${i.name}`}
-                  className={cn('flex items-center gap-2', idle(i.kind, i.name, i.tokens) && 'text-status-warning')}
-                  title={i.name}
-                >
-                  <span className="w-11 shrink-0 text-[11px] text-muted-foreground">{KIND_LABELS[i.kind]}</span>
-                  <span className="min-w-0 flex-1 truncate">{i.kind === 'memory' ? i.name.split(/[\\/]/).slice(-2).join('/') : i.name}</span>
-                  <span className="shrink-0 tabular-nums">{formatTokens(i.tokens)}</span>
-                  <span className="w-8 shrink-0 text-right text-[11px] text-muted-foreground tabular-nums" title={t('Calls in this thread')}>
-                    {count === null ? '—' : `×${count}`}
-                  </span>
-                </li>
-              )
-            })}
-          </ul>
-        </div>
-      )}
-    </Section>
   )
 }
 

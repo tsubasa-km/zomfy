@@ -1,5 +1,5 @@
 import { MessageSquarePlus, RefreshCw } from 'lucide-react'
-import { tuiAgentSpec } from '@acp-harness/protocol'
+import { tuiAgentSpec } from '@zomfy/protocol'
 import { launchAgentTerminal } from '@/lib/agent-terminal-launch'
 import { DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator } from '@/components/ui/dropdown-menu'
 import { TuiAgentIcon } from '@/components/terminal/TuiAgentIcon'

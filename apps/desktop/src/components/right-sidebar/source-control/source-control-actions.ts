@@ -1,4 +1,4 @@
-import type { GitUpstreamStatus } from '@acp-harness/protocol'
+import type { GitUpstreamStatus } from '@zomfy/protocol'
 import { t } from '@/i18n/i18n'
 
 // Orca's commit-area split button: the primary action ladder (shared/source-control-primary-action-decision.ts)

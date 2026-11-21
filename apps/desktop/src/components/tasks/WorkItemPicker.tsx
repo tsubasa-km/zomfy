@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { CircleDot, Link2, LoaderCircle } from 'lucide-react'
-import { HARNESS_METHODS, type HostedWorkItem } from '@acp-harness/protocol'
+import { HARNESS_METHODS, type HostedWorkItem } from '@zomfy/protocol'
 import { harnessRequest } from '@/daemon-connection'
 import type { HostedProject } from '@/session-store'
 import { Button } from '@/components/ui/button'

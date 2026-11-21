@@ -2,7 +2,7 @@ import type * as acp from "@agentclientprotocol/sdk";
 import { existsSync } from "node:fs";
 import { copyFile, mkdir } from "node:fs/promises";
 import { dirname, join } from "node:path";
-import type { CreateWorkspaceParams, Project, PromptOrigin, RemoveWorkspaceParams, Workspace } from "@acp-harness/protocol";
+import type { CreateWorkspaceParams, Project, PromptOrigin, RemoveWorkspaceParams, Workspace } from "@zomfy/protocol";
 import { git } from "./git-cli.ts";
 import { log } from "./log.ts";
 import type { SessionRecord, SessionRegistry } from "./session-registry.ts";

@@ -1,6 +1,6 @@
 import { ChevronDown, Copy, Eye, FileText, FolderSearch, SquareArrowOutUpRight } from 'lucide-react'
 import { FileIcon, FolderIcon } from '@/components/FileIcon'
-import type { GitChange } from '@acp-harness/protocol'
+import type { GitChange } from '@zomfy/protocol'
 import { allWorkspaces, openEditorTab, setRightSidebar, useStore } from '@/session-store'
 import { GIT_STATUS_COLOR, GIT_STATUS_LETTER } from '@/hooks/use-git-status'
 import { openWorkspaceIn } from '@/components/sidebar/WorkspaceMenu'

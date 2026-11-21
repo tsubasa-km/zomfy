@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, mock, test } from 'bun:test'
-import type { LspEvent, LspOpenResult, LspSessionInfo } from '@acp-harness/protocol'
+import type { LspEvent, LspOpenResult, LspSessionInfo } from '@zomfy/protocol'
 
 // The document layer (lib/lsp/lsp-documents, lsp-client) against a stand-in editor and a recorded
 // daemon: what it sends when a file opens, changes, is saved and closes, and what it does when a
@@ -306,7 +306,7 @@ describe('servers coming and going', () => {
     expect(toasts).toEqual([
       { title: 'No language server for these files on local', description: 'Completion and diagnostics need rust-analyzer. To install it there: rustup component add rust-analyzer' }
     ])
-    expect(JSON.parse(storage.get('acp-harness.lsp-install-hints')!)).toEqual(['local:rust'])
+    expect(JSON.parse(storage.get('zomfy.lsp-install-hints')!)).toEqual(['local:rust'])
   })
 
   test('the set of served languages is announced when it may have changed', async () => {

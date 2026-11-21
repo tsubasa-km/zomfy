@@ -205,7 +205,7 @@ export const SHELL: Record<string, string> = {
   'New Claude session': '新しい Claude セッション',
 
   // components/Sidebar.tsx
-  'Remove {name} from acp-harness? Its folders and worktrees on disk are kept.': '{name} を acp-harness から削除しますか？ディスク上のフォルダーとワークツリーはそのまま残ります。',
+  'Remove {name} from Zomfy? Its folders and worktrees on disk are kept.': '{name} を Zomfy から削除しますか？ディスク上のフォルダーとワークツリーはそのまま残ります。',
   'Waiting for you': '対応待ち',
   Inbox: '受信箱',
   'No workspaces match the filters.': 'フィルターに一致するワークスペースはありません。',
@@ -541,6 +541,11 @@ export const SHELL: Record<string, string> = {
   'Additional local commands': '追加のローカル コマンド',
   'One command per line, e.g. pnpm install': '1 行に 1 コマンド（例: pnpm install）',
   'On Windows the script runs with cmd unless it starts with #!, which runs it in Git Bash.': 'Windows では、スクリプトは cmd で実行されます。#! で始まる場合は Git Bash で実行されます。',
+  'What agents may do on their own': 'エージェントが自分の判断でできること',
+  'Agents can start workflows': 'エージェントがワークフローを開始できる',
+  "An agent in this project may run one of the project's workflows on a task.": 'このプロジェクトのエージェントが、タスクにプロジェクトのワークフローを実行できます。',
+  'Agents can split work into parallel worktrees': 'エージェントが作業を並列のワークツリーに分割できる',
+  'An agent may hand separate parts of a large task to helpers, each in a worktree of its own.': '大きなタスクの独立した部分を、それぞれ専用のワークツリーで動くヘルパーに任せられます。',
 
   // components/sidebar/WorkspaceMenu.tsx
   'Open in': 'アプリで開く',
@@ -996,6 +1001,72 @@ export const SHELL: Record<string, string> = {
   'Reviews that sent work back, plus failed checks.': '差し戻したレビューと失敗したチェックの合計です。',
   'Open the run': '実行を開く',
 
+  // components/right-sidebar/ProjectPanel.tsx
+  '{first} (+{n} more)': '{first}（ほか {n} 行）',
+  "This thread's folder belongs to no project.": 'このスレッドのフォルダーはどのプロジェクトにも属していません。',
+  'Git repository': 'Git リポジトリ',
+  'Also on': 'ほかのホスト',
+  'This workspace': 'このワークスペース',
+  Kind: '種類',
+  'Main checkout': 'メインのチェックアウト',
+  Worktree: 'ワークツリー',
+  Worktrees: 'ワークツリー',
+  'When done': '作業が終わったら',
+  'Open a pull request': 'プルリクエストを作成',
+  'Merge into the main checkout': 'メインのチェックアウトにマージ',
+  Default: 'デフォルト',
+  'Scripts file': 'スクリプトのファイル',
+  'Agents on their own': 'エージェントの自律的な操作',
+  'Turned off': 'オフ',
+
+  // components/right-sidebar/session-panel/EnvironmentSection.tsx
+  'Not a git checkout': 'git のチェックアウトではありません',
+
+  // components/right-sidebar/session-panel/ContextSection.tsx
+  'Free space': '空き',
+  '{percent}% used': '{percent}% 使用中',
+  'Not in the window until a tool search loads them.': 'ツール検索で読み込まれるまでコンテキストには入りません。',
+  'MCP tools': 'MCP ツール',
+  'Memory files': 'メモリファイル',
+  deferred: '遅延読み込み',
+  'There is no conversation to compact yet.': 'まだ圧縮する会話がありません。',
+  'Wait for the turn to end.': 'ターンが終わるまでお待ちください。',
+  'Summarise the conversation so far to free context (/compact).': 'これまでの会話を要約してコンテキストを空けます（/compact）。',
+  'Compacting…': '圧縮中…',
+  Compacted: '圧縮しました',
+
+  // components/right-sidebar/session-panel/UsageLimitsSection.tsx
+  '5-hour session': '5 時間枠',
+  'Weekly · all models': '週間・全モデル',
+  'Weekly · {model}': '週間・{model}',
+  'Weekly · one model': '週間・特定モデル',
+  'Resets in {time}': 'あと {time} でリセット',
+  'Resets {time}': '{time} にリセット',
+  'No plan limits apply to this sign-in (an API key, Bedrock or Vertex).': 'このサインイン（API キー、Bedrock、Vertex）にはプランの使用量上限がありません。',
+  'No limits to show.': '表示する上限はありません。',
+  'Could not read the limits.': '上限を読み取れませんでした。',
+  'Usage limits': '使用量の上限',
+  'Read the limits again': '上限を再取得',
+  'Reading the limits…': '上限を読み取り中…',
+
+  // components/right-sidebar/session-panel/ConnectorsSection.tsx
+  'Needs sign-in': 'サインインが必要',
+  Connectors: 'コネクタ',
+  '{connected} of {total} connected': '{total} 件中 {connected} 件接続',
+  'Check the connectors again': 'コネクタを再確認',
+  'Asking Claude Code for its MCP servers…': 'Claude Code に MCP サーバーを問い合わせ中…',
+  'No MCP servers are set up for this thread.': 'このスレッドに設定された MCP サーバーはありません。',
+  'Built in': '組み込み',
+  '{n} tools': 'ツール {n} 個',
+  'Sign in': 'サインイン',
+  'Finish signing in in the browser; this updates on its own.': 'ブラウザーでサインインを完了してください。完了すると自動で更新されます。',
+  'If the browser ends on a page that does not load, paste that page’s address here:': 'ブラウザーが最後に開けないページで止まったら、そのページのアドレスをここに貼り付けてください:',
+  'Connect it on the claude.ai page that opened, then press Reconnect.': '開いた claude.ai のページで接続してから、「再接続」を押してください。',
+
+  // components/right-sidebar/session-panel/UsageLimitsSegment.tsx
+  '5h': '5時間',
+  Week: '週',
+
   // components/right-sidebar/SearchPanel.tsx
   '{total} result in {files} file': '{files} 件のファイルに {total} 件の結果',
   '{total} result in {files} files': '{files} 件のファイルに {total} 件の結果',
@@ -1308,8 +1379,8 @@ export const SHELL: Record<string, string> = {
   // components/projects/ProjectsPage.tsx (selection)
   'Select {name}': '{name} を選択',
   'Remove from the list…': '一覧から外す…',
-  'Remove {n} projects from acp-harness? Their folders and worktrees on disk are kept.':
-    '{n} 件のプロジェクトを acp-harness から削除しますか？ディスク上のフォルダーとワークツリーはそのまま残ります。',
+  'Remove {n} projects from Zomfy? Their folders and worktrees on disk are kept.':
+    '{n} 件のプロジェクトを Zomfy から削除しますか？ディスク上のフォルダーとワークツリーはそのまま残ります。',
   'Hosts that are not connected keep theirs.': '接続していないホストにあるものはそのまま残ります。',
   'Could not remove {n} of the projects': '{n} 件のプロジェクトを外せませんでした'
 }

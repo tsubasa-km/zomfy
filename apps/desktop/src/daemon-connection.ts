@@ -8,7 +8,7 @@ import {
   CHAT_META,
   type QuestionAnswers,
   HARNESS_METHODS,
-  PROMPT_NOT_SENT_META,
+  promptNotSent,
   HARNESS_NOTIFICATIONS,
   LSP_NOTIFICATIONS,
   type LspEvent,
@@ -41,7 +41,7 @@ import {
   type TerminalInfo,
   type TerminalOutput,
   type TodoItem,
-} from "@acp-harness/protocol";
+} from "@zomfy/protocol";
 import { applyChatUpdate, latestTurnEnd } from "./chat-transcript";
 import { WINDOW_ROLE } from "./lib/window-role";
 import { EXPIRED_APPROVAL } from "./lib/expired-approval";
@@ -52,6 +52,7 @@ import {
   allProjects,
   findWorkspace,
   batchUpdates,
+  batchUntilFrame,
   forgetHost,
   getState,
   whenState,
@@ -217,7 +218,7 @@ async function openConnection(hostId: HostId): Promise<void> {
 
   const stream = createWebSocketStream(info.url, { protocols: [info.protocolPrefix + info.token] });
   const opened = acp
-    .client({ name: "acp-harness-desktop" })
+    .client({ name: "zomfy-desktop" })
     .onRequest("session/request_permission", (ctx) =>
       // The dashboard pop-out cannot show an approval card; the daemon asks the main window instead.
       WINDOW_ROLE !== "dashboard" ? requestPermission(hostId, ctx.params) : Promise.reject(new Error("This window does not answer approvals")),
@@ -255,7 +256,8 @@ async function openConnection(hostId: HostId): Promise<void> {
     .onNotification("session/update", (ctx) => {
       const replay = replayBuffers.get(ctx.params.sessionId);
       if (replay) replay.push(ctx.params);
-      else applyChatUpdate(ctx.params);
+      // Streamed chunks are drawn once a frame, however many arrive in it.
+      else batchUntilFrame(() => applyChatUpdate(ctx.params));
     })
     .onNotification(
       HARNESS_NOTIFICATIONS.stateChanged,
@@ -425,13 +427,15 @@ export async function addProject(pickedPath: string): Promise<Project> {
 export async function createSession(
   workspaceId: string,
   agent?: ChatAgentId,
-  extra: { hostId?: HostId; role?: SessionRole; focus?: boolean; permissionMode?: ChatPermissionMode } = {},
+  /** `parentId`: the chat that started this one, which the sidebar folds it under. */
+  extra: { hostId?: HostId; role?: SessionRole; focus?: boolean; permissionMode?: ChatPermissionMode; parentId?: string } = {},
 ): Promise<string> {
   const hostId = extra.hostId ?? hostOf({ workspaceId });
   const params = {
     workspaceId,
     ...(agent && agent !== "claude" ? { agent } : {}),
     ...(extra.role ? { role: extra.role } : {}),
+    ...(extra.parentId ? { parentId: extra.parentId } : {}),
     ...(!agent || agent === "claude" ? { permissionMode: extra.permissionMode ?? getSetting("defaultPermissionMode") } : {}),
   };
   const info = await harnessRequest(HARNESS_METHODS.sessionCreate, params, hostId);
@@ -624,7 +628,7 @@ export async function sendPrompt(sessionId: string, text: string, images: ChatIm
     });
     // No turn ran for it (its conversation is open in a Claude terminal, the chat is a split's helper
     // at work, or it was stopped while waiting on a merge): the message goes back into the box.
-    if (reply._meta?.[PROMPT_NOT_SENT_META] === true) {
+    if (promptNotSent(reply._meta)) {
       updateSession(sessionId, (s) => ({ ...s, status: before, turnStartedAt: null }));
       return false;
     }

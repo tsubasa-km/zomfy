@@ -1,5 +1,5 @@
 import { toast } from 'sonner'
-import type { LspEvent, LspServerHint } from '@acp-harness/protocol'
+import type { LspEvent, LspServerHint } from '@zomfy/protocol'
 import { monaco } from '@/lib/monaco-setup'
 import { getState, hostLabel, whenState, type HostId } from '@/session-store'
 import { openSettings } from '@/stores/app-overlay-store'
@@ -359,7 +359,7 @@ function languagesChanged(): void {
 
 // ── Quiet words to the person ────────────────────────────────────────────
 
-const HINTS_KEY = 'acp-harness.lsp-install-hints'
+const HINTS_KEY = 'zomfy.lsp-install-hints'
 const failuresShown = new Set<string>()
 
 function hintsShown(): string[] {

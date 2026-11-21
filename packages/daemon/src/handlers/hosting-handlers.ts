@@ -5,7 +5,7 @@ import {
   type HostedWorkItem,
   type HostingAvailability,
   type Project
-} from '@acp-harness/protocol'
+} from '@zomfy/protocol'
 import { currentBranch } from '../git-cli.ts'
 import { githubHosting } from '../github-hosting.ts'
 import { gitlabHosting } from '../gitlab-hosting.ts'

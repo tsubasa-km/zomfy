@@ -18,7 +18,7 @@ import { closeGroup } from './tab-group-commands'
 import type { WorkspaceTab } from './workspace-tab-model'
 import { t } from '@/i18n/i18n'
 
-// Orca's tab-bar-surface.tsx + tab-strip-overflow-navigation.ts: tabs shrink to their floor, then
+// Orca's tab-bar-surface.tsx + tab-strip-overflow-navigation.ts: tabs keep one fixed width, and
 // the strip scrolls (wheel, chevrons) with fading edges and keeps the active tab in view.
 
 const SCROLL_FRACTION = 0.75
@@ -137,6 +137,9 @@ export function TabStrip({
   trailing?: React.ReactNode
 }) {
   const { ref, overflow, scrollBy } = useStripOverflow(tabs.length)
+  // Read by the tabs when clicked or right-clicked, so a change to one tab does not redraw the others.
+  const groupTabs = useRef(tabs)
+  groupTabs.current = tabs
   const fade = cn(overflow.canScrollStart && 'terminal-tab-strip--fade-start', overflow.canScrollEnd && 'terminal-tab-strip--fade-end')
 
   return (
@@ -163,7 +166,7 @@ export function TabStrip({
             workspaceId={workspaceId}
             groupId={groupId}
             tab={tab}
-            groupTabs={tabs}
+            groupTabs={groupTabs}
             active={tab.id === activeId}
             groupActiveId={activeId}
             hasSplit={hasSplit}

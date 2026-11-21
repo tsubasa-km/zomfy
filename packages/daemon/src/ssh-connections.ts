@@ -6,7 +6,7 @@ import {
   type SshConnection,
   type SshConnectionInput,
   type TerminalConnection
-} from '@acp-harness/protocol'
+} from '@zomfy/protocol'
 import { HARNESS_HOME } from './harness-home.ts'
 
 // Saved SSH connections (protocol ssh-connections.ts), kept on the host whose ssh logs in to them.

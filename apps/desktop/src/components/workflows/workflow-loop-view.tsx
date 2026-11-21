@@ -1,6 +1,6 @@
 import { Panel } from '@xyflow/react'
 import { RefreshCw } from 'lucide-react'
-import type { WorkflowCycle } from '@acp-harness/protocol'
+import type { WorkflowCycle } from '@zomfy/protocol'
 import { createExternalStore } from '@/stores/external-store'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { cn } from '@/lib/utils'
@@ -20,7 +20,7 @@ export const LOOP_VIEWS: { value: LoopView; label: string; hint: string }[] = [
   { value: 'none', label: t('None'), hint: t('Steps and arrows only') }
 ]
 
-const KEY = 'acp-harness.workflow-loop-view.v1'
+const KEY = 'zomfy.workflow-loop-view.v1'
 
 function readSaved(): LoopView {
   try {

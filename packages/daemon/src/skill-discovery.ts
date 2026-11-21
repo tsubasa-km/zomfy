@@ -10,7 +10,7 @@ import type {
   SkillDiscoverySource,
   SkillProvider,
   SkillSourceKind
-} from '@acp-harness/protocol'
+} from '@zomfy/protocol'
 
 // Port of Orca's skill discovery (main/skills/discovery.ts, skill-discovery-sources.ts,
 // skill-root-file-walk.ts, claude-plugin-skill-sources.ts, shared/skill-metadata.ts). Runs on the

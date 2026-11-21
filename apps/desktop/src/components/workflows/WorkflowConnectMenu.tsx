@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Check } from 'lucide-react'
-import type { WorkflowNodeKind, WorkflowOutcome } from '@acp-harness/protocol'
+import type { WorkflowNodeKind, WorkflowOutcome } from '@zomfy/protocol'
 import { cn } from '@/lib/utils'
 import { NODE_KINDS, outcomeLabel } from './workflow-model'
 import { STEP_ACCENTS, STEP_ICONS } from './workflow-nodes'

@@ -1,6 +1,6 @@
 import { memo, type ReactNode } from 'react'
 import { BookOpen, CalendarClock, Folders, Github, Gitlab, LayoutDashboard, List, Search, SquarePen, Workflow, type LucideIcon } from 'lucide-react'
-import type { HostingProviderId } from '@acp-harness/protocol'
+import type { HostingProviderId } from '@zomfy/protocol'
 import { allProjects, getState, setDashboardOpen, showQuickStart, START_TAB, useStore } from '@/session-store'
 import { WINDOW_TABS } from '@/stores/tab-layout-store'
 import { setBoardOpen, useSidebarStore } from '@/stores/sidebar-store'

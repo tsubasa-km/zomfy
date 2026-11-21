@@ -1,6 +1,6 @@
 import type * as acp from "@agentclientprotocol/sdk";
 import type { PermissionResult } from "@anthropic-ai/claude-agent-sdk";
-import { CHAT_META, QUESTION_OPTION_IDS, type QuestionAnswers } from "@acp-harness/protocol";
+import { CHAT_META, QUESTION_OPTION_IDS, type QuestionAnswers } from "@zomfy/protocol";
 
 // Claude's AskUserQuestion reaches the host as a permission ask, as every tool does. It is a question,
 // not a tool to allow: the window shows its choices, and the person's picks go back to Claude as the

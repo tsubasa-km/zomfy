@@ -1,6 +1,6 @@
 import { createContext, useContext, useMemo } from 'react'
 import { Play } from 'lucide-react'
-import type { ShellOption } from '@acp-harness/protocol'
+import type { ShellOption } from '@zomfy/protocol'
 import {
   commandShellFamily,
   commandTerminalInput,

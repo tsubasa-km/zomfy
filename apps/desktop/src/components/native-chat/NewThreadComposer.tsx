@@ -1,5 +1,5 @@
 import { useEffect, useRef } from 'react'
-import { chatAgentLabel } from '@acp-harness/protocol'
+import { chatAgentLabel } from '@zomfy/protocol'
 import { loadCatalog } from '@/chat-actions'
 import { useChatAgents } from '@/lib/chat-agents'
 import type { MarkdownEditorHandle } from '@/components/markdown-editor/MarkdownEditor'

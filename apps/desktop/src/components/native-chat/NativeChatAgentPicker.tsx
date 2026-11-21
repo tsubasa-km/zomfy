@@ -1,6 +1,6 @@
 import { useRef, useState } from 'react'
 import { ChevronDown } from 'lucide-react'
-import { chatAgentLabel, isGuardedChatAgent, type ChatAgentId, type ChatAgentInfo } from '@acp-harness/protocol'
+import { chatAgentLabel, isGuardedChatAgent, type ChatAgentId, type ChatAgentInfo } from '@zomfy/protocol'
 import { Button } from '@/components/ui/button'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'

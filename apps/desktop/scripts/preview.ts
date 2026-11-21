@@ -6,7 +6,7 @@
 // actions (native dialogs, "Open in") are unavailable in a preview.
 import { spawn, spawnSync } from "node:child_process";
 import { existsSync } from "node:fs";
-import { mkdir, readFile, writeFile } from "node:fs/promises";
+import { cp, mkdir, readFile, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
@@ -17,7 +17,7 @@ if (!["start", "stop"].includes(command ?? "") || !(slot >= 1 && slot <= 9)) {
   process.exit(2);
 }
 
-const home = join(tmpdir(), `acp-harness-preview-${slot}`);
+const home = join(tmpdir(), `zomfy-preview-${slot}`);
 const pidsPath = join(home, "pids.json");
 const ports = { daemon: 7900 + slot, vite: 1430 + slot, cdp: 9300 + slot };
 const desktopDir = join(import.meta.dir, "..");
@@ -47,11 +47,15 @@ if (command === "stop") {
 }
 
 await stop();
+// A slot first used before the rename keeps its state: copied, since branches still on the legacy
+// script go on using the legacy folder.
+const legacyHome = join(tmpdir(), `acp-harness-preview-${slot}`); // legacy
+if (!existsSync(home) && existsSync(legacyHome)) await cp(legacyHome, home, { recursive: true, verbatimSymlinks: true });
 await mkdir(home, { recursive: true });
 const env = {
   ...process.env,
-  ACP_HARNESS_HOME: home,
-  ACP_HARNESS_ALLOWED_ORIGINS: `http://localhost:${ports.vite}`,
+  ZOMFY_HOME: home,
+  ZOMFY_ALLOWED_ORIGINS: `http://localhost:${ports.vite}`,
 };
 const pids: number[] = [];
 const remember = async (pid: number | undefined) => {

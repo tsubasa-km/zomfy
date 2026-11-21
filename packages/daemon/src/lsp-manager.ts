@@ -1,7 +1,7 @@
 import { realpathSync } from 'node:fs'
 import { readFile, stat } from 'node:fs/promises'
-import type { HarnessRequests, LspEvent, LspOpenParams, LspOpenResult, LspServerHint, LspServerStatus, LspSetServerParams } from '@acp-harness/protocol'
-import { LSP_METHODS } from '@acp-harness/protocol'
+import type { HarnessRequests, LspEvent, LspOpenParams, LspOpenResult, LspServerHint, LspServerStatus, LspSetServerParams } from '@zomfy/protocol'
+import { LSP_METHODS } from '@zomfy/protocol'
 import {
   listLspServers,
   lspLanguageId,

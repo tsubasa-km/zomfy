@@ -6,7 +6,7 @@ import {
   type ManagerCallParams,
   type ManagerCallResult,
   type SessionRole,
-} from "@acp-harness/protocol";
+} from "@zomfy/protocol";
 import type { ManagerRoute } from "./manager-mcp-server.ts";
 
 // Manager calls run in a desktop window, not here: the window is the one party linked to every
@@ -40,7 +40,7 @@ export class ManagerRouting {
     const preferred = this.turnClients.get(callerSessionId);
     const client = preferred && this.capable.has(preferred) ? preferred : [...this.capable].at(-1);
     if (!client) {
-      return { result: "No acp-harness window is open to carry this call to the other hosts. Ask the person to open the app.", isError: true };
+      return { result: "No Zomfy window is open to carry this call to the other hosts. Ask the person to open the app.", isError: true };
     }
     const params: ManagerCallParams = { callerSessionId, tool, args };
     return client.request<ManagerCallResult, ManagerCallParams>(MANAGER_METHODS.managerCall, params);

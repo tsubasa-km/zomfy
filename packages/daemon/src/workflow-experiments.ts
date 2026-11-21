@@ -1,6 +1,6 @@
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
-import { WORKFLOW_EXPERIMENT_NOTIFICATIONS, type WorkflowContextRemoval, type WorkflowExperiment } from "@acp-harness/protocol";
+import { WORKFLOW_EXPERIMENT_NOTIFICATIONS, type WorkflowContextRemoval, type WorkflowExperiment } from "@zomfy/protocol";
 import type { HandlerContext } from "./handlers/handler-context.ts";
 import { HARNESS_HOME } from "./harness-home.ts";
 import { replaceFile } from "./replace-file.ts";

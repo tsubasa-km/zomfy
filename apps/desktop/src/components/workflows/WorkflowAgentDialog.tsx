@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { Trash2 } from 'lucide-react'
 import { toast } from 'sonner'
-import type { WorkflowAgentProfile } from '@acp-harness/protocol'
+import type { WorkflowAgentProfile } from '@zomfy/protocol'
 import type { HostId } from '@/session-store'
 import { removeWorkflowAgent, saveWorkflowAgent } from '@/stores/workflow-agents-store'
 import { Button } from '@/components/ui/button'

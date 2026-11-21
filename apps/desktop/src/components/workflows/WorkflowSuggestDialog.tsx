@@ -6,7 +6,7 @@ import {
   type Workflow,
   type WorkflowChange,
   type WorkflowSuggestions
-} from '@acp-harness/protocol'
+} from '@zomfy/protocol'
 import { harnessRequest } from '@/daemon-connection'
 import type { HostId } from '@/session-store'
 import { Button } from '@/components/ui/button'

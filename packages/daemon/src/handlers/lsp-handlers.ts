@@ -1,4 +1,4 @@
-import { HARNESS_METHODS, LSP_NOTIFICATIONS } from "@acp-harness/protocol";
+import { HARNESS_METHODS, LSP_NOTIFICATIONS } from "@zomfy/protocol";
 import { LanguageServerManager } from "../lsp-manager.ts";
 import type { HandlerContext } from "./handler-context.ts";
 

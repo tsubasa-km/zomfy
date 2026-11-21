@@ -1,5 +1,5 @@
 import { useEffect, useSyncExternalStore } from 'react'
-import { HARNESS_METHODS, type QuickCommand, type QuickCommandScope } from '@acp-harness/protocol'
+import { HARNESS_METHODS, type QuickCommand, type QuickCommandScope } from '@zomfy/protocol'
 import { createTerminal, harnessRequest } from '@/daemon-connection'
 import type { HostId } from '@/session-store'
 

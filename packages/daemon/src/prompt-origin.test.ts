@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test'
-import { PROMPT_ORIGIN_META, promptOrigin } from '@acp-harness/protocol'
+import { PROMPT_ORIGIN_META, promptOrigin } from '@zomfy/protocol'
 
 // The chat tells the harness's prompts from the person's: by the marker, or for older records by the
 // words the harness wrote.

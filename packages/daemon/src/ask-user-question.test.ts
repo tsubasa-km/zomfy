@@ -1,5 +1,5 @@
 import { expect, test } from "bun:test";
-import { CHAT_META, QUESTION_OPTION_IDS } from "@acp-harness/protocol";
+import { CHAT_META, QUESTION_OPTION_IDS } from "@zomfy/protocol";
 import { questionResult } from "./ask-user-question.ts";
 
 // An AskUserQuestion is answered with the person's picks as the tool's `answers`, or declined.

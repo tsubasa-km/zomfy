@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'bun:test'
 import type * as acp from '@agentclientprotocol/sdk'
-import { SESSION_REPLAY_META } from '@acp-harness/protocol'
+import { SESSION_REPLAY_META } from '@zomfy/protocol'
 import { spliceReplay } from '../src/lib/replay-splice.ts'
 
 const text = (t: string, meta?: Record<string, unknown>): acp.SessionNotification => ({

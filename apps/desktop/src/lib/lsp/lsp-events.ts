@@ -1,4 +1,4 @@
-import type { LspEvent } from '@acp-harness/protocol'
+import type { LspEvent } from '@zomfy/protocol'
 import type { HostId } from '@/session-store'
 
 // Where daemon-connection hands over what language servers said. Kept apart from the client so the

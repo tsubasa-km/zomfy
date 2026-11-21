@@ -1,4 +1,4 @@
-import type { TerminalInfo } from '@acp-harness/protocol'
+import type { TerminalInfo } from '@zomfy/protocol'
 import { closeTerminal, createTerminal } from '@/daemon-connection'
 import { getState, inWindowTabs, selectTab } from '@/session-store'
 import { renameTab } from '@/stores/tab-layout-store'

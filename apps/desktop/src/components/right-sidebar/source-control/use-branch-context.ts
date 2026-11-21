@@ -1,9 +1,9 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { HARNESS_METHODS, type GitBranchCompareResult, type GitStatusResult } from '@acp-harness/protocol'
+import { HARNESS_METHODS, type GitBranchCompareResult, type GitStatusResult } from '@zomfy/protocol'
 import { harnessRequest } from '@/daemon-connection'
 import type { GitHistoryState } from './GitHistoryPanel'
 
-const baseRefKey = (workspaceId: string) => `acp-harness:source-control-base-ref:${workspaceId}`
+const baseRefKey = (workspaceId: string) => `zomfy:source-control-base-ref:${workspaceId}`
 
 function readStoredBaseRef(workspaceId: string): string | null {
   try {

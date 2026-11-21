@@ -1,5 +1,5 @@
 import { useEffect, useRef } from 'react'
-import { HARNESS_METHODS, type FileStat } from '@acp-harness/protocol'
+import { HARNESS_METHODS, type FileStat } from '@zomfy/protocol'
 import { harnessRequest } from '@/daemon-connection'
 
 const POLL_MS = 2000

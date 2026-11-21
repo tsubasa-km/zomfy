@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { AppWindow, GitBranch, MoreHorizontal, Pin } from 'lucide-react'
-import type { Workspace } from '@acp-harness/protocol'
+import type { Workspace } from '@zomfy/protocol'
 import { getState, selectWorkspace, workspaceStatus, useStore, type HostId, type Session } from '@/session-store'
 import {
   selectSingle,

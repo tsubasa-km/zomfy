@@ -26,14 +26,21 @@ export function activityOf(session: Session): number {
   return session.turnStartedAt ?? session.lastActivityAt ?? session.createdAt
 }
 
-/** Top-level chats, each with the chats under it; a chat whose parent is not listed stands on its own. */
+/**
+ * Top-level chats, each with the chats under it; a chat whose parent is not listed stands on its
+ * own, as does a live chat whose parent was archived, so it is not shelved with it.
+ */
 export function chatTree(sessions: Session[]): ChatNode[] {
   const byId = new Map(sessions.map((s) => [s.id, s]))
+  const above = (s: Session): Session | undefined => {
+    const up = byId.get(parentOf(s) ?? '')
+    return up && (!up.archived || s.archived) ? up : undefined
+  }
   // The listed chat at the top of a chat's parents; a chat deeper than one level joins that one too.
   const rootOf = (s: Session): Session => {
     const seen = new Set([s.id])
     let at = s
-    for (let up = byId.get(parentOf(at) ?? ''); up && !seen.has(up.id); up = byId.get(parentOf(at) ?? '')) {
+    for (let up = above(at); up && !seen.has(up.id); up = above(at)) {
       seen.add(up.id)
       at = up
     }
@@ -48,6 +55,17 @@ export function chatTree(sessions: Session[]): ChatNode[] {
       const status = [chat, ...children].reduce<Session['status']>((top, s) => (RANK[s.status] < RANK[top] ? s.status : top), 'idle')
       return { chat, children, status }
     })
+}
+
+/**
+ * The tree a search leaves: a chat that matches, or that has a chat under it that does. The chats
+ * under it that match are `hits`, drawn under it, quieter than the chats the search found at the top.
+ */
+export function searchTree(nodes: ChatNode[], matches: (s: Session) => boolean): (ChatNode & { hits: Session[] })[] {
+  return nodes.flatMap((node) => {
+    const hits = node.children.filter(matches)
+    return matches(node.chat) || hits.length > 0 ? [{ ...node, hits }] : []
+  })
 }
 
 /** Most pressing first, then the most recently active. */

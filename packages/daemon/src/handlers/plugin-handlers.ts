@@ -1,4 +1,4 @@
-import { HARNESS_METHODS, PLUGIN_NOTIFICATIONS } from "@acp-harness/protocol";
+import { HARNESS_METHODS, PLUGIN_NOTIFICATIONS } from "@zomfy/protocol";
 import { PluginStore } from "../plugin-store.ts";
 import { pluginPanels } from "../plugin-panel-server.ts";
 import type { HandlerContext } from "./handler-context.ts";

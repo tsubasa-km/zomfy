@@ -5,7 +5,7 @@ import {
   type LspRegistration,
   type LspServerRole,
   type LspSessionInfo
-} from '@acp-harness/protocol'
+} from '@zomfy/protocol'
 import { harnessRequest } from '@/daemon-connection'
 import { findWorkspace, LOCAL_HOST, type HostId } from '@/session-store'
 import { onLspEvent } from './lsp-events'

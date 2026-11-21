@@ -1,5 +1,5 @@
 import { useEffect } from 'react'
-import { HARNESS_METHODS, type HostSettings } from '@acp-harness/protocol'
+import { HARNESS_METHODS, type HostSettings } from '@zomfy/protocol'
 import { harnessRequest } from '@/daemon-connection'
 import { getState, useStore, type HostId } from '@/session-store'
 import { createExternalStore } from './external-store'

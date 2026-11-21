@@ -5,7 +5,7 @@ import { createWebSocketStream } from '@agentclientprotocol/sdk/experimental/ws-
 import { existsSync } from 'node:fs'
 import { mkdir, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
-import type { HarnessState, Project } from '@acp-harness/protocol'
+import type { HarnessState, Project } from '@zomfy/protocol'
 import { DAEMON_INFO_PATH } from '../src/websocket-server.ts'
 import { git } from '../src/git-cli.ts'
 
@@ -13,11 +13,11 @@ const path = process.argv[2] ?? (process.platform === 'win32' ? 'C:\\dev\\harnes
 
 if (!existsSync(join(path, '.git'))) {
   await mkdir(join(path, 'src'), { recursive: true })
-  await writeFile(join(path, 'README.md'), '# harness-playground\n\nScratch repository for testing acp-harness end to end.\n')
+  await writeFile(join(path, 'README.md'), '# harness-playground\n\nScratch repository for testing Zomfy end to end.\n')
   await writeFile(join(path, 'src', 'greet.ts'), 'export function greet(name: string): string {\n  return `Hello, ${name}!`\n}\n')
   await git(path, ['init', '-q', '-b', 'main'])
   await git(path, ['add', '-A'])
-  await git(path, ['-c', 'user.name=acp-harness', '-c', 'user.email=acp-harness@localhost', 'commit', '-qm', 'Initial playground'])
+  await git(path, ['-c', 'user.name=zomfy', '-c', 'user.email=zomfy@localhost', 'commit', '-qm', 'Initial playground'])
 }
 
 const info = await Bun.file(DAEMON_INFO_PATH).json()

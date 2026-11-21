@@ -1,5 +1,5 @@
 import { delimiter } from 'node:path'
-import { TUI_AGENTS, type DetectedAgents, type TuiAgentId } from '@acp-harness/protocol'
+import { TUI_AGENTS, type DetectedAgents, type TuiAgentId } from '@zomfy/protocol'
 import { log } from './log.ts'
 
 // Detection runs on the daemon's own host (Windows, or Linux inside WSL), as Orca's preflight does
@@ -58,7 +58,7 @@ function mergePath(current: string, extra: string): string {
 /** The user's login shell PATH (nvm, ~/.local/bin, …), which a daemon started by wsl.exe lacks. */
 async function loginShellPath(): Promise<string> {
   const shell = process.env.SHELL || '/bin/bash'
-  const marker = '__ACP_HARNESS_PATH__'
+  const marker = '__ZOMFY_PATH__'
   const proc = Bun.spawn([shell, '-ilc', `printf '${marker}%s${marker}' "$PATH"`], {
     stdin: 'ignore',
     stdout: 'pipe',

@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 import { ChevronDown, ExternalLink, LoaderCircle, MessageSquare, RefreshCw } from 'lucide-react'
-import { HARNESS_METHODS, type HostedReview, type HostedReviewComment } from '@acp-harness/protocol'
+import { HARNESS_METHODS, type HostedReview, type HostedReviewComment } from '@zomfy/protocol'
 import { harnessRequest } from '@/daemon-connection'
 import { allWorkspaces, getState } from '@/session-store'
 import { SendToAgentMenu } from '@/components/SendToAgentMenu'

@@ -1,6 +1,6 @@
 import { mkdir, readdir, rm, stat, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
-import type { SaveChatAttachmentParams } from '@acp-harness/protocol'
+import type { SaveChatAttachmentParams } from '@zomfy/protocol'
 import { HARNESS_HOME } from './harness-home.ts'
 import { log } from './log.ts'
 

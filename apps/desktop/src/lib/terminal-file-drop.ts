@@ -1,5 +1,5 @@
 import { isTauri } from '@tauri-apps/api/core'
-import type { TerminalShellKind } from '@acp-harness/protocol'
+import type { TerminalShellKind } from '@zomfy/protocol'
 import type { HostId } from '@/session-store'
 
 // Dropping files on a terminal types their paths, quoted for its shell, as Orca's terminal drop

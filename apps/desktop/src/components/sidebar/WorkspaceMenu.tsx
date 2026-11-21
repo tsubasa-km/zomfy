@@ -25,7 +25,7 @@ import {
   type Workspace,
   type WorkspacePatch,
   type WorkspaceStatusId
-} from '@acp-harness/protocol'
+} from '@zomfy/protocol'
 import { cancelTurn, closeTerminal, harnessRequest, isSshHost } from '@/daemon-connection'
 import { LOCAL_HOST, getState, markSeen, useStore, type HostId } from '@/session-store'
 import { WINDOW_ROLE } from '@/lib/window-role'

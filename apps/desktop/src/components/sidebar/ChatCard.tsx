@@ -1,6 +1,6 @@
 import { useEffect, useState, type ReactNode } from 'react'
 import { Archive, ArchiveRestore, FolderGit2, GitBranch, MessageSquare, MessagesSquare, Monitor, Pin, PinOff, SquareTerminal } from 'lucide-react'
-import { chatAgentLabel, CHAT_AGENT_OPTION_IDS, type WorkspaceSummary } from '@acp-harness/protocol'
+import { chatAgentLabel, CHAT_AGENT_OPTION_IDS, type WorkspaceSummary } from '@zomfy/protocol'
 import type { Session } from '@/session-store'
 import { AgentStateDot, agentStateLabel } from '@/components/AgentStateDot'
 import { TuiAgentIcon } from '@/components/terminal/TuiAgentIcon'

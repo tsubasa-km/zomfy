@@ -1,4 +1,4 @@
-import type { SearchMatch, SearchParams, SearchResult } from '@acp-harness/protocol'
+import type { SearchMatch, SearchParams, SearchResult } from '@zomfy/protocol'
 import { isGitRepository } from './git-cli.ts'
 
 const MAX_MATCHES = 2000

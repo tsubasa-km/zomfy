@@ -1,6 +1,6 @@
 import { useId, useRef } from 'react'
 import { Check } from 'lucide-react'
-import type { ChatEffort, ChatModel, SessionOptions } from '@acp-harness/protocol'
+import type { ChatEffort, ChatModel, SessionOptions } from '@zomfy/protocol'
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command'
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group'
 import { t } from '@/i18n/i18n'

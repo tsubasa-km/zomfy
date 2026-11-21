@@ -1,4 +1,4 @@
-import { HARNESS_METHODS, SETTINGS_NOTIFICATIONS } from "@acp-harness/protocol";
+import { HARNESS_METHODS, SETTINGS_NOTIFICATIONS } from "@zomfy/protocol";
 import { claudeCliStatus, updateClaudeCli } from "../claude-executable.ts";
 import { loadHostSettings, updateHostSettings } from "../host-settings.ts";
 import type { HandlerContext } from "./handler-context.ts";

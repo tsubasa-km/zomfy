@@ -7,10 +7,13 @@ import {
   QUICK_CHAT_SYSTEM_PROMPT,
   SESSION_REPLAY_META,
   PROMPT_ORIGIN_META,
-  PROMPT_NOT_SENT_META,
+  PROMPT_NOT_SENT_REPLY_META,
+  promptNotSent,
   TURN_RECOVERY_META,
   TURN_RECOVERY_NOTIFICATIONS,
+  WRAP_UP_HINT,
   chatAgentLabel,
+  normalizeWrapUp,
   isUntitledChat,
   type HarnessMethod,
   type HarnessRequests,
@@ -18,8 +21,8 @@ import {
   type PromptOrigin,
   type TurnResumeKind,
   type ManagerToolName,
-} from "@acp-harness/protocol";
-import type { WorkflowStepContext, WorkflowStepUsage } from "@acp-harness/protocol";
+} from "@zomfy/protocol";
+import type { WorkflowStepContext, WorkflowStepUsage } from "@zomfy/protocol";
 import { releaseFinishedTurn, runClaudeTurn, type StepOptions } from "./claude-turn.ts";
 import { WorktreeClaims } from "./worktree-claims.ts";
 import { finishWorktree } from "./worktree-finish.ts";
@@ -52,6 +55,7 @@ import { registerHostingHandlers } from "./handlers/hosting-handlers.ts";
 import { registerPortHandlers } from "./handlers/port-handlers.ts";
 import { registerQuickOpenHandlers } from "./handlers/quick-open-handlers.ts";
 import { registerSessionHandlers } from "./handlers/session-handlers.ts";
+import { registerChatStatusHandlers } from "./handlers/chat-status-handlers.ts";
 import { registerSessionNoteHandlers } from "./handlers/session-note-handlers.ts";
 import { registerChatAttachmentHandlers } from "./handlers/chat-attachment-handlers.ts";
 import { registerSettingsHandlers } from "./handlers/settings-handlers.ts";
@@ -69,6 +73,7 @@ import { TerminalScreens } from "./terminal-screen.ts";
 import { registerPluginHandlers } from "./handlers/plugin-handlers.ts";
 import { registerVoiceHandlers } from "./handlers/voice-handlers.ts";
 import { managerMcp, type ManagerRoute } from "./manager-mcp-server.ts";
+import { projectToolRefusal, projectToolsOffNote } from "./project-agent-tools.ts";
 import { ManagerRouting, autoAllowedManagerTools } from "./manager-routing.ts";
 import { log } from "./log.ts";
 import { ConnectionClients } from "./connection-clients.ts";
@@ -134,7 +139,7 @@ export function createHarnessAgent(
     startTurn: async (sessionId, text, origin) => {
       if (pendingTurns.has(sessionId)) return "not-sent";
       const reply = await prompt({ sessionId, prompt: [{ type: "text", text }] }, askAnyClient, null, undefined, origin);
-      return reply._meta?.[PROMPT_NOT_SENT_META] === true ? "not-sent" : reply.stopReason;
+      return promptNotSent(reply._meta) ? "not-sent" : reply.stopReason;
     },
     runHelperTurn: async (sessionId, text, origin) => {
       const before = (await sessions.transcript(sessionId)).length;
@@ -156,6 +161,17 @@ export function createHarnessAgent(
     store: new SplitStore(),
   });
   void splits.recover();
+  /** The project a chat works in, for its settings; null for a quick chat or the floating workspace. */
+  const projectOfSession = (sessionId: string) => {
+    const workspaceId = sessions.get(sessionId)?.workspaceId;
+    if (!workspaceId) return null;
+    try {
+      return workspaces.requireWorkspace(workspaceId).project;
+    } catch {
+      return null;
+    }
+  };
+  managerMcp.setToolRefusal((sessionId, tool) => projectToolRefusal(projectOfSession(sessionId), tool));
   const claims = new WorktreeClaims({
     projectWorkspaces: () => workspaces.projectWorkspaces(),
     chatsIn: (workspaceId) =>
@@ -260,6 +276,14 @@ export function createHarnessAgent(
   localTools.set("terminal_read", { offeredTo: () => true, route: (caller, _tool, args) => terminalTools.read(caller, args) });
   localTools.set("terminal_send", { offeredTo: () => true, route: (caller, _tool, args) => terminalTools.send(caller, args) });
   localTools.set("terminal_wait", { offeredTo: () => true, route: (caller, _tool, args) => terminalTools.wait(caller, args) });
+  // The call itself is the card: the window draws it from the call's input, so nothing waits here.
+  localTools.set("wrap_up", {
+    offeredTo: () => true,
+    route: async (_caller, _tool, args) =>
+      normalizeWrapUp(args)
+        ? { result: "Shown to the person as a Next steps card under your reply. Write your final message now." }
+        : { result: "Nothing to show: give a summary and at least one step ({ owner, text }).", isError: true },
+  });
 
   /** Recorded for replay, then sent to every client so a reconnected window sees live turns. */
   async function emit(sessionId: string, update: acp.SessionUpdate): Promise<void> {
@@ -386,7 +410,7 @@ export function createHarnessAgent(
       if (waiting?.signal.aborted && !pendingTurns.has(params.sessionId)) {
         sessions.update(params.sessionId, { status: "idle", turnStartedAt: null });
         // Never sent: the window puts the message back in the box.
-        return { stopReason: "cancelled", _meta: { [PROMPT_NOT_SENT_META]: true } };
+        return { stopReason: "cancelled", _meta: { ...PROMPT_NOT_SENT_REPLY_META } };
       }
     }
     const session = sessions.get(params.sessionId);
@@ -398,7 +422,7 @@ export function createHarnessAgent(
         severity: "error",
         title: "This chat is working on its part of a split. Talk to the thread it works for; this chat takes messages once its part is done.",
       }).catch(() => undefined);
-      return { stopReason: "refusal", _meta: { [PROMPT_NOT_SENT_META]: true } };
+      return { stopReason: "refusal", _meta: { ...PROMPT_NOT_SENT_REPLY_META } };
     }
     // "Continue in Terminal": while the CLI has the conversation, a second writer would split it.
     if (cli.has(session.id)) {
@@ -410,7 +434,7 @@ export function createHarnessAgent(
       // The window marked the chat working when it sent the prompt: no turn runs, and the window
       // puts the message back in the box (PROMPT_NOT_SENT_META).
       sessions.update(session.id, { status: "idle", turnStartedAt: null });
-      return { stopReason: "refusal", _meta: { [PROMPT_NOT_SENT_META]: true } };
+      return { stopReason: "refusal", _meta: { ...PROMPT_NOT_SENT_REPLY_META } };
     }
 
     pendingTurns.get(session.id)?.abort();
@@ -519,7 +543,11 @@ export function createHarnessAgent(
         // A helper's own instructions say what it may touch; the sibling-worktree rules are for chats.
         quickChat || splits.isHelper(session.id) ? null : claims.prompt(session.workspaceId),
         // Fixed for the chat's life, so it never breaks the prompt cache; a running split's state goes in the turn's own text.
-        splits.offered(session.id) ? splitWorkHint(SPLIT_TOOL) : null,
+        splits.offered(session.id) && !projectToolRefusal(projectOfSession(session.id), "split_work") ? splitWorkHint(SPLIT_TOOL) : null,
+        // Changes only when the person changes the project's settings.
+        quickChat || splits.isHelper(session.id) ? null : projectToolsOffNote(projectOfSession(session.id)),
+        // A chat's turns end with the person; a helper's and a step's end with whoever started them.
+        splits.isHelper(session.id) || stepTurns.has(session.id) ? null : WRAP_UP_HINT,
       ]
         .filter((p): p is string => !!p)
         .join("\n\n") || null;
@@ -597,7 +625,7 @@ export function createHarnessAgent(
   }
 
   const app = acp
-    .agent({ name: "acp-harness" })
+    .agent({ name: "zomfy" })
     .onConnect((connection) => {
       clients.add(connection.client);
       connectionClients.add(connection.client);
@@ -618,7 +646,7 @@ export function createHarnessAgent(
         loadSession: true,
         promptCapabilities: { embeddedContext: true, image: true },
       },
-      agentInfo: { name: "acp-harness", title: "Zomfy", version: "0.0.1" },
+      agentInfo: { name: "zomfy", title: "Zomfy", version: "0.0.1" },
       };
     })
     .onRequest("authenticate", () => ({}))
@@ -817,6 +845,7 @@ export function createHarnessAgent(
     registerWorkflowHandlers,
     registerLspHandlers,
     registerSshConnectionHandlers,
+    registerChatStatusHandlers,
   ]) {
     register(ctx);
   }

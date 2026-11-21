@@ -1,4 +1,4 @@
-import type { FileDiff, GitChange, GitDiffCompare, GitDiscardArea, GitFileStatus, GitStatusResult, GitUpstreamStatus } from '@acp-harness/protocol'
+import type { FileDiff, GitChange, GitDiffCompare, GitDiscardArea, GitFileStatus, GitStatusResult, GitUpstreamStatus } from '@zomfy/protocol'
 import { currentBranch, git, isGitRepository } from './git-cli.ts'
 
 // Commands stay within Git 2.25: porcelain v1, numstat, restore (2.23). No --pathspec-from-file (2.26).

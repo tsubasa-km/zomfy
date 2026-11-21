@@ -1,5 +1,5 @@
 import { useSyncExternalStore } from 'react'
-import type { ChatCatalog } from '@acp-harness/protocol'
+import type { ChatCatalog } from '@zomfy/protocol'
 import type { ChatImage } from '@/session-store'
 
 /** Context-window use the daemon reported after the session's latest turn. */
@@ -8,9 +8,14 @@ export interface ContextUsage {
   size: number
   costUsd: number | null
   estimated: boolean
-  categories: { name: string; tokens: number }[]
+  /** The window's rows; `kind` absent (an older daemon) means content in the window. */
+  categories: { name: string; tokens: number; id?: string; kind?: 'used' | 'free' | 'buffer' | 'deferred' }[]
   /** Claude: each skill, MCP server, memory file and subagent in the context. */
   items: { kind: 'skill' | 'mcp' | 'memory' | 'agent'; name: string; tokens: number }[]
+  /** Claude: each MCP tool, loaded or deferred (empty from older daemons). */
+  mcpTools: { name: string; server: string; tokens: number; loaded: boolean }[]
+  /** Claude: each memory file in the context (empty from older daemons). */
+  memoryFiles: { path: string; type: string; tokens: number }[]
 }
 
 /** A message typed while a turn ran; sent when the agent is free (Orca's follow-up queue). */

@@ -28,7 +28,7 @@ import {
   type WorkflowStepUsage,
   type WorkflowToolPolicy,
   type Workspace,
-} from "@acp-harness/protocol";
+} from "@zomfy/protocol";
 import type { StepOptions } from "./claude-turn.ts";
 import type { HandlerContext, StepToolUse } from "./handlers/handler-context.ts";
 import { refuseUnattended } from "./chat-agent-launch-specs.ts";

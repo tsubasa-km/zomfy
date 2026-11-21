@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { chatAgentLabel, isGuardedChatAgent, type ChatAgentId } from '@acp-harness/protocol'
+import { chatAgentLabel, isGuardedChatAgent, type ChatAgentId } from '@zomfy/protocol'
 import type { MarkdownEditorHandle } from '@/components/markdown-editor/MarkdownEditor'
 import type { ChatImage, HostId } from '@/session-store'
 import { NativeChatAgentPicker } from '@/components/native-chat/NativeChatAgentPicker'

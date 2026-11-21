@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { ChevronRight, GitMerge, MessageCircleQuestion, Workflow } from 'lucide-react'
-import type { PromptOrigin } from '@acp-harness/protocol'
+import type { PromptOrigin } from '@zomfy/protocol'
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible'
 import { cn } from '@/lib/utils'
 import { NativeChatMarkdown } from './NativeChatMarkdown'

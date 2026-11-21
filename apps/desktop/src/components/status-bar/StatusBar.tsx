@@ -4,6 +4,7 @@ import { setSetting, useSetting } from '@/stores/settings-store'
 import { ContextMenu, ContextMenuContent, ContextMenuItem, ContextMenuLabel, ContextMenuSeparator, ContextMenuTrigger } from '@/components/ui/context-menu'
 import { useStatusBarItems, type StatusBarItem } from './status-bar-registry'
 import './status-bar-segments'
+import '@/components/right-sidebar/session-panel/UsageLimitsSegment'
 import { t } from '@/i18n/i18n'
 
 // Orca's status bar (status-bar/StatusBarSurface.tsx): one 24px line along the bottom, segments

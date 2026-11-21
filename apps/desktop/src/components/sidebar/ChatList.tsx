@@ -1,6 +1,6 @@
 import { Fragment, useMemo, type ReactNode } from 'react'
 import { ChevronRight, FolderGit2, FolderOpen, MessageSquare, MoreHorizontal, Plus } from 'lucide-react'
-import type { Workspace } from '@acp-harness/protocol'
+import type { Workspace } from '@zomfy/protocol'
 import { floatingWorkspaceId, selectWorkspace, useStore, type HostedProject, type HostId, type Session } from '@/session-store'
 import { toggleProjectCollapsed, toggleSectionCollapsed, useSidebarStore } from '@/stores/sidebar-store'
 import { setInboxOpen } from '@/stores/inbox-store'
@@ -16,7 +16,7 @@ import { sortedHosts } from '@/components/settings/HostsPane'
 import { Button } from '@/components/ui/button'
 import { DropdownMenu, DropdownMenuContent, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
-import { byUrgency, chatSectionLabel, chatSections, chatTree, type ChatNode, type ChatSectionId } from '@/lib/chat-list'
+import { byUrgency, chatSectionLabel, chatSections, chatTree, searchTree, type ChatNode, type ChatSectionId } from '@/lib/chat-list'
 import { startChat } from '@/lib/chat-worktree'
 import { defaultHostId } from '@/lib/default-host'
 import { cn } from '@/lib/utils'
@@ -35,24 +35,30 @@ const TOP_SECTIONS: ChatSectionId[] = ['pinned', 'needs-you', 'unread']
 
 /** How many chats the list holds and how many the search keeps, for the search field's counter. */
 export function useChatListCounts(): { total: number; matched: number } {
-  const sessions = useStore((s) => s.sessions)
-  const floating = useStore((s) => floatingWorkspaceId(s))
   const query = useSidebarStore((s) => s.filters.query)
-  const hosts = useStore((s) => s.hosts)
-  return useMemo(() => {
-    const listed = sessions.filter((s) => !s.sideOf && !s.parentId && s.origin !== 'workflow' && s.workspaceId !== floating && !s.archived)
+  // Counted in the selector and handed out as a string, so a chat streaming does not redraw the sidebar.
+  const counts = useStore((s) => {
+    const floating = floatingWorkspaceId(s)
+    const listed = s.sessions.filter((x) => !x.sideOf && !x.parentId && x.origin !== 'workflow' && x.workspaceId !== floating && !x.archived)
     const needle = query.trim().toLowerCase()
-    if (!needle) return { total: listed.length, matched: listed.length }
+    if (!needle) return `${listed.length} ${listed.length}`
     const where = new Map<string, string>()
-    for (const host of Object.values(hosts)) {
+    for (const host of Object.values(s.hosts)) {
       for (const w of host.harness?.workspaces ?? []) {
         const project = host.harness?.projects.find((p) => p.id === w.projectId)
         where.set(w.id, `${project ? projectLabel(project) : ''} ${w.branch ?? ''} ${workspaceLabel(w)}`.toLowerCase())
       }
     }
-    const matched = listed.filter((s) => s.title.toLowerCase().includes(needle) || (where.get(s.workspaceId) ?? '').includes(needle))
-    return { total: listed.length, matched: matched.length }
-  }, [sessions, floating, query, hosts])
+    const hit = (x: Session) => x.title.toLowerCase().includes(needle) || (where.get(x.workspaceId) ?? '').includes(needle)
+    // A chat counts as found when a chat under it is: the search shows it, with that one beneath.
+    const childHit = new Set(s.sessions.filter((x) => x.parentId && !x.archived && hit(x)).map((x) => x.parentId))
+    const matched = listed.filter((x) => hit(x) || childHit.has(x.id))
+    return `${listed.length} ${matched.length}`
+  })
+  return useMemo(() => {
+    const [total, matched] = counts.split(' ').map(Number)
+    return { total: total!, matched: matched! }
+  }, [counts])
 }
 
 function SectionHeader({
@@ -112,7 +118,8 @@ export function ChatList({ actions }: { actions: SidebarActions }) {
   const floating = useStore((s) => floatingWorkspaceId(s))
   const groupBy = useStore((s) => s.sidebarView.chatGroupBy ?? 'state')
   const showWorkflow = useStore((s) => s.sidebarView.workflowChats === true)
-  const terminals = useStore((s) => s.terminals)
+  // Only how many tab terminals each workspace has: a string, so a terminal's new title redraws nothing here.
+  const terminalWorkspaces = useStore((s) => s.terminals.flatMap((t) => (t.inline ? [] : [t.workspaceId])).join(' '))
   const query = useSidebarStore((s) => s.filters.query)
   const pinned = useSidebarStore((s) => s.pinnedChats)
   const collapsedSections = useSidebarStore((s) => s.collapsedSections)
@@ -132,8 +139,8 @@ export function ChatList({ actions }: { actions: SidebarActions }) {
   const projectOf = (w: HostedWorkspace | undefined) => (w ? projects.find((p) => p.hostId === w.hostId && p.id === w.projectId) : undefined)
 
   const terminalCount = new Map<string, number>()
-  for (const terminal of terminals) {
-    if (!terminal.inline) terminalCount.set(terminal.workspaceId, (terminalCount.get(terminal.workspaceId) ?? 0) + 1)
+  for (const workspaceId of terminalWorkspaces ? terminalWorkspaces.split(' ') : []) {
+    terminalCount.set(workspaceId, (terminalCount.get(workspaceId) ?? 0) + 1)
   }
 
   const cardOf = (session: Session): ChatCardInfo => {
@@ -170,11 +177,13 @@ export function ChatList({ actions }: { actions: SidebarActions }) {
     const card = cardOf(s)
     return [s.title, card.project, card.branch ?? ''].some((text) => text.toLowerCase().includes(needle))
   }
-  const nodes = chatTree(listed).filter((n) => [n.chat, ...n.children].some(matches))
+  // A search lists the chats it found at the top; one it found under another shows beneath that one, quieter.
+  const nodes: (ChatNode & { hits?: Session[] })[] = needle ? searchTree(chatTree(listed), matches) : chatTree(listed)
 
-  const row = (node: ChatNode) => {
+  const row = (node: ChatNode & { hits?: Session[] }) => {
     const { chat, children } = node
     const open = expanded.includes(chat.id)
+    const under = open ? children : (node.hits ?? [])
     const w = workspaceById.get(chat.workspaceId)
     const dragOf = (s: Session) => (w ? { kind: 'workspace' as const, id: w.id, hostId: w.hostId, projectId: w.projectId, sessionId: s.id } : undefined)
     const childStatus = children.reduce<Session['status']>(
@@ -190,7 +199,9 @@ export function ChatList({ actions }: { actions: SidebarActions }) {
           card={cardOf(chat)}
           fold={children.length > 0 ? { count: children.length, expanded: open, status: childStatus } : undefined}
         />
-        {open && children.map((child) => <SessionRow key={child.id} session={child} showActive drag={dragOf(child)} card={cardOf(child)} child />)}
+        {under.map((child) => (
+          <SessionRow key={child.id} session={child} showActive drag={dragOf(child)} card={cardOf(child)} child muted={Boolean(needle)} />
+        ))}
       </Fragment>
     )
   }

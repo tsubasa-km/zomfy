@@ -1,5 +1,5 @@
 import { useEffect, useSyncExternalStore } from 'react'
-import { HARNESS_METHODS, type ChatAgentId, type ChatAgentInfo } from '@acp-harness/protocol'
+import { HARNESS_METHODS, type ChatAgentId, type ChatAgentInfo } from '@zomfy/protocol'
 import { harnessRequest } from '@/daemon-connection'
 import { LOCAL_HOST, allWorkspaces, getState, type HostId, type Session } from '@/session-store'
 

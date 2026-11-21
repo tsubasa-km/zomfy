@@ -1,4 +1,4 @@
-import type { SshConnectionTag } from '@acp-harness/protocol'
+import type { SshConnectionTag } from '@zomfy/protocol'
 import { sshTagLabel } from '@/lib/ssh-connections'
 import { cn } from '@/lib/utils'
 

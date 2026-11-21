@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test'
-import { applyWorkflowChange, withoutSkills, workflowScorecard, type WorkflowRun, type WorkflowRunStep } from '@acp-harness/protocol'
+import { applyWorkflowChange, withoutSkills, workflowScorecard, type WorkflowRun, type WorkflowRunStep } from '@zomfy/protocol'
 
 // A run's scorecard: tokens summed over steps, files re-read after a handoff (unless changed in
 // between), commands re-run by a later step, and rounds.

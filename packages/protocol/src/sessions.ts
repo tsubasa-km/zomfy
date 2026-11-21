@@ -40,7 +40,8 @@ export interface SessionInfo {
   /** Set on a side chat: the main chat it was opened beside. Tab strips leave side chats out. */
   sideOf?: string
   /**
-   * The chat this one works for: a workflow step's chat sits under the chat that started the run.
+   * The chat this one works for: a workflow step's chat sits under the chat that started the run,
+   * and a chat an agent started with the manager tools under that agent's chat.
    * One level only, so a parent never has a parent of its own. A side chat's parent is `sideOf`.
    */
   parentId?: string
@@ -160,9 +161,17 @@ export const SESSION_REPLAY_META = {
 
 export interface ContextUsageMeta {
   estimated: boolean
-  categories: { name: string; tokens: number }[]
+  /**
+   * The window's rows. Without `kind` (older daemons) a row is content in the window; newer daemons
+   * also send the free space, the autocompact buffer and the deferred tools (out of the window).
+   */
+  categories: { name: string; tokens: number; id?: string; kind?: 'used' | 'free' | 'buffer' | 'deferred' }[]
   /** Claude: each skill, MCP server, memory file and subagent in the context (absent from older daemons). */
   items?: { kind: 'skill' | 'mcp' | 'memory' | 'agent'; name: string; tokens: number }[]
+  /** Claude: each MCP tool, and whether its schema is loaded or deferred (absent from older daemons). */
+  mcpTools?: { name: string; server: string; tokens: number; loaded: boolean }[]
+  /** Claude: each memory file (CLAUDE.md, AGENTS.md, auto-memory) in the context (absent from older daemons). */
+  memoryFiles?: { path: string; type: string; tokens: number }[]
 }
 
 /**
@@ -170,7 +179,16 @@ export interface ContextUsageMeta {
  * a Claude terminal, its chat is a split's helper at work, or it was stopped while it waited): the
  * message was not sent and goes back to its box.
  */
-export const PROMPT_NOT_SENT_META = 'acp-harness/notSent'
+export const PROMPT_NOT_SENT_META = 'zomfy/notSent'
+/** The key daemons set before the rename; still read, and still sent for apps not yet updated. */
+export const LEGACY_PROMPT_NOT_SENT_META = 'acp-harness/notSent'
+/** `_meta` for a reply whose prompt was not sent. */
+export const PROMPT_NOT_SENT_REPLY_META = { [PROMPT_NOT_SENT_META]: true, [LEGACY_PROMPT_NOT_SENT_META]: true }
+
+/** Whether a prompt reply's `_meta` says no turn ran, under the current or the legacy key. */
+export function promptNotSent(meta: Record<string, unknown> | null | undefined): boolean {
+  return meta?.[PROMPT_NOT_SENT_META] === true || meta?.[LEGACY_PROMPT_NOT_SENT_META] === true
+}
 
 export const SESSION_METHODS = {
   sessionsList: '_harness/sessions/list',
@@ -219,7 +237,8 @@ export interface SessionRequests {
   /** `agent` defaults to Claude. */
   [SESSION_METHODS.sessionCreate]: {
     /** `permissionMode`: the mode a Claude chat starts in (older daemons start in 'default'). */
-    params: { workspaceId: string; agent?: ChatAgentId; role?: SessionRole; permissionMode?: ChatPermissionMode }
+    /** `parentId`: the chat that started this one (an agent's create_session); older daemons ignore it. */
+    params: { workspaceId: string; agent?: ChatAgentId; role?: SessionRole; permissionMode?: ChatPermissionMode; parentId?: string }
     result: SessionInfo
   }
   [SESSION_METHODS.sessionClose]: { params: { sessionId: string }; result: Record<string, never> }

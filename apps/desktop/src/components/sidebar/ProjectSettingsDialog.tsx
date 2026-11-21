@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { isTauri } from '@tauri-apps/api/core'
 import { open } from '@tauri-apps/plugin-dialog'
-import { HARNESS_METHODS, type BranchList, type ProjectHookInfo } from '@acp-harness/protocol'
+import { HARNESS_METHODS, type BranchList, type ProjectHookInfo } from '@zomfy/protocol'
 import { harnessRequest, hostForPath } from '@/daemon-connection'
 import type { HostedProject } from '@/session-store'
 import { projectLabel } from '@/components/sidebar/workspace-visibility'
@@ -11,6 +11,7 @@ import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { Switch } from '@/components/ui/switch'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { cn } from '@/lib/utils'
 import { t } from '@/i18n/i18n'
@@ -31,6 +32,8 @@ export function ProjectSettingsDialog({ project, onClose }: { project: HostedPro
   const [setup, setSetup] = useState('')
   const [archive, setArchive] = useState('')
   const [finishWith, setFinishWith] = useState<'merge' | 'pull-request'>('merge')
+  const [agentWorkflows, setAgentWorkflows] = useState(true)
+  const [agentSplitWork, setAgentSplitWork] = useState(true)
   const [branches, setBranches] = useState<BranchList | null>(null)
   const [hooks, setHooks] = useState<ProjectHookInfo | null>(null)
   const [error, setError] = useState<string | null>(null)
@@ -43,6 +46,8 @@ export function ProjectSettingsDialog({ project, onClose }: { project: HostedPro
     setSetup(project?.hooks?.setup ?? '')
     setArchive(project?.hooks?.archive ?? '')
     setFinishWith(project?.finishWith ?? 'merge')
+    setAgentWorkflows(project?.agentWorkflows !== false)
+    setAgentSplitWork(project?.agentSplitWork !== false)
     setError(null)
     setBranches(null)
     setHooks(null)
@@ -89,7 +94,8 @@ export function ProjectSettingsDialog({ project, onClose }: { project: HostedPro
           projectId: project.id,
           patch: {
             ...(shared ? {} : { displayName: ownName ? '' : displayName }),
-            ...(project.kind === 'git' ? { defaultBaseRef: baseRef, worktreeRoot, hooks: { setup, archive }, finishWith } : {})
+            agentWorkflows,
+            ...(project.kind === 'git' ? { defaultBaseRef: baseRef, worktreeRoot, hooks: { setup, archive }, finishWith, agentSplitWork } : {})
           }
         },
         project.hostId
@@ -217,6 +223,25 @@ export function ProjectSettingsDialog({ project, onClose }: { project: HostedPro
               />
             </>
           )}
+          <div className="space-y-2" data-project-agent-settings>
+            <p className={fieldLabel}>{t('What agents may do on their own')}</p>
+            <SettingSwitch
+              id="project-agent-workflows"
+              label={t('Agents can start workflows')}
+              hint={t("An agent in this project may run one of the project's workflows on a task.")}
+              checked={agentWorkflows}
+              onChange={setAgentWorkflows}
+            />
+            {isGit && (
+              <SettingSwitch
+                id="project-agent-split-work"
+                label={t('Agents can split work into parallel worktrees')}
+                hint={t('An agent may hand separate parts of a large task to helpers, each in a worktree of its own.')}
+                checked={agentSplitWork}
+                onChange={setAgentSplitWork}
+              />
+            )}
+          </div>
           {error && <p className="text-sm break-words text-destructive">{error}</p>}
           <DialogFooter>
             <Button type="button" variant="outline" onClick={onClose}>
@@ -227,6 +252,32 @@ export function ProjectSettingsDialog({ project, onClose }: { project: HostedPro
         </form>
       </DialogContent>
     </Dialog>
+  )
+}
+
+function SettingSwitch({
+  id,
+  label,
+  hint,
+  checked,
+  onChange
+}: {
+  id: string
+  label: string
+  hint: string
+  checked: boolean
+  onChange: (checked: boolean) => void
+}) {
+  return (
+    <div className="flex items-start justify-between gap-3">
+      <div className="min-w-0 space-y-0.5">
+        <Label htmlFor={id} className="text-sm font-normal">
+          {label}
+        </Label>
+        <p className="text-[11px] text-muted-foreground">{hint}</p>
+      </div>
+      <Switch id={id} checked={checked} onCheckedChange={onChange} data-setting={id} />
+    </div>
   )
 }
 

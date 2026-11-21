@@ -1,6 +1,6 @@
 import { mkdir, readFile, rename, writeFile } from 'node:fs/promises'
 import { dirname, join } from 'node:path'
-import type { TodoItem } from '@acp-harness/protocol'
+import type { TodoItem } from '@zomfy/protocol'
 import { HARNESS_HOME } from './harness-home.ts'
 
 /** The person's todo list. Windows keep it on this computer's daemon; other hosts' stay empty. */

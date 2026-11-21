@@ -24,7 +24,7 @@ struct TrayState {
 
 static STATE: Mutex<TrayState> = Mutex::new(TrayState { base: None, attention: false, waiting: 0 });
 
-fn show_main<R: Runtime>(app: &AppHandle<R>) {
+pub fn show_main<R: Runtime>(app: &AppHandle<R>) {
     if let Some(window) = app.get_webview_window("main") {
         let _ = window.unminimize();
         let _ = window.show();

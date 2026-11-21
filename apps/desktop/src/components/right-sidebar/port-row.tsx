@@ -1,6 +1,6 @@
 import { invoke } from '@tauri-apps/api/core'
 import { ChevronRight, Copy, ExternalLink, Server, Trash2 } from 'lucide-react'
-import type { ListeningPort } from '@acp-harness/protocol'
+import type { ListeningPort } from '@zomfy/protocol'
 import { Button } from '@/components/ui/button'
 import {
   ContextMenu,

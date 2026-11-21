@@ -1,5 +1,5 @@
 import { SquareTerminal } from 'lucide-react'
-import { TUI_AGENTS, type TerminalInfo } from '@acp-harness/protocol'
+import { TUI_AGENTS, type TerminalInfo } from '@zomfy/protocol'
 import { TuiAgentIcon } from '@/components/terminal/TuiAgentIcon'
 import { cn } from '@/lib/utils'
 

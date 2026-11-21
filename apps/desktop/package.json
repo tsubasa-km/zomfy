@@ -1,7 +1,7 @@
 {
-  "name": "@acp-harness/desktop",
+  "name": "@zomfy/desktop",
   "private": true,
-  "version": "0.2.50",
+  "version": "0.2.51",
   "type": "module",
   "scripts": {
     "dev": "vite",
@@ -13,7 +13,7 @@
     "release": "bun scripts/release.ts"
   },
   "dependencies": {
-    "@acp-harness/protocol": "workspace:*",
+    "@zomfy/protocol": "workspace:*",
     "@agentclientprotocol/sdk": "2.0.0",
     "@codemirror/commands": "6.11.1",
     "@codemirror/lang-markdown": "6.5.2",

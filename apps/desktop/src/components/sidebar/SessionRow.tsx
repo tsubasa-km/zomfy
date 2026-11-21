@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react'
+import { memo, useRef, useState } from 'react'
 import { ChevronRight } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { allWorkspaces, getState, previewSession, selectSession, useStore, type Session } from '@/session-store'
@@ -15,6 +15,7 @@ import { hideChats, removeTabsFromLayout, useTabLayout } from '@/stores/tab-layo
 import { chatSelection, gestureOf, keepTextUnselected } from '@/stores/list-selection'
 import { beginSidebarDrag, type DragItem } from '@/components/sidebar/sidebar-drag'
 import { setChatPinned, toggleChatExpanded } from '@/stores/sidebar-store'
+import { closePagesBesideSidebar } from '@/lib/app-pages'
 import { HoverCard, HoverCardContent, HoverCardTrigger } from '@/components/ui/hover-card'
 import { ChatCardBody, ChatHoverDetails, type ChatCardInfo } from '@/components/sidebar/ChatCard'
 import { t } from '@/i18n/i18n'
@@ -53,7 +54,11 @@ function deleteChats(sessions: Session[]): void {
 }
 
 // Orca's worktree-card-compact-agent-row: one agent tab under its workspace card.
-export function SessionRow({
+/**
+ * Memoised: lists rebuild `card`, `drag` and `fold` on every render, so those compare by their
+ * fields; a chat streaming into one row then redraws that row alone.
+ */
+export const SessionRow = memo(function SessionRow({
   session,
   showWorkspace,
   place,
@@ -61,6 +66,7 @@ export function SessionRow({
   showActive,
   fold,
   child,
+  muted,
   card
 }: {
   session: Session
@@ -75,6 +81,8 @@ export function SessionRow({
   fold?: { count: number; expanded: boolean; status: Session['status'] }
   /** Drawn indented, under its parent chat. */
   child?: boolean
+  /** Drawn quieter: a chat a search found under another, not one it found at the top. */
+  muted?: boolean
   /** Draws the chat list's two-line row, with the rest of what is known on a hover card. */
   card?: ChatCardInfo
 }) {
@@ -183,6 +191,7 @@ export function SessionRow({
       data-session-open={open || undefined}
       data-session-archived={session.archived || undefined}
       data-session-child={child || undefined}
+      data-session-muted={muted || undefined}
       title={!card && session.archived ? t('Archived: click to open it') : undefined}
       className={cn(
         'group/chat relative flex min-w-0 cursor-pointer rounded-md pr-1 text-muted-foreground hover:bg-worktree-sidebar-accent/60 hover:text-foreground',
@@ -191,6 +200,7 @@ export function SessionRow({
         // A chat at work stands out as a card of its own, as T3 Code's does.
         working && 'my-0.5 border border-border bg-card shadow-xs hover:bg-card',
         !card && session.archived && renaming === null && 'opacity-60',
+        muted && 'opacity-60 hover:opacity-100',
         selected && 'bg-worktree-sidebar-accent text-foreground opacity-100',
         open && 'bg-worktree-sidebar-accent/70 text-foreground opacity-100'
       )}
@@ -207,6 +217,7 @@ export function SessionRow({
           return
         }
         chatSelection.reset(SCOPE, session.id)
+        closePagesBesideSidebar()
         // One click looks at the chat; a second one keeps its tab, as in an editor's file tree.
         if (card && e.detail < 2) previewSession(session.id)
         else selectSession(session.id)
@@ -330,4 +341,17 @@ export function SessionRow({
       </ContextMenuContent>
     </ContextMenu>
   )
+}, sameRowProps)
+
+function sameRowProps<P extends object>(a: P, b: P): boolean {
+  const keys = new Set([...Object.keys(a), ...Object.keys(b)] as (keyof P)[])
+  for (const key of keys) {
+    const x = a[key]
+    const y = b[key]
+    if (x === y) continue
+    if (typeof x !== 'object' || typeof y !== 'object' || x === null || y === null || Array.isArray(x) || Array.isArray(y)) return false
+    const fields = new Set([...Object.keys(x), ...Object.keys(y)])
+    for (const field of fields) if ((x as Record<string, unknown>)[field] !== (y as Record<string, unknown>)[field]) return false
+  }
+  return true
 }

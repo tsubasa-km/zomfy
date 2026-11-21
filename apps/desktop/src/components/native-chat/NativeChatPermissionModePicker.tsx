@@ -1,5 +1,5 @@
 import { ChevronDown, FilePenLine, Hand, NotebookPen, ShieldAlert, ShieldCheck, type LucideIcon } from 'lucide-react'
-import type { ChatPermissionMode } from '@acp-harness/protocol'
+import type { ChatPermissionMode } from '@zomfy/protocol'
 import { Button } from '@/components/ui/button'
 import {
   DropdownMenu,

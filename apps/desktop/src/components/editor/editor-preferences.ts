@@ -20,7 +20,7 @@ export interface EditorPreferences {
 
 export type MarkdownViewMode = 'source' | 'split' | 'preview'
 
-const STORAGE_KEY = 'acp-harness.editor-preferences'
+const STORAGE_KEY = 'zomfy.editor-preferences'
 const DEFAULTS: EditorPreferences = {
   editorWordWrap: true,
   editorMinimap: false,

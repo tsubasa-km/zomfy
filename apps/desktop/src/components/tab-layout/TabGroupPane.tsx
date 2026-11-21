@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react'
+import { memo, useCallback, useEffect, useState } from 'react'
 import { filePathDrag, type DraggedPaths } from '@/lib/file-path-drag'
 import { ensureSessionLoaded } from '@/daemon-connection'
 import { getState, sidebarWorkspaceId, useStore } from '@/session-store'
@@ -9,7 +9,7 @@ import { TerminalTabBody } from '@/components/terminal/TerminalPaneTree'
 import { DiffTabView } from '@/components/EditorTabViews'
 import { FileEditorView } from '@/components/FileEditorView'
 import { BrowserTabView } from './BrowserTabView'
-import { ToolDrawer } from './ToolDrawer'
+import { DRAWER_HANDLE_INSET, ToolDrawer } from './ToolDrawer'
 import { EmptyPane } from './EmptyPane'
 import { WindowEmptyPane } from './WindowEmptyPane'
 import { ErrorBoundary, ViewError } from '@/components/ErrorBoundary'
@@ -30,7 +30,8 @@ const OVERLAY_RECT: Record<DropZone, React.CSSProperties> = {
   center: { inset: 0 }
 }
 
-function TabBody({ tab }: { tab: WorkspaceTab }) {
+/** Memoised: the tab objects are kept while unchanged, so another tab's change leaves this view alone. */
+const TabBody = memo(function TabBody({ tab }: { tab: WorkspaceTab }) {
   switch (tab.kind) {
     case 'start':
       return (
@@ -52,15 +53,16 @@ function TabBody({ tab }: { tab: WorkspaceTab }) {
       return <BrowserTabView key={tab.id} tab={tab.browser} />
     case 'panel':
       return (
-        <div key={tab.id} className="flex min-h-0 flex-1 flex-col overflow-hidden bg-sidebar text-sidebar-foreground">
+        // The panel keeps clear of the drawer's handle itself; what it holds (a side chat) keeps no inset of its own.
+        <div key={tab.id} className="flex min-h-0 flex-1 flex-col overflow-hidden bg-sidebar pt-(--tab-top-inset) text-sidebar-foreground *:[--tab-top-inset:0px]">
           <WorkspacePanelView id={tab.panel.panel} workspaceId={tab.panel.workspaceId} />
         </div>
       )
   }
-}
+})
 
-/** Orca's TabGroupPanel: one split pane with its own tab row, body, and drop targets. */
-export function TabGroupPane({
+/** Orca's TabGroupPanel: one split pane with its own tab row, body, and drop targets. Memoised (see WorkspaceTabs). */
+export const TabGroupPane = memo(function TabGroupPane({
   workspaceId,
   groupId,
   tabs,
@@ -90,6 +92,7 @@ export function TabGroupPane({
   // With no tab at all, the empty pane still offers the project the sidebar shows, as its drawer would.
   const recent = useStore((s) => (home ? null : sidebarWorkspaceId(s)))
   const [zone, setZone] = useState<DropZone | null>(null)
+  const drawer = Boolean(active && home && active.kind !== 'start')
 
   useEffect(() => {
     if (activeChatId) void ensureSessionLoaded(activeChatId)
@@ -183,7 +186,12 @@ export function TabGroupPane({
         hasSplit={hasSplit}
         trailing={trailing}
       />
-      <div data-tab-group-body-id={groupId} className="relative flex min-h-0 min-w-0 flex-1 flex-col">
+      {/* Under a drawer's handle the tab's content starts lower, each kind in its own way (--tab-top-inset). */}
+      <div
+        data-tab-group-body-id={groupId}
+        className="relative flex min-h-0 min-w-0 flex-1 flex-col"
+        style={drawer ? DRAWER_HANDLE_INSET : undefined}
+      >
         {active ? (
           // One tab that fails to render keeps to its own pane; switching tabs remounts the boundary.
           // Its key differs from the drawer's beside it: siblings sharing a key leave a closed tab's
@@ -200,7 +208,7 @@ export function TabGroupPane({
           <WindowEmptyPane />
         )}
         {/* The drawer belongs to the tab on show: none without one, and each tab keeps its own. */}
-        {active && home && active.kind !== 'start' && (
+        {active && home && drawer && (
           <ToolDrawer key={`drawer:${active.id}`} workspaceId={home} tabId={active.id} exclude={active.id} focused={isFocused} />
         )}
       </div>
@@ -219,4 +227,4 @@ export function TabGroupPane({
       )}
     </div>
   )
-}
+})

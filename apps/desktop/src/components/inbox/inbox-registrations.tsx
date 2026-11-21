@@ -12,14 +12,16 @@ import { t } from '@/i18n/i18n'
 
 /** Everything waiting on the person: approvals and questions, unread finishes, open todos. */
 function useInboxCounts(): { total: number; urgent: number } {
-  const sessions = useStore((s) => s.sessions)
-  const unread = useStore((s) => s.unread)
+  // Counted in the selector and handed out as a string, so a chat streaming does not redraw the status bar.
+  const counts = useStore((s) => {
+    const entries = inboxEntries(s.sessions, s.unread)
+    return `${entries.length} ${entries.filter((e) => e.kind !== 'finished').length}`
+  })
   const openTodos = useInbox((s) => s.todos.filter((t) => !t.done).length)
   return useMemo(() => {
-    const entries = inboxEntries(sessions, unread)
-    const urgent = entries.filter((e) => e.kind !== 'finished').length
-    return { total: entries.length + openTodos, urgent }
-  }, [sessions, unread, openTodos])
+    const [entries, urgent] = counts.split(' ').map(Number)
+    return { total: entries! + openTodos, urgent: urgent! }
+  }, [counts, openTodos])
 }
 
 function InboxSegment() {

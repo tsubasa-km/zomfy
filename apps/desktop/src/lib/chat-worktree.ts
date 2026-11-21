@@ -1,5 +1,5 @@
 import { toast } from 'sonner'
-import { HARNESS_METHODS } from '@acp-harness/protocol'
+import { HARNESS_METHODS } from '@zomfy/protocol'
 import { createSession, harnessRequest } from '@/daemon-connection'
 import { allWorkspaces, getState, type HostedProject } from '@/session-store'
 import { defaultChatAgent } from '@/lib/default-chat-agent'

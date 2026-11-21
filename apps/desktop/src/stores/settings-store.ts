@@ -1,4 +1,4 @@
-import type { ChatPermissionMode } from '@acp-harness/protocol'
+import type { ChatPermissionMode } from '@zomfy/protocol'
 import { createExternalStore } from './external-store'
 
 // UI preferences for this window, persisted in localStorage. Defaults follow Orca's
@@ -153,7 +153,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
 
 export type SettingKey = keyof AppSettings
 
-export const STORAGE_KEY = 'acp-harness.settings.v1'
+export const STORAGE_KEY = 'zomfy.settings.v1'
 
 function readSaved(): AppSettings {
   try {

@@ -1,5 +1,5 @@
 import type * as acp from '@agentclientprotocol/sdk'
-import { SESSION_REPLAY_META } from '@acp-harness/protocol'
+import { SESSION_REPLAY_META } from '@zomfy/protocol'
 
 /**
  * Orders what arrived while a `session/load` ran: the replay, then the live updates it does not hold.

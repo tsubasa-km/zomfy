@@ -7,7 +7,7 @@ import { createExternalStore } from './external-store'
 /** The least a drawer can be: its bar and a few lines of a terminal. */
 export const DRAWER_MIN_HEIGHT = 192
 
-const STORAGE_KEY = 'acp-harness.drawer-height.v1'
+const STORAGE_KEY = 'zomfy.drawer-height.v1'
 
 function readSaved(): number | null {
   try {

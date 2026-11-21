@@ -1,5 +1,5 @@
 import { Plus, X } from 'lucide-react'
-import type { WorkflowField, WorkflowNodeConfig } from '@acp-harness/protocol'
+import type { WorkflowField, WorkflowNodeConfig } from '@zomfy/protocol'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'

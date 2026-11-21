@@ -1,5 +1,5 @@
 import { resolve, sep } from 'node:path'
-import type { ListeningPort, PortAttribution, PortScanResult, Workspace } from '@acp-harness/protocol'
+import type { ListeningPort, PortAttribution, PortScanResult, Workspace } from '@zomfy/protocol'
 import { readProcesses, scanListeners, type ProcessEntry, type RawListener } from './listening-ports.ts'
 
 // Wildcard and loopback binds both open as localhost.

@@ -1,4 +1,4 @@
-import { HARNESS_METHODS, type TodoItem, type TodoLink, type TodoRequests } from '@acp-harness/protocol'
+import { HARNESS_METHODS, type TodoItem, type TodoLink, type TodoRequests } from '@zomfy/protocol'
 import { harnessRequest } from '@/daemon-connection'
 import { LOCAL_HOST } from '@/session-store'
 import { createExternalStore } from './external-store'

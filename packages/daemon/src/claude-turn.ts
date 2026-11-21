@@ -19,10 +19,11 @@ import {
   type TurnEndMeta,
   type WorkflowStepContext,
   type WorkflowStepUsage,
-} from "@acp-harness/protocol";
+} from "@zomfy/protocol";
 import { explainClaudeFailure, resolveClaudeExecutable } from "./claude-executable.ts";
 import { CHAT_ATTACHMENT_DIR, deferAttachmentMentions } from "./chat-attachment-files.ts";
 import { detectUsageLimit } from "./usage-limit.ts";
+import { noteClaudeTurnEnded } from "./usage-limits.ts";
 import { log } from "./log.ts";
 import { QUESTION_OPTIONS, QUESTION_TOOL, questionResult } from "./ask-user-question.ts";
 import { pathGuardHooks, type PathGuard } from "./step-path-guard.ts";
@@ -386,6 +387,8 @@ ${errorText}`) ?? title, _meta: { [TURN_RECOVERY_META.turnEnd]: end } });
   await reportContextUsage(message, stream, progress, update).catch((error) =>
     log(`context usage failed: ${String(error)}`),
   );
+  // The account's usage limits, read while this turn's process is still up (usage-limits.ts).
+  noteClaudeTurnEnded(stream);
   return message.subtype === "error_max_turns" ? "max_turn_requests" : "end_turn";
 }
 
@@ -415,10 +418,13 @@ async function reportContextUsage(
     progress.context = stepContext(exact);
     const meta: ContextUsageMeta = {
       estimated: false,
+      // Every row, the free space, buffer and deferred tools too; `kind` tells them apart.
       categories: exact.categories
-        .filter((c) => c.kind === "used" && c.tokens > 0)
-        .map((c) => ({ name: c.name, tokens: c.tokens })),
+        .filter((c) => c.tokens > 0)
+        .map((c) => ({ name: c.name, tokens: c.tokens, ...(c.id ? { id: c.id } : {}), kind: c.kind })),
       items: progress.context.items,
+      mcpTools: exact.mcpTools.map((t) => ({ name: t.name, server: t.serverName, tokens: t.tokens, loaded: t.isLoaded !== false })),
+      memoryFiles: exact.memoryFiles.map((f) => ({ path: f.path, type: f.type, tokens: f.tokens })),
     };
     await update({
       sessionUpdate: "usage_update",

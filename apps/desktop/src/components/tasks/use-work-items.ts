@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { HARNESS_METHODS, type HostedWorkItem, type HostingAvailability, type WorkItemKind, type WorkItemPreset } from '@acp-harness/protocol'
+import { HARNESS_METHODS, type HostedWorkItem, type HostingAvailability, type WorkItemKind, type WorkItemPreset } from '@zomfy/protocol'
 import { harnessRequest } from '@/daemon-connection'
 import type { HostId } from '@/session-store'
 

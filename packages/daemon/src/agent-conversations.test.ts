@@ -3,7 +3,7 @@ import { existsSync, mkdirSync, mkdtempSync, realpathSync, rmSync, utimesSync, w
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import type * as acp from '@agentclientprotocol/sdk'
-import { HARNESS_METHODS, type ChatAgentId, type PastConversation, type SessionInfo } from '@acp-harness/protocol'
+import { HARNESS_METHODS, type ChatAgentId, type PastConversation, type SessionInfo } from '@zomfy/protocol'
 import * as launchSettings from './chat-agent-launch-settings.ts'
 import * as launchSpecs from './chat-agent-launch-specs.ts'
 import { DEFAULT_SESSION_OPTIONS, type SessionRecord } from './session-registry.ts'

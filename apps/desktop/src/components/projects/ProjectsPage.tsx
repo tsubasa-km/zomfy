@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState, type MouseEvent } from 'react'
 import { toast } from 'sonner'
-import { HARNESS_METHODS } from '@acp-harness/protocol'
+import { HARNESS_METHODS } from '@zomfy/protocol'
 import { FolderGit2, FolderOpen, FolderPlus, Folders, GitBranch, Plus, Search, SquarePen, Trash2, X } from 'lucide-react'
 import { harnessRequest } from '@/daemon-connection'
 import { allWorkspaces, openStartTab, selectWorkspace, showQuickStart, useStore, type HostedProject, type HostId } from '@/session-store'
@@ -90,8 +90,8 @@ export function ProjectsPage() {
     if (reachable.length === 0) return
     const question =
       selected.length === 1
-        ? t('Remove {name} from acp-harness? Its folders and worktrees on disk are kept.', { name: projectLabel(reachable[0]!) })
-        : t('Remove {n} projects from acp-harness? Their folders and worktrees on disk are kept.', { n: selected.length })
+        ? t('Remove {name} from Zomfy? Its folders and worktrees on disk are kept.', { name: projectLabel(reachable[0]!) })
+        : t('Remove {n} projects from Zomfy? Their folders and worktrees on disk are kept.', { n: selected.length })
     const note = offline.length > 0 ? '\n\n' + t('Hosts that are not connected keep theirs.') : ''
     if (!window.confirm(question + note)) return
     clearSelection()

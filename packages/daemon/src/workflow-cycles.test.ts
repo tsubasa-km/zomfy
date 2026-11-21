@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test'
-import { cyclesOf, unboundedLoops, workflowCycles, type Workflow, type WorkflowNodeKind, type WorkflowOutcome } from '@acp-harness/protocol'
+import { cyclesOf, unboundedLoops, workflowCycles, type Workflow, type WorkflowNodeKind, type WorkflowOutcome } from '@zomfy/protocol'
 
 // Cycles come from the graph: each edge back to an earlier step frames the steps a round repeats.
 

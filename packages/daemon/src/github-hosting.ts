@@ -10,7 +10,7 @@ import type {
   HostedReviewFile,
   HostedWorkItem,
   WorkItemPreset
-} from '@acp-harness/protocol'
+} from '@zomfy/protocol'
 import { parseJson } from './hosting-cli.ts'
 import { pickBranchReview, rollUpChecks, type HostingContext, type HostingProvider } from './hosting-provider.ts'
 
@@ -327,7 +327,7 @@ export const githubHosting: HostingProvider = {
   },
 
   async createReview(ctx, input) {
-    const dir = await mkdtemp(join(tmpdir(), 'acp-harness-pr-'))
+    const dir = await mkdtemp(join(tmpdir(), 'zomfy-pr-'))
     try {
       const bodyFile = join(dir, 'body.md')
       await writeFile(bodyFile, input.body, 'utf8')

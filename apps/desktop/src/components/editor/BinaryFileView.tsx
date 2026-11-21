@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { HARNESS_METHODS, type FileBinaryContent } from '@acp-harness/protocol'
+import { HARNESS_METHODS, type FileBinaryContent } from '@zomfy/protocol'
 import { harnessRequest } from '@/daemon-connection'
 import type { EditorTab } from '@/session-store'
 import { DropdownMenuItem } from '@/components/ui/dropdown-menu'

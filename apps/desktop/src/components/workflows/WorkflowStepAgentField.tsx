@@ -1,4 +1,4 @@
-import { chatAgentLabel, isChatAgentId, isGuardedChatAgent, type ChatAgentId } from '@acp-harness/protocol'
+import { chatAgentLabel, isChatAgentId, isGuardedChatAgent, type ChatAgentId } from '@zomfy/protocol'
 import { useChatAgents } from '@/lib/chat-agents'
 import type { HostId } from '@/session-store'
 import { TuiAgentIcon } from '@/components/terminal/TuiAgentIcon'

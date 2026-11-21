@@ -1,4 +1,4 @@
-import type { Project, Workspace } from "@acp-harness/protocol";
+import type { Project, Workspace } from "@zomfy/protocol";
 import { realpathSync } from "node:fs";
 import type { PathGuard } from "./step-path-guard.ts";
 

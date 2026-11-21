@@ -27,7 +27,7 @@ export interface TerminalPaneLayout {
 
 type PaneState = Record<string, TerminalPaneLayout>
 
-const STORAGE_KEY = 'acp-harness.terminal-panes.v1'
+const STORAGE_KEY = 'zomfy.terminal-panes.v1'
 
 function readSaved(): PaneState {
   try {
