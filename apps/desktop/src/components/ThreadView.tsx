@@ -13,12 +13,15 @@ import {
   onComposerFocusRequest,
   resumeTurn,
   rewindTo,
-  setAutoResume
+  setAutoResume,
+  submitPrompt
 } from '@/chat-actions'
+import { addTodo } from '@/stores/inbox-store'
+import { chatAgentLabel } from '@acp-harness/protocol'
 import { latestTurnEnd } from '@/chat-transcript'
 import { askInSideChat } from '@/side-chat-actions'
 import { NativeChatUsageLimitBanner } from '@/components/native-chat/NativeChatTurnRecovery'
-import { isExternalAgentSession } from '@/lib/chat-agents'
+import { isExternalAgentSession, sessionAgent } from '@/lib/chat-agents'
 import { Button } from '@/components/ui/button'
 import {
   ContextMenu,
@@ -112,6 +115,8 @@ export function ThreadView({ session, onSendToMain }: { session: Session; onSend
     projectId: main?.projectId ?? project?.id ?? null,
     projectName: project ? projectLabel(project) : ''
   }
+  const agentName = chatAgentLabel(sessionAgent(session))
+  const sessionTitle = session.title
   const recoveryRow = turnEnd ? model.rows.findLastIndex((row) => row.kind === 'notice' && row.turnEnd !== undefined) : -1
   // One actions object for every row, kept while nothing in it changes: rows render only when theirs do.
   const rowActions = useMemo(
@@ -121,9 +126,15 @@ export function ThreadView({ session, onSendToMain }: { session: Session; onSend
       ...(forkReason ? { forkUnavailable: forkReason } : {}),
       cwd: session.cwd,
       workflows: { hostId: workflowHome.hostId, projectId: workflowHome.projectId, projectName: workflowHome.projectName },
-      onRevealFile: (path) => openEditorTab({ workspaceId: session.workspaceId, kind: 'file', path, staged: false })
+      onRevealFile: (path) => openEditorTab({ workspaceId: session.workspaceId, kind: 'file', path, staged: false }),
+      nextSteps: {
+        agentName,
+        onFollowUp: (text) => submitPrompt(session.id, text, []),
+        onAddTodo: (text) =>
+          void addTodo(text, { hostId: session.hostId, workspaceId: session.workspaceId, sessionId: session.id }, sessionTitle).catch(() => undefined)
+      }
     }),
-    [working, claudeOnly, forkReason, session.id, session.cwd, session.workspaceId, workflowHome.hostId, workflowHome.projectId, workflowHome.projectName]
+    [working, claudeOnly, forkReason, session.id, session.cwd, session.workspaceId, session.hostId, sessionTitle, agentName, workflowHome.hostId, workflowHome.projectId, workflowHome.projectName]
   )
   const recoveryActions = useMemo(
     (): TranscriptRowActions => ({ ...rowActions, onRecover: (kind) => void resumeTurn(session.id, kind) }),
