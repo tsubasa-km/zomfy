@@ -16,7 +16,7 @@ import { sortedHosts } from '@/components/settings/HostsPane'
 import { Button } from '@/components/ui/button'
 import { DropdownMenu, DropdownMenuContent, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
-import { byUrgency, chatSectionLabel, chatSections, chatTree, type ChatNode, type ChatSectionId } from '@/lib/chat-list'
+import { byUrgency, chatSectionLabel, chatSections, chatTree, searchTree, type ChatNode, type ChatSectionId } from '@/lib/chat-list'
 import { startChat } from '@/lib/chat-worktree'
 import { defaultHostId } from '@/lib/default-host'
 import { cn } from '@/lib/utils'
@@ -50,7 +50,10 @@ export function useChatListCounts(): { total: number; matched: number } {
         where.set(w.id, `${project ? projectLabel(project) : ''} ${w.branch ?? ''} ${workspaceLabel(w)}`.toLowerCase())
       }
     }
-    const matched = listed.filter((s) => s.title.toLowerCase().includes(needle) || (where.get(s.workspaceId) ?? '').includes(needle))
+    const hit = (s: Session) => s.title.toLowerCase().includes(needle) || (where.get(s.workspaceId) ?? '').includes(needle)
+    // A chat counts as found when a chat under it is: the search shows it, with that one beneath.
+    const childHit = new Set(sessions.filter((s) => s.parentId && !s.archived && hit(s)).map((s) => s.parentId))
+    const matched = listed.filter((s) => hit(s) || childHit.has(s.id))
     return { total: listed.length, matched: matched.length }
   }, [sessions, floating, query, hosts])
 }
@@ -170,11 +173,13 @@ export function ChatList({ actions }: { actions: SidebarActions }) {
     const card = cardOf(s)
     return [s.title, card.project, card.branch ?? ''].some((text) => text.toLowerCase().includes(needle))
   }
-  const nodes = chatTree(listed).filter((n) => [n.chat, ...n.children].some(matches))
+  // A search lists the chats it found at the top; one it found under another shows beneath that one, quieter.
+  const nodes: (ChatNode & { hits?: Session[] })[] = needle ? searchTree(chatTree(listed), matches) : chatTree(listed)
 
-  const row = (node: ChatNode) => {
+  const row = (node: ChatNode & { hits?: Session[] }) => {
     const { chat, children } = node
     const open = expanded.includes(chat.id)
+    const under = open ? children : (node.hits ?? [])
     const w = workspaceById.get(chat.workspaceId)
     const dragOf = (s: Session) => (w ? { kind: 'workspace' as const, id: w.id, hostId: w.hostId, projectId: w.projectId, sessionId: s.id } : undefined)
     const childStatus = children.reduce<Session['status']>(
@@ -190,7 +195,9 @@ export function ChatList({ actions }: { actions: SidebarActions }) {
           card={cardOf(chat)}
           fold={children.length > 0 ? { count: children.length, expanded: open, status: childStatus } : undefined}
         />
-        {open && children.map((child) => <SessionRow key={child.id} session={child} showActive drag={dragOf(child)} card={cardOf(child)} child />)}
+        {under.map((child) => (
+          <SessionRow key={child.id} session={child} showActive drag={dragOf(child)} card={cardOf(child)} child muted={Boolean(needle)} />
+        ))}
       </Fragment>
     )
   }

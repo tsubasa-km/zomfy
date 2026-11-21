@@ -473,7 +473,9 @@ export function selectWorkspace(workspaceId: string): void {
   const last = state.activeSessionByWorkspace[workspaceId]
   const tab = last && open.includes(last) ? last : open.find((id) => workspaceOfKnownTab(id) === workspaceId)
   if (tab) return set(withTabFocus(state, workspaceId, tab))
-  const chat = state.sessions.findLast((s) => s.workspaceId === workspaceId && !s.sideOf && !s.parentId && !s.archived)
+  // A chat of its own first; a workspace another chat made may hold only that chat's child.
+  const live = state.sessions.filter((s) => s.workspaceId === workspaceId && !s.sideOf && !s.archived)
+  const chat = live.findLast((s) => !s.parentId) ?? live.findLast((s) => s.origin !== 'workflow')
   if (chat) return focusTab(workspaceId, chat.id)
   openStartTab(workspaceId)
 }
