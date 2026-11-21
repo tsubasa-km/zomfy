@@ -8,7 +8,7 @@ import {
   CHAT_META,
   type QuestionAnswers,
   HARNESS_METHODS,
-  PROMPT_NOT_SENT_META,
+  promptNotSent,
   HARNESS_NOTIFICATIONS,
   LSP_NOTIFICATIONS,
   type LspEvent,
@@ -628,7 +628,7 @@ export async function sendPrompt(sessionId: string, text: string, images: ChatIm
     });
     // No turn ran for it (its conversation is open in a Claude terminal, the chat is a split's helper
     // at work, or it was stopped while waiting on a merge): the message goes back into the box.
-    if (reply._meta?.[PROMPT_NOT_SENT_META] === true) {
+    if (promptNotSent(reply._meta)) {
       updateSession(sessionId, (s) => ({ ...s, status: before, turnStartedAt: null }));
       return false;
     }

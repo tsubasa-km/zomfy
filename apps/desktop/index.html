@@ -9,7 +9,9 @@
       // Theme before first paint, from the same setting lib/theme.ts applies later, so the boot
       // screen below never flashes the wrong palette.
       try {
-        var theme = JSON.parse(localStorage.getItem('zomfy.settings.v1') || '{}').theme || 'system'
+        // The module bundle renames legacy keys later; until then the setting may still be under its legacy key.
+        var saved = localStorage.getItem('zomfy.settings.v1') || localStorage.getItem('acp-harness.settings.v1') // legacy
+        var theme = JSON.parse(saved || '{}').theme || 'system'
         var dark = theme === 'dark' || (theme === 'system' && matchMedia('(prefers-color-scheme: dark)').matches)
         document.documentElement.classList.add(dark ? 'dark' : 'light')
       } catch (e) {}
