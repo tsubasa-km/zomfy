@@ -541,6 +541,11 @@ export const SHELL: Record<string, string> = {
   'Additional local commands': '追加のローカル コマンド',
   'One command per line, e.g. pnpm install': '1 行に 1 コマンド（例: pnpm install）',
   'On Windows the script runs with cmd unless it starts with #!, which runs it in Git Bash.': 'Windows では、スクリプトは cmd で実行されます。#! で始まる場合は Git Bash で実行されます。',
+  'What agents may do on their own': 'エージェントが自分の判断でできること',
+  'Agents can start workflows': 'エージェントがワークフローを開始できる',
+  "An agent in this project may run one of the project's workflows on a task.": 'このプロジェクトのエージェントが、タスクにプロジェクトのワークフローを実行できます。',
+  'Agents can split work into parallel worktrees': 'エージェントが作業を並列のワークツリーに分割できる',
+  'An agent may hand separate parts of a large task to helpers, each in a worktree of its own.': '大きなタスクの独立した部分を、それぞれ専用のワークツリーで動くヘルパーに任せられます。',
 
   // components/sidebar/WorkspaceMenu.tsx
   'Open in': 'アプリで開く',
