@@ -31,24 +31,37 @@ const KEEP_SPANS = [
   /github\.com[/:][\w.-]+\/acp-harness/gi
 ]
 
-/** Applied in order; the prose rule turns a standalone mention in a sentence into the product name. */
-const RULES: [RegExp, string | ((match: string, ...groups: string[]) => string)][] = [
+type Rule = [RegExp, string | ((match: string, ...groups: string[]) => string)]
+
+const NAME_RULES: Rule[] = [
   [/@acp-harness\//g, '@zomfy/'],
   [/acp_harness_desktop_lib/g, 'zomfy_desktop_lib'],
   [/ACP_HARNESS_/g, 'ZOMFY_'],
   [/ACP_HARNESS/g, 'ZOMFY'],
   [/AcpHarness/g, 'Zomfy'],
   [/acpHarness/g, 'zomfy'],
-  [/acp_harness/g, 'zomfy'],
-  // "Remove it from acp-harness?", "acp-harness does not run…", "acp-harness では…"
-  [/(^|[\s('"`])acp-harness(?=[\s?,!)]|'s\b|\.(?:\s|$)|$)/gm, (_m, lead: string) => `${lead}Zomfy`],
-  [/acp-harness/g, 'zomfy']
+  [/acp_harness/g, 'zomfy']
 ]
+
+/**
+ * A standalone mention in a sentence becomes the product name: "Remove it from acp-harness?",
+ * "acp-harness does not run…", "…is not available in acp-harness`", "acp-harness では…".
+ * Not applied to Rust or shell, where a bare word is a command argument.
+ */
+const PROSE_RULES: Rule[] = [
+  [/(^|\s)acp-harness(?=[\s?,!)'"`]|'s\b|\.(?:\s|$)|$)/gm, (_m, lead: string) => `${lead}Zomfy`],
+  [/(^|[('"`])acp-harness(?=[\s?,!)]|\.(?:\s|$))/gm, (_m, lead: string) => `${lead}Zomfy`]
+]
+
+const LAST_RULE: Rule = [/acp-harness/g, 'zomfy']
+const NO_PROSE = /\.(rs|sh|toml|lock|json|ya?ml)$/i
 
 const PLACEHOLDER = '\u0000keep'
 
-export function renameLine(line: string): string {
-  if (!/acp[-_]?harness/i.test(line) || KEEP_LINE.some((re) => re.test(line))) return line
+export function renameLine(line: string, file = ''): string {
+  if (!/acp[-_]?harness/i.test(line)) return line
+  // Package imports never keep the old scope, whatever else the line says.
+  if (KEEP_LINE.some((re) => re.test(line))) return line.replace(/@acp-harness\//g, '@zomfy/')
   const kept: string[] = []
   let out = line
   for (const span of KEEP_SPANS) {
@@ -57,16 +70,17 @@ export function renameLine(line: string): string {
       return `${PLACEHOLDER}${kept.length - 1}\u0000`
     })
   }
-  for (const [pattern, replacement] of RULES) {
+  const rules = [...NAME_RULES, ...(NO_PROSE.test(file) ? [] : PROSE_RULES), LAST_RULE]
+  for (const [pattern, replacement] of rules) {
     out = out.replace(pattern, replacement as never)
   }
   return out.replace(new RegExp(`${PLACEHOLDER}(\\d+)\u0000`, 'g'), (_m, i: string) => kept[Number(i)]!)
 }
 
-export function renameText(text: string): string {
+export function renameText(text: string, file = ''): string {
   return text
     .split('\n')
-    .map((line) => renameLine(line))
+    .map((line) => renameLine(line, file))
     .join('\n')
 }
 
@@ -87,7 +101,7 @@ if (import.meta.main) {
       continue // deleted in the working tree
     }
     if (text.includes('\u0000')) continue // binary
-    const next = renameText(text)
+    const next = renameText(text, file)
     if (next === text) continue
     changed.push(file)
     if (!check) writeFileSync(path, next)
