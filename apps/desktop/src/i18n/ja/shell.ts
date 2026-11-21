@@ -205,7 +205,7 @@ export const SHELL: Record<string, string> = {
   'New Claude session': '新しい Claude セッション',
 
   // components/Sidebar.tsx
-  'Remove {name} from acp-harness? Its folders and worktrees on disk are kept.': '{name} を acp-harness から削除しますか？ディスク上のフォルダーとワークツリーはそのまま残ります。',
+  'Remove {name} from Zomfy? Its folders and worktrees on disk are kept.': '{name} を Zomfy から削除しますか？ディスク上のフォルダーとワークツリーはそのまま残ります。',
   'Waiting for you': '対応待ち',
   Inbox: '受信箱',
   'No workspaces match the filters.': 'フィルターに一致するワークスペースはありません。',
@@ -1379,8 +1379,8 @@ export const SHELL: Record<string, string> = {
   // components/projects/ProjectsPage.tsx (selection)
   'Select {name}': '{name} を選択',
   'Remove from the list…': '一覧から外す…',
-  'Remove {n} projects from acp-harness? Their folders and worktrees on disk are kept.':
-    '{n} 件のプロジェクトを acp-harness から削除しますか？ディスク上のフォルダーとワークツリーはそのまま残ります。',
+  'Remove {n} projects from Zomfy? Their folders and worktrees on disk are kept.':
+    '{n} 件のプロジェクトを Zomfy から削除しますか？ディスク上のフォルダーとワークツリーはそのまま残ります。',
   'Hosts that are not connected keep theirs.': '接続していないホストにあるものはそのまま残ります。',
   'Could not remove {n} of the projects': '{n} 件のプロジェクトを外せませんでした'
 }

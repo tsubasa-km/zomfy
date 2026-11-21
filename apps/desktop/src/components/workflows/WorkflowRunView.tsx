@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'reac
 import { Background, Controls, ReactFlow, useReactFlow, type NodeChange } from '@xyflow/react'
 import { ArrowLeft, CircleStop, MessageSquare, RotateCcw, Send } from 'lucide-react'
 import { toast } from 'sonner'
-import { HARNESS_METHODS, localOnlySteps, runResumable, workflowCycles, workflowScorecard, type WorkflowCycle, type WorkflowRun, type WorkflowRunStep } from '@acp-harness/protocol'
+import { HARNESS_METHODS, localOnlySteps, runResumable, workflowCycles, workflowScorecard, type WorkflowCycle, type WorkflowRun, type WorkflowRunStep } from '@zomfy/protocol'
 import { harnessRequest } from '@/daemon-connection'
 import { resumeWorkflowRun } from '@/lib/run-interruptions'
 import { selectSession, useStore } from '@/session-store'

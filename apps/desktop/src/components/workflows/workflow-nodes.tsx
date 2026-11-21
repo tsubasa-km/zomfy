@@ -1,7 +1,7 @@
 import { memo } from 'react'
 import { Handle, Position, type Node, type NodeProps } from '@xyflow/react'
 import { Bot, CircleCheckBig, Flag, HardDrive, Lock, Play, Puzzle, ShieldCheck, SquareTerminal, RefreshCw, UserRound, Users, type LucideIcon } from 'lucide-react'
-import { chatAgentLabel, type WorkflowNode, type WorkflowNodeKind } from '@acp-harness/protocol'
+import { chatAgentLabel, type WorkflowNode, type WorkflowNodeKind } from '@zomfy/protocol'
 import { cn } from '@/lib/utils'
 import { TuiAgentIcon } from '@/components/terminal/TuiAgentIcon'
 import { CycleNode, PHASE_CLASSES, PHASE_LETTERS, phaseOf } from './workflow-cycles'

@@ -1,11 +1,11 @@
-import type { HarnessState } from '@acp-harness/protocol'
+import type { HarnessState } from '@zomfy/protocol'
 import type { HostId } from '@/session-store'
 import { WINDOW_ROLE } from './window-role'
 
 // Each host's last listing, so the sidebar keeps showing a WSL or SSH host's projects (dimmed)
 // while it is still connecting or out of reach, instead of the list jumping as hosts come up.
 
-const KEY = 'acp-harness.host-snapshots.v1'
+const KEY = 'zomfy.host-snapshots.v1'
 
 function read(): Record<HostId, HarnessState> {
   try {

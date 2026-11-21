@@ -1,5 +1,5 @@
 import { expect, test } from 'bun:test'
-import type { PastConversation } from '@acp-harness/protocol'
+import type { PastConversation } from '@zomfy/protocol'
 import { folderName, listedThreads, matchesSearch, threadGroups } from '../src/lib/thread-import.ts'
 
 const conversation = (fields: Partial<PastConversation>): PastConversation => ({

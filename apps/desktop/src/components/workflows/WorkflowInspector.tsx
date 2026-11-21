@@ -15,7 +15,7 @@ import {
   type WorkflowNodeConfig,
   type WorkflowParallel,
   type WorkflowPermissionMode
-} from '@acp-harness/protocol'
+} from '@zomfy/protocol'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'

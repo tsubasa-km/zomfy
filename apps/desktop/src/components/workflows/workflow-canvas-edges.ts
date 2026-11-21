@@ -1,5 +1,5 @@
 import { MarkerType, type Edge } from '@xyflow/react'
-import type { Workflow, WorkflowOutcome } from '@acp-harness/protocol'
+import type { Workflow, WorkflowOutcome } from '@zomfy/protocol'
 import { outcomeLabel } from './workflow-model'
 import type { EdgeRoute } from './workflow-canvas-layout'
 import { t } from '@/i18n/i18n'

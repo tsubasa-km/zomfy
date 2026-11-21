@@ -1,4 +1,4 @@
-import type { WorkflowScorecard } from '@acp-harness/protocol'
+import type { WorkflowScorecard } from '@zomfy/protocol'
 import { cn } from '@/lib/utils'
 import { t } from '@/i18n/i18n'
 

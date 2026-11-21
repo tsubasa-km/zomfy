@@ -1,4 +1,4 @@
-import { parseLspDocumentUri } from '@acp-harness/protocol'
+import { parseLspDocumentUri } from '@zomfy/protocol'
 import { monaco } from '@/lib/monaco-setup'
 import { setProblemFiles, type Problem, type ProblemFile, type ProblemSeverity } from './problems-store'
 

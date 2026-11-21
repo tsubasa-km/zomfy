@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import Editor, { type OnMount } from '@monaco-editor/react'
-import { HARNESS_METHODS, type FileStat, type TextEncoding } from '@acp-harness/protocol'
+import { HARNESS_METHODS, type FileStat, type TextEncoding } from '@zomfy/protocol'
 import { harnessRequest } from '@/daemon-connection'
 import { getState, setEditorDirty, type EditorTab } from '@/session-store'
 import { monaco } from '@/lib/monaco-setup'
@@ -333,7 +333,7 @@ export function TextFileEditor({ tab }: { tab: EditorTab }) {
   const onMount: OnMount = (editor) => {
     // addAction, unlike addCommand, binds the key to this editor only, so other editors cannot steal it.
     editor.addAction({
-      id: 'acpHarness.save',
+      id: 'zomfy.save',
       label: t('Save'),
       keybindings: [monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyS],
       run: () => void saveRef.current()

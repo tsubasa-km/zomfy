@@ -1,5 +1,5 @@
 import type { IDisposable, ILink, Terminal } from '@xterm/xterm'
-import { HARNESS_METHODS } from '@acp-harness/protocol'
+import { HARNESS_METHODS } from '@zomfy/protocol'
 import { harnessRequest } from '@/daemon-connection'
 import { openEditorTab } from '@/session-store'
 

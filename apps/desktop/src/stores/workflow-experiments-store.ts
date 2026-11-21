@@ -1,4 +1,4 @@
-import { HARNESS_METHODS, type WorkflowExperiment } from '@acp-harness/protocol'
+import { HARNESS_METHODS, type WorkflowExperiment } from '@zomfy/protocol'
 import { harnessRequest } from '@/daemon-connection'
 import type { HostId } from '@/session-store'
 import { createExternalStore } from './external-store'

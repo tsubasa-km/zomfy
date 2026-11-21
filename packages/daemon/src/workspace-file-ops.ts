@@ -1,6 +1,6 @@
 import { cp, lstat, mkdir, rename, rm, writeFile } from 'node:fs/promises'
 import { basename, dirname, extname, join, posix } from 'node:path'
-import type { DeleteResult } from '@acp-harness/protocol'
+import type { DeleteResult } from '@zomfy/protocol'
 import { resolveInside } from './workspace-files.ts'
 import { moveToTrash } from './host-trash.ts'
 

@@ -11,7 +11,7 @@ export const SIDEBAR_WIDTHS: Record<SidebarWidthKey, { initial: number; min: num
   'right:side-chat': { initial: 420, min: 300, max: 900 }
 }
 
-const STORAGE_KEY = 'acp-harness.sidebar-widths.v1'
+const STORAGE_KEY = 'zomfy.sidebar-widths.v1'
 
 function readSaved(): Partial<Record<SidebarWidthKey, number>> {
   try {

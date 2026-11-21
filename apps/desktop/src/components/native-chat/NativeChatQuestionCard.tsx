@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { Check, MessageCircleQuestion } from 'lucide-react'
-import { QUESTION_OPTION_IDS } from '@acp-harness/protocol'
+import { QUESTION_OPTION_IDS } from '@zomfy/protocol'
 import { answerPermission } from '@/daemon-connection'
 import type { ThreadItem } from '@/session-store'
 import { cn } from '@/lib/utils'

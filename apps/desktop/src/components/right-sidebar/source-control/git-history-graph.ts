@@ -1,4 +1,4 @@
-import type { GitHistoryGraphColorId, GitHistoryItem, GitHistoryItemRef } from '@acp-harness/protocol'
+import type { GitHistoryGraphColorId, GitHistoryItem, GitHistoryItemRef } from '@zomfy/protocol'
 import { t } from '@/i18n/i18n'
 
 // Swimlane layout for the commit graph, ported from Orca's shared/git-history-graph.ts and

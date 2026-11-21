@@ -1,4 +1,4 @@
-import { HARNESS_METHODS } from "@acp-harness/protocol";
+import { HARNESS_METHODS } from "@zomfy/protocol";
 import { cancelCommitMessage, generateCommitMessage } from "../commit-message-generator.ts";
 import { gitBaseRefs, gitBranchCompare } from "../git-branch-compare.ts";
 import { gitCommit, gitDiff, gitDiscard, gitStage, gitStatus, gitUnstage } from "../git-changes.ts";

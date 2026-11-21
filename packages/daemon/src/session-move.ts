@@ -1,5 +1,5 @@
 import type * as acp from "@agentclientprotocol/sdk";
-import type { MoveSessionParams, MoveSessionResult, Workspace } from "@acp-harness/protocol";
+import type { MoveSessionParams, MoveSessionResult, Workspace } from "@zomfy/protocol";
 import { chatAgentLaunch } from "./chat-agent-launch-settings.ts";
 import { moveClaudeConversation } from "./claude-conversation-move.ts";
 import { releaseFinishedTurn } from "./claude-turn.ts";

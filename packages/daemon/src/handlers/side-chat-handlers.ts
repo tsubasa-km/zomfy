@@ -4,7 +4,7 @@ import {
   SIDE_CHAT_DEFAULT_CONTEXT_MESSAGES,
   isChatAgentId,
   type ChatAgentId,
-} from "@acp-harness/protocol";
+} from "@zomfy/protocol";
 import type { HandlerContext } from "./handler-context.ts";
 import { DEFAULT_SESSION_OPTIONS, publicInfo } from "../session-registry.ts";
 import { conversationMessages } from "../conversation-messages.ts";

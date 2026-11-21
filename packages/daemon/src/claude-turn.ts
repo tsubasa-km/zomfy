@@ -19,7 +19,7 @@ import {
   type TurnEndMeta,
   type WorkflowStepContext,
   type WorkflowStepUsage,
-} from "@acp-harness/protocol";
+} from "@zomfy/protocol";
 import { explainClaudeFailure, resolveClaudeExecutable } from "./claude-executable.ts";
 import { CHAT_ATTACHMENT_DIR, deferAttachmentMentions } from "./chat-attachment-files.ts";
 import { detectUsageLimit } from "./usage-limit.ts";

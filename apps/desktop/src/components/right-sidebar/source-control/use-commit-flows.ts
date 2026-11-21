@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { HARNESS_METHODS } from '@acp-harness/protocol'
+import { HARNESS_METHODS } from '@zomfy/protocol'
 import { harnessRequest } from '@/daemon-connection'
 import type { DropdownActionKind, PrimaryActionKind, RemoteOpKind } from './source-control-actions'
 import { t } from '@/i18n/i18n'

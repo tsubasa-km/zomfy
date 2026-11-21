@@ -1,4 +1,4 @@
-import { HARNESS_METHODS } from "@acp-harness/protocol";
+import { HARNESS_METHODS } from "@zomfy/protocol";
 import { listDirectory, readWorkspaceFile, writeWorkspaceFile } from "../workspace-files.ts";
 import { searchWorkspace } from "../workspace-search.ts";
 import { readWorkspaceFileBinary, readWorkspaceFileRevision, statWorkspaceFile } from "../workspace-file-bytes.ts";

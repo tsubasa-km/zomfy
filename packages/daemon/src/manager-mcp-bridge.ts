@@ -18,12 +18,12 @@ export async function runManagerMcpBridge(url: string): Promise<void> {
       if (res.status === 202) return;
       const text = await res.text();
       if (!res.ok) {
-        if (id !== null) write({ jsonrpc: "2.0", id, error: { code: -32603, message: `acp-harness daemon refused the call (${res.status} ${text})` } });
+        if (id !== null) write({ jsonrpc: "2.0", id, error: { code: -32603, message: `Zomfy daemon refused the call (${res.status} ${text})` } });
         return;
       }
       if (text) write(JSON.parse(text));
     } catch (error) {
-      if (id !== null) write({ jsonrpc: "2.0", id, error: { code: -32603, message: `acp-harness daemon unreachable: ${String(error)}` } });
+      if (id !== null) write({ jsonrpc: "2.0", id, error: { code: -32603, message: `Zomfy daemon unreachable: ${String(error)}` } });
     }
   }
 

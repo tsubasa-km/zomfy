@@ -1,4 +1,4 @@
-import type { ManagerToolName, Project } from "@acp-harness/protocol";
+import type { ManagerToolName, Project } from "@zomfy/protocol";
 
 // A project's settings can keep its agents from reaching for some harness tools on their own. The
 // tools are left out of what the agent is offered, a call that still comes in (a list fetched

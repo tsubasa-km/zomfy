@@ -1,4 +1,4 @@
-import type { Workspace } from '@acp-harness/protocol'
+import type { Workspace } from '@zomfy/protocol'
 import type { HostedProject } from '@/session-store'
 
 /** Dialogs and flows the sidebar root owns; sections only ask for them. */

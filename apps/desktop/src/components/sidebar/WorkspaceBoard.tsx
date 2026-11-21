@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { GitBranch, Pin, Search } from 'lucide-react'
 import { PageCloseButton } from '@/components/PageCloseButton'
-import { HARNESS_METHODS, WORKSPACE_STATUSES, type Workspace } from '@acp-harness/protocol'
+import { HARNESS_METHODS, WORKSPACE_STATUSES, type Workspace } from '@zomfy/protocol'
 import { harnessRequest } from '@/daemon-connection'
 import { allWorkspaces, findWorkspace, getState, selectWorkspace, useStore, workspaceStatus, type HostedWorkspace } from '@/session-store'
 import {

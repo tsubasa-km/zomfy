@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { Check, Pencil, Workflow as WorkflowIcon, X } from 'lucide-react'
-import { HARNESS_METHODS, type Workflow } from '@acp-harness/protocol'
+import { HARNESS_METHODS, type Workflow } from '@zomfy/protocol'
 import { harnessRequest } from '@/daemon-connection'
 import type { HostId } from '@/session-store'
 import { openWorkflows } from '@/stores/workflows-store'

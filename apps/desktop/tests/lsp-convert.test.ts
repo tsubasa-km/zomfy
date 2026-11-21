@@ -2,7 +2,7 @@ import { describe, expect, test } from 'bun:test'
 // Monaco's enum tables are plain data; the editor itself cannot load outside a browser.
 // @ts-expect-error no typings for this internal module
 import * as enums from 'monaco-editor/esm/vs/editor/common/standalone/standaloneEnums.js'
-import { lspDocumentUri, parseLspDocumentUri } from '@acp-harness/protocol'
+import { lspDocumentUri, parseLspDocumentUri } from '@zomfy/protocol'
 import {
   MONACO_MARKER_SEVERITY,
   applyTextEdits,

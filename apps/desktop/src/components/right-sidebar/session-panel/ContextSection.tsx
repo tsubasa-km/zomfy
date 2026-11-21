@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { Loader2, Shrink } from 'lucide-react'
-import { chatAgentLabel, MANAGER_MCP_SERVER_NAME } from '@acp-harness/protocol'
+import { chatAgentLabel, MANAGER_MCP_SERVER_NAME } from '@zomfy/protocol'
 import type { Session } from '@/session-store'
 import type { ContextUsage } from '@/stores/chat-store'
 import { isWorking, submitPrompt } from '@/chat-actions'

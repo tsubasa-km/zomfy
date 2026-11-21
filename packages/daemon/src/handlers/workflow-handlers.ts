@@ -1,4 +1,4 @@
-import { HARNESS_METHODS } from "@acp-harness/protocol";
+import { HARNESS_METHODS } from "@zomfy/protocol";
 import { WorkflowEngine } from "../workflow-engine.ts";
 import { WorkflowRunStore } from "../workflow-run-store.ts";
 import { WorkflowStore } from "../workflow-store.ts";

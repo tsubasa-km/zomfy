@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { invoke, isTauri } from '@tauri-apps/api/core'
 import { FileDown, Pencil, Plus, Server, SquareTerminal, Trash2 } from 'lucide-react'
-import { SSH_CONNECTION_TAGS, sshConnectionHostError, type SshConnection, type SshConnectionInput, type SshConnectionTag } from '@acp-harness/protocol'
+import { SSH_CONNECTION_TAGS, sshConnectionHostError, type SshConnection, type SshConnectionInput, type SshConnectionTag } from '@zomfy/protocol'
 import { LOCAL_HOST } from '@/session-store'
 import {
   closeSshConnectionsDialog,

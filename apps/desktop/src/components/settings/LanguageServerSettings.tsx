@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 import { ChevronRight, RefreshCw } from 'lucide-react'
-import { HARNESS_METHODS, type LspServerStatus, type LspSetServerParams } from '@acp-harness/protocol'
+import { HARNESS_METHODS, type LspServerStatus, type LspSetServerParams } from '@zomfy/protocol'
 import { harnessRequest } from '@/daemon-connection'
 import type { HostEntry } from '@/session-store'
 import { Button } from '@/components/ui/button'

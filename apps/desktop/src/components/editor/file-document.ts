@@ -1,4 +1,4 @@
-import type { SavedFile, TextEncoding } from '@acp-harness/protocol'
+import type { SavedFile, TextEncoding } from '@zomfy/protocol'
 import { harnessRequest } from '@/daemon-connection'
 import { t } from '@/i18n/i18n'
 import {

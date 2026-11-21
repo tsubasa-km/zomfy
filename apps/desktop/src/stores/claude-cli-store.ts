@@ -1,6 +1,6 @@
 import { useEffect } from 'react'
 import { toast } from 'sonner'
-import { HARNESS_METHODS, type ClaudeCliStatus } from '@acp-harness/protocol'
+import { HARNESS_METHODS, type ClaudeCliStatus } from '@zomfy/protocol'
 import { harnessRequest } from '@/daemon-connection'
 import { getState, useStore, type HostId } from '@/session-store'
 import { createExternalStore } from './external-store'

@@ -1,4 +1,4 @@
-import { QUESTION_OPTION_IDS } from '@acp-harness/protocol'
+import { QUESTION_OPTION_IDS } from '@zomfy/protocol'
 
 // An agent's questions (Claude's AskUserQuestion), read from its permission ask, and the answers the
 // person's picks make: an option's label, several joined by ", ", or their own words ("Other").

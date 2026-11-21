@@ -1,4 +1,4 @@
-import { HARNESS_METHODS } from "@acp-harness/protocol";
+import { HARNESS_METHODS } from "@zomfy/protocol";
 import { listWorkspaceFiles } from "../workspace-file-list.ts";
 import type { HandlerContext } from "./handler-context.ts";
 

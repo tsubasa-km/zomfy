@@ -1,5 +1,5 @@
 import { expect, test } from 'bun:test'
-import { runAnswersAsks, workflowPermissionMode, type Workflow, type WorkflowRun } from '@acp-harness/protocol'
+import { runAnswersAsks, workflowPermissionMode, type Workflow, type WorkflowRun } from '@zomfy/protocol'
 
 // A workflow's permission mode decides whether its steps' asks wait on the person; unset is auto.
 

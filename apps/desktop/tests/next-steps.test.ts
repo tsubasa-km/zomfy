@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test'
-import { normalizeWrapUp } from '@acp-harness/protocol'
+import { normalizeWrapUp } from '@zomfy/protocol'
 import { parseRecap } from '../src/components/native-chat/next-steps.ts'
 import { buildTranscript } from '../src/components/native-chat/native-chat-transcript-model.ts'
 import type { ThreadItem } from '../src/session-store.ts'

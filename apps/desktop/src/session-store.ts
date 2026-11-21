@@ -11,8 +11,8 @@ import type {
   TurnResumeKind,
   PromptOrigin,
   Workspace
-} from '@acp-harness/protocol'
-import { LEGACY_NEW_CHAT_TITLE, NEW_CHAT_TITLE } from '@acp-harness/protocol'
+} from '@zomfy/protocol'
+import { LEGACY_NEW_CHAT_TITLE, NEW_CHAT_TITLE } from '@zomfy/protocol'
 import { WINDOW_ROLE } from '@/lib/window-role'
 import {
   carriesOverOpenChats,
@@ -209,7 +209,7 @@ export function onSessionTransition(listener: (t: SessionTransition) => void): (
 
 export const LOCAL_HOST: HostId = 'local'
 
-const LAYOUT_KEY = 'acp-harness.layout.v1'
+const LAYOUT_KEY = 'zomfy.layout.v1'
 type SavedLayout = Pick<
   StoreState,
   | 'activeWorkspaceId'

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
-import { HARNESS_METHODS, type GitRepository, type GitStatusResult } from '@acp-harness/protocol'
+import { HARNESS_METHODS, type GitRepository, type GitStatusResult } from '@zomfy/protocol'
 import { harnessRequest } from '@/daemon-connection'
 
 const POLL_MS = 3000

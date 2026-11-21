@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import type { Project } from "@acp-harness/protocol";
+import type { Project } from "@zomfy/protocol";
 import { managerMcp } from "./manager-mcp-server.ts";
 import { projectToolRefusal, projectToolsOffNote } from "./project-agent-tools.ts";
 

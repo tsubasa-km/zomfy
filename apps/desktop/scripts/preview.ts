@@ -17,7 +17,7 @@ if (!["start", "stop"].includes(command ?? "") || !(slot >= 1 && slot <= 9)) {
   process.exit(2);
 }
 
-const home = join(tmpdir(), `acp-harness-preview-${slot}`);
+const home = join(tmpdir(), `zomfy-preview-${slot}`);
 const pidsPath = join(home, "pids.json");
 const ports = { daemon: 7900 + slot, vite: 1430 + slot, cdp: 9300 + slot };
 const desktopDir = join(import.meta.dir, "..");
@@ -50,8 +50,8 @@ await stop();
 await mkdir(home, { recursive: true });
 const env = {
   ...process.env,
-  ACP_HARNESS_HOME: home,
-  ACP_HARNESS_ALLOWED_ORIGINS: `http://localhost:${ports.vite}`,
+  ZOMFY_HOME: home,
+  ZOMFY_ALLOWED_ORIGINS: `http://localhost:${ports.vite}`,
 };
 const pids: number[] = [];
 const remember = async (pid: number | undefined) => {

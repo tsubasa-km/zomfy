@@ -1,6 +1,6 @@
 import { isAscii, isUtf8 } from 'node:buffer'
 import iconv from 'iconv-lite'
-import { TEXT_ENCODINGS, type TextEncoding } from '@acp-harness/protocol'
+import { TEXT_ENCODINGS, type TextEncoding } from '@zomfy/protocol'
 
 // Bytes to text and back, for every encoding a file can be in. Both directions run here on the host,
 // through one codec (iconv-lite), so what a file decodes to always encodes back to the same bytes'

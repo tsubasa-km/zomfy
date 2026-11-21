@@ -1,4 +1,4 @@
-import type { ProviderUsageLimits } from '@acp-harness/protocol'
+import type { ProviderUsageLimits } from '@zomfy/protocol'
 
 // Pure helpers for the usage-limit readouts (the Session panel, the status bar meter).
 

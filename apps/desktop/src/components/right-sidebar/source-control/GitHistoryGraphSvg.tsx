@@ -1,4 +1,4 @@
-import type { GitHistoryGraphColorId } from '@acp-harness/protocol'
+import type { GitHistoryGraphColorId } from '@zomfy/protocol'
 import {
   getGitHistoryItemColor,
   getGitHistoryItemLaneIndex,

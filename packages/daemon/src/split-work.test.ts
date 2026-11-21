@@ -3,7 +3,7 @@ import { existsSync } from "node:fs";
 import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import type { Project, Workspace } from "@acp-harness/protocol";
+import type { Project, Workspace } from "@zomfy/protocol";
 import { git } from "./git-cli.ts";
 import { Gate, helperPrompt, ownershipClashes, partNames, planSplit, readSplitRequest, splitWork, type HelperReport, type SplitDeps, type SplitPart } from "./split-work.ts";
 

@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test'
-import type { ProviderUsageLimits } from '@acp-harness/protocol'
+import type { ProviderUsageLimits } from '@zomfy/protocol'
 import { busiestWindow, formatReset } from '../src/components/right-sidebar/session-panel/usage-windows'
 
 const provider = (name: ProviderUsageLimits['provider'], percents: (number | null)[]): ProviderUsageLimits => ({

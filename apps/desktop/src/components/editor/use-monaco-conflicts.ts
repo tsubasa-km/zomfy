@@ -10,7 +10,7 @@ import {
 } from './monaco-conflict-decorations'
 import { t } from '@/i18n/i18n'
 
-const ACCEPT_CONFLICT_COMMAND = 'acpHarness.acceptConflict'
+const ACCEPT_CONFLICT_COMMAND = 'zomfy.acceptConflict'
 let conflictActionsRegistered = false
 
 export function acceptConflict(model: editor.ITextModel, startLine: number, choice: ConflictChoice): void {

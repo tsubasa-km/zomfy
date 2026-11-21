@@ -1,5 +1,5 @@
 import { TriangleAlert } from 'lucide-react'
-import { TEXT_ENCODINGS, type TextEncoding } from '@acp-harness/protocol'
+import { TEXT_ENCODINGS, type TextEncoding } from '@zomfy/protocol'
 import {
   DropdownMenu,
   DropdownMenuContent,

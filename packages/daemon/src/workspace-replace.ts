@@ -1,5 +1,5 @@
 import { readFile, stat } from 'node:fs/promises'
-import type { ReplaceParams, ReplaceResult } from '@acp-harness/protocol'
+import type { ReplaceParams, ReplaceResult } from '@zomfy/protocol'
 import { resolveInside, writeWorkspaceFile } from './workspace-files.ts'
 
 const MAX_FILE = 16 * 1024 * 1024

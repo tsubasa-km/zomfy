@@ -1,4 +1,4 @@
-import type { QuickOpenFileList } from '@acp-harness/protocol'
+import type { QuickOpenFileList } from '@zomfy/protocol'
 import { isGitRepository } from './git-cli.ts'
 
 // Orca's Quick Open listing (shared/quick-open-filter.ts, quick-open-listing-limits.ts, MIT).

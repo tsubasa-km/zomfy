@@ -1,5 +1,5 @@
 import { useEffect } from 'react'
-import { HARNESS_METHODS, type Automation, type AutomationRun, type AutomationSnapshot } from '@acp-harness/protocol'
+import { HARNESS_METHODS, type Automation, type AutomationRun, type AutomationSnapshot } from '@zomfy/protocol'
 import { harnessRequest } from '@/daemon-connection'
 import { useStore, type HostId } from '@/session-store'
 import { createExternalStore } from './external-store'

@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { FolderGit2, FolderPlus, GitBranch, Search } from 'lucide-react'
-import { CHAT_AGENT_IDS, HARNESS_METHODS, chatAgentLabel, type ChatAgentId } from '@acp-harness/protocol'
+import { CHAT_AGENT_IDS, HARNESS_METHODS, chatAgentLabel, type ChatAgentId } from '@zomfy/protocol'
 import { importThread, showThread } from '@/chat-actions'
 import { harnessRequest } from '@/daemon-connection'
 import { LOCAL_HOST, allProjects, allWorkspaces, hostLabel, useStore, type HostId, type HostedWorkspace } from '@/session-store'

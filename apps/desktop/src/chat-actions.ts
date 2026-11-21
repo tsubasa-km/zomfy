@@ -1,4 +1,4 @@
-import { HARNESS_METHODS, type ChatAgentId, type SessionInfo, type SessionOptions, type TurnResumeKind } from '@acp-harness/protocol'
+import { HARNESS_METHODS, type ChatAgentId, type SessionInfo, type SessionOptions, type TurnResumeKind } from '@zomfy/protocol'
 import { isExternalAgentSession, sessionAgent } from '@/lib/chat-agents'
 import { keepTab } from '@/stores/tab-layout-store'
 import { cancelTurn, continueChatInTerminal, ensureSessionLoaded, harnessRequest, reloadSessionTranscript, sendPrompt } from '@/daemon-connection'

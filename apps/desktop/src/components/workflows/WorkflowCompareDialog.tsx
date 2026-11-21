@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { toast } from 'sonner'
-import { HARNESS_METHODS, workflowScorecard, type Workflow, type WorkflowExperiment } from '@acp-harness/protocol'
+import { HARNESS_METHODS, workflowScorecard, type Workflow, type WorkflowExperiment } from '@zomfy/protocol'
 import { useWorkflowRuns } from '@/stores/workflow-runs-store'
 import { formatTokens } from './WorkflowRunScorecard'
 import { harnessRequest } from '@/daemon-connection'

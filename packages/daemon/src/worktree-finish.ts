@@ -1,4 +1,4 @@
-import type { Project, Workspace } from "@acp-harness/protocol";
+import type { Project, Workspace } from "@zomfy/protocol";
 import { git, GitError } from "./git-cli.ts";
 import { gitPush } from "./git-remote-sync.ts";
 import type { HostingContext, HostingProvider } from "./hosting-provider.ts";

@@ -1,4 +1,4 @@
-import type { HostedWorkItem } from '@acp-harness/protocol'
+import type { HostedWorkItem } from '@zomfy/protocol'
 
 // Orca's linked-work-item-context.ts: issue/PR prose is third-party data, so it reaches the agent
 // inside a delimited block marked as untrusted, capped in size.

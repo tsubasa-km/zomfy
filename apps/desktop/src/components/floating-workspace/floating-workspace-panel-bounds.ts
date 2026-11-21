@@ -15,7 +15,7 @@ const DEFAULT_RIGHT_GAP = 24
 const DEFAULT_BOTTOM_GAP = 84
 const PANEL_EDGE_MARGIN = 8
 
-const BOUNDS_STORAGE_KEY = 'acp-harness.floating-workspace.panel-bounds.v1'
+const BOUNDS_STORAGE_KEY = 'zomfy.floating-workspace.panel-bounds.v1'
 
 export interface PanelBounds {
   left: number

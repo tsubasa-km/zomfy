@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { FolderGit2, Folder, Settings2 } from 'lucide-react'
-import { HARNESS_METHODS, type ProjectHookInfo } from '@acp-harness/protocol'
+import { HARNESS_METHODS, type ProjectHookInfo } from '@zomfy/protocol'
 import { harnessRequest } from '@/daemon-connection'
 import { allProjects, allWorkspaces, useStore, type HostedProject } from '@/session-store'
 import { catalogEntryOf, useProjectCatalog } from '@/stores/project-catalog-store'

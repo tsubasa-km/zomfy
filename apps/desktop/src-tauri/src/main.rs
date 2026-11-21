@@ -3,5 +3,5 @@
 #![windows_subsystem = "windows"]
 
 fn main() {
-    acp_harness_desktop_lib::run()
+    zomfy_desktop_lib::run()
 }

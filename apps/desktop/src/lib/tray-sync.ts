@@ -9,7 +9,7 @@ import { t } from '@/i18n/i18n'
 // Feeds the native tray (src-tauri/src/tray.rs): Orca's attention dot while the window is hidden,
 // the number of agents waiting on the user, and the minimize-to-tray preference.
 
-const NOTICE_KEY = 'acp-harness.trayMinimizeNoticeShown'
+const NOTICE_KEY = 'zomfy.trayMinimizeNoticeShown'
 
 export function installTraySync(): void {
   if (!isTauri()) return

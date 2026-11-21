@@ -179,7 +179,7 @@ export interface ContextUsageMeta {
  * a Claude terminal, its chat is a split's helper at work, or it was stopped while it waited): the
  * message was not sent and goes back to its box.
  */
-export const PROMPT_NOT_SENT_META = 'acp-harness/notSent'
+export const PROMPT_NOT_SENT_META = 'zomfy/notSent'
 
 export const SESSION_METHODS = {
   sessionsList: '_harness/sessions/list',

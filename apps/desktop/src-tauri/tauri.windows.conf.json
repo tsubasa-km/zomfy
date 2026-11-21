@@ -3,9 +3,9 @@
   "bundle": {
     "targets": ["nsis"],
     "resources": {
-      "../../../packages/daemon/dist/acp-harness-daemon-windows-x64.exe": "daemon/acp-harness-daemon-windows-x64.exe",
-      "../../../packages/daemon/dist/acp-harness-daemon-linux-x64": "daemon/acp-harness-daemon-linux-x64",
-      "../../../packages/daemon/dist/acp-harness-daemon-linux-arm64": "daemon/acp-harness-daemon-linux-arm64"
+      "../../../packages/daemon/dist/zomfy-daemon-windows-x64.exe": "daemon/zomfy-daemon-windows-x64.exe",
+      "../../../packages/daemon/dist/zomfy-daemon-linux-x64": "daemon/zomfy-daemon-linux-x64",
+      "../../../packages/daemon/dist/zomfy-daemon-linux-arm64": "daemon/zomfy-daemon-linux-arm64"
     },
     "windows": {
       "nsis": {

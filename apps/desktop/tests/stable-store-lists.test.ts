@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test'
-import type { TerminalInfo } from '@acp-harness/protocol'
+import type { TerminalInfo } from '@zomfy/protocol'
 import { sameTerminal } from '../src/lib/same-terminal.ts'
 import { keepUnchangedTabs } from '../src/components/tab-layout/keep-unchanged-tabs.ts'
 import type { WorkspaceTab } from '../src/components/tab-layout/workspace-tab-model.ts'

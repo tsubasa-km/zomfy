@@ -1,4 +1,4 @@
-import { HARNESS_METHODS } from "@acp-harness/protocol";
+import { HARNESS_METHODS } from "@zomfy/protocol";
 import type { HandlerContext } from "./handler-context.ts";
 
 /** A memo in UTF-16 units; generous for notes, small enough to keep a runaway paste off disk. */

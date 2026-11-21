@@ -17,7 +17,7 @@ import {
   submitPrompt
 } from '@/chat-actions'
 import { addTodo } from '@/stores/inbox-store'
-import { chatAgentLabel } from '@acp-harness/protocol'
+import { chatAgentLabel } from '@zomfy/protocol'
 import { latestTurnEnd } from '@/chat-transcript'
 import { askInSideChat } from '@/side-chat-actions'
 import { NativeChatUsageLimitBanner } from '@/components/native-chat/NativeChatTurnRecovery'

@@ -1,6 +1,6 @@
 import { readFile, stat } from 'node:fs/promises'
 import { dirname, relative, sep } from 'node:path'
-import type { FileBinaryContent, FileRevisionContent, FileRevisionParams, FileStat } from '@acp-harness/protocol'
+import type { FileBinaryContent, FileRevisionContent, FileRevisionParams, FileStat } from '@zomfy/protocol'
 import { resolveInside } from './workspace-files.ts'
 import { bomLength, decodeBytes, detectBufferEncoding } from './text-encodings.ts'
 

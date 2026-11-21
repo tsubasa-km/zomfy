@@ -62,7 +62,7 @@ export function MonacoDiffView({
     const modifiedEditor = diffEditor.getModifiedEditor()
     // Scoped to this editor; addCommand would rebind Ctrl+S for every editor in the window.
     modifiedEditor.addAction({
-      id: 'acpHarness.save',
+      id: 'zomfy.save',
       label: t('Save'),
       keybindings: [monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyS],
       run: () => onSaveRef.current?.(modifiedEditor.getValue())

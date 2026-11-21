@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { CaseSensitive, ChevronRight, ChevronsDownUp, ChevronsUpDown, Loader2, Regex, ReplaceAll, Search as SearchIcon, WholeWord, X } from 'lucide-react'
-import { HARNESS_METHODS, type SearchMatch, type SearchParams, type SearchResult } from '@acp-harness/protocol'
+import { HARNESS_METHODS, type SearchMatch, type SearchParams, type SearchResult } from '@zomfy/protocol'
 import { harnessRequest } from '@/daemon-connection'
 import { keepEditorTab, previewEditorTab } from '@/session-store'
 import { ImeInput } from '@/lib/ime-text-field'

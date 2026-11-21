@@ -1,6 +1,6 @@
 import { useMemo, useRef } from 'react'
 import { keepUnchangedTabs } from './keep-unchanged-tabs'
-import type { TerminalInfo } from '@acp-harness/protocol'
+import type { TerminalInfo } from '@zomfy/protocol'
 import { closeTerminal, createTerminal } from '@/daemon-connection'
 import {
   allWorkspaces,

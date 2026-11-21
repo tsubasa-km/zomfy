@@ -1,4 +1,4 @@
-import { HARNESS_METHODS, SIDE_CHAT_DEFAULT_CONTEXT_MESSAGES, type ChatAgentId } from '@acp-harness/protocol'
+import { HARNESS_METHODS, SIDE_CHAT_DEFAULT_CONTEXT_MESSAGES, type ChatAgentId } from '@zomfy/protocol'
 import { closeSession, harnessRequest } from '@/daemon-connection'
 import { appendToDraft, requestComposerFocus } from '@/chat-actions'
 import { addSession, getState, selectTab, setRightSidebar, type Session } from '@/session-store'

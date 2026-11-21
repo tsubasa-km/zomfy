@@ -1,6 +1,6 @@
 import { expect, mock, test } from 'bun:test'
 import type * as acp from '@agentclientprotocol/sdk'
-import { CHAT_META, HARNESS_METHODS, type ChatAgentId, type SessionInfo } from '@acp-harness/protocol'
+import { CHAT_META, HARNESS_METHODS, type ChatAgentId, type SessionInfo } from '@zomfy/protocol'
 import * as launchSpecs from './chat-agent-launch-specs.ts'
 import { agentSwitchNotice } from './agent-handoff.ts'
 import { DEFAULT_SESSION_OPTIONS, type SessionRecord } from './session-registry.ts'

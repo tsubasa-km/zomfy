@@ -8,7 +8,7 @@ import {
   type WorkflowRun,
   type WorkflowSuggestion,
   type WorkflowSuggestions,
-} from "@acp-harness/protocol";
+} from "@zomfy/protocol";
 import { resolveClaudeExecutable } from "./claude-executable.ts";
 import { log } from "./log.ts";
 

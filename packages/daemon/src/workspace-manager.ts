@@ -13,8 +13,8 @@ import type {
   RemoveWorkspaceParams,
   Workspace,
   WorkspacePatch
-} from '@acp-harness/protocol'
-import { NOT_A_GIT_REPOSITORY } from '@acp-harness/protocol'
+} from '@zomfy/protocol'
+import { NOT_A_GIT_REPOSITORY } from '@zomfy/protocol'
 import { branchExists, currentBranch, git, isGitRepository, localBranches } from './git-cli.ts'
 import { branchPrefixFromUserName, firstFreeCandidate, sanitizeWorkspaceName } from './worktree-naming.ts'
 import { log } from './log.ts'

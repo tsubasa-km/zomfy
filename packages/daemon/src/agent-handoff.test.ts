@@ -1,6 +1,6 @@
 import { expect, test } from 'bun:test'
 import type * as acp from '@agentclientprotocol/sdk'
-import { CHAT_META, type ChatAgentId } from '@acp-harness/protocol'
+import { CHAT_META, type ChatAgentId } from '@zomfy/protocol'
 import {
   HANDOFF_CHAR_BUDGET,
   HANDOFF_CLOSE,

@@ -1,6 +1,6 @@
 import { existsSync } from "node:fs";
 import { join } from "node:path";
-import { HARNESS_METHODS } from "@acp-harness/protocol";
+import { HARNESS_METHODS } from "@zomfy/protocol";
 import { SshConnectionStore, sshArgs, terminalConnection } from "../ssh-connections.ts";
 import { hostPath } from "../tui-agent-detection.ts";
 import type { HandlerContext } from "./handler-context.ts";

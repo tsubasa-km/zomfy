@@ -1,7 +1,7 @@
 import { mkdir, readFile, writeFile } from 'node:fs/promises'
 import { replaceFile } from './replace-file.ts'
 import { dirname, join } from 'node:path'
-import type { WorkflowRun } from '@acp-harness/protocol'
+import type { WorkflowRun } from '@zomfy/protocol'
 import { HARNESS_HOME } from './harness-home.ts'
 
 /** Workflow runs on this host, newest last; old finished ones are dropped past a project's cap. */

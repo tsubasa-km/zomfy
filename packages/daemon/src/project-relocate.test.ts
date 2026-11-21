@@ -15,7 +15,7 @@ let manager: WorkspaceManager;
 
 beforeAll(async () => {
   root = await realpath(await mkdtemp(join(tmpdir(), "relocate-")));
-  // Its own state file: never the person's ~/.acp-harness/state.json.
+  // Its own state file: never the person's ~/.zomfy/state.json.
   manager = new WorkspaceManager(join(root, "home", "state.json"));
   await mkdir(join(root, "home"), { recursive: true });
   await git(root, ["init", "-b", "main", join(root, "old")]);

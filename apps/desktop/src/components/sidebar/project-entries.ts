@@ -1,4 +1,4 @@
-import type { CatalogProject } from '@acp-harness/protocol'
+import type { CatalogProject } from '@zomfy/protocol'
 import type { HostEntry, HostedProject, HostId } from '@/session-store'
 
 // One list of projects across every host: where a project lives is a badge, not a section, so the

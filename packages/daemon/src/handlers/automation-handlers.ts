@@ -1,4 +1,4 @@
-import { HARNESS_METHODS } from "@acp-harness/protocol";
+import { HARNESS_METHODS } from "@zomfy/protocol";
 import type { HandlerContext } from "./handler-context.ts";
 import { AutomationService } from "../automation-service.ts";
 import { log } from "../log.ts";

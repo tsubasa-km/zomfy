@@ -1,5 +1,5 @@
 import { ArrowDown, ArrowUp } from 'lucide-react'
-import type { WorkspaceSummary } from '@acp-harness/protocol'
+import type { WorkspaceSummary } from '@zomfy/protocol'
 import { selectWorkspace, setRightSidebar, type Session } from '@/session-store'
 import { useCardReview } from '@/stores/hosting-store'
 import {

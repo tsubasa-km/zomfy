@@ -12,7 +12,7 @@ export interface PaneSidebarState {
   panel: string
 }
 
-const STORAGE_KEY = 'acp-harness.pane-sidebars.v1'
+const STORAGE_KEY = 'zomfy.pane-sidebars.v1'
 const DEFAULT: PaneSidebarState = { open: false, panel: 'panel:explorer' }
 
 function readSaved(): Record<string, PaneSidebarState> {

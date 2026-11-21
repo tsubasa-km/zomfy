@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { ChevronDown, FolderGit2, Minus, Plus, Trash, Undo2 } from 'lucide-react'
-import { HARNESS_METHODS, type GitChange, type GitCommitChanges, type GitDiscardArea, type GitHistoryItem, type GitRepository } from '@acp-harness/protocol'
+import { HARNESS_METHODS, type GitChange, type GitCommitChanges, type GitDiscardArea, type GitHistoryItem, type GitRepository } from '@zomfy/protocol'
 import { harnessRequest } from '@/daemon-connection'
 import { allWorkspaces, previewEditorTab, useStore } from '@/session-store'
 import { useGitRepositories, useGitStatus } from '@/hooks/use-git-status'
@@ -33,7 +33,7 @@ const SECTION_LABEL: Record<SectionId, string> = {
   staged: t('Staged Changes'),
   untracked: t('Untracked Files')
 }
-const VIEW_MODE_KEY = 'acp-harness:source-control-view-mode'
+const VIEW_MODE_KEY = 'zomfy:source-control-view-mode'
 /** Orca keeps an unsent message per workspace across panel and workspace switches (commit-drafts.ts); here per repository. */
 const commitDrafts = new Map<string, string>()
 /** The repository each workspace's tab shows, kept across panel switches. */

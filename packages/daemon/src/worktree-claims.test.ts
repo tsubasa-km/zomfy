@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import type { Project, Workspace } from "@acp-harness/protocol";
+import type { Project, Workspace } from "@zomfy/protocol";
 import { WorktreeClaims } from "./worktree-claims.ts";
 import { guardedUse } from "./step-path-guard.ts";
 

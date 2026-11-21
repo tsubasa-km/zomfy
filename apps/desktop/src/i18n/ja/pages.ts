@@ -790,11 +790,11 @@ export const PAGES: Record<string, string> = {
   'Enable {name}?': '{name} を有効にしますか？',
   'Permissions or contributions changed since you last reviewed this plugin. Review it again before it can run.': '前回確認した後に、このプラグインの権限または追加内容が変わりました。実行する前にもう一度確認してください。',
   'This plugin can': 'このプラグインができること',
-  ' — not offered by acp-harness yet': ' — acp-harness ではまだ提供されていません',
+  ' — not offered by Zomfy yet': ' — Zomfy ではまだ提供されていません',
   'It adds': '追加されるもの',
   'Right sidebar panel': '右サイドバーのパネル',
-  'This plugin ships a background worker. acp-harness does not run plugin workers, so only its panels and declarative commands take effect.': 'このプラグインにはバックグラウンドワーカーが含まれています。acp-harness はプラグインのワーカーを実行しないため、有効になるのはパネルと宣言的なコマンドだけです。',
-  'These permissions limit how the plugin uses acp-harness. Panels run in a sandbox with no network access; the plugin has no background worker.': 'これらの権限は、プラグインが acp-harness をどう使えるかを制限します。パネルはネットワークにアクセスできないサンドボックスで動き、プラグインにバックグラウンドワーカーはありません。',
+  'This plugin ships a background worker. Zomfy does not run plugin workers, so only its panels and declarative commands take effect.': 'このプラグインにはバックグラウンドワーカーが含まれています。zomfy はプラグインのワーカーを実行しないため、有効になるのはパネルと宣言的なコマンドだけです。',
+  'These permissions limit how the plugin uses Zomfy. Panels run in a sandbox with no network access; the plugin has no background worker.': 'これらの権限は、プラグインが Zomfy をどう使えるかを制限します。パネルはネットワークにアクセスできないサンドボックスで動き、プラグインにバックグラウンドワーカーはありません。',
   'Keep Disabled': '無効のままにする',
   'Enable plugin': 'プラグインを有効にする',
   'Copy a plugin folder (with its {file}) here, then refresh. Nothing is downloaded.': 'プラグインのフォルダー（{file} を含むもの）をここにコピーしてから再読み込みしてください。ダウンロードは行いません。',
@@ -1150,9 +1150,9 @@ export const PAGES: Record<string, string> = {
   'Sees and drives agent sessions across this computer, WSL and SSH hosts: lists them, reads their transcripts, starts agents in workspaces, sends prompts, waits for results, and forwards decisions to your inbox.': 'このコンピューター、WSL、SSH ホストのエージェントセッションを把握して動かします: 一覧表示、会話記録の読み取り、ワークスペースでのエージェント起動、プロンプト送信、結果の待機、判断が必要なものの受信箱への転送。',
 
   // plugins/plugin-registry.ts
-  'Needs a plugin worker, which acp-harness does not run': 'acp-harness が実行しないプラグインワーカーが必要です',
+  'Needs a plugin worker, which Zomfy does not run': 'Zomfy が実行しないプラグインワーカーが必要です',
   '{action} is not an action plugins may alias': '{action} はプラグインが別名を付けられる操作ではありません',
-  '{action} is not available in acp-harness': '{action} は acp-harness では使えません',
+  '{action} is not available in Zomfy': '{action} は Zomfy では使えません',
 
   // stores/prompt-queue.ts
   'The last turn failed': '直前のターンが失敗しました',

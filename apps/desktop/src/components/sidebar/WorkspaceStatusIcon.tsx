@@ -1,5 +1,5 @@
 import { Circle } from 'lucide-react'
-import type { WorkspaceStatusId } from '@acp-harness/protocol'
+import type { WorkspaceStatusId } from '@zomfy/protocol'
 import { cn } from '@/lib/utils'
 import { ConductorDoneIcon, ConductorProgressIcon, ConductorReviewIcon } from './workspace-status-icons'
 

@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { ChevronDown, Pencil, Play, Plus, Trash2 } from 'lucide-react'
-import { tuiAgentSpec, type QuickCommand } from '@acp-harness/protocol'
+import { tuiAgentSpec, type QuickCommand } from '@zomfy/protocol'
 import { Command, CommandEmpty, CommandInput, CommandItem, CommandList, CommandSeparator } from '@/components/ui/command'
 import { DropdownMenu, DropdownMenuContent, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
@@ -20,7 +20,7 @@ import { t } from '@/i18n/i18n'
 // Ported from Orca's TabBarQuickCommandsButton / TabBarQuickCommandsMenu / TabBarQuickCommandItem.
 
 const SEARCH_THRESHOLD = 6
-const RECENT_KEY = 'acp-harness.quick-command-recent'
+const RECENT_KEY = 'zomfy.quick-command-recent'
 
 function readRecent(workspaceId: string): string | null {
   try {

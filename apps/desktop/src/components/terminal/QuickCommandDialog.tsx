@@ -1,5 +1,5 @@
 import { useEffect, useState, useSyncExternalStore } from 'react'
-import { TUI_AGENTS, isGuardedChatAgent, supportsAgentPromptQuickCommand, type QuickCommand, type TuiAgentId } from '@acp-harness/protocol'
+import { TUI_AGENTS, isGuardedChatAgent, supportsAgentPromptQuickCommand, type QuickCommand, type TuiAgentId } from '@zomfy/protocol'
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'

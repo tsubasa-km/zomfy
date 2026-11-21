@@ -1,6 +1,6 @@
 import { mkdir, readdir, readFile, rename, rm, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
-import type { TerminalInfo } from '@acp-harness/protocol'
+import type { TerminalInfo } from '@zomfy/protocol'
 import { HARNESS_HOME } from './harness-home.ts'
 import { log } from './log.ts'
 

@@ -20,8 +20,8 @@ import {
   type PromptOrigin,
   type TurnResumeKind,
   type ManagerToolName,
-} from "@acp-harness/protocol";
-import type { WorkflowStepContext, WorkflowStepUsage } from "@acp-harness/protocol";
+} from "@zomfy/protocol";
+import type { WorkflowStepContext, WorkflowStepUsage } from "@zomfy/protocol";
 import { releaseFinishedTurn, runClaudeTurn, type StepOptions } from "./claude-turn.ts";
 import { WorktreeClaims } from "./worktree-claims.ts";
 import { finishWorktree } from "./worktree-finish.ts";
@@ -624,7 +624,7 @@ export function createHarnessAgent(
   }
 
   const app = acp
-    .agent({ name: "acp-harness" })
+    .agent({ name: "zomfy" })
     .onConnect((connection) => {
       clients.add(connection.client);
       connectionClients.add(connection.client);
@@ -645,7 +645,7 @@ export function createHarnessAgent(
         loadSession: true,
         promptCapabilities: { embeddedContext: true, image: true },
       },
-      agentInfo: { name: "acp-harness", title: "Zomfy", version: "0.0.1" },
+      agentInfo: { name: "zomfy", title: "Zomfy", version: "0.0.1" },
       };
     })
     .onRequest("authenticate", () => ({}))

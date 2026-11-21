@@ -1,7 +1,7 @@
 import { memo } from 'react'
 import type { Node, NodeProps } from '@xyflow/react'
 import { RefreshCw } from 'lucide-react'
-import type { WorkflowCycle, WorkflowNode, WorkflowPhase } from '@acp-harness/protocol'
+import type { WorkflowCycle, WorkflowNode, WorkflowPhase } from '@zomfy/protocol'
 import { cn } from '@/lib/utils'
 import { LOOP_TINTS } from './workflow-loop-view'
 import { t } from '@/i18n/i18n'

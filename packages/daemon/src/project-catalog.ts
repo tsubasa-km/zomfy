@@ -1,6 +1,6 @@
 import { mkdir, readFile, rename, writeFile } from 'node:fs/promises'
 import { dirname, join } from 'node:path'
-import { locationKey, type CatalogProject, type ProjectLocation } from '@acp-harness/protocol'
+import { locationKey, type CatalogProject, type ProjectLocation } from '@zomfy/protocol'
 import { HARNESS_HOME } from './harness-home.ts'
 import { log } from './log.ts'
 

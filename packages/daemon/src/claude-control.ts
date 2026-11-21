@@ -1,5 +1,5 @@
 import { query, type McpServerStatus, type Options, type Query, type SDKUserMessage } from "@anthropic-ai/claude-agent-sdk";
-import type { ChatMcpAuthStart, ChatMcpServer } from "@acp-harness/protocol";
+import type { ChatMcpAuthStart, ChatMcpServer } from "@zomfy/protocol";
 import { resolveClaudeExecutable } from "./claude-executable.ts";
 import { log } from "./log.ts";
 

@@ -1,4 +1,4 @@
-import { cyclesOf, workflowCycles, type Workflow, type WorkflowCycle, type WorkflowEdge, type WorkflowNode } from '@acp-harness/protocol'
+import { cyclesOf, workflowCycles, type Workflow, type WorkflowCycle, type WorkflowEdge, type WorkflowNode } from '@zomfy/protocol'
 
 // Where the canvas draws cycle frames and edge routes. Edges are routed orthogonally: forward ones
 // leave right and enter left; ones back to an earlier step run underneath in their own lane, inner

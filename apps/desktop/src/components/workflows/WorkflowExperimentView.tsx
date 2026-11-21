@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { ArrowLeft, CircleStop, Trash2 } from 'lucide-react'
 import { toast } from 'sonner'
-import { HARNESS_METHODS, workflowScorecard, type Workflow, type WorkflowScorecard } from '@acp-harness/protocol'
+import { HARNESS_METHODS, workflowScorecard, type Workflow, type WorkflowScorecard } from '@zomfy/protocol'
 import { harnessRequest } from '@/daemon-connection'
 import { setProjectExperiments, type HostedWorkflowExperiment } from '@/stores/workflow-experiments-store'
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'

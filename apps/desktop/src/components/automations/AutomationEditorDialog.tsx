@@ -13,7 +13,7 @@ import {
   type ChatEffort,
   type ChatPermissionMode,
   isGuardedChatAgent
-} from '@acp-harness/protocol'
+} from '@zomfy/protocol'
 import { harnessRequest } from '@/daemon-connection'
 import { LOCAL_HOST, allProjects, allWorkspaces, useStore, type HostId } from '@/session-store'
 import { selectAutomation, type HostedAutomation } from '@/stores/automation-store'

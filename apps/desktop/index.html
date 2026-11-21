@@ -9,7 +9,7 @@
       // Theme before first paint, from the same setting lib/theme.ts applies later, so the boot
       // screen below never flashes the wrong palette.
       try {
-        var theme = JSON.parse(localStorage.getItem('acp-harness.settings.v1') || '{}').theme || 'system'
+        var theme = JSON.parse(localStorage.getItem('zomfy.settings.v1') || '{}').theme || 'system'
         var dark = theme === 'dark' || (theme === 'system' && matchMedia('(prefers-color-scheme: dark)').matches)
         document.documentElement.classList.add(dark ? 'dark' : 'light')
       } catch (e) {}

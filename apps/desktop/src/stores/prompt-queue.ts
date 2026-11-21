@@ -1,4 +1,4 @@
-import type { SessionStatus } from '@acp-harness/protocol'
+import type { SessionStatus } from '@zomfy/protocol'
 import type { ChatSessionState } from './chat-store'
 import { t } from '@/i18n/i18n'
 

@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { CircleStop, ExternalLink, RotateCcw, Send, Workflow as WorkflowIcon } from 'lucide-react'
 import { toast } from 'sonner'
-import { HARNESS_METHODS, runResumable, type WorkflowRun } from '@acp-harness/protocol'
+import { HARNESS_METHODS, runResumable, type WorkflowRun } from '@zomfy/protocol'
 import { harnessRequest } from '@/daemon-connection'
 import { resumeWorkflowRun } from '@/lib/run-interruptions'
 import type { HostId } from '@/session-store'

@@ -7,7 +7,7 @@ import {
   tuiAgentSpec,
   type ChatAgentId,
   type ChatAgentInfo
-} from '@acp-harness/protocol'
+} from '@zomfy/protocol'
 import { chatAgentLaunch } from './chat-agent-launch-settings.ts'
 import { hostPath } from './tui-agent-detection.ts'
 import { resolveClaudeExecutable } from './claude-executable.ts'

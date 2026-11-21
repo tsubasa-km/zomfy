@@ -1,5 +1,5 @@
 import { useEffect, useId, useState } from 'react'
-import { HARNESS_METHODS, type CreateReviewDefaults, type HostingProviderId } from '@acp-harness/protocol'
+import { HARNESS_METHODS, type CreateReviewDefaults, type HostingProviderId } from '@zomfy/protocol'
 import { harnessRequest } from '@/daemon-connection'
 import { BranchCombobox } from '@/components/sidebar/BranchCombobox'
 import { Button } from '@/components/ui/button'

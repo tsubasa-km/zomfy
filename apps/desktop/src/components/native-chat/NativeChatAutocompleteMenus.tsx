@@ -1,7 +1,7 @@
 import { useEffect, useRef } from 'react'
 import { FileIcon } from '@/components/FileIcon'
 import { Package } from 'lucide-react'
-import type { ChatCommand } from '@acp-harness/protocol'
+import type { ChatCommand } from '@zomfy/protocol'
 import { cn } from '@/lib/utils'
 import { t } from '@/i18n/i18n'
 

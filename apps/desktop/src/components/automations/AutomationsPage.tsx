@@ -6,7 +6,7 @@ import {
   automationScheduleFields,
   type AutomationRunStatus,
   type AutomationTrigger
-} from '@acp-harness/protocol'
+} from '@zomfy/protocol'
 import { harnessRequest } from '@/daemon-connection'
 import { allProjects, allWorkspaces, getState, selectSession, useStore } from '@/session-store'
 import {

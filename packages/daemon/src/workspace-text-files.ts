@@ -1,5 +1,5 @@
 import { chmod, open, rm, stat, type FileHandle } from 'node:fs/promises'
-import type { SavedFile, TextChunk, TextEncoding } from '@acp-harness/protocol'
+import type { SavedFile, TextChunk, TextEncoding } from '@zomfy/protocol'
 import { replaceFile } from './replace-file.ts'
 import {
   bomBytes,
@@ -206,7 +206,7 @@ export async function beginTextWrite(
   if (current && !current.isFile()) throw new Error(`${params.path} is not a file`)
   guardMtime(params.path, current, params.expectedMtimeMs)
   const id = crypto.randomUUID()
-  const temp = `${absolute}.acp-harness-${process.pid}-${id.slice(0, 8)}.tmp`
+  const temp = `${absolute}.zomfy-${process.pid}-${id.slice(0, 8)}.tmp`
   const handle = await open(temp, 'w')
   const write: PendingWrite = {
     id,

@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { Loader2, LogIn, RefreshCw, RotateCw } from 'lucide-react'
-import { HARNESS_METHODS, type ChatMcpServer, type ChatMcpServerStatus } from '@acp-harness/protocol'
+import { HARNESS_METHODS, type ChatMcpServer, type ChatMcpServerStatus } from '@zomfy/protocol'
 import { harnessRequest } from '@/daemon-connection'
 import { openExternalUrl } from '@/lib/link-routing'
 import { Button } from '@/components/ui/button'

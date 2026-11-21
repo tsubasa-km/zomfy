@@ -1,5 +1,5 @@
 import { useEffect } from 'react'
-import { HARNESS_METHODS } from '@acp-harness/protocol'
+import { HARNESS_METHODS } from '@zomfy/protocol'
 import { harnessRequest } from '@/daemon-connection'
 import { getState, useStore } from '@/session-store'
 import { setSummaries } from '@/stores/sidebar-store'

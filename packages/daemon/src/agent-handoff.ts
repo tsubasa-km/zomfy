@@ -1,5 +1,5 @@
 import type * as acp from '@agentclientprotocol/sdk'
-import { CHAT_META, chatAgentLabel, isChatAgentId, type AgentSwitchMeta, type ChatAgentId } from '@acp-harness/protocol'
+import { CHAT_META, chatAgentLabel, isChatAgentId, type AgentSwitchMeta, type ChatAgentId } from '@zomfy/protocol'
 import { conversationMessages, type ConversationMessage } from './conversation-messages.ts'
 
 // A chat whose agent was changed keeps its transcript; the agent that takes over knows none of it.

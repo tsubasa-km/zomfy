@@ -1,4 +1,4 @@
-import type { SearchMatch } from '@acp-harness/protocol'
+import type { SearchMatch } from '@zomfy/protocol'
 
 export interface SearchOptions {
   query: string

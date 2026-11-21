@@ -1,5 +1,5 @@
 {
-  "name": "@acp-harness/daemon",
+  "name": "@zomfy/daemon",
   "private": true,
   "type": "module",
   "module": "src/main.ts",
@@ -12,7 +12,7 @@
     "build": "bun scripts/build-binaries.ts"
   },
   "dependencies": {
-    "@acp-harness/protocol": "workspace:*",
+    "@zomfy/protocol": "workspace:*",
     "@agentclientprotocol/sdk": "2.0.0",
     "@anthropic-ai/claude-agent-sdk": "0.3.305",
     "@xterm/headless": "6.0.0",

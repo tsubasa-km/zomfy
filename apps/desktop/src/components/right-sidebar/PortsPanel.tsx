@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { RefreshCw, Server } from 'lucide-react'
-import { HARNESS_METHODS, type ListeningPort, type PortScanResult } from '@acp-harness/protocol'
+import { HARNESS_METHODS, type ListeningPort, type PortScanResult } from '@zomfy/protocol'
 import { harnessRequest } from '@/daemon-connection'
 import { allWorkspaces, useStore } from '@/session-store'
 import { Button } from '@/components/ui/button'

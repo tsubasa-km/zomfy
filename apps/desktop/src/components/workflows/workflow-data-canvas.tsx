@@ -1,7 +1,7 @@
 import { memo } from 'react'
 import { Handle, MarkerType, Position, type Edge, type Node, type NodeProps } from '@xyflow/react'
 import { Database, Lock } from 'lucide-react'
-import type { Workflow, WorkflowDataSource } from '@acp-harness/protocol'
+import type { Workflow, WorkflowDataSource } from '@zomfy/protocol'
 import { cn } from '@/lib/utils'
 import { t } from '@/i18n/i18n'
 

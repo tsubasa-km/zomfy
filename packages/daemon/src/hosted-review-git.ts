@@ -1,4 +1,4 @@
-import type { CreateReviewDefaults } from '@acp-harness/protocol'
+import type { CreateReviewDefaults } from '@zomfy/protocol'
 import { branchExists, git } from './git-cli.ts'
 import type { HostingProvider } from './hosting-provider.ts'
 import type { HostingRemote } from './hosting-remote.ts'
@@ -38,7 +38,7 @@ export async function reviewDiffRevisions(
   return { base: mergeBase.trim(), head }
 }
 
-const LINK_KEY = 'acpHarnessReview'
+const LINK_KEY = 'zomfyReview'
 
 /** The review a branch was checked out for (Orca's linked PR), so fork heads still find theirs. */
 export async function linkedReviewNumber(cwd: string, branch: string): Promise<number | null> {

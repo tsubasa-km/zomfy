@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { GitMerge } from 'lucide-react'
 import { toast } from 'sonner'
-import { HARNESS_METHODS } from '@acp-harness/protocol'
+import { HARNESS_METHODS } from '@zomfy/protocol'
 import { harnessRequest } from '@/daemon-connection'
 import { allWorkspaces, useStore } from '@/session-store'
 import { upsertWorkflowRun, type HostedWorkflowRun } from '@/stores/workflow-runs-store'

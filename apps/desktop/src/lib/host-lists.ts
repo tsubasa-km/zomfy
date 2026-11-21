@@ -1,4 +1,4 @@
-import type { Project, Workspace } from '@acp-harness/protocol'
+import type { Project, Workspace } from '@zomfy/protocol'
 
 // Every host's projects and workspaces as one list, built once per `hosts` object: a store selector
 // that picks one of these must get the same object back while nothing changed, or

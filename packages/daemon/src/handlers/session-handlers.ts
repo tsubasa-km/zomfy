@@ -1,5 +1,5 @@
 import type * as acp from "@agentclientprotocol/sdk";
-import { HARNESS_METHODS, NEW_CHAT_TITLE, chatAgentLabel, isChatAgentId, type ChatAgentId } from "@acp-harness/protocol";
+import { HARNESS_METHODS, NEW_CHAT_TITLE, chatAgentLabel, isChatAgentId, type ChatAgentId } from "@zomfy/protocol";
 import type { HandlerContext } from "./handler-context.ts";
 import { DEFAULT_SESSION_OPTIONS, publicInfo, type SessionRecord } from "../session-registry.ts";
 

@@ -1,6 +1,6 @@
 import { cp, mkdir, stat } from "node:fs/promises";
 import { basename, join, relative } from "node:path";
-import { HARNESS_METHODS, type DiscoveredSkill, type SkillCopyOutcome, type SkillDiscoverySource } from "@acp-harness/protocol";
+import { HARNESS_METHODS, type DiscoveredSkill, type SkillCopyOutcome, type SkillDiscoverySource } from "@zomfy/protocol";
 import { moveToTrash } from "../host-trash.ts";
 import { discoverSkills, readSkillMarkdown } from "../skill-discovery.ts";
 import type { HandlerContext } from "./handler-context.ts";

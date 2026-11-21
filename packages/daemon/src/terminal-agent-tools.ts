@@ -1,4 +1,4 @@
-import type { ManagerCallResult, TerminalInfo } from '@acp-harness/protocol'
+import type { ManagerCallResult, TerminalInfo } from '@zomfy/protocol'
 import type { TerminalManager } from './terminal-manager.ts'
 import { asksForSecret, type TerminalScreens } from './terminal-screen.ts'
 

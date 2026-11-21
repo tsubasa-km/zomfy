@@ -1,6 +1,6 @@
 import { AppWindow, ChevronRight, CircleAlert, Copy, ExternalLink, FilePlus, Files, FolderPlus, Link, Loader2, Pencil, Search, Trash2 } from 'lucide-react'
 import { FileIcon, FolderIcon } from '@/components/FileIcon'
-import type { FileEntry } from '@acp-harness/protocol'
+import type { FileEntry } from '@zomfy/protocol'
 import {
   ContextMenu,
   ContextMenuContent,

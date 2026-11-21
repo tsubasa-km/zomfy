@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { ArrowDown, ArrowUp, CaseSensitive, Regex, TriangleAlert, WholeWord, X } from 'lucide-react'
-import { HARNESS_METHODS, type FileFindMatch, type FileFindResult, type FileLine, type FileLineIndex, type TextEncoding } from '@acp-harness/protocol'
+import { HARNESS_METHODS, type FileFindMatch, type FileFindResult, type FileLine, type FileLineIndex, type TextEncoding } from '@zomfy/protocol'
 import { harnessRequest } from '@/daemon-connection'
 import type { EditorTab } from '@/session-store'
 import { Button } from '@/components/ui/button'

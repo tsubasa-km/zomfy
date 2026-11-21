@@ -1,4 +1,4 @@
-import { CHAT_AGENT_IDS, type ChatAgentId, type PastConversation } from '@acp-harness/protocol'
+import { CHAT_AGENT_IDS, type ChatAgentId, type PastConversation } from '@zomfy/protocol'
 
 // What the Import threads dialog lists: the conversations each agent's own CLI recorded on a host,
 // as its daemon reports them (`_harness/sessions/history`), grouped by agent and narrowed by a search.

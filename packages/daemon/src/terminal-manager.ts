@@ -1,6 +1,6 @@
 import { existsSync } from 'node:fs'
 import { basename } from 'node:path'
-import { tuiAgentSpec, type CreateTerminalParams, type ShellOption, type TerminalInfo, type TerminalShellKind } from '@acp-harness/protocol'
+import { tuiAgentSpec, type CreateTerminalParams, type ShellOption, type TerminalInfo, type TerminalShellKind } from '@zomfy/protocol'
 import { log } from './log.ts'
 import { forgetInlineTerminal, loadInlineTerminals, saveInlineTerminal, type SavedInlineTerminal } from './inline-terminal-store.ts'
 import { OscScanner } from './terminal-osc.ts'

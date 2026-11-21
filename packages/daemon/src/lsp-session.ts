@@ -1,4 +1,4 @@
-import { LSP_CLIENT_CAPABILITIES, type LspError, type LspEvent, type LspRegistration, type LspSessionInfo, type LspSessionState } from '@acp-harness/protocol'
+import { LSP_CLIENT_CAPABILITIES, type LspError, type LspEvent, type LspRegistration, type LspSessionInfo, type LspSessionState } from '@zomfy/protocol'
 import { encodeLspMessage, LspMessageReader } from './lsp-framing.ts'
 import { HOST_FLAVOR, pathToFileUri, translateLspUris, type LspUriTranslator } from './lsp-uris.ts'
 import type { LspServerSpec } from './lsp-server-catalog.ts'

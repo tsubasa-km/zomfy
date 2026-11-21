@@ -8,7 +8,7 @@ import type {
   HostingProviderId,
   WorkItemKind,
   WorkItemPreset
-} from '@acp-harness/protocol'
+} from '@zomfy/protocol'
 import type { HostingRunner, HostingTool } from './hosting-cli.ts'
 import type { HostingRemote } from './hosting-remote.ts'
 

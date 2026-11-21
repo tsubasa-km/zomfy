@@ -14,23 +14,23 @@ const LOCAL_DAEMON_PORT: u16 = 7801;
 static STARTING: Mutex<()> = Mutex::new(());
 
 #[cfg(windows)]
-const BINARY_NAME: &str = "acp-harness-daemon-windows-x64.exe";
+const BINARY_NAME: &str = "zomfy-daemon-windows-x64.exe";
 #[cfg(target_os = "linux")]
-const BINARY_NAME: &str = "acp-harness-daemon-linux-x64";
+const BINARY_NAME: &str = "zomfy-daemon-linux-x64";
 #[cfg(target_os = "macos")]
-const BINARY_NAME: &str = "acp-harness-daemon-darwin-arm64";
+const BINARY_NAME: &str = "zomfy-daemon-darwin-arm64";
 
 fn harness_home() -> Result<PathBuf, String> {
     let home = std::env::var_os("USERPROFILE")
         .or_else(|| std::env::var_os("HOME"))
         .ok_or("home directory not found")?;
-    Ok(PathBuf::from(home).join(".acp-harness"))
+    Ok(PathBuf::from(home).join(".zomfy"))
 }
 
 /// Per-user install root for the running copy (`%LOCALAPPDATA%` on Windows).
 fn install_root() -> Result<PathBuf, String> {
     let base = std::env::var_os("LOCALAPPDATA").map(PathBuf::from).unwrap_or(harness_home()?);
-    Ok(base.join("acp-harness").join("bin"))
+    Ok(base.join("zomfy").join("bin"))
 }
 
 fn read_info(home: &std::path::Path) -> Option<String> {

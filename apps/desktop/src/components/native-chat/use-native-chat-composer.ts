@@ -1,6 +1,6 @@
 import { useEffect, useId, useMemo, useRef, useState } from 'react'
 import { toast } from 'sonner'
-import type { ChatCommand } from '@acp-harness/protocol'
+import type { ChatCommand } from '@zomfy/protocol'
 import type { MarkdownEditorHandle } from '@/components/markdown-editor/MarkdownEditor'
 import { appendToDraft, loadMentionFiles } from '@/chat-actions'
 import { imageTypeOf, readDroppedImage } from '@/lib/chat-file-drop'

@@ -1,5 +1,5 @@
 import { toast } from 'sonner'
-import { HARNESS_METHODS, parseLspDocumentUri } from '@acp-harness/protocol'
+import { HARNESS_METHODS, parseLspDocumentUri } from '@zomfy/protocol'
 import { harnessRequest } from '@/daemon-connection'
 import { monaco } from '@/lib/monaco-setup'
 import { getState, moveEditorTabs, setEditorDirty } from '@/session-store'

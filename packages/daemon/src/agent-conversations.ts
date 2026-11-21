@@ -1,6 +1,6 @@
 import { resolve } from 'node:path'
 import type * as acp from '@agentclientprotocol/sdk'
-import { chatAgentLabel, isChatAgentId, type ChatAgentId, type HarnessMethod, type HarnessRequests, type PastConversation } from '@acp-harness/protocol'
+import { chatAgentLabel, isChatAgentId, type ChatAgentId, type HarnessMethod, type HarnessRequests, type PastConversation } from '@zomfy/protocol'
 import { acpConversationUpdates, listAcpConversations } from './acp-agent-history.ts'
 import { importHandoff } from './agent-handoff.ts'
 import { conversationUpdates, findConversation, listConversations } from './claude-history.ts'

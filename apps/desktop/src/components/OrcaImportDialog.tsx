@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { FolderGit2, FolderOpen, Monitor, Server } from 'lucide-react'
-import { HARNESS_METHODS, type OrcaProject } from '@acp-harness/protocol'
+import { HARNESS_METHODS, type OrcaProject } from '@zomfy/protocol'
 import { addProject, harnessRequest, hostForPath } from '@/daemon-connection'
 import { LOCAL_HOST, allProjects, hostLabel, useStore } from '@/session-store'
 import { Button } from '@/components/ui/button'

@@ -40,7 +40,7 @@ Zomfy started as a port of [Orca](https://github.com/stablyai/orca)'s interface 
    The installer is not code-signed yet, so Windows SmartScreen asks first: choose
    **More info → Run anyway**.
 3. Optional: WSL distros show up by themselves; add SSH hosts from the sidebar (Zomfy uses your
-   system `ssh` and `~/.ssh/config`, and copies its daemon to `~/.acp-harness/bin` on the host).
+   system `ssh` and `~/.ssh/config`, and copies its daemon to `~/.zomfy/bin` on the host).
 
 ## How it fits together
 
@@ -61,15 +61,15 @@ The app starts the daemons itself and stops the ones it used when it quits. They
 the app's process tree, so a crash or a dev rebuild of the app leaves them (and their terminals)
 running, and the next launch reconnects:
 
-- This computer: `packages/daemon/dist` is copied to `%LOCALAPPDATA%\acp-harness\bin` and run from
+- This computer: `packages/daemon/dist` is copied to `%LOCALAPPDATA%\zomfy\bin` and run from
   there on 127.0.0.1:7801. A daemon that answers with the same build is reused; a different build
   is replaced.
-- WSL: the Linux binary is copied to `~/.acp-harness/bin` in the distro and started through a
+- WSL: the Linux binary is copied to `~/.zomfy/bin` in the distro and started through a
   detached `wsl.exe` on 127.0.0.1:7811, which also keeps the distro awake.
 
 `bun run build` in `packages/daemon` only rewrites a binary whose bytes changed, so an unchanged
 rebuild never restarts a daemon. Each daemon writes its URL and a random token to
-`~/.acp-harness/daemon.json`; connections without that token, or from another origin, are refused.
+`~/.zomfy/daemon.json`; connections without that token, or from another origin, are refused.
 `bun run daemon` still runs one from source by hand.
 
 Claude runs from the `claude` CLI on PATH (override with `HARNESS_CLAUDE_PATH`), so it uses that

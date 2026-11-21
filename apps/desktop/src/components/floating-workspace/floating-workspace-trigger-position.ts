@@ -7,7 +7,7 @@ const DEFAULT_BOTTOM_GAP = 72
 const DRAG_MARGIN = 8
 const TITLEBAR_SAFE_TOP = 36
 
-const POSITION_STORAGE_KEY = 'acp-harness.floating-workspace.trigger-position.v1'
+const POSITION_STORAGE_KEY = 'zomfy.floating-workspace.trigger-position.v1'
 
 export interface TriggerPosition {
   left: number

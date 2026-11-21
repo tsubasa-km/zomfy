@@ -1,6 +1,6 @@
 import { useState, type ReactNode } from 'react'
 import { ChevronRight, ExternalLink, RefreshCw, ShieldAlert } from 'lucide-react'
-import { HARNESS_METHODS, type ChatAgentId, type ChatAgentInfo } from '@acp-harness/protocol'
+import { HARNESS_METHODS, type ChatAgentId, type ChatAgentInfo } from '@zomfy/protocol'
 import { harnessRequest } from '@/daemon-connection'
 import type { HostEntry } from '@/session-store'
 import { Button } from '@/components/ui/button'

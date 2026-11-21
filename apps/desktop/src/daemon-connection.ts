@@ -41,7 +41,7 @@ import {
   type TerminalInfo,
   type TerminalOutput,
   type TodoItem,
-} from "@acp-harness/protocol";
+} from "@zomfy/protocol";
 import { applyChatUpdate, latestTurnEnd } from "./chat-transcript";
 import { WINDOW_ROLE } from "./lib/window-role";
 import { EXPIRED_APPROVAL } from "./lib/expired-approval";
@@ -218,7 +218,7 @@ async function openConnection(hostId: HostId): Promise<void> {
 
   const stream = createWebSocketStream(info.url, { protocols: [info.protocolPrefix + info.token] });
   const opened = acp
-    .client({ name: "acp-harness-desktop" })
+    .client({ name: "zomfy-desktop" })
     .onRequest("session/request_permission", (ctx) =>
       // The dashboard pop-out cannot show an approval card; the daemon asks the main window instead.
       WINDOW_ROLE !== "dashboard" ? requestPermission(hostId, ctx.params) : Promise.reject(new Error("This window does not answer approvals")),

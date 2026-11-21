@@ -1,5 +1,5 @@
 import { RefreshCw } from 'lucide-react'
-import type { ProviderUsageLimits, UsageLimitWindow } from '@acp-harness/protocol'
+import type { ProviderUsageLimits, UsageLimitWindow } from '@zomfy/protocol'
 import type { HostId } from '@/session-store'
 import { refreshUsageLimits, useUsageLimits } from '@/stores/usage-limits-store'
 import { Button } from '@/components/ui/button'

@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import type { TerminalInfo } from '@acp-harness/protocol'
+import type { TerminalInfo } from '@zomfy/protocol'
 import { useStore } from '@/session-store'
 import { TerminalView } from '@/components/TerminalView'
 import {

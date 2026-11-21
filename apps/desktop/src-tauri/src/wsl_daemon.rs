@@ -10,7 +10,7 @@ use std::time::Duration;
 use crate::daemon_process::{built_binary, hidden, port_of, reachable, spawn_detached, stamp, wait_for};
 
 const WSL_DAEMON_PORT: u16 = 7811;
-const INSTALLED_BINARY: &str = "$HOME/.acp-harness/bin/acp-harness-daemon";
+const INSTALLED_BINARY: &str = "$HOME/.zomfy/bin/zomfy-daemon";
 
 /// Two windows (or a retry) asking at once must not start two daemons.
 static STARTING: Mutex<()> = Mutex::new(());
@@ -68,7 +68,7 @@ pub fn list_distros() -> Result<Vec<String>, String> {
 /// Copies the binary into the distro when its stamp changed, stopping the old daemon; returns
 /// whether it upgraded.
 fn install(distro: &str) -> Result<bool, String> {
-    let source = built_binary("acp-harness-daemon-linux-x64")?;
+    let source = built_binary("zomfy-daemon-linux-x64")?;
     let build = stamp(&source)?;
     let linux_path = run(wsl().args(["-d", distro, "--exec", "wslpath", "-u", &source.to_string_lossy()]))?;
     // The source path and stamp are passed as $1/$2, never spliced into the script.
@@ -83,7 +83,7 @@ fn install(distro: &str) -> Result<bool, String> {
 }
 
 fn read_info(distro: &str) -> Option<String> {
-    run_within(wsl().args(["-d", distro, "--exec", "sh", "-c", "cat \"$HOME/.acp-harness/daemon.json\""]), READ_LIMIT)
+    run_within(wsl().args(["-d", distro, "--exec", "sh", "-c", "cat \"$HOME/.zomfy/daemon.json\""]), READ_LIMIT)
         .ok()
         .filter(|s| s.starts_with('{'))
 }
@@ -95,7 +95,7 @@ static USED: Mutex<Vec<String>> = Mutex::new(Vec::new());
 pub fn shutdown() {
     let distros = USED.lock().map(|d| d.clone()).unwrap_or_default();
     for distro in distros {
-        let script = format!("pkill -f \"{INSTALLED_BINARY} --port\"; rm -f \"$HOME/.acp-harness/daemon.json\"");
+        let script = format!("pkill -f \"{INSTALLED_BINARY} --port\"; rm -f \"$HOME/.zomfy/daemon.json\"");
         let _ = wsl().args(["-d", &distro, "--exec", "sh", "-c", &script]).status();
     }
 }
@@ -116,7 +116,7 @@ pub fn ensure(distro: &str) -> Result<String, String> {
             }
         }
     }
-    let _ = run(wsl().args(["-d", distro, "--exec", "sh", "-c", "rm -f \"$HOME/.acp-harness/daemon.json\""]));
+    let _ = run(wsl().args(["-d", distro, "--exec", "sh", "-c", "rm -f \"$HOME/.zomfy/daemon.json\""]));
     // A login shell gives the daemon the user's PATH (claude in ~/.local/bin, etc.).
     let script = format!("exec \"{INSTALLED_BINARY}\" --port={WSL_DAEMON_PORT}");
     let mut command = Command::new("wsl.exe");

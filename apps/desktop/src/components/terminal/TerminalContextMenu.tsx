@@ -13,7 +13,7 @@ import {
   TextSelect,
   X
 } from 'lucide-react'
-import type { QuickCommand } from '@acp-harness/protocol'
+import type { QuickCommand } from '@zomfy/protocol'
 import {
   DropdownMenu,
   DropdownMenuContent,

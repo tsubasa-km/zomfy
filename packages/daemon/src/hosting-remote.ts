@@ -1,4 +1,4 @@
-import type { HostingAvailability, HostingProviderId } from '@acp-harness/protocol'
+import type { HostingAvailability, HostingProviderId } from '@zomfy/protocol'
 import { git, isGitRepository } from './git-cli.ts'
 import { TtlCache } from './hosting-cache.ts'
 import { runHostingCli } from './hosting-cli.ts'

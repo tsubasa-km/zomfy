@@ -1,6 +1,6 @@
 import { Fragment, useMemo, type ReactNode } from 'react'
 import { ChevronRight, FolderGit2, FolderOpen, MessageSquare, MoreHorizontal, Plus } from 'lucide-react'
-import type { Workspace } from '@acp-harness/protocol'
+import type { Workspace } from '@zomfy/protocol'
 import { floatingWorkspaceId, selectWorkspace, useStore, type HostedProject, type HostId, type Session } from '@/session-store'
 import { toggleProjectCollapsed, toggleSectionCollapsed, useSidebarStore } from '@/stores/sidebar-store'
 import { setInboxOpen } from '@/stores/inbox-store'

@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { RefreshCw, TriangleAlert } from 'lucide-react'
-import { HARNESS_METHODS, unboundedLoops, type Workflow } from '@acp-harness/protocol'
+import { HARNESS_METHODS, unboundedLoops, type Workflow } from '@zomfy/protocol'
 import { harnessRequest } from '@/daemon-connection'
 import { allWorkspaces, type HostId } from '@/session-store'
 import { createExternalStore } from '@/stores/external-store'

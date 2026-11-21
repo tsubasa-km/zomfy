@@ -116,12 +116,12 @@ pub fn remote_command(script: &str, args: &[&str]) -> String {
 /// Markers keep the probe readable through whatever a shell rc file prints to stdout.
 const MARK: &str = "@acp:";
 
-const PROBE_SCRIPT: &str = r#"L="$HOME/.acp-harness"
+const PROBE_SCRIPT: &str = r#"L="$HOME/.zomfy"
 echo "@acp:os=$(uname -s)"
 echo "@acp:arch=$(uname -m)"
-echo "@acp:stamp=$(cat "$L/bin/acp-harness-daemon.stamp" 2>/dev/null)"
+echo "@acp:stamp=$(cat "$L/bin/zomfy-daemon.stamp" 2>/dev/null)"
 pid=$(sed -n 's/.*"pid":\([0-9][0-9]*\).*/\1/p' "$L/daemon.json" 2>/dev/null)
-if [ -n "$pid" ] && kill -0 "$pid" 2>/dev/null && { [ ! -r "/proc/$pid/cmdline" ] || grep -q acp-harness "/proc/$pid/cmdline"; }; then
+if [ -n "$pid" ] && kill -0 "$pid" 2>/dev/null && { [ ! -r "/proc/$pid/cmdline" ] || grep -q zomfy "/proc/$pid/cmdline"; }; then
   echo "@acp:alive=yes"
 else
   echo "@acp:alive=no"
@@ -130,7 +130,7 @@ echo "@acp:info=$(cat "$L/daemon.json" 2>/dev/null)""#;
 
 /// $1 = stamp, $2 = byte count; the binary arrives on stdin. Stops the old daemon, as WSL upgrades do.
 const INSTALL_SCRIPT: &str = r#"set -e
-L="$HOME/.acp-harness"; t="$L/bin/acp-harness-daemon"
+L="$HOME/.zomfy"; t="$L/bin/zomfy-daemon"
 mkdir -p "$L/bin"
 cat > "$t.new"
 size=$(wc -c < "$t.new" | tr -d ' ')
@@ -142,7 +142,7 @@ echo "$1" > "$t.stamp""#;
 
 /// Port 0: a shared remote may have other users' daemons, so the kernel picks a free port and the
 /// daemon records it in daemon.json. A login shell gives it the user's PATH (claude in ~/.local/bin).
-const START_SCRIPT: &str = r#"L="$HOME/.acp-harness"; t="$L/bin/acp-harness-daemon"
+const START_SCRIPT: &str = r#"L="$HOME/.zomfy"; t="$L/bin/zomfy-daemon"
 rm -f "$L/daemon.json"
 cd "$HOME"
 S="${SHELL:-/bin/sh}"
@@ -153,12 +153,12 @@ while [ $i -lt 120 ]; do
   if grep -q '"pid"' "$L/daemon.json" 2>/dev/null; then echo "@acp:info=$(cat "$L/daemon.json")"; exit 0; fi
   sleep 0.25; i=$((i+1))
 done
-echo "The daemon did not start within 30 seconds. Last lines of ~/.acp-harness/daemon.log:" >&2
+echo "The daemon did not start within 30 seconds. Last lines of ~/.zomfy/daemon.log:" >&2
 tail -n 15 "$L/daemon.log" >&2
 exit 4"#;
 
 /// Only stops a daemon this app installed; daemon.json goes with it.
-const STOP_SCRIPT: &str = r#"pkill -f "$HOME/.acp-harness/bin/acp-harness-daemon --port" && rm -f "$HOME/.acp-harness/daemon.json""#;
+const STOP_SCRIPT: &str = r#"pkill -f "$HOME/.zomfy/bin/zomfy-daemon --port" && rm -f "$HOME/.zomfy/daemon.json""#;
 
 #[derive(Debug, Default, PartialEq)]
 pub struct Probe {
@@ -195,8 +195,8 @@ pub fn parse_probe(stdout: &str) -> Result<Probe, String> {
 /// The dist/ binary for `uname -sm`.
 pub fn binary_for(os: &str, arch: &str) -> Result<&'static str, String> {
     match (os, arch) {
-        ("Linux", "x86_64" | "amd64") => Ok("acp-harness-daemon-linux-x64"),
-        ("Linux", "aarch64" | "arm64") => Ok("acp-harness-daemon-linux-arm64"),
+        ("Linux", "x86_64" | "amd64") => Ok("zomfy-daemon-linux-x64"),
+        ("Linux", "aarch64" | "arm64") => Ok("zomfy-daemon-linux-arm64"),
         _ => Err(format!("SSH hosts running {os} {arch} are not supported yet (Linux x64 and arm64 are)")),
     }
 }
@@ -636,8 +636,8 @@ mod tests {
 
     #[test]
     fn maps_platforms_to_binaries() {
-        assert_eq!(binary_for("Linux", "x86_64"), Ok("acp-harness-daemon-linux-x64"));
-        assert_eq!(binary_for("Linux", "aarch64"), Ok("acp-harness-daemon-linux-arm64"));
+        assert_eq!(binary_for("Linux", "x86_64"), Ok("zomfy-daemon-linux-x64"));
+        assert_eq!(binary_for("Linux", "aarch64"), Ok("zomfy-daemon-linux-arm64"));
         assert!(binary_for("Darwin", "arm64").is_err());
     }
 
@@ -709,7 +709,7 @@ mod tests {
         let fake = root.join("fake-daemon");
         std::fs::write(
             &fake,
-            "#!/bin/sh\nprintf '{\"url\":\"ws://127.0.0.1:4321/acp\",\"token\":\"t\",\"protocolPrefix\":\"p\",\"pid\":%s}' $$ > \"$HOME/.acp-harness/daemon.json\"\n",
+            "#!/bin/sh\nprintf '{\"url\":\"ws://127.0.0.1:4321/acp\",\"token\":\"t\",\"protocolPrefix\":\"p\",\"pid\":%s}' $$ > \"$HOME/.zomfy/daemon.json\"\n",
         )
         .unwrap();
         let host = LocalSh { home: home.clone(), sh };
@@ -724,7 +724,7 @@ mod tests {
             let first = prepare_daemon(&host, source_for).unwrap_or_else(|e| panic!("{}", e.reason));
             assert_eq!(port_of(&first.info), Some(4321));
             assert!(!first.previous_exited);
-            let installed = home.join(".acp-harness/bin/acp-harness-daemon");
+            let installed = home.join(".zomfy/bin/zomfy-daemon");
             assert_eq!(std::fs::read(&installed).unwrap(), std::fs::read(&fake).unwrap());
             assert_eq!(
                 std::fs::read_to_string(installed.with_extension("stamp")).unwrap().trim(),

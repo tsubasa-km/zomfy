@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test'
-import type { Project } from '@acp-harness/protocol'
+import type { Project } from '@zomfy/protocol'
 import { projectEntries } from '../src/components/sidebar/project-entries.ts'
 
 const project = (hostId: string, id: string): Project & { hostId: string } => ({ hostId, id, name: id, path: `/${id}`, kind: 'git' })

@@ -1,4 +1,4 @@
-import { HARNESS_METHODS, locationKey, type CatalogProject, type ProjectLocation } from '@acp-harness/protocol'
+import { HARNESS_METHODS, locationKey, type CatalogProject, type ProjectLocation } from '@zomfy/protocol'
 import { harnessRequest } from '@/daemon-connection'
 import { getState, LOCAL_HOST, subscribeStore, type HostId } from '@/session-store'
 import { setProjectNameLookup } from '@/components/sidebar/workspace-visibility'

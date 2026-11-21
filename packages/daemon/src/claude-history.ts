@@ -6,7 +6,7 @@ import {
   listSessions,
   type SessionMessage,
 } from "@anthropic-ai/claude-agent-sdk";
-import { CHAT_META } from "@acp-harness/protocol";
+import { CHAT_META } from "@zomfy/protocol";
 import { toolKind, toolResultContent, toolTitle } from "./claude-turn.ts";
 
 export interface ClaudeConversation {

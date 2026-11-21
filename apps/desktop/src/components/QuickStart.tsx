@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { Folder, X } from 'lucide-react'
 import { toast } from 'sonner'
-import { HARNESS_METHODS } from '@acp-harness/protocol'
+import { HARNESS_METHODS } from '@zomfy/protocol'
 import { createSession, harnessRequest } from '@/daemon-connection'
 import {
   allProjects,
