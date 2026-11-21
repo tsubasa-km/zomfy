@@ -18,7 +18,7 @@ function Section({ title, children }: { title: string; children: React.ReactNode
   return (
     <section className="space-y-1.5 border-b border-border px-3 py-3">
       <h3 className="text-[11px] font-medium tracking-wide text-muted-foreground uppercase">{title}</h3>
-      <dl className="grid grid-cols-[minmax(0,7.5rem)_minmax(0,1fr)] gap-x-3 gap-y-1">{children}</dl>
+      <dl className="grid grid-cols-[minmax(0,9rem)_minmax(0,1fr)] gap-x-3 gap-y-1">{children}</dl>
     </section>
   )
 }
