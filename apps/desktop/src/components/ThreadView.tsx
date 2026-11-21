@@ -48,7 +48,8 @@ import { NativeChatMessageRail, type RailItem } from '@/components/native-chat/N
 import { NativeChatQueuedMessageList } from '@/components/native-chat/NativeChatQueuedMessageList'
 import { NativeChatSelectionQuote, formatNativeChatQuote } from '@/components/native-chat/NativeChatSelectionQuote'
 import { selectionMarkdown } from '@/components/native-chat/selection-markdown'
-import { NativeChatTranscriptRow, type TranscriptRowActions } from '@/components/native-chat/NativeChatTranscriptRow'
+import type { TranscriptRowActions } from '@/components/native-chat/NativeChatTranscriptRow'
+import { NativeChatTranscriptRows } from '@/components/native-chat/NativeChatTranscriptRows'
 import { createTranscriptBuilder } from '@/components/native-chat/native-chat-transcript-model'
 import { useNativeChatFind } from '@/components/native-chat/use-native-chat-find'
 import { ContinueInTerminalContextMenuItem } from '@/components/native-chat/NativeChatTerminalMenuItem'
@@ -250,14 +251,13 @@ export function ThreadView({ session, onSendToMain }: { session: Session; onSend
               ) : (
                 <div className={TRANSCRIPT_OUTER_CLASS}>
                   <div ref={columnRef} data-native-chat-transcript-column className={TRANSCRIPT_COLUMN_CLASS}>
-                    {model.rows.map((row, index) => (
-                      <NativeChatTranscriptRow
-                        key={index}
-                        row={row}
-                        rowKey={`${session.id}:${index}`}
-                        actions={index === recoveryRow ? recoveryActions : rowActions}
-                      />
-                    ))}
+                    <NativeChatTranscriptRows
+                      rows={model.rows}
+                      sessionId={session.id}
+                      actions={rowActions}
+                      recoveryRow={recoveryRow}
+                      recoveryActions={recoveryActions}
+                    />
                     {session.turnStartedAt !== null && <WorkingStatus startedAt={session.turnStartedAt} />}
                   </div>
                 </div>
