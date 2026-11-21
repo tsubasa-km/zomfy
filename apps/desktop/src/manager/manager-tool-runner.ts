@@ -69,9 +69,9 @@ function dispatch({ tool, args, callerSessionId }: ManagerCallParams): Promise<u
     case 'send_prompt':
       return promptSession(reqString(args, 'sessionId'), reqString(args, 'text'), callerSessionId)
     case 'create_session':
-      return startSession(reqString(args, 'workspaceId'), optString(args, 'agent'), optString(args, 'prompt'))
+      return startSession(reqString(args, 'workspaceId'), optString(args, 'agent'), optString(args, 'prompt'), callerSessionId)
     case 'create_workspace':
-      return startWorkspace(args)
+      return startWorkspace(args, callerSessionId)
     case 'move_chat':
       return moveChat(args, callerSessionId)
     case 'relocate_project':
@@ -418,14 +418,14 @@ async function promptSession(sessionId: string, text: string, callerSessionId: s
   return { sent: true, sessionId, next: 'Call wait_for_session to get the result.' }
 }
 
-async function startSession(workspaceId: string, agent: string | undefined, prompt: string | undefined): Promise<unknown> {
+async function startSession(workspaceId: string, agent: string | undefined, prompt: string | undefined, parentId: string): Promise<unknown> {
   const workspace = allWorkspaces().find((w) => w.id === workspaceId)
   if (!workspace) throw new ToolError(`Unknown workspace ${workspaceId}; use list_workspaces for ids.`)
   if (!hostConnected(workspace.hostId)) throw new ToolError(`${workspace.hostId} is out of contact; cannot start a session there now.`)
-  return { workspaceId, ...(await startSessionOn(workspace.hostId, workspaceId, agent, prompt)) }
+  return { workspaceId, ...(await startSessionOn(workspace.hostId, workspaceId, agent, prompt, parentId)) }
 }
 
-async function startWorkspace(args: Record<string, unknown>): Promise<unknown> {
+async function startWorkspace(args: Record<string, unknown>, parentId: string): Promise<unknown> {
   const projectId = reqString(args, 'projectId')
   const project = allProjects().find((p) => p.id === projectId)
   if (!project) throw new ToolError(`Unknown project ${projectId}; use list_workspaces for ids.`)
@@ -438,7 +438,7 @@ async function startWorkspace(args: Record<string, unknown>): Promise<unknown> {
     { projectId, name: reqString(args, 'name'), ...(baseRef ? { baseRef } : {}) },
     project.hostId
   )
-  const started = await startSessionOn(project.hostId, workspace.id, optString(args, 'agent'), optString(args, 'prompt'))
+  const started = await startSessionOn(project.hostId, workspace.id, optString(args, 'agent'), optString(args, 'prompt'), parentId)
   return { workspaceId: workspace.id, path: workspace.path, branch: workspace.branch, ...started }
 }
 
@@ -493,10 +493,10 @@ async function moveChat(args: Record<string, unknown>, callerSessionId: string):
   }
 }
 
-/** For a workspace the store may not have heard about yet. */
-async function startSessionOn(hostId: HostId, workspaceId: string, agent?: string, prompt?: string): Promise<Record<string, unknown>> {
+/** For a workspace the store may not have heard about yet; the new chat sits under `parentId`, the chat that asked for it. */
+async function startSessionOn(hostId: HostId, workspaceId: string, agent?: string, prompt?: string, parentId?: string): Promise<Record<string, unknown>> {
   if (agent !== undefined && !isChatAgentId(agent)) throw new ToolError(`Unknown agent ${agent}.`)
-  const sessionId = await createSession(workspaceId, agent, { hostId, focus: false })
+  const sessionId = await createSession(workspaceId, agent, { hostId, focus: false, ...(parentId ? { parentId } : {}) })
   if (prompt) await promptSession(sessionId, prompt, '')
   return { sessionId, hostId, prompted: Boolean(prompt) }
 }

@@ -30,6 +30,12 @@ export function closePages(open: Record<AppPage, boolean>, keep?: AppPage): bool
   return true
 }
 
+/** Projects and Automations sit beside the sidebar; opening a chat from it leaves them for the chat. */
+export function closePagesBesideSidebar(): void {
+  setAutomationsPageOpen(false)
+  setProjectsPageOpen(false)
+}
+
 /** Watches which pages are open; one that just opened closes the others (or closes itself if refused). */
 export function useOnePageAtATime(open: Record<AppPage, boolean>): void {
   const before = useRef(open)

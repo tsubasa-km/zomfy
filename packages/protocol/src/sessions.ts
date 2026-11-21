@@ -40,7 +40,8 @@ export interface SessionInfo {
   /** Set on a side chat: the main chat it was opened beside. Tab strips leave side chats out. */
   sideOf?: string
   /**
-   * The chat this one works for: a workflow step's chat sits under the chat that started the run.
+   * The chat this one works for: a workflow step's chat sits under the chat that started the run,
+   * and a chat an agent started with the manager tools under that agent's chat.
    * One level only, so a parent never has a parent of its own. A side chat's parent is `sideOf`.
    */
   parentId?: string
@@ -219,7 +220,8 @@ export interface SessionRequests {
   /** `agent` defaults to Claude. */
   [SESSION_METHODS.sessionCreate]: {
     /** `permissionMode`: the mode a Claude chat starts in (older daemons start in 'default'). */
-    params: { workspaceId: string; agent?: ChatAgentId; role?: SessionRole; permissionMode?: ChatPermissionMode }
+    /** `parentId`: the chat that started this one (an agent's create_session); older daemons ignore it. */
+    params: { workspaceId: string; agent?: ChatAgentId; role?: SessionRole; permissionMode?: ChatPermissionMode; parentId?: string }
     result: SessionInfo
   }
   [SESSION_METHODS.sessionClose]: { params: { sessionId: string }; result: Record<string, never> }

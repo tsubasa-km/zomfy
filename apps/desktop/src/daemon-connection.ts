@@ -425,13 +425,15 @@ export async function addProject(pickedPath: string): Promise<Project> {
 export async function createSession(
   workspaceId: string,
   agent?: ChatAgentId,
-  extra: { hostId?: HostId; role?: SessionRole; focus?: boolean; permissionMode?: ChatPermissionMode } = {},
+  /** `parentId`: the chat that started this one, which the sidebar folds it under. */
+  extra: { hostId?: HostId; role?: SessionRole; focus?: boolean; permissionMode?: ChatPermissionMode; parentId?: string } = {},
 ): Promise<string> {
   const hostId = extra.hostId ?? hostOf({ workspaceId });
   const params = {
     workspaceId,
     ...(agent && agent !== "claude" ? { agent } : {}),
     ...(extra.role ? { role: extra.role } : {}),
+    ...(extra.parentId ? { parentId: extra.parentId } : {}),
     ...(!agent || agent === "claude" ? { permissionMode: extra.permissionMode ?? getSetting("defaultPermissionMode") } : {}),
   };
   const info = await harnessRequest(HARNESS_METHODS.sessionCreate, params, hostId);

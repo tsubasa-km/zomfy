@@ -15,6 +15,7 @@ import { hideChats, removeTabsFromLayout, useTabLayout } from '@/stores/tab-layo
 import { chatSelection, gestureOf, keepTextUnselected } from '@/stores/list-selection'
 import { beginSidebarDrag, type DragItem } from '@/components/sidebar/sidebar-drag'
 import { setChatPinned, toggleChatExpanded } from '@/stores/sidebar-store'
+import { closePagesBesideSidebar } from '@/lib/app-pages'
 import { HoverCard, HoverCardContent, HoverCardTrigger } from '@/components/ui/hover-card'
 import { ChatCardBody, ChatHoverDetails, type ChatCardInfo } from '@/components/sidebar/ChatCard'
 import { t } from '@/i18n/i18n'
@@ -61,6 +62,7 @@ export function SessionRow({
   showActive,
   fold,
   child,
+  muted,
   card
 }: {
   session: Session
@@ -75,6 +77,8 @@ export function SessionRow({
   fold?: { count: number; expanded: boolean; status: Session['status'] }
   /** Drawn indented, under its parent chat. */
   child?: boolean
+  /** Drawn quieter: a chat a search found under another, not one it found at the top. */
+  muted?: boolean
   /** Draws the chat list's two-line row, with the rest of what is known on a hover card. */
   card?: ChatCardInfo
 }) {
@@ -183,6 +187,7 @@ export function SessionRow({
       data-session-open={open || undefined}
       data-session-archived={session.archived || undefined}
       data-session-child={child || undefined}
+      data-session-muted={muted || undefined}
       title={!card && session.archived ? t('Archived: click to open it') : undefined}
       className={cn(
         'group/chat relative flex min-w-0 cursor-pointer rounded-md pr-1 text-muted-foreground hover:bg-worktree-sidebar-accent/60 hover:text-foreground',
@@ -191,6 +196,7 @@ export function SessionRow({
         // A chat at work stands out as a card of its own, as T3 Code's does.
         working && 'my-0.5 border border-border bg-card shadow-xs hover:bg-card',
         !card && session.archived && renaming === null && 'opacity-60',
+        muted && 'opacity-60 hover:opacity-100',
         selected && 'bg-worktree-sidebar-accent text-foreground opacity-100',
         open && 'bg-worktree-sidebar-accent/70 text-foreground opacity-100'
       )}
@@ -207,6 +213,7 @@ export function SessionRow({
           return
         }
         chatSelection.reset(SCOPE, session.id)
+        closePagesBesideSidebar()
         // One click looks at the chat; a second one keeps its tab, as in an editor's file tree.
         if (card && e.detail < 2) previewSession(session.id)
         else selectSession(session.id)
