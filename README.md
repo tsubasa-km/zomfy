@@ -72,6 +72,15 @@ rebuild never restarts a daemon. Each daemon writes its URL and a random token t
 `~/.zomfy/daemon.json`; connections without that token, or from another origin, are refused.
 `bun run daemon` still runs one from source by hand.
 
+Builds before the rename to Zomfy used the legacy name acp-harness for all of this. On each host
+the first start under the new name stops a daemon still running under the legacy name and moves its
+`~/.acp-harness` home to `~/.zomfy`, leaving a link at the legacy path; a home that cannot be renamed
+is copied and marked with `MOVED-TO-ZOMFY.txt`. `ZOMFY_HOME` and `ZOMFY_ALLOWED_ORIGINS` fall back to
+their legacy `ACP_HARNESS_*` names, and window storage keys move from the legacy `acp-harness.` prefix
+to `zomfy.` on first load. New worktrees go under `~/zomfy/workspaces`; existing ones stay where their
+records point (including the legacy `~/acp-harness/workspaces`). `scripts/rename-to-zomfy.ts` is the
+codemod that did the rename, safe to re-run after merging a branch that still uses the legacy name.
+
 Claude runs from the `claude` CLI on PATH (override with `HARNESS_CLAUDE_PATH`), so it uses that
 CLI's login and settings.
 
