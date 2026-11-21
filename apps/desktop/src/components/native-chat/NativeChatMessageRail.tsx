@@ -22,15 +22,21 @@ function rowOf(scroller: HTMLElement, id: string): HTMLElement | null {
   return scroller.querySelector<HTMLElement>(`[data-native-chat-user-row="${CSS.escape(id)}"]`)
 }
 
-/** The user message the reader is in: the last one whose top has scrolled past the view's top. */
+/**
+ * The user message the reader is in: the last one whose top has scrolled past the view's top.
+ * Runs on every scroll frame, which a streaming chat makes every frame: the rows are looked up
+ * once, and read from the bottom up, since they stand in transcript order and the reader is
+ * mostly at the end.
+ */
 function readActiveId(scroller: HTMLElement, items: RailItem[]): string | null {
   const top = scroller.getBoundingClientRect().top + 48
-  let active: string | null = items[0]?.id ?? null
-  for (const item of items) {
-    const row = rowOf(scroller, item.id)
-    if (row && row.getBoundingClientRect().top <= top) active = item.id
+  const ids = new Set(items.map((item) => item.id))
+  const rows = scroller.querySelectorAll<HTMLElement>('[data-native-chat-user-row]')
+  for (let i = rows.length - 1; i >= 0; i--) {
+    const id = rows[i]!.getAttribute('data-native-chat-user-row')
+    if (id && ids.has(id) && rows[i]!.getBoundingClientRect().top <= top) return id
   }
-  return active
+  return items[0]?.id ?? null
 }
 
 type RailProps = { items: RailItem[]; scrollRef: React.RefObject<HTMLDivElement | null> }
