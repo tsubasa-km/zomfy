@@ -1019,6 +1019,54 @@ export const SHELL: Record<string, string> = {
   'Agents on their own': 'エージェントの自律的な操作',
   'Turned off': 'オフ',
 
+  // components/right-sidebar/session-panel/EnvironmentSection.tsx
+  'Not a git checkout': 'git のチェックアウトではありません',
+
+  // components/right-sidebar/session-panel/ContextSection.tsx
+  'Free space': '空き',
+  '{percent}% used': '{percent}% 使用中',
+  'Not in the window until a tool search loads them.': 'ツール検索で読み込まれるまでコンテキストには入りません。',
+  'MCP tools': 'MCP ツール',
+  'Memory files': 'メモリファイル',
+  deferred: '遅延読み込み',
+  'There is no conversation to compact yet.': 'まだ圧縮する会話がありません。',
+  'Wait for the turn to end.': 'ターンが終わるまでお待ちください。',
+  'Summarise the conversation so far to free context (/compact).': 'これまでの会話を要約してコンテキストを空けます（/compact）。',
+  'Compacting…': '圧縮中…',
+  Compacted: '圧縮しました',
+
+  // components/right-sidebar/session-panel/UsageLimitsSection.tsx
+  '5-hour session': '5 時間枠',
+  'Weekly · all models': '週間・全モデル',
+  'Weekly · {model}': '週間・{model}',
+  'Weekly · one model': '週間・特定モデル',
+  'Resets in {time}': 'あと {time} でリセット',
+  'Resets {time}': '{time} にリセット',
+  'No plan limits apply to this sign-in (an API key, Bedrock or Vertex).': 'このサインイン（API キー、Bedrock、Vertex）にはプランの使用量上限がありません。',
+  'No limits to show.': '表示する上限はありません。',
+  'Could not read the limits.': '上限を読み取れませんでした。',
+  'Usage limits': '使用量の上限',
+  'Read the limits again': '上限を再取得',
+  'Reading the limits…': '上限を読み取り中…',
+
+  // components/right-sidebar/session-panel/ConnectorsSection.tsx
+  'Needs sign-in': 'サインインが必要',
+  Connectors: 'コネクタ',
+  '{connected} of {total} connected': '{total} 件中 {connected} 件接続',
+  'Check the connectors again': 'コネクタを再確認',
+  'Asking Claude Code for its MCP servers…': 'Claude Code に MCP サーバーを問い合わせ中…',
+  'No MCP servers are set up for this thread.': 'このスレッドに設定された MCP サーバーはありません。',
+  'Built in': '組み込み',
+  '{n} tools': 'ツール {n} 個',
+  'Sign in': 'サインイン',
+  'Finish signing in in the browser; this updates on its own.': 'ブラウザーでサインインを完了してください。完了すると自動で更新されます。',
+  'If the browser ends on a page that does not load, paste that page’s address here:': 'ブラウザーが最後に開けないページで止まったら、そのページのアドレスをここに貼り付けてください:',
+  'Connect it on the claude.ai page that opened, then press Reconnect.': '開いた claude.ai のページで接続してから、「再接続」を押してください。',
+
+  // components/right-sidebar/session-panel/UsageLimitsSegment.tsx
+  '5h': '5時間',
+  Week: '週',
+
   // components/right-sidebar/SearchPanel.tsx
   '{total} result in {files} file': '{files} 件のファイルに {total} 件の結果',
   '{total} result in {files} files': '{files} 件のファイルに {total} 件の結果',

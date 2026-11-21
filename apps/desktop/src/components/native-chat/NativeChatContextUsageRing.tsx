@@ -68,7 +68,8 @@ export function NativeChatContextUsageRing({ usage }: { usage: ContextUsage }) {
   const label = t('Context {used} of {window} tokens, {percentage}% used', { used, window, percentage })
   const { open, setOpen, setOpenAfterHover } = useContextCardOpen()
   const rows = usage.categories
-    .filter((row) => row.tokens > 0)
+    // Free space and deferred tools are not what fills the window.
+    .filter((row) => row.tokens > 0 && (row.kind === undefined || row.kind === 'used' || row.kind === 'buffer'))
     .map((row) => ({ ...row, percentage: rowPercentage(row.tokens, usage.size) }))
     .sort((a, b) => b.tokens - a.tokens)
   return (

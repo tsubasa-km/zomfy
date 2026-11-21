@@ -52,6 +52,7 @@ import { registerHostingHandlers } from "./handlers/hosting-handlers.ts";
 import { registerPortHandlers } from "./handlers/port-handlers.ts";
 import { registerQuickOpenHandlers } from "./handlers/quick-open-handlers.ts";
 import { registerSessionHandlers } from "./handlers/session-handlers.ts";
+import { registerChatStatusHandlers } from "./handlers/chat-status-handlers.ts";
 import { registerSessionNoteHandlers } from "./handlers/session-note-handlers.ts";
 import { registerChatAttachmentHandlers } from "./handlers/chat-attachment-handlers.ts";
 import { registerSettingsHandlers } from "./handlers/settings-handlers.ts";
@@ -831,6 +832,7 @@ export function createHarnessAgent(
     registerWorkflowHandlers,
     registerLspHandlers,
     registerSshConnectionHandlers,
+    registerChatStatusHandlers,
   ]) {
     register(ctx);
   }

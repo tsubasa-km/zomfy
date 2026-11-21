@@ -57,7 +57,9 @@ export function applyChatUpdate({ sessionId, update }: acp.SessionNotification):
           costUsd: update.cost?.currency === 'USD' ? update.cost.amount : null,
           estimated: meta?.estimated ?? true,
           categories: meta?.categories ?? [],
-          items: meta?.items ?? []
+          items: meta?.items ?? [],
+          mcpTools: meta?.mcpTools ?? [],
+          memoryFiles: meta?.memoryFiles ?? []
         }
       })
       break
@@ -192,7 +194,24 @@ function contextUsageMeta(meta: Record<string, unknown> | null | undefined): Con
     estimated,
     categories: categories.flatMap((c: unknown) =>
       typeof c === 'object' && c !== null && 'name' in c && 'tokens' in c && typeof c.name === 'string' && typeof c.tokens === 'number'
-        ? [{ name: c.name, tokens: c.tokens }]
+        ? [
+            {
+              name: c.name,
+              tokens: c.tokens,
+              ...('id' in c && typeof c.id === 'string' ? { id: c.id } : {}),
+              ...('kind' in c && (c.kind === 'used' || c.kind === 'free' || c.kind === 'buffer' || c.kind === 'deferred') ? { kind: c.kind } : {})
+            }
+          ]
+        : []
+    ),
+    mcpTools: ('mcpTools' in value && Array.isArray(value.mcpTools) ? value.mcpTools : []).flatMap((m: unknown) =>
+      typeof m === 'object' && m !== null && 'name' in m && 'server' in m && 'tokens' in m && typeof m.name === 'string' && typeof m.server === 'string' && typeof m.tokens === 'number'
+        ? [{ name: m.name, server: m.server, tokens: m.tokens, loaded: !('loaded' in m) || m.loaded !== false }]
+        : []
+    ),
+    memoryFiles: ('memoryFiles' in value && Array.isArray(value.memoryFiles) ? value.memoryFiles : []).flatMap((f: unknown) =>
+      typeof f === 'object' && f !== null && 'path' in f && 'tokens' in f && typeof f.path === 'string' && typeof f.tokens === 'number'
+        ? [{ path: f.path, type: 'type' in f && typeof f.type === 'string' ? f.type : '', tokens: f.tokens }]
         : []
     ),
     items: items.flatMap((i: unknown) =>
