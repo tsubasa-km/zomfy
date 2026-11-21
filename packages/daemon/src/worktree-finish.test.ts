@@ -1,10 +1,13 @@
-import { afterEach, beforeEach, describe, expect, test } from "bun:test";
+import { afterEach, beforeEach, describe, expect, test, setDefaultTimeout } from "bun:test";
 import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { Project, Workspace } from "@acp-harness/protocol";
 import { git } from "./git-cli.ts";
 import { finishWorktree, type FinishDeps } from "./worktree-finish.ts";
+
+// Real git on Windows takes seconds; bun 1.4 resets the preload's default for each file.
+setDefaultTimeout(30_000);
 
 let root: string;
 let main: string;

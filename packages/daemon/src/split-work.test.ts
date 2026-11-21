@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, describe, expect, test } from "bun:test";
+import { afterEach, beforeEach, describe, expect, test, setDefaultTimeout } from "bun:test";
 import { existsSync } from "node:fs";
 import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
@@ -6,6 +6,9 @@ import { join } from "node:path";
 import type { Project, Workspace } from "@acp-harness/protocol";
 import { git } from "./git-cli.ts";
 import { Gate, helperPrompt, ownershipClashes, partNames, planSplit, readSplitRequest, splitWork, type HelperReport, type SplitDeps, type SplitPart } from "./split-work.ts";
+
+// Real git on Windows takes seconds; bun 1.4 resets the preload's default for each file.
+setDefaultTimeout(30_000);
 
 let root: string;
 /** The repository's own checkout. */

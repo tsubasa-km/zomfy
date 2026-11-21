@@ -1,9 +1,12 @@
-import { afterAll, beforeAll, describe, expect, test } from "bun:test";
+import { afterAll, beforeAll, describe, expect, test, setDefaultTimeout } from "bun:test";
 import { mkdir, mkdtemp, realpath, rename, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { git } from "./git-cli.ts";
 import { WorkspaceManager } from "./workspace-manager.ts";
+
+// Real git on Windows takes seconds; bun 1.4 resets the preload's default for each file.
+setDefaultTimeout(30_000);
 
 // A project whose repository moved on disk is pointed at the new folder; its worktree relinks.
 

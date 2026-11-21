@@ -1,4 +1,4 @@
-import { afterAll, beforeAll, expect, test } from 'bun:test'
+import { afterAll, beforeAll, expect, test, setDefaultTimeout } from 'bun:test'
 import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
@@ -6,6 +6,9 @@ import { git } from './git-cli.ts'
 import { gitRepositories, repositoryRoot } from './git-repositories.ts'
 import { gitStatus } from './git-changes.ts'
 import { readWorkspaceFileRevision } from './workspace-file-bytes.ts'
+
+// Real git on Windows takes seconds; bun 1.4 resets the preload's default for each file.
+setDefaultTimeout(30_000)
 
 // A workspace whose repository ignores a folder that is a repository of its own (kept apart, not a
 // submodule): the Source Control tab finds both and works in each.
