@@ -11,7 +11,7 @@ import { log } from "./log.ts";
 // free whenever a Claude turn ends (its process is still up then).
 
 /** What was read stays this long before a request reads it again. */
-const FRESH_MS = 5 * 60_000;
+const FRESH_MS = 10 * 60_000;
 /** A refresh asked for by hand still waits this long since the last read. */
 const MIN_REFRESH_MS = 20_000;
 /** A turn's end reads Claude's limits at most this often. */
