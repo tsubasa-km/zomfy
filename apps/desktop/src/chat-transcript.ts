@@ -10,7 +10,8 @@ import { WORKFLOW_META,
   type PromptOrigin,
   type TurnResumeKind
 } from '@zomfy/protocol'
-import { appendText, getState, STOPPED_TOOL, updateSession, upsertTool, type ChatImage, type ThreadItem } from '@/session-store'
+import { appendText, getState, updateSession, upsertTool, type ChatImage, type ThreadItem } from '@/session-store'
+import { stopOpenTools, updatedToolStatus } from '@/stopped-tools'
 import { patchChatSession } from '@/stores/chat-store'
 import { t } from '@/i18n/i18n'
 
@@ -45,7 +46,7 @@ export function applyChatUpdate({ sessionId, update }: acp.SessionNotification):
       upsertTool(sessionId, update.toolCallId, {
         ...(update.title ? { title: update.title } : {}),
         // A call its stopped turn closed reads as stopped, not failed (stopped-tool-calls.md).
-        ...(update.status ? { status: update._meta?.[TURN_RECOVERY_META.toolStopped] === true ? STOPPED_TOOL : update.status } : {}),
+        ...(update.status ? { status: updatedToolStatus(update.status, update._meta) } : {}),
         ...(update.content ? { output: toolOutputText(update.content), images: toolOutputImages(update.content) } : {})
       })
       break
@@ -89,7 +90,7 @@ export function applyChatUpdate({ sessionId, update }: acp.SessionNotification):
       const turnEnd = turnEndMeta(update._meta)
       const runId = update._meta?.[WORKFLOW_META.run]
       // Transcripts written before the daemon closed them still hold the stopped turn's open calls.
-      if (turnEnd) stopOpenTools(sessionId)
+      if (turnEnd) updateSession(sessionId, (s) => ({ ...s, items: stopOpenTools(s.items) }))
       pushItem(sessionId, {
         kind: 'notice',
         text: agentSwitchText(update._meta) ?? update.title,
@@ -110,18 +111,6 @@ export function applyChatUpdate({ sessionId, update }: acp.SessionNotification):
       })
       break
   }
-}
-
-function stopOpenTools(sessionId: string): void {
-  updateSession(sessionId, (s) =>
-    s.items.some(isOpenTool)
-      ? { ...s, items: s.items.map((item) => (isOpenTool(item) ? { ...item, status: STOPPED_TOOL } : item)) }
-      : s
-  )
-}
-
-function isOpenTool(item: ThreadItem): item is Extract<ThreadItem, { kind: 'tool' }> {
-  return item.kind === 'tool' && (item.status === 'pending' || item.status === 'in_progress')
 }
 
 function pushItem(sessionId: string, item: ThreadItem): void {

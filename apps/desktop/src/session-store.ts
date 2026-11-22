@@ -72,7 +72,7 @@ export type ThreadItem =
       id: string
       title: string
       toolKind: acp.ToolKind
-      /** An ACP ToolCallStatus, or STOPPED_TOOL. */
+      /** An ACP ToolCallStatus, or STOPPED_TOOL (stopped-tools.ts). */
       status: string
       input: unknown
       output: string
@@ -102,9 +102,6 @@ export type ThreadItem =
 export type HostId = string
 
 /** The daemon owns status, title and timing; the window adds the transcript it has loaded. */
-/** A tool call's status once its turn or process stopped before it finished (stopped-tool-calls.md). */
-export const STOPPED_TOOL = 'stopped'
-
 export interface Session extends Omit<SessionInfo, 'workspaceId'> {
   hostId: HostId
   workspaceId: string

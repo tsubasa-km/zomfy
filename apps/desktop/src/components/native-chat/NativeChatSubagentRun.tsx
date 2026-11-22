@@ -5,7 +5,7 @@ import { NativeChatMarkdown } from './NativeChatMarkdown'
 import { NativeChatToolLine } from './NativeChatToolLine'
 import type { ToolNode } from './native-chat-transcript-model'
 import { t } from '@/i18n/i18n'
-import { STOPPED_TOOL } from '@/session-store'
+import { STOPPED_TOOL } from '@/stopped-tools'
 
 type SubagentState = 'working' | 'completed' | 'failed' | 'stopped'
 
