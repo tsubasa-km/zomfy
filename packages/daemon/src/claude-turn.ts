@@ -127,11 +127,15 @@ interface TurnProgress {
   rejected: { resetsAt?: number } | null;
   /** What the context held at the turn's end, for a workflow step's ledger. */
   context?: WorkflowStepContext;
+  /** Whether Claude has said or done anything in this turn yet. */
+  output: boolean;
 }
 
 /** The turn a process's messages go to. */
 interface ActiveTurn {
   input: TurnInput;
+  /** The uuid of the prompt this turn sent; null for a turn the CLI started itself. */
+  promptId: string | null;
   progress: TurnProgress;
   settle: (reason: acp.StopReason) => void;
   fail: (error: unknown) => void;
@@ -286,7 +290,7 @@ function inputQueue(): { stream: AsyncGenerator<SDKUserMessage>; push: (m: SDKUs
 }
 
 function newProgress(): TurnProgress {
-  return { lastMainUsage: null, agentTextSent: false, compactions: 0, assistantError: null, rejected: null };
+  return { lastMainUsage: null, agentTextSent: false, compactions: 0, assistantError: null, rejected: null, output: false };
 }
 
 /** Gives the process's messages to this turn until its result. */
@@ -297,7 +301,14 @@ function attach(proc: ClaudeProcess, input: TurnInput): Promise<acp.StopReason> 
   const kill = (): void => proc.kill();
   input.abort.signal.addEventListener("abort", kill);
   const done = new Promise<acp.StopReason>((settle, fail) => {
-    proc.turn = { input, progress: newProgress(), settle, fail, unlink: () => input.abort.signal.removeEventListener("abort", kill) };
+    proc.turn = {
+      input,
+      promptId: input.attach ? null : input.messageId,
+      progress: newProgress(),
+      settle,
+      fail,
+      unlink: () => input.abort.signal.removeEventListener("abort", kill),
+    };
   });
   input.onQuery?.(proc.query);
   if (input.abort.signal.aborted) kill();
@@ -482,6 +493,10 @@ async function route(proc: ClaudeProcess, message: SDKMessage): Promise<void> {
   if (turn.input.abort.signal.aborted) return;
   const { input, progress } = turn;
   if (message.type === "result") {
+    if (notThisTurns(turn, message)) {
+      log(`a result the CLI produced before this turn's prompt was taken (${message.subtype}); the turn goes on`);
+      return;
+    }
     const stopReason = await finishTurn(message, proc.query, progress, input.emit, input.onTurnEnd);
     if (message.subtype === "success") {
       input.onResult?.({
@@ -514,7 +529,24 @@ async function route(proc: ClaudeProcess, message: SDKMessage): Promise<void> {
     return;
   }
   if (message.type === "system" && message.subtype === "init") proc.claudeSessionId = message.session_id;
+  if (message.type === "assistant" || message.type === "stream_event" || message.type === "user") progress.output = true;
   await forwardMessage(message, input, progress);
+}
+
+/**
+ * A result for something other than this turn's prompt. A resumed conversation can make the CLI run a
+ * turn of its own before taking the prompt (a background task the daemon's restart stopped): its
+ * empty result names no prompt, and taking it as the end would leave the real answer unseen.
+ */
+export function notThisTurns(
+  turn: { promptId: string | null; progress: { output: boolean } },
+  message: Extract<SDKMessage, { type: "result" }>,
+): boolean {
+  if (!turn.promptId) return false;
+  const ids = [...(message.user_message_uuids ?? []), ...(message.user_message_uuid ? [message.user_message_uuid] : [])];
+  if (ids.length > 0) return !ids.includes(turn.promptId);
+  // CLIs that predate the field name nothing: only an empty result before any output is set aside.
+  return message.subtype === "success" && !message.result.trim() && !turn.progress.output;
 }
 
 /** The CLI started a turn between the chat's turns: the chat takes it, its messages held until then. */

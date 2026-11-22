@@ -64,11 +64,12 @@ class FakeClaude {
 
 const sdk = (message: Record<string, unknown>): SDKMessage => message as unknown as SDKMessage;
 const init = () => sdk({ type: "system", subtype: "init", session_id: "claude-1", slash_commands: [], permissionMode: "default" });
-const result = (text: string) =>
+const result = (text: string, promptId?: string) =>
   sdk({
     type: "result",
     subtype: "success",
     result: text,
+    ...(promptId ? { user_message_uuid: promptId, user_message_uuids: [promptId] } : {}),
     is_error: false,
     usage: { input_tokens: 1, output_tokens: 1 },
     total_cost_usd: 0,
@@ -82,6 +83,8 @@ const tasks = (...descriptions: string[]) =>
   });
 const notification = (id: string, summary: string) =>
   sdk({ type: "system", subtype: "task_notification", task_id: id, status: "completed", output_file: `/tmp/${id}.output`, summary });
+const said = (text: string) =>
+  sdk({ type: "stream_event", parent_tool_use_id: null, event: { type: "content_block_delta", index: 0, delta: { type: "text_delta", text } } });
 const suggestion = (text: string) => sdk({ type: "prompt_suggestion", suggestion: text });
 
 const until = async (condition: () => boolean, ms = 2000): Promise<void> => {
@@ -247,6 +250,60 @@ describe("background tasks", () => {
     stop.abort();
     expect(await woken).toBe("cancelled");
     expect(claude.aborted).toBe(true);
+  });
+});
+
+describe("a resumed conversation", () => {
+  afterEach(() => useQueryForTests(null));
+
+  test("the CLI's own turn before the prompt does not end the prompt's turn", async () => {
+    const claude = new FakeClaude();
+    useQueryForTests(claude.query);
+    const updates: acp.SessionUpdate[] = [];
+    const input = turnFor(`bg-${++chat}`, updates);
+    let ended = false;
+    const done = runClaudeTurn(input).finally(() => (ended = true));
+    await until(() => claude.sent.length === 1);
+    // What Claude Code 2.1 sends on resume when the daemon's restart killed a background task.
+    claude.emit(
+      sdk({ type: "system", subtype: "task_notification", task_id: "b1", status: "stopped", output_file: "", summary: "Background shell command didn't finish before the previous session ended" }),
+      init(),
+      result(""),
+      init(),
+    );
+    await new Promise((resolve) => setTimeout(resolve, 30));
+    expect(ended).toBe(false);
+    claude.emit(said("PONG"), result("PONG", input.messageId));
+    expect(await done).toBe("end_turn");
+    expect(texts(updates, "agent_message_chunk")).toEqual(["PONG"]);
+    const shown = texts(updates, "user_message_chunk");
+    expect(shown.length).toBe(1);
+    expect(shown[0]).toContain("<status>stopped</status>");
+  });
+
+  test("a result naming another prompt is passed over", async () => {
+    const claude = new FakeClaude();
+    useQueryForTests(claude.query);
+    const updates: acp.SessionUpdate[] = [];
+    const input = turnFor(`bg-${++chat}`, updates);
+    let ended = false;
+    const done = runClaudeTurn(input).finally(() => (ended = true));
+    await until(() => claude.sent.length === 1);
+    claude.emit(init(), said("old"), result("old", crypto.randomUUID()));
+    await new Promise((resolve) => setTimeout(resolve, 30));
+    expect(ended).toBe(false);
+    claude.emit(result("new", input.messageId));
+    expect(await done).toBe("end_turn");
+  });
+
+  test("a result that names no prompt still ends a turn that produced output", async () => {
+    const claude = new FakeClaude();
+    useQueryForTests(claude.query);
+    const updates: acp.SessionUpdate[] = [];
+    const done = runClaudeTurn(turnFor(`bg-${++chat}`, updates));
+    await until(() => claude.sent.length === 1);
+    claude.emit(init(), said("hi"), result("hi"));
+    expect(await done).toBe("end_turn");
   });
 });
 
