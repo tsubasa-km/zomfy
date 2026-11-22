@@ -20,6 +20,8 @@ export interface Env {
   EXPO_ACCESS_TOKEN?: string
   /** Tests only: a fake Discord (REST and Gateway) behind a service binding. Never set in a deployment. */
   DISCORD_TRANSPORT?: Fetcher
+  /** Tests only: fake Slack, GitHub and Linear APIs behind a service binding. Never set in a deployment. */
+  SOURCES_TRANSPORT?: Fetcher
 }
 
 export const RELAY_VERSION = '0.1.0'

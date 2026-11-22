@@ -1,8 +1,8 @@
 // The Discord source inside the Hub (docs/specs/bots/sources/discord.md): turns Gateway messages and
 // HTTP interactions into deliveries for the right bot, and the daemon's events into posts, edits and
-// buttons in Discord. Everything it posts goes through the `outbound` table, a FIFO per
-// conversation that honours Discord's rate limits and records each post's idempotency key, so a
-// retried event never posts twice.
+// buttons in Discord. Everything it posts goes through the Hub's outbound queue (src/outbound.ts),
+// a FIFO per conversation that honours Discord's rate limits and records each post's idempotency
+// key, so a retried event never posts twice.
 
 import {
   askerRole,
@@ -15,7 +15,8 @@ import {
   type Prompt
 } from '../contract'
 import type { Env } from '../env'
-import type { DeliveryInput } from '../hub'
+import { globalLane, type OpResult, type OutboundRunner } from '../outbound'
+import type { SourceHub } from '../sources/common'
 import { discordCall, EPHEMERAL, InteractionType, ResponseType, THREAD_TYPES, type DiscordResult } from './api'
 import {
   accessRow,
@@ -54,20 +55,12 @@ export const DISCORD_SCHEMA = [
   /** Messages by people who may not ask, kept as `no_access` context for the next turn. */
   `CREATE TABLE IF NOT EXISTS discord_context (
      message_id TEXT PRIMARY KEY, external_id TEXT NOT NULL, author_id TEXT NOT NULL, author_name TEXT NOT NULL,
-     text TEXT NOT NULL, at INTEGER NOT NULL)`,
-  `CREATE TABLE IF NOT EXISTS outbound (
-     n INTEGER PRIMARY KEY AUTOINCREMENT, key TEXT UNIQUE NOT NULL, lane TEXT NOT NULL, kind TEXT NOT NULL,
-     ref TEXT, op TEXT NOT NULL, state TEXT NOT NULL, attempts INTEGER NOT NULL DEFAULT 0,
-     not_before INTEGER NOT NULL DEFAULT 0, created_at INTEGER NOT NULL, done_at INTEGER)`,
-  `CREATE INDEX IF NOT EXISTS outbound_pending ON outbound (state, n)`,
-  `CREATE TABLE IF NOT EXISTS outbound_lanes (lane TEXT PRIMARY KEY, blocked_until INTEGER NOT NULL)`
+     text TEXT NOT NULL, at INTEGER NOT NULL)`
 ]
 
-export const OUTBOUND_DUE = 'discord-out'
-const MAX_ATTEMPTS = 6
 const CONTEXT_MESSAGES = 20
 const TOKEN_TTL_MS = 15 * 60 * 1000
-const GLOBAL_LANE = 'global'
+const GLOBAL_LANE = globalLane('discord')
 
 /** The slice of a Gateway MESSAGE_CREATE the Gateway object forwards. */
 export interface GatewayMessage {
@@ -81,16 +74,7 @@ export interface GatewayMessage {
 }
 
 /** What the Hub gives the source. */
-export interface SourceHost {
-  readonly sql: SqlStorage
-  readonly env: Env
-  transaction(fn: () => void): void
-  /** Queues a delivery (deduped by id) and sends it if the bot's host is online. */
-  enqueue(delivery: DeliveryInput): Promise<unknown>
-  bots(): HelloBot[]
-  /** Once per key for 7 days; false when seen before. */
-  markSeen(key: string): boolean
-  scheduleDue(key: string, at: number): Promise<void>
+export interface SourceHost extends SourceHub {
   watchChannel(channelId: string, watch: boolean): Promise<void>
 }
 
@@ -119,14 +103,12 @@ type Op =
   | { t: 'channel-note'; channelId: string; replyTo: string; content: string }
   | { t: 'watch'; channelId: string; watch: boolean }
 
-type OpResult = { status: 'done' } | { status: 'wait'; ms: number; global?: boolean } | { status: 'retry' } | { status: 'fail'; why: string }
-
 const nameOf = (u: { username: string; global_name?: string | null }) => (u.global_name || u.username).slice(0, 256)
 const now = () => Date.now()
 
-export class DiscordSource {
-  private draining = false
-  private again = false
+export class DiscordSource implements OutboundRunner {
+  readonly name = 'discord' as const
+  readonly verbs: readonly string[] = []
   private channelTypes = new Map<string, number>()
 
   constructor(private readonly hub: SourceHost) {
@@ -652,103 +634,23 @@ export class DiscordSource {
   }
 
   private queueStatusEdit(turnId: string, notBefore: number) {
-    const pending = this.sql.exec("SELECT 1 FROM outbound WHERE state = 'pending' AND kind = 'status' AND ref = ?", turnId).toArray()
-    if (pending.length) return
+    if (this.hub.outbound.hasPending('discord', 'status', turnId)) return
     this.queue({ t: 'status', turnId }, `status-edit:${turnId}:${now()}:${Math.random()}`, `conv:${this.turnByKey(turnId)?.external_id}`, notBefore, turnId)
   }
 
-  // --- The outbound queue ---
+  // --- The outbound queue (src/outbound.ts) ---
 
   /** Queues one call; a key already queued (or done in the last 7 days) is not queued again. */
   private queue(op: Op, key: string, lane: string, notBefore = 0, ref?: string) {
-    this.sql.exec(
-      `INSERT OR IGNORE INTO outbound (key, lane, kind, ref, op, state, not_before, created_at) VALUES (?, ?, ?, ?, ?, 'pending', ?, ?)`,
-      key,
-      lane,
-      op.t,
-      ref ?? ('turnId' in op ? op.turnId : null),
-      JSON.stringify(op),
-      notBefore,
-      now()
-    )
+    this.hub.outbound.queue('discord', op, key, lane, notBefore, ref)
   }
 
-  /** Runs the queue without the caller waiting on Discord; the timer catches what is left. */
   drainSoon(): Promise<void> {
-    return this.drain().catch((error) => console.log(`discord queue: ${error instanceof Error ? error.message : String(error)}`))
+    return this.hub.outbound.drainSoon()
   }
 
-  /** Runs every runnable call in order; one drain at a time. Re-arms the timer for the rest. */
-  async drain(): Promise<void> {
-    if (this.draining) {
-      this.again = true
-      return
-    }
-    this.draining = true
-    try {
-      do {
-        this.again = false
-        await this.drainOnce()
-      } while (this.again)
-    } finally {
-      this.draining = false
-    }
-    const next = this.nextRunnableAt()
-    if (next !== null) await this.hub.scheduleDue(OUTBOUND_DUE, next)
-  }
-
-  private lanes(): Map<string, number> {
-    const t = now()
-    return new Map(
-      this.sql.exec<{ lane: string; blocked_until: number }>('SELECT lane, blocked_until FROM outbound_lanes WHERE blocked_until > ?', t).toArray().map((r) => [r.lane, r.blocked_until])
-    )
-  }
-
-  private nextRunnableAt(): number | null {
-    const rows = this.sql.exec<{ lane: string; not_before: number }>("SELECT lane, not_before FROM outbound WHERE state = 'pending'").toArray()
-    if (!rows.length) return null
-    const blocked = this.lanes()
-    const global = blocked.get(GLOBAL_LANE) ?? 0
-    return Math.min(...rows.map((r) => Math.max(r.not_before, blocked.get(r.lane) ?? 0, global)))
-  }
-
-  private async drainOnce() {
-    const rows = this.sql
-      .exec<{ n: number; lane: string; op: string; attempts: number; not_before: number }>(
-        "SELECT n, lane, op, attempts, not_before FROM outbound WHERE state = 'pending' ORDER BY n LIMIT 100"
-      )
-      .toArray()
-    const blocked = this.lanes()
-    const skip = new Set<string>()
-    for (const row of rows) {
-      const t = now()
-      if ((blocked.get(GLOBAL_LANE) ?? 0) > t) return
-      if (skip.has(row.lane) || (blocked.get(row.lane) ?? 0) > t || row.not_before > t) {
-        skip.add(row.lane)
-        continue
-      }
-      let result: OpResult
-      try {
-        result = await this.run(JSON.parse(row.op) as Op, row.n)
-      } catch (error) {
-        console.log(`discord call failed: ${error instanceof Error ? error.message : String(error)}`)
-        result = { status: 'retry' }
-      }
-      if (result.status === 'done') {
-        this.sql.exec("UPDATE outbound SET state = 'done', done_at = ? WHERE n = ?", now(), row.n)
-      } else if (result.status === 'wait') {
-        const lane = result.global ? GLOBAL_LANE : row.lane
-        this.sql.exec('INSERT OR REPLACE INTO outbound_lanes (lane, blocked_until) VALUES (?, ?)', lane, now() + result.ms)
-        blocked.set(lane, now() + result.ms)
-        skip.add(row.lane)
-      } else if (result.status === 'retry' && row.attempts + 1 < MAX_ATTEMPTS) {
-        this.sql.exec('UPDATE outbound SET attempts = attempts + 1, not_before = ? WHERE n = ?', now() + 1000 * 2 ** row.attempts, row.n)
-        skip.add(row.lane)
-      } else {
-        console.log(`discord call dropped (${result.status === 'fail' ? result.why : 'too many attempts'})`)
-        this.sql.exec("UPDATE outbound SET state = 'failed', done_at = ? WHERE n = ?", now(), row.n)
-      }
-    }
+  drain(): Promise<void> {
+    return this.hub.outbound.drain()
   }
 
   /** Classifies a Discord response for the queue. */
@@ -783,7 +685,7 @@ export class DiscordSource {
     return channel
   }
 
-  private async run(op: Op, n: number): Promise<OpResult> {
+  async run(op: Op, n: number): Promise<OpResult> {
     switch (op.t) {
       case 'watch':
         await this.hub.watchChannel(op.channelId, op.watch)
@@ -878,7 +780,7 @@ export class DiscordSource {
           const failed = this.outcome(res, 'post reply')
           if (failed) return failed
           // Progress is kept, so a retry after a rate limit does not post a part twice.
-          this.sql.exec('UPDATE outbound SET op = ? WHERE n = ?', JSON.stringify({ ...op, sent: i + 1 }), n)
+          this.hub.outbound.setOp(n, { ...op, sent: i + 1 })
         }
         return { status: 'done' }
       }
@@ -900,17 +802,9 @@ export class DiscordSource {
     return form
   }
 
-  /** Rows of `outbound` done or failed more than 7 days ago go; their keys stop deduping then. */
   purge(before: number) {
-    this.sql.exec("DELETE FROM outbound WHERE state != 'pending' AND done_at < ?", before)
-    this.sql.exec('DELETE FROM outbound_lanes WHERE blocked_until < ?', now())
     this.sql.exec('DELETE FROM discord_turns WHERE created_at < ?', before)
     this.sql.exec('DELETE FROM discord_prompts WHERE created_at < ?', before)
-  }
-
-  /** Summary for tests. */
-  outboundRows() {
-    return this.sql.exec<{ key: string; kind: string; state: string }>('SELECT key, kind, state FROM outbound ORDER BY n').toArray()
   }
 }
 

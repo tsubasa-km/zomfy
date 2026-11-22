@@ -16,7 +16,9 @@ import {
   parseToHub,
   PING_FRAME,
   PONG_FRAME,
+  parseRef,
   registerRequestSchema,
+  ruleSchema,
   type Ack,
   type Action,
   type Delivery,
@@ -24,11 +26,14 @@ import {
   type Hello,
   type HelloBot,
   type HelloBots,
+  type Rule,
   type ToHub
 } from './contract'
 import { isEd25519PublicKey, randomToken, sameText, sha256Hex, verifyEd25519 } from './crypto'
-import { DiscordSource, OUTBOUND_DUE, type GatewayMessage } from './discord/source'
+import { DiscordSource, type GatewayMessage } from './discord/source'
 import { configuredSources, type Env } from './env'
+import { Outbound, OUTBOUND_DUE, type OutboundRunner } from './outbound'
+import type { HubSource, SourceHub } from './sources/common'
 
 /** Features this Hub implements, of those the contract knows. */
 const HUB_FEATURES = ['hello-bots-pages', 'events-seq']
@@ -72,7 +77,8 @@ const SCHEMA = [
      sent_at INTEGER, received_at INTEGER, done_at INTEGER, outcome TEXT, attempts INTEGER NOT NULL DEFAULT 0)`,
   `CREATE INDEX IF NOT EXISTS deliveries_by_bot ON deliveries (bot_id, state)`,
   `CREATE TABLE IF NOT EXISTS seen_events (key TEXT PRIMARY KEY, at INTEGER NOT NULL)`,
-  `CREATE TABLE IF NOT EXISTS due (key TEXT PRIMARY KEY, at INTEGER NOT NULL)`
+  `CREATE TABLE IF NOT EXISTS due (key TEXT PRIMARY KEY, at INTEGER NOT NULL)`,
+  `CREATE TABLE IF NOT EXISTS meta (key TEXT PRIMARY KEY, value TEXT NOT NULL)`
 ]
 
 const PURGE_KEY = 'purge'
@@ -83,31 +89,65 @@ const fail = (error: string, status: number) => json({ error }, status)
 
 export class Hub extends DurableObject<Env> {
   private readonly sql: SqlStorage
+  private readonly outbound: Outbound
   private readonly discord: DiscordSource
+  /** Every source, for the daemon's events, settled deliveries, actions, timers and the purge. */
+  private readonly sources: HubSource[] = []
+  /** What every source is given. */
+  private readonly shared: SourceHub
 
   constructor(ctx: DurableObjectState, env: Env) {
     super(ctx, env)
     this.sql = ctx.storage.sql
     for (const statement of SCHEMA) this.sql.exec(statement)
     const hub = this
-    this.discord = new DiscordSource({
+    this.outbound = new Outbound(this.sql, (key, at) => hub.scheduleDue(key, at))
+    this.shared = {
       sql: this.sql,
       env,
+      outbound: this.outbound,
       transaction: (fn) => ctx.storage.transactionSync(fn),
       enqueue: (delivery) => this.enqueue(delivery),
       bots: () => this.allBots(),
+      rules: () => this.allRules(),
       markSeen: (key) => this.markSeen(key),
       scheduleDue: (key, at) => hub.scheduleDue(key, at),
+      origin: () => this.meta('origin')
+    }
+    this.discord = new DiscordSource({
+      ...this.shared,
       watchChannel: (channelId, watch) => env.DISCORD_GATEWAY.get(env.DISCORD_GATEWAY.idFromName('discord')).watch(channelId, watch)
     })
+    this.addSource(this.discord)
     // Pings are answered by the runtime without waking the object.
     ctx.setWebSocketAutoResponse(new WebSocketRequestResponsePair(PING_FRAME, PONG_FRAME))
+  }
+
+  private addSource(source: HubSource) {
+    this.sources.push(source)
+    const runner = source as HubSource & Partial<OutboundRunner>
+    if (runner.run) this.outbound.register(source.name, runner as OutboundRunner)
+  }
+
+  private meta(key: string): string | null {
+    return this.sql.exec<{ value: string }>('SELECT value FROM meta WHERE key = ?', key).toArray()[0]?.value ?? null
+  }
+
+  private setMeta(key: string, value: string) {
+    this.sql.exec('INSERT OR REPLACE INTO meta (key, value) VALUES (?, ?)', key, value)
+  }
+
+  /** The Worker's own URL, for the URLs the Hub hands out (webhook URLs). */
+  noteOrigin(url: string) {
+    const origin = new URL(url).origin
+    if (origin !== this.meta('origin')) this.setMeta('origin', origin)
   }
 
   // --- HTTP: registration and the host link ---
 
   override async fetch(request: Request): Promise<Response> {
     const url = new URL(request.url)
+    this.noteOrigin(request.url)
     if (url.pathname === '/v1/host') return this.acceptHost(request, url)
     if (request.method !== 'POST') return fail('not_found', 404)
     let body: unknown
@@ -345,8 +385,8 @@ export class Hub extends DurableObject<Env> {
     if (outcome === 'refused' || outcome === 'unsupported') {
       const delivery = this.deliveryBody(ack.deliveryId)
       if (delivery) {
-        this.discord.onSettled(delivery, outcome, ack.failure)
-        void this.discord.drainSoon()
+        for (const source of this.sources) source.onSettled(delivery, outcome, ack.failure)
+        void this.outbound.drainSoon()
       }
     }
   }
@@ -395,10 +435,10 @@ export class Hub extends DurableObject<Env> {
             break
         }
         // Replies, prompts and status go to the source the conversation is in.
-        this.discord.onEvent(event)
+        for (const source of this.sources) source.onEvent(event)
       }
     })
-    void this.discord.drainSoon()
+    void this.outbound.drainSoon()
   }
 
   private link(hostId: string, c: { source: string; externalId: string }, sessionId: string, botId: string, now: number) {
@@ -413,28 +453,32 @@ export class Hub extends DurableObject<Env> {
     )
   }
 
-  private onAction(ws: WebSocket, action: Action) {
+  private async onAction(ws: WebSocket, action: Action) {
+    const answer = (body: { ok: boolean; result?: unknown; error?: { code: string; message: string } }) =>
+      ws.send(JSON.stringify({ ch: 'bots', type: 'action-result', reqId: action.reqId, ...body }))
     if (action.verb === 'capabilities') {
-      ws.send(
-        JSON.stringify({
-          ch: 'bots',
-          type: 'action-result',
-          reqId: action.reqId,
-          ok: true,
-          result: { contract: CONTRACT_VERSION, verbs: ['capabilities'], sources: configuredSources(this.env) }
-        })
-      )
-      return
+      const verbs = new Set<string>(['capabilities'])
+      for (const source of this.sources) for (const verb of source.verbs) verbs.add(verb)
+      return answer({ ok: true, result: { contract: CONTRACT_VERSION, verbs: [...verbs], sources: configuredSources(this.env) } })
     }
-    ws.send(
-      JSON.stringify({
-        ch: 'bots',
-        type: 'action-result',
-        reqId: action.reqId,
-        ok: false,
-        error: { code: 'unsupported', message: `${action.verb} is not available on this relay yet` }
-      })
-    )
+    const sourceName = action.verb.startsWith('webhook.')
+      ? 'webhook'
+      : action.ref
+        ? parseRef(action.ref)?.source
+        : typeof action.args.source === 'string'
+          ? action.args.source
+          : undefined
+    const source = this.sources.find((s) => s.name === sourceName)
+    if (!source?.action || !source.verbs.includes(action.verb)) {
+      return answer({ ok: false, error: { code: 'unsupported', message: `${action.verb} is not available${sourceName ? ` for ${sourceName}` : ''} on this relay` } })
+    }
+    try {
+      const outcome = await source.action(action)
+      answer(outcome.ok ? { ok: true, result: outcome.result } : { ok: false, error: outcome.error })
+    } catch (error) {
+      answer({ ok: false, error: { code: 'failed', message: (error instanceof Error ? error.message : String(error)).slice(0, 1000) } })
+    }
+    void this.outbound.drainSoon()
   }
 
   private sendError(ws: WebSocket, code: string, message: string, about?: string | number) {
@@ -587,11 +631,11 @@ export class Hub extends DurableObject<Env> {
         if (hostId && this.linkOf(hostId)) resend.set(hostId, [...(resend.get(hostId) ?? []), id])
         else this.sql.exec("UPDATE deliveries SET state = 'pending' WHERE id = ?", id)
       } else if (what === PURGE_KEY) this.purge(now)
-      // OUTBOUND_DUE: the Discord queue runs below, after every alarm.
-      else if (what !== OUTBOUND_DUE) console.log(`unknown timer ${what}`)
+      // OUTBOUND_DUE: the outbound queue runs below, after every alarm. Sources may keep timers of their own.
+      else if (what !== OUTBOUND_DUE && !(await this.sourceTimer(what ?? '', id, now))) console.log(`unknown timer ${what}`)
     }
     for (const [hostId, ids] of resend) await this.sendDeliveries(hostId, ids)
-    await this.discord.drain()
+    await this.outbound.drain()
     const next = this.sql.exec<{ at: number }>('SELECT MIN(at) AS at FROM due').one().at
     if (next !== null) await this.ctx.storage.setAlarm(Math.max(next, Date.now() + 1))
   }
@@ -606,7 +650,7 @@ export class Hub extends DurableObject<Env> {
     this.finish(id, 'expired', now)
     // The delivery is settled here exactly once, so the asker is told once.
     const delivery = this.deliveryBody(id)
-    if (delivery) this.discord.onSettled(delivery, 'expired')
+    if (delivery) for (const source of this.sources) source.onSettled(delivery, 'expired')
     console.log(`delivery expired ${id} (${row.kind})`)
   }
 
@@ -614,7 +658,8 @@ export class Hub extends DurableObject<Env> {
     const before = now - limits.retentionMs
     this.sql.exec("DELETE FROM deliveries WHERE state = 'done' AND done_at < ?", before)
     this.sql.exec('DELETE FROM seen_events WHERE at < ?', before)
-    this.discord.purge(before)
+    this.outbound.purge(before)
+    for (const source of this.sources) source.purge(before)
     this.sql.exec('DELETE FROM invites WHERE expires_at < ?', now - DAY_MS)
     const left = this.sql.exec<{ n: number }>(
       "SELECT (SELECT COUNT(*) FROM deliveries WHERE state = 'done') + (SELECT COUNT(*) FROM invites) + (SELECT COUNT(*) FROM seen_events) AS n"
@@ -636,15 +681,33 @@ export class Hub extends DurableObject<Env> {
 
   /** Runs the outbound queue now, for tests. */
   async drainOutbound(): Promise<void> {
-    await this.discord.drain()
+    await this.outbound.drain()
   }
 
   async outboundRows() {
-    return this.discord.outboundRows()
+    return this.outbound.rows()
+  }
+
+  /** A timer a source keeps in `due` (`<what>:<id>`); false when no source knows it. */
+  private async sourceTimer(what: string, id: string, now: number): Promise<boolean> {
+    for (const source of this.sources) {
+      if (source.onTimer && (await source.onTimer(what, id, now))) return true
+    }
+    return false
   }
 
   private allBots(): HelloBot[] {
     return this.sql.exec<{ body: string }>('SELECT body FROM bots ORDER BY id').toArray().map((r) => JSON.parse(r.body) as HelloBot)
+  }
+
+  private allRules(): Rule[] {
+    return this.sql
+      .exec<{ body: string }>('SELECT body FROM rules ORDER BY host_id, id')
+      .toArray()
+      .flatMap((r) => {
+        const parsed = ruleSchema.safeParse(JSON.parse(r.body))
+        return parsed.success ? [parsed.data] : []
+      })
   }
 
   /** Dedupe on a source's event id: true the first time within 7 days. */
