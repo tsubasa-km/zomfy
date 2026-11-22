@@ -43,6 +43,7 @@ import { AcpAgentSessions } from "./acp-agent-sessions.ts";
 import { chatAgentLaunch } from "./chat-agent-launch-settings.ts";
 import { noteSlashCommands } from "./claude-catalog.ts";
 import { liveClaudeQueries } from "./live-claude-queries.ts";
+import { BackgroundTaskMarks } from "./background-task-marks.ts";
 import type { SessionRegistry } from "./session-registry.ts";
 import { SessionMover } from "./session-move.ts";
 import type { TerminalManager } from "./terminal-manager.ts";
@@ -335,6 +336,16 @@ export function createHarnessAgent(
       }).catch(() => undefined),
   );
   autoResume.start();
+  // Background tasks die with the daemon whose Claude processes ran them: each chat that had some hears so.
+  const backgroundMarks = new BackgroundTaskMarks();
+  for (const [sessionId, tasks] of backgroundMarks.takeAll()) {
+    if (!sessions.get(sessionId)) continue;
+    void emit(sessionId, {
+      sessionUpdate: "notice",
+      severity: "warning",
+      title: `Zomfy restarted, which stopped the background tasks this chat was running: ${tasks.join(", ")}`,
+    }).catch(() => undefined);
+  }
 
   type Ask =(request: acp.RequestPermissionRequest) => Promise<acp.RequestPermissionResponse>;
 
@@ -368,6 +379,8 @@ export function createHarnessAgent(
   /**
    * `client` is the window that started the turn (null for automations); manager tool calls route
    * through it. `resumed` marks a recovery turn, whose prompt the transcript shows as a divider.
+   * `woken` takes the turn the chat's Claude process started itself when a background task finished:
+   * `params.prompt` is the task's notification, shown but not sent (background-task-wake.md).
    */
   async function prompt(
     params: acp.PromptRequest,
@@ -375,10 +388,13 @@ export function createHarnessAgent(
     client: acp.AgentContext | null,
     resumed?: TurnResumeKind,
     origin?: PromptOrigin,
+    woken = false,
   ): Promise<acp.PromptResponse> {
+    // The process already runs that turn: it cannot wait, nor take the place of one already running.
+    if (woken && pendingTurns.has(params.sessionId)) return { stopReason: "cancelled" };
     // split_work merging into this chat's folder: the turn starts once that is done.
     const folder = sessions.get(params.sessionId)?.workspaceId ?? null;
-    if (splits.hold(folder)) {
+    if (!woken && splits.hold(folder)) {
       // Registered while it waits (unless a turn already is), so Stop reaches it.
       const waiting = pendingTurns.has(params.sessionId) ? null : new AbortController();
       if (waiting) pendingTurns.set(params.sessionId, waiting);
@@ -395,6 +411,7 @@ export function createHarnessAgent(
     }
     const session = sessions.get(params.sessionId);
     if (!session) throw new Error(`Unknown session ${params.sessionId}`);
+    if (woken && (acpAgents.for(session) || cli.has(session.id))) return { stopReason: "cancelled" };
     // A helper at work on its part: a message now would cut its turn short and keep the part out.
     if (splits.isHelper(session.id) && stepTurns.has(session.id) && pendingTurns.has(session.id)) {
       await emit(session.id, {
@@ -439,7 +456,7 @@ export function createHarnessAgent(
       ...(firstTurn && text ? { title: text.replace(/\s+/g, " ").slice(0, 40) } : {}),
     });
     // A split's report this turn takes from the saved context (the person spoke first) is shown too.
-    const report = origin?.kind === "harness-note" ? null : reportIn(session.seedContext);
+    const report = origin?.kind === "harness-note" || woken ? null : reportIn(session.seedContext);
     if (report) {
       await emit(session.id, {
         sessionUpdate: "user_message_chunk",
@@ -482,6 +499,8 @@ export function createHarnessAgent(
     // Read when the prompt goes to the agent: one whose conversation would not reopen is handed it only then.
     let handoff: string | null | undefined;
     const promptWithSeed = (): acp.ContentBlock[] => {
+      // Not sent: the seed waits for the next prompt the agent reads.
+      if (woken) return params.prompt;
       handoff = session.handoffContext;
       // A running split's note goes with every turn while its parts run; it is never stored.
       const seed = [handoff, session.seedContext, splits.turnNote(session.id)].filter((part) => !!part).join("\n\n");
@@ -567,6 +586,9 @@ export function createHarnessAgent(
         ...(quickChat ? {} : { worktreeGuards: () => claims.guards(session.id, session.workspaceId) }),
         onTurnEnd: (turnEnd) => (outcome.end = turnEnd),
         onPromptSuggestion: (promptSuggestion) => sessions.update(session.id, { promptSuggestion }),
+        attach: woken,
+        onWake: (notification) => wakeChat(session.id, notification),
+        onBackgroundTasks: (tasks) => backgroundMarks.set(session.id, tasks),
         ...(stepTurns.get(session.id) ?? {}),
       });
       if (stopReason === "cancelled" || abort.signal.aborted) return await interrupted();
@@ -602,6 +624,14 @@ export function createHarnessAgent(
       if (finishing.has(session.id)) void finishAfterTurn(session.id);
       void mover.followAfterTurn(session.id).catch((error) => log(`${session.id} could not follow its project: ${String(error)}`));
     }
+  }
+
+  /** A background task finished after the chat's turn: the chat takes the turn its process started. */
+  function wakeChat(sessionId: string, notification: string): void {
+    const text: acp.ContentBlock[] = notification ? [{ type: "text", text: notification }] : [];
+    void prompt({ sessionId, prompt: text }, askAnyClient, null, undefined, undefined, true).catch((error) =>
+      log(`${sessionId} could not take its woken turn: ${String(error)}`),
+    );
   }
 
   const app = acp

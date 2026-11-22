@@ -101,6 +101,8 @@ export function registerSessionHandlers(ctx: HandlerContext): void {
   });
   handle(HARNESS_METHODS.sessionClose, async (p) => {
     pendingTurns.get(p.sessionId)?.abort();
+    // Its Claude process may still be up for background tasks: they go with the chat.
+    await releaseFinishedTurn(p.sessionId);
     await sessions.remove(p.sessionId);
     return {};
   });
