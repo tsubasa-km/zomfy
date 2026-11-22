@@ -61,8 +61,8 @@ is the same on every host), once, after the legacy key rename.
 
 ## Other legacy folders
 
-- `%LOCALAPPDATA%\acp-harness` held only per-build copies of the daemon; the app removes it whenever
-  it exists, not just before the first move.
+- `%LOCALAPPDATA%\acp-harness` held only per-build copies of the daemon (in `bin`); the app removes
+  `bin`, then the folder once empty, whenever it exists, not just before the first move.
 - The worktree root `~/acp-harness/workspaces` is not part of the home: worktrees there keep their
   recorded paths and keep working, and nothing reads the old home to find them.
 
@@ -99,3 +99,16 @@ the webview's data are keyed by the identifier (`io.github.tsubasa-km.zomfy`), w
 - `bun run typecheck`, `bun test` in `packages/daemon` and `apps/desktop`, `cargo check` pass.
 - A locally built installer installs as `zomfy.exe` over a throwaway install of the current version:
   the old executable is gone and the shortcuts point at the new one.
+
+# Verified
+
+- `legacy-home-retire.test.ts` (daemon) and `legacy-storage.test.ts` (desktop) cover the checks above,
+  junctions included on Windows.
+- A dry run on a copy of a real home's store files rewrote 6 files with no failures. What still
+  mentions the old name there is prose and code inside transcripts and `~/.acp-harness` typed in old
+  commands, not stored absolute paths, and it stays as written.
+- Two installers were built locally under a throwaway product name, the first with the old
+  executable name and no hooks, the second with `zomfy` and the hooks. Installing the second over
+  the first in update mode (`/P /UPDATE`), with a process running from `acp-harness-desktop.exe` and
+  a taskbar pin pointing at it, closed the process, left only `zomfy.exe`, pointed the Start menu,
+  desktop and taskbar shortcuts at it, and recorded `MainBinaryName` as `zomfy.exe`.
