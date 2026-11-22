@@ -3,7 +3,7 @@ type: Spec
 title: The Android app
 description: Screens, Expo stack, connection and offline behaviour, and how the APK is built and installed.
 status: stable
-x-zomfy-implementation: planned
+x-zomfy-implementation: in-progress
 tags: [mobile, app]
 sources:
   - id: mobile-app
@@ -18,7 +18,7 @@ sources:
   - id: expo-apk
     resource: https://docs.expo.dev/build-reference/apk/
     title: Expo — build APKs for Android
-generated: { by: "claude-code/opus-5.5", at: "2026-11-22T00:00:00Z" }
+generated: { by: "claude-code/opus-5.5", at: "2026-11-22T12:00:00Z" }
 ---
 
 # Problem
@@ -70,6 +70,20 @@ lists and the last transcript of recently opened chats are readable offline.
 - The app's package id is `dev.zomfy.app`; the APK is signed with a keystore kept by EAS (or a
   local one for local builds). An in-app check tells the person when a newer `android-v*` release
   exists.
+
+## Implementation status
+
+The M1 shell is in `apps/mobile` (Expo SDK 58): the Pair, Hosts, Needs you, Host, Chat and Settings
+screens on the direct route. Differences from the plan above, for M1:
+
+- It runs in **Expo Go** as well as in a build: M1 uses no native module Expo Go lacks. Push (M3)
+  is when it needs a development build.
+- TanStack Query, zod, the offline queue, drafts and cached lists are not in yet (M2); the route
+  chooser already picks the first live direct route and moves back to a preferred one.
+- `@noble/curves` makes the Ed25519 and X25519 keys, kept in expo-secure-store.
+- `eas.json` has the `preview` profile with `buildType: apk`; `bun run mobile:apk` runs it once
+  the person has signed in to EAS. The APK allows cleartext `http`/`ws` for LAN routes.
+- No in-app check for newer `android-v*` releases yet.
 
 # Non-goals
 

@@ -5,6 +5,7 @@
   "workspaces": ["packages/*", "apps/*"],
   "scripts": {
     "daemon": "bun --cwd packages/daemon start",
-    "typecheck": "bun --filter '*' typecheck"
+    "typecheck": "bun --filter '*' typecheck",
+    "mobile:apk": "bun --cwd apps/mobile run apk"
   }
 }
