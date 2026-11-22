@@ -72,6 +72,7 @@ export type ThreadItem =
       id: string
       title: string
       toolKind: acp.ToolKind
+      /** An ACP ToolCallStatus, or STOPPED_TOOL (stopped-tools.ts). */
       status: string
       input: unknown
       output: string

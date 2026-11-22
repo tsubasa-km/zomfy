@@ -26,6 +26,7 @@ import { CHAT_ATTACHMENT_DIR, deferAttachmentMentions } from "./chat-attachment-
 import { detectUsageLimit } from "./usage-limit.ts";
 import { noteClaudeTurnEnded } from "./usage-limits.ts";
 import { log } from "./log.ts";
+import { PROCESS_GONE_META } from "./stopped-tool-calls.ts";
 import { QUESTION_OPTIONS, QUESTION_TOOL, questionResult } from "./ask-user-question.ts";
 import { pathGuardHooks, type PathGuard } from "./step-path-guard.ts";
 
@@ -195,7 +196,7 @@ async function letGo(proc: ClaudeProcess, why: string): Promise<void> {
   if (tasks.length > 0) {
     proc.kill();
     proc.last.onBackgroundTasks?.([]);
-    await proc.last.emit({ sessionUpdate: "notice", severity: "info", title: `${why}: ${tasks.join(", ")}` }).catch(() => undefined);
+    await proc.last.emit({ sessionUpdate: "notice", severity: "info", title: `${why}: ${tasks.join(", ")}`, _meta: { [PROCESS_GONE_META]: true } }).catch(() => undefined);
   }
 }
 

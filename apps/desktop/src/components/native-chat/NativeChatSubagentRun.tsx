@@ -5,24 +5,29 @@ import { NativeChatMarkdown } from './NativeChatMarkdown'
 import { NativeChatToolLine } from './NativeChatToolLine'
 import type { ToolNode } from './native-chat-transcript-model'
 import { t } from '@/i18n/i18n'
+import { STOPPED_TOOL } from '@/stopped-tools'
 
-type SubagentState = 'working' | 'completed' | 'failed'
+type SubagentState = 'working' | 'completed' | 'failed' | 'stopped'
 
 // Dot classes from Orca's NativeChatSubagentRun.
 const STATE_DOT_CLASS: Record<SubagentState, string> = {
   working: 'bg-foreground/70',
   completed: 'bg-muted-foreground/60',
-  failed: 'bg-destructive'
+  failed: 'bg-destructive',
+  stopped: 'bg-muted-foreground/40'
 }
 
 const STATE_LABEL: Record<SubagentState, string> = {
   working: t('Working'),
   completed: t('Done'),
-  failed: t('Failed')
+  failed: t('Failed'),
+  stopped: t('Stopped')
 }
 
 function stateOf(status: string): SubagentState {
   if (status === 'failed') return 'failed'
+  // Its turn or process stopped before it finished (stopped-tool-calls.md).
+  if (status === STOPPED_TOOL) return 'stopped'
   return status === 'completed' ? 'completed' : 'working'
 }
 
