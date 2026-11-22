@@ -9,6 +9,7 @@ import {
   type AutomationSchedulePreset,
   type AutomationScheduleFields,
   type AutomationTrigger,
+  type AutomationSourceTriggerKind,
   type ChatAgentId,
   type ChatEffort,
   type ChatPermissionMode,
@@ -33,7 +34,7 @@ import { useProjectCatalog } from '@/stores/project-catalog-store'
 // Fields follow Orca's AutomationEditorDialog (prompt, schedule picker, workspace, agent,
 // reuse session); event triggers are the harness's addition.
 
-type TriggerKind = AutomationTrigger['kind']
+type TriggerKind = Exclude<AutomationTrigger['kind'], AutomationSourceTriggerKind>
 const TRIGGER_LABEL: Record<TriggerKind, string> = {
   schedule: t('On a schedule'),
   'workspace-created': t('When a workspace is created'),
@@ -85,7 +86,8 @@ function initialDraft(existing: HostedAutomation | null, defaultWorkspace: { id:
     agent: existing?.agent ?? 'claude',
     effort: existing ? (existing.effort ?? 'default') : 'low',
     permissionMode: existing?.permissionMode ?? 'default',
-    triggerKind: trigger?.kind ?? 'schedule',
+    triggerKind:
+      trigger?.kind === 'workspace-created' || trigger?.kind === 'agent-finished' ? trigger.kind : 'schedule',
     schedule: (trigger?.kind === 'schedule' && automationScheduleFields(trigger.rrule)) || {
       preset: 'weekdays',
       hour: 9,

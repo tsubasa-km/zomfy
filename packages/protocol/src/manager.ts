@@ -516,6 +516,36 @@ export const MANAGER_TOOLS = [
     },
     readOnly: false,
     selfOnly: true
+  },
+  {
+    name: 'create_bot_automation',
+    description:
+      "Only in a Zomfy bot's chat: saves a schedule or an event trigger for this bot (\"every weekday at 9, summarise yesterday's merged PRs into #eng\"). It runs in the bot's home with its persona, on this computer, while Zomfy runs. Give `schedule` (an RRULE in the computer's local time, e.g. FREQ=WEEKLY;BYDAY=MO,TU,WE,TH,FR;BYHOUR=9;BYMINUTE=0) or `trigger` (an event in one of the bot's sources), never both. `resultsTo` is where the result is posted: 'thread' (this conversation's thread, the default when it came from a source), 'chat' (only the run's Zomfy chat), 'none', or a place's ref (discord:<guild>:<channel>, slack:<team>:<channel>, linear:<org>:<issue>). Say what you saved in your reply.",
+    inputSchema: {
+      type: 'object',
+      properties: {
+        name: str('A short name, shown in Zomfy.'),
+        prompt: str('What the bot does on each run, as a prompt to itself.'),
+        schedule: str('An RRULE, for a schedule.'),
+        trigger: {
+          type: 'object',
+          description: 'An event in a source, for a trigger.',
+          properties: {
+            source: { type: 'string', enum: ['discord', 'slack', 'github', 'linear'] },
+            kinds: { type: 'array', items: { type: 'string' }, description: "The source's event kinds (Slack: mentioned, message, reaction; GitHub: pr_opened, ci_failed, …); none means all." },
+            places: { type: 'array', items: { type: 'string' }, description: 'Refs of channels, repositories or issues; none means anywhere.' },
+            from: str('Only these people, by their ids in the source, separated by commas.'),
+            textContains: str('Only events whose text contains this.')
+          },
+          required: ['source']
+        },
+        resultsTo: str("'thread', 'chat', 'none', or a ref."),
+        runsIn: { type: 'string', enum: ['new', 'chat'], description: "'new' opens a chat per run (default); 'chat' continues this chat." }
+      },
+      required: ['name', 'prompt']
+    },
+    readOnly: false,
+    daemonOffered: true
   }
 ] as const satisfies readonly ManagerToolDefinition[]
 

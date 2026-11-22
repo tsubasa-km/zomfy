@@ -5,7 +5,8 @@ import {
   chatAgentLabel,
   automationScheduleFields,
   type AutomationRunStatus,
-  type AutomationTrigger
+  type AutomationTrigger,
+  type AutomationSourceTrigger
 } from '@zomfy/protocol'
 import { harnessRequest } from '@/daemon-connection'
 import { allProjects, allWorkspaces, getState, selectSession, useStore } from '@/session-store'
@@ -63,9 +64,23 @@ export function triggerLabel(trigger: AutomationTrigger, names: Map<string, stri
       project: trigger.projectId ? (names.get(trigger.projectId) ?? t('a removed project')) : t('any project')
     })
   }
+  if (trigger.kind !== 'agent-finished') return sourceTriggerLabel(trigger)
   return t('When an agent finishes in {workspace}', {
     workspace: trigger.workspaceId ? (names.get(trigger.workspaceId) ?? t('a removed workspace')) : t('any workspace')
   })
+}
+
+const SOURCE_TRIGGER_LABEL: Record<AutomationSourceTrigger['kind'], string> = {
+  'discord-message': t('Discord'),
+  'slack-message': t('Slack'),
+  'github-event': t('GitHub'),
+  'linear-event': t('Linear'),
+  webhook: t('Webhook')
+}
+
+function sourceTriggerLabel(trigger: AutomationSourceTrigger): string {
+  const kinds = trigger.kinds.length ? trigger.kinds.join(', ') : t('any event')
+  return t('On {source}: {kinds}', { source: SOURCE_TRIGGER_LABEL[trigger.kind], kinds })
 }
 
 function formatTime(ms: number | null): string {

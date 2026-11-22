@@ -119,5 +119,9 @@ export const BOTS: Record<string, string> = {
 
   // components/settings/settings-navigation.ts (Bots)
   'Your relay, the sources it carries, and each bot: its files, who can ask, pause and delete.':
-    'リレーとそれが運ぶソース、そして各ボットのファイル・依頼できる人・一時停止・削除。'
+    'リレーとそれが運ぶソース、そして各ボットのファイル・依頼できる人・一時停止・削除。',
+  // components/automations/AutomationsPage.tsx (bot triggers)
+  Webhook: 'Webhook',
+  'any event': 'すべてのイベント',
+  'On {source}: {kinds}': '{source}：{kinds}'
 }
