@@ -34,3 +34,9 @@ jobs:
       - name: Test the desktop app
         working-directory: apps/desktop
         run: bun test
+      - name: Test the relay contract
+        working-directory: packages/relay-contract
+        run: bun test
+      - name: Test the relay Worker
+        working-directory: apps/relay
+        run: bun run test

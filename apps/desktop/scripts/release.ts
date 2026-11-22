@@ -69,6 +69,8 @@ if (!process.argv.includes('--skip-checks')) {
   run(['bun', 'run', 'typecheck'])
   run(['bun', 'test'], { cwd: join(root, 'packages', 'daemon') })
   run(['bun', 'test'], { cwd: desktop })
+  run(['bun', 'test'], { cwd: join(root, 'packages', 'relay-contract') })
+  run(['bun', 'run', 'test'], { cwd: join(root, 'apps', 'relay') })
 }
 
 const conf = JSON.parse(readFileSync(confPath, 'utf8'))
