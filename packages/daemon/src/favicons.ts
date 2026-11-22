@@ -166,7 +166,8 @@ export async function fetchFavicon(domain: string, fetchImpl: Fetch = fetch): Pr
     let origin = `https://${host}`;
     try {
       const page = await safeGet(fetchImpl, `${origin}/`);
-      if (page) {
+      // A home page that redirects to another site (a project's GitHub page) would lend it that site's icon.
+      if (page && siteDomain(new URL(page.url).hostname) === siteDomain(host)) {
         const finalUrl = page.url;
         origin = new URL(finalUrl).origin;
         const html = await readCapped(page.response, PAGE_CAP);

@@ -75,6 +75,16 @@ describe("fetchFavicon", () => {
     expect(asked.some((url) => url.includes("127.0.0.1"))).toBe(false);
   });
 
+  test("ignores a home page that redirects to another site", async () => {
+    const { impl, asked } = fakeFetch({
+      "https://mcp.example.dev/": () => new Response(null, { status: 302, headers: { location: "https://github.com/example/mcp" } }),
+      "https://github.com/example/mcp": () => new Response(`<link rel="icon" href="/gh.png">`, { headers: { "content-type": "text/html" } }),
+      "https://github.com/gh.png": () => new Response(png, { headers: { "content-type": "image/png" } }),
+    });
+    expect(await fetchFavicon("mcp.example.dev", impl)).toBeNull();
+    expect(asked).not.toContain("https://github.com/gh.png");
+  });
+
   test("refuses an icon over the size cap", async () => {
     const { impl } = fakeFetch({
       "https://big.example.com/favicon.ico": () => new Response(new Uint8Array(300 * 1024), { headers: { "content-type": "image/x-icon" } }),
