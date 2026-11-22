@@ -1,16 +1,15 @@
-import { allProjects, allWorkspaces, getState, selectSession, selectWorkspace, useSidebarWorkspaceId, useStore } from '@/session-store'
+import { allProjects, allWorkspaces, getState, selectSession, selectWorkspace, useStore } from '@/session-store'
 import { sidebarDrag, type DragItem } from '@/components/sidebar/sidebar-drag'
 import { projectLabel } from '@/components/sidebar/workspace-visibility'
 import { WorkspaceTabs } from '@/components/WorkspaceTabs'
-import { PaneSidebar, PaneSidebarToggle } from '@/components/tab-layout/PaneSidebar'
-import { OWN_TITLE_BAR } from '@/components/TitleBar'
 import { WINDOW_TABS } from '@/stores/tab-layout-store'
 import { t } from '@/i18n/i18n'
 
 // The main area: one set of tabs for the whole window, as an editor's. A tab is a chat, a terminal,
 // a file, a page or a panel of any workspace, and tabs split side by side whatever project they
-// belong to. There is no header above them: the sidebar on the right shows the files, changes and
-// checks of the workspace the tab in front works in, and the status bar names that workspace.
+// belong to. There is no header above them: each split pane has a sidebar on its right showing the
+// files, changes and checks of the workspace its tab works in (docs/specs/pane-sidebars.md), and the
+// status bar names the workspace in front.
 
 const EMPTY_HINT = t('No tabs yet. Start one here, or find more under + in the tab bar.')
 
@@ -24,8 +23,6 @@ function draggedWorkspace(item: DragItem): string | null {
 }
 
 export function WorkspaceMain() {
-  // On the "New thread" tab the sidebar shows where that thread starts, not the workspace last in front.
-  const active = useSidebarWorkspaceId()
   // A chat or workspace dropped here from the sidebar opens, as a click on it does.
   const dropRef = sidebarDrag.useDropTarget({
     accepts: (item) => draggedWorkspace(item) !== null,
@@ -40,18 +37,7 @@ export function WorkspaceMain() {
 
   return (
     <div ref={dropRef} className="relative flex min-w-0 flex-1" data-workspace-main>
-      <WorkspaceTabs
-        workspaceId={WINDOW_TABS}
-        emptyHint={EMPTY_HINT}
-        trailing={
-          active && !OWN_TITLE_BAR ? (
-            <div className="flex shrink-0 items-center gap-0.5 pr-1.5 pl-1" data-window-tools>
-              <PaneSidebarToggle workspaceId={active} />
-            </div>
-          ) : undefined
-        }
-      />
-      {active && <PaneSidebar workspaceId={active} />}
+      <WorkspaceTabs workspaceId={WINDOW_TABS} emptyHint={EMPTY_HINT} />
     </div>
   )
 }

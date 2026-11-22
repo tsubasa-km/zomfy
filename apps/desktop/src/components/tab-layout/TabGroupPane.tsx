@@ -1,8 +1,9 @@
 import { memo, useCallback, useEffect, useState } from 'react'
 import { filePathDrag, type DraggedPaths } from '@/lib/file-path-drag'
 import { ensureSessionLoaded } from '@/daemon-connection'
-import { getState, sidebarWorkspaceId, useStore } from '@/session-store'
+import { getState, sidebarWorkspaceId, usePaneSidebarWorkspaceId, useStore } from '@/session-store'
 import { tabScope, WINDOW_TABS } from '@/stores/tab-layout-store'
+import { paneSidebarKey } from '@/stores/pane-sidebar-store'
 import { QuickStart } from '@/components/QuickStart'
 import { ThreadView } from '@/components/ThreadView'
 import { TerminalTabBody } from '@/components/terminal/TerminalPaneTree'
@@ -15,6 +16,7 @@ import { WindowEmptyPane } from './WindowEmptyPane'
 import { ErrorBoundary, ViewError } from '@/components/ErrorBoundary'
 import { WorkspacePanelView } from './workspace-panels'
 import { TabStrip } from './TabStrip'
+import { PaneSidebar, PaneSidebarToggle } from './PaneSidebar'
 import { resolveTabDropTarget, setInsertionMark, tabDrag, type DraggedTab, type DropZone } from './tab-drag'
 import { focusGroup, moveTabTo, openChatAt, openFilesAt, splitTabTo } from './tab-group-commands'
 import { sidebarDrag, type DragItem } from '@/components/sidebar/sidebar-drag'
@@ -70,7 +72,8 @@ export const TabGroupPane = memo(function TabGroupPane({
   isFocused,
   hasSplit,
   trailing,
-  emptyHint
+  emptyHint,
+  sidebar
 }: {
   workspaceId: string
   groupId: string
@@ -80,6 +83,8 @@ export const TabGroupPane = memo(function TabGroupPane({
   hasSplit: boolean
   trailing?: React.ReactNode
   emptyHint: string
+  /** Whether the pane has a right sidebar of its own (docs/specs/pane-sidebars.md). */
+  sidebar: boolean
 }) {
   const active = tabs.find((t) => t.id === activeId) ?? null
   const activeChatId = active?.kind === 'chat' ? active.id : undefined
@@ -93,6 +98,11 @@ export const TabGroupPane = memo(function TabGroupPane({
   const recent = useStore((s) => (home ? null : sidebarWorkspaceId(s)))
   const [zone, setZone] = useState<DropZone | null>(null)
   const drawer = Boolean(active && home && active.kind !== 'start')
+  // The pane's own right sidebar, on the workspace of the tab it shows.
+  const scope = tabScope(workspaceId)
+  const sidebarKey = paneSidebarKey(scope, groupId)
+  const sidebarWorkspace = usePaneSidebarWorkspaceId(scope, active ? (active.kind === 'start' ? 'start' : tabWorkspaceId(active)) : null)
+  const showSidebar = sidebar && sidebarWorkspace !== null
 
   useEffect(() => {
     if (activeChatId) void ensureSessionLoaded(activeChatId)
@@ -170,60 +180,78 @@ export const TabGroupPane = memo(function TabGroupPane({
   )
 
   return (
+    // A press anywhere in the pane, its sidebar too, makes it the one being worked in.
     <div
-      ref={paneRef}
-      data-tab-group-id={groupId}
-      data-focused={isFocused ? 'true' : 'false'}
-      className="relative flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden"
+      data-tab-pane={groupId}
+      className="relative flex min-h-0 min-w-0 flex-1 overflow-hidden"
       onPointerDown={() => !isFocused && focusGroup(workspaceId, groupId)}
     >
-      <TabStrip
-        workspaceId={placed}
-        groupId={groupId}
-        tabs={tabs}
-        activeId={active?.id ?? null}
-        isFocused={isFocused}
-        hasSplit={hasSplit}
-        trailing={trailing}
-      />
-      {/* Under a drawer's handle the tab's content starts lower, each kind in its own way (--tab-top-inset). */}
       <div
-        data-tab-group-body-id={groupId}
-        className="relative flex min-h-0 min-w-0 flex-1 flex-col"
-        style={drawer ? DRAWER_HANDLE_INSET : undefined}
+        ref={paneRef}
+        data-tab-group-id={groupId}
+        data-focused={isFocused ? 'true' : 'false'}
+        className="relative flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden"
       >
-        {active ? (
-          // One tab that fails to render keeps to its own pane; switching tabs remounts the boundary.
-          // Its key differs from the drawer's beside it: siblings sharing a key leave a closed tab's
-          // view on screen.
-          <ErrorBoundary key={`body:${active.id}`} fallback={(error, reset) => <ViewError error={error} onRetry={reset} />}>
-            <TabBody tab={active} />
-          </ErrorBoundary>
-        ) : home ? (
-          <EmptyPane workspaceId={home} groupId={groupId} hint={emptyHint} />
-        ) : recent ? (
-          <EmptyPane workspaceId={recent} groupId={groupId} hint={emptyHint} />
-        ) : (
-          // Nothing open and no project to offer: the list a project's empty pane shows, for the window.
-          <WindowEmptyPane />
-        )}
-        {/* The drawer belongs to the tab on show: none without one, and each tab keeps its own. */}
-        {active && home && drawer && (
-          <ToolDrawer key={`drawer:${active.id}`} workspaceId={home} tabId={active.id} exclude={active.id} focused={isFocused} />
+        <TabStrip
+          workspaceId={placed}
+          groupId={groupId}
+          tabs={tabs}
+          activeId={active?.id ?? null}
+          isFocused={isFocused}
+          hasSplit={hasSplit}
+          trailing={
+            showSidebar ? (
+              <>
+                {trailing}
+                <div className="flex shrink-0 items-center pr-1.5 pl-1" data-pane-tools>
+                  <PaneSidebarToggle paneKey={sidebarKey} />
+                </div>
+              </>
+            ) : (
+              trailing
+            )
+          }
+        />
+        {/* Under a drawer's handle the tab's content starts lower, each kind in its own way (--tab-top-inset). */}
+        <div
+          data-tab-group-body-id={groupId}
+          className="relative flex min-h-0 min-w-0 flex-1 flex-col"
+          style={drawer ? DRAWER_HANDLE_INSET : undefined}
+        >
+          {active ? (
+            // One tab that fails to render keeps to its own pane; switching tabs remounts the boundary.
+            // Its key differs from the drawer's beside it: siblings sharing a key leave a closed tab's
+            // view on screen.
+            <ErrorBoundary key={`body:${active.id}`} fallback={(error, reset) => <ViewError error={error} onRetry={reset} />}>
+              <TabBody tab={active} />
+            </ErrorBoundary>
+          ) : home ? (
+            <EmptyPane workspaceId={home} groupId={groupId} hint={emptyHint} />
+          ) : recent ? (
+            <EmptyPane workspaceId={recent} groupId={groupId} hint={emptyHint} />
+          ) : (
+            // Nothing open and no project to offer: the list a project's empty pane shows, for the window.
+            <WindowEmptyPane />
+          )}
+          {/* The drawer belongs to the tab on show: none without one, and each tab keeps its own. */}
+          {active && home && drawer && (
+            <ToolDrawer key={`drawer:${active.id}`} workspaceId={home} tabId={active.id} exclude={active.id} focused={isFocused} />
+          )}
+        </div>
+        {zone && (
+          <div aria-hidden data-tab-drop-zone={zone} className="tab-drop-overlay" style={OVERLAY_RECT[zone]}>
+            {zone !== 'center' && (
+              <span className="tab-drop-overlay__label pointer-events-none absolute bottom-2 left-2 rounded-sm px-1.5 py-0.5 font-medium">
+                {t('New split')}
+              </span>
+            )}
+          </div>
         )}
       </div>
+      {showSidebar && <PaneSidebar paneKey={sidebarKey} workspaceId={sidebarWorkspace} />}
       {/* Split, the pane being worked in is outlined, so where a keystroke goes is plain to see. */}
       {hasSplit && isFocused && (
         <div aria-hidden data-focused-pane-outline className="pointer-events-none absolute inset-0 z-30 border border-highlight/60" />
-      )}
-      {zone && (
-        <div aria-hidden data-tab-drop-zone={zone} className="tab-drop-overlay" style={OVERLAY_RECT[zone]}>
-          {zone !== 'center' && (
-            <span className="tab-drop-overlay__label pointer-events-none absolute bottom-2 left-2 rounded-sm px-1.5 py-0.5 font-medium">
-              {t('New split')}
-            </span>
-          )}
-        </div>
       )}
     </div>
   )

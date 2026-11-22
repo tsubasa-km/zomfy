@@ -128,6 +128,7 @@ function FloatingWorkspacePanel({ workspaceId, open, maximized }: { workspaceId:
         <WorkspaceTabs
           workspaceId={workspaceId}
           emptyHint={t('Floating workspace in {path}. Use + to start Claude here.', { path })}
+          sidebars={false}
           trailing={
             <FloatingWorkspaceWindowControls
               workspaceId={workspaceId}
