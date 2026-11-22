@@ -3,7 +3,7 @@ type: Spec
 title: GitHub source
 description: Asking a bot by mention on issues and pull requests through the person's own GitHub App, replies and review notes, PR events for the bot's own pull requests, and GitHub triggers.
 status: stable
-x-zomfy-implementation: planned
+x-zomfy-implementation: in-progress
 tags: [bots, github]
 sources:
   - id: orca-bots
@@ -39,7 +39,9 @@ loop. Orca uses a shared Orca GitHub App;[^orca-conn] Zomfy uses the person's ow
 2. **Install** the app on chosen repositories (an org owner may need to approve).
 3. In Zomfy, the bot's Who can ask → GitHub: your login as owner; members by login.
 
-Permissions: Issues R/W, Pull requests R/W, Checks R, Contents R, Metadata R, Actions R. Events:
+Permissions: Issues R/W, Pull requests R/W, Checks R, Contents R, Metadata R, Actions R, and,
+added while building because their events need them, Deployments R, Code scanning alerts
+(`security_events`) R and Dependabot alerts (`vulnerability_alerts`) R. Events:
 `issues`, `issue_comment`, `pull_request`, `pull_request_review`, `pull_request_review_comment`,
 `check_suite`, `check_run`, `workflow_run`, `push`, `deployment_status`, `security_advisory`
 alerts (`dependabot_alert`, `code_scanning_alert`).
@@ -76,6 +78,57 @@ alerts (`dependabot_alert`, `code_scanning_alert`).
   `X-GitHub-Delivery`; answer within 10 s.[^gh-webhooks]
 - The Hub signs an RS256 JWT (≤ 10 min) with the private key and caches installation tokens for
   under an hour; tokens are not assumed to be 40 characters.
+
+# Built so far
+
+The Worker side of phase B4 ([overview](../overview.md#phases)), in `apps/relay/src/github/`, with
+the app manifest in `apps/relay/github-app-manifest.json`, `bun run deploy --github` and the README.
+Details settled while building:
+
+- **The manifest flow** runs on the person's computer, not the Worker: the script serves a page on
+  `127.0.0.1` that posts the manifest to GitHub, GitHub sends the browser back there with a code,
+  and the script exchanges it (`POST /app-manifests/<code>/conversions`) and puts the four secrets
+  with `wrangler secret put`. A Worker cannot set its own secrets.
+- **Route.** `POST /github/webhook` checks `X-Hub-Signature-256` in the Worker, answers `ping`, and
+  hands the rest to the Hub (answered within 5 s while the work goes on); dedupe on
+  `X-GitHub-Delivery`. Events by the app itself (`<slug>[bot]`) are dropped whole.
+- **Asking.** A mention is `@<slug>` in a new issue's or pull request's body, an issue or PR
+  comment, a review comment or a review's body. `externalId` is `<installation>:<owner/repo>:<n>`
+  (found again by repository and number, whatever the installation); `placeId` is the repository
+  ref `github:<installation>:<owner/repo>` (the contract's refs gained a repository form), and
+  `placeKind` is `issue` or `pull_request`. Logins are compared in any case. Context on `start`: the
+  issue (`issue` label) and its last 20 comments, labelled `earlier`, `bot` or `no_access`. A later
+  mention in the same issue is a `send`; comments without a mention are kept as context.
+- **Access requests.** GitHub has no buttons and anyone could open a link, so a non-asker is told to
+  comment `@<slug> <handle> request access`, which becomes the `access_request` (GitHub vouches
+  for who wrote it).
+- **Answers.** An asker's plain reply on an issue with an open question answers it (a number or an
+  option's label picks the option). Approvals are posted as "answered in Zomfy only" and no reply
+  answers them.
+- **Replies.** 👀 on the asking comment (or the issue) from `turn-started` until the reply or
+  `turn-ended`; the reply is one comment, with "asked by … via …" (Orca's `askedByLine`) for the
+  non-owner askers since the last reply. On a pull request, review notes with a line make one
+  `COMMENT` review (notes without a line go in its body); GitHub refusing it (422) falls back to
+  one comment. Calls go through the outbound queue, one lane per issue, waiting out 429/403
+  `Retry-After` and spent rate limits.
+- **Tokens.** The JWT is RS256 (PKCS#1 keys are wrapped for WebCrypto), issued a minute back and
+  valid 9 minutes; installation tokens are kept in memory only and used until 10 minutes before
+  they expire, so the Hub's storage never holds one.
+- **PR events.** For pull requests whose author is a bot's GitHub owner, from the same repository
+  (no forks): `check_run` failures are `check_failed` (remembered per check), a later success of the
+  same check `check_passed`; comments, review comments and reviews without a mention, and
+  `merged`, `closed`, `reopened`. One `pr_event` per host, to the owner's default bot there; it
+  carries `actor`, `check`, `reviewState`, `url`, `text` and `ref`.
+- **Triggers.** Every kind above is mapped from the webhook events (`pr_conflicted` only when a
+  `pull_request` payload already says `mergeable_state: dirty`). Places match by repository,
+  whatever the installation. The rules of the asked bot that the same event matches go in the
+  `start`/`send` as `ruleIds`.
+- **Actions.** `reply`/`post` (a comment, once per idempotency key), `react`, `read` (the issue and
+  its comments), `edit`, `delete` (comments) and `check` (a pull request's state and check runs).
+- Tested in workerd against a fake GitHub API (`apps/relay/test/github.test.ts`).
+
+Left: the end-to-end check on a test repository, and the daemon test that `pr_event
+check_failed` reaches the worker chat (the daemon's part).
 
 # Non-goals
 

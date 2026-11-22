@@ -105,6 +105,8 @@ export const botEventSchema = z.discriminatedUnion('kind', [
         z.object({
           path: z.string().max(maxReviewNotePathChars),
           line: z.number().int().positive().optional(),
+          /** The side of the diff the line is on; `RIGHT` (the new code) when left out. */
+          side: z.enum(['LEFT', 'RIGHT']).optional(),
           body: z.string().max(maxReviewNoteChars)
         })
       )

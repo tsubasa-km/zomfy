@@ -57,14 +57,16 @@ describe('health', () => {
     const res = await SELF.fetch(`${BASE}/health`)
     expect(res.status).toBe(200)
     const body = await res.text()
-    expect(JSON.parse(body)).toMatchObject({ ok: true, contract: 1, sources: ['discord'] })
+    expect(JSON.parse(body)).toMatchObject({ ok: true, contract: 1, sources: ['discord', 'slack', 'github', 'linear'] })
     expect(body).not.toContain(SETUP_CODE)
     expect(body).not.toContain('marker-discord-token-91c2')
+    expect(body).not.toContain('marker-slack')
   })
 
-  it('answers 404 for routes of sources that are not configured', async () => {
-    expect((await post('/slack/events', {})).status).toBe(404)
-    expect((await post('/github/webhook', {})).status).toBe(404)
+  it('answers 404 for unknown routes, and turns a source off without all of its secrets', async () => {
+    expect((await post('/teams/events', {})).status).toBe(404)
+    expect(configuredSources({ SLACK_BOT_TOKEN: 'xoxb-1' } as Env)).toEqual([])
+    expect(configuredSources({ SLACK_BOT_TOKEN: 'xoxb-1', SLACK_SIGNING_SECRET: 's' } as Env)).toEqual(['slack'])
   })
 
   it('counts a source as configured only with all of its secrets', () => {

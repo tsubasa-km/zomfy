@@ -7,6 +7,7 @@ import { conversationSchema, sourceSchema } from './refs'
 import { askerSchema } from './askers'
 import { failureSchema } from './failures'
 import { prEventFieldsSchema } from './pr-events'
+import { WEBHOOK_NOTICE_CONDITIONS } from './webhooks'
 
 const id = z.string().min(1).max(128)
 const time = z.number().int().nonnegative()
@@ -30,6 +31,12 @@ export const attachmentSchema = z.object({
   size: z.number().int().nonnegative().optional()
 })
 
+/** Where a `start` was asked, as in Orca's contract. */
+export const PLACE_KINDS = ['direct_message', 'group_message', 'public_channel', 'private_channel', 'issue', 'pull_request'] as const
+
+/** Rules of the same bot the asking message also matched; they run inside this turn (`triggerInTurn`). */
+const ruleIds = z.array(id).max(32).optional()
+
 const base = {
   id,
   botId: id,
@@ -47,7 +54,9 @@ export const startDeliverySchema = z.object({
   text: z.string().max(maxAnswerTextChars * 8),
   context: z.array(contextItemSchema).max(64).default([]),
   links: z.array(linkSchema).max(maxWorkLinks * 4).default([]),
-  attachments: z.array(attachmentSchema).max(maxContextFiles).default([])
+  attachments: z.array(attachmentSchema).max(maxContextFiles).default([]),
+  placeKind: z.enum(PLACE_KINDS).optional(),
+  ruleIds
 })
 
 export const sendDeliverySchema = z.object({
@@ -55,7 +64,8 @@ export const sendDeliverySchema = z.object({
   kind: z.literal('send'),
   asker: askerSchema,
   text: z.string().max(maxAnswerTextChars * 8),
-  context: z.array(contextItemSchema).max(64).default([])
+  context: z.array(contextItemSchema).max(64).default([]),
+  ruleIds
 })
 
 export const answerDeliverySchema = z.object({
@@ -77,7 +87,24 @@ export const triggerDeliverySchema = z.object({
   graceMs: z.number().int().nonnegative()
 })
 
-export const webhookNoticeDeliverySchema = z.object({ ...base, kind: z.literal('webhook_notice'), hookId: id, callId: id })
+export const webhookNoticeDeliverySchema = z.object({
+  ...base,
+  kind: z.literal('webhook_notice'),
+  hookId: id,
+  callId: id,
+  /** The hook's rule, and the call's subject (calls with the same subject fold into one open run). */
+  ruleId: id.optional(),
+  subject: z.string().max(256).optional()
+})
+
+/** A hook's caller is being refused in a burst, or the hook reached its run cap: shown to the owner in Zomfy. */
+export const webhookAlertDeliverySchema = z.object({
+  ...base,
+  kind: z.literal('webhook_alert'),
+  hookId: id,
+  condition: z.enum(WEBHOOK_NOTICE_CONDITIONS),
+  count: z.number().int().nonnegative().optional()
+})
 
 export const prEventDeliverySchema = z.object({ ...base, kind: z.literal('pr_event'), ...prEventFieldsSchema.shape })
 
@@ -96,14 +123,15 @@ export const deliverySchema = z.discriminatedUnion('kind', [
   triggerDeliverySchema,
   webhookNoticeDeliverySchema,
   prEventDeliverySchema,
-  accessRequestDeliverySchema
+  accessRequestDeliverySchema,
+  webhookAlertDeliverySchema
 ])
 export type Delivery = z.infer<typeof deliverySchema>
 export type DeliveryKind = Delivery['kind']
 export const DELIVERY_KINDS = deliverySchema.options.map((o) => o.shape.kind.value) as DeliveryKind[]
 
 /** Kinds that wait a day for the host; the rest live `deliveryTtlMs`. */
-export const LONG_WAIT_KINDS: readonly DeliveryKind[] = ['start', 'send', 'trigger', 'webhook_notice', 'pr_event', 'access_request']
+export const LONG_WAIT_KINDS: readonly DeliveryKind[] = ['start', 'send', 'trigger', 'webhook_notice', 'pr_event', 'access_request', 'webhook_alert']
 
 /** Hub → daemon: up to `maxDeliveriesPerMessage` deliveries. */
 export const deliveryMessageSchema = z.object({

@@ -1,5 +1,6 @@
 // A `ref` names a place in a source, as text: `discord:<guild>:<channel>:<thread?>:<message?>`,
-// `slack:<team>:<channel>:<thread_ts?>`, `github:<installation>:<owner/repo>:<number>`,
+// `slack:<team>:<channel>:<thread_ts?>`, `github:<installation>:<owner/repo>:<number?>` (no number:
+// the whole repository, as a trigger rule's place),
 // `linear:<org>:<issue>`, `zomfy:<sessionId>`. Trailing optional parts are left out
 // (`discord:1:2` is a channel); a missing middle part is empty (`discord:1:2::9`).
 
@@ -12,7 +13,7 @@ export type Source = z.infer<typeof sourceSchema>
 export type Ref =
   | { source: 'discord'; guild: string; channel: string; thread?: string; message?: string }
   | { source: 'slack'; team: string; channel: string; threadTs?: string }
-  | { source: 'github'; installation: string; repo: string; number: number }
+  | { source: 'github'; installation: string; repo: string; number?: number }
   | { source: 'linear'; org: string; issue: string }
   | { source: 'zomfy'; sessionId: string }
 
@@ -33,8 +34,10 @@ export function parseRef(text: string): Ref | null {
     }
     case 'github': {
       const [installation, repo, number] = parts
-      if (parts.length !== 3 || !installation || !repo || !number) return null
-      if (!/^[^/\s]+\/[^/\s]+$/.test(repo) || !/^\d+$/.test(number)) return null
+      if (parts.length < 2 || parts.length > 3 || !installation || !repo) return null
+      if (!/^[^/\s]+\/[^/\s]+$/.test(repo)) return null
+      if (number === undefined) return { source, installation, repo }
+      if (!/^\d+$/.test(number)) return null
       return { source, installation, repo, number: Number(number) }
     }
     case 'linear': {
@@ -59,7 +62,7 @@ export function formatRef(ref: Ref): string {
     case 'slack':
       return ['slack', ref.team, ref.channel, ref.threadTs ?? ''].join(':').replace(/:+$/, '')
     case 'github':
-      return `github:${ref.installation}:${ref.repo}:${ref.number}`
+      return ref.number === undefined ? `github:${ref.installation}:${ref.repo}` : `github:${ref.installation}:${ref.repo}:${ref.number}`
     case 'linear':
       return `linear:${ref.org}:${ref.issue}`
     case 'zomfy':

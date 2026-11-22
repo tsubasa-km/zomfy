@@ -16,7 +16,20 @@ export const ACTION_VERBS = [
   'attach',
   'set',
   'webhook.fetch',
-  'capabilities'
+  'capabilities',
+  // Slack's own verbs (docs/specs/bots/sources/slack.md).
+  'pin',
+  'canvas',
+  'list',
+  'scheduled',
+  // A bot's webhook hooks (docs/specs/bots/sources/webhooks.md).
+  'webhook.mint',
+  'webhook.list',
+  'webhook.state',
+  'webhook.rotate',
+  'webhook.secret',
+  'webhook.delete',
+  'webhook.done'
 ] as const
 export const actionVerbSchema = z.enum(ACTION_VERBS)
 export type ActionVerb = z.infer<typeof actionVerbSchema>
@@ -27,7 +40,10 @@ export const actionSchema = z.object({
   helloRev: z.number().int().positive(),
   reqId: z.string().min(1).max(128),
   verb: actionVerbSchema,
-  /** `webhook.fetch` and `capabilities` name no place; the rest do. */
+  /**
+   * `webhook.*` and `capabilities` name no place; the rest do, or name their source in
+   * `args.source` when they act on the source as a whole (`find` of Linear users).
+   */
   ref: refSchema.optional(),
   args: z.record(z.string(), z.unknown()).default({}),
   idempotencyKey: z.string().min(1).max(256).optional()

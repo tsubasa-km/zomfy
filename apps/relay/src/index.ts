@@ -4,6 +4,9 @@
 
 import { CONTRACT_VERSION, limits } from './contract'
 import { verifyDiscordRequest } from './discord/verify'
+import { verifyGitHubRequest } from './github/api'
+import { verifyLinearRequest } from './linear/api'
+import { verifySlackRequest } from './slack/verify'
 import { configuredSources, RELAY_VERSION, type Env } from './env'
 
 export { DiscordGateway } from './discord-gateway'
@@ -91,8 +94,94 @@ export default {
       return hub(env).fetch(new Request(request.url, { method: 'POST', body, headers: { 'Content-Type': 'application/json' } }))
     }
 
-    // The other source routes (Slack, GitHub, Linear, webhooks) and the phone routes arrive with
-    // their phases; a source without secrets answers 404 anyway.
+    if ((pathname === '/slack/events' || pathname === '/slack/interactivity') && request.method === 'POST' && sources.includes('slack')) {
+      const body = await readBody(request)
+      if (!body) return Response.json({ error: 'too_large' }, { status: 413 })
+      const text = new TextDecoder().decode(body)
+      const ok = await verifySlackRequest(
+        env.SLACK_SIGNING_SECRET ?? '',
+        request.headers.get('X-Slack-Signature') ?? '',
+        request.headers.get('X-Slack-Request-Timestamp') ?? '',
+        text
+      )
+      if (!ok) return Response.json({ error: 'bad_signature' }, { status: 401 })
+      holdGateway()
+      if (pathname === '/slack/interactivity') {
+        let payload: unknown
+        try {
+          payload = JSON.parse(new URLSearchParams(text).get('payload') ?? '')
+        } catch {
+          return Response.json({ error: 'bad_request' }, { status: 400 })
+        }
+        await hub(env).slackInteraction(payload)
+        return new Response(null, { status: 200 })
+      }
+      let event: { type?: string; challenge?: string }
+      try {
+        event = JSON.parse(text)
+      } catch {
+        return Response.json({ error: 'bad_request' }, { status: 400 })
+      }
+      // Answered here, so the Request URL check works before any host has paired.
+      if (event.type === 'url_verification') return Response.json({ challenge: event.challenge ?? '' })
+      await hub(env).slackEvent(event)
+      return new Response(null, { status: 200 })
+    }
+
+    if (pathname === '/github/webhook' && request.method === 'POST' && sources.includes('github')) {
+      const body = await readBody(request)
+      if (!body) return Response.json({ error: 'too_large' }, { status: 413 })
+      const text = new TextDecoder().decode(body)
+      if (!(await verifyGitHubRequest(env.GITHUB_WEBHOOK_SECRET ?? '', request.headers.get('X-Hub-Signature-256') ?? '', text))) {
+        return Response.json({ error: 'bad_signature' }, { status: 401 })
+      }
+      const event = request.headers.get('X-GitHub-Event') ?? ''
+      const deliveryId = request.headers.get('X-GitHub-Delivery') ?? ''
+      if (event === 'ping') return Response.json({ ok: true })
+      let payload: unknown
+      try {
+        payload = JSON.parse(text)
+      } catch {
+        return Response.json({ error: 'bad_request' }, { status: 400 })
+      }
+      if (!deliveryId) return Response.json({ error: 'bad_request' }, { status: 400 })
+      holdGateway()
+      await hub(env).githubWebhook(event, deliveryId, payload)
+      return Response.json({ ok: true }, { status: 202 })
+    }
+
+    if (pathname === '/linear/webhook' && request.method === 'POST' && sources.includes('linear')) {
+      const body = await readBody(request)
+      if (!body) return Response.json({ error: 'too_large' }, { status: 413 })
+      const text = new TextDecoder().decode(body)
+      if (!(await verifyLinearRequest(env.LINEAR_WEBHOOK_SECRET ?? '', request.headers.get('Linear-Signature') ?? '', text))) {
+        return Response.json({ error: 'bad_signature' }, { status: 401 })
+      }
+      const payload = JSON.parse(text) as { webhookId?: string; createdAt?: string }
+      // Linear's retries keep the delivery id; without one, the webhook and its time name it.
+      const deliveryId = request.headers.get('Linear-Delivery') ?? `${payload.webhookId ?? ''}:${payload.createdAt ?? ''}`
+      holdGateway()
+      await hub(env).linearWebhook(deliveryId, payload)
+      return Response.json({ ok: true })
+    }
+
+    // Webhooks need no secrets of the deployment: each hook has its own key.
+    const hookPath = /^\/hooks\/(wh_[A-Za-z0-9]{16})(?:\/([^/]+))?$/.exec(pathname)
+    if (hookPath && request.method === 'POST') {
+      const body = await readBody(request)
+      if (!body) return Response.json({ error: 'too_large' }, { status: 413 })
+      const headers: Record<string, string> = {}
+      for (const [name, value] of request.headers) headers[name.toLowerCase()] = value.slice(0, 1024)
+      const answer = await hub(env).webhookCall({
+        hookId: hookPath[1]!,
+        ...(hookPath[2] ? { pathKey: decodeURIComponent(hookPath[2]) } : {}),
+        headers,
+        body: new TextDecoder().decode(body)
+      })
+      return Response.json(answer.body, { status: answer.status })
+    }
+
+    // The phone routes arrive with their phase; a source without secrets answers 404.
     return notFound()
   }
 } satisfies ExportedHandler<Env>
