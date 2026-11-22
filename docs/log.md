@@ -1,6 +1,7 @@
 # Directory Update Log
 
 ## 2026-11-22
+* **Creation**: [Running Zomfy Relay on your own machine](specs/bots/self-host.md), in progress.
 * **Update**: [Tool calls a stopped turn leaves open read as stopped](specs/stopped-tool-calls.md) and [The Next steps card](specs/next-steps-card.md) are implemented.
 * **Creation**: [Tool calls a stopped turn leaves open read as stopped](specs/stopped-tool-calls.md) and [The Next steps card](specs/next-steps-card.md), in progress.
 * **Update**: Built phase B2 of [Zomfy Bots](specs/bots/overview.md): a bot chat's questions and approvals go to the source while every window is asked, first answer wins ([daemon](specs/bots/daemon.md#built-so-far)); live activity and workers; PR links and review notes in replies; replies after a usage-limit resume; access requests answered back to the requester (the [contract](specs/bots/contract.md)'s new `access-answered`); schedules and triggers as automations with a bot target, rules in `hello`, webhook notices and alerts, PR events, and `create_bot_automation`; the [desktop](specs/bots/desktop.md#built-so-far) gains bot schedules and triggers, webhook URLs, member search, notices and `@handle` on the New thread page; the [connector](specs/bots/connector.md) posts in Discord channels and tells requesters the answer.
