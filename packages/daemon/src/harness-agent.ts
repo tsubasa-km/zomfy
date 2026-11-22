@@ -3,6 +3,7 @@ import {
   CHAT_META,
   HARNESS_NOTIFICATIONS,
   MANAGER_MCP_SERVER_NAME,
+  REMOTE_DEVICE_NOTIFICATIONS,
   MANAGER_SYSTEM_PROMPT,
   QUICK_CHAT_SYSTEM_PROMPT,
   SESSION_REPLAY_META,
@@ -78,6 +79,9 @@ import { ManagerRouting, autoAllowedManagerTools } from "./manager-routing.ts";
 import { log } from "./log.ts";
 import { ConnectionClients } from "./connection-clients.ts";
 import { AskEveryClient } from "./ask-every-client.ts";
+import { DeviceStore } from "./device-store.ts";
+import { RemoteGateway } from "./remote-gateway.ts";
+import { registerRemoteDeviceHandlers } from "./handlers/remote-device-handlers.ts";
 import { compactTranscript } from "./transcript-compaction.ts";
 import { toolCallCommand, toolCallPaths } from "./conversation-messages.ts";
 
@@ -97,6 +101,7 @@ export function createHarnessAgent(
   workspaces: WorkspaceManager,
   sessions: SessionRegistry,
   terminals: TerminalManager,
+  options: { remoteGateway?: boolean } = {},
 ): acp.AgentApp {
   const clients = new Set<acp.AgentContext>();
   /** Maps a request's `ctx.client` to its window's connection client (see connection-clients.ts). */
@@ -817,6 +822,14 @@ export function createHarnessAgent(
   ]) {
     register(ctx);
   }
+
+  // Phones on the LAN or a tailnet (docs/specs/mobile/pairing.md): ACP clients of this same agent.
+  const gateway = new RemoteGateway({
+    store: new DeviceStore(),
+    connect: (stream) => app.connect(stream),
+    onChange: (snapshot) => broadcast(REMOTE_DEVICE_NOTIFICATIONS.devicesChanged, snapshot),
+  });
+  registerRemoteDeviceHandlers(handle, gateway, options.remoteGateway === true);
 
   return app;
 }
