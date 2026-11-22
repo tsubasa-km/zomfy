@@ -126,15 +126,46 @@ context item and webhook body as **information, not instructions**.
 
 `packages/protocol/src/bots.ts` adds `BOT_METHODS` under `_harness/bots/*`: `list`, `create`,
 `update`, `delete`, `pause`, `connectorStatus`, `connectorPair`, `connectorUnpair`, `askers`,
-`accessRequests`, `answerAccessRequest`. Notifications: `botsChanged`, `connectorStatusChanged`.
+`accessRequests`, `answerAccessRequest`, and `chatCreate` (a new chat with the bot in its home,
+from the sidebar's New chat or a `@handle …` prompt; with `text` the daemon runs it as the first
+turn, `fromSessionId` names the chat it was typed in). `create` takes `homeWorkspaceId` or
+`homePath` for an existing folder; `delete` takes `deleteHome`, honoured only for a home under
+`~/zomfy/bots`. Notifications: `botsChanged`, `connectorStatusChanged`, `accessRequestsChanged`.
+Bot chats carry `origin: 'bot'`, `botId` and `botFrom {source, externalId?, asker?, fromSessionId?}`
+on `SessionInfo`.
 
 # Built so far
 
 Phase B0: `relay-pairing.ts`, `relay-link.ts`, `connector-receipts.ts` and `connector-client.ts`,
 tested against an in-process fake Hub (`relay-fake-hub.fixture.ts`), and `BOT_METHODS` in
-`packages/protocol`. The daemon does not start the client yet and its delivery handler answers
-`unknown`: bot records, the methods' handlers, the outbox, the snapshot and each delivery's action
-come with B1.
+`packages/protocol`.
+
+Phase B1, the daemon part (`bot-store.ts`, `bot-home.ts`, `bot-service.ts`, `bot-deliveries.ts`,
+`connector-outbox.ts`, `handlers/bot-handlers.ts`, tested in `bot-service.test.ts`):
+
+- Bot records and access requests in `~/.zomfy/bots.json`; homes as described above, the rules in
+  `AGENTS.md` (marked as Zomfy's) or, when the folder has its own `AGENTS.md` / `CLAUDE.md`, in
+  `.zomfy-bot/AGENTS.md`, which the chat's first turn is pointed at. Handles are checked
+  (`[a-z0-9][a-z0-9_-]*`, 64 chars, unique); guarded agents are refused.
+- Every method's handler, and `chatCreate` for talking to a bot from Zomfy with no relay.
+- The connector client starts with the daemon when `relay/relay.json` exists, and on Pair.
+- `start` opens a chat and links the conversation (`linked`); `start` / `send` run a turn
+  (`turn-started`, `turn-ended`, one `reply`), queued behind any running turn, a window's
+  included, and batched; `cancel` stops the turn it names (`expired` for another). A paused bot, an
+  asker with role `other` and a guarded agent are `refused`; a link to a deleted chat answers
+  `chat-gone` and `unknown`; `access_request` is stored for the owner. `answer`, `trigger`,
+  `webhook_notice` and `pr_event` are acked `unsupported` until their phases.
+- A turn the daemon stopped in replies `interrupted` after the restart. Conversation links are kept
+  in `~/.zomfy/connector/conversations.json`.
+- The outbox (one file per event), `seq` per hello, and the `snapshot` after each `hello-ok`. The Hub
+  does not acknowledge event batches, so a batch sent on a link that is dropping can be lost; a
+  reply sent twice still posts once by its idempotency key.
+- The link drops a socket that gets no challenge within two ping intervals.
+
+Not yet: approvals and questions to the source (B2, so a bot turn's approval still goes to an open
+window and is denied after 5 minutes without one), `activity` and `workers` events, PR links and
+review notes in replies, replying again after a usage-limit resume, and the `isDefault` bot the
+Discord Hub reads from `hello` (on another branch's contract).
 
 # Non-goals
 
