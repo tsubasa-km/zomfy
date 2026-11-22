@@ -4,6 +4,7 @@
 
 import { CONTRACT_VERSION, limits } from './contract'
 import { verifyDiscordRequest } from './discord/verify'
+import { verifyGitHubRequest } from './github/api'
 import { verifySlackRequest } from './slack/verify'
 import { configuredSources, RELAY_VERSION, type Env } from './env'
 
@@ -124,6 +125,28 @@ export default {
       if (event.type === 'url_verification') return Response.json({ challenge: event.challenge ?? '' })
       await hub(env).slackEvent(event)
       return new Response(null, { status: 200 })
+    }
+
+    if (pathname === '/github/webhook' && request.method === 'POST' && sources.includes('github')) {
+      const body = await readBody(request)
+      if (!body) return Response.json({ error: 'too_large' }, { status: 413 })
+      const text = new TextDecoder().decode(body)
+      if (!(await verifyGitHubRequest(env.GITHUB_WEBHOOK_SECRET ?? '', request.headers.get('X-Hub-Signature-256') ?? '', text))) {
+        return Response.json({ error: 'bad_signature' }, { status: 401 })
+      }
+      const event = request.headers.get('X-GitHub-Event') ?? ''
+      const deliveryId = request.headers.get('X-GitHub-Delivery') ?? ''
+      if (event === 'ping') return Response.json({ ok: true })
+      let payload: unknown
+      try {
+        payload = JSON.parse(text)
+      } catch {
+        return Response.json({ error: 'bad_request' }, { status: 400 })
+      }
+      if (!deliveryId) return Response.json({ error: 'bad_request' }, { status: 400 })
+      holdGateway()
+      await hub(env).githubWebhook(event, deliveryId, payload)
+      return Response.json({ ok: true }, { status: 202 })
     }
 
     // The phone routes arrive with their phase; a source without secrets answers 404.

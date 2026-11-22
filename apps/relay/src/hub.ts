@@ -31,6 +31,7 @@ import {
 } from './contract'
 import { isEd25519PublicKey, randomToken, sameText, sha256Hex, verifyEd25519 } from './crypto'
 import { DiscordSource, type GatewayMessage } from './discord/source'
+import { GitHubSource } from './github/source'
 import { SlackSource } from './slack/source'
 import { configuredSources, type Env } from './env'
 import { Outbound, OUTBOUND_DUE, type OutboundRunner } from './outbound'
@@ -93,6 +94,7 @@ export class Hub extends DurableObject<Env> {
   private readonly outbound: Outbound
   private readonly discord: DiscordSource
   private readonly slack: SlackSource
+  private readonly github: GitHubSource
   /** Every source, for the daemon's events, settled deliveries, actions, timers and the purge. */
   private readonly sources: HubSource[] = []
   /** What every source is given. */
@@ -123,6 +125,8 @@ export class Hub extends DurableObject<Env> {
     this.addSource(this.discord)
     this.slack = new SlackSource(this.shared)
     this.addSource(this.slack)
+    this.github = new GitHubSource(this.shared)
+    this.addSource(this.github)
     // Pings are answered by the runtime without waking the object.
     ctx.setWebSocketAutoResponse(new WebSocketRequestResponsePair(PING_FRAME, PONG_FRAME))
   }
@@ -696,6 +700,13 @@ export class Hub extends DurableObject<Env> {
       this.slack.onInteraction(payload).then(() => this.outbound.drain()),
       2000
     )
+  }
+
+  // --- GitHub (docs/specs/bots/sources/github.md) ---
+
+  /** A verified App webhook; returns well within GitHub's 10 s while the work goes on. */
+  async githubWebhook(event: string, deliveryId: string, payload: unknown): Promise<void> {
+    await within(this.github.onWebhook(event, deliveryId, payload), 5000)
   }
 
   /** Runs the outbound queue now, for tests. */

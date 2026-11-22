@@ -14,7 +14,7 @@ DISCORD_BOT_TOKEN=
 SLACK_BOT_TOKEN=
 SLACK_SIGNING_SECRET=
 
-# GitHub App
+# GitHub App: made by `bun run deploy --github` from github-app-manifest.json (README, "GitHub")
 GITHUB_APP_ID=
 GITHUB_APP_PRIVATE_KEY=
 GITHUB_WEBHOOK_SECRET=

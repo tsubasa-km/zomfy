@@ -83,6 +83,29 @@ Then `@Zomfy fix the typo in README` in a channel answers in that message's thre
 line and a **Stop** button; questions and approvals come as buttons. A bare `@Zomfy` takes your own
 last messages before it as the request.
 
+## GitHub
+
+Your own GitHub App ([spec](../../docs/specs/bots/sources/github.md)); people ask with
+`@<app-slug> <handle> …` on issues and pull requests.
+
+1. `bun run deploy --github` (or answer **y** to GitHub in `bun run deploy`): give the app a name
+   that is free on GitHub (e.g. `zomfy-bots-<you>`) and, if an organization should own it, its
+   login. Your browser opens GitHub's **Create GitHub App** page filled in from
+   [`github-app-manifest.json`](github-app-manifest.json) (webhook URL, permissions, events); press
+   **Create**. GitHub sends the browser back to the script on your computer, which stores
+   `GITHUB_APP_ID`, `GITHUB_APP_SLUG`, `GITHUB_APP_PRIVATE_KEY` and `GITHUB_WEBHOOK_SECRET` as
+   Worker secrets.
+2. **Install** the app on the repositories it should hear (the link the script prints, or the app's
+   page → **Install App**); an organization owner may have to approve.
+3. In Zomfy, each bot's **Who can ask → GitHub**: your login as owner; members by login.
+
+The app may read issues, pull requests, checks, contents, Actions, deployments and security
+alerts, and write issues and pull requests. It answers in comments (review notes as one review),
+shows 👀 while it works, asks questions as numbered comments (reply with the number), and
+leaves approvals to Zomfy. A failed check on a pull request you opened wakes the worker on that
+branch. Code work (pushes, new pull requests) uses your own `gh` sign-in on the computer, never the
+app.
+
 ## Develop
 
 ```sh
@@ -93,6 +116,6 @@ bun scripts/fake-daemon.ts http://127.0.0.1:8787 <that setup code>
 ```
 
 Routes: `GET /health`, `POST /v1/hosts/register`, `POST /v1/hosts/invite`, the daemon's link
-`GET /v1/host`, `POST /discord/interactions`, and `POST /slack/events` and `/slack/interactivity`
-(each source's routes answer 404 until its secrets are set). Tests reach fake Slack, GitHub and
+`GET /v1/host`, `POST /discord/interactions`, `POST /slack/events` and `/slack/interactivity`, and
+`POST /github/webhook` (each source's routes answer 404 until its secrets are set). Tests reach fake Slack, GitHub and
 Linear APIs (`test/fake-apis.mjs`) through the `SOURCES_TRANSPORT` binding.

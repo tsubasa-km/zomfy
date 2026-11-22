@@ -19,6 +19,69 @@ import { createInterface } from 'node:readline'
 
 const DRY = process.argv.includes('--dry-run')
 const CI = Boolean(process.env.WORKERS_CI || process.env.CI) || process.argv.includes('--ci')
+/** `--github` / `--linear`: go straight to that source's setup. */
+const ONLY_GITHUB = process.argv.includes('--github')
+const ONLY_LINEAR = process.argv.includes('--linear')
+const ONE_SOURCE = ONLY_GITHUB || ONLY_LINEAR
+
+const escapeHtml = (text) => String(text).replace(/[&<>"']/g, (c) => `&#${c.charCodeAt(0)};`)
+
+/** Opens a URL in the person's browser, best effort. */
+function openBrowser(url) {
+  const [cmd, args] = process.platform === 'win32' ? ['cmd', ['/c', 'start', '', url]] : process.platform === 'darwin' ? ['open', [url]] : ['xdg-open', [url]]
+  try {
+    spawn(cmd, args, { stdio: 'ignore', detached: true }).unref()
+  } catch {
+    // printed anyway
+  }
+}
+
+/**
+ * A browser round trip on this computer: serves `page` at http://127.0.0.1:<port>/ and waits (up to
+ * 10 minutes) for the browser to come back to `callbackPath`; `onCallback` gets the query and
+ * returns the page to show. Nothing secret passes through the Worker.
+ */
+async function browserFlow(page, callbackPath, onCallback) {
+  const { createServer } = await import('node:http')
+  return new Promise((resolve, reject) => {
+    const server = createServer(async (req, res) => {
+      const url = new URL(req.url ?? '/', 'http://127.0.0.1')
+      if (url.pathname === '/') {
+        res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' })
+        res.end(page(port))
+        return
+      }
+      if (url.pathname !== callbackPath) {
+        res.writeHead(404)
+        res.end()
+        return
+      }
+      try {
+        const done = await onCallback(url.searchParams)
+        res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' })
+        res.end(`<!doctype html><meta charset="utf-8"><title>Zomfy Relay</title><body style="font-family:system-ui;margin:3em">${done}</body>`)
+        server.close()
+        resolve(undefined)
+      } catch (error) {
+        res.writeHead(500, { 'Content-Type': 'text/plain; charset=utf-8' })
+        res.end(String(error instanceof Error ? error.message : error))
+        server.close()
+        reject(error)
+      }
+    })
+    let port = 0
+    server.listen(0, '127.0.0.1', () => {
+      port = server.address().port
+      const local = `http://127.0.0.1:${port}/`
+      console.log(`  Open ${local} in your browser if it did not open by itself.`)
+      openBrowser(local)
+    })
+    setTimeout(() => {
+      server.close()
+      reject(new Error('No answer from the browser within 10 minutes.'))
+    }, 10 * 60 * 1000).unref()
+  })
+}
 
 // The same bits as BOT_PERMISSIONS in src/discord/api.ts.
 const PERMISSIONS =
@@ -106,7 +169,7 @@ const putSecret = async (name, value) => {
 }
 
 let setupCode = null
-if (!existing.includes('SETUP_CODE') || (await yes('\nMake a new setup code (for pairing another computer)?', false))) {
+if (!existing.includes('SETUP_CODE') || (!ONE_SOURCE && await yes('\nMake a new setup code (for pairing another computer)?', false))) {
   setupCode = randomBytes(16).toString('hex')
   await putSecret('SETUP_CODE', setupCode)
 }
@@ -114,7 +177,7 @@ if (!existing.includes('SETUP_CODE') || (await yes('\nMake a new setup code (for
 let discordApp = null
 const hasDiscord = ['DISCORD_APPLICATION_ID', 'DISCORD_PUBLIC_KEY', 'DISCORD_BOT_TOKEN'].every((n) => existing.includes(n))
 console.log('\nDiscord: you need an application from https://discord.com/developers/applications (see the README).')
-if (await yes(hasDiscord ? 'Change the Discord secrets?' : 'Set up Discord now?', !hasDiscord)) {
+if (!ONE_SOURCE && await yes(hasDiscord ? 'Change the Discord secrets?' : 'Set up Discord now?', !hasDiscord)) {
   discordApp = await ask('  Application ID: ')
   if (!/^\d{5,25}$/.test(discordApp)) fail('That does not look like an Application ID (digits only).')
   const publicKey = await ask('  Public Key: ')
@@ -131,7 +194,7 @@ const slackManifest = readFileSync(new URL('../slack-manifest.yaml', import.meta
 const hasSlack = ['SLACK_BOT_TOKEN', 'SLACK_SIGNING_SECRET'].every((n) => existing.includes(n))
 let slackSet = false
 console.log('\nSlack: an app made from apps/relay/slack-manifest.yaml (see the README).')
-if (await yes(hasSlack ? 'Change the Slack secrets?' : 'Set up Slack now?', false)) {
+if (!ONE_SOURCE && await yes(hasSlack ? 'Change the Slack secrets?' : 'Set up Slack now?', false)) {
   console.log('\n  1. https://api.slack.com/apps → Create New App → From a manifest → pick the workspace → paste:\n')
   console.log(slackManifest.replace(/^/gm, '     '))
   console.log('  2. Create, then Install to Workspace (an admin may have to approve).')
@@ -142,6 +205,55 @@ if (await yes(hasSlack ? 'Change the Slack secrets?' : 'Set up Slack now?', fals
   await putSecret('SLACK_BOT_TOKEN', token)
   await putSecret('SLACK_SIGNING_SECRET', signing)
   slackSet = true
+}
+
+// GitHub: your own GitHub App, made from github-app-manifest.json through GitHub's manifest flow.
+// The browser comes back to this computer with a code that is exchanged for the app's id, key and
+// webhook secret, which go straight to Cloudflare as Worker secrets.
+const hasGitHub = ['GITHUB_APP_ID', 'GITHUB_APP_PRIVATE_KEY', 'GITHUB_WEBHOOK_SECRET', 'GITHUB_APP_SLUG'].every((n) => existing.includes(n))
+let githubApp = null
+console.log('\nGitHub: your own GitHub App, made for you from apps/relay/github-app-manifest.json.')
+if (ONLY_GITHUB || (!ONE_SOURCE && await yes(hasGitHub ? 'Make a new GitHub App (replacing the secrets)?' : 'Set up GitHub now?', false))) {
+  const name = await ask('  App name, unique on GitHub (Enter for zomfy-bots): ', 'zomfy-bots')
+  const org = await ask('  Organization to own it (Enter for your own account): ')
+  const manifestFor = (port) =>
+    JSON.parse(
+      readFileSync(new URL('../github-app-manifest.json', import.meta.url), 'utf8')
+        .replaceAll('https://YOUR-WORKER.workers.dev', workerUrl)
+        .replaceAll('http://127.0.0.1:PORT', `http://127.0.0.1:${port}`)
+    )
+  const state = randomBytes(16).toString('hex')
+  const target = org ? `https://github.com/organizations/${encodeURIComponent(org)}/settings/apps/new` : 'https://github.com/settings/apps/new'
+  if (DRY) {
+    console.log(`  [dry run] would open a page that posts this manifest to ${target}:`)
+    console.log(JSON.stringify({ ...manifestFor(0), name }, null, 2).replace(/^/gm, '    '))
+    githubApp = { slug: name, html_url: `https://github.com/apps/${name}` }
+  } else {
+    console.log('  Your browser opens GitHub with the app filled in; check the name and press Create.')
+    await browserFlow(
+      (port) => `<!doctype html><meta charset="utf-8"><title>Zomfy Relay → GitHub</title>
+<body style="font-family:system-ui;margin:3em"><p>Taking you to GitHub to create the app…</p>
+<form id="f" method="post" action="${escapeHtml(`${target}?state=${state}`)}">
+<input type="hidden" name="manifest" value="${escapeHtml(JSON.stringify({ ...manifestFor(port), name }))}">
+<button>Create the GitHub App</button></form><script>document.getElementById('f').submit()</script>`,
+      '/github/callback',
+      async (query) => {
+        if (query.get('state') !== state) throw new Error('The answer from GitHub did not match this run; start again.')
+        const res = await fetch(`https://api.github.com/app-manifests/${encodeURIComponent(query.get('code') ?? '')}/conversions`, {
+          method: 'POST',
+          headers: { Accept: 'application/vnd.github+json', 'User-Agent': 'zomfy-relay-deploy' }
+        })
+        if (!res.ok) throw new Error(`GitHub refused the app code (${res.status}).`)
+        const app = await res.json()
+        await putSecret('GITHUB_APP_ID', String(app.id))
+        await putSecret('GITHUB_APP_SLUG', app.slug)
+        await putSecret('GITHUB_APP_PRIVATE_KEY', app.pem)
+        await putSecret('GITHUB_WEBHOOK_SECRET', app.webhook_secret)
+        githubApp = app
+        return `<p>The app <b>${escapeHtml(app.slug)}</b> is made and its secrets are in Cloudflare.</p><p><a href="${escapeHtml(app.html_url)}/installations/new">Install it on your repositories</a>, then come back to the terminal.</p>`
+      }
+    ).catch((error) => fail(String(error.message ?? error)))
+  }
 }
 rl.close()
 
@@ -179,6 +291,12 @@ if (slackSet || hasSlack) {
   console.log(`  Interactivity & Shortcuts → Request URL: ${workerUrl}/slack/interactivity`)
   console.log('  Invite the app to each channel it should hear (/invite @Zomfy).')
 }
+if (githubApp || hasGitHub) {
+  console.log('\nGitHub:')
+  if (githubApp) console.log(`  Install the app on the repositories it should hear: ${githubApp.html_url}/installations/new`)
+  else console.log('  The app is set up; install it on more repositories from its page (github.com/settings/apps).')
+  console.log(`  Ask on an issue or pull request with @${githubApp?.slug ?? '<app-slug>'} <handle> …`)
+}
 console.log('\nIn Zomfy: Settings → Bots → Relay: paste the Worker URL and the setup code, then Pair.')
 console.log('Then per bot, Who can ask: your own id on each source as owner, and members the same way')
-console.log('  (Discord: Developer Mode → Copy User ID; Slack: your profile → ⋯ → Copy member ID).')
+console.log('  (Discord: Developer Mode → Copy User ID; Slack: your profile → ⋯ → Copy member ID; GitHub: your login).')

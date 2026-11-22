@@ -91,7 +91,8 @@ export class FakeApis extends DurableObject {
 
   github(method, path, body, call) {
     const canned = this.s.answers[`github:${method} ${path}`]
-    if (canned) return json(canned.body ?? canned, canned.status ?? 200)
+    // `{__status, __body}` answers with a status; anything else is the body.
+    if (canned) return canned.__status ? json(canned.__body ?? {}, canned.__status) : json(canned)
     let m
     if (method === 'POST' && (m = /^\/app\/installations\/(\d+)\/access_tokens$/.exec(path))) {
       this.s.tokens++

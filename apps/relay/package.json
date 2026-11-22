@@ -39,16 +39,16 @@
         "description": "Slack: **Basic Information → App Credentials → Signing Secret**."
       },
       "GITHUB_APP_ID": {
-        "description": "GitHub (a later phase): leave empty."
+        "description": "GitHub (optional): your GitHub App's **App ID**. Easiest: leave the four GITHUB_* empty here and run `bun run deploy --github` later, which makes the app and sets them (README, \"GitHub\")."
       },
       "GITHUB_APP_PRIVATE_KEY": {
-        "description": "GitHub (a later phase): leave empty."
+        "description": "GitHub: the app's private key (the whole `.pem`, line breaks kept or written as `\\n`)."
       },
       "GITHUB_WEBHOOK_SECRET": {
-        "description": "GitHub (a later phase): leave empty."
+        "description": "GitHub: the app's webhook secret."
       },
       "GITHUB_APP_SLUG": {
-        "description": "GitHub (a later phase): leave empty."
+        "description": "GitHub: the app's slug, as in github.com/apps/<slug>; people ask with @<slug>."
       },
       "LINEAR_ACCESS_TOKEN": {
         "description": "Linear (a later phase): leave empty."

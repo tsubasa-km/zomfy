@@ -127,9 +127,10 @@ function triggerEvent(event: SourceEvent, bot: HelloBot): TriggerEvent {
  * Queues a `trigger` delivery for every rule the event matches. Rules of `inTurnBot` (the bot the
  * same message asks) are not queued: their ids are returned, to run inside that turn.
  */
-export async function queueTriggers(hub: SourceHub, event: SourceEvent, inTurnBot?: string): Promise<string[]> {
+export async function queueTriggers(hub: SourceHub, event: SourceEvent, inTurnBot?: string, skipRules?: ReadonlySet<string>): Promise<string[]> {
   const inTurn: string[] = []
   for (const { rule, bot } of matchRules(hub.rules(), hub.bots(), event)) {
+    if (skipRules?.has(rule.id)) continue
     if (bot.id === inTurnBot) {
       inTurn.push(rule.id)
       continue
