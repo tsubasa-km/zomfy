@@ -29,6 +29,7 @@ import { TURN_RECOVERY_METHODS, type TurnRecoveryRequests } from './turn-recover
 import { VOICE_METHODS, type VoiceRequests } from './voice'
 import { WORKSPACE_METHODS, type WorkspaceRequests } from './workspaces'
 import { CHAT_STATUS_METHODS, type ChatStatusRequests } from './chat-status'
+import { BOT_METHODS, type BotRequests } from './bots'
 
 export * from './automation-schedules'
 export * from './automations'
@@ -62,6 +63,7 @@ export * from './workflow-experiments'
 export * from './workflow-suggestions'
 export * from './chat-status'
 export * from './wrap-up'
+export * from './bots'
 
 export const HARNESS_METHODS = {
   ...WORKSPACE_METHODS,
@@ -90,7 +92,8 @@ export const HARNESS_METHODS = {
   ...WORKFLOW_SUGGESTION_METHODS,
   ...LSP_METHODS,
   ...SSH_CONNECTION_METHODS,
-  ...CHAT_STATUS_METHODS
+  ...CHAT_STATUS_METHODS,
+  ...BOT_METHODS
 } as const
 
 export const HARNESS_NOTIFICATIONS = {
@@ -127,6 +130,7 @@ export interface HarnessRequests
     WorkflowSuggestionRequests,
     LspRequests,
     SshConnectionRequests,
-    ChatStatusRequests {}
+    ChatStatusRequests,
+    BotRequests {}
 
 export type HarnessMethod = keyof HarnessRequests
