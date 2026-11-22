@@ -48,6 +48,7 @@ import { SessionMover } from "./session-move.ts";
 import type { TerminalManager } from "./terminal-manager.ts";
 import type { StepToolUse, HandlerContext } from "./handlers/handler-context.ts";
 import { registerAutomationHandlers } from "./handlers/automation-handlers.ts";
+import { registerBotHandlers } from "./handlers/bot-handlers.ts";
 import { registerChatAgentHandlers } from "./handlers/chat-agent-handlers.ts";
 import { registerFileHandlers } from "./handlers/file-handlers.ts";
 import { registerLspHandlers } from "./handlers/lsp-handlers.ts";
@@ -811,6 +812,7 @@ export function createHarnessAgent(
     registerTodoHandlers,
     registerSideChatHandlers,
     registerAutomationHandlers,
+    registerBotHandlers,
     registerSkillHandlers,
     registerPluginHandlers,
     registerVoiceHandlers,

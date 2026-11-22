@@ -44,6 +44,8 @@ export class RelayLink {
   private attempt = 0
   private retryTimer: ReturnType<typeof setTimeout> | null = null
   private pingTimer: ReturnType<typeof setInterval> | null = null
+  /** A socket that has not authenticated within two ping intervals is dropped and dialled again. */
+  private authTimer: ReturnType<typeof setTimeout> | null = null
   private heardSincePing = true
   private stopped = true
   private current: RelayLinkStatus = { state: 'stopped', lastConnectedAt: null, retryAt: null, error: null }
@@ -117,6 +119,10 @@ export class RelayLink {
     }
     this.ws = ws
     this.authed = false
+    this.authTimer = setTimeout(() => {
+      this.authTimer = null
+      if (ws === this.ws && !this.authed) this.drop('no challenge from the relay')
+    }, 2 * (this.options.pingIntervalMs ?? limits.pingIntervalMs))
     ws.onmessage = (event) => {
       if (ws !== this.ws) return
       this.heardSincePing = true
@@ -159,6 +165,8 @@ export class RelayLink {
       } else if (message.type === 'auth-ok') {
         this.authed = true
         this.attempt = 0
+        if (this.authTimer) clearTimeout(this.authTimer)
+        this.authTimer = null
         this.setStatus({ state: 'online', lastConnectedAt: this.now(), retryAt: null, error: null })
         this.startPings(ws)
         this.options.onOnline?.()
@@ -215,6 +223,8 @@ export class RelayLink {
   private clearTimers() {
     if (this.retryTimer) clearTimeout(this.retryTimer)
     if (this.pingTimer) clearInterval(this.pingTimer)
+    if (this.authTimer) clearTimeout(this.authTimer)
+    this.authTimer = null
     this.retryTimer = null
     this.pingTimer = null
   }

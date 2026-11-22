@@ -8,6 +8,7 @@ import {
   deliverySchema,
   limits,
   type AckOutcome,
+  type BotEvent,
   type BotsToHost,
   type Delivery,
   type Failure,
@@ -17,7 +18,8 @@ import {
 } from '@zomfy/relay-contract'
 import type { ConnectorStatus } from '@zomfy/protocol'
 import type { ReceiptStore } from './connector-receipts'
-import { RelayLink, type RelayLinkOptions, type RelayLinkStatus } from './relay-link'
+import type { Outbox } from './connector-outbox'
+import { backoffDelay, RelayLink, type RelayLinkOptions, type RelayLinkStatus } from './relay-link'
 import type { HostKey, RelayConfig } from './relay-pairing'
 
 export interface DeliveryResult {
@@ -40,8 +42,12 @@ export interface ConnectorClientOptions {
   bots: () => HelloBot[]
   rules?: () => Rule[]
   sources?: () => Source[]
-  /** Runs one delivery. B0 has no bot behaviour, so the default answers `unknown`. */
+  /** Runs one delivery; without a handler every delivery answers `unknown`. */
   handle?: (delivery: Delivery) => Promise<DeliveryResult>
+  /** Where events wait for the link; without one, `queueEvent` drops them. */
+  outbox?: Outbox
+  /** Active conversations, sent as the first event after each `hello-ok`. */
+  snapshot?: () => BotEvent
   onStatus?: (status: ConnectorStatus) => void
   log?: (message: string) => void
   now?: () => number
@@ -56,6 +62,10 @@ export class ConnectorClient {
   private readonly link: RelayLink
   private helloRev = 0
   private sources: string[] = []
+  /** The next events batch's `seq`; 0 after each `hello-ok`. */
+  private seq = 0
+  private flushTimer: ReturnType<typeof setTimeout> | null = null
+  private flushAttempt = 0
 
   constructor(private readonly options: ConnectorClientOptions) {
     this.link = new RelayLink({
@@ -81,7 +91,56 @@ export class ConnectorClient {
   }
 
   stop(): void {
+    if (this.flushTimer) clearTimeout(this.flushTimer)
+    this.flushTimer = null
     this.link.stop()
+  }
+
+  /** Durably queues an event and sends it now if the link is up. */
+  queueEvent(event: BotEvent): void {
+    if (!this.options.outbox) return
+    this.options.outbox.add(event, this.now())
+    this.flush()
+  }
+
+  /** Sends what the outbox holds, in order, while the link is up and has said hello. */
+  flush(): void {
+    const outbox = this.options.outbox
+    if (!outbox || this.flushTimer) return
+    for (;;) {
+      if (!this.helloRev || !this.link.online) return
+      const batch = outbox.nextBatch()
+      if (!batch.length) {
+        this.flushAttempt = 0
+        return
+      }
+      if (!this.sendEvents(batch.map((item) => item.event))) {
+        this.retryFlush()
+        return
+      }
+      outbox.done(batch)
+    }
+  }
+
+  private sendEvents(events: BotEvent[]): boolean {
+    try {
+      if (!this.link.send({ ch: 'bots', type: 'events', helloRev: this.helloRev, seq: this.seq, events })) return false
+    } catch (error) {
+      // Over the link's message limit: smaller batches from now on.
+      this.options.log?.(`connector: events batch not sent: ${String(error)}`)
+      this.options.outbox?.shrink()
+      return false
+    }
+    this.seq++
+    return true
+  }
+
+  private retryFlush() {
+    const delay = backoffDelay(this.flushAttempt++, Math.random)
+    this.flushTimer = setTimeout(() => {
+      this.flushTimer = null
+      this.flush()
+    }, delay)
   }
 
   /** The `helloRev` of the current link, 0 before `hello-ok`. */
@@ -158,6 +217,9 @@ export class ConnectorClient {
     switch (message.type) {
       case 'hello-ok':
         this.helloRev = message.helloRev
+        this.seq = 0
+        if (this.options.snapshot) this.sendEvents([this.options.snapshot()])
+        this.flush()
         return
       case 'delivery':
         if (message.helloRev !== this.helloRev) return // from before the latest hello; it will come again
@@ -165,6 +227,7 @@ export class ConnectorClient {
         return
       case 'error':
         if (message.code === 'hello_required') this.sendHello()
+        else if (message.code === 'too_large') this.options.outbox?.shrink()
         else this.options.log?.(`connector: relay error ${message.code}: ${message.message}`)
         return
       case 'control':

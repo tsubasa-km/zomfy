@@ -38,6 +38,8 @@ export type BotInput = Pick<Bot, 'name' | 'handle' | 'agent'> &
   Partial<Pick<Bot, 'avatar' | 'purpose' | 'model' | 'permissionMode' | 'owner' | 'askers'>> & {
     /** An existing workspace as the home; omitted: a new folder `~/zomfy/bots/<handle>`. */
     homeWorkspaceId?: string
+    /** An existing folder or repository on this host as the home, when it is not a workspace yet. */
+    homePath?: string
   }
 
 export type ConnectorState =
@@ -81,21 +83,32 @@ export const BOT_METHODS = {
   botsConnectorUnpair: '_harness/bots/connectorUnpair',
   botAskers: '_harness/bots/askers',
   botsAccessRequests: '_harness/bots/accessRequests',
-  botsAnswerAccessRequest: '_harness/bots/answerAccessRequest'
+  botsAnswerAccessRequest: '_harness/bots/answerAccessRequest',
+  /** A new chat with the bot in its home: the sidebar's New chat, or a `@handle …` prompt. */
+  botChatCreate: '_harness/bots/chatCreate'
 } as const
 
 export const BOT_NOTIFICATIONS = {
-  /** Every client hears the whole list after any change. */
+  /** Every client hears the whole list after any change: `{ bots: Bot[] }`. */
   botsChanged: '_harness/bots/changed',
-  connectorStatusChanged: '_harness/bots/connectorStatusChanged'
+  /** A `ConnectorStatus`. */
+  connectorStatusChanged: '_harness/bots/connectorStatusChanged',
+  /** Pending access requests after one arrives or is answered: `{ requests: BotAccessRequest[] }`. */
+  accessRequestsChanged: '_harness/bots/accessRequestsChanged'
 } as const
+
+export interface BotNotifications {
+  [BOT_NOTIFICATIONS.botsChanged]: { bots: Bot[] }
+  [BOT_NOTIFICATIONS.connectorStatusChanged]: ConnectorStatus
+  [BOT_NOTIFICATIONS.accessRequestsChanged]: { requests: BotAccessRequest[] }
+}
 
 export interface BotRequests {
   [BOT_METHODS.botsList]: { params: Record<string, never>; result: { bots: Bot[] } }
   [BOT_METHODS.botCreate]: { params: { input: BotInput }; result: Bot }
   [BOT_METHODS.botUpdate]: { params: { id: string; patch: Partial<Omit<BotInput, 'homeWorkspaceId'>> }; result: Bot }
-  /** Removes the record; the home folder and its chats stay. */
-  [BOT_METHODS.botDelete]: { params: { id: string }; result: Record<string, never> }
+  /** Removes the record; the home folder and its chats stay unless `deleteHome` (a folder Zomfy made only). */
+  [BOT_METHODS.botDelete]: { params: { id: string; deleteHome?: boolean }; result: Record<string, never> }
   [BOT_METHODS.botPause]: { params: { id: string; paused: boolean }; result: Bot }
   [BOT_METHODS.botsConnectorStatus]: { params: Record<string, never>; result: ConnectorStatus }
   /** Registers this host with the relay (setup code or host invite) and connects. */
@@ -113,5 +126,14 @@ export interface BotRequests {
   [BOT_METHODS.botsAnswerAccessRequest]: {
     params: { id: string; allow: boolean }
     result: Record<string, never>
+  }
+  /**
+   * Opens a chat with `origin: 'bot'` in the bot's home. With `text`, the daemon runs it as the
+   * chat's first turn (its approvals go to any open window); without, the window sends the first
+   * prompt itself. `fromSessionId` is the chat a `@handle …` prompt was typed in.
+   */
+  [BOT_METHODS.botChatCreate]: {
+    params: { id: string; text?: string; fromSessionId?: string }
+    result: { sessionId: string }
   }
 }
