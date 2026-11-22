@@ -3,7 +3,7 @@ type: Spec
 title: Tool calls a stopped turn leaves open read as stopped
 description: When a turn is known to have stopped (Stop, a failed turn, the daemon restarting) or a chat's Claude process is gone, every tool call still pending or running is closed as stopped, live and on replay, instead of spinning forever.
 status: stable
-x-zomfy-implementation: in-progress
+x-zomfy-implementation: done
 tags: [chat, daemon, desktop, transcript, background-tasks]
 generated: { by: "claude-code/opus-5.5", at: "2026-11-22T00:00:00Z" }
 ---

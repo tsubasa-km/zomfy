@@ -3,7 +3,7 @@ type: Spec
 title: The Next steps card
 description: The card a turn ends with, from wrap_up or the reply's recap; its done/check sections open by default, and its buttons say plainly what they do, the person's own steps going to the Inbox's To do list.
 status: stable
-x-zomfy-implementation: in-progress
+x-zomfy-implementation: done
 tags: [chat, desktop, next-steps, inbox, todos]
 generated: { by: "claude-code/opus-5.5", at: "2026-11-22T00:00:00Z" }
 ---
