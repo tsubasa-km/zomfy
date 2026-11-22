@@ -51,6 +51,8 @@ export class PairingError extends Error {}
 /** The host's X25519 key, pinned by phones in the pairing offer. Private part stays on disk, mode 0600. */
 export interface HostBoxKey {
   publicKey: string;
+  /** base64url; only the relay's end-to-end channel reads it. */
+  secretKey?: string;
 }
 
 export class DeviceStore {
@@ -58,6 +60,7 @@ export class DeviceStore {
   private readonly grants = new Map<string, Grant>();
   private boxKey: HostBoxKey | null = null;
   private saving: Promise<void> = Promise.resolve();
+  private loadedFlag = false;
 
   constructor(
     private readonly path = join(HARNESS_HOME, "devices.json"),
@@ -82,8 +85,13 @@ export class DeviceStore {
       await this.save();
     }
     this.boxKey = await this.loadBoxKey();
+    this.loadedFlag = true;
   }
 
+  /** `load` finished: the device list is the one on disk, not the empty default. */
+  get loaded(): boolean {
+    return this.loadedFlag;
+  }
   get hostId(): string {
     return this.file.hostId;
   }
@@ -95,6 +103,10 @@ export class DeviceStore {
   }
   get hostBoxPublicKey(): string {
     return this.boxKey?.publicKey ?? "";
+  }
+  /** The X25519 secret whose public part phones pinned; empty before `load`. */
+  get hostBoxSecretKey(): string {
+    return this.boxKey?.secretKey ?? "";
   }
 
   async setListener(enabled: boolean, port?: number): Promise<void> {
@@ -119,15 +131,19 @@ export class DeviceStore {
     return { grant, ...entry, scopes: [...entry.scopes] };
   }
 
-  /** Checks and burns the grant, then records the device. */
-  async pair(request: PairRequest): Promise<DeviceRecord> {
+  /**
+   * Checks and burns the grant, then records the device. A phone pairing over the relay names its
+   * own id (the one the Hub knows it by); otherwise a new one is made.
+   */
+  async pair(request: PairRequest, id?: string): Promise<DeviceRecord> {
+    if (id !== undefined && (!/^[A-Za-z0-9_-]{8,64}$/.test(id) || this.get(id))) throw new PairingError("This phone's id is malformed or taken");
     const grant = typeof request.grant === "string" ? this.grants.get(request.grant) : undefined;
     if (!grant) throw new PairingError("This pairing code was already used or is unknown; show a new QR code");
     this.grants.delete(request.grant);
     if (grant.expiresAt <= this.now()) throw new PairingError("This pairing code expired; show a new QR code");
     if (!isKey(request.publicKey) || !isKey(request.boxPublicKey)) throw new PairingError("The phone's keys are malformed");
     const record: DeviceRecord = {
-      id: crypto.randomUUID(),
+      id: id ?? crypto.randomUUID(),
       name: typeof request.name === "string" && request.name.trim() ? request.name.trim().slice(0, 80) : "Phone",
       model: typeof request.model === "string" ? request.model.slice(0, 80) : null,
       publicKey: request.publicKey,
@@ -182,8 +198,8 @@ export class DeviceStore {
 
   private async loadBoxKey(): Promise<HostBoxKey> {
     try {
-      const raw = JSON.parse(await readFile(this.boxKeyPath, "utf8")) as { publicKey?: unknown };
-      if (isKey(raw.publicKey)) return { publicKey: raw.publicKey };
+      const raw = JSON.parse(await readFile(this.boxKeyPath, "utf8")) as { publicKey?: unknown; privateKey?: unknown };
+      if (isKey(raw.publicKey)) return { publicKey: raw.publicKey, ...(isKey(raw.privateKey) ? { secretKey: raw.privateKey } : {}) };
     } catch {
       // Made below.
     }
@@ -192,7 +208,7 @@ export class DeviceStore {
     const priv = privateKey.export({ format: "jwk" }).d!;
     await mkdir(dirname(this.boxKeyPath), { recursive: true });
     await writeFile(this.boxKeyPath, JSON.stringify({ publicKey: pub, privateKey: priv }), { mode: 0o600 });
-    return { publicKey: pub };
+    return { publicKey: pub, secretKey: priv };
   }
 }
 

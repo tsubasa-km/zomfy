@@ -8,6 +8,7 @@ import { refuseUnattended } from "../chat-agent-launch-specs.ts";
 import { DEFAULT_SESSION_OPTIONS } from "../session-registry.ts";
 import { HARNESS_HOME } from "../harness-home.ts";
 import { log } from "../log.ts";
+import { relayChannels } from "../relay-channels.ts";
 
 /** The turn's last assistant message: what it said after its last tool call, else all it said. */
 export function lastAgentMessage(updates: acp.SessionUpdate[]): string {
@@ -90,6 +91,7 @@ export function registerBotHandlers(ctx: HandlerContext): void {
     chats: botChats(ctx),
     broadcast,
     log,
+    channels: relayChannels,
   });
   // Started with the daemon, not a window: a paired host answers while no window is open.
   try {

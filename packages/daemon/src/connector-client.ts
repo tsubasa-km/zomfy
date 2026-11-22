@@ -21,6 +21,7 @@ import type { ReceiptStore } from './connector-receipts'
 import type { Outbox } from './connector-outbox'
 import { backoffDelay, RelayLink, type RelayLinkOptions, type RelayLinkStatus } from './relay-link'
 import type { HostKey, RelayConfig } from './relay-pairing'
+import type { RelayChannels } from './relay-channels'
 
 export interface DeliveryResult {
   outcome: AckOutcome
@@ -54,6 +55,8 @@ export interface ConnectorClientOptions {
   fetch?: typeof fetch
   /** Passed to the link; for tests. */
   link?: Partial<Pick<RelayLinkOptions, 'WebSocket' | 'random' | 'pingIntervalMs' | 'backoff'>>
+  /** The link's other channels (the phone relay); told when the link is up or down. */
+  channels?: RelayChannels
 }
 
 const FEATURES = ['hello-bots-pages', 'events-seq']
@@ -78,11 +81,16 @@ export class ConnectorClient {
         this.helloRev = 0
         this.sendHello()
         void this.refreshSources()
+        options.channels?.linkOnline({ send: (message) => this.sendOther(message) })
       },
       onMessage: (message) => {
         if (message.ch === 'bots') void this.onBots(message)
+        else if (message.ch === 'phone') options.channels?.phoneMessage(message)
       },
-      onStatus: (status) => options.onStatus?.(this.toStatus(status))
+      onStatus: (status) => {
+        if (status.state !== 'online') options.channels?.linkOffline()
+        options.onStatus?.(this.toStatus(status))
+      }
     })
   }
 
@@ -94,6 +102,16 @@ export class ConnectorClient {
     if (this.flushTimer) clearTimeout(this.flushTimer)
     this.flushTimer = null
     this.link.stop()
+  }
+
+  /** A message of another channel; false when the link is down or the message is too large. */
+  private sendOther(message: object): boolean {
+    try {
+      return this.link.send(message)
+    } catch (error) {
+      this.options.log?.(`connector: message not sent: ${String(error)}`)
+      return false
+    }
   }
 
   /** Durably queues an event and sends it now if the link is up. */

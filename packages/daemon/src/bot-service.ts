@@ -47,6 +47,8 @@ export interface BotServiceOptions {
   /** For tests. */
   fetch?: typeof fetch
   link?: ConnectorClientOptions['link']
+  /** The link's other channels (the phone relay). */
+  channels?: ConnectorClientOptions['channels']
 }
 
 const UNPAIRED: ConnectorStatus = {
@@ -252,7 +254,8 @@ export class BotService {
       onStatus: (status) => this.options.broadcast(BOT_NOTIFICATIONS.connectorStatusChanged, status),
       log: this.options.log,
       fetch: this.options.fetch,
-      link: this.options.link
+      link: this.options.link,
+      channels: this.options.channels
     })
     this.client.start()
   }
