@@ -37,6 +37,7 @@ import { WebhookSource, type CallAnswer, type IncomingCall } from './webhooks/so
 import { SlackSource } from './slack/source'
 import { configuredSources, type Env } from './env'
 import { Outbound, OUTBOUND_DUE, type OutboundRunner } from './outbound'
+import { PhoneRelay, type PhoneAttachment } from './phone'
 import { within, type HubSource, type SourceHub } from './sources/common'
 
 /** Features this Hub implements, of those the contract knows. */
@@ -103,6 +104,8 @@ export class Hub extends DurableObject<Env> {
   private readonly sources: HubSource[] = []
   /** What every source is given. */
   private readonly shared: SourceHub
+  /** Phone sockets and the host link's `phone` channel (docs/specs/mobile/relay.md). */
+  private readonly phones: PhoneRelay
 
   constructor(ctx: DurableObjectState, env: Env) {
     super(ctx, env)
@@ -139,6 +142,13 @@ export class Hub extends DurableObject<Env> {
     this.addSource(this.webhooks)
     this.linear = new LinearSource(this.shared)
     this.addSource(this.linear)
+    this.phones = new PhoneRelay({
+      ctx,
+      sql: this.sql,
+      hostLink: (hostId) => this.authedLink(hostId),
+      hostExists: (hostId) => Boolean(this.host(hostId)),
+      linkError: (link, code, message) => this.sendError(link, code, message)
+    })
     // Pings are answered by the runtime without waking the object.
     ctx.setWebSocketAutoResponse(new WebSocketRequestResponsePair(PING_FRAME, PONG_FRAME))
   }
@@ -169,6 +179,8 @@ export class Hub extends DurableObject<Env> {
     const url = new URL(request.url)
     this.noteOrigin(request.url)
     if (url.pathname === '/v1/host') return this.acceptHost(request, url)
+    const device = /^\/v1\/device\/([^/]+)\/ws$/.exec(url.pathname)
+    if (device) return this.phones.accept(request, decodeURIComponent(device[1]!))
     if (request.method !== 'POST') return fail('not_found', 404)
     let body: unknown
     try {
@@ -260,6 +272,7 @@ export class Hub extends DurableObject<Env> {
       this.sql.exec('DELETE FROM devices WHERE host_id = ?', hostId)
     })
     for (const ws of this.ctx.getWebSockets(`host:${hostId}`)) ws.close(limits.closeUnauthorized, 'revoked')
+    this.phones.closeHost(hostId)
   }
 
   private acceptHost(request: Request, url: URL): Response {
@@ -278,7 +291,9 @@ export class Hub extends DurableObject<Env> {
   // --- The host link ---
 
   override async webSocketMessage(ws: WebSocket, message: string | ArrayBuffer): Promise<void> {
-    const att = ws.deserializeAttachment() as HostAttachment | null
+    const any = ws.deserializeAttachment() as HostAttachment | PhoneAttachment | null
+    if (any?.kind === 'phone') return this.phones.onMessage(ws, any, message)
+    const att = any
     if (!att || att.kind !== 'host') return ws.close(1008, 'unknown socket')
     if (typeof message !== 'string') return ws.close(1003, 'text frames only')
     if (message.length > limits.maxMessageBytes) return this.sendError(ws, 'too_large', 'message over 1 MiB')
@@ -295,7 +310,8 @@ export class Hub extends DurableObject<Env> {
     if (parsed.kind === 'invalid') return this.sendError(ws, 'bad_message', parsed.error.slice(0, 1000))
     const msg = parsed.message
     this.sql.exec('UPDATE hosts SET last_seen_at = ? WHERE id = ?', Date.now(), att.hostId)
-    if (msg.ch !== 'bots') return // link pings are auto-answered; the phone channel comes with the phone relay.
+    if (msg.ch === 'phone') return this.phones.fromHost(ws, att.hostId, msg)
+    if (msg.ch !== 'bots') return // link pings are auto-answered.
     await this.onBots(ws, att, msg)
   }
 
@@ -309,6 +325,15 @@ export class Hub extends DurableObject<Env> {
     }
     ws.serializeAttachment({ ...att, nonce: null, authed: true } satisfies HostAttachment)
     ws.send(JSON.stringify({ ch: 'link', type: 'auth-ok', hostId: att.hostId }))
+    this.phones.hostOnline(att.hostId, ws)
+  }
+
+  /** The host's authenticated link, said hello or not (the phone channel needs no hello). */
+  private authedLink(hostId: string): WebSocket | null {
+    for (const ws of this.ctx.getWebSockets(`host:${hostId}`)) {
+      if ((ws.deserializeAttachment() as HostAttachment | null)?.authed) return ws
+    }
+    return null
   }
 
   private async onBots(ws: WebSocket, att: HostAttachment, msg: Exclude<ToHub, { ch: 'link' | 'phone' }>) {
@@ -506,6 +531,12 @@ export class Hub extends DurableObject<Env> {
   }
 
   override async webSocketClose(ws: WebSocket, code: number, reason: string): Promise<void> {
+    const att = ws.deserializeAttachment() as HostAttachment | PhoneAttachment | null
+    if (att?.kind === 'phone') this.phones.onClose(ws, att)
+    else if (att?.kind === 'host' && att.authed) {
+      const other = this.ctx.getWebSockets(`host:${att.hostId}`).some((s) => s !== ws && (s.deserializeAttachment() as HostAttachment | null)?.authed)
+      if (!other) this.phones.hostOffline(att.hostId)
+    }
     // Leased deliveries stay leased; the lease alarm or the next hello re-sends them.
     try {
       ws.close(code === 1005 ? 1000 : code, reason)
