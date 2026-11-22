@@ -3,7 +3,7 @@ type: Spec
 title: Wake a Claude chat when its background work finishes
 description: A Claude chat whose turn ended with background tasks still running keeps its Claude process, and starts a turn of its own with the task's notification when a task finishes, as Claude Code does.
 status: stable
-x-zomfy-implementation: in-progress
+x-zomfy-implementation: done
 tags: [claude, chat, background-tasks, daemon]
 generated: { by: "claude-code/opus-5.5", at: "2026-11-22T00:00:00Z" }
 ---
