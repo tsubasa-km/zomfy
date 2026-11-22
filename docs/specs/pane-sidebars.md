@@ -3,7 +3,7 @@ type: Spec
 title: One right sidebar per split pane
 description: Each split pane of tabs has its own right sidebar, opened from its own tab strip and showing the workspace of the tab it has in front.
 status: stable
-x-zomfy-implementation: in-progress
+x-zomfy-implementation: done
 tags: [ui, tabs, sidebar]
 generated: { by: "claude-code/opus-5.5", at: "2026-11-22T00:00:00Z" }
 ---
@@ -29,7 +29,8 @@ which one changed with every click between panes.
   the old single sidebar carries over to the focused pane once.
 - **The toggle.** The open/close button sits at the trailing end of each pane's tab strip, after
   whatever else is there (the pop-out window's "Back to the main window"). The title bar no longer
-  has one. With a single pane the window looks as before, with the button in the strip.
+  has one. With a single pane the window looks as before, with the button in the strip. In a
+  narrow pane the strip's new-tab buttons give way first, so the pane's own buttons stay in reach.
 - **Shortcuts and commands.** `sidebar.right.toggle` and the panel shortcuts (`sidebar.explorer.toggle`
   and the rest), and the places that open a panel (`setRightSidebar`: the status bar, a card's checks
   badge, the explorer's search), act on the focused pane of the window. A press inside a pane's
