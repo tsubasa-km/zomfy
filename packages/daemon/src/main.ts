@@ -27,7 +27,9 @@ const sessions = new SessionRegistry();
 await sessions.load();
 void pruneChatAttachments().catch((error) => log(`attachment cleanup failed: ${error}`));
 // Inline terminals of chats deleted while the host was down are dropped on restore.
-const agent = createHarnessAgent(workspaces, sessions, new TerminalManager((id) => sessions.get(id) !== undefined));
+const agent = createHarnessAgent(workspaces, sessions, new TerminalManager((id) => sessions.get(id) !== undefined), {
+  remoteGateway: !process.argv.includes("--stdio"),
+});
 
 if (process.argv.includes("--stdio")) {
   // For ACP clients that launch the agent themselves (Zed, Orca).

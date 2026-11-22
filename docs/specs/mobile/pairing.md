@@ -18,7 +18,7 @@ sources:
   - id: t3-auth
     resource: https://github.com/pingdotgg/t3code/blob/main/docs/internals/environment-auth.md
     title: T3 Code environment auth
-generated: { by: "claude-code/opus-5.5", at: "2026-11-22T03:21:28Z" }
+generated: { by: "claude-code/opus-5.5", at: "2026-11-22T12:00:00Z" }
 ---
 
 # Problem
@@ -73,6 +73,31 @@ for the person's own phone; a pairing can drop any.
 Host registration (the first list, except the settings UI) is built in `apps/relay` and the
 daemon's `relay-pairing.ts`, in phase B0 of [bots](../bots/overview.md#phases). Phone pairing,
 device records and scopes are not built yet.
+
+## Implementation status
+
+Phone pairing on the direct route is built (M1); host registration and the relay's `device-add`
+wait for M2.
+
+- `packages/daemon/src/device-store.ts` keeps `~/.zomfy/devices.json`, which also holds the host's
+  stable `hostId` and the listener setting; the host's X25519 key is in
+  `~/.zomfy/remote/box-key.json` (mode 0600). Grants live in memory, so a restart burns them.
+- `remote-gateway.ts` is the opt-in listener, port **7802** by default. Like T3 Code's server it
+  listens on every interface and answers only loopback, RFC 1918, link-local, `100.64/10` and IPv6
+  ULA/link-local peers; the offer lists the LAN addresses, then the tailnet ones.
+  `ZOMFY_REMOTE_BIND=127.0.0.1` keeps it on loopback (previews, the Android Emulator via
+  `10.0.2.2`).
+- The wire: `GET /v1/hello`, `POST /v1/pair`, and the WebSocket `/v1/device`, which sends a
+  challenge; the phone signs `zomfy-device-v1|hostId|deviceId|nonce` with its Ed25519 key. A bad
+  signature closes with 4401, a revoke with 4403. After `ready` the socket is an ACP connection to
+  the agent the windows use.
+- The scope tables cover methods the phone calls, notifications it hears and requests it is sent
+  (`session/request_permission` needs `chats:operate`); anything unlisted is refused or dropped.
+- Settings → Devices (`DevicesPane.tsx`): the listener switch, a QR code and link, the paired
+  phones with their scopes and connection, and Revoke. Pairing offers every scope; choosing fewer
+  is in the protocol but not yet in the UI.
+- On the direct route the traffic is not encrypted beyond what the tailnet gives; end-to-end
+  encryption comes with the relay (M2).
 
 # Non-goals
 

@@ -3,7 +3,7 @@ type: Spec
 title: Zomfy for Android
 description: An Android app, sideloaded as an APK, that watches and steers the agents on the person's Zomfy hosts from anywhere, built on T3 Code's client design and Orca's relay design.
 status: stable
-x-zomfy-implementation: planned
+x-zomfy-implementation: in-progress
 tags: [mobile]
 sources:
   - id: mobile-app
@@ -11,7 +11,7 @@ sources:
     title: A phone app for Zomfy
   - id: person
     resource: "decisions given by the person on 2026-11-22"
-generated: { by: "claude-code/opus-5.5", at: "2026-11-22T00:00:00Z" }
+generated: { by: "claude-code/opus-5.5", at: "2026-11-22T12:00:00Z" }
 ---
 
 # Problem
@@ -71,6 +71,17 @@ relay.[^mobile-app]
 | M4 Depth | Terminals (xterm.js in a WebView), new chat and worktree, diffs, attachments, voice | Phone |
 
 M1 needs no Cloudflare and can run in parallel with bots B1; M2 needs the host link from bots B0.
+
+# Implementation status
+
+- **M0 done.** `packages/protocol/src/remote-devices.ts` and `permission-asks.ts`; the daemon asks
+  every window and phone at once (`ask-every-client.ts`): the first answer wins, the others get
+  `_harness/permissions/resolved` and close their card, a client that connects while an ask waits
+  is asked too, and with nobody to ask it is still denied after 5 minutes.
+- **M1 done** on the direct route: the [gateway and Settings → Devices](pairing.md#implementation-status)
+  and the [app shell](app.md#implementation-status). Not yet tried on the Android Emulator or a
+  real phone; the APK has not been built (no Expo account yet).
+- M2–M4 are planned.
 
 # Acceptance
 

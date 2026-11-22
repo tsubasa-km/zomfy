@@ -1,0 +1,19 @@
+# Expo
+.expo/
+dist/
+web-build/
+expo-env.d.ts
+
+# Native folders made by `expo prebuild` (the app is built on EAS from app.json)
+/android/
+/ios/
+
+# Builds and keys
+*.apk
+*.aab
+*.keystore
+*.jks
+credentials.json
+
+npm-debug.*
+*.log

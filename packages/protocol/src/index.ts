@@ -30,6 +30,7 @@ import { VOICE_METHODS, type VoiceRequests } from './voice'
 import { WORKSPACE_METHODS, type WorkspaceRequests } from './workspaces'
 import { CHAT_STATUS_METHODS, type ChatStatusRequests } from './chat-status'
 import { BOT_METHODS, type BotRequests } from './bots'
+import { REMOTE_DEVICE_METHODS, type RemoteDeviceRequests } from './remote-devices'
 
 export * from './automation-schedules'
 export * from './automations'
@@ -64,6 +65,8 @@ export * from './workflow-suggestions'
 export * from './chat-status'
 export * from './wrap-up'
 export * from './bots'
+export * from './permission-asks'
+export * from './remote-devices'
 
 export const HARNESS_METHODS = {
   ...WORKSPACE_METHODS,
@@ -93,7 +96,8 @@ export const HARNESS_METHODS = {
   ...LSP_METHODS,
   ...SSH_CONNECTION_METHODS,
   ...CHAT_STATUS_METHODS,
-  ...BOT_METHODS
+  ...BOT_METHODS,
+  ...REMOTE_DEVICE_METHODS
 } as const
 
 export const HARNESS_NOTIFICATIONS = {
@@ -131,6 +135,7 @@ export interface HarnessRequests
     LspRequests,
     SshConnectionRequests,
     ChatStatusRequests,
-    BotRequests {}
+    BotRequests,
+    RemoteDeviceRequests {}
 
 export type HarnessMethod = keyof HarnessRequests
