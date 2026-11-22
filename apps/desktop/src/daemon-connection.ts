@@ -89,6 +89,8 @@ import { applyAutomationSnapshot } from "./stores/automation-store";
 import { notifyAutoResumed } from "./agent-notifications";
 import { dispatchLspEvent } from "./lib/lsp/lsp-events";
 import { setDevicesSnapshot } from "./stores/devices-store";
+import { applyBotsNotification, startBots } from "./stores/bots-store";
+import { BOT_NOTIFICATIONS } from "@zomfy/protocol";
 
 interface DaemonInfo {
   url: string;
@@ -278,6 +280,27 @@ async function openConnection(hostId: HostId): Promise<void> {
       },
     )
     .onNotification(
+      BOT_NOTIFICATIONS.botsChanged,
+      (raw: unknown) => raw,
+      (ctx) => {
+        if (hostId === LOCAL_HOST) applyBotsNotification(BOT_NOTIFICATIONS.botsChanged, ctx.params);
+      },
+    )
+    .onNotification(
+      BOT_NOTIFICATIONS.connectorStatusChanged,
+      (raw: unknown) => raw,
+      (ctx) => {
+        if (hostId === LOCAL_HOST) applyBotsNotification(BOT_NOTIFICATIONS.connectorStatusChanged, ctx.params);
+      },
+    )
+    .onNotification(
+      BOT_NOTIFICATIONS.accessRequestsChanged,
+      (raw: unknown) => raw,
+      (ctx) => {
+        if (hostId === LOCAL_HOST) applyBotsNotification(BOT_NOTIFICATIONS.accessRequestsChanged, ctx.params);
+      },
+    )
+    .onNotification(
       PERMISSION_ASK_NOTIFICATIONS.resolved,
       (raw: unknown) => raw as PermissionAskResolved,
       (ctx) => closeResolvedAsk(hostId, ctx.params),
@@ -386,6 +409,8 @@ async function openConnection(hostId: HostId): Promise<void> {
     if (hostId === LOCAL_HOST) void opened.agent.request<TodoItem[]>(HARNESS_METHODS.todosList, {}).then(setTodos, () => undefined);
     // The project catalog lives on this computer's daemon too; an older daemon has none.
     if (hostId === LOCAL_HOST) void startProjectCatalog();
+    // Bots live on this computer's daemon; an older daemon has none.
+    if (hostId === LOCAL_HOST) void startBots();
     reconnectAttempts.delete(hostId);
   } catch (error) {
     opened.close();
