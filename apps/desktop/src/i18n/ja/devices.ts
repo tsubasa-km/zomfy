@@ -36,5 +36,16 @@ export const DEVICES: Record<string, string> = {
   'Prompt, stop and approve': '送信・停止・承認',
   Terminals: 'ターミナル',
   Workspaces: 'ワークスペース',
-  Bots: 'ボット'
+  Bots: 'ボット',
+  'Zomfy Relay': 'Zomfy Relay',
+  'Connected now through {route}': '{route} で接続中',
+  'Works once, for {n} more minutes.': '1 回だけ、あと {n} 分間使えます。',
+  'Phones can also reach this computer from anywhere through Zomfy Relay, end-to-end encrypted.':
+    'スマートフォンはエンドツーエンド暗号化された Zomfy Relay を通じて、どこからでもこのコンピューターに届きます。',
+  'Zomfy Relay is paired but not connected right now; phones use it once it is back.':
+    'Zomfy Relay とペアリング済みですが、今は接続されていません。戻り次第スマートフォンが使います。',
+  'Shows a QR code for the Zomfy app on your Android phone. Without the listener the phone pairs through Zomfy Relay.':
+    'Android の Zomfy アプリ用の QR コードを表示します。待ち受けがオフでも Zomfy Relay 経由でペアリングできます。',
+  'Turn on “Let phones connect”, or pair Zomfy Relay in Settings → Bots, first.':
+    '先に「スマートフォンの接続を許可」をオンにするか、設定 → ボット で Zomfy Relay とペアリングしてください。'
 }

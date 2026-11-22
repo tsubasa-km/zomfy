@@ -11,6 +11,7 @@ import { refuseUnattended } from "../chat-agent-launch-specs.ts";
 import { DEFAULT_SESSION_OPTIONS } from "../session-registry.ts";
 import { HARNESS_HOME } from "../harness-home.ts";
 import { log } from "../log.ts";
+import { relayChannels } from "../relay-channels.ts";
 
 /** The turn's last assistant message: what it said after its last tool call, else all it said. */
 export function lastAgentMessage(updates: acp.SessionUpdate[]): string {
@@ -130,6 +131,7 @@ export function registerBotHandlers(ctx: HandlerContext): void {
     broadcast,
     log,
     asks: ctx.asks,
+    channels: relayChannels,
   });
   if (ctx.services.automations) service.setAutomations(ctx.services.automations);
   // A bot turn's activity, and the owner's words in a Slack-linked chat.

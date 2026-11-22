@@ -83,8 +83,11 @@ import { log } from "./log.ts";
 import { ConnectionClients } from "./connection-clients.ts";
 import { AskEveryClient } from "./ask-every-client.ts";
 import { DeviceStore } from "./device-store.ts";
-import { envVar } from "./harness-home.ts";
+import { envVar, HARNESS_HOME } from "./harness-home.ts";
 import { RemoteGateway } from "./remote-gateway.ts";
+import { PhoneRelay } from "./phone-relay.ts";
+import { relayChannels } from "./relay-channels.ts";
+import { readRelayConfig } from "./relay-pairing.ts";
 import { registerRemoteDeviceHandlers } from "./handlers/remote-device-handlers.ts";
 import { compactTranscript } from "./transcript-compaction.ts";
 import { toolCallCommand, toolCallPaths } from "./conversation-messages.ts";
@@ -874,13 +877,22 @@ export function createHarnessAgent(
   }
 
   // Phones on the LAN or a tailnet (docs/specs/mobile/pairing.md): ACP clients of this same agent.
+  // Through Zomfy Relay too (docs/specs/mobile/relay.md), on the link the bots connector keeps.
+  const deviceStore = new DeviceStore();
+  let phoneRelay: PhoneRelay | null = null;
   const gateway = new RemoteGateway({
-    store: new DeviceStore(),
+    store: deviceStore,
     connect: (stream) => app.connect(stream),
-    onChange: (snapshot) => broadcast(REMOTE_DEVICE_NOTIFICATIONS.devicesChanged, snapshot),
+    onChange: (snapshot) => {
+      broadcast(REMOTE_DEVICE_NOTIFICATIONS.devicesChanged, snapshot);
+      phoneRelay?.devicesChanged();
+    },
+    relayRoute: () => phoneRelay?.route() ?? null,
     // ZOMFY_REMOTE_BIND=127.0.0.1 keeps it on this computer (previews, the Android Emulator).
     ...(envVar("REMOTE_BIND") ? { bindHostname: envVar("REMOTE_BIND") } : {}),
   });
+  phoneRelay = new PhoneRelay({ gateway, store: deviceStore, relayConfig: () => readRelayConfig(HARNESS_HOME), log });
+  phoneRelay.attach(relayChannels);
   registerRemoteDeviceHandlers(handle, gateway, options.remoteGateway === true);
 
   return app;

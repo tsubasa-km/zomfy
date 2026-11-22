@@ -89,3 +89,12 @@ export const pingIntervalMs = 30 * SECOND
 export const closeUnauthorized = 4401
 /** Close code when a newer link of the same host replaced this one. */
 export const closeReplaced = 4409
+
+/** Phone relay (docs/specs/mobile/relay.md): devices one host may register at the Hub. */
+export const maxDevicesPerHost = 50
+/** Phones pairing over the relay at once, per host. */
+export const maxPairingSocketsPerHost = 4
+/** Close code for a phone whose device the host revoked. */
+export const closeRevoked = 4403
+/** Close code the daemon asks for when a phone's end-to-end channel broke (bad, replayed or reordered frame). */
+export const closeChannelBroken = 4400

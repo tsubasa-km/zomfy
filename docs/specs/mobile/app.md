@@ -78,12 +78,29 @@ screens on the direct route. Differences from the plan above, for M1:
 
 - It runs in **Expo Go** as well as in a build: M1 uses no native module Expo Go lacks. Push (M3)
   is when it needs a development build.
-- TanStack Query, zod, the offline queue, drafts and cached lists are not in yet (M2); the route
-  chooser already picks the first live direct route and moves back to a preferred one.
+- TanStack Query, zod and cached lists are not in; the route chooser picks the first live route and
+  moves back to a preferred one.
 - `@noble/curves` makes the Ed25519 and X25519 keys, kept in expo-secure-store.
 - `eas.json` has the `preview` profile with `buildType: apk`; `bun run mobile:apk` runs it once
   the person has signed in to EAS. The APK allows cleartext `http`/`ws` for LAN routes.
 - No in-app check for newer `android-v*` releases yet.
+
+M2 (relay, connection and offline):
+
+- Routes are LAN → tailnet → relay, as the offer lists them. The relay route
+  (`src/lib/relay-client.ts`) keeps one socket per host across `host-offline` / `host-online` and
+  starts a new end-to-end channel on it when the host comes back; `host-online` also connects at
+  once instead of waiting for the next retry. Off the relay its socket is closed.
+- Wakeups after T3 Code's: coming to the front and a network change (expo-network) reset the backoff
+  for an offline host, probe the better routes now, and check that a connected route still answers,
+  dropping it at once when it does not.
+- The offline queue (`src/lib/prompt-queue.ts`) and drafts live in a file (expo-file-system), not in
+  secure storage. A queued prompt shows as a chip that removes it; on each connect the queue is sent
+  in order, one turn at a time. A prompt leaves the queue as it is sent, so a connection lost
+  mid-turn never sends it twice (at most once); one that surely did not leave goes back first in line.
+- Not in yet: cached host, workspace and chat lists and transcripts for offline reading (a reconnect
+  replays the open chat with `session/load` as before). Not yet tried on a phone switching from
+  Wi-Fi to mobile data.
 
 # Non-goals
 

@@ -231,7 +231,11 @@ export const messageFixtures = {
   'bots/error': { ch: 'bots', type: 'error', code: 'hello_required', message: 'send hello first' },
   'phone/device-add': { ch: 'phone', type: 'device-add', deviceId: 'd_abcdefgh1234', publicKey: KEY },
   'phone/device-remove': { ch: 'phone', type: 'device-remove', deviceId: 'd_abcdefgh1234' },
-  'phone/frame': { ch: 'phone', type: 'frame', deviceId: 'd_abcdefgh1234', data: 'Y2lwaGVydGV4dA==' }
+  'phone/frame': { ch: 'phone', type: 'frame', deviceId: 'd_abcdefgh1234', data: 'Y2lwaGVydGV4dA==' },
+  'phone/device-sync': { ch: 'phone', type: 'device-sync', devices: [{ deviceId: 'd_abcdefgh1234', publicKey: KEY }] },
+  'phone/close': { ch: 'phone', type: 'close', deviceId: 'd_abcdefgh1234', code: 4400, reason: 'replayed frame' },
+  'phone/device-open': { ch: 'phone', type: 'device-open', deviceId: 'd_abcdefgh1234', pairing: true },
+  'phone/device-closed': { ch: 'phone', type: 'device-closed', deviceId: 'd_abcdefgh1234' }
 } as const
 
 /** Which direction each message travels. */
@@ -245,7 +249,9 @@ export const toHubTypes = [
   'bots/action',
   'phone/device-add',
   'phone/device-remove',
-  'phone/frame'
+  'phone/frame',
+  'phone/device-sync',
+  'phone/close'
 ] as const
 export const toHostTypes = [
   'link/challenge',
@@ -256,7 +262,9 @@ export const toHostTypes = [
   'bots/action-result',
   'bots/control',
   'bots/error',
-  'phone/frame'
+  'phone/frame',
+  'phone/device-open',
+  'phone/device-closed'
 ] as const
 
 export const httpFixtures = {
