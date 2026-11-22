@@ -60,6 +60,12 @@ Background processes die with the daemon. The daemon records, in `background-tas
 home, which chats have live background tasks; on its next start each of those chats gets a notice
 that the restart stopped them, and the record is cleared.
 
+When the chat's next prompt resumes the conversation, the CLI first reports each such task as
+stopped and writes an empty result (no model call) for a turn of its own, before it takes the
+prompt. A turn ends only at a result that names its prompt (`user_message_uuid`); from CLIs that
+name none, an empty result before any output does not end it. The stopped task shows as a status
+line in that turn.
+
 # Out of scope
 
 - A control to stop one background task, and a list of running tasks in the chat.
