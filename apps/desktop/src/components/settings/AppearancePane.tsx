@@ -49,6 +49,7 @@ function SidebarSection() {
   const tasks = useSetting('showTasksButton')
   const newChat = useSetting('showNewChatButton')
   const automations = useSetting('showAutomationsButton')
+  const bots = useSetting('showBotsButton')
   const skills = useSetting('showSkillsButton')
   const projects = useSetting('showProjectsButton')
   const dashboard = useSetting('showAgentDashboardButton')
@@ -76,6 +77,12 @@ function SidebarSection() {
           keywords={['automations', 'automation', 'schedule', 'sidebar']}
           checked={automations}
           onChange={(v) => setSetting('showAutomationsButton', v)}
+        />
+        <SettingsSwitchRow
+          label={t('Show Bots Button')}
+          keywords={['bots', 'bot', 'discord', 'sidebar']}
+          checked={bots}
+          onChange={(v) => setSetting('showBotsButton', v)}
         />
         <SettingsSwitchRow label={t('Show Projects Button')} keywords={['projects', 'sidebar', 'button']} checked={projects} onChange={(v) => setSetting('showProjectsButton', v)} />
         <SettingsSwitchRow label={t('Show Skills Button')} keywords={['skills', 'sidebar', 'button']} checked={skills} onChange={(v) => setSetting('showSkillsButton', v)} />

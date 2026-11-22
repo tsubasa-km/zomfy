@@ -39,7 +39,10 @@ export function useChatListCounts(): { total: number; matched: number } {
   // Counted in the selector and handed out as a string, so a chat streaming does not redraw the sidebar.
   const counts = useStore((s) => {
     const floating = floatingWorkspaceId(s)
-    const listed = s.sessions.filter((x) => !x.sideOf && !x.parentId && x.origin !== 'workflow' && x.workspaceId !== floating && !x.archived)
+    const bots = s.sidebarView.botChats === true
+    const listed = s.sessions.filter(
+      (x) => !x.sideOf && !x.parentId && x.origin !== 'workflow' && (bots || x.origin !== 'bot') && x.workspaceId !== floating && !x.archived
+    )
     const needle = query.trim().toLowerCase()
     if (!needle) return `${listed.length} ${listed.length}`
     const where = new Map<string, string>()
@@ -118,6 +121,7 @@ export function ChatList({ actions }: { actions: SidebarActions }) {
   const floating = useStore((s) => floatingWorkspaceId(s))
   const groupBy = useStore((s) => s.sidebarView.chatGroupBy ?? 'state')
   const showWorkflow = useStore((s) => s.sidebarView.workflowChats === true)
+  const showBots = useStore((s) => s.sidebarView.botChats === true)
   // Only how many tab terminals each workspace has: a string, so a terminal's new title redraws nothing here.
   const terminalWorkspaces = useStore((s) => s.terminals.flatMap((t) => (t.inline ? [] : [t.workspaceId])).join(' '))
   const query = useSidebarStore((s) => s.filters.query)
@@ -168,9 +172,11 @@ export function ChatList({ actions }: { actions: SidebarActions }) {
   // A workflow run's step chats stay folded under the chat the run was started from. One with no
   // such chat to sit under is left out (the Workflows page has it), unless it waits for the person.
   const parents = new Set(known.map((s) => s.id))
-  const listed = showWorkflow
+  const shown = showWorkflow
     ? known
     : known.filter((s) => s.origin !== 'workflow' || (s.parentId !== undefined && parents.has(s.parentId)) || s.status === 'needs-you')
+  // Bots' chats live on the Bots page; one waiting for the person still shows here.
+  const listed = showBots ? shown : shown.filter((s) => s.origin !== 'bot' || s.status === 'needs-you')
   const needle = query.trim().toLowerCase()
   const matches = (s: Session) => {
     if (!needle) return true

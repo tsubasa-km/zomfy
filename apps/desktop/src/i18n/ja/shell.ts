@@ -1295,6 +1295,9 @@ export const SHELL: Record<string, string> = {
   '{n} terminals running': 'ターミナル {n} 個が実行中',
   worktree: 'ワークツリー',
   'Workflow threads': 'ワークフローのスレッド',
+  'Show bot chats': 'ボットのチャットを表示',
+  'Threads with your bots. The Bots page lists them either way; one waiting for you shows here anyway.':
+    'ボットとのスレッドです。ボットのページには常に表示され、あなたの対応待ちのものはここにも表示されます。',
   'Threads a workflow run made for its steps. They stay folded under the thread the run was started from either way.': 'ワークフローが各ステップ用に作ったスレッドです。どちらの設定でも、実行元のスレッドの下には折りたたんで残ります。',
   'New thread': '新しいスレッド',
   'Open a surface': '開くものを選ぶ',

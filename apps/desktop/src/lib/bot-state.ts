@@ -1,4 +1,4 @@
-import { BOT_NOTIFICATIONS, type Bot, type BotAccessRequest, type ConnectorStatus } from '@zomfy/protocol'
+import { BOT_NOTIFICATIONS, type Bot, type BotAccessRequest, type BotChatFrom, type ConnectorStatus } from '@zomfy/protocol'
 import type { Session } from '@/session-store'
 
 // The bots state as pure functions, for the bots store and its tests (docs/specs/bots/desktop.md).
@@ -54,3 +54,20 @@ export function botActivity(bot: Bot, sessions: readonly Session[]): BotActivity
   return bot.paused ? 'paused' : 'idle'
 }
 
+
+/**
+ * The browser link to the thread a bot chat was asked from, when the source's id says where it is.
+ * Discord ids (docs/specs/bots/sources/discord.md): `<guild>:<channel>:<message>` for a mention,
+ * whose thread has the message's id; `@me:<dm>:<message>` for a DM; `…:i<interaction>` for `/ask`.
+ */
+export function botFromLink(from: BotChatFrom | undefined): string | null {
+  if (!from?.externalId) return null
+  if (from.source === 'discord') {
+    const [place, channel, message] = from.externalId.split(':')
+    if (!place || !channel) return null
+    if (place === '@me' || !message || message.startsWith('i')) return `https://discord.com/channels/${place}/${channel}`
+    return `https://discord.com/channels/${place}/${message}`
+  }
+  if (/^https:\/\//.test(from.externalId)) return from.externalId
+  return null
+}

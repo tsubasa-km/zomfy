@@ -540,6 +540,7 @@ export const PAGES: Record<string, string> = {
   'IDE Font': 'IDE のフォント',
   'Show Tasks Button': 'タスクボタンを表示',
   'Show Automations Button': '自動化ボタンを表示',
+  'Show Bots Button': 'ボットボタンを表示',
   'Show Skills Button': 'スキルボタンを表示',
   'Show Agent Dashboard Button': 'エージェントダッシュボードボタンを表示',
   'Show Onboarding Checklist': 'セットアップのチェックリストを表示',

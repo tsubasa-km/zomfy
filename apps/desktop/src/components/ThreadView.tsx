@@ -57,6 +57,7 @@ import { createTranscriptBuilder } from '@/components/native-chat/native-chat-tr
 import { useNativeChatFind } from '@/components/native-chat/use-native-chat-find'
 import { ContinueInTerminalContextMenuItem } from '@/components/native-chat/NativeChatTerminalMenuItem'
 import '@/components/native-chat/native-chat-appearance.css'
+import { BotChatHeader } from '@/components/bots/BotChatHeader'
 import { t } from '@/i18n/i18n'
 import { getTabLayoutState } from '@/stores/tab-layout-store'
 import { projectLabel } from '@/components/sidebar/workspace-visibility'
@@ -257,6 +258,7 @@ export function ThreadView({ session, onSendToMain }: { session: Session; onSend
               }}
               className="scrollbar-sleek relative h-full overflow-y-auto pt-(--tab-top-inset) outline-none [overflow-anchor:none] [scrollbar-gutter:stable_both-edges]"
             >
+              <BotChatHeader session={session} />
               {empty ? (
                 session.role === 'manager' ? <ManagerEmptyState /> : <NativeChatEmptyState session={session} />
               ) : (

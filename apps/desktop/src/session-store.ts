@@ -157,6 +157,8 @@ export interface SidebarView {
   chatGroupBy?: 'state' | 'project'
   /** List the chats workflow runs made for their steps even when no chat started the run. */
   workflowChats?: boolean
+  /** List bots' chats too (docs/specs/bots/desktop.md); the Bots page has them either way. */
+  botChats?: boolean
 }
 
 /** `plugin:<publisher.id>/<panelId>` names an enabled plugin's panel. */

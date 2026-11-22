@@ -8,6 +8,7 @@ import { Segment } from '@/components/status-bar/status-bar-segments'
 import { registerCommandHandler, useShortcutLabel } from '@/keybindings/keybinding-registry'
 import { cn } from '@/lib/utils'
 import { inboxEntries } from './inbox-entries'
+import { useBots } from '@/stores/bots-store'
 import { t } from '@/i18n/i18n'
 
 /** Everything waiting on the person: approvals and questions, unread finishes, open todos. */
@@ -18,10 +19,11 @@ function useInboxCounts(): { total: number; urgent: number } {
     return `${entries.length} ${entries.filter((e) => e.kind !== 'finished').length}`
   })
   const openTodos = useInbox((s) => s.todos.filter((t) => !t.done).length)
+  const accessRequests = useBots((s) => s.accessRequests.length)
   return useMemo(() => {
     const [entries, urgent] = counts.split(' ').map(Number)
-    return { total: entries! + openTodos, urgent: urgent! }
-  }, [counts, openTodos])
+    return { total: entries! + openTodos + accessRequests, urgent: urgent! + accessRequests }
+  }, [counts, openTodos, accessRequests])
 }
 
 function InboxSegment() {

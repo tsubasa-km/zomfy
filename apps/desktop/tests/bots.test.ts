@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'bun:test'
 import { BOT_NOTIFICATIONS, type Bot, type ConnectorStatus } from '@zomfy/protocol'
-import { botActivity, botChats, INITIAL_BOTS_STATE, reduceBotsNotification } from '../src/lib/bot-state'
+import { botActivity, botChats, botFromLink, INITIAL_BOTS_STATE, reduceBotsNotification } from '../src/lib/bot-state'
 import { parseBotMention } from '../src/lib/bot-mention'
 import type { Session } from '../src/session-store'
 
@@ -86,5 +86,15 @@ describe('the @handle parser', () => {
     expect(parseBotMention('@nobody hello', bots)).toBeNull()
     expect(parseBotMention('@reviewer.md look', bots)).toBeNull()
     expect(parseBotMention('@src/reviewer look', bots)).toBeNull()
+  })
+})
+
+describe('where a bot chat came from', () => {
+  test('links a Discord mention to its thread, a DM and /ask to their channel', () => {
+    expect(botFromLink({ source: 'discord', externalId: 'g1:c1:m1' })).toBe('https://discord.com/channels/g1/m1')
+    expect(botFromLink({ source: 'discord', externalId: '@me:d1:m1' })).toBe('https://discord.com/channels/@me/d1')
+    expect(botFromLink({ source: 'discord', externalId: 'g1:c1:i99' })).toBe('https://discord.com/channels/g1/c1')
+    expect(botFromLink({ source: 'zomfy', fromSessionId: 's1' })).toBeNull()
+    expect(botFromLink(undefined)).toBeNull()
   })
 })

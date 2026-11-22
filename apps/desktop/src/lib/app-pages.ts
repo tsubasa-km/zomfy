@@ -4,14 +4,15 @@ import { setBoardOpen } from '@/stores/sidebar-store'
 import { setAutomationsPageOpen } from '@/stores/automation-store'
 import { setProjectsPageOpen, setSkillsPageOpen } from '@/stores/app-overlay-store'
 import { setTasks } from '@/stores/tasks-store'
+import { setBotsPageOpen } from '@/stores/bots-store'
 import { leaveWorkflows, openWorkflows } from '@/stores/workflows-store'
 
 // The pages the sidebar's rows open (above its project list) show one at a time: opening one
 // closes whichever was open, so none is left drawn over or under another.
 
-export type AppPage = 'workflows' | 'dashboard' | 'board' | 'tasks' | 'automations' | 'skills' | 'projects'
+export type AppPage = 'workflows' | 'dashboard' | 'board' | 'tasks' | 'automations' | 'skills' | 'projects' | 'bots'
 
-const PAGES: readonly AppPage[] = ['workflows', 'dashboard', 'board', 'tasks', 'automations', 'skills', 'projects']
+const PAGES: readonly AppPage[] = ['workflows', 'dashboard', 'board', 'tasks', 'automations', 'skills', 'projects', 'bots']
 
 const CLOSE: Record<AppPage, () => void> = {
   workflows: () => openWorkflows(null),
@@ -20,7 +21,8 @@ const CLOSE: Record<AppPage, () => void> = {
   tasks: () => setTasks({ open: false }),
   automations: () => setAutomationsPageOpen(false),
   skills: () => setSkillsPageOpen(false),
-  projects: () => setProjectsPageOpen(false)
+  projects: () => setProjectsPageOpen(false),
+  bots: () => setBotsPageOpen(false)
 }
 
 /** Closes the open pages but `keep`; false when the person kept unsaved workflow changes instead. */
@@ -30,10 +32,11 @@ export function closePages(open: Record<AppPage, boolean>, keep?: AppPage): bool
   return true
 }
 
-/** Projects and Automations sit beside the sidebar; opening a chat from it leaves them for the chat. */
+/** Projects, Automations and Bots sit beside the sidebar; opening a chat from it leaves them for the chat. */
 export function closePagesBesideSidebar(): void {
   setAutomationsPageOpen(false)
   setProjectsPageOpen(false)
+  setBotsPageOpen(false)
 }
 
 /** Watches which pages are open; one that just opened closes the others (or closes itself if refused). */
