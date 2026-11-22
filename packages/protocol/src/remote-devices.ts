@@ -29,13 +29,17 @@ export interface RemoteDevice {
   lastSeenAt: number | null
   /** It has an open connection now. */
   connected: boolean
+  /** The route its open connection came in on (the relay, or a direct LAN or tailnet address); null while offline. */
+  route?: RemoteRoute['kind'] | null
 }
 
 /** One way to reach the host's gateway, tried in the offer's order. */
 export interface RemoteRoute {
   kind: 'lan' | 'tailnet' | 'relay'
-  /** http(s) base URL of the gateway, e.g. `http://192.168.1.20:7802`. */
+  /** http(s) base URL of the gateway, e.g. `http://192.168.1.20:7802`; for the relay, the Worker's URL. */
   url: string
+  /** The relay route only: the relay's id for this host (`h_…`), for `/v1/device/<id>/ws`. */
+  relayHostId?: string
 }
 
 /** What a pairing QR code or `zomfy://pair#<offer>` link carries. */
@@ -75,6 +79,8 @@ export interface RemoteDevicesSnapshot {
   hostName: string
   devices: RemoteDevice[]
   listener: RemoteListenerStatus
+  /** The relay route pairing offers list, while this host is linked to Zomfy Relay (M2); null otherwise. */
+  relay?: (RemoteRoute & { online: boolean }) | null
 }
 
 export const DEFAULT_REMOTE_PORT = 7802
