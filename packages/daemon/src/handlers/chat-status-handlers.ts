@@ -4,6 +4,9 @@ import { HARNESS_METHODS, MANAGER_MCP_SERVER_NAME, type ChatMcpStatusResult } fr
 import type { HandlerContext } from "./handler-context.ts";
 import { ClaudeControl, SIGN_IN_MS, chatMcpServer, startMcpSignIn, submitMcpCallback } from "../claude-control.ts";
 import { UsageLimits } from "../usage-limits.ts";
+import { FaviconCache } from "../favicons.ts";
+import { HARNESS_HOME } from "../harness-home.ts";
+import { join } from "node:path";
 import { chatAgentLaunch } from "../chat-agent-launch-settings.ts";
 import { liveClaudeQueries } from "../live-claude-queries.ts";
 import { managerMcp } from "../manager-mcp-server.ts";
@@ -82,6 +85,9 @@ export function registerChatStatusHandlers(ctx: HandlerContext): void {
     await control.with(chatKey(p.sessionId), (query) => submitMcpCallback(query, p.server, p.callbackUrl.trim()));
     return status(p.sessionId);
   });
+
+  const favicons = new FaviconCache(join(HARNESS_HOME, "favicons"));
+  handle(HARNESS_METHODS.favicon, async (p) => ({ dataUrl: await favicons.get(p.domain) }));
 
   handle(HARNESS_METHODS.usageLimits, (p) => limits.read({ refresh: p.refresh === true, ...(p.sessionId ? { sessionId: p.sessionId } : {}) }));
 }
