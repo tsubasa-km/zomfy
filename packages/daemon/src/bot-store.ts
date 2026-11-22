@@ -96,9 +96,10 @@ export class BotStore {
       owner: { ...input.owner },
       askers: normalizeAskers(input.askers),
       paused: false,
-      createdAt: now
+      createdAt: now,
+      ...(input.isDefault ? { isDefault: true } : {})
     }
-    this.data.bots = [...this.data.bots, bot]
+    this.data.bots = [...(bot.isDefault ? this.data.bots.map(notDefault) : this.data.bots), bot]
     this.save()
     return bot
   }
@@ -119,7 +120,9 @@ export class BotStore {
     validateBotFields(next)
     const clash = this.byHandle(next.handle)
     if (clash && clash.id !== id) throw new Error(`Another bot is already @${next.handle}`)
-    this.data.bots = this.data.bots.map((b) => (b.id === id ? next : b))
+    if (!next.isDefault) delete next.isDefault
+    // One default bot per host: making this one the default unsets the others.
+    this.data.bots = this.data.bots.map((b) => (b.id === id ? next : next.isDefault ? notDefault(b) : b))
     this.save()
     return next
   }
@@ -195,6 +198,12 @@ function load(path: string): Saved {
   }
 }
 
+function notDefault(bot: Bot): Bot {
+  if (!bot.isDefault) return bot
+  const { isDefault: _default, ...rest } = bot
+  return rest
+}
+
 function normalizeAskers(askers: BotInput['askers']): Bot['askers'] {
   const out: Bot['askers'] = {}
   for (const [source, list] of Object.entries(askers ?? {}) as [BotSource, BotAsker[] | undefined][]) {
@@ -219,6 +228,7 @@ export function helloBot(bot: Bot): HelloBot {
     askers: Object.fromEntries(
       Object.entries(bot.askers).map(([source, list]) => [source, (list ?? []).map((a) => ({ id: a.id, role: a.role }))])
     ),
-    places: []
+    places: [],
+    ...(bot.isDefault ? { isDefault: true } : {})
   }
 }

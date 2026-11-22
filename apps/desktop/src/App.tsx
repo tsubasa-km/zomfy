@@ -13,6 +13,8 @@ import { ImportThreadsDialog } from '@/components/ImportThreadsDialog'
 import { AgentDashboard } from '@/components/AgentDashboard'
 import { SettingsPage } from '@/components/settings/SettingsPage'
 import { AutomationsPage } from '@/components/automations/AutomationsPage'
+import { BotsPage } from '@/components/bots/BotsPage'
+import { useBots } from '@/stores/bots-store'
 import { useAutomationState } from '@/stores/automation-store'
 import { closePagesBesideSidebar, useOnePageAtATime } from '@/lib/app-pages'
 import { SkillsPage } from '@/components/skills/SkillsPage'
@@ -72,6 +74,7 @@ export default function App() {
   const automationsOpen = useAutomationState((s) => s.pageOpen)
   const skillsOpen = useAppOverlays((s) => s.skills)
   const projectsOpen = useAppOverlays((s) => s.projects)
+  const botsOpen = useBots((s) => s.pageOpen)
   usePluginBootstrap()
   const boardOpen = useSidebarStore((s) => s.boardOpen)
   const tasksOpen = useTasks((s) => s.open)
@@ -84,7 +87,8 @@ export default function App() {
     tasks: tasksOpen,
     automations: automationsOpen,
     skills: skillsOpen,
-    projects: projectsOpen
+    projects: projectsOpen,
+    bots: botsOpen
   })
 
   // A chat brought to the front (from the palette, a notification, a link) leaves the pages beside the sidebar.
@@ -93,8 +97,8 @@ export default function App() {
   useEffect(() => {
     if (frontBefore.current === front) return
     frontBefore.current = front
-    if (automationsOpen || projectsOpen) closePagesBesideSidebar()
-  }, [front, automationsOpen, projectsOpen])
+    if (automationsOpen || projectsOpen || botsOpen) closePagesBesideSidebar()
+  }, [front, automationsOpen, projectsOpen, botsOpen])
 
   useEffect(() => {
     // index.html shows a themed boot screen until the shell mounts.
@@ -145,6 +149,11 @@ export default function App() {
             {projectsOpen && (
               <div className="absolute inset-0 z-20 flex">
                 <ProjectsPage />
+              </div>
+            )}
+            {botsOpen && (
+              <div className="absolute inset-0 z-20 flex">
+                <BotsPage />
               </div>
             )}
           </div>

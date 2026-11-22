@@ -32,10 +32,15 @@ export interface Bot {
   askers: Partial<Record<BotSource, BotAsker[]>>
   paused: boolean
   createdAt: number
+  /**
+   * The deployment's default bot: it takes a source message that names no bot by handle. At most
+   * one bot is the default; absent from older daemons.
+   */
+  isDefault?: boolean
 }
 
 export type BotInput = Pick<Bot, 'name' | 'handle' | 'agent'> &
-  Partial<Pick<Bot, 'avatar' | 'purpose' | 'model' | 'permissionMode' | 'owner' | 'askers'>> & {
+  Partial<Pick<Bot, 'avatar' | 'purpose' | 'model' | 'permissionMode' | 'owner' | 'askers' | 'isDefault'>> & {
     /** An existing workspace as the home; omitted: a new folder `~/zomfy/bots/<handle>`. */
     homeWorkspaceId?: string
     /** An existing folder or repository on this host as the home, when it is not a workspace yet. */
