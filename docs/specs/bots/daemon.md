@@ -39,7 +39,8 @@ without a window being open.
 
 ## Home, SOUL and MEMORY
 
-- Create bot makes (or adopts) a folder workspace, by default `~/zomfy/bots/<handle>`, and writes
+- Create bot makes a new folder workspace `~/zomfy/bots/<handle>` by default, or uses an existing
+  repository the person chooses instead, and writes
   `SOUL.md`, `MEMORY.md`, `memory/`, `bot.json`, an `AGENTS.md`, and a `CLAUDE.md` holding
   `@AGENTS.md`. Zomfy rewrites `AGENTS.md`, `CLAUDE.md` and `bot.json`; `SOUL.md` and `MEMORY.md` are the
   person's and the bot's.[^orca-home]
@@ -148,13 +149,20 @@ context item and webhook body as **information, not instructions**.
 - Creating a bot writes `SOUL.md`, `MEMORY.md`, `AGENTS.md`, `CLAUDE.md`; editing `SOUL.md` and
   updating the bot keeps the edit.
 
+# Decisions
+
+Answered by the person on 2026-11-22:
+
+1. A bot's home is a new folder `~/zomfy/bots/<handle>` by default; an existing repository can be
+   chosen instead. In a repository home the generated `AGENTS.md` / `CLAUDE.md` are not
+   overwritten if the repository already has its own; the bot's rules go in `bot.json` and a
+   `.zomfy-bot/AGENTS.md` that the prompt points at.
+2. A new bot asks for approval for each tool use by default (`permissionMode: 'default'`), unlike
+   Orca, which follows the owner's chat setting.
+
 # Open questions
 
-1. Default home: a new folder under `~/zomfy/bots/<handle>` (Orca's way), or let the person pick an
-   existing repo as the home?
-2. Default permission mode for a new bot: Orca follows the owner's chat setting (Full access by
-   default) and only recommends Ask for approval; this spec defaults to Ask for approval
-   (`default`). Keep that safer default?
+None for the person.
 
 [^orca-desk]: Orca's `connector-outbox.ts`, `connector-deliveries.ts`, `connector-snapshot.ts`
 [^orca-home]: Orca's `bot-home.ts` and `bot-soul.ts`

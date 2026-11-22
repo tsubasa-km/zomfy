@@ -65,7 +65,7 @@ lists and the last transcript of recently opened chats are readable offline.
 ## Build
 
 - `bun run mobile:apk` runs `eas build -p android --profile preview` with `buildType: apk`
-  (EAS's free tier), or `--local` where the toolchain allows; the APK is attached to a GitHub
+  on **EAS's cloud (free tier)**; the APK is attached to a GitHub
   release `android-v<version>` and installed by opening it on the phone.[^expo-apk]
 - The app's package id is `dev.zomfy.app`; the APK is signed with a keystore kept by EAS (or a
   local one for local builds). An in-app check tells the person when a newer `android-v*` release
@@ -86,10 +86,14 @@ lists and the last transcript of recently opened chats are readable offline.
   within 10 s through the relay (M2).
 - `bun run mobile:apk` produces an installable APK; installing a newer one keeps the pairing.
 
+# Decisions
+
+Answered by the person on 2026-11-22: the APK is built on EAS's cloud (free tier), with the
+person's free Expo account.
+
 # Open questions
 
-1. Build the APK in EAS's cloud (needs the Expo account the push already needs) or locally with
-   Android Studio's Gradle on Windows? The spec defaults to EAS cloud.
+None for the person.
 
 [^mobile-app]: A phone app for Zomfy, §2 and §4
 [^t3-conn]: T3 Code's `connection-runtime.md`

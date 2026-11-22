@@ -111,14 +111,21 @@ One Discord application serves all bots. A message names a bot by handle after t
   turn and removes the buttons; answering in Zomfy instead edits them to "Answered in Zomfy".
 - `/ask` works while the Gateway object is restarted.
 
+# Decisions
+
+Answered by the person on 2026-11-22:
+
+1. **The Gateway is held by the Cloudflare side all the time** (the `DiscordGateway` Durable
+   Object), so @mentions and DMs work and a request waits up to 24 h in the Hub while the PC is
+   off. `/ask` and **Ask bot** stay as well. Estimate: one object awake all day is about 11,000
+   GB-s a day, just under the Workers Free plan's 13,000 GB-s daily Durable Object allowance; going
+   over means moving the account to **Workers Paid (5 USD a month)**. `/health` reports the
+   object's uptime so the person can watch it.[^cf-do]
+2. One Discord application per deployment; bots are called by handle.
+
 # Open questions
 
-1. **Cost of the Gateway.** The Gateway connection keeps one Durable Object awake all day. By our
-   estimate that is about 11,000 GB-s a day, just under the Free plan's 13,000 GB-s daily
-   allowance; on Workers Paid (5 USD a month) it is no concern. Options: (a) keep the Gateway and
-   accept moving to Paid if the free allowance runs out; (b) **slash command and Ask bot only**, no
-   mentions, which needs no Gateway; (c) the Gateway on the daemon instead, which loses the offline
-   queue for mentions. The spec assumes (a), with (b) as a setting.[^cf-do]
+None for the person.
 
 [^orca-connectors]: Orca's `bot-connectors.ts` and `AddConnectorDialog.tsx`
 [^discord-gateway]: Discord Gateway documentation

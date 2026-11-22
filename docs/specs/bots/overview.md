@@ -106,13 +106,19 @@ The end-to-end checks of the MVP; each spec has its own detailed checks.
   within 24 hours; after 24 hours the asker is told it expired.
 - A Discord user not in Who can ask gets the "ask the owner" note and no chat is created.
 
+# Decisions
+
+Answered by the person on 2026-11-22:
+
+1. One Discord application and one Slack app per deployment; several bots are told apart by handle
+   (`@Zomfy reviewer …`), as Orca does with its shared GitHub app.
+2. Discord's Gateway runs on the Cloudflare side all the time, so mentions wait while the PC is
+   off; this may need Workers Paid ([Discord](sources/discord.md#decisions)).
+
 # Open questions
 
-1. Several bots in one Discord application and one Slack app are told apart by handle (`@Zomfy
-   reviewer …`), as Orca does with its shared GitHub app. Is a handle acceptable, or should each
-   bot be its own Discord application (own name and avatar, one more token per bot)?
-2. Should MVP bots be limited to one host, or may two hosts each host bots on one deployment from
-   the start? (The contract allows both.)
+1. Should MVP bots be limited to one host, or may two hosts each host bots on one deployment from
+   the start? (The contract allows both; the spec does not limit it.)
 
 [^orca-bots]: Orca Bots research, §1
 [^orca-docs]: Orca Bots quickstart and security pages

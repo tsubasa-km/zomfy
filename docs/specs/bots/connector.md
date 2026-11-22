@@ -42,7 +42,7 @@ and shared with the [phone relay](../mobile/relay.md) ([decision](../../decision
 | `POST /v1/hosts/register`, `POST /v1/hosts/invite` | Host registration — [pairing](../mobile/pairing.md) |
 | `GET /v1/host` (upgrade) | The daemon's link, channels `bots` and `phone` — [contract](contract.md) |
 | `GET /v1/device/<hostId>/ws` (upgrade) | Phone sockets — [phone relay](../mobile/relay.md) |
-| `GET /health` | `{ok, version, sources: [configured…]}`, no secrets |
+| `GET /health` | `{ok, version, sources: [configured…], discordGatewayUptime?}`, no secrets |
 
 Every source route: read the raw body, verify the source's signature (bad → 401), dedupe on the
 source's event id, hand the event to the Hub, and answer 2xx within the source's deadline (Slack
@@ -104,7 +104,8 @@ Event triggers are not gated by Who can ask (as in Orca); their `from` field nar
 - `apps/relay` builds on its own: `wrangler.jsonc` declares `Hub` and `DiscordGateway` with a
   `new_sqlite_classes` migration; the contract is vendored into `src/contract/`
   ([contract](contract.md#where-it-lives)); `.dev.vars.example` lists every secret.[^cf-deploy]
-- **Deploy to Cloudflare** button: `https://deploy.workers.cloudflare.com/?url=<repo>/tree/main/apps/relay`;
+- **Deploy to Cloudflare** button: `https://deploy.workers.cloudflare.com/?url=https://github.com/tsubasa-km/zomfy/tree/main/apps/relay`
+  (the repository is public);
   Cloudflare clones it into the person's GitHub, creates the objects and asks for the secrets.
 - **`bun run deploy`** (in `apps/relay`): checks `wrangler whoami`, runs `wrangler deploy`, generates
   `SETUP_CODE`, asks for each source's secrets the person wants (skipping the rest), and prints the
@@ -153,10 +154,18 @@ Worker tests with `@cloudflare/vitest-pool-workers`, plus a fake daemon script a
   configured sources; the Deploy button works from the public repo.
 - Nothing in Hub storage or logs contains a secret value (grep test with marker secrets).
 
+# Decisions
+
+Answered by the person on 2026-11-22:
+
+1. The repository `tsubasa-km/zomfy` is public, so the Deploy to Cloudflare button points at its
+   `apps/relay` directly; no separate template repository.
+2. Discord's Gateway is held by the Cloudflare side all the time, which may need Workers Paid
+   ([Discord](sources/discord.md#decisions)).
+
 # Open questions
 
-1. The Deploy button needs a **public** repository (`tsubasa-km/zomfy`). Is the repo public, or
-   should the button point at a separate public template repo that CI keeps in sync?
+None for the person.
 
 [^orca-bots]: Orca Bots research, §2 and §3
 [^orca-cc]: Orca's `bot-askers.ts`, `connector-limits.ts`

@@ -24,8 +24,9 @@ bots ask. The first test path is Zomfy itself, so talking to a bot must work wit
 
 ## Talking to a bot from Zomfy
 
-- The sidebar gets a **Bots** section above the projects: one row per bot (avatar, name, a dot for
-  running / waiting on you / paused). Clicking it opens the bot's newest chat; **New chat** opens
+- The left sidebar's navigation (`SidebarNav`) gets a **Bots** entry, like Orca. It opens the bot
+  list: one row per bot (avatar, name, a dot for running / waiting on you / paused). Clicking a bot
+  opens its newest chat; **New chat** opens
   another, in the bot's home. Like Orca, a new chat per job is normal, because the bot remembers in
   `MEMORY.md`.[^orca-docs]
 - A bot chat is an ordinary chat (composer, transcript, approvals, Stop) with a header showing the
@@ -52,7 +53,7 @@ bots ask. The first test path is Zomfy itself, so talking to a bot must work wit
    (interactions endpoint, events URL, webhook URL) with copy buttons, and a link to the source's
    setup steps.
 3. **Bots**: list, **Create bot** (name, handle, avatar, purpose, agent, model, permission mode,
-   home folder), and per bot:
+   home: a new folder `~/zomfy/bots/<handle>` by default, or an existing repository), and per bot:
    - **Open SOUL.md**, **Open MEMORY.md** (opened in Zomfy's editor), Open home folder.
    - **Who can ask** per source: the owner's own id per source (with "how to find my id" help) and
      added members with roles; pending access requests.
@@ -79,8 +80,13 @@ All new strings are English in the code with Japanese added to `apps/desktop/src
   fake Hub receive the answer and `prompt-cleared`.
 - Bot chats are hidden from project lists until "Show bot chats" is on.
 
+# Decisions
+
+Answered by the person on 2026-11-22: the bot list is a **Bots** entry in the left sidebar's
+navigation, like Orca, not a section above the projects or a tab.
+
 # Open questions
 
-1. Should the Bots section sit at the top of the sidebar (Orca) or be a tab beside projects?
+None for the person.
 
 [^orca-docs]: Orca Bots quickstart

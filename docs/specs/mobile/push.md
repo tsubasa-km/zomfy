@@ -71,10 +71,15 @@ the chat; an approval notification has no inline buttons in M3 (the decision is 
 - On the Android Emulator (Google Play image) with the APK and the person's Expo project: an
   approval ask with the app closed shows a notification within 10 s; tapping it opens that chat.
 
+# Decisions
+
+Answered by the person on 2026-11-22: a free Expo account and a free Firebase project for Android
+push (FCM v1 credentials uploaded to the Expo project) are acceptable; "no account system" means
+none for Zomfy's own relay.
+
 # Open questions
 
-1. Expo needs an Expo account and a Firebase project for Android push (both free). Is creating
-   those two accounts acceptable, given "no account system" was about Zomfy's own relay?
+None for the person.
 
 [^expo-push]: Expo push service documentation
 [^person]: The person's decisions of 2026-11-22
