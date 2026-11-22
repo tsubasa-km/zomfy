@@ -106,6 +106,23 @@ leaves approvals to Zomfy. A failed check on a pull request you opened wakes the
 branch. Code work (pushes, new pull requests) uses your own `gh` sign-in on the computer, never the
 app.
 
+## Webhooks
+
+Any system can wake a bot with one HTTP call ([spec](../../docs/specs/bots/sources/webhooks.md));
+nothing needs setting up in Cloudflare. In Zomfy, a bot → **New trigger → Webhook** makes the hook
+and shows its URL and key once. Callers send
+
+```sh
+curl -X POST <worker URL>/hooks/<hookId> -H "Authorization: Bearer <key>" -H "Content-Type: application/json" -d '{"level":"error"}'
+```
+
+or put the key in the path (`<worker URL>/hooks/<hookId>/<key>`) when they cannot set headers. A
+hook can also check the sender's own signature (Standard Webhooks, GitHub, Sentry, Linear,
+PagerDuty, Stripe). The answer is `{callId, status}` with `queued`, `ignored` (filters),
+`duplicate` or `paused`; 401 is a bad key or signature, 413 a body over 1 MiB, 429 more than the
+hook's runs for the hour (200 at most, 300 for the deployment). Bodies are kept at most 7 days,
+without the key or credential headers.
+
 ## Develop
 
 ```sh
@@ -116,6 +133,7 @@ bun scripts/fake-daemon.ts http://127.0.0.1:8787 <that setup code>
 ```
 
 Routes: `GET /health`, `POST /v1/hosts/register`, `POST /v1/hosts/invite`, the daemon's link
-`GET /v1/host`, `POST /discord/interactions`, `POST /slack/events` and `/slack/interactivity`, and
-`POST /github/webhook` (each source's routes answer 404 until its secrets are set). Tests reach fake Slack, GitHub and
+`GET /v1/host`, `POST /discord/interactions`, `POST /slack/events` and `/slack/interactivity`,
+`POST /github/webhook` (each source's routes answer 404 until its secrets are set), and
+`POST /hooks/<hookId>` for webhooks. Tests reach fake Slack, GitHub and
 Linear APIs (`test/fake-apis.mjs`) through the `SOURCES_TRANSPORT` binding.

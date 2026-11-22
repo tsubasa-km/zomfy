@@ -22,6 +22,13 @@ export interface SourceHub {
   scheduleDue(key: string, at: number): Promise<void>
   /** The Worker's own origin (`https://…workers.dev`), as the last request named it. */
   origin(): string | null
+  /** Settles a delivery that is not done yet (a webhook call cancelled before it ran). */
+  settle(deliveryId: string, outcome: string): void
+}
+
+/** Who an action comes from: the host whose link sent it. */
+export interface ActionContext {
+  hostId: string
 }
 
 export type ActionOutcome = { ok: true; result: unknown } | { ok: false; error: { code: string; message: string } }
@@ -36,7 +43,7 @@ export interface HubSource {
   purge(before: number): void
   /** Verbs it acts on, for `capabilities`. */
   readonly verbs: readonly string[]
-  action?(action: Action): Promise<ActionOutcome>
+  action?(action: Action, ctx: ActionContext): Promise<ActionOutcome>
   /** A timer it keeps in the Hub's `due` table as `<what>:<id>`; true when it was its own. */
   onTimer?(what: string, id: string, now: number): Promise<boolean> | boolean
 }

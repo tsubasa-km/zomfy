@@ -32,6 +32,7 @@ import {
 import { isEd25519PublicKey, randomToken, sameText, sha256Hex, verifyEd25519 } from './crypto'
 import { DiscordSource, type GatewayMessage } from './discord/source'
 import { GitHubSource } from './github/source'
+import { WebhookSource, type CallAnswer, type IncomingCall } from './webhooks/source'
 import { SlackSource } from './slack/source'
 import { configuredSources, type Env } from './env'
 import { Outbound, OUTBOUND_DUE, type OutboundRunner } from './outbound'
@@ -95,6 +96,7 @@ export class Hub extends DurableObject<Env> {
   private readonly discord: DiscordSource
   private readonly slack: SlackSource
   private readonly github: GitHubSource
+  private readonly webhooks: WebhookSource
   /** Every source, for the daemon's events, settled deliveries, actions, timers and the purge. */
   private readonly sources: HubSource[] = []
   /** What every source is given. */
@@ -116,7 +118,11 @@ export class Hub extends DurableObject<Env> {
       rules: () => this.allRules(),
       markSeen: (key) => this.markSeen(key),
       scheduleDue: (key, at) => hub.scheduleDue(key, at),
-      origin: () => this.meta('origin')
+      origin: () => this.meta('origin'),
+      settle: (id, outcome) => {
+        const row = this.sql.exec<{ state: string }>('SELECT state FROM deliveries WHERE id = ?', id).toArray()[0]
+        if (row && row.state !== 'done') this.finish(id, outcome, Date.now())
+      }
     }
     this.discord = new DiscordSource({
       ...this.shared,
@@ -127,6 +133,8 @@ export class Hub extends DurableObject<Env> {
     this.addSource(this.slack)
     this.github = new GitHubSource(this.shared)
     this.addSource(this.github)
+    this.webhooks = new WebhookSource(this.shared)
+    this.addSource(this.webhooks)
     // Pings are answered by the runtime without waking the object.
     ctx.setWebSocketAutoResponse(new WebSocketRequestResponsePair(PING_FRAME, PONG_FRAME))
   }
@@ -316,7 +324,7 @@ export class Hub extends DurableObject<Env> {
       case 'events':
         return this.onEvents(att.hostId, host.last_seq, msg)
       case 'action':
-        return this.onAction(ws, msg)
+        return this.onAction(ws, att.hostId, msg)
     }
   }
 
@@ -461,13 +469,13 @@ export class Hub extends DurableObject<Env> {
     )
   }
 
-  private async onAction(ws: WebSocket, action: Action) {
+  private async onAction(ws: WebSocket, hostId: string, action: Action) {
     const answer = (body: { ok: boolean; result?: unknown; error?: { code: string; message: string } }) =>
       ws.send(JSON.stringify({ ch: 'bots', type: 'action-result', reqId: action.reqId, ...body }))
     if (action.verb === 'capabilities') {
       const verbs = new Set<string>(['capabilities'])
       for (const source of this.sources) for (const verb of source.verbs) verbs.add(verb)
-      return answer({ ok: true, result: { contract: CONTRACT_VERSION, verbs: [...verbs], sources: configuredSources(this.env) } })
+      return answer({ ok: true, result: { contract: CONTRACT_VERSION, verbs: [...verbs], sources: [...configuredSources(this.env), 'webhook'] } })
     }
     const sourceName = action.verb.startsWith('webhook.')
       ? 'webhook'
@@ -481,7 +489,7 @@ export class Hub extends DurableObject<Env> {
       return answer({ ok: false, error: { code: 'unsupported', message: `${action.verb} is not available${sourceName ? ` for ${sourceName}` : ''} on this relay` } })
     }
     try {
-      const outcome = await source.action(action)
+      const outcome = await source.action(action, { hostId })
       answer(outcome.ok ? { ok: true, result: outcome.result } : { ok: false, error: outcome.error })
     } catch (error) {
       answer({ ok: false, error: { code: 'failed', message: (error instanceof Error ? error.message : String(error)).slice(0, 1000) } })
@@ -707,6 +715,13 @@ export class Hub extends DurableObject<Env> {
   /** A verified App webhook; returns well within GitHub's 10 s while the work goes on. */
   async githubWebhook(event: string, deliveryId: string, payload: unknown): Promise<void> {
     await within(this.github.onWebhook(event, deliveryId, payload), 5000)
+  }
+
+  // --- Webhooks (docs/specs/bots/sources/webhooks.md) ---
+
+  /** A call to `/hooks/<hookId>`; the answer goes back to the caller. */
+  async webhookCall(call: IncomingCall): Promise<CallAnswer> {
+    return this.webhooks.onCall(call)
   }
 
   /** Runs the outbound queue now, for tests. */

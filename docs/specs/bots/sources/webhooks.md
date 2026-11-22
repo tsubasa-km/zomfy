@@ -3,7 +3,7 @@ type: Spec
 title: Webhook source
 description: A URL per bot hook that any system can call to start a bot run, with a 256-bit key, optional sender signatures, filters, redaction, caps and 7-day retention, copied from Orca's webhook contract.
 status: stable
-x-zomfy-implementation: planned
+x-zomfy-implementation: in-progress
 tags: [bots, webhooks, security]
 sources:
   - id: orca-bots
@@ -54,6 +54,46 @@ the person pastes them into the calling system.
   the hook's automation, the body wrapped as untrusted information. Bodies are deleted after the
   run is done or after 7 days, whichever is first.
 - **Rotation:** a new key overlaps the old until a set time; Stop now cancels pending calls.
+
+# Built so far
+
+The Worker side of phase B5's webhooks ([overview](../overview.md#phases)), in
+`apps/relay/src/webhooks/`, with the names, redaction, filter and stored call in the contract's
+`bots/webhooks.ts` (Orca's `webhook-matcher.test.ts` cases run in `packages/relay-contract`).
+Details settled while building:
+
+- **The daemon manages hooks with actions**, since it talks to the Hub over its link rather than
+  Orca's HTTP routes: `webhook.mint {botId, cap?}` (answers the URL and the key once; the Hub keeps
+  `sha256("webhook|" + key)`), `webhook.list`, `webhook.state {live|paused, cap?}`,
+  `webhook.rotate {overlapUntil? | stopNow?}` (24 h overlap when no time is named),
+  `webhook.secret {adapter, secret | generate}` (only a generated secret comes back),
+  `webhook.delete`, `webhook.fetch {callId}` and `webhook.done {callId}` (the body goes at once).
+  Only the host whose bot owns a hook may manage it or fetch its calls. The filters travel in the
+  hook's rule in `hello` (`rule.webhook {hookId, where, textContains, pick, subjectFrom, subject}`);
+  a hook with no rule ignores its calls.
+- **A call** goes: unknown hook 404 → key (Bearer or path) 401 → sender signature 401 → the
+  same sender delivery id (`webhook-id`, `X-GitHub-Delivery`, `Linear-Delivery`,
+  `X-PagerDuty-Webhook-Id`, `Idempotency-Key`) is `duplicate` → a paused hook is `paused` → the key
+  is scrubbed (as written and in its encodings) and the body parsed (413 past 1 MiB, depth 128 or
+  100k nodes) → filters (`ignored`) → caps (429) → stored and `queued`, with a `webhook_notice`
+  carrying `ruleId` and `subject`. Signature checks: Standard Webhooks (`webhook-*`, `whsec_`
+  secrets, 5 minutes), GitHub (`X-Hub-Signature-256`), Sentry (`Sentry-Hook-Signature`), Linear
+  (`Linear-Signature`, `webhookTimestamp` within 60 s), PagerDuty (`X-PagerDuty-Signature v1=`) and
+  Stripe (`Stripe-Signature t=,v1=`, 5 minutes).
+- **Stored**: only allowlisted headers (content type, user agent, the senders' event and delivery
+  headers), never credentials or signatures; the scrubbed body as text and as the filters read it,
+  the subject and the picked fields. Calls are deleted after 7 days by the Hub's purge, or at
+  `webhook.done`. The signing secret is kept in the Hub's storage, since every call needs it.
+- **Caps**: runs in the last rolling hour, per hook (its `cap`, at most 200) and per deployment
+  (300); a refused run answers 429 and queues one `webhook_alert cap_reached` per hook and hour. 20
+  refused calls (bad key or signature) within 10 minutes queue one `webhook_alert refusal_burst`.
+- Tested in workerd (`apps/relay/test/webhooks.test.ts`).
+
+Left (the daemon's and the desktop's part, a follow-up for their agents): the **New trigger →
+Webhook** card that mints a hook and shows the URL and key once, the rule in `hello`, running the
+automation on `webhook_notice` after `webhook.fetch` (body quoted as information) and then
+`webhook.done`, folding calls with the same `subject`, and showing `webhook_alert` to the owner;
+then the end-to-end `curl` check.
 
 # Non-goals
 

@@ -149,6 +149,22 @@ export default {
       return Response.json({ ok: true }, { status: 202 })
     }
 
+    // Webhooks need no secrets of the deployment: each hook has its own key.
+    const hookPath = /^\/hooks\/(wh_[A-Za-z0-9]{16})(?:\/([^/]+))?$/.exec(pathname)
+    if (hookPath && request.method === 'POST') {
+      const body = await readBody(request)
+      if (!body) return Response.json({ error: 'too_large' }, { status: 413 })
+      const headers: Record<string, string> = {}
+      for (const [name, value] of request.headers) headers[name.toLowerCase()] = value.slice(0, 1024)
+      const answer = await hub(env).webhookCall({
+        hookId: hookPath[1]!,
+        ...(hookPath[2] ? { pathKey: decodeURIComponent(hookPath[2]) } : {}),
+        headers,
+        body: new TextDecoder().decode(body)
+      })
+      return Response.json(answer.body, { status: answer.status })
+    }
+
     // The phone routes arrive with their phase; a source without secrets answers 404.
     return notFound()
   }

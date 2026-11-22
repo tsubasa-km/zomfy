@@ -43,9 +43,17 @@ export class Paired {
   seq = 0
   constructor(
     readonly link: Link,
-    readonly helloRev: number,
+    public helloRev: number,
     readonly hostId: string
   ) {}
+
+  /** Says hello again with these bots and rules (a rule naming a hook minted after the first hello). */
+  async rehello(bots: HelloBot[], rules: unknown[]) {
+    this.link.send(hello(this.hostId, bots, { rules, sources: ['slack', 'github', 'linear', 'webhook'] }))
+    const ok = await this.link.type('hello-ok')
+    this.helloRev = ok.helloRev
+    this.seq = 0
+  }
 
   deliveries(kind?: string): any[] {
     return this.link.frames
