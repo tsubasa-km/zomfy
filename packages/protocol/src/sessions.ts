@@ -53,8 +53,27 @@ export interface SessionInfo {
   localOnly?: boolean
   /** Hidden from the sidebar and tab strip until unarchived; absent from older daemons. */
   archived?: boolean
-  /** 'workflow' for a chat a workflow run made for one of its steps or helpers; the sidebar leaves those out unless asked. */
-  origin?: 'workflow'
+  /**
+   * 'workflow' for a chat a workflow run made for one of its steps or helpers; 'bot' for a bot's chat
+   * and the workers it starts (docs/specs/bots/desktop.md). The sidebar leaves both out unless asked.
+   */
+  origin?: 'workflow' | 'bot'
+  /** The bot a chat with `origin: 'bot'` belongs to. */
+  botId?: string
+  /** Where a bot chat was asked from; absent for chats opened in Zomfy with no link back. */
+  botFrom?: BotChatFrom
+}
+
+/** Where a bot chat came from, for its header ("from Discord · asked by Alex"). */
+export interface BotChatFrom {
+  /** `zomfy` for a chat asked from another Zomfy chat (`@handle …`), else the relay source. */
+  source: 'zomfy' | 'discord' | 'slack' | 'github' | 'linear' | 'webhook'
+  /** The source's id for the thread, DM or issue; absent for `zomfy`. */
+  externalId?: string
+  /** The asker's display name on the source. */
+  asker?: string
+  /** The Zomfy chat a `@handle` prompt came from. */
+  fromSessionId?: string
 }
 
 export interface ChatModel {
