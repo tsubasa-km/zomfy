@@ -3,7 +3,7 @@ type: Spec
 title: Zomfy Bots
 description: Named agents that live in a folder on the person's computer and can be asked from Zomfy, Discord, Slack, GitHub, Linear, webhooks and schedules, copied from Orca Bots.
 status: stable
-x-zomfy-implementation: planned
+x-zomfy-implementation: in-progress
 tags: [bots]
 sources:
   - id: orca-bots
@@ -14,7 +14,7 @@ sources:
     title: Orca Bots quickstart
   - id: person
     resource: "decisions given by the person on 2026-11-22"
-generated: { by: "claude-code/opus-5.5", at: "2026-11-22T00:00:00Z" }
+generated: { by: "claude-code/opus-5.5", at: "2026-11-22T03:21:28Z" }
 ---
 
 # Problem
@@ -87,7 +87,7 @@ Each phase ends with its acceptance checks passing. The shared groundwork comes 
 
 | Phase | Delivers | First test path |
 | --- | --- | --- |
-| B0 Groundwork | `packages/relay-contract`; `packages/protocol/src/bots.ts`; `apps/relay` with host registration and the `/v1/host` link (shared with the phone relay) | Contract fixtures round-trip; a fake daemon registers and says `hello` against `wrangler dev` |
+| B0 Groundwork (done) | `packages/relay-contract`; `packages/protocol/src/bots.ts`; `apps/relay` with host registration and the `/v1/host` link (shared with the phone relay) and the delivery queue (lease, ack, re-send, expiry); the daemon's pairing, link and connector client | Contract fixtures round-trip; a fake daemon registers and says `hello` against `wrangler dev` |
 | B1 MVP | Bot records, home, SOUL/MEMORY; talk to a bot from Zomfy; Discord mentions, DMs and threads; replies; Who can ask; Stop; the 24 h offline queue; deploy button and `bun run deploy` | **Zomfy app itself**, then **Discord** |
 | B2 Back to the person | Questions and approvals as Discord buttons and in Zomfy's Needs you; live activity; access requests; schedules with a bot | Discord |
 | B3 Slack | Slack to Orca's level: mentions, DMs, threads, Block Kit questions, approvals, Stop, status edits | Slack test workspace (the person does not use Slack; checked with a free workspace) |

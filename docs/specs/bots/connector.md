@@ -3,7 +3,7 @@ type: Spec
 title: Bots connector (Zomfy Relay Worker)
 description: The Cloudflare Worker and Durable Object each person deploys to receive source events, check Who can ask, queue deliveries for the daemon and post replies back to the sources.
 status: stable
-x-zomfy-implementation: planned
+x-zomfy-implementation: in-progress
 tags: [bots, relay, cloudflare]
 sources:
   - id: orca-bots
@@ -18,7 +18,7 @@ sources:
   - id: cf-deploy
     resource: https://developers.cloudflare.com/workers/platform/deploy-buttons/
     title: Cloudflare Deploy buttons
-generated: { by: "claude-code/opus-5.5", at: "2026-11-22T00:00:00Z" }
+generated: { by: "claude-code/opus-5.5", at: "2026-11-22T03:21:28Z" }
 ---
 
 # Problem
@@ -55,7 +55,9 @@ source's event id, hand the event to the Hub, and answer 2xx within the source's
   sessionId}`), `prompts` (pending questions and the source messages showing them), `rules`,
   `webhooks`, `webhook_calls`, `seen_events` (dedupe, 7 days), `outbound` (posts with idempotency
   keys), `due` (timers). All daemon and phone sockets use hibernation (`ctx.acceptWebSocket`); the
-  attachment holds only `{kind, hostId|deviceId}`; nothing that matters lives in memory.[^cf-do]
+  attachment holds only `{kind, hostId|deviceId}` and how far that socket's handshake got (the
+  challenge nonce, whether it is authenticated, the `helloRev` of its last `hello-ok`); nothing that
+  matters lives in memory.[^cf-do]
 - **`DiscordGateway`** (one instance, only when Discord is configured): holds the Discord Gateway
   connection, which cannot hibernate, and forwards message events to the Hub
   ([Discord](sources/discord.md#receiving-messages)).
@@ -79,8 +81,10 @@ Event triggers are not gated by Who can ask (as in Orca); their `from` field nar
 ## Delivery, lease and ack
 
 - A delivery is `pending` → `leased` (sent on the host link) → `received` → `done`. A leased
-  delivery with no `received` after 30 s is re-sent with the same id; on reconnect, after
-  `hello-ok`, every not-`done` delivery is re-sent and listed in `unsettled`.
+  delivery with no `received` after 30 s is re-sent with the same id (or goes back to `pending`
+  while the host is away); a `received` one is not re-sent until the next hello. On reconnect,
+  after `hello-ok`, every not-`done` delivery of the host's bots is listed in `unsettled` and
+  re-sent. The delivery id is the dedupe key: queuing the same id twice makes one delivery.
 - `start`, `send` and `trigger` wait up to 24 h for the host; `answer` and `cancel` 5 minutes. An
   expired request tells the asker in the source ("Your computer was offline; this expired") and is
   acked `expired` locally.
@@ -132,6 +136,17 @@ thread text used as context, and webhook bodies for at most 7 days.
 | DO alarms | one per object | The `due` table |
 | Source deadlines | Slack 3 s, Discord 3 s, Linear 5 s, GitHub 10 s | Ack first, work later |
 
+# Built so far
+
+Phase B0 ([overview](overview.md#phases)): `apps/relay` with `wrangler.jsonc` (`Hub` and an idle
+`DiscordGateway` in the `v1` `new_sqlite_classes` migration), the vendored contract,
+`.dev.vars.example`, `/health`, host registration and invites, the `/v1/host` link, `hello` and
+`hello-bots`, the delivery queue (lease, ack, re-send, 24 h and 5-minute expiry through the `due`
+table and one alarm), event batches by `seq` (only `snapshot`, `linked`, `unlinked` and `chat-gone`
+change anything yet), and the `capabilities` action. Every other route answers 404. Telling the
+asker about an expiry, Who can ask, the source routes, the phone routes and `bun run deploy` come
+with later phases.
+
 # Non-goals
 
 - A hosted deployment, accounts, or several people on one deployment.
@@ -140,7 +155,8 @@ thread text used as context, and webhook bodies for at most 7 days.
 
 # Acceptance
 
-Worker tests with `@cloudflare/vitest-pool-workers`, plus a fake daemon script against `wrangler dev`:
+Worker tests with `@cloudflare/vitest-plugin` (the renamed `@cloudflare/vitest-pool-workers`), plus
+a fake daemon script (`apps/relay/scripts/fake-daemon.ts`) against `wrangler dev`:
 
 - Each source route rejects a bad signature with 401 and accepts a good one within its deadline.
 - The same source event delivered twice (a retry) creates one delivery.

@@ -3,7 +3,7 @@ type: Spec
 title: Pairing hosts and phones
 description: How a daemon registers its host key with the person's relay at first run, and how a phone pairs with a host by QR code into a revocable, scoped device record.
 status: stable
-x-zomfy-implementation: planned
+x-zomfy-implementation: in-progress
 tags: [mobile, relay, security]
 sources:
   - id: mobile-app
@@ -18,7 +18,7 @@ sources:
   - id: t3-auth
     resource: https://github.com/pingdotgg/t3code/blob/main/docs/internals/environment-auth.md
     title: T3 Code environment auth
-generated: { by: "claude-code/opus-5.5", at: "2026-11-22T00:00:00Z" }
+generated: { by: "claude-code/opus-5.5", at: "2026-11-22T03:21:28Z" }
 ---
 
 # Problem
@@ -37,8 +37,9 @@ expires or drops is what reviews of both researched apps punish most.[^mobile-ap
    daemon generates an **Ed25519 host key** (private part in `~/.zomfy/relay/host-key`, mode 0600)
    and calls `POST /v1/hosts/register {setupCode, publicKey, name}`. The Hub stores the key, returns
    a `hostId`, and marks the setup code used.
-3. Each connect to `/v1/host` answers the Hub's nonce with a signature over
-   `"zomfy-relay-v1" | hostId | nonce`; a bad or revoked key closes the socket with code 4401.
+3. Each connect to `/v1/host?hostId=<id>` answers the Hub's `challenge` nonce with a signature over
+   `"zomfy-relay-v1" | hostId | nonce`; a bad or revoked key, or an unknown host, closes the socket
+   with code 4401. The Hub keeps only a hash of each used setup code, never the code.
 4. Another host joins with a one-time **host invite** (10 minutes) that a registered host mints from
    its settings (`POST /v1/hosts/invite`, signed). Revoking a host deletes its key row.
 5. A lost setup code is reset with `wrangler secret put SETUP_CODE`, which also allows a new
@@ -66,6 +67,12 @@ expires or drops is what reviews of both researched apps punish most.[^mobile-ap
 `workspaces:operate`, `bots:read`. Every ACP and `_harness/*` method has one required scope in
 `remote-devices.ts`; a method not in the table is refused for phones. All scopes are on by default
 for the person's own phone; a pairing can drop any.
+
+# Built so far
+
+Host registration (the first list, except the settings UI) is built in `apps/relay` and the
+daemon's `relay-pairing.ts`, in phase B0 of [bots](../bots/overview.md#phases). Phone pairing,
+device records and scopes are not built yet.
 
 # Non-goals
 
