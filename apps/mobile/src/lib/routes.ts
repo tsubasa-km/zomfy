@@ -1,5 +1,5 @@
 // Ordered routes, after T3 Code's connection driver (MIT): a host has a list of routes (LAN,
-// tailnet, later the relay) in order of preference. The phone uses the first that answers, keeps
+// tailnet, then the relay) in order of preference. The phone uses the first that answers, keeps
 // re-probing the earlier ones while it sits on a later one, and moves back when one recovers.
 // Retries wait a jittered, doubling delay capped at 5 minutes.
 
@@ -88,6 +88,17 @@ export class RouteChooser {
   stop(): void {
     this.stopped = true
     this.release()
+  }
+
+  /**
+   * Re-probe the better routes now rather than at the next timer (the app came to the front, or
+   * the network changed: T3 Code's wakeups reset the backoff the same way).
+   */
+  probeNow(): void {
+    if (this.stopped || this.inUse === null || this.inUse === 0) return
+    this.clearWatch()
+    this.watchAttempt = 0
+    void this.watch()
   }
 
   private clearWatch(): void {

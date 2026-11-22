@@ -2,9 +2,10 @@
 // expo-secure-store on the phone (localStorage on web), a Map in tests.
 
 import type { PairingOffer } from '@zomfy/protocol'
-import { GatewayError, pairWithHost, probeRoute, type FetchLike } from './gateway-client'
+import { GatewayError, pairWithHost, probeRoute, type FetchLike, type SocketFactory } from './gateway-client'
 import type { PairedHost } from './host-connection'
 import { buildPairRequest, generateDeviceKeys, type RandomBytes } from './pairing'
+import { pairThroughRelay, probeRelay } from './relay-client'
 import { firstLiveRoute } from './routes'
 
 export interface KeyValueStore {
@@ -61,19 +62,38 @@ export interface PairOptions {
   randomBytes: RandomBytes
   now?: number
   probeTimeoutMs?: number
+  /** For pairing through the relay when no direct route answers. */
+  createSocket?: SocketFactory
 }
 
-/** Presents the offer's grant on the first route that answers as the offer's host. */
+/**
+ * Presents the offer's grant on the first route that answers as the offer's host: a direct route
+ * over HTTP, or the relay inside the end-to-end channel (the relay never sees the grant).
+ */
 export async function pairFromOffer(options: PairOptions): Promise<PairedHost> {
   const { offer } = options
+  const timeout = options.probeTimeoutMs ?? 3000
   const index = await firstLiveRoute(offer.routes, async (route) => {
-    const hello = await probeRoute(options.fetch, route.url, options.probeTimeoutMs ?? 3000)
+    if (route.kind === 'relay') return Boolean(route.relayHostId && options.createSocket) && (await probeRelay(options.fetch, route.url, timeout))
+    const hello = await probeRoute(options.fetch, route.url, timeout)
     return hello.hostId === offer.hostId
   })
   if (index === null) throw new GatewayError('No route to the host answers')
   const keys = generateDeviceKeys(options.randomBytes)
   const route = offer.routes[index]!
-  const response = await pairWithHost(options.fetch, route.url, buildPairRequest(offer, keys, options.name, options.model))
+  const request = buildPairRequest(offer, keys, options.name, options.model)
+  const response =
+    route.kind === 'relay'
+      ? await pairThroughRelay({
+          createSocket: options.createSocket!,
+          relayUrl: route.url,
+          relayHostId: route.relayHostId!,
+          hostBoxPublicKey: offer.hostBoxPublicKey,
+          request,
+          secretKey: keys.secretKey,
+          random: options.randomBytes
+        })
+      : await pairWithHost(options.fetch, route.url, request)
   if (response.hostId !== offer.hostId) throw new GatewayError('A different host answered on this route')
   return {
     hostId: response.hostId,
@@ -83,6 +103,7 @@ export async function pairFromOffer(options: PairOptions): Promise<PairedHost> {
     scopes: response.scopes,
     routes: offer.routes,
     keys,
-    pairedAt: options.now ?? Date.now()
+    pairedAt: options.now ?? Date.now(),
+    hostBoxPublicKey: offer.hostBoxPublicKey
   }
 }
