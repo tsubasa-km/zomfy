@@ -61,7 +61,7 @@ export function BotChatHeader({ session }: { session: Session }) {
   const bot = useBots((s) => (session.botId ? s.bots?.find((b) => b.id === session.botId) : undefined))
   if (session.origin !== 'bot' || session.parentId) return null
   return (
-    <div className="mx-auto flex w-full max-w-3xl items-center gap-2 px-6 pt-2 pb-1 text-[12px]" data-bot-chat-header={bot?.handle ?? ''}>
+    <div className="mx-auto flex w-full max-w-3xl items-center gap-2 px-6 pt-2 pb-4 text-[12px]" data-bot-chat-header={bot?.handle ?? ''}>
       {bot ? <BotAvatar bot={bot} size={18} /> : null}
       <span className="font-medium">{bot ? bot.name : t('A deleted bot')}</span>
       {bot ? <span className="text-muted-foreground">@{bot.handle}</span> : null}

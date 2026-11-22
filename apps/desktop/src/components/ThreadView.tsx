@@ -258,11 +258,21 @@ export function ThreadView({ session, onSendToMain }: { session: Session; onSend
               }}
               className="scrollbar-sleek relative h-full overflow-y-auto pt-(--tab-top-inset) outline-none [overflow-anchor:none] [scrollbar-gutter:stable_both-edges]"
             >
-              <BotChatHeader session={session} />
               {empty ? (
-                session.role === 'manager' ? <ManagerEmptyState /> : <NativeChatEmptyState session={session} />
+                session.role === 'manager' ? (
+                  <ManagerEmptyState />
+                ) : (
+                  // The bot's header sits above the empty state, which fills what is left.
+                  <div className="flex h-full flex-col">
+                    <BotChatHeader session={session} />
+                    <div className="min-h-0 flex-1">
+                      <NativeChatEmptyState session={session} />
+                    </div>
+                  </div>
+                )
               ) : (
                 <div className={TRANSCRIPT_OUTER_CLASS}>
+                  <BotChatHeader session={session} />
                   <div ref={columnRef} data-native-chat-transcript-column className={TRANSCRIPT_COLUMN_CLASS}>
                     <NativeChatTranscriptRows
                       rows={model.rows}
