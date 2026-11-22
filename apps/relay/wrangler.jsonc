@@ -1,0 +1,16 @@
+// Zomfy Relay: the bots connector and the phone relay in one Worker (docs/specs/bots/connector.md).
+// Deployed by each person to their own Cloudflare account; secrets are listed in .dev.vars.example.
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "zomfy-relay",
+  "main": "src/index.ts",
+  "compatibility_date": "2026-08-01",
+  "durable_objects": {
+    "bindings": [
+      { "name": "HUB", "class_name": "Hub" },
+      { "name": "DISCORD_GATEWAY", "class_name": "DiscordGateway" }
+    ]
+  },
+  "migrations": [{ "tag": "v1", "new_sqlite_classes": ["Hub", "DiscordGateway"] }],
+  "observability": { "enabled": true }
+}
