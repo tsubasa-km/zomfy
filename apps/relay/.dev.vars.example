@@ -20,8 +20,11 @@ GITHUB_APP_PRIVATE_KEY=
 GITHUB_WEBHOOK_SECRET=
 GITHUB_APP_SLUG=
 
-# Linear
+# Linear: an OAuth app with Client credentials on (client id and secret), or a personal API key
+# in LINEAR_ACCESS_TOKEN; and the webhook's signing secret (README, "Linear")
 LINEAR_ACCESS_TOKEN=
+LINEAR_CLIENT_ID=
+LINEAR_CLIENT_SECRET=
 LINEAR_WEBHOOK_SECRET=
 
 # Optional: push notifications to paired phones

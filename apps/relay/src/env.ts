@@ -17,6 +17,9 @@ export interface Env {
   GITHUB_APP_SLUG?: string
   LINEAR_ACCESS_TOKEN?: string
   LINEAR_WEBHOOK_SECRET?: string
+  /** Linear OAuth app with client credentials on: the Hub gets its app-actor token itself. */
+  LINEAR_CLIENT_ID?: string
+  LINEAR_CLIENT_SECRET?: string
   EXPO_ACCESS_TOKEN?: string
   /** Tests only: a fake Discord (REST and Gateway) behind a service binding. Never set in a deployment. */
   DISCORD_TRANSPORT?: Fetcher
@@ -33,6 +36,6 @@ export function configuredSources(env: Env): string[] {
   if (has('DISCORD_APPLICATION_ID', 'DISCORD_PUBLIC_KEY', 'DISCORD_BOT_TOKEN')) sources.push('discord')
   if (has('SLACK_BOT_TOKEN', 'SLACK_SIGNING_SECRET')) sources.push('slack')
   if (has('GITHUB_APP_ID', 'GITHUB_APP_PRIVATE_KEY', 'GITHUB_WEBHOOK_SECRET')) sources.push('github')
-  if (has('LINEAR_ACCESS_TOKEN', 'LINEAR_WEBHOOK_SECRET')) sources.push('linear')
+  if (has('LINEAR_WEBHOOK_SECRET') && (has('LINEAR_ACCESS_TOKEN') || has('LINEAR_CLIENT_ID', 'LINEAR_CLIENT_SECRET'))) sources.push('linear')
   return sources
 }

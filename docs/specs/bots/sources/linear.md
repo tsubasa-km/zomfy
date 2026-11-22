@@ -3,7 +3,7 @@ type: Spec
 title: Linear source
 description: Asking a bot on a Linear issue by mention or bot label through the person's own Linear app, replies as comments with an asked-by line, and Linear triggers.
 status: stable
-x-zomfy-implementation: planned
+x-zomfy-implementation: in-progress
 tags: [bots, linear]
 sources:
   - id: orca-conn
@@ -18,6 +18,9 @@ sources:
   - id: linear-webhooks
     resource: https://linear.app/developers/webhooks
     title: Linear webhooks
+  - id: linear-oauth
+    resource: https://linear.app/developers/oauth-2-0-authentication
+    title: Linear OAuth 2.0 authentication
 generated: { by: "claude-code/opus-5.5", at: "2026-11-22T00:00:00Z" }
 ---
 
@@ -31,8 +34,11 @@ answer there.[^orca-conn] Zomfy copies that with the person's own Linear app ins
 1. Linear → Settings → API → **OAuth applications → New**, actor **Application** (so comments come
    from the app), name it "Zomfy"; or, for one person, a **personal API key** (comments then come
    from the person, with the asked-by line).
-2. Authorize it on the workspace; `bun run deploy --linear` runs the OAuth exchange on the Worker
-   and stores `LINEAR_ACCESS_TOKEN`.
+2. `bun run deploy --linear` asks for the app's client id and secret (`LINEAR_CLIENT_ID`,
+   `LINEAR_CLIENT_SECRET`; the app must have **Client credentials** turned on) or the personal key
+   (`LINEAR_ACCESS_TOKEN`). Changed while building: Linear's authorization-code tokens now last 24
+   hours and need a rotating refresh token, so the Worker instead gets the app's own token with the
+   client-credentials grant (app actor, 30 days, fetched again when it runs out).[^linear-oauth]
 3. Settings → API → **Webhooks → New**: URL `<worker>/linear/webhook`, resources Issues, Comments,
    Issue labels; copy the signing secret into `LINEAR_WEBHOOK_SECRET`.
 4. In Zomfy, the bot's Who can ask → Linear: your Linear user (picked from a list the Hub reads) as
@@ -61,6 +67,41 @@ answer there.[^orca-conn] Zomfy copies that with the person's own Linear app ins
   6 h).[^linear-webhooks]
 - Comments up to 64 KiB; issue ids match `^[A-Za-z0-9]{1,16}-\d{1,9}$`.
 
+# Built so far
+
+The Worker side of phase B6's Linear part ([overview](../overview.md#phases)), in
+`apps/relay/src/linear/`, with the Linear steps in `bun run deploy --linear` and the README. Details
+settled while building:
+
+- **Auth.** With `LINEAR_CLIENT_ID` and `LINEAR_CLIENT_SECRET` the Hub asks
+  `POST /oauth/token` for a client-credentials token (scopes `read,write,app:assignable,app:mentionable`),
+  keeps it in memory only, and asks again a day before it expires or on a 401. A pasted
+  `LINEAR_ACCESS_TOKEN` is used as it is (a `lin_api_` key bare, any other as a Bearer token). The
+  app's own user (`viewer`) is who gets mentioned and assigned, and whose comments are the bot's.
+- **Route.** `POST /linear/webhook` checks `Linear-Signature` and that `webhookTimestamp` is within
+  60 s in the Worker, and hands the payload to the Hub (answered within 3 s); dedupe on
+  `Linear-Delivery`.
+- **Asking.** A comment or a new (or newly) mentioning description: `@zomfy`, the app's name, or
+  Linear's profile-link mention, then an optional handle. An added `bot:<handle>` label asks that
+  bot with the issue's title as the text; a removed one does nothing. `externalId` and `placeId`
+  are `<org>:<ENG-123>` / `linear:<org>:<ENG-123>`. Context: the issue and its last 20 comments.
+  A non-asker gets a public comment and can comment `@Zomfy <handle> request access`.
+- **Replies.** "On it…" is posted on `turn-started`, edited at most every 3 s with the activity and
+  the plan as a `- [ ]` checklist, and becomes the reply, which ends with the asked-by line for
+  non-owner askers. Questions are numbered comments answered by an asker's plain reply; approvals
+  are answered in Zomfy only. Calls go through the outbound queue, one lane per issue; a 429 or
+  `RATELIMITED` holds every Linear lane until `X-RateLimit-Requests-Reset`.
+- **Triggers.** `issue_created`; `issue_moved` when `updatedFrom` has `stateId` (`states` names the
+  states, `team` the team key); `assigned` when the issue is assigned to the app's user;
+  `mentioned`. The asked bot's matching rules go in its `start` or `send` as `ruleIds`.
+- **Actions.** `find {source: 'linear', text}` lists active members (no apps or guests) for Who can
+  ask; `reply`/`post` (once per idempotency key), `react`, `read`, `edit`, `delete`.
+- Tested in workerd against a fake Linear (`apps/relay/test/linear.test.ts`), with a pasted token;
+  the client-credentials fetch is not covered by a test.
+
+Left: the end-to-end check in a Linear workspace, the desktop's member picker that calls `find`,
+and the nightly memory tidy-up (the daemon's part of B6).
+
 # Non-goals
 
 - Linear's agent-session UI ("open the bot's agent session"): Orca uses it, but how is closed
@@ -85,3 +126,4 @@ None for the person.
 [^orca-cc]: Orca's `linear-messages.ts`, `bot-owner-writes.ts`, `action-messages.ts`
 [^orca-triggers]: Orca's `automation-event-triggers.ts`
 [^linear-webhooks]: Linear webhooks documentation
+[^linear-oauth]: Linear's OAuth 2.0 authentication documentation

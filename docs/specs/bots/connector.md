@@ -121,7 +121,8 @@ Event triggers are not gated by Who can ask (as in Orca); their `from` field nar
 
 `SETUP_CODE`; `DISCORD_APPLICATION_ID`, `DISCORD_PUBLIC_KEY`, `DISCORD_BOT_TOKEN`;
 `SLACK_BOT_TOKEN`, `SLACK_SIGNING_SECRET`; `GITHUB_APP_ID`, `GITHUB_APP_PRIVATE_KEY`,
-`GITHUB_WEBHOOK_SECRET`, `GITHUB_APP_SLUG`; `LINEAR_ACCESS_TOKEN`, `LINEAR_WEBHOOK_SECRET`;
+`GITHUB_WEBHOOK_SECRET`, `GITHUB_APP_SLUG`; `LINEAR_WEBHOOK_SECRET` with `LINEAR_CLIENT_ID` and
+`LINEAR_CLIENT_SECRET` (an OAuth app with client credentials) or `LINEAR_ACCESS_TOKEN`;
 `EXPO_ACCESS_TOKEN` (optional, [push](../mobile/push.md)). A source with no secrets is off and its
 routes answer 404. The Hub stores public keys, in-flight requests, conversation links, recent
 thread text used as context, and webhook bodies for at most 7 days.
@@ -151,8 +152,16 @@ events `turn-started`, `activity`, `turn-ended`, `reply`, `prompt` and `prompt-c
 Discord through the `outbound` table, the expiry and refusal notes, and `/health`'s Gateway uptime.
 The deploy flow is built: `bun run deploy` is `scripts/deploy.mjs` (plain Node, so it also runs
 under Workers Builds, where it only runs `wrangler deploy`; `--dry-run` prints the steps), and
-`package.json` describes each secret for the Deploy button. The other sources and the phone routes
-come with later phases.
+`package.json` describes each secret for the Deploy button.
+
+The [Slack](sources/slack.md#built-so-far), [GitHub](sources/github.md#built-so-far),
+[webhook](sources/webhooks.md#built-so-far) and [Linear](sources/linear.md#built-so-far) sources
+followed: `POST /slack/events`, `/slack/interactivity`, `/github/webhook`, `/linear/webhook` and
+`/hooks/<hookId>`. Every source posts through one `outbound` table (its rows name their source;
+`src/outbound.ts`), the Hub matches `rules` against each source's events with Orca's matcher and
+queues `trigger` deliveries (`src/sources/triggers.ts`), and actions are dispatched by their ref's
+source, by `args.source`, or to webhooks for `webhook.*`. The tables `webhooks` and
+`webhook_calls` hold hooks and their calls. The phone routes come with their phase.
 
 # Non-goals
 

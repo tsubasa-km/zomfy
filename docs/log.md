@@ -1,6 +1,7 @@
 # Directory Update Log
 
 ## 2026-11-22
+* **Update**: Built the Worker side of the [Linear source](specs/bots/sources/linear.md) (mentions, `bot:<handle>` labels, the "On it…" comment, asked-by lines, triggers, member lookup); the app's token now comes from Linear's client-credentials grant, since authorization-code tokens last 24 hours. The [connector](specs/bots/connector.md) lists every source's route and secret.
 * **Update**: Built the Worker side of [webhooks](specs/bots/sources/webhooks.md) (keyed URLs, six sender signatures, Orca's filters, redaction, caps and alerts, 7-day retention, and the `webhook.*` actions the daemon manages hooks with); in progress with a "Built so far" section.
 * **Update**: Built the Worker side of the [GitHub source](specs/bots/sources/github.md) (App webhooks, mentions, review replies, PR events, triggers, JWT and installation tokens, and `bun run deploy --github` with GitHub's manifest flow); in progress with a "Built so far" section.
 * **Update**: Built the Worker side of the [Slack source](specs/bots/sources/slack.md) (Events API, Block Kit buttons, status edits, actions, the app manifest and deploy steps); in progress with a "Built so far" section. The relay's outbound queue, triggers and actions are now shared by every source, and the [contract](specs/bots/contract.md) gained the pieces the remaining sources need.

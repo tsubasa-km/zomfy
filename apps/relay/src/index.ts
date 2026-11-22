@@ -5,6 +5,7 @@
 import { CONTRACT_VERSION, limits } from './contract'
 import { verifyDiscordRequest } from './discord/verify'
 import { verifyGitHubRequest } from './github/api'
+import { verifyLinearRequest } from './linear/api'
 import { verifySlackRequest } from './slack/verify'
 import { configuredSources, RELAY_VERSION, type Env } from './env'
 
@@ -147,6 +148,21 @@ export default {
       holdGateway()
       await hub(env).githubWebhook(event, deliveryId, payload)
       return Response.json({ ok: true }, { status: 202 })
+    }
+
+    if (pathname === '/linear/webhook' && request.method === 'POST' && sources.includes('linear')) {
+      const body = await readBody(request)
+      if (!body) return Response.json({ error: 'too_large' }, { status: 413 })
+      const text = new TextDecoder().decode(body)
+      if (!(await verifyLinearRequest(env.LINEAR_WEBHOOK_SECRET ?? '', request.headers.get('Linear-Signature') ?? '', text))) {
+        return Response.json({ error: 'bad_signature' }, { status: 401 })
+      }
+      const payload = JSON.parse(text) as { webhookId?: string; createdAt?: string }
+      // Linear's retries keep the delivery id; without one, the webhook and its time name it.
+      const deliveryId = request.headers.get('Linear-Delivery') ?? `${payload.webhookId ?? ''}:${payload.createdAt ?? ''}`
+      holdGateway()
+      await hub(env).linearWebhook(deliveryId, payload)
+      return Response.json({ ok: true })
     }
 
     // Webhooks need no secrets of the deployment: each hook has its own key.

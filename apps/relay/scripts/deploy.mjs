@@ -255,6 +255,35 @@ if (ONLY_GITHUB || (!ONE_SOURCE && await yes(hasGitHub ? 'Make a new GitHub App 
     ).catch((error) => fail(String(error.message ?? error)))
   }
 }
+
+// Linear: your own OAuth app with client credentials (comments come from the app; the Worker gets
+// its 30-day token itself), or a personal API key (comments come from you, with the asked-by line).
+const hasLinear = existing.includes('LINEAR_WEBHOOK_SECRET') && (existing.includes('LINEAR_ACCESS_TOKEN') || ['LINEAR_CLIENT_ID', 'LINEAR_CLIENT_SECRET'].every((n) => existing.includes(n)))
+let linearSet = false
+console.log('\nLinear: your own Linear OAuth app, or a personal API key (see the README).')
+if (ONLY_LINEAR || (!ONE_SOURCE && (await yes(hasLinear ? 'Change the Linear secrets?' : 'Set up Linear now?', false)))) {
+  const how = await ask('  1 = OAuth app (comments from the app, recommended), 2 = personal API key [1]: ', '1')
+  if (how === '2') {
+    console.log('  Linear → Settings → Security & access → Personal API keys → New key.')
+    const key = await ask('  Personal API key (lin_api_…): ')
+    if (!/^lin_api_/.test(key)) fail('That does not look like a personal API key (it starts with lin_api_).')
+    await putSecret('LINEAR_ACCESS_TOKEN', key)
+  } else {
+    console.log('  Linear → Settings → API → OAuth applications → New: name "Zomfy", any callback URL')
+    console.log(`  (e.g. ${workerUrl}), and turn on "Client credentials". Save, then copy the client id and secret.`)
+    const id = await ask('  Client ID: ')
+    const secret = await ask('  Client secret: ')
+    if (!id || !secret) fail('Both the client id and the client secret are needed.')
+    await putSecret('LINEAR_CLIENT_ID', id)
+    await putSecret('LINEAR_CLIENT_SECRET', secret)
+  }
+  console.log(`  Linear → Settings → API → Webhooks → New: URL ${workerUrl}/linear/webhook,`)
+  console.log('  resources Issues, Comments and Issue labels. Save, then copy its signing secret.')
+  const signing = await ask('  Webhook signing secret: ')
+  if (!signing) fail('The webhook signing secret is needed.')
+  await putSecret('LINEAR_WEBHOOK_SECRET', signing)
+  linearSet = true
+}
 rl.close()
 
 // Secrets apply to new requests at once; /health also starts the Discord Gateway.
@@ -297,6 +326,12 @@ if (githubApp || hasGitHub) {
   else console.log('  The app is set up; install it on more repositories from its page (github.com/settings/apps).')
   console.log(`  Ask on an issue or pull request with @${githubApp?.slug ?? '<app-slug>'} <handle> …`)
 }
+if (linearSet || hasLinear) {
+  console.log('\nLinear:')
+  console.log(`  Webhook URL: ${workerUrl}/linear/webhook (Issues, Comments, Issue labels)`)
+  console.log('  Ask with @Zomfy <handle> … in a comment, or add the label bot:<handle> to an issue.')
+}
+console.log('\nWebhooks need nothing here: make one in Zomfy (a bot → New trigger → Webhook).')
 console.log('\nIn Zomfy: Settings → Bots → Relay: paste the Worker URL and the setup code, then Pair.')
 console.log('Then per bot, Who can ask: your own id on each source as owner, and members the same way')
-console.log('  (Discord: Developer Mode → Copy User ID; Slack: your profile → ⋯ → Copy member ID; GitHub: your login).')
+console.log('  (Discord: Developer Mode → Copy User ID; Slack: your profile → ⋯ → Copy member ID; GitHub: your login; Linear: picked from the list).')

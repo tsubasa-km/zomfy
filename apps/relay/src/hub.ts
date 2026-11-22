@@ -32,6 +32,7 @@ import {
 import { isEd25519PublicKey, randomToken, sameText, sha256Hex, verifyEd25519 } from './crypto'
 import { DiscordSource, type GatewayMessage } from './discord/source'
 import { GitHubSource } from './github/source'
+import { LinearSource } from './linear/source'
 import { WebhookSource, type CallAnswer, type IncomingCall } from './webhooks/source'
 import { SlackSource } from './slack/source'
 import { configuredSources, type Env } from './env'
@@ -97,6 +98,7 @@ export class Hub extends DurableObject<Env> {
   private readonly slack: SlackSource
   private readonly github: GitHubSource
   private readonly webhooks: WebhookSource
+  private readonly linear: LinearSource
   /** Every source, for the daemon's events, settled deliveries, actions, timers and the purge. */
   private readonly sources: HubSource[] = []
   /** What every source is given. */
@@ -135,6 +137,8 @@ export class Hub extends DurableObject<Env> {
     this.addSource(this.github)
     this.webhooks = new WebhookSource(this.shared)
     this.addSource(this.webhooks)
+    this.linear = new LinearSource(this.shared)
+    this.addSource(this.linear)
     // Pings are answered by the runtime without waking the object.
     ctx.setWebSocketAutoResponse(new WebSocketRequestResponsePair(PING_FRAME, PONG_FRAME))
   }
@@ -715,6 +719,13 @@ export class Hub extends DurableObject<Env> {
   /** A verified App webhook; returns well within GitHub's 10 s while the work goes on. */
   async githubWebhook(event: string, deliveryId: string, payload: unknown): Promise<void> {
     await within(this.github.onWebhook(event, deliveryId, payload), 5000)
+  }
+
+  // --- Linear (docs/specs/bots/sources/linear.md) ---
+
+  /** A verified Linear webhook; returns within Linear's 5 s while the work goes on. */
+  async linearWebhook(deliveryId: string, payload: unknown): Promise<void> {
+    await within(this.linear.onWebhook(deliveryId, payload), 3000)
   }
 
   // --- Webhooks (docs/specs/bots/sources/webhooks.md) ---

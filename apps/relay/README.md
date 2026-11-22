@@ -106,6 +106,26 @@ leaves approvals to Zomfy. A failed check on a pull request you opened wakes the
 branch. Code work (pushes, new pull requests) uses your own `gh` sign-in on the computer, never the
 app.
 
+## Linear
+
+Your own Linear app ([spec](../../docs/specs/bots/sources/linear.md)); people ask with
+`@Zomfy <handle> …` in a comment or description, or by adding the label `bot:<handle>` to an issue.
+
+1. Linear → **Settings → API → OAuth applications → New**: name it "Zomfy", any callback URL (the
+   Worker URL will do), and turn on **Client credentials**. Copy the client id and secret. (Or,
+   just for yourself: **Settings → Security & access → Personal API keys**; comments then come from
+   you, with an "asked by" line for others.)
+2. **Settings → API → Webhooks → New**: URL `<worker URL>/linear/webhook`, resources **Issues**,
+   **Comments** and **Issue labels**; copy the signing secret.
+3. `bun run deploy --linear` asks for these and stores them (`LINEAR_CLIENT_ID`,
+   `LINEAR_CLIENT_SECRET` or `LINEAR_ACCESS_TOKEN`, and `LINEAR_WEBHOOK_SECRET`). With the app, the
+   Worker gets its own 30-day app token from Linear and renews it by itself.
+4. In Zomfy, each bot's **Who can ask → Linear**: pick yourself as owner, and members, from the list
+   the relay reads.
+
+The bot answers with an "On it…" comment that shows its progress and becomes the answer;
+questions are numbered comments you answer by replying; approvals are answered in Zomfy.
+
 ## Webhooks
 
 Any system can wake a bot with one HTTP call ([spec](../../docs/specs/bots/sources/webhooks.md));
@@ -134,6 +154,7 @@ bun scripts/fake-daemon.ts http://127.0.0.1:8787 <that setup code>
 
 Routes: `GET /health`, `POST /v1/hosts/register`, `POST /v1/hosts/invite`, the daemon's link
 `GET /v1/host`, `POST /discord/interactions`, `POST /slack/events` and `/slack/interactivity`,
-`POST /github/webhook` (each source's routes answer 404 until its secrets are set), and
+`POST /github/webhook`, `POST /linear/webhook` (each source's routes answer 404 until its secrets
+are set), and
 `POST /hooks/<hookId>` for webhooks. Tests reach fake Slack, GitHub and
 Linear APIs (`test/fake-apis.mjs`) through the `SOURCES_TRANSPORT` binding.

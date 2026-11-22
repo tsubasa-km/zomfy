@@ -51,10 +51,16 @@
         "description": "GitHub: the app's slug, as in github.com/apps/<slug>; people ask with @<slug>."
       },
       "LINEAR_ACCESS_TOKEN": {
-        "description": "Linear (a later phase): leave empty."
+        "description": "Linear (optional), one of two ways: a **personal API key** (`lin_api_…`; comments then come from you). Leave empty when you use LINEAR_CLIENT_ID and LINEAR_CLIENT_SECRET (README, \"Linear\")."
+      },
+      "LINEAR_CLIENT_ID": {
+        "description": "Linear, the other way: your OAuth app's client id, with **Client credentials** turned on (comments come from the app)."
+      },
+      "LINEAR_CLIENT_SECRET": {
+        "description": "Linear: that OAuth app's client secret."
       },
       "LINEAR_WEBHOOK_SECRET": {
-        "description": "Linear (a later phase): leave empty."
+        "description": "Linear: the signing secret of the webhook to `<worker URL>/linear/webhook` (Issues, Comments, Issue labels). Leave empty to turn Linear off."
       },
       "EXPO_ACCESS_TOKEN": {
         "description": "Phone push notifications (a later phase): leave empty."
