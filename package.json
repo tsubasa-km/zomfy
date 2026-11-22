@@ -7,7 +7,7 @@
     "daemon": "bun --cwd packages/daemon start",
     "typecheck": "bun --filter '*' typecheck",
     "relay:vendor": "bun scripts/relay-vendor.ts",
-    "relay:local": "bun --cwd apps/relay run local",
+    "relay:local": "bun run --cwd apps/relay local",
     "mobile:apk": "bun --cwd apps/mobile run apk"
   }
 }

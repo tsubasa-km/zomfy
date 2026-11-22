@@ -62,7 +62,7 @@ macOS or Linux, with Node 20+ and a clone of the repository.
 
 ## `bun run relay:local`
 
-At the repository root (`bun --cwd apps/relay run local`, which is `node scripts/local.mjs`):
+At the repository root (`bun run --cwd apps/relay local`, which is `node scripts/local.mjs`):
 
 1. Uses the relay home **`~/.zomfy/relay`** (`--dir` or `ZOMFY_RELAY_HOME` to change it):
    `relay.env` (the secrets, the same names as `.dev.vars.example`), `state/` (storage),
