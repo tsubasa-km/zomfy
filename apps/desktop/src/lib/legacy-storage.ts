@@ -45,3 +45,44 @@ export function migrateLegacyStorage(storage: KeyValueStorage): number {
   }
   return moved
 }
+
+/** Set once window storage no longer holds paths under the legacy home. */
+export const LEGACY_HOME_PATHS_DONE_KEY = 'zomfy.legacy-home-paths-rewritten'
+/**
+ * The legacy home folder as a path segment on any host (`C:\Users\me\.acp-harness`, `/home/me/.acp-harness`,
+ * backslashes doubled inside JSON), never a longer name such as `.acp-harness-old`.
+ */
+const LEGACY_HOME_SEGMENT = /([\\/])\.acp-harness(?![\w.-])/gi // legacy home folder
+
+/** `text` with paths under any host's legacy home pointing at its `.zomfy` home instead. */
+export function rewriteLegacyHomePath(text: string): string {
+  return text.replace(LEGACY_HOME_SEGMENT, '$1.zomfy')
+}
+
+/**
+ * Daemons move each host's `~/.acp-harness` to `~/.zomfy` and then remove the old path, so stored
+ * values (open tabs, layout, drafts) are pointed at the new home, once. Returns how many changed.
+ */
+export function rewriteLegacyHomePaths(storage: KeyValueStorage): number {
+  if (storage.getItem(LEGACY_HOME_PATHS_DONE_KEY) !== null) return 0
+  const keys: string[] = []
+  for (let i = 0; i < storage.length; i++) {
+    const key = storage.key(i)
+    if (key !== null) keys.push(key)
+  }
+  let changed = 0
+  try {
+    for (const key of keys) {
+      const value = storage.getItem(key)
+      if (value === null) continue
+      const next = rewriteLegacyHomePath(value)
+      if (next === value) continue
+      storage.setItem(key, next)
+      changed++
+    }
+    storage.setItem(LEGACY_HOME_PATHS_DONE_KEY, '1')
+  } catch {
+    // Storage full: the next start tries again; values already rewritten no longer match.
+  }
+  return changed
+}
