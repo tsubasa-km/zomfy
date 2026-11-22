@@ -1,9 +1,10 @@
 import { useState } from 'react'
+import { toast } from 'sonner'
 import { Check, ChevronRight, ListTodo, MessageSquareReply, SquareArrowRight } from 'lucide-react'
 import type { WrapUpStep } from '@zomfy/protocol'
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible'
 import { cn } from '@/lib/utils'
-import { useInbox } from '@/stores/inbox-store'
+import { openInboxTodos, useInbox } from '@/stores/inbox-store'
 import { NativeChatMarkdown } from './NativeChatMarkdown'
 import { NativeChatCopyButton } from './NativeChatCopyButton'
 import { NATIVE_CHAT_QUOTE_SOURCE_PROPS } from './NativeChatSelectionQuote'
@@ -16,7 +17,8 @@ export type NextStepsActions = {
   /** The chat's agent, as its own steps' chip names it. */
   agentName: string
   onFollowUp?: (text: string) => void
-  onAddTodo?: (text: string) => void
+  /** Adds a step to the Inbox's To do list; settles once the daemon has it. */
+  onAddTodo?: (text: string) => Promise<unknown>
 }
 
 /** The prompt "Ask to do this" sends; a step the agent offered, named so it knows which. */
@@ -96,7 +98,8 @@ export function NativeChatNextStepsCard({ row, rowKey, actions }: { row: NextSte
 
 function RecapSummary({ sections, rowKey }: { sections: RecapSection[]; rowKey: string }) {
   return (
-    <Collapsible className="mt-1.5">
+    // Open at first: what was done and checked is the part of the recap read most (next-steps-card.md).
+    <Collapsible defaultOpen className="mt-1.5">
       <CollapsibleTrigger asChild>
         <button
           type="button"
@@ -123,7 +126,9 @@ function RecapSummary({ sections, rowKey }: { sections: RecapSection[]; rowKey: 
 
 function StepRow({ step, index, row, rowKey, actions }: { step: WrapUpStep; index: number; row: NextStepsRow; rowKey: string; actions: NextStepsActions }) {
   const [sent, setSent] = useState(false)
-  const inTodos = useInbox((s) => s.todos.some((todo) => !todo.done && todo.text === step.text))
+  const [adding, setAdding] = useState(false)
+  // Done or not, a step already in the list was added: the button says so rather than adding it again.
+  const inTodos = useInbox((s) => s.todos.some((todo) => todo.text === step.text))
   const mine = step.owner === 'agent'
   const prompt = stepFollowUp(step)
   const asked = sent || row.followUp === prompt
@@ -139,6 +144,7 @@ function StepRow({ step, index, row, rowKey, actions }: { step: WrapUpStep; inde
           type="button"
           data-next-step-ask
           disabled={asked}
+          title={t('Sends {agent} a message in this chat asking it to do this step.', { agent: actions.agentName })}
           className={SMALL_BUTTON}
           onClick={() => {
             setSent(true)
@@ -152,16 +158,31 @@ function StepRow({ step, index, row, rowKey, actions }: { step: WrapUpStep; inde
       {!mine && actions.onAddTodo ? (
         <button
           type="button"
-          data-next-step-todo
-          disabled={inTodos || sent}
+          data-next-step-todo={inTodos ? 'added' : 'not-added'}
+          disabled={adding}
+          title={
+            inTodos
+              ? t('This step is in the To do list of your Inbox. Click to open it.')
+              : t("Adds this step to the To do list in your Inbox (in the status bar), linked to this chat. Nothing is sent to {agent}.", {
+                  agent: actions.agentName
+                })
+          }
           className={SMALL_BUTTON}
           onClick={() => {
-            setSent(true)
-            actions.onAddTodo?.(step.text)
+            if (inTodos) return openInboxTodos()
+            const add = actions.onAddTodo
+            if (!add) return
+            setAdding(true)
+            add(step.text)
+              .then(() => toast.success(t("Added to your Inbox's To do list"), { action: { label: t('Open Inbox'), onClick: openInboxTodos } }))
+              .catch((error: unknown) =>
+                toast.error(t('Could not add it to your Inbox'), { description: error instanceof Error ? error.message : String(error) })
+              )
+              .finally(() => setAdding(false))
           }}
         >
-          {inTodos || sent ? <Check aria-hidden className="size-3" /> : <ListTodo aria-hidden className="size-3" />}
-          {inTodos || sent ? t('In my todos') : t('Add to my todos')}
+          {inTodos ? <Check aria-hidden className="size-3" /> : <ListTodo aria-hidden className="size-3" />}
+          {inTodos ? t('In Inbox') : t('Add to Inbox')}
         </button>
       ) : null}
     </li>

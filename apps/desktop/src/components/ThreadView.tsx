@@ -134,8 +134,7 @@ export function ThreadView({ session, onSendToMain }: { session: Session; onSend
       nextSteps: {
         agentName,
         onFollowUp: (text) => submitPrompt(session.id, text, []),
-        onAddTodo: (text) =>
-          void addTodo(text, { hostId: session.hostId, workspaceId: session.workspaceId, sessionId: session.id }, sessionTitle).catch(() => undefined)
+        onAddTodo: (text) => addTodo(text, { hostId: session.hostId, workspaceId: session.workspaceId, sessionId: session.id }, sessionTitle)
       }
     }),
     [working, claudeOnly, forkReason, session.id, session.cwd, session.workspaceId, session.hostId, sessionTitle, agentName, workflowHome.hostId, workflowHome.projectId, workflowHome.projectName]

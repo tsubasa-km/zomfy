@@ -21,6 +21,15 @@ export function setInboxOpen(open: boolean): void {
   store.update((s) => ({ ...s, open }))
 }
 
+/** Opens the inbox scrolled to its To do list (a todo was just added from a chat). */
+export function openInboxTodos(): void {
+  setInboxOpen(true)
+  // The panel mounts on the next render; its section is there a frame later.
+  requestAnimationFrame(() =>
+    requestAnimationFrame(() => document.querySelector('[data-inbox-section="To do"]')?.scrollIntoView({ block: 'start', behavior: 'smooth' }))
+  )
+}
+
 export function setTodos(todos: TodoItem[]): void {
   store.update((s) => ({ ...s, todos }))
 }
