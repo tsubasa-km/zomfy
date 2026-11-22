@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { cn } from '@/lib/utils'
 import { Section } from './panel-parts'
+import { ConnectorIcon } from './ConnectorIcon'
 import { t } from '@/i18n/i18n'
 
 // The chat's MCP servers (connectors) and their state, with sign-in for one that needs it and
@@ -195,7 +196,14 @@ function ConnectorRow({
   return (
     <li className="space-y-1 rounded-md py-0.5" data-connector={server.name} data-connector-status={server.status}>
       <div className="flex items-center gap-2">
-        <span className={cn('size-2 shrink-0 rounded-full', DOT[server.status])} aria-hidden />
+        <span className="relative shrink-0">
+          <ConnectorIcon server={server} />
+          <span
+            className={cn('absolute -right-0.5 -bottom-0.5 size-2 rounded-full ring-2 ring-background', DOT[server.status])}
+            title={statusLabel(server.status)}
+            aria-hidden
+          />
+        </span>
         <div className="min-w-0 flex-1" title={server.url ?? server.name}>
           <div className="truncate">{server.name}</div>
           <div className="truncate text-[11px] text-muted-foreground">
@@ -216,9 +224,9 @@ function ConnectorRow({
           </Button>
         )}
       </div>
-      {server.status === 'failed' && server.error && <p className="pl-4 text-[11px] break-words text-muted-foreground">{server.error}</p>}
+      {server.status === 'failed' && server.error && <p className="pl-7 text-[11px] break-words text-muted-foreground">{server.error}</p>}
       {signIn && (
-        <div className="space-y-1 pl-4 text-[11px] text-muted-foreground" data-connector-sign-in>
+        <div className="space-y-1 pl-7 text-[11px] text-muted-foreground" data-connector-sign-in>
           {signIn.callbackExpected ? (
             <>
               <p>{t('Finish signing in in the browser; this updates on its own.')}</p>

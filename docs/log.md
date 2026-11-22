@@ -7,3 +7,5 @@
 * **Creation**: [Documentation-driven development](specs/documentation-driven-development.md) and the decision to [adopt OKF](decisions/adopt-okf.md).
 * **Creation**: [One right sidebar per split pane](specs/pane-sidebars.md).
 * **Update**: [One right sidebar per split pane](specs/pane-sidebars.md) is implemented.
+* **Creation**: [Usage limits by the context ring, and connector icons](specs/usage-limits-and-connector-icons.md).
+* **Update**: [Usage limits by the context ring, and connector icons](specs/usage-limits-and-connector-icons.md) is implemented.

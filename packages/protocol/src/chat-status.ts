@@ -66,6 +66,11 @@ export interface UsageLimitsResult {
   providers: ProviderUsageLimits[]
 }
 
+export interface FaviconResult {
+  /** The icon as a `data:image/...` URL; null when the domain has none or cannot be reached. */
+  dataUrl: string | null
+}
+
 export const CHAT_STATUS_METHODS = {
   /** A Claude chat's MCP servers and their state. */
   chatMcpStatus: '_harness/chatStatus/mcp',
@@ -78,7 +83,9 @@ export const CHAT_STATUS_METHODS = {
   /** The address the browser landed on after signing in, when it could not reach Claude Code itself. */
   chatMcpCallback: '_harness/chatStatus/mcpCallback',
   /** The host's accounts' usage limits; `refresh` reads them again rather than answering what was read lately. */
-  usageLimits: '_harness/chatStatus/usageLimits'
+  usageLimits: '_harness/chatStatus/usageLimits',
+  /** A public domain's site icon as a `data:` URL, fetched and cached by the daemon (null when it has none). */
+  favicon: '_harness/favicon'
 } as const
 
 export interface ChatStatusRequests {
@@ -94,4 +101,5 @@ export interface ChatStatusRequests {
     result: ChatMcpStatusResult
   }
   [CHAT_STATUS_METHODS.usageLimits]: { params: { refresh?: boolean; sessionId?: string }; result: UsageLimitsResult }
+  [CHAT_STATUS_METHODS.favicon]: { params: { domain: string }; result: FaviconResult }
 }

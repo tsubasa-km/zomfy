@@ -26,3 +26,4 @@
 * [Phone relay](mobile/relay.md) - the phone routes on the shared Worker, splicing end-to-end encrypted frames to the host's link
 * [The Android app](mobile/app.md) - screens, Expo stack, connection and offline behaviour, APK build
 * [Push notifications on the phone](mobile/push.md) - when the daemon notifies a phone, sent through Expo's free push service by the relay
+* [Usage limits by the context ring, and connector icons](usage-limits-and-connector-icons.md) - the context card shows the account's usage limits; Connectors show each server's icon
