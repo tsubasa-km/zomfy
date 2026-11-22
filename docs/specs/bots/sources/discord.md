@@ -127,6 +127,9 @@ built apart. Details settled while building:
   identify again, 4004 and 4010–4014 stop it for 10 minutes. `/health` returns
   `discordGatewayUptime` (seconds since the current connection became ready) and
   `discordGateway {state, uptimeSeconds, heldSeconds, reconnects, lastError}`.
+- **Phase B2.** The `post` and `reply` actions post in a channel (`discord:<guild>:<channel>`), a
+  thread (`…:<thread>`) or as a reply to a message (`…::<message>`), cut at 2000 characters, once
+  per idempotency key; `access-answered` DMs the requester.
 - Tested in workerd against a fake Discord (`apps/relay/test/fake-discord.mjs`, REST and Gateway).
   Left for the end-to-end checks on the person's server.
 

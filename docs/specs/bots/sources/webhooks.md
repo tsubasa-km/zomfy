@@ -89,11 +89,12 @@ Details settled while building:
   refused calls (bad key or signature) within 10 minutes queue one `webhook_alert refusal_burst`.
 - Tested in workerd (`apps/relay/test/webhooks.test.ts`).
 
-Left (the daemon's and the desktop's part, a follow-up for their agents): the **New trigger →
-Webhook** card that mints a hook and shows the URL and key once, the rule in `hello`, running the
-automation on `webhook_notice` after `webhook.fetch` (body quoted as information) and then
-`webhook.done`, folding calls with the same `subject`, and showing `webhook_alert` to the owner;
-then the end-to-end `curl` check.
+The daemon's and the desktop's part followed with phase B2: **New trigger → Webhook** mints a
+hook and shows the URL and key once, the rule goes in `hello`, `webhook_notice` runs the automation
+after `webhook.fetch` (body quoted as information) and then `webhook.done`, a call with the
+subject of an unfinished run goes into its chat, and `webhook_alert` is a notice in Needs you.
+
+Left: the end-to-end `curl` check.
 
 # Non-goals
 
