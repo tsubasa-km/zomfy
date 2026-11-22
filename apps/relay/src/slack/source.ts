@@ -98,6 +98,8 @@ type Op =
   | { t: 'prompt-edit'; promptId: string; text: string; blocks: Block[] }
   | { t: 'ephemeral'; channel: string; user: string; threadTs?: string; text: string; blocks: Block[] }
   | { t: 'respond'; url: string; body: Record<string, unknown> }
+  /** A note to one person in their DM with the app. */
+  | { t: 'dm'; user: string; text: string }
 
 const PLACE_KIND: Record<string, (typeof PLACE_KINDS)[number]> = {
   im: 'direct_message',
@@ -478,6 +480,11 @@ export class SlackSource implements HubSource, OutboundRunner {
       this.sql.exec('DELETE FROM slack_context WHERE external_id = ?', externalId)
       return
     }
+    if (event.kind === 'access-answered') {
+      const text = NOTES.accessAnswered(this.bot(event.botId)?.name ?? 'the bot', event.allowed).replace(/\*\*/g, '*')
+      this.queue({ t: 'dm', user: event.requester.id, text }, `slack:access-answered:${event.botId}:${event.requester.id}:${now()}`, `slack:dm:${event.requester.id}`)
+      return
+    }
     const conv = this.conv(externalId)
     if (!conv) return
     const lane = `slack:ch:${conv.channel}`
@@ -648,6 +655,10 @@ export class SlackSource implements HubSource, OutboundRunner {
       case 'respond': {
         const res = await slackRespond(this.env, op.url, op.body)
         return this.outcome(res, 'respond') ?? { status: 'done' }
+      }
+      case 'dm': {
+        const res = await slackCall(this.env, 'chat.postMessage', { channel: op.user, text: op.text })
+        return this.outcome(res, 'dm') ?? { status: 'done' }
       }
     }
   }
