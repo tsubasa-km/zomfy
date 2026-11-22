@@ -27,3 +27,4 @@
 * [The Android app](mobile/app.md) - screens, Expo stack, connection and offline behaviour, APK build
 * [Push notifications on the phone](mobile/push.md) - when the daemon notifies a phone, sent through Expo's free push service by the relay
 * [Usage limits by the context ring, and connector icons](usage-limits-and-connector-icons.md) - the context card shows the account's usage limits; Connectors show each server's icon
+* [Retire the acp-harness home and executable name](retire-legacy-home.md) - rewrites stored paths to ~/.zomfy, removes the old home's link, and installs the app as zomfy.exe

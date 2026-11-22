@@ -21,8 +21,8 @@ const CREATE_BREAKAWAY_FROM_JOB: u32 = 0x0100_0000;
 static RESOURCE_DIR: OnceLock<PathBuf> = OnceLock::new();
 
 /// Run on a WSL or SSH host before a daemon is installed: stops a daemon still running under the
-/// legacy name and moves its home to `~/.zomfy`, leaving a link at the old path, so the host keeps
-/// one home with its sessions, tokens and settings. A host whose home cannot be moved fails the
+/// legacy name and moves its home to `~/.zomfy`, leaving a link at the old path (the daemon removes it
+/// once it has rewritten its stored paths), so the host keeps one home with its sessions, tokens and settings. A host whose home cannot be moved fails the
 /// install rather than starting a second, empty home beside it.
 pub const LEGACY_HOME_MIGRATION: &str = r#"O="$HOME/.acp-harness"; N="$HOME/.zomfy" # legacy home, and where it moves
 if [ -d "$O" ] && [ ! -L "$O" ]; then

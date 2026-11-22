@@ -102,9 +102,14 @@ pub fn ensure() -> Result<String, String> {
     let (new_home, legacy) = (harness_home()?, legacy_home()?);
     if !new_home.exists() && is_unmoved_legacy(&legacy) {
         retire_legacy_daemon(&new_home, &legacy);
-        // The legacy per-build copies of the daemon; one still locked is left behind.
-        if let Some(base) = std::env::var_os("LOCALAPPDATA") {
-            let _ = std::fs::remove_dir_all(PathBuf::from(base).join("acp-harness")); // legacy install root
+    }
+    // The legacy per-build copies of the daemon, then their folder once empty; a copy still locked
+    // is left for the next start.
+    if let Some(base) = std::env::var_os("LOCALAPPDATA") {
+        let old = PathBuf::from(base).join("acp-harness"); // legacy install root
+        if old.exists() {
+            let _ = std::fs::remove_dir_all(old.join("bin"));
+            let _ = std::fs::remove_dir(old);
         }
     }
     let home = active_home(&new_home, &legacy);

@@ -68,7 +68,8 @@ function isLink(path: string): boolean {
  * Moves the legacy home (`legacy`) to `home` when only the legacy one exists. Sessions, settings,
  * tokens and anything else under it go along in one rename; the legacy path is then linked to the
  * new home, so absolute paths recorded before (attachments, agent configs) keep resolving and an
- * older build still finds the same state instead of starting a second home.
+ * older build still finds the same state instead of starting a second home. Once those paths are
+ * rewritten, legacy-home-retire.ts removes the link.
  */
 export function migrateLegacyHome(legacy: string, home: string, options: MigrationOptions = {}): HomeMigration {
   const isAlive = options.isAlive ?? processAlive
