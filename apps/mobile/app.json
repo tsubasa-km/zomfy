@@ -1,0 +1,42 @@
+{
+  "expo": {
+    "name": "Zomfy",
+    "slug": "zomfy",
+    "scheme": "zomfy",
+    "version": "0.1.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "automatic",
+    "platforms": ["android", "web"],
+    "android": {
+      "package": "dev.zomfy.app",
+      "versionCode": 1,
+      "permissions": ["android.permission.CAMERA"]
+    },
+    "web": {
+      "bundler": "metro",
+      "output": "single"
+    },
+    "plugins": [
+      "expo-router",
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "Zomfy uses the camera to scan the pairing QR code shown on your computer.",
+          "recordAudioAndroid": false
+        }
+      ],
+      "expo-secure-store",
+      [
+        "expo-build-properties",
+        {
+          "android": {
+            "usesCleartextTraffic": true
+          }
+        }
+      ]
+    ],
+    "experiments": {
+      "typedRoutes": false
+    }
+  }
+}
