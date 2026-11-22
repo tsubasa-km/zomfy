@@ -29,3 +29,5 @@
 * [Usage limits by the context ring, and connector icons](usage-limits-and-connector-icons.md) - the context card shows the account's usage limits; Connectors show each server's icon
 * [Retire the acp-harness home and executable name](retire-legacy-home.md) - rewrites stored paths to ~/.zomfy, removes the old home's link, and installs the app as zomfy.exe
 * [Wake a Claude chat when its background work finishes](background-task-wake.md) - a turn that ends with background tasks running keeps its Claude process, and the chat resumes on its own when a task finishes
+* [Tool calls a stopped turn leaves open read as stopped](stopped-tool-calls.md) - Stop, a failed turn or a daemon restart closes every pending or running tool call as stopped, live and on replay
+* [The Next steps card](next-steps-card.md) - the card a turn ends with: recap sections open by default, "Ask to do this" and "Add to Inbox" that say what they do

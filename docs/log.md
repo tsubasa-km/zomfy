@@ -1,6 +1,7 @@
 # Directory Update Log
 
 ## 2026-11-22
+* **Creation**: [Tool calls a stopped turn leaves open read as stopped](specs/stopped-tool-calls.md) and [The Next steps card](specs/next-steps-card.md), in progress.
 * **Update**: Built the desktop part of phase B1 of Zomfy Bots ([desktop](specs/bots/desktop.md#built-so-far), in progress): the Bots row and page in the sidebar, Create and Edit bot, bot chats with a header and `@handle` from any chat, bot chats out of the thread list unless shown, access requests in Needs you, and Settings → Bots with the relay, sources and Who can ask; the [daemon](specs/bots/daemon.md) gains the default bot sent as `isDefault` in `hello`.
 * **Update**: Built the Worker side of the [Linear source](specs/bots/sources/linear.md) (mentions, `bot:<handle>` labels, the "On it…" comment, asked-by lines, triggers, member lookup); the app's token now comes from Linear's client-credentials grant, since authorization-code tokens last 24 hours. The [connector](specs/bots/connector.md) lists every source's route and secret.
 * **Update**: Built the Worker side of [webhooks](specs/bots/sources/webhooks.md) (keyed URLs, six sender signatures, Orca's filters, redaction, caps and alerts, 7-day retention, and the `webhook.*` actions the daemon manages hooks with); in progress with a "Built so far" section.
