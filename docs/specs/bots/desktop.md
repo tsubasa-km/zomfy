@@ -3,7 +3,7 @@ type: Spec
 title: Bots in the desktop app
 description: The Bots settings pane, the bots section of the sidebar, Needs you, and talking to a bot from Zomfy itself.
 status: stable
-x-zomfy-implementation: planned
+x-zomfy-implementation: in-progress
 tags: [bots, desktop]
 sources:
   - id: orca-bots
@@ -60,6 +60,8 @@ bots ask. The first test path is Zomfy itself, so talking to a bot must work wit
    - Sources the bot answers on, schedules and triggers (a list of its automations, with **New
      schedule** and **New trigger** that open the automation editor with `botId` set).
    - Pause, Delete (with the home kept unless "also delete the folder" is ticked).
+   - **Default bot**: at most one bot takes source messages that name no bot by handle; its
+     `hello` entry sets `isDefault` ([contract](contract.md#bots-channel-daemon--hub)).
 
 All new strings are English in the code with Japanese added to `apps/desktop/src/i18n/ja/`.
 
@@ -79,6 +81,43 @@ All new strings are English in the code with Japanese added to `apps/desktop/src
 - A question from a Discord-started bot chat appears in the inbox; answering it there makes the
   fake Hub receive the answer and `prompt-cleared`.
 - Bot chats are hidden from project lists until "Show bot chats" is on.
+
+# Built so far
+
+Phase B1 (`apps/desktop`: `stores/bots-store.ts`, `lib/bot-state.ts`, `lib/bot-mention.ts`,
+`components/bots/`, `components/settings/BotsPane.tsx`; tested in `tests/bots.test.ts`):
+
+- The **Bots** row in `SidebarNav` (hidden from its context menu or Settings → Appearance) opens the
+  Bots page beside the sidebar: a row per bot with avatar, name, handle, a dot (running, waiting on
+  you, paused) and its five newest chats; clicking the bot opens its newest chat or a new one;
+  **New chat** and a settings button per row. The Bots row counts bots waiting on the person.
+- **Create bot** / **Edit bot**: name, handle (from the name until edited), avatar (an emoji or an
+  image URL), purpose, agent (guarded agents left out), model, permission mode (Ask for approval by
+  default), home (`~/zomfy/bots/<handle>` or an existing folder path, with Browse in the app), and
+  Default bot.
+- A bot chat has a header: the bot, where it came from (a Zomfy chat with a link that brings it to
+  the front; a Discord thread with a link that opens it in the browser), and **New chat**.
+- `@handle …` at the start of a prompt in any chat's composer calls `chatCreate` with the text and
+  `fromSessionId`, clears the composer and opens the new chat; an unknown handle is left as text. The
+  New thread page does not take `@handle` yet.
+- The thread list leaves bot chats out unless View options → **Show bot chats** is on; a bot chat
+  waiting for the person shows either way.
+- The inbox shows a bot chat's approvals and questions with the bot's avatar and name, and access
+  requests with Allow / Decline in Needs you; the status-bar count includes them.
+- Settings → Bots: Relay (Worker URL and setup code, Pair, state, host id, last hello, Unpair,
+  Deploy to Cloudflare and `bun run deploy` links), Sources (a card per source with configured or
+  not from the relay's `/health` sources, the Discord interactions URL with Copy, and a link to
+  the source's spec), and Bots (list, Create bot, and per bot Open SOUL.md / MEMORY.md in the editor,
+  Open home folder, Who can ask per source with the owner's id and members, pending access requests,
+  Pause, Delete with "also delete the folder").
+- Checked in a preview: a bot created with no relay answered "what is in SOUL.md?" quoting it;
+  `@reviewer summarise this chat` opened a chat under the bot with a link back; pairing with a
+  `wrangler dev` relay showed connected and the host id, and Unpair returned to the form.
+
+Not yet: the URLs of Slack, GitHub, Linear and webhooks on their cards (their routes come with
+their phases), a bot's automations with **New schedule** / **New trigger** (the `bot` automation
+target is B2), answering a source's question in the inbox clearing it in the source (B2), and
+`@handle` on the New thread page.
 
 # Decisions
 

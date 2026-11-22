@@ -164,8 +164,8 @@ Phase B1, the daemon part (`bot-store.ts`, `bot-home.ts`, `bot-service.ts`, `bot
 
 Not yet: approvals and questions to the source (B2, so a bot turn's approval still goes to an open
 window and is denied after 5 minutes without one), `activity` and `workers` events, PR links and
-review notes in replies, replying again after a usage-limit resume, and the `isDefault` bot the
-Discord Hub reads from `hello` (on another branch's contract).
+review notes in replies, and replying again after a usage-limit resume. A bot record may be the
+default (`isDefault`, one per host), and its `hello` entry says so.
 
 # Non-goals
 
