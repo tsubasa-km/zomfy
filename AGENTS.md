@@ -40,7 +40,9 @@ merges cheap:
   in one place only.
 - Commit on your own branch; do not merge, rebase or switch branches unless asked.
 - Before you say the work is done, run what CI runs: `bun run typecheck`, then `bun test` in
-  `packages/daemon` and in `apps/desktop`.
+  `packages/daemon`, `apps/desktop` and `packages/relay-contract`, and `bun run test` in `apps/relay`
+  when you touched the relay. Run them in the foreground: in a Zomfy chat a background command does
+  not wake you once your turn has ended.
 
 # Branches
 
