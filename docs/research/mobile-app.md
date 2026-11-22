@@ -1,3 +1,11 @@
+---
+type: Research
+title: "A phone app for Zomfy"
+description: "Orca's and T3 Code's phone apps compared, how people rate them, and a plan for Zomfy's own app."
+status: stable
+generated: { by: "claude-code/opus-5.5", at: "2026-11-21T00:00:00Z" }
+---
+
 # Research: a phone app for Zomfy
 
 Status: research, 2026-11-21. No product code was changed.
