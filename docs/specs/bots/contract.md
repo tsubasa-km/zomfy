@@ -64,7 +64,8 @@ answers without waking the Hub, so their frames are fixed byte for byte (`PING_F
 | `action` | `helloRev`, `reqId`, `verb`, `ref`, `args`, `idempotencyKey?` | A bot acting in a source (below). |
 
 A `bots[]` entry: `id`, `name`, `handle`, `avatar?`, `agent`, `paused`, `owner {<source>: id}`,
-`askers {<source>: [{id, role}]}`, `places[]`. A `rules[]` entry is in [triggers](#triggers).
+`askers {<source>: [{id, role}]}`, `places[]`, `isDefault?` (the deployment's default bot, which
+takes a source message that names no bot by handle; with none set and one bot known, that one). A `rules[]` entry is in [triggers](#triggers).
 
 ## Bots channel: Hub → daemon
 

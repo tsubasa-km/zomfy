@@ -21,7 +21,12 @@ export const helloBotSchema = z.object({
   paused: z.boolean(),
   owner: ownerMapSchema,
   askers: askersMapSchema,
-  places: z.array(refSchema).max(100)
+  places: z.array(refSchema).max(100),
+  /**
+   * The deployment's default bot (set in Zomfy): it takes a source message that names no bot by
+   * handle. At most one bot should set it; with none set and exactly one bot known, that one does.
+   */
+  isDefault: z.boolean().optional()
 })
 export type HelloBot = z.infer<typeof helloBotSchema>
 

@@ -9,6 +9,7 @@ import {
   deliverySchema,
   failureSchema,
   formatRef,
+  helloBotSchema,
   inviteRequestSchema,
   inviteResponseSchema,
   parseRef,
@@ -161,5 +162,11 @@ describe('refs and askers', () => {
     expect(askerRole(fixtureBot, 'discord', 'u-member')).toBe('member')
     expect(canAskBot(fixtureBot, 'discord', 'u-stranger')).toBe(false)
     expect(canAskBot(fixtureBot, 'slack', 'u-owner')).toBe(false)
+  })
+
+  test('a bot from an older daemon, without isDefault, still parses', () => {
+    const { isDefault: _d, ...old } = fixtureBot
+    expect(helloBotSchema.parse(old).isDefault).toBeUndefined()
+    expect(helloBotSchema.parse(fixtureBot).isDefault).toBe(true)
   })
 })
