@@ -74,7 +74,13 @@ The phone app (`apps/mobile`) follows T3 Code's client design (https://github.co
 ordered connection routes with a preferred route and jittered backoff, one connection owner per
 host, one-time scoped pairing links, and its approval and question cards. The pairing offer
 (`packages/protocol/src/remote-devices.ts`), the per-scope method allowlist and Settings → Devices
-follow Orca's mobile pairing (MIT, notice above). T3 Code is distributed under the MIT License:
+follow Orca's mobile pairing (MIT, notice above). The phone relay's end-to-end encryption
+(`packages/protocol/src/phone-e2ee.ts`) copies Orca's paired E2EE v2: the hello/ready transcript
+encoding, the HKDF-SHA256 key schedule, the counter nonce layout and the device proof
+(`src/shared/remote-runtime/e2ee/` and `pairing/device-key-proof.ts`, MIT, notice above). The app's
+relay route, wakeups (`apps/mobile/src/lib/host-connection.ts`, `routes.ts`) and offline prompt
+queue (`prompt-queue.ts`) follow T3 Code's connection supervisor, connection wakeups and composer
+queue. T3 Code is distributed under the MIT License:
 
 ```
 MIT License

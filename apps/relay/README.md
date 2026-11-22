@@ -143,6 +143,15 @@ PagerDuty, Stripe). The answer is `{callId, status}` with `queued`, `ignored` (f
 hook's runs for the hour (200 at most, 300 for the deployment). Bodies are kept at most 7 days,
 without the key or credential headers.
 
+## Phones
+
+The Android app reaches your computer through the same Worker when it is away from your Wi-Fi and
+tailnet ([spec](../../docs/specs/mobile/relay.md)). Nothing needs setting up in Cloudflare: once
+Zomfy is paired with the relay (Settings → Bots → Relay), Settings → Devices → **Pair a phone**
+lists the relay as the last route, and phones paired before that pick it up when you pair them
+again. The relay only splices end-to-end encrypted frames; it keeps each phone's public key and
+nothing it says.
+
 ## Develop
 
 ```sh
@@ -156,5 +165,7 @@ Routes: `GET /health`, `POST /v1/hosts/register`, `POST /v1/hosts/invite`, the d
 `GET /v1/host`, `POST /discord/interactions`, `POST /slack/events` and `/slack/interactivity`,
 `POST /github/webhook`, `POST /linear/webhook` (each source's routes answer 404 until its secrets
 are set), and
-`POST /hooks/<hookId>` for webhooks. Tests reach fake Slack, GitHub and
+`POST /hooks/<hookId>` for webhooks, and a phone's socket `GET /v1/device/<hostId>/ws`. The daemon's
+end-to-end check against `wrangler dev` is `packages/daemon/src/phone-relay.wrangler.test.ts`
+(its header says how to run it). Tests reach fake Slack, GitHub and
 Linear APIs (`test/fake-apis.mjs`) through the `SOURCES_TRANSPORT` binding.

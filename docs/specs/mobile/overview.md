@@ -81,7 +81,12 @@ M1 needs no Cloudflare and can run in parallel with bots B1; M2 needs the host l
 - **M1 done** on the direct route: the [gateway and Settings → Devices](pairing.md#implementation-status)
   and the [app shell](app.md#implementation-status). Not yet tried on the Android Emulator or a
   real phone; the APK has not been built (no Expo account yet).
-- M2–M4 are planned.
+- **M2 built**: the [relay](relay.md#implementation-status) routes, end-to-end encryption, pairing
+  through the relay, the app's ordered routes with wakeups, and the
+  [offline queue](app.md#implementation-status). Tested with Worker tests, daemon tests against a
+  fake relay and against `wrangler dev`, and app unit tests; not yet on a real phone on mobile data
+  against the person's deployment.
+- M3–M4 are planned.
 
 # Acceptance
 
