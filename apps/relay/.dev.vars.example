@@ -1,0 +1,27 @@
+# Secrets of Zomfy Relay. Copy to .dev.vars for `wrangler dev`; in Cloudflare they are Worker
+# secrets (`wrangler secret put <NAME>`). A source with no secrets is off and its routes answer 404.
+
+# Required: lets the first host register (128-bit random, e.g. `openssl rand -hex 16`).
+SETUP_CODE=
+
+# Discord
+DISCORD_APPLICATION_ID=
+DISCORD_PUBLIC_KEY=
+DISCORD_BOT_TOKEN=
+
+# Slack
+SLACK_BOT_TOKEN=
+SLACK_SIGNING_SECRET=
+
+# GitHub App
+GITHUB_APP_ID=
+GITHUB_APP_PRIVATE_KEY=
+GITHUB_WEBHOOK_SECRET=
+GITHUB_APP_SLUG=
+
+# Linear
+LINEAR_ACCESS_TOKEN=
+LINEAR_WEBHOOK_SECRET=
+
+# Optional: push notifications to paired phones
+EXPO_ACCESS_TOKEN=

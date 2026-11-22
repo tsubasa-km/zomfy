@@ -3,7 +3,7 @@ type: Spec
 title: Bots connector contract
 description: The versioned messages the daemon and Zomfy Relay exchange over the host link for bots, kept in the new package packages/relay-contract and copied from Orca's connector contract.
 status: stable
-x-zomfy-implementation: planned
+x-zomfy-implementation: done
 tags: [bots, relay, protocol]
 sources:
   - id: orca-bots
@@ -12,7 +12,7 @@ sources:
   - id: orca-cc
     resource: https://github.com/stablyai/orca/tree/main/cloud/packages/connector-contract/src
     title: Orca connector-contract package
-generated: { by: "claude-code/opus-5.5", at: "2026-11-22T00:00:00Z" }
+generated: { by: "claude-code/opus-5.5", at: "2026-11-22T03:21:28Z" }
 ---
 
 # Problem
@@ -24,11 +24,13 @@ acks, resumable event batches — and Zomfy keeps its semantics.[^orca-cc]
 
 # Where it lives
 
-- **`packages/relay-contract`** (new, `@zomfy/relay-contract`): zod schemas and TypeScript types,
-  no runtime dependencies besides zod. `src/link.ts` (the shared host link), `src/bots/*.ts` (this
-  spec), `src/phone/*.ts` ([phone relay](../mobile/relay.md)), `src/limits.ts`, `src/version.ts`.
-- One file per area, after Orca's split: `hello`, `deliveries`, `events`, `actions`, `triggers`,
-  `pr-events`, `webhooks`, `askers`, `failures`, `refs`.
+- **`packages/relay-contract`** (`@zomfy/relay-contract`): zod schemas and TypeScript types,
+  no runtime dependencies besides zod. `src/link.ts` (the shared host link and registration
+  bodies), `src/bots/*.ts` (this spec), `src/phone/index.ts` ([phone relay](../mobile/relay.md)),
+  `src/frames.ts` (`parseToHub` / `parseToHost`), `src/limits.ts`, `src/version.ts`, and
+  `src/fixtures.ts`, one valid example of every message, which the tests of all three packages use.
+- One file per area in `src/bots/`, after Orca's split: `hello`, `deliveries`, `events`, `actions`,
+  `triggers`, `pr-events`, `webhooks`, `askers`, `failures`, `refs`.
 - The Worker cannot use a `workspace:*` dependency under the Deploy button, so
   `bun run relay:vendor` copies the package source into `apps/relay/src/contract/`; a test fails
   when the copy differs from the package ([connector](connector.md#deploy)).
@@ -40,17 +42,26 @@ acks, resumable event batches — and Zomfy keeps its semantics.[^orca-cc]
 ## Framing
 
 Every WebSocket text frame on `/v1/host` is JSON `{ ch, type, ... }`, where `ch` is `link`, `bots`
-or `phone`. Unknown `type`s and unknown fields are ignored. `CONTRACT_VERSION = 1`; change beyond
+or `phone`. Unknown channels, unknown `type`s and unknown fields are ignored; a known `type` with
+wrong fields is invalid (the Hub answers `error bad_message`). `CONTRACT_VERSION = 1`; change beyond
 that happens through `features` lists both sides advertise, as in Orca.
+
+## Link channel
+
+`challenge {nonce}` (Hub → daemon, on accept), `auth {signature}` (daemon → Hub, Ed25519 over
+`zomfy-relay-v1|<hostId>|<nonce>`), `auth-ok {hostId}`, and `ping` / `pong`, which the runtime
+answers without waking the Hub, so their frames are fixed byte for byte (`PING_FRAME`,
+`PONG_FRAME`). The host id is in the URL: `/v1/host?hostId=<id>` ([pairing](../mobile/pairing.md)).
 
 ## Bots channel: daemon → Hub
 
 | Message | Fields | Purpose |
 | --- | --- | --- |
-| `hello` | `contract`, `host {id, name, kind: desktop\|serve}`, `features[]`, `sources[]`, `promptKinds[]`, `bots[]`, `rules[]` | Announces the host's bots and trigger rules. Sent after every (re)connect and when bots or rules change. |
-| `ack` | `deliveryId`, `step: received\|done`, `outcome?` | `received` after a durable local receipt; `done` with `accepted`, `refused`, `unknown`, `expired` or `unsupported`. |
+| `hello` | `contract`, `host {id, name, kind: desktop\|serve}`, `features[]`, `sources[]`, `promptKinds[]`, `bots[] ≤20`, `rules[]`, `pages` | Announces the host's bots and trigger rules. Sent after every (re)connect and when bots or rules change. |
+| `hello-bots` | `page ≥2`, `bots[] ≤20` | The next page of bots when `pages > 1`; the Hub answers `hello-ok` once every page is in. |
+| `ack` | `helloRev`, `deliveryId`, `step: received\|done`, `outcome?` | `received` after a durable local receipt; `done` with `accepted`, `refused`, `unknown`, `expired` or `unsupported`. |
 | `events` | `helloRev`, `seq`, `events[]` | Ordered batch; `seq` starts at 0 per hello; a retried `seq` is ignored. |
-| `action` | `reqId`, `verb`, `ref`, `args`, `idempotencyKey?` | A bot acting in a source (below). |
+| `action` | `helloRev`, `reqId`, `verb`, `ref`, `args`, `idempotencyKey?` | A bot acting in a source (below). |
 
 A `bots[]` entry: `id`, `name`, `handle`, `avatar?`, `agent`, `paused`, `owner {<source>: id}`,
 `askers {<source>: [{id, role}]}`, `places[]`. A `rules[]` entry is in [triggers](#triggers).
@@ -60,10 +71,10 @@ A `bots[]` entry: `id`, `name`, `handle`, `avatar?`, `agent`, `paused`, `owner {
 | Message | Fields | Purpose |
 | --- | --- | --- |
 | `hello-ok` | `helloRev`, `features[]`, `unsettled[]` | Monotonic `helloRev`; every later message carries it, and a stale one gets `error hello_required`. `unsettled` lists deliveries not yet `done`. |
-| `delivery` | see below | One request for the host. |
+| `delivery` | `helloRev`, `deliveries[] ≤20` (see below) | Requests for the host; the daemon parses each item on its own, so one of an unknown kind is acked `done unsupported` without hiding the others. |
 | `action-result` | `reqId`, `ok`, `result?`, `error?` | |
 | `control` | `stop` \| `pause {forMs}` \| `reconnect` | |
-| `error` | `code`, `message` | `hello_required`, `unknown_bot`, `grant_expired`, `too_large`, `rate_limited`. |
+| `error` | `code`, `message`, `about?` | `hello_required`, `unknown_bot`, `grant_expired`, `too_large`, `rate_limited`, `bad_message`. |
 
 ## Deliveries
 
@@ -85,6 +96,8 @@ Common fields: `id` (stable across re-sends), `kind`, `botId`, `conversation {so
 in Orca, so the agent can tell its own posts and others' text apart.[^orca-bots]
 
 ## Events (daemon → Hub)
+
+Each event has a `kind`; the Hub parses them one by one and skips a kind it does not know.
 
 `snapshot` (active conversations after each hello), `linked` / `unlinked`
 (`conversation ↔ sessionId`), `chat-gone`, `prompt` (kind `approval {tool, summary, options[]}`,

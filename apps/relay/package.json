@@ -1,0 +1,20 @@
+{
+  "name": "@zomfy/relay",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "wrangler dev",
+    "test": "vitest run",
+    "typecheck": "bun check"
+  },
+  "dependencies": {
+    "zod": "4.6.7"
+  },
+  "devDependencies": {
+    "@cloudflare/vitest-plugin": "1.9.0",
+    "@cloudflare/workers-types": "5.20261121.1",
+    "typescript": "7.0.2",
+    "vitest": "5.1.1",
+    "wrangler": "4.166.0"
+  }
+}

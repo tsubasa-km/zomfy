@@ -3,7 +3,7 @@ type: Spec
 title: Bots in the daemon
 description: How the daemon keeps bot records and homes, turns connector deliveries into chats and turns, sends replies, mirrors questions and approvals, and runs a bot's schedules and triggers.
 status: stable
-x-zomfy-implementation: planned
+x-zomfy-implementation: in-progress
 tags: [bots, daemon]
 sources:
   - id: orca-bots
@@ -15,7 +15,7 @@ sources:
   - id: orca-home
     resource: https://github.com/stablyai/orca/blob/main/src/main/bots/bot-home.ts
     title: Orca bot home
-generated: { by: "claude-code/opus-5.5", at: "2026-11-22T00:00:00Z" }
+generated: { by: "claude-code/opus-5.5", at: "2026-11-22T03:21:28Z" }
 ---
 
 # Problem
@@ -57,11 +57,16 @@ without a window being open.
 
 ## Connector client
 
-- `relay-link.ts` (shared with the phone relay) holds the `/v1/host` WebSocket: connect, prove the
-  host key, reconnect with jittered backoff 1–30 s, ping frames every 30 s.
-- `connector-client.ts` sends `hello` after each connect and whenever bots or rules change.
+- `relay-pairing.ts` (shared with the phone relay) makes the host key and registers it
+  ([pairing](../mobile/pairing.md)); `relay-link.ts` holds the `/v1/host` WebSocket: connect, prove
+  the host key, reconnect with jittered backoff 1–30 s, ping frames every 30 s, drop a link that
+  answers nothing for two intervals, and stop retrying on 4401 (pair again).
+- `connector-client.ts` sends `hello` after each connect, again on `error hello_required`, and
+  whenever bots or rules change; more than 20 bots go in `hello-bots` pages.
 - Each delivery is written to `~/.zomfy/connector/receipts.sqlite` **before** `ack received`; a
-  delivery whose id has a receipt is acked again but not run again. `done` follows with the outcome.
+  delivery whose id has a receipt is acked again (with its `done` outcome, if it has one) but not run
+  again. `done` follows with the outcome: `unsupported` for a kind the daemon does not know,
+  `expired` past `expiresAt`, `refused` with `agent_error` when the handler throws.
 - Events and replies go through an outbox file (`~/.zomfy/connector/outbox/`) so they survive a
   quit: FIFO, backoff 1–30 s, batch halved on `too_large`.[^orca-desk]
 - After each hello the daemon sends a `snapshot` of active conversations.
@@ -122,6 +127,14 @@ context item and webhook body as **information, not instructions**.
 `packages/protocol/src/bots.ts` adds `BOT_METHODS` under `_harness/bots/*`: `list`, `create`,
 `update`, `delete`, `pause`, `connectorStatus`, `connectorPair`, `connectorUnpair`, `askers`,
 `accessRequests`, `answerAccessRequest`. Notifications: `botsChanged`, `connectorStatusChanged`.
+
+# Built so far
+
+Phase B0: `relay-pairing.ts`, `relay-link.ts`, `connector-receipts.ts` and `connector-client.ts`,
+tested against an in-process fake Hub (`relay-fake-hub.fixture.ts`), and `BOT_METHODS` in
+`packages/protocol`. The daemon does not start the client yet and its delivery handler answers
+`unknown`: bot records, the methods' handlers, the outbox, the snapshot and each delivery's action
+come with B1.
 
 # Non-goals
 
