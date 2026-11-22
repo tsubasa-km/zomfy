@@ -2,6 +2,7 @@ import { runDurableObjectAlarm, runInDurableObject, SELF } from 'cloudflare:test
 import { afterEach, describe, expect, it } from 'vitest'
 import { limits, linkSigningText, PING_FRAME } from '../src/contract'
 import { deliveryFixtures, eventFixtures, fixtureBot } from '../src/contract/fixtures'
+import { configuredSources, type Env } from '../src/env'
 import type { Hub } from '../src/hub'
 import {
   BASE,
@@ -56,13 +57,19 @@ describe('health', () => {
     const res = await SELF.fetch(`${BASE}/health`)
     expect(res.status).toBe(200)
     const body = await res.text()
-    expect(JSON.parse(body)).toMatchObject({ ok: true, contract: 1, sources: [] })
+    expect(JSON.parse(body)).toMatchObject({ ok: true, contract: 1, sources: ['discord'] })
     expect(body).not.toContain(SETUP_CODE)
+    expect(body).not.toContain('marker-discord-token-91c2')
   })
 
   it('answers 404 for routes of sources that are not configured', async () => {
-    expect((await post('/discord/interactions', {})).status).toBe(404)
     expect((await post('/slack/events', {})).status).toBe(404)
+    expect((await post('/github/webhook', {})).status).toBe(404)
+  })
+
+  it('counts a source as configured only with all of its secrets', () => {
+    expect(configuredSources({ DISCORD_APPLICATION_ID: '1', DISCORD_PUBLIC_KEY: 'k' } as Env)).toEqual([])
+    expect(configuredSources({ DISCORD_APPLICATION_ID: '1', DISCORD_PUBLIC_KEY: 'k', DISCORD_BOT_TOKEN: 't' } as Env)).toEqual(['discord'])
   })
 })
 

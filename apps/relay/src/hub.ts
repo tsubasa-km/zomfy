@@ -22,10 +22,12 @@ import {
   type Delivery,
   type Events,
   type Hello,
+  type HelloBot,
   type HelloBots,
   type ToHub
 } from './contract'
 import { isEd25519PublicKey, randomToken, sameText, sha256Hex, verifyEd25519 } from './crypto'
+import { DiscordSource, OUTBOUND_DUE, type GatewayMessage } from './discord/source'
 import { configuredSources, type Env } from './env'
 
 /** Features this Hub implements, of those the contract knows. */
@@ -45,7 +47,7 @@ interface HostAttachment {
 type DeliveryState = 'pending' | 'leased' | 'received' | 'done'
 
 /** A delivery as the source routes hand it to the Hub; `expiresAt` defaults by kind. */
-export type DeliveryInput = Omit<Delivery, 'expiresAt'> & { expiresAt?: number }
+export type DeliveryInput = (Delivery extends infer D ? (D extends Delivery ? Omit<D, 'expiresAt'> : never) : never) & { expiresAt?: number }
 
 const SCHEMA = [
   `CREATE TABLE IF NOT EXISTS hosts (
@@ -81,11 +83,23 @@ const fail = (error: string, status: number) => json({ error }, status)
 
 export class Hub extends DurableObject<Env> {
   private readonly sql: SqlStorage
+  private readonly discord: DiscordSource
 
   constructor(ctx: DurableObjectState, env: Env) {
     super(ctx, env)
     this.sql = ctx.storage.sql
     for (const statement of SCHEMA) this.sql.exec(statement)
+    const hub = this
+    this.discord = new DiscordSource({
+      sql: this.sql,
+      env,
+      transaction: (fn) => ctx.storage.transactionSync(fn),
+      enqueue: (delivery) => this.enqueue(delivery),
+      bots: () => this.allBots(),
+      markSeen: (key) => this.markSeen(key),
+      scheduleDue: (key, at) => hub.scheduleDue(key, at),
+      watchChannel: (channelId, watch) => env.DISCORD_GATEWAY.get(env.DISCORD_GATEWAY.idFromName('discord')).watch(channelId, watch)
+    })
     // Pings are answered by the runtime without waking the object.
     ctx.setWebSocketAutoResponse(new WebSocketRequestResponsePair(PING_FRAME, PONG_FRAME))
   }
@@ -326,7 +340,20 @@ export class Hub extends DurableObject<Env> {
       this.sql.exec('DELETE FROM due WHERE key = ?', `lease:${ack.deliveryId}`)
       return
     }
-    this.finish(ack.deliveryId, ack.outcome ?? 'accepted', now)
+    const outcome = ack.outcome ?? 'accepted'
+    this.finish(ack.deliveryId, outcome, now)
+    if (outcome === 'refused' || outcome === 'unsupported') {
+      const delivery = this.deliveryBody(ack.deliveryId)
+      if (delivery) {
+        this.discord.onSettled(delivery, outcome, ack.failure)
+        void this.discord.drainSoon()
+      }
+    }
+  }
+
+  private deliveryBody(id: string): Delivery | null {
+    const row = this.sql.exec<{ body: string }>('SELECT body FROM deliveries WHERE id = ?', id).toArray()[0]
+    return row ? (JSON.parse(row.body) as Delivery) : null
   }
 
   private finish(id: string, outcome: string, now: number) {
@@ -365,11 +392,13 @@ export class Hub extends DurableObject<Env> {
             )
             break
           default:
-            // Posting replies, prompts and status to the sources arrives with each source (B1+).
             break
         }
+        // Replies, prompts and status go to the source the conversation is in.
+        this.discord.onEvent(event)
       }
     })
+    void this.discord.drainSoon()
   }
 
   private link(hostId: string, c: { source: string; externalId: string }, sessionId: string, botId: string, now: number) {
@@ -558,8 +587,11 @@ export class Hub extends DurableObject<Env> {
         if (hostId && this.linkOf(hostId)) resend.set(hostId, [...(resend.get(hostId) ?? []), id])
         else this.sql.exec("UPDATE deliveries SET state = 'pending' WHERE id = ?", id)
       } else if (what === PURGE_KEY) this.purge(now)
+      // OUTBOUND_DUE: the Discord queue runs below, after every alarm.
+      else if (what !== OUTBOUND_DUE) console.log(`unknown timer ${what}`)
     }
     for (const [hostId, ids] of resend) await this.sendDeliveries(hostId, ids)
+    await this.discord.drain()
     const next = this.sql.exec<{ at: number }>('SELECT MIN(at) AS at FROM due').one().at
     if (next !== null) await this.ctx.storage.setAlarm(Math.max(next, Date.now() + 1))
   }
@@ -572,8 +604,9 @@ export class Hub extends DurableObject<Env> {
     const row = this.sql.exec<{ state: DeliveryState; kind: string }>('SELECT state, kind FROM deliveries WHERE id = ?', id).toArray()[0]
     if (!row || row.state === 'done') return
     this.finish(id, 'expired', now)
-    // Telling the asker in the source ("Your computer was offline; this expired") arrives with
-    // each source; the delivery is settled here exactly once.
+    // The delivery is settled here exactly once, so the asker is told once.
+    const delivery = this.deliveryBody(id)
+    if (delivery) this.discord.onSettled(delivery, 'expired')
     console.log(`delivery expired ${id} (${row.kind})`)
   }
 
@@ -581,11 +614,45 @@ export class Hub extends DurableObject<Env> {
     const before = now - limits.retentionMs
     this.sql.exec("DELETE FROM deliveries WHERE state = 'done' AND done_at < ?", before)
     this.sql.exec('DELETE FROM seen_events WHERE at < ?', before)
+    this.discord.purge(before)
     this.sql.exec('DELETE FROM invites WHERE expires_at < ?', now - DAY_MS)
     const left = this.sql.exec<{ n: number }>(
       "SELECT (SELECT COUNT(*) FROM deliveries WHERE state = 'done') + (SELECT COUNT(*) FROM invites) + (SELECT COUNT(*) FROM seen_events) AS n"
     ).one().n
     if (left) this.sql.exec('INSERT OR REPLACE INTO due (key, at) VALUES (?, ?)', PURGE_KEY, now + DAY_MS)
+  }
+
+  // --- Discord (docs/specs/bots/sources/discord.md) ---
+
+  /** A message the Gateway object forwarded. */
+  async discordMessage(message: GatewayMessage, selfId: string): Promise<void> {
+    await this.discord.onMessage(message, selfId)
+  }
+
+  /** A verified HTTP interaction; returns the interaction response. */
+  async discordInteraction(body: unknown): Promise<unknown> {
+    return this.discord.onInteraction(body)
+  }
+
+  /** Runs the outbound queue now, for tests. */
+  async drainOutbound(): Promise<void> {
+    await this.discord.drain()
+  }
+
+  async outboundRows() {
+    return this.discord.outboundRows()
+  }
+
+  private allBots(): HelloBot[] {
+    return this.sql.exec<{ body: string }>('SELECT body FROM bots ORDER BY id').toArray().map((r) => JSON.parse(r.body) as HelloBot)
+  }
+
+  /** Dedupe on a source's event id: true the first time within 7 days. */
+  private markSeen(key: string): boolean {
+    const now = Date.now()
+    const written = this.sql.exec('INSERT OR IGNORE INTO seen_events (key, at) VALUES (?, ?)', key, now).rowsWritten
+    if (written) void this.scheduleDue(PURGE_KEY, now + limits.retentionMs)
+    return written > 0
   }
 
   /** Every row of every table, for the secret-leak test. */
