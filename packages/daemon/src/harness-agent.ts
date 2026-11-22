@@ -295,7 +295,9 @@ export function createHarnessAgent(
   });
 
   /** Recorded for replay, then sent to every client so a reconnected window sees live turns. */
+  const updateListeners = new Set<(sessionId: string, update: acp.SessionUpdate) => void>();
   async function emit(sessionId: string, update: acp.SessionUpdate): Promise<void> {
+    for (const listener of updateListeners) listener(sessionId, update);
     const seq = await sessions.record(sessionId, update);
     broadcast(acp.methods.client.session.update, { sessionId, update, _meta: { [SESSION_REPLAY_META.seq]: seq } });
   }
@@ -350,12 +352,15 @@ export function createHarnessAgent(
   type Ask =(request: acp.RequestPermissionRequest) => Promise<acp.RequestPermissionResponse>;
 
   const ASK_WAIT_MS = 5 * 60_000;
+  const BOT_ASK_WAIT_MS = 24 * 60 * 60_000;
   const clientClosed = new Map<acp.AgentContext, Promise<void>>();
   const asks = new AskEveryClient({
     clients: () => clients,
     closed: (client) => clientClosed.get(client) ?? Promise.resolve(),
     broadcast,
     waitMs: ASK_WAIT_MS,
+    // A bot chat's ask waits as long as its turn may: its asker answers from the source (bots/daemon.md).
+    waitMsFor: (request) => (sessions.get(request.sessionId)?.origin === "bot" ? BOT_ASK_WAIT_MS : null),
   });
 
   const autoApproved = (request: acp.RequestPermissionRequest): acp.RequestPermissionResponse | null => {
@@ -767,6 +772,12 @@ export function createHarnessAgent(
     acpAgents,
     broadcast,
     emit,
+    asks,
+    services: {},
+    onSessionUpdate(listener) {
+      updateListeners.add(listener);
+      return () => updateListeners.delete(listener);
+    },
     async runTurn(sessionId, text) {
       const { stopReason } = await prompt({ sessionId, prompt: [{ type: "text", text }] }, askAnyClient, null);
       return stopReason;
