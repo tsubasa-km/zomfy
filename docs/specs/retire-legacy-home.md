@@ -3,7 +3,7 @@ type: Spec
 title: Retire the acp-harness home and executable name
 description: Rewrites paths stored under the legacy ~/.acp-harness home to ~/.zomfy, removes the link left at the old path, and renames the installed executable to Zomfy.
 status: stable
-x-zomfy-implementation: in-progress
+x-zomfy-implementation: done
 tags: [rename, migration, installer]
 generated: { by: "claude-code/opus-5.5", at: "2026-11-22T00:00:00Z" }
 ---
