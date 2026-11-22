@@ -77,6 +77,7 @@ import { projectToolRefusal, projectToolsOffNote } from "./project-agent-tools.t
 import { ManagerRouting, autoAllowedManagerTools } from "./manager-routing.ts";
 import { log } from "./log.ts";
 import { ConnectionClients } from "./connection-clients.ts";
+import { AskEveryClient } from "./ask-every-client.ts";
 import { compactTranscript } from "./transcript-compaction.ts";
 import { toolCallCommand, toolCallPaths } from "./conversation-messages.ts";
 
@@ -332,57 +333,29 @@ export function createHarnessAgent(
 
   const ASK_WAIT_MS = 5 * 60_000;
   const clientClosed = new Map<acp.AgentContext, Promise<void>>();
-  /** A window's answer; fails when that window goes away, which an unanswered request alone never does. */
-  function askClient(client: acp.AgentContext, request: acp.RequestPermissionRequest): Promise<acp.RequestPermissionResponse> {
-    const gone = (clientClosed.get(client) ?? Promise.resolve()).then(() => {
-      throw new Error("The window closed before answering");
-    });
-    return Promise.race([client.request(acp.methods.client.session.requestPermission, request), gone]);
-  }
-  const clientWaiters: (() => void)[] = [];
-  /** True when a window connects within `ms`. */
-  function clientConnects(ms: number): Promise<boolean> {
-    return new Promise((resolve) => {
-      const wake = () => {
-        clearTimeout(timer);
-        resolve(true);
-      };
-      const timer = setTimeout(() => {
-        clientWaiters.splice(clientWaiters.indexOf(wake), 1);
-        resolve(false);
-      }, ms);
-      clientWaiters.push(wake);
-    });
-  }
+  const asks = new AskEveryClient({
+    clients: () => clients,
+    closed: (client) => clientClosed.get(client) ?? Promise.resolve(),
+    broadcast,
+    waitMs: ASK_WAIT_MS,
+  });
 
   const autoApproved = (request: acp.RequestPermissionRequest): acp.RequestPermissionResponse | null => {
     if (!autoApprove.has(request.sessionId)) return null;
     const allow = request.options.find((o) => o.kind === "allow_once") ?? request.options.find((o) => o.kind === "allow_always");
     return allow ? { outcome: { outcome: "selected", optionId: allow.optionId } } : null;
   };
-  /** For turns no client started (automations): the newest window that answers permission asks. */
+  /** Every window and paired phone is asked at once; the first answer wins and the others close their card. */
   const askAnyClient: Ask = async (request) => {
-    const tried = new Set<acp.AgentContext>();
-    // A window that drops (sleep, a network blip) usually comes back: wait a while for one before denying.
-    for (const deadline = Date.now() + ASK_WAIT_MS; ; ) {
-      for (const client of [...clients].reverse()) {
-        if (tried.has(client)) continue;
-        tried.add(client);
-        try {
-          return await askClient(client, request);
-        } catch {
-          // A window that does not answer asks (the dashboard pop-out), or one that closed; try the next.
-        }
-      }
-      const left = deadline - Date.now();
-      if (left <= 0 || !(await clientConnects(left)) || pendingTurns.get(request.sessionId)?.signal.aborted) break;
+    const { response, unanswered } = await asks.ask(request, pendingTurns.get(request.sessionId)?.signal);
+    if (unanswered) {
+      await emit(request.sessionId, {
+        sessionUpdate: "notice",
+        severity: "warning",
+        title: `No window was open to approve ${request.toolCall.title ?? "a tool call"}, so it was denied`,
+      }).catch(() => undefined);
     }
-    await emit(request.sessionId, {
-      sessionUpdate: "notice",
-      severity: "warning",
-      title: `No window was open to approve ${request.toolCall.title ?? "a tool call"}, so it was denied`,
-    }).catch(() => undefined);
-    return { outcome: { outcome: "cancelled" } };
+    return response;
   };
 
   /**
@@ -630,7 +603,7 @@ export function createHarnessAgent(
       clients.add(connection.client);
       connectionClients.add(connection.client);
       clientClosed.set(connection.client, connection.closed.then(() => undefined, () => undefined));
-      for (const wake of clientWaiters.splice(0)) wake();
+      asks.connected(connection.client);
       void connection.closed.finally(() => {
         clients.delete(connection.client);
         connectionClients.delete(connection.client);
@@ -682,12 +655,7 @@ export function createHarnessAgent(
       return { _meta: { [SESSION_REPLAY_META.replayedThrough]: through } };
     })
     .onRequest("session/prompt", (ctx) =>
-      prompt(
-        ctx.params,
-        // When the window that started the turn is gone, any window (or the next to connect) answers.
-        (request) => askClient(connectionClients.canonical(ctx.client), request).catch(() => askAnyClient(request)),
-        connectionClients.canonical(ctx.client),
-      ),
+      prompt(ctx.params, askAnyClient, connectionClients.canonical(ctx.client)),
     )
     .onNotification("session/cancel", (ctx) => {
       pendingTurns.get(ctx.params.sessionId)?.abort();
