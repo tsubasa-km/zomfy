@@ -42,6 +42,7 @@ describe('connectorIcon', () => {
   test('stdio, plugin and the harness get generic icons', () => {
     expect(connectorIcon(server('discord', { scope: 'user', transport: 'stdio' }))).toEqual({ kind: 'stdio' })
     expect(connectorIcon(server('plugin:deploy-on-aws:awsiac', { scope: 'plugin', transport: 'stdio' }))).toEqual({ kind: 'plugin' })
+    expect(connectorIcon(server('plugin:deploy-on-aws:awspricing', { scope: 'dynamic', transport: 'stdio' }))).toEqual({ kind: 'plugin' })
     expect(connectorIcon(server('plugin:x:remote', { scope: 'plugin', transport: 'http', url: 'https://knowledge-mcp.global.api.aws' }))).toEqual({
       kind: 'site',
       domain: 'knowledge-mcp.global.api.aws'

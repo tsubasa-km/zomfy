@@ -84,7 +84,8 @@ export function connectorIcon(server: Pick<ChatMcpServer, 'name' | 'scope' | 'tr
   if (host && isPublicHost(host)) return { kind: 'site', domain: host }
   // A claude.ai connector not in the map: its proxy URL has no icon of the service.
   if (claudeAi) return { kind: 'letter' }
-  if (server.scope === 'plugin') return { kind: 'plugin' }
+  // Plugins' servers come as `plugin:<plugin>:<server>`, scoped `dynamic` or `plugin`.
+  if (server.scope === 'plugin' || server.name.startsWith('plugin:')) return { kind: 'plugin' }
   if (server.transport === 'stdio' || (!server.url && !claudeAi)) return { kind: 'stdio' }
   return { kind: 'remote' }
 }
