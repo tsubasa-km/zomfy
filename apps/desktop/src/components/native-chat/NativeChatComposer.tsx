@@ -321,7 +321,7 @@ function Composer({ session, editorRef }: ComposerProps) {
                     onSelect={(permissionMode) => void setSessionOptions(session.id, { permissionMode })}
                   />
                 ) : null}
-                {usage ? <NativeChatContextUsageRing usage={usage} /> : null}
+                {usage ? <NativeChatContextUsageRing usage={usage} chat={{ hostId: session.hostId, sessionId: session.id, workspaceId: session.workspaceId }} /> : null}
                 <NativeChatDictationButton
                   onTranscript={(text) => {
                     // Appends to the draft as it is when the transcript lands, not when recording began.

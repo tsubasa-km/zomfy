@@ -192,6 +192,7 @@ export const CHAT: Record<string, string> = {
   Context: 'コンテキスト',
   'Session cost ${cost}': 'セッションの費用 ${cost}',
   'Estimated from the last response.': '直前の応答からの推定値です。',
+  'Open the Session panel': 'セッションパネルを開く',
 
   // components/native-chat/NativeChatCopyButton.tsx
   Copied: 'コピーしました',
