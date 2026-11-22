@@ -18,7 +18,8 @@ export const fixtureBot = {
   paused: false,
   owner: { discord: 'u-owner' },
   askers: { discord: [{ id: 'u-member', role: 'member' as const }] },
-  places: ['discord:g1:c1']
+  places: ['discord:g1:c1'],
+  isDefault: true
 }
 
 export const fixtureRule = {

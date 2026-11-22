@@ -3,7 +3,7 @@ type: Spec
 title: Discord source
 description: Asking a bot by mention, DM or slash command in Discord, with threads, buttons for questions, approvals and Stop, through one Discord application per deployment.
 status: stable
-x-zomfy-implementation: planned
+x-zomfy-implementation: in-progress
 tags: [bots, discord]
 sources:
   - id: orca-connectors
@@ -93,6 +93,42 @@ One Discord application serves all bots. A message names a bot by handle after t
   headers (`X-RateLimit-*`, 429 `retry_after`) by the Hub's outbound queue.
 - Non-askers get an ephemeral note (for `/ask`) or a DM (for a mention) to ask the owner, with a
   **Request access** button.
+
+# Built so far
+
+The Worker side of phase B1 ([overview](../overview.md#phases)), in `apps/relay`; the daemon side is
+built apart. Details settled while building:
+
+- **Conversations.** `externalId` is `<guild>:<channel>:<message>` for a mention (the thread
+  started from that message has the message's id), `@me:<dmChannel>:<message>` for a DM, and
+  `<guild|@me>:<channel>:i<interactionId>` for `/ask` and **Ask bot**. A mention inside a thread
+  that is not the bot's answers in that thread; a DM conversation lasts until `new` or
+  `chat-gone`. `placeId` is the ref `discord:<guild|@me>:<channel>`.
+- **Which bot.** The first word after the mention, matched to a handle; otherwise the bot whose
+  `hello` sets `isDefault` ([contract](../contract.md#bots-channel-daemon--hub)), otherwise the only
+  bot. With none, the asker is told how to name one.
+- **Watching.** The Hub tells `DiscordGateway` which threads it lives in before it queues the
+  `start`, so a quick follow-up in the thread is not dropped.
+- **`/ask`.** Answered at once with a public "asked" message; the thread starts from that message
+  (found with the interaction token) when the first status or reply is posted. **Ask bot** threads
+  from the target message and answers ephemerally.
+- **Buttons.** Stop is `z1s:<turnId>`, Request access `z1r:<botId>`, options `z1:<promptId>:<i>`
+  and Answer in Zomfy `z1:<promptId>:z`; ids too long for 100 characters use `#<row>`. A press by
+  someone else than the asker or the owner gets the ephemeral note; Request access becomes an
+  `access_request` delivery and the DM is edited to "Access requested".
+- **Posting.** Every call goes through the Hub's `outbound` table: FIFO per conversation, waits on
+  429 `retry_after` and spent buckets (`X-RateLimit-Remaining: 0`), retries 5xx with backoff, and
+  keeps the key (`reply:<idempotencyKey>`, `status:<turnId>`, …) for 7 days, so a retried event
+  posts once. An answer that would need more than 4 messages goes as `answer.md`. Without the
+  right to create threads the bot answers in the channel with a reply reference.
+- **Signatures.** Besides the Ed25519 check, a timestamp more than 5 minutes off is refused.
+- **Gateway.** Its alarm is the heartbeat and the watchdog (a missed ack reconnects); `RECONNECT`,
+  a dropped socket and a resumable `INVALID_SESSION` resume, 4007/4009 and a non-resumable one
+  identify again, 4004 and 4010–4014 stop it for 10 minutes. `/health` returns
+  `discordGatewayUptime` (seconds since the current connection became ready) and
+  `discordGateway {state, uptimeSeconds, heldSeconds, reconnects, lastError}`.
+- Tested in workerd against a fake Discord (`apps/relay/test/fake-discord.mjs`, REST and Gateway).
+  Left for the end-to-end checks on the person's server.
 
 # Non-goals
 

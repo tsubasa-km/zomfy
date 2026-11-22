@@ -143,9 +143,16 @@ Phase B0 ([overview](overview.md#phases)): `apps/relay` with `wrangler.jsonc` (`
 `.dev.vars.example`, `/health`, host registration and invites, the `/v1/host` link, `hello` and
 `hello-bots`, the delivery queue (lease, ack, re-send, 24 h and 5-minute expiry through the `due`
 table and one alarm), event batches by `seq` (only `snapshot`, `linked`, `unlinked` and `chat-gone`
-change anything yet), and the `capabilities` action. Every other route answers 404. Telling the
-asker about an expiry, Who can ask, the source routes, the phone routes and `bun run deploy` come
-with later phases.
+change anything yet), and the `capabilities` action.
+
+Phase B1 adds the [Discord source](sources/discord.md#built-so-far): `POST /discord/interactions`,
+the `DiscordGateway` object, Who can ask with the "ask the owner" note and access requests, the
+events `turn-started`, `activity`, `turn-ended`, `reply`, `prompt` and `prompt-cleared` posted to
+Discord through the `outbound` table, the expiry and refusal notes, and `/health`'s Gateway uptime.
+The deploy flow is built: `bun run deploy` is `scripts/deploy.mjs` (plain Node, so it also runs
+under Workers Builds, where it only runs `wrangler deploy`; `--dry-run` prints the steps), and
+`package.json` describes each secret for the Deploy button. The other sources and the phone routes
+come with later phases.
 
 # Non-goals
 

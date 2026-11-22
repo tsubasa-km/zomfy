@@ -18,6 +18,8 @@ export interface Env {
   LINEAR_ACCESS_TOKEN?: string
   LINEAR_WEBHOOK_SECRET?: string
   EXPO_ACCESS_TOKEN?: string
+  /** Tests only: a fake Discord (REST and Gateway) behind a service binding. Never set in a deployment. */
+  DISCORD_TRANSPORT?: Fetcher
 }
 
 export const RELAY_VERSION = '0.1.0'
