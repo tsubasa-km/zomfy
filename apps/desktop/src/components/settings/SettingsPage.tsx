@@ -9,6 +9,7 @@ import { AgentsPane } from './AgentsPane'
 import { AppearancePane } from './AppearancePane'
 import { GeneralPane } from './GeneralPane'
 import { HostsPane } from './HostsPane'
+import { DevicesPane } from './DevicesPane'
 import { InputEditingPane } from './InputEditingPane'
 import { NotificationsPane } from './NotificationsPane'
 import { ShortcutsPane } from './ShortcutsPane'
@@ -45,6 +46,8 @@ function renderPane(id: string, query: string): ReactNode {
       return <PluginsPane />
     case 'voice':
       return <VoicePane />
+    case 'devices':
+      return <DevicesPane />
     default:
       return null
   }

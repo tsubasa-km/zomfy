@@ -44,6 +44,8 @@ import {
   PERMISSION_ASK_META,
   PERMISSION_ASK_NOTIFICATIONS,
   type PermissionAskResolved,
+  REMOTE_DEVICE_NOTIFICATIONS,
+  type RemoteDevicesSnapshot,
 } from "@zomfy/protocol";
 import { applyChatUpdate, latestTurnEnd } from "./chat-transcript";
 import { WINDOW_ROLE } from "./lib/window-role";
@@ -86,6 +88,7 @@ import { runManagerTool } from "./manager/manager-tool-runner";
 import { applyAutomationSnapshot } from "./stores/automation-store";
 import { notifyAutoResumed } from "./agent-notifications";
 import { dispatchLspEvent } from "./lib/lsp/lsp-events";
+import { setDevicesSnapshot } from "./stores/devices-store";
 
 interface DaemonInfo {
   url: string;
@@ -265,6 +268,13 @@ async function openConnection(hostId: HostId): Promise<void> {
       (raw: unknown) => raw as TodoItem[],
       (ctx) => {
         if (hostId === LOCAL_HOST) setTodos(ctx.params);
+      },
+    )
+    .onNotification(
+      REMOTE_DEVICE_NOTIFICATIONS.devicesChanged,
+      (raw: unknown) => raw as RemoteDevicesSnapshot,
+      (ctx) => {
+        if (hostId === LOCAL_HOST) setDevicesSnapshot(ctx.params);
       },
     )
     .onNotification(
