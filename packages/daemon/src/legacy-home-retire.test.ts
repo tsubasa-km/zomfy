@@ -41,7 +41,7 @@ describe('legacyPathPattern', () => {
     const rewrite = (s: string) => rewriteLegacyPaths(s, pattern, '/home/me/.zomfy', false)
     for (const keep of [
       '/home/me/.acp-harness-old/x', // legacy lookalike
-      '/home/me/acp-harness/workspaces/repo/wt', // the worktree root, not the home
+      '/home/me/acp-harness/workspaces/repo/wt', // the legacy worktree root, not the home
       '/mnt/home/me/.acp-harness/x', // legacy, a longer path
       '/home/me/.acp-harness.bak' // legacy lookalike
     ])

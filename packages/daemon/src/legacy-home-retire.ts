@@ -38,7 +38,7 @@ function escapeRegExp(text: string): string {
 
 /**
  * Matches `legacy` as a whole path inside any text: either slash between its segments on Windows,
- * and never as part of a longer name (`.acp-harness-old`) or a longer path ending in it.
+ * and never as part of a longer legacy lookalike (`.acp-harness-old`) or a longer path ending in it.
  */
 export function legacyPathPattern(legacy: string, windows: boolean): RegExp {
   const sep = windows ? '[\\\\/]+' : '/+'
