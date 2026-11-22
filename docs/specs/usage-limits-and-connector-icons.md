@@ -3,7 +3,7 @@ type: Spec
 title: Usage limits by the context ring, and connector icons
 description: The chat's context-usage card also shows the account's usage limits, and the Session panel's Connectors list shows each MCP server's icon.
 status: stable
-x-zomfy-implementation: in-progress
+x-zomfy-implementation: done
 tags: [session-panel, chat, mcp, usage-limits]
 generated: { by: "claude-code/opus-5.5", at: "2026-11-22T00:00:00Z" }
 ---
@@ -35,9 +35,11 @@ Each row in *Connectors* starts with a 20 px icon, with the status dot on its co
 - **claude.ai connectors** (`scope: claudeai`) are known by name: a built-in map from service names
   (Gmail, Google Calendar, Google Drive, Google Workspace, Cloudflare, Notion, Excalidraw, Kintone,
   Slack, GitHub, Linear, Atlassian, Asana, Figma, Canva, Box, Sentry, Stripe, Vercel, Zapier,
-  HubSpot, Claude…) to the service's domain. A name not in the map falls back to the server URL.
+  HubSpot, Claude…) to the service's domain. A name not in the map gets the letter avatar: its URL
+  is Anthropic's proxy, which says nothing about the service.
 - **Remote servers** (http, sse) use their URL's domain (`mcp.notion.com` → its site's icon).
-- **stdio servers** show a terminal icon, **plugin** servers a puzzle piece, Zomfy's own tools server
+- **stdio servers** show a terminal icon, **plugin** servers (scope `plugin`, or named
+  `plugin:<plugin>:<server>`, which come scoped `dynamic`) a puzzle piece, Zomfy's own tools server
   the app's icon. A server whose domain is local (localhost, an IP address, a single-label name)
   gets the generic icon of its transport.
 - Anything without an icon shows a letter avatar: the server's first letter on a colour picked
@@ -53,7 +55,10 @@ Each row in *Connectors* starts with a 20 px icon, with the status dot on its co
 - The daemon fetches `https://<domain>/` (no cookies, a plain user agent, 5 s timeout, 512 KB cap),
   takes the best `<link rel="icon">` / `apple-touch-icon` it declares, else `/favicon.ico`, and
   keeps only an `image/*` answer of at most 256 KB. For a subdomain (`mcp.notion.com`) whose page
-  has no icon it tries the site's own domain (`notion.com`).
+  has no icon it tries the site's own domain (`notion.com`). A home page that redirects to another
+  site (a server's GitHub page) is not used, so the server does not borrow that site's icon.
+  Gmail, Google Calendar, Google Drive and Google Docs use Google's published product icons, since
+  their home pages all answer the same Google "G".
 - Only public names are fetched: no IP addresses, `localhost`, single-label or `.local`/`.internal`
   names. Results, hits and misses, are cached on disk in the daemon's home (`favicons/`) — hits for
   30 days, misses for a day — and in memory; concurrent asks for one domain share one fetch.
