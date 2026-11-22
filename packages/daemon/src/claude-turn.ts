@@ -8,6 +8,7 @@ import {
   type Query,
   type SDKControlGetContextUsageResponse,
   type SDKMessage,
+  type SDKTaskNotificationMessage,
   type SDKUserMessage,
 } from "@anthropic-ai/claude-agent-sdk";
 import {
@@ -71,6 +72,15 @@ interface TurnInput {
   worktreeGuards?: () => PathGuard[];
   /** The turn's final text and, with step.outputFormat, its structured result. */
   onResult?: (result: { text: string; structured: unknown; usage: WorkflowStepUsage; context?: WorkflowStepContext }) => void;
+  /**
+   * Take the turn the chat's process started on its own (a background task finished): the prompt
+   * is not sent, it only says what woke the chat.
+   */
+  attach?: boolean;
+  /** The process started a turn between the chat's turns; `notification` is what the CLI got (may be empty). */
+  onWake?: (notification: string) => void;
+  /** The chat's live background tasks changed (their descriptions; empty when none run any more). */
+  onBackgroundTasks?: (tasks: string[]) => void;
 }
 
 export interface StepOptions {
@@ -88,15 +98,15 @@ export interface StepOptions {
 
 // The CLI sends its prompt suggestion after the result; past this the process is let go without one.
 const SUGGESTION_WAIT_MS = 15_000;
+/** How long a process idle with background tasks is kept after its last turn. */
+export const BACKGROUND_IDLE_MS = 60 * 60_000;
+/** How long a turn the CLI started on its own waits for the chat to take it. */
+const WAKE_ATTACH_MS = 60_000;
 
-/** Per chat, the previous turn's process still waiting on a suggestion: lets it go, and when it has. */
-const lingering = new Map<string, { release: () => void; exited: Promise<void> }>();
-
-/** Ends a finished turn's process early and waits for it, before anything moves its files. */
-export async function releaseFinishedTurn(acpSessionId: string): Promise<void> {
-  const turn = lingering.get(acpSessionId);
-  turn?.release();
-  await turn?.exited;
+let startQuery: typeof query = query;
+/** Tests run turns against a fake SDK stream. */
+export function useQueryForTests(fake: typeof query | null): void {
+  startQuery = fake ?? query;
 }
 
 const CHAT_PERMISSION_MODES: readonly ChatPermissionMode[] = [
@@ -119,26 +129,239 @@ interface TurnProgress {
   context?: WorkflowStepContext;
 }
 
-export async function runClaudeTurn(input: TurnInput): Promise<acp.StopReason> {
-  const { acpSessionId, state, abort } = input;
-  const update = input.emit;
-  const { model, permissionMode, effort } = state.options;
+/** The turn a process's messages go to. */
+interface ActiveTurn {
+  input: TurnInput;
+  progress: TurnProgress;
+  settle: (reason: acp.StopReason) => void;
+  fail: (error: unknown) => void;
+  unlink: () => void;
+}
 
-  // Streaming input keeps the process alive past the result, so context usage can still be read.
-  let release!: () => void;
-  const released = new Promise<void>((resolve) => (release = resolve));
-  abort.signal.addEventListener("abort", () => release());
-  lingering.get(acpSessionId)?.release();
+/**
+ * One chat's Claude process. It normally ends with its turn; while background tasks run it stays,
+ * and the CLI starts a turn of its own when one finishes (a "wake"), as in Claude Code.
+ */
+interface ClaudeProcess {
+  query: Query;
+  /** What it was started with; a turn that would start it differently gets a new one. */
+  key: string;
+  /** Claude's session id the process reported. */
+  claudeSessionId: string | null;
+  push: (message: SDKUserMessage) => void;
+  closeInput: () => void;
+  kill: () => void;
+  closed: boolean;
+  exited: Promise<void>;
+  turn: ActiveTurn | null;
+  /** The latest turn's input: whom to tell about what happens between turns. */
+  last: TurnInput;
+  /** Live background tasks that are activity (not ambient), id → description. */
+  tasks: Map<string, string>;
+  /** A turn the CLI started that the chat has not taken yet: its messages, held in order. */
+  waking: { messages: SDKMessage[]; timer: ReturnType<typeof setTimeout> } | null;
+  idleTimer: ReturnType<typeof setTimeout> | null;
+  /** Serialises message handling, so held messages are delivered before newer ones. */
+  chain: Promise<void>;
+}
+
+const processes = new Map<string, ClaudeProcess>();
+
+const STOPPED_TASKS = "The background tasks this chat was running were stopped";
+
+/** Ends a chat's process (and any background tasks it runs) and waits for it, before anything moves its files. */
+export async function releaseFinishedTurn(acpSessionId: string): Promise<void> {
+  const proc = processes.get(acpSessionId);
+  if (!proc) return;
+  await letGo(proc, STOPPED_TASKS);
+  await proc.exited;
+}
+
+/** The background tasks a chat's process is kept up for. */
+export function backgroundTasksOf(acpSessionId: string): string[] {
+  return [...(processes.get(acpSessionId)?.tasks.values() ?? [])];
+}
+
+async function letGo(proc: ClaudeProcess, why: string): Promise<void> {
+  if (proc.closed) return;
+  const tasks = [...proc.tasks.values()];
+  clearTimers(proc);
+  proc.closeInput();
+  // With its input closed the CLI would hold on for its tasks: they end now.
+  if (tasks.length > 0) {
+    proc.kill();
+    proc.last.onBackgroundTasks?.([]);
+    await proc.last.emit({ sessionUpdate: "notice", severity: "info", title: `${why}: ${tasks.join(", ")}` }).catch(() => undefined);
+  }
+}
+
+function clearTimers(proc: ClaudeProcess): void {
+  if (proc.idleTimer) clearTimeout(proc.idleTimer);
+  proc.idleTimer = null;
+  if (proc.waking) clearTimeout(proc.waking.timer);
+}
+
+/** Between turns: goes after `ms`, unless a turn starts first. */
+function armRelease(proc: ClaudeProcess, ms: number, why: string): void {
+  if (proc.idleTimer) clearTimeout(proc.idleTimer);
+  proc.idleTimer = setTimeout(() => {
+    proc.idleTimer = null;
+    if (!proc.turn && !proc.waking) void letGo(proc, why);
+  }, ms);
+}
+
+function armIdle(proc: ClaudeProcess): void {
+  if (proc.tasks.size > 0) armRelease(proc, idleCapMs, "Stopped waiting for background tasks after an hour");
+  else armRelease(proc, SUGGESTION_WAIT_MS, STOPPED_TASKS);
+}
+
+let idleCapMs = BACKGROUND_IDLE_MS;
+/** Tests shorten the idle cap. */
+export function setBackgroundIdleCapForTests(ms: number | null): void {
+  idleCapMs = ms ?? BACKGROUND_IDLE_MS;
+}
+
+/** The spawn-time options that a process cannot change once started. */
+function spawnKey(input: TurnInput): string {
+  const { state } = input;
+  return JSON.stringify({
+    cwd: state.cwd,
+    model: state.options.model ?? null,
+    effort: state.options.effort ?? null,
+    env: input.env ?? null,
+    mcp: Object.keys(input.mcpServers ?? {}).sort(),
+    allowed: input.allowedTools ?? [],
+    append: input.appendSystemPrompt ?? null,
+    guards: !!input.worktreeGuards,
+  });
+}
+
+/** Claude Code's own record of a finished task, which the chat draws as a status line. */
+export function taskNotificationText(message: SDKTaskNotificationMessage): string {
+  return [
+    "<task-notification>",
+    `<task-id>${message.task_id}</task-id>`,
+    ...(message.tool_use_id ? [`<tool-use-id>${message.tool_use_id}</tool-use-id>`] : []),
+    `<output-file>${message.output_file}</output-file>`,
+    `<status>${message.status}</status>`,
+    `<summary>${message.summary}</summary>`,
+    "</task-notification>",
+  ].join("\n");
+}
+
+function shownNotification(message: SDKMessage): message is SDKTaskNotificationMessage {
+  return message.type === "system" && message.subtype === "task_notification" && !message.skip_transcript && !message.ambient;
+}
+
+/** A message that belongs to a turn: arriving between turns, it means the CLI started one. */
+function startsTurn(message: SDKMessage): boolean {
+  if (shownNotification(message)) return true;
+  if (message.type === "system") return message.subtype === "init";
+  return message.type === "assistant" || message.type === "stream_event" || message.type === "user" || message.type === "result";
+}
+
+function inputQueue(): { stream: AsyncGenerator<SDKUserMessage>; push: (m: SDKUserMessage) => void; close: () => void } {
+  const queue: SDKUserMessage[] = [];
+  let wake: (() => void) | null = null;
+  let closed = false;
+  async function* stream(): AsyncGenerator<SDKUserMessage> {
+    for (;;) {
+      while (queue.length > 0) yield queue.shift()!;
+      if (closed) return;
+      await new Promise<void>((resolve) => (wake = resolve));
+      wake = null;
+    }
+  }
+  return {
+    stream: stream(),
+    push: (m) => {
+      queue.push(m);
+      wake?.();
+    },
+    close: () => {
+      closed = true;
+      wake?.();
+    },
+  };
+}
+
+function newProgress(): TurnProgress {
+  return { lastMainUsage: null, agentTextSent: false, compactions: 0, assistantError: null, rejected: null };
+}
+
+/** Gives the process's messages to this turn until its result. */
+function attach(proc: ClaudeProcess, input: TurnInput): Promise<acp.StopReason> {
+  if (proc.idleTimer) clearTimeout(proc.idleTimer);
+  proc.idleTimer = null;
+  proc.last = input;
+  const kill = (): void => proc.kill();
+  input.abort.signal.addEventListener("abort", kill);
+  const done = new Promise<acp.StopReason>((settle, fail) => {
+    proc.turn = { input, progress: newProgress(), settle, fail, unlink: () => input.abort.signal.removeEventListener("abort", kill) };
+  });
+  input.onQuery?.(proc.query);
+  if (input.abort.signal.aborted) kill();
+  return done;
+}
+
+/** Ends the process's current turn. */
+function endTurn(proc: ClaudeProcess, outcome: { reason: acp.StopReason } | { error: unknown }): void {
+  const turn = proc.turn;
+  if (!turn) return;
+  proc.turn = null;
+  turn.unlink();
+  turn.input.onQuery?.(null);
+  if ("reason" in outcome) turn.settle(outcome.reason);
+  else turn.fail(outcome.error);
+}
+
+export async function runClaudeTurn(input: TurnInput): Promise<acp.StopReason> {
+  const { acpSessionId, state } = input;
+  const existing = processes.get(acpSessionId);
+  // The chat taking a turn its process started on its own.
+  if (input.attach) {
+    if (!existing || existing.closed || !existing.waking || existing.turn) return "end_turn";
+    const held = existing.waking.messages;
+    clearTimeout(existing.waking.timer);
+    existing.waking = null;
+    const done = attach(existing, input);
+    existing.chain = existing.chain.then(async () => {
+      for (const message of held) await route(existing, message);
+    });
+    return done;
+  }
   const userMessage: SDKUserMessage = {
     type: "user",
     message: { role: "user", content: promptContent(input.prompt) },
     parent_tool_use_id: null,
     uuid: input.messageId,
   };
-  async function* promptStream(): AsyncGenerator<SDKUserMessage> {
-    yield userMessage;
-    await released;
+  // Background tasks still run in the process: the prompt goes to it, so they can still wake the chat.
+  if (
+    existing &&
+    !existing.closed &&
+    !existing.turn &&
+    !existing.waking &&
+    existing.tasks.size > 0 &&
+    !input.step &&
+    existing.key === spawnKey(input) &&
+    existing.claudeSessionId === state.claudeSessionId
+  ) {
+    await existing.query.setPermissionMode(state.options.permissionMode).catch(() => undefined);
+    const done = attach(existing, input);
+    existing.push(userMessage);
+    return done;
   }
+  if (existing) void letGo(existing, STOPPED_TASKS);
+  return spawn(input, userMessage);
+}
+
+async function spawn(input: TurnInput, userMessage: SDKUserMessage): Promise<acp.StopReason> {
+  const { acpSessionId, state } = input;
+  const { model, permissionMode, effort } = state.options;
+  const prompt = inputQueue();
+  prompt.push(userMessage);
+  const processAbort = new AbortController();
 
   await mkdir(CHAT_ATTACHMENT_DIR, { recursive: true }).catch(() => undefined);
   const mcpServers = { ...input.mcpServers, ...input.step?.mcpServers };
@@ -146,8 +369,10 @@ export async function runClaudeTurn(input: TurnInput): Promise<acp.StopReason> {
   // Claude Code's own Workflow tool runs workflows from its settings folders, not the project's: in a
   // harness chat only the project's (the run_workflow tool) are on offer.
   const disallowedTools = [...CLAUDE_TOOLS_OFF, ...(input.step?.disallowedTools ?? [])];
-  const stream = query({
-    prompt: promptStream(),
+  const stream = startQuery({
+    // Streaming input keeps the process alive past the result: for context usage, the prompt
+    // suggestion, and background tasks that start a turn of their own when they finish.
+    prompt: prompt.stream,
     options: {
       cwd: state.cwd,
       // Snapshots messages point at (terminal screens, other chats); reading them needs no approval.
@@ -156,7 +381,7 @@ export async function runClaudeTurn(input: TurnInput): Promise<acp.StopReason> {
       pathToClaudeCodeExecutable: await resolveClaudeExecutable(),
       settingSources: ["user", "project", "local"],
       includePartialMessages: true,
-      abortController: abort,
+      abortController: processAbort,
       canUseTool: permissionBridge(acpSessionId, input.askPermission, input.onPermissionMode),
       stderr: (line) => log(`[claude] ${line}`),
       ...(model ? { model } : {}),
@@ -180,74 +405,135 @@ export async function runClaudeTurn(input: TurnInput): Promise<acp.StopReason> {
         : {}),
     },
   });
-  input.onQuery?.(stream);
 
-  const progress: TurnProgress = {
-    lastMainUsage: null,
-    agentTextSent: false,
-    compactions: 0,
-    assistantError: null,
-    rejected: null,
-  };
-  // The turn returns at its result; the stream is drained past it only for the prompt suggestion.
-  let settle: ((reason: acp.StopReason) => void) | null = null;
-  let fail!: (error: unknown) => void;
-  const done = new Promise<acp.StopReason>((resolve, reject) => {
-    settle = resolve;
-    fail = reject;
-  });
-  const finish = (reason: acp.StopReason): void => {
-    if (!settle) return;
-    input.onQuery?.(null);
-    settle(reason);
-    settle = null;
-  };
   let exited!: () => void;
-  const lingeringTurn = { release, exited: new Promise<void>((resolve) => (exited = resolve)) };
+  const proc: ClaudeProcess = {
+    query: stream,
+    // A workflow step's process is its own: no later turn joins it.
+    key: input.step ? `step:${crypto.randomUUID()}` : spawnKey(input),
+    claudeSessionId: state.claudeSessionId,
+    push: prompt.push,
+    closeInput: prompt.close,
+    kill: () => {
+      proc.closed = true;
+      prompt.close();
+      processAbort.abort();
+    },
+    closed: false,
+    exited: new Promise<void>((resolve) => (exited = resolve)),
+    turn: null,
+    last: input,
+    tasks: new Map(),
+    waking: null,
+    idleTimer: null,
+    chain: Promise.resolve(),
+  };
+  processes.set(acpSessionId, proc);
+  const done = attach(proc, input);
+
   void (async () => {
-    let stopReason: acp.StopReason = "end_turn";
     try {
       for await (const message of stream) {
-        if (abort.signal.aborted) break;
-        if (message.type === "result") {
-          stopReason = await finishTurn(message, stream, progress, update, input.onTurnEnd);
-          if (message.subtype === "success") {
-            input.onResult?.({
-              text: message.result,
-              structured: message.structured_output,
-              usage: {
-                inputTokens: message.usage.input_tokens + (message.usage.cache_creation_input_tokens ?? 0),
-                outputTokens: message.usage.output_tokens,
-                cacheReadTokens: message.usage.cache_read_input_tokens ?? 0,
-                costUsd: message.total_cost_usd,
-              },
-              ...(progress.context ? { context: progress.context } : {}),
-            });
-          }
-          lingering.set(acpSessionId, lingeringTurn);
-          finish(stopReason);
-          setTimeout(release, SUGGESTION_WAIT_MS);
-        } else if (message.type === "prompt_suggestion") {
-          if (message.suggestion.trim()) input.onPromptSuggestion?.(message.suggestion.trim());
-          release();
-        } else if (settle) {
-          await forwardMessage(message, input, progress);
-        }
+        proc.chain = proc.chain.then(() => route(proc, message));
+        await proc.chain;
       }
     } catch (error) {
-      if (settle) {
-        input.onQuery?.(null);
-        settle = null;
-        fail(error);
-      } else log(`after the turn: ${String(error)}`);
+      if (proc.turn && !proc.turn.input.abort.signal.aborted) endTurn(proc, { error });
+      else log(`after the turn: ${String(error)}`);
     } finally {
-      finish(abort.signal.aborted ? "cancelled" : stopReason);
-      release();
-      if (lingering.get(acpSessionId) === lingeringTurn) lingering.delete(acpSessionId);
+      await proc.chain.catch(() => undefined);
+      proc.closed = true;
+      clearTimers(proc);
+      proc.waking = null;
+      if (proc.tasks.size > 0) proc.last.onBackgroundTasks?.([]);
+      proc.tasks.clear();
+      endTurn(proc, { reason: proc.turn?.input.abort.signal.aborted ? "cancelled" : "end_turn" });
+      prompt.close();
+      if (processes.get(acpSessionId) === proc) processes.delete(acpSessionId);
       exited();
     }
   })();
   return done;
+}
+
+/** Delivers one message: to the running turn, to a turn being woken, or to the process between turns. */
+async function route(proc: ClaudeProcess, message: SDKMessage): Promise<void> {
+  if (message.type === "system" && message.subtype === "background_tasks_changed") {
+    const had = proc.tasks.size;
+    proc.tasks = new Map(message.tasks.filter((t) => !t.ambient).map((t) => [t.task_id, t.description]));
+    if (had > 0 || proc.tasks.size > 0) proc.last.onBackgroundTasks?.([...proc.tasks.values()]);
+    if (!proc.turn && !proc.waking) armIdle(proc);
+    return;
+  }
+  if (proc.waking) {
+    proc.waking.messages.push(message);
+    return;
+  }
+  const turn = proc.turn;
+  if (!turn) {
+    if (message.type === "prompt_suggestion") {
+      if (message.suggestion.trim()) proc.last.onPromptSuggestion?.(message.suggestion.trim());
+      if (proc.tasks.size === 0) void letGo(proc, STOPPED_TASKS);
+      return;
+    }
+    if (startsTurn(message) && !proc.closed) wake(proc, message);
+    return;
+  }
+  if (turn.input.abort.signal.aborted) return;
+  const { input, progress } = turn;
+  if (message.type === "result") {
+    const stopReason = await finishTurn(message, proc.query, progress, input.emit, input.onTurnEnd);
+    if (message.subtype === "success") {
+      input.onResult?.({
+        text: message.result,
+        structured: message.structured_output,
+        usage: {
+          inputTokens: message.usage.input_tokens + (message.usage.cache_creation_input_tokens ?? 0),
+          outputTokens: message.usage.output_tokens,
+          cacheReadTokens: message.usage.cache_read_input_tokens ?? 0,
+          costUsd: message.total_cost_usd,
+        },
+        ...(progress.context ? { context: progress.context } : {}),
+      });
+    }
+    endTurn(proc, { reason: stopReason });
+    armIdle(proc);
+    return;
+  }
+  if (message.type === "prompt_suggestion") {
+    if (message.suggestion.trim()) input.onPromptSuggestion?.(message.suggestion.trim());
+    return;
+  }
+  if (shownNotification(message)) {
+    // A task that finished while the turn runs: shown where Claude reads it.
+    await input.emit({
+      sessionUpdate: "user_message_chunk",
+      messageId: crypto.randomUUID(),
+      content: { type: "text", text: taskNotificationText(message) },
+    });
+    return;
+  }
+  if (message.type === "system" && message.subtype === "init") proc.claudeSessionId = message.session_id;
+  await forwardMessage(message, input, progress);
+}
+
+/** The CLI started a turn between the chat's turns: the chat takes it, its messages held until then. */
+function wake(proc: ClaudeProcess, first: SDKMessage): void {
+  if (proc.idleTimer) clearTimeout(proc.idleTimer);
+  proc.idleTimer = null;
+  const onWake = proc.last.onWake;
+  if (!onWake) {
+    armIdle(proc);
+    return;
+  }
+  const notification = shownNotification(first) ? taskNotificationText(first) : "";
+  const timer = setTimeout(() => {
+    // Nobody took it (the chat went away): its messages are dropped.
+    proc.waking = null;
+    armIdle(proc);
+  }, WAKE_ATTACH_MS);
+  proc.waking = { messages: shownNotification(first) ? [] : [first], timer };
+  onWake(notification);
 }
 
 async function forwardMessage(
