@@ -6,7 +6,17 @@ import { t } from '@/i18n/i18n'
 // The draggable edge of a sidebar: on the left sidebar's right edge, on a pane sidebar's left edge.
 // It sits over the sidebar's border, so the layout does not change; a double-click restores the width.
 
-export function SidebarResizeHandle({ widthKey, edge }: { widthKey: SidebarWidthKey; edge: 'left' | 'right' }) {
+/** `onWidth` keeps the width somewhere of its own (a pane's sidebar); without it, the shared one under `widthKey`. */
+export function SidebarResizeHandle({
+  widthKey,
+  edge,
+  onWidth
+}: {
+  widthKey: SidebarWidthKey
+  edge: 'left' | 'right'
+  onWidth?: (width?: number) => void
+}) {
+  const save = (width?: number) => (onWidth ? onWidth(width) : setSidebarWidth(widthKey, width))
   const [dragging, setDragging] = useState(false)
   const cleanupRef = useRef<(() => void) | null>(null)
   useEffect(() => () => cleanupRef.current?.(), [])
@@ -35,7 +45,7 @@ export function SidebarResizeHandle({ widthKey, edge }: { widthKey: SidebarWidth
       handle.removeEventListener('lostpointercapture', cleanup)
       cleanupRef.current = null
       setDragging(false)
-      if (width !== null) setSidebarWidth(widthKey, width)
+      if (width !== null) save(width)
       sidebar.style.width = ''
     }
     handle.addEventListener('pointermove', onMove)
@@ -53,7 +63,7 @@ export function SidebarResizeHandle({ widthKey, edge }: { widthKey: SidebarWidth
       title={t('Drag to resize · double-click to reset')}
       data-sidebar-resize={widthKey}
       onPointerDown={onPointerDown}
-      onDoubleClick={() => setSidebarWidth(widthKey)}
+      onDoubleClick={() => save()}
       className={cn(
         'group absolute inset-y-0 z-20 w-1.5 cursor-col-resize touch-none',
         edge === 'right' ? '-right-px' : '-left-px'
