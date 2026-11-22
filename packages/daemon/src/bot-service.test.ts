@@ -8,6 +8,7 @@ import type { Delivery } from '@zomfy/relay-contract'
 import { BotService, type BotServiceChats } from './bot-service'
 import type { BotTurnResult } from './bot-deliveries'
 import { botPrompt, clipBytes } from './bot-deliveries'
+import { helloBot } from './bot-store'
 import { Outbox, outboxDir } from './connector-outbox'
 import { ReceiptStore, receiptsPath } from './connector-receipts'
 import { eventually, FakeHub } from './relay-fake-hub.fixture'
@@ -197,6 +198,19 @@ describe('bot records and homes', () => {
     await s.service.create(reviewer)
     await expect(s.service.create({ ...reviewer, name: 'Other' })).rejects.toThrow(/already @reviewer/)
     expect(s.service.list()).toHaveLength(1)
+  })
+
+  test('one bot at a time is the default, and hello says which', async () => {
+    const s = makeService()
+    const first = await s.service.create({ ...reviewer, isDefault: true })
+    const second = await s.service.create({ ...reviewer, name: 'Writer', handle: 'writer' })
+    expect(helloBot(s.service.store.require(first.id)).isDefault).toBe(true)
+    expect(helloBot(second).isDefault).toBeUndefined()
+    s.service.update(second.id, { isDefault: true })
+    expect(s.service.store.require(first.id).isDefault).toBeUndefined()
+    expect(helloBot(s.service.store.require(second.id)).isDefault).toBe(true)
+    s.service.update(second.id, { isDefault: false })
+    expect(s.service.list().some((b) => b.isDefault)).toBe(false)
   })
 
   test('delete keeps the home unless asked, and never deletes a folder Zomfy did not make', async () => {
