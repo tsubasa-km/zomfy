@@ -1,3 +1,11 @@
+---
+type: Research
+title: "Orca Bots, and a self-hosted equivalent for Zomfy"
+description: "What Orca Bots does, how its cloud connector works, and a design for a connector each person deploys to their own Cloudflare account."
+status: stable
+generated: { by: "claude-code/opus-5.5", at: "2026-11-21T00:00:00Z" }
+---
+
 # Orca Bots, and a self-hosted equivalent for Zomfy
 
 Research note, 2026-11-21. Sources are Orca's public docs and the `stablyai/orca` repository at `main`

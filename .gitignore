@@ -35,3 +35,7 @@ report.[0-9]_.[0-9]_.[0-9]_.[0-9]_.json
 
 # compiled bun runtimes the daemon build downloads
 .bun-cache
+
+# Claude Code's own scratch worktrees; .claude/skills is part of the repo
+.claude/worktrees
+.claude/settings.local.json

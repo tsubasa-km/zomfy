@@ -58,3 +58,12 @@ DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE,
 OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 ```
+
+---
+
+## Open Knowledge Format agent skills
+
+`.claude/skills/okf-generate` and `.claude/skills/okf-consume` are copied unchanged from
+https://github.com/open-knowledge-format/open-knowledge-format (commit 527e81a, `skills/`),
+Copyright Google LLC, licensed under the Apache License, Version 2.0
+(https://www.apache.org/licenses/LICENSE-2.0).
