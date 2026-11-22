@@ -3,7 +3,7 @@ type: Spec
 title: Running Zomfy Relay on your own machine
 description: The same Relay Worker run locally on workerd with durable storage, reached from the internet through a tunnel the person controls, started with `bun run relay:local`.
 status: stable
-x-zomfy-implementation: in-progress
+x-zomfy-implementation: done
 tags: [bots, mobile, relay, self-host, workerd]
 sources:
   - id: workerd
@@ -153,14 +153,27 @@ Task Scheduler task at logon (Windows), each running `node scripts/local.mjs --j
     refused as used (storage survived the restart); `/cdn-cgi/` paths answer 404;
   - with a fake `cloudflared` on the command line the launcher reads the tunnel URL, points the
     tunnel at the proxy, and reports the public URL;
-- a Worker test: with `PUBLIC_URL` set the Hub's origin is that URL, not the request's.
+- a Worker test: `publicOrigin` reads `PUBLIC_URL`, which the Hub's `origin()` prefers to the last
+  request's origin.
 - The existing workerd tests (Discord Gateway with its alarm, hibernated sockets) keep passing; they
   run on the same runtime as the local relay.
 - No real tunnel to the internet is opened by any test.
 
 # Built so far
 
-Nothing yet.
+Built as above: `apps/relay/scripts/local.mjs` with its helpers in `scripts/local-lib.mjs`,
+`PUBLIC_URL` and `publicOrigin` in `src/env.ts`, the root script `relay:local`
+(`bun run --cwd apps/relay local`, so arguments after `--` reach the launcher), and the README's
+"Run it on your own machine". Tests: `test/local/lib.test.mjs` and `test/local/launcher.test.mjs`
+under `vitest.local.config.ts`, run by `bun run test` after the workerd suite, and
+`test/env.test.ts`.
+
+Checked by hand on Windows: the daemon's `phone-relay.wrangler.test.ts` passes against
+`bun run relay:local -- --tunnel none` (the host link and phone sockets through the proxy), and the
+launcher leaves no `workerd` process behind when stopped. workerd keeps each object's alarm in the
+`_cf_ALARM` table of its `metadata.sqlite` under `state/`. Not tried: a real cloudflared or
+Tailscale tunnel, and Discord's real Gateway from a local relay (the Gateway's tests use a fake
+Discord in workerd, the same runtime).
 
 # Open questions
 
