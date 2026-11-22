@@ -301,6 +301,13 @@ async function openConnection(hostId: HostId): Promise<void> {
       },
     )
     .onNotification(
+      BOT_NOTIFICATIONS.noticesChanged,
+      (raw: unknown) => raw,
+      (ctx) => {
+        if (hostId === LOCAL_HOST) applyBotsNotification(BOT_NOTIFICATIONS.noticesChanged, ctx.params);
+      },
+    )
+    .onNotification(
       PERMISSION_ASK_NOTIFICATIONS.resolved,
       (raw: unknown) => raw as PermissionAskResolved,
       (ctx) => closeResolvedAsk(hostId, ctx.params),

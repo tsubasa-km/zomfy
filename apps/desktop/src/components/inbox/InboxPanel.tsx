@@ -17,6 +17,7 @@ import type { TodoItem, TodoLink } from '@zomfy/protocol'
 import { useBots } from '@/stores/bots-store'
 import { BotAvatar } from '@/components/bots/BotAvatar'
 import { AccessRequestRow } from '@/components/bots/AccessRequestRow'
+import { BotNoticeRow } from '@/components/bots/BotNoticeRow'
 import { t } from '@/i18n/i18n'
 
 // One place for everything waiting on the person across hosts (the sidebar's "Waiting for you" and
@@ -43,6 +44,7 @@ function InboxSurface() {
   const hosts = useStore((s) => s.hosts)
   const todos = useInbox((s) => s.todos)
   const accessRequests = useBots((s) => s.accessRequests)
+  const notices = useBots((s) => s.notices)
   const bots = useBots((s) => s.bots)
   const entries = useMemo(() => inboxEntries(sessions, unread), [sessions, unread])
   const managerShortcut = useShortcutLabel('manager.open')
@@ -65,7 +67,7 @@ function InboxSurface() {
       <div className="flex shrink-0 items-center gap-2 border-b border-border px-3 py-2">
         <Inbox className="size-4 text-muted-foreground" />
         <h2 className="text-[13px] font-semibold">{t('Inbox')}</h2>
-        <span className="text-[11px] text-muted-foreground tabular-nums">{waiting.length + accessRequests.length + finished.length + openTodos.length}</span>
+        <span className="text-[11px] text-muted-foreground tabular-nums">{waiting.length + accessRequests.length + notices.length + finished.length + openTodos.length}</span>
         <div className="ml-auto flex items-center gap-1">
           <button
             type="button"
@@ -91,7 +93,7 @@ function InboxSurface() {
         </div>
       </div>
       <div className="scrollbar-sleek min-h-0 flex-1 overflow-y-auto">
-        <InboxSection id="Needs you" title={t('Needs you')} count={waiting.length + accessRequests.length}>
+        <InboxSection id="Needs you" title={t('Needs you')} count={waiting.length + accessRequests.length + notices.length}>
           {waiting.map((entry) => (
             <EntryRow key={entryKey(entry)} entry={entry} where={where(entry.session)} offline={offline(entry.session)} />
           ))}
@@ -99,6 +101,11 @@ function InboxSurface() {
           {accessRequests.map((request) => (
             <div key={request.id} className="rounded-md border border-agent-question/40 bg-agent-question/[0.06] px-2 py-0.5" data-inbox-entry="access-request">
               <AccessRequestRow request={request} bot={bots?.find((b) => b.id === request.botId)} />
+            </div>
+          ))}
+          {notices.map((notice) => (
+            <div key={notice.id} className="rounded-md border border-agent-question/40 bg-agent-question/[0.06] px-2 py-0.5" data-inbox-entry="bot-notice">
+              <BotNoticeRow notice={notice} bot={bots?.find((b) => b.id === notice.botId)} />
             </div>
           ))}
         </InboxSection>

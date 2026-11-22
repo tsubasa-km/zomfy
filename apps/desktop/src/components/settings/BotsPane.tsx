@@ -1,8 +1,10 @@
 import { useMemo, useState } from 'react'
-import { ArrowLeft, Check, Copy, ExternalLink, FileText, FolderOpen, Pencil, Plus, Trash2, X } from 'lucide-react'
-import type { Bot, BotAsker, BotSource, ConnectorStatus } from '@zomfy/protocol'
+import { ArrowLeft, CalendarClock, ExternalLink, FileText, FolderOpen, Pencil, Plus, Search, Trash2, X, Zap } from 'lucide-react'
+import { HARNESS_METHODS, type Bot, type BotAsker, type BotSource, type ConnectorStatus } from '@zomfy/protocol'
+import { harnessRequest } from '@/daemon-connection'
 import { allWorkspaces, LOCAL_HOST, openEditorTab, selectWorkspace, useStore } from '@/session-store'
 import {
+  botAction,
   deleteBot,
   pairConnector,
   pauseBot,
@@ -18,6 +20,11 @@ import { openWorkspaceIn } from '@/components/sidebar/WorkspaceMenu'
 import { BotAvatar } from '@/components/bots/BotAvatar'
 import { BotEditorDialog } from '@/components/bots/BotEditorDialog'
 import { AccessRequestRow } from '@/components/bots/AccessRequestRow'
+import { CopyField } from '@/components/bots/CopyField'
+import { AutomationEditorDialog } from '@/components/automations/AutomationEditorDialog'
+import { triggerLabel } from '@/components/automations/AutomationsPage'
+import { allAutomations, useAutomationState, useLoadAutomations, type HostedAutomation } from '@/stores/automation-store'
+import { automationsForBot, foundMembers } from '@/lib/bot-automation'
 import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Input } from '@/components/ui/input'
@@ -33,7 +40,7 @@ const REPO = 'https://github.com/tsubasa-km/zomfy'
 const DEPLOY_URL = `https://deploy.workers.cloudflare.com/?url=${REPO}/tree/main/apps/relay`
 const GUIDE_URL = `${REPO}/blob/main/docs/specs/bots/connector.md#deploy`
 
-const ASK_SOURCES: { id: BotSource; label: string; findId: string }[] = [
+const ASK_SOURCES: { id: BotSource; label: string; findId: string; find?: boolean }[] = [
   {
     id: 'discord',
     label: 'Discord',
@@ -41,27 +48,12 @@ const ASK_SOURCES: { id: BotSource; label: string; findId: string }[] = [
   },
   { id: 'slack', label: 'Slack', findId: t('In Slack, open your profile, choose ⋮ and Copy member ID.') },
   { id: 'github', label: 'GitHub', findId: t('Your GitHub login, as in github.com/<login>.') },
-  { id: 'linear', label: 'Linear', findId: t('In Linear, open your profile; the id is in the URL after /profiles/.') }
+  { id: 'linear', label: 'Linear', findId: t('In Linear, open your profile; the id is in the URL after /profiles/.'), find: true }
 ]
 
 function run(task: Promise<unknown>, setError: (error: string | null) => void): void {
   setError(null)
   void task.catch((e) => setError(e instanceof Error ? e.message : String(e)))
-}
-
-function CopyField({ value, data }: { value: string; data?: string }) {
-  const [copied, setCopied] = useState(false)
-  return (
-    <div className="flex items-center gap-2">
-      <code className="min-w-0 flex-1 truncate rounded bg-muted px-2 py-1 text-xs select-all" data-copy-field={data}>
-        {value}
-      </code>
-      <Button variant="outline" size="xs" onClick={() => void navigator.clipboard.writeText(value).then(() => setCopied(true))}>
-        {copied ? <Check /> : <Copy />}
-        {copied ? t('Copied') : t('Copy')}
-      </Button>
-    </div>
-  )
 }
 
 function stateLabel(state: ConnectorStatus['state']): string {
@@ -171,9 +163,27 @@ const SOURCE_CARDS: { id: string; label: string; urls: (base: string) => { label
     urls: (base) => [{ label: t('Interactions endpoint URL'), url: `${base}/discord/interactions` }],
     guide: 'sources/discord.md'
   },
-  { id: 'slack', label: 'Slack', urls: () => [], guide: 'sources/slack.md' },
-  { id: 'github', label: 'GitHub', urls: () => [], guide: 'sources/github.md' },
-  { id: 'linear', label: 'Linear', urls: () => [], guide: 'sources/linear.md' },
+  {
+    id: 'slack',
+    label: 'Slack',
+    urls: (base) => [
+      { label: t('Event Subscriptions request URL'), url: `${base}/slack/events` },
+      { label: t('Interactivity request URL'), url: `${base}/slack/interactivity` }
+    ],
+    guide: 'sources/slack.md'
+  },
+  {
+    id: 'github',
+    label: 'GitHub',
+    urls: (base) => [{ label: t('GitHub App webhook URL'), url: `${base}/github/webhook` }],
+    guide: 'sources/github.md'
+  },
+  {
+    id: 'linear',
+    label: 'Linear',
+    urls: (base) => [{ label: t('Linear webhook URL'), url: `${base}/linear/webhook` }],
+    guide: 'sources/linear.md'
+  },
   { id: 'webhooks', label: t('Webhooks'), urls: () => [], guide: 'sources/webhooks.md' }
 ]
 
@@ -201,6 +211,9 @@ function SourcesSection({ status }: { status: ConnectorStatus | null }) {
                     </div>
                   ))
                 : null}
+              {source.id === 'webhooks' ? (
+                <p className="text-[11px] text-muted-foreground">{t('Each webhook trigger gets a URL of its own: make one with New trigger on a bot.')}</p>
+              ) : null}
               <button
                 type="button"
                 className="text-[11px] text-muted-foreground underline underline-offset-2 hover:text-foreground"
@@ -240,17 +253,18 @@ function AskersEditor({ bot, source }: { bot: Bot; source: (typeof ASK_SOURCES)[
     else delete next[source.id]
     run(updateBot(bot.id, { owner: next }), setError)
   }
+  const addMember = (id: string, name: string, then?: () => void) => {
+    if (askers.some((a) => a.id === id)) return
+    const asker: BotAsker = { id, role: 'member', ...(name ? { name } : {}) }
+    run(setBotAskers(bot.id, source.id, [...askers, asker]).then(then), setError)
+  }
   const add = () => {
     const id = newId.trim()
     if (!id) return
-    const asker: BotAsker = { id, role: 'member', ...(newName.trim() ? { name: newName.trim() } : {}) }
-    run(
-      setBotAskers(bot.id, source.id, [...askers, asker]).then(() => {
-        setNewId('')
-        setNewName('')
-      }),
-      setError
-    )
+    addMember(id, newName.trim(), () => {
+      setNewId('')
+      setNewName('')
+    })
   }
   return (
     <div className="space-y-1.5 py-2" data-bot-askers={source.id}>
@@ -288,6 +302,7 @@ function AskersEditor({ bot, source }: { bot: Bot; source: (typeof ASK_SOURCES)[
           ))}
         </ul>
       ) : null}
+      {source.find ? <MemberSearch source={source.id} onAdd={(member) => addMember(member.id, member.name)} /> : null}
       <div className="flex gap-2">
         <Input value={newId} placeholder={t('Their id')} className="h-7 text-xs" onChange={(e) => setNewId(e.target.value)} />
         <Input value={newName} placeholder={t('Name (optional)')} className="h-7 text-xs" onChange={(e) => setNewName(e.target.value)} />
@@ -297,6 +312,127 @@ function AskersEditor({ bot, source }: { bot: Bot; source: (typeof ASK_SOURCES)[
         </Button>
       </div>
       {error ? <p className="text-xs text-destructive">{error}</p> : null}
+    </div>
+  )
+}
+
+/** Finds people in a source through the relay (`find`), to add one as a member asker. */
+function MemberSearch({ source, onAdd }: { source: BotSource; onAdd: (member: { id: string; name: string }) => void }) {
+  const [text, setText] = useState('')
+  const [busy, setBusy] = useState(false)
+  const [found, setFound] = useState<{ id: string; name: string; handle?: string }[] | null>(null)
+  const [error, setError] = useState<string | null>(null)
+  const search = () => {
+    const q = text.trim()
+    if (!q || busy) return
+    setBusy(true)
+    setError(null)
+    botAction('find', { source, text: q })
+      .then((result) => setFound(foundMembers(result)))
+      .catch((e: unknown) => {
+        setFound(null)
+        setError(e instanceof Error ? e.message : String(e))
+      })
+      .finally(() => setBusy(false))
+  }
+  return (
+    <div className="space-y-1" data-bot-member-search={source}>
+      <form
+        className="flex gap-2"
+        onSubmit={(e) => {
+          e.preventDefault()
+          search()
+        }}
+      >
+        <Input value={text} placeholder={t('Find a member by name')} className="h-7 text-xs" onChange={(e) => setText(e.target.value)} />
+        <Button type="submit" size="xs" variant="outline" disabled={!text.trim() || busy}>
+          <Search />
+          {busy ? t('Finding…') : t('Find')}
+        </Button>
+      </form>
+      {found && found.length === 0 ? <p className="text-[11px] text-muted-foreground">{t('Nobody found.')}</p> : null}
+      {found && found.length > 0 ? (
+        <ul className="divide-y divide-border/40 text-xs">
+          {found.map((m) => (
+            <li key={m.id} className="flex items-center gap-2 py-1">
+              <span className="min-w-0 flex-1 truncate">
+                {m.name}
+                {m.handle ? <span className="text-muted-foreground"> · {m.handle}</span> : null}
+              </span>
+              <Button
+                size="xs"
+                variant="ghost"
+                onClick={() => {
+                  onAdd({ id: m.id, name: m.name })
+                  setFound((list) => list?.filter((x) => x.id !== m.id) ?? null)
+                }}
+              >
+                <Plus />
+                {t('Add')}
+              </Button>
+            </li>
+          ))}
+        </ul>
+      ) : null}
+      {error ? <p className="text-xs text-destructive">{error}</p> : null}
+    </div>
+  )
+}
+
+/** The bot's schedules and source triggers, with New schedule / New trigger. */
+function BotAutomations({ bot }: { bot: Bot }) {
+  useLoadAutomations()
+  const byHost = useAutomationState((s) => s.byHost)
+  const automations = useMemo(() => automationsForBot(allAutomations(byHost).filter((a) => a.hostId === LOCAL_HOST), bot.id), [byHost, bot.id])
+  const [editor, setEditor] = useState<{ existing: HostedAutomation | null; mode: 'schedule' | 'trigger' } | null>(null)
+  const [error, setError] = useState<string | null>(null)
+  const names = useMemo(() => new Map<string, string>(), [])
+  return (
+    <div className="space-y-2 rounded-lg border border-border/60 bg-background/40 px-4 py-3" data-bot-automations>
+      <div className="flex items-start justify-between gap-2">
+        <SettingsSubsectionHeader
+          title={t('Schedules and triggers')}
+          description={t('Runs in the bot’s home with its persona, on this computer while Zomfy runs. A trigger needs the relay.')}
+        />
+        <div className="flex shrink-0 gap-2">
+          <Button size="sm" variant="outline" data-bot-new-schedule onClick={() => setEditor({ existing: null, mode: 'schedule' })}>
+            <CalendarClock />
+            {t('New schedule')}
+          </Button>
+          <Button size="sm" variant="outline" data-bot-new-trigger onClick={() => setEditor({ existing: null, mode: 'trigger' })}>
+            <Zap />
+            {t('New trigger')}
+          </Button>
+        </div>
+      </div>
+      {automations.length === 0 ? <p className="py-1 text-xs text-muted-foreground">{t('None yet.')}</p> : null}
+      <ul className="divide-y divide-border/40">
+        {automations.map((a) => (
+          <li key={a.id} className="flex items-center gap-3 py-1.5" data-bot-automation={a.id}>
+            <button
+              type="button"
+              className="min-w-0 flex-1 text-left hover:underline"
+              onClick={() => setEditor({ existing: a, mode: a.trigger.kind === 'schedule' ? 'schedule' : 'trigger' })}
+            >
+              <span className="block truncate text-sm">{a.name || t('Untitled')}</span>
+              <span className="block truncate text-xs text-muted-foreground">{triggerLabel(a.trigger, names)}</span>
+            </button>
+            <Switch
+              checked={a.enabled}
+              aria-label={t('Enabled')}
+              onCheckedChange={(enabled) => run(harnessRequest(HARNESS_METHODS.automationUpdate, { id: a.id, patch: { enabled } }, a.hostId), setError)}
+            />
+          </li>
+        ))}
+      </ul>
+      {error ? <p className="text-xs text-destructive">{error}</p> : null}
+      <AutomationEditorDialog
+        open={editor !== null}
+        existing={editor?.existing ?? null}
+        defaultWorkspace={null}
+        botPreset={editor && !editor.existing ? { bot, mode: editor.mode } : null}
+        onOpenChange={(open) => !open && setEditor(null)}
+      />
     </div>
   )
 }
@@ -361,12 +497,7 @@ function BotDetail({ bot }: { bot: Bot }) {
           </div>
         ) : null}
       </div>
-      <div className="space-y-1 rounded-lg border border-border/60 bg-background/40 px-4 py-3">
-        <SettingsSubsectionHeader
-          title={t('Schedules and triggers')}
-          description={t('A bot’s schedules and event triggers come in a later Zomfy version; until then use Automations in its home folder.')}
-        />
-      </div>
+      <BotAutomations bot={bot} />
       <div className="space-y-3 rounded-lg border border-border/60 bg-background/40 px-4 py-3">
         <label className="flex items-center justify-between gap-3 text-sm">
           <span className="grid gap-0.5">

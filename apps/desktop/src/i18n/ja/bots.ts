@@ -123,5 +123,62 @@ export const BOTS: Record<string, string> = {
   // components/automations/AutomationsPage.tsx (bot triggers)
   Webhook: 'Webhook',
   'any event': 'すべてのイベント',
-  'On {source}: {kinds}': '{source}：{kinds}'
+  'On {source}: {kinds}': '{source}：{kinds}',
+
+  // components/bots/BotNoticeRow.tsx
+  'Webhook {hook} refused {n} calls in 10 minutes': 'Webhook {hook} が 10 分間に {n} 件の呼び出しを拒否しました',
+  'Webhook {hook} reached its run cap': 'Webhook {hook} が実行回数の上限に達しました',
+
+  // components/automations/AutomationEditorDialog.tsx (a bot's automation)
+  'Edit schedule': 'スケジュールを編集',
+  'Edit trigger': 'トリガーを編集',
+  'New schedule': '新しいスケジュール',
+  'New trigger': '新しいトリガー',
+  'Pick the chat it continues.': '続けるチャットを選んでください。',
+  'Name the place results go to.': '結果の送り先を指定してください。',
+  'Create a webhook URL first.': '先に Webhook URL を作成してください。',
+
+  // components/automations/BotAutomationFields.tsx
+  'Runs in': '実行先',
+  'A new chat each run': '毎回新しいチャット',
+  'One chat, continued': '1 つのチャットを継続',
+  'Results go to': '結果の送り先',
+  'Its chat': 'そのチャット',
+  'The thread it runs for': '実行のきっかけになったスレッド',
+  Nowhere: 'どこにも送らない',
+  'A place': '指定の場所',
+  Chat: 'チャット',
+  'Pick a chat': 'チャットを選択',
+  Place: '場所',
+  'A Discord or Slack channel, or a Linear issue, as a ref.': 'Discord・Slack のチャンネル、または Linear の課題を ref で指定します。',
+  Events: 'イベント',
+  'None ticked means any of them.': '何も選ばなければすべてのイベントが対象です。',
+  Places: '場所',
+  'Refs, one per line, such as {example}. None means anywhere.': '1 行に 1 つの ref（例：{example}）。空ならどこでも対象です。',
+  'Only from': '対象の人',
+  "People's ids in the source, separated by commas. Empty means anyone who can ask.":
+    'ソースでの ID をカンマ区切りで。空なら依頼できる人すべてが対象です。',
+  'Text contains': '含むテキスト',
+  'Only events whose text contains this, in any case.': 'テキストにこれを含むイベントだけが対象です（大文字・小文字は区別しません）。',
+  'The relay answered without a webhook URL.': 'リレーが Webhook URL を返しませんでした。',
+  'Webhook URL': 'Webhook URL',
+  Key: 'キー',
+  'The key is shown only now. Send it as a Bearer token, or add it to the URL as /<key>.':
+    'キーが表示されるのは今だけです。Bearer トークンとして送るか、URL の末尾に /<key> として付けてください。',
+  'Create webhook URL': 'Webhook URL を作成',
+  'Each trigger gets a URL of its own from your relay.': 'トリガーごとにリレーから専用の URL が発行されます。',
+
+  // components/settings/BotsPane.tsx (B2)
+  'Event Subscriptions request URL': 'Event Subscriptions の Request URL',
+  'Interactivity request URL': 'Interactivity の Request URL',
+  'GitHub App webhook URL': 'GitHub App の Webhook URL',
+  'Linear webhook URL': 'Linear の Webhook URL',
+  'Each webhook trigger gets a URL of its own: make one with New trigger on a bot.':
+    'Webhook の URL はトリガーごとに作られます。ボットの「新しいトリガー」から作成してください。',
+  'Find a member by name': '名前でメンバーを検索',
+  'Finding…': '検索中…',
+  'Nobody found.': '見つかりませんでした。',
+  'Runs in the bot’s home with its persona, on this computer while Zomfy runs. A trigger needs the relay.':
+    'ボットのホームでそのペルソナのまま、Zomfy が動いている間このコンピューターで実行されます。トリガーにはリレーが必要です。',
+  Untitled: '無題'
 }
