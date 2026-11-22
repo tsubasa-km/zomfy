@@ -9,7 +9,8 @@ DISCORD_APPLICATION_ID=
 DISCORD_PUBLIC_KEY=
 DISCORD_BOT_TOKEN=
 
-# Slack
+# Slack: the app from slack-manifest.yaml; OAuth & Permissions → Bot User OAuth Token, and
+# Basic Information → Signing Secret (README, "Slack")
 SLACK_BOT_TOKEN=
 SLACK_SIGNING_SECRET=
 

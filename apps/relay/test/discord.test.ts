@@ -137,7 +137,7 @@ describe('the Gateway', () => {
     expect(identify.d.intents).toBe(1 | (1 << 9) | (1 << 12) | (1 << 15))
     expect(identify.d.token).toBe('marker-discord-token-91c2')
     const health = (await (await SELF.fetch(`${BASE}/health`)).json()) as any
-    expect(health.sources).toEqual(['discord'])
+    expect(health.sources).toEqual(['discord', 'slack', 'github', 'linear'])
     expect(typeof health.discordGatewayUptime).toBe('number')
     expect(health.discordGateway.state).toBe('ready')
   })

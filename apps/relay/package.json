@@ -33,10 +33,10 @@
         "description": "Discord: **Bot → Reset Token**. Turn on **Message Content Intent** on the same page."
       },
       "SLACK_BOT_TOKEN": {
-        "description": "Slack (a later phase): leave empty."
+        "description": "Slack (optional): the **Bot User OAuth Token** (`xoxb-…`) of the app made from `apps/relay/slack-manifest.yaml` (README, \"Slack\"). Leave empty to turn Slack off."
       },
       "SLACK_SIGNING_SECRET": {
-        "description": "Slack (a later phase): leave empty."
+        "description": "Slack: **Basic Information → App Credentials → Signing Secret**."
       },
       "GITHUB_APP_ID": {
         "description": "GitHub (a later phase): leave empty."

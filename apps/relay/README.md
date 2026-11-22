@@ -20,8 +20,9 @@ move the account to Workers Paid (5 USD a month). `GET /health` shows the Gatewa
 
 Cloudflare copies this directory into a repository of yours, creates the Worker and its Durable
 Objects, and asks for the secrets in [`.dev.vars.example`](.dev.vars.example). Fill in
-`SETUP_CODE` (make one with `openssl rand -hex 16`) and the three `DISCORD_*` values from the steps
-below; leave the rest empty. Then continue at step 2 of [Discord](#discord).
+`SETUP_CODE` (make one with `openssl rand -hex 16`) and the secrets of the sources you want, from
+each source's steps below; leave the rest empty. Then continue with each source's steps (Discord
+from step 2).
 
 ### `bun run deploy`
 
@@ -59,6 +60,29 @@ Then `@Zomfy fix the typo in README` in a channel opens a thread with a status a
 `@Zomfy reviewer …` names a bot by handle, otherwise the default bot answers. A DM to the app is a
 conversation of its own until you write `new`.
 
+## Slack
+
+One Slack app serves every bot ([spec](../../docs/specs/bots/sources/slack.md)); bots are named by
+handle (`@Zomfy reviewer …`).
+
+1. [api.slack.com/apps](https://api.slack.com/apps) → **Create New App → From a manifest**, pick the
+   workspace, and paste [`slack-manifest.yaml`](slack-manifest.yaml) with your Worker URL in place
+   of `https://YOUR-WORKER.workers.dev` (`bun run deploy` prints it filled in). Nothing else in it
+   needs editing.
+2. **Install to Workspace** (an admin may have to approve). Copy **OAuth & Permissions → Bot User
+   OAuth Token** (`xoxb-…`) and **Basic Information → App Credentials → Signing Secret**, and give
+   them to `bun run deploy` (or `wrangler secret put SLACK_BOT_TOKEN` and `SLACK_SIGNING_SECRET`).
+3. Back in the app: **Event Subscriptions** shows the Request URL `<worker URL>/slack/events`; press
+   **Retry** if Slack checked it before the secrets were set. **Interactivity** is
+   `<worker URL>/slack/interactivity`.
+4. Invite the app to the channels it should hear (`/invite @Zomfy`); a DM to the app works anywhere.
+5. In Zomfy, each bot's **Who can ask → Slack**: your member id (your profile → **⋯** → **Copy member
+   ID**) as owner; members the same way.
+
+Then `@Zomfy fix the typo in README` in a channel answers in that message's thread, with a status
+line and a **Stop** button; questions and approvals come as buttons. A bare `@Zomfy` takes your own
+last messages before it as the request.
+
 ## Develop
 
 ```sh
@@ -69,5 +93,6 @@ bun scripts/fake-daemon.ts http://127.0.0.1:8787 <that setup code>
 ```
 
 Routes: `GET /health`, `POST /v1/hosts/register`, `POST /v1/hosts/invite`, the daemon's link
-`GET /v1/host`, and `POST /discord/interactions` (404 until the Discord secrets are set). Slack,
-GitHub, Linear, webhooks and the phone routes follow in later phases.
+`GET /v1/host`, `POST /discord/interactions`, and `POST /slack/events` and `/slack/interactivity`
+(each source's routes answer 404 until its secrets are set). Tests reach fake Slack, GitHub and
+Linear APIs (`test/fake-apis.mjs`) through the `SOURCES_TRANSPORT` binding.

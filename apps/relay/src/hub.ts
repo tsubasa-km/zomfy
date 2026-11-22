@@ -31,9 +31,10 @@ import {
 } from './contract'
 import { isEd25519PublicKey, randomToken, sameText, sha256Hex, verifyEd25519 } from './crypto'
 import { DiscordSource, type GatewayMessage } from './discord/source'
+import { SlackSource } from './slack/source'
 import { configuredSources, type Env } from './env'
 import { Outbound, OUTBOUND_DUE, type OutboundRunner } from './outbound'
-import type { HubSource, SourceHub } from './sources/common'
+import { within, type HubSource, type SourceHub } from './sources/common'
 
 /** Features this Hub implements, of those the contract knows. */
 const HUB_FEATURES = ['hello-bots-pages', 'events-seq']
@@ -91,6 +92,7 @@ export class Hub extends DurableObject<Env> {
   private readonly sql: SqlStorage
   private readonly outbound: Outbound
   private readonly discord: DiscordSource
+  private readonly slack: SlackSource
   /** Every source, for the daemon's events, settled deliveries, actions, timers and the purge. */
   private readonly sources: HubSource[] = []
   /** What every source is given. */
@@ -119,6 +121,8 @@ export class Hub extends DurableObject<Env> {
       watchChannel: (channelId, watch) => env.DISCORD_GATEWAY.get(env.DISCORD_GATEWAY.idFromName('discord')).watch(channelId, watch)
     })
     this.addSource(this.discord)
+    this.slack = new SlackSource(this.shared)
+    this.addSource(this.slack)
     // Pings are answered by the runtime without waking the object.
     ctx.setWebSocketAutoResponse(new WebSocketRequestResponsePair(PING_FRAME, PONG_FRAME))
   }
@@ -679,12 +683,27 @@ export class Hub extends DurableObject<Env> {
     return this.discord.onInteraction(body)
   }
 
+  // --- Slack (docs/specs/bots/sources/slack.md) ---
+
+  /** A verified Events API callback; returns within Slack's 3 s while the work goes on. */
+  async slackEvent(body: unknown): Promise<void> {
+    await within(this.slack.onEventCallback(body), 2000)
+  }
+
+  /** A verified Block Kit press; Slack's 200 goes out at once, the work after. */
+  async slackInteraction(payload: unknown): Promise<void> {
+    await within(
+      this.slack.onInteraction(payload).then(() => this.outbound.drain()),
+      2000
+    )
+  }
+
   /** Runs the outbound queue now, for tests. */
   async drainOutbound(): Promise<void> {
     await this.outbound.drain()
   }
 
-  async outboundRows() {
+  async outboundRows(): Promise<{ key: string; source: string; kind: string; state: string }[]> {
     return this.outbound.rows()
   }
 

@@ -5,8 +5,8 @@
 //   1. checks `wrangler whoami`
 //   2. runs `wrangler deploy`
 //   3. sets a new SETUP_CODE (on the first deploy, or when you ask)
-//   4. asks for the secrets of each source you want (Discord now; the rest come with their phases)
-//   5. prints the Worker URL, the setup code, and the URLs and steps for Discord
+//   4. asks for the secrets of each source you want (Discord, Slack, …), skipping the rest
+//   5. prints the Worker URL, the setup code, and the URLs and steps for each source
 //
 // Under Workers Builds (the Deploy to Cloudflare button) it only runs `wrangler deploy`: the
 // button asks for the secrets itself. `--dry-run` prints the commands instead of running them.
@@ -14,6 +14,7 @@
 
 import { spawn } from 'node:child_process'
 import { randomBytes } from 'node:crypto'
+import { readFileSync } from 'node:fs'
 import { createInterface } from 'node:readline'
 
 const DRY = process.argv.includes('--dry-run')
@@ -124,8 +125,25 @@ if (await yes(hasDiscord ? 'Change the Discord secrets?' : 'Set up Discord now?'
   await putSecret('DISCORD_PUBLIC_KEY', publicKey.toLowerCase())
   await putSecret('DISCORD_BOT_TOKEN', token)
 }
+
+// Slack: one app per deployment, made from slack-manifest.yaml with this Worker's URL in it.
+const slackManifest = readFileSync(new URL('../slack-manifest.yaml', import.meta.url), 'utf8').replaceAll('https://YOUR-WORKER.workers.dev', workerUrl)
+const hasSlack = ['SLACK_BOT_TOKEN', 'SLACK_SIGNING_SECRET'].every((n) => existing.includes(n))
+let slackSet = false
+console.log('\nSlack: an app made from apps/relay/slack-manifest.yaml (see the README).')
+if (await yes(hasSlack ? 'Change the Slack secrets?' : 'Set up Slack now?', false)) {
+  console.log('\n  1. https://api.slack.com/apps → Create New App → From a manifest → pick the workspace → paste:\n')
+  console.log(slackManifest.replace(/^/gm, '     '))
+  console.log('  2. Create, then Install to Workspace (an admin may have to approve).')
+  const token = await ask('  Bot User OAuth Token (OAuth & Permissions, xoxb-…): ')
+  if (!/^xoxb-/.test(token)) fail('That does not look like a bot token (it starts with xoxb-).')
+  const signing = await ask('  Signing Secret (Basic Information → App Credentials): ')
+  if (!/^[0-9a-f]{32}$/i.test(signing)) fail('That does not look like a signing secret (32 hex characters).')
+  await putSecret('SLACK_BOT_TOKEN', token)
+  await putSecret('SLACK_SIGNING_SECRET', signing)
+  slackSet = true
+}
 rl.close()
-console.log('Slack, GitHub, Linear and webhooks arrive with later phases of Zomfy Bots.')
 
 // Secrets apply to new requests at once; /health also starts the Discord Gateway.
 let health = null
@@ -155,5 +173,12 @@ if (discordApp || hasDiscord) {
     console.log('  3. OAuth2 → URL Generator: scopes bot + applications.commands, and the permissions in the README; open the link')
   }
 }
+if (slackSet || hasSlack) {
+  console.log('\nSlack, at api.slack.com/apps → your app:')
+  console.log(`  Event Subscriptions → Request URL: ${workerUrl}/slack/events  (press Retry if it was checked before the secrets were set)`)
+  console.log(`  Interactivity & Shortcuts → Request URL: ${workerUrl}/slack/interactivity`)
+  console.log('  Invite the app to each channel it should hear (/invite @Zomfy).')
+}
 console.log('\nIn Zomfy: Settings → Bots → Relay: paste the Worker URL and the setup code, then Pair.')
-console.log('Then per bot, Who can ask → Discord: your own user id (Discord Developer Mode → Copy User ID).')
+console.log('Then per bot, Who can ask: your own id on each source as owner, and members the same way')
+console.log('  (Discord: Developer Mode → Copy User ID; Slack: your profile → ⋯ → Copy member ID).')

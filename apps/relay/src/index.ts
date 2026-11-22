@@ -4,6 +4,7 @@
 
 import { CONTRACT_VERSION, limits } from './contract'
 import { verifyDiscordRequest } from './discord/verify'
+import { verifySlackRequest } from './slack/verify'
 import { configuredSources, RELAY_VERSION, type Env } from './env'
 
 export { DiscordGateway } from './discord-gateway'
@@ -91,8 +92,41 @@ export default {
       return hub(env).fetch(new Request(request.url, { method: 'POST', body, headers: { 'Content-Type': 'application/json' } }))
     }
 
-    // The other source routes (Slack, GitHub, Linear, webhooks) and the phone routes arrive with
-    // their phases; a source without secrets answers 404 anyway.
+    if ((pathname === '/slack/events' || pathname === '/slack/interactivity') && request.method === 'POST' && sources.includes('slack')) {
+      const body = await readBody(request)
+      if (!body) return Response.json({ error: 'too_large' }, { status: 413 })
+      const text = new TextDecoder().decode(body)
+      const ok = await verifySlackRequest(
+        env.SLACK_SIGNING_SECRET ?? '',
+        request.headers.get('X-Slack-Signature') ?? '',
+        request.headers.get('X-Slack-Request-Timestamp') ?? '',
+        text
+      )
+      if (!ok) return Response.json({ error: 'bad_signature' }, { status: 401 })
+      holdGateway()
+      if (pathname === '/slack/interactivity') {
+        let payload: unknown
+        try {
+          payload = JSON.parse(new URLSearchParams(text).get('payload') ?? '')
+        } catch {
+          return Response.json({ error: 'bad_request' }, { status: 400 })
+        }
+        await hub(env).slackInteraction(payload)
+        return new Response(null, { status: 200 })
+      }
+      let event: { type?: string; challenge?: string }
+      try {
+        event = JSON.parse(text)
+      } catch {
+        return Response.json({ error: 'bad_request' }, { status: 400 })
+      }
+      // Answered here, so the Request URL check works before any host has paired.
+      if (event.type === 'url_verification') return Response.json({ challenge: event.challenge ?? '' })
+      await hub(env).slackEvent(event)
+      return new Response(null, { status: 200 })
+    }
+
+    // The phone routes arrive with their phase; a source without secrets answers 404.
     return notFound()
   }
 } satisfies ExportedHandler<Env>

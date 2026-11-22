@@ -3,7 +3,7 @@ type: Spec
 title: Slack source
 description: Asking a bot by mention or DM in Slack, with thread replies, Block Kit questions, approvals, Stop and status edits, through one Slack app per deployment.
 status: stable
-x-zomfy-implementation: planned
+x-zomfy-implementation: in-progress
 tags: [bots, slack]
 sources:
   - id: orca-bots
@@ -43,8 +43,10 @@ that is too much setup, so Zomfy uses **one Slack app per deployment** and names
 
 Manifest: bot scopes `app_mentions:read`, `chat:write`, `chat:write.customize`, `channels:history`,
 `groups:history`, `im:history`, `im:read`, `im:write`, `mpim:history`, `reactions:read`,
-`reactions:write`, `files:read`, `files:write`, `users:read`, `pins:write`; events `app_mention`,
-`message.im`, `message.channels`, `message.groups`, `message.mpim`; interactivity at
+`reactions:write`, `files:read`, `files:write`, `users:read`, `pins:write`, and, added while
+building, `channels:read` and `groups:read` (for `find` and `check`) and `canvases:write` (for
+`canvas` and `list`); events `app_mention`, `message.im`, `message.channels`, `message.groups`,
+`message.mpim`, and `reaction_added` (for `reaction` triggers); interactivity at
 `/slack/interactivity`; App Home messages tab on.
 
 # Behaviour
@@ -77,6 +79,51 @@ Manifest: bot scopes `app_mentions:read`, `chat:write`, `chat:write.customize`, 
 - Ack within 3 s or Slack retries (`X-Slack-Retry-Num`); dedupe on `event_id`.[^slack-events]
 - `chat.postMessage` about 1 per second per channel; `chat.update` Tier 3; long answers split at
   3,000 characters per section, or uploaded as a file.
+
+# Built so far
+
+The Worker side of phase B3 ([overview](../overview.md#phases)), in `apps/relay/src/slack/`, with
+the manifest in `apps/relay/slack-manifest.yaml` and the Slack steps in `bun run deploy` and the
+README. Details settled while building:
+
+- **Routes.** `POST /slack/events` and `POST /slack/interactivity` check the signature on the raw
+  body in the Worker, answer `url_verification` there (so the Request URL check works before any
+  host has paired), and hand the rest to the Hub, which answers within 2 s while the work goes on.
+- **Dedupe.** On `event_id`, and on the message itself (`<channel>:<ts>`), since Slack sends a
+  mention as both `app_mention` and `message`. The app's own user comes from the events'
+  `authorizations`; messages by bots and edits are skipped.
+- **Conversations.** `externalId` is `<team>:<channel>:<thread_ts>`, the thread of the asking
+  message (a top-level message's own `ts`), in channels and DMs alike; a DM's top-level message
+  starts a new thread. `placeId` is `slack:<team>:<channel>`, and the `start` carries `placeKind`.
+  Thread context is `conversations.replies`; a bare mention's request is the asker's own messages
+  after the bot's last post (`earlier` items, a `more` item when there were more than 10).
+  Attachments are the files' permalinks; the daemon downloads one with `read {download: <fileId>}`
+  (inline base64, ≤ 512 KiB), since the bot token never leaves the Worker.
+- **Who can ask.** A non-asker's mention gets `chat.postEphemeral` with **Request access**; a
+  non-asker's thread reply is `no_access` context. A press by someone else than the asker or the
+  owner gets an ephemeral note through the press's `response_url`.
+- **Status and replies.** The status message (activity line, plan steps as ticks, **Stop**) is posted
+  in the thread on `turn-started`, edited at most every 3 s, and becomes the answer on `reply`.
+  Markdown is turned into mrkdwn; an answer is cut into 3,000-character sections, and one needing
+  more than 10 sections is uploaded as `answer.md` with the first section posted. Every call goes
+  through the Hub's outbound queue, one lane per channel, waiting out 429 `Retry-After`.
+- **Buttons.** The action ids are Discord's custom ids (`z1:<prompt>:<i>`, `z1s:<turn>`,
+  `z1r:<bot>`). An asker's press replaces the buttons at once ("… chose Allow once"); a later
+  `prompt-cleared` edits it again. A `byReply` question takes the asker's next thread message;
+  a number or an option's label picks that option, anything else is the text.
+- **Triggers.** Messages, mentions and `reaction_added` are matched against `slack` rules
+  (`message`, `mentioned`, `reaction`); a message that asks a bot carries that bot's matching rules
+  as `ruleIds` (`triggerInTurn`) instead of a separate `trigger`.
+- **Actions.** `reply`, `post` (with `postAt` it schedules; with `mirror: true` it posts under the
+  bot owner's Slack name and picture), `react`, `read`, `find` (channels by name), `check`
+  (`conversations.info`), `edit`, `delete`, `attach`, `pin`, `canvas`, `list` (a canvas holding a
+  checklist: the Slack Lists API is not used), `scheduled` (list, or `cancel`). A post with an
+  idempotency key posts once.
+- Tested in workerd against fake Slack APIs (`apps/relay/test/slack.test.ts`).
+
+Left: the end-to-end checks in a test workspace, and on the daemon side (a follow-up for the
+daemon's agent): mirroring the owner's Zomfy messages with `post {mirror: true}`, downloading
+files with `read {download}`, and running `ruleIds` inside the turn.
 
 # Non-goals
 
