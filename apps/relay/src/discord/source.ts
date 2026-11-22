@@ -7,6 +7,8 @@
 import {
   askerRole,
   limits,
+  parseRef,
+  type Action,
   type BotEvent,
   type ContextItem,
   type Delivery,
@@ -16,7 +18,7 @@ import {
 } from '../contract'
 import type { Env } from '../env'
 import { globalLane, type OpResult, type OutboundRunner } from '../outbound'
-import type { SourceHub } from '../sources/common'
+import { fail, ok, type ActionOutcome, type SourceHub } from '../sources/common'
 import { discordCall, EPHEMERAL, InteractionType, ResponseType, THREAD_TYPES, type DiscordResult } from './api'
 import {
   accessRow,
@@ -101,6 +103,8 @@ type Op =
   | { t: 'prompt-edit'; promptId: string; content: string }
   | { t: 'dm'; userId: string; content: string; components?: Row[] }
   | { t: 'channel-note'; channelId: string; replyTo: string; content: string }
+  /** A bot's own post (the `post` and `reply` actions), in a channel or thread, cut at Discord's length. */
+  | { t: 'send'; channelId: string; replyTo?: string; chunks: string[]; sent: number }
   | { t: 'watch'; channelId: string; watch: boolean }
 
 const nameOf = (u: { username: string; global_name?: string | null }) => (u.global_name || u.username).slice(0, 256)
@@ -108,7 +112,8 @@ const now = () => Date.now()
 
 export class DiscordSource implements OutboundRunner {
   readonly name = 'discord' as const
-  readonly verbs: readonly string[] = []
+  /** A bot's own posts (a schedule's results, a trigger's answer): in a channel, a thread, or as a reply to a message. */
+  readonly verbs: readonly string[] = ['post', 'reply']
   private channelTypes = new Map<string, number>()
 
   constructor(private readonly hub: SourceHost) {
@@ -528,12 +533,33 @@ export class DiscordSource implements OutboundRunner {
       .toArray()[0]
   }
 
+  // --- Actions ---
+
+  async action(action: Action): Promise<ActionOutcome> {
+    const ref = action.ref ? parseRef(action.ref) : null
+    if (!ref || ref.source !== 'discord' || ref.guild === '@me') return fail('invalid_ref', 'a Discord channel or thread ref is needed')
+    const text = typeof action.args.text === 'string' ? action.args.text.trim() : ''
+    if (!text) return fail('invalid_args', 'text is needed')
+    // A thread is a channel of its own; a message in a channel is replied to.
+    const channelId = ref.thread ?? ref.channel
+    const replyTo = ref.message
+    const key = `post:${action.idempotencyKey ?? crypto.randomUUID()}`
+    this.queue({ t: 'send', channelId, ...(replyTo ? { replyTo } : {}), chunks: splitMessage(text).slice(0, MAX_REPLY_MESSAGES), sent: 0 }, key, `ch:${channelId}`)
+    void this.drainSoon()
+    return ok({ queued: true, ref: action.ref })
+  }
+
   // --- The daemon's events (called inside the Hub's events transaction: SQL only) ---
 
   onEvent(event: BotEvent): void {
     if (!('conversation' in event) || event.conversation.source !== 'discord') return
     const externalId = event.conversation.externalId
     if (event.kind === 'unlinked' || event.kind === 'chat-gone') return this.dropConv(externalId)
+    if (event.kind === 'access-answered') {
+      const bot = this.bot(event.botId)
+      this.queue({ t: 'dm', userId: event.requester.id, content: NOTES.accessAnswered(bot?.name ?? 'the bot', event.allowed) }, `access-answered:${event.botId}:${event.requester.id}:${now()}`, GLOBAL_LANE)
+      return
+    }
     const conv = this.conv(externalId)
     if (!conv) return
     const t = now()
@@ -690,6 +716,24 @@ export class DiscordSource implements OutboundRunner {
       case 'watch':
         await this.hub.watchChannel(op.channelId, op.watch)
         return { status: 'done' }
+
+      case 'send': {
+        for (let i = op.sent; i < op.chunks.length; i++) {
+          const res = await discordCall(this.env, 'POST', `/channels/${op.channelId}/messages`, {
+            body: {
+              content: op.chunks[i],
+              allowed_mentions: { parse: [] },
+              ...(i === 0 && op.replyTo ? { message_reference: { message_id: op.replyTo, fail_if_not_exists: false } } : {})
+            }
+          })
+          const failed = this.outcome(res, 'post')
+          if (failed) {
+            op.sent = i
+            return failed
+          }
+        }
+        return { status: 'done' }
+      }
 
       case 'channel-note': {
         const res = await discordCall(this.env, 'POST', `/channels/${op.channelId}/messages`, {

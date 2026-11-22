@@ -13,6 +13,7 @@ import {
   PING_FRAME,
   PONG_FRAME,
   type Ack,
+  type Action,
   type BotEvent,
   type Delivery,
   type Hello
@@ -42,6 +43,10 @@ export class FakeHub {
   private readonly server: ReturnType<typeof Bun.serve<SocketData>>
   /** When true, the Hub accepts sockets but never answers (a dead link). */
   silent = false
+  /** Every action the host asked for, in order. */
+  readonly actions: Action[] = []
+  /** How the fake answers an action; `{ok: true, result: {}}` by default. */
+  onAction: (action: Action) => { ok: boolean; result?: unknown; error?: { code: string; message: string } } = () => ({ ok: true, result: {} })
 
   constructor(readonly setupCode = 'fake-setup-code') {
     this.server = Bun.serve<SocketData>({
@@ -123,6 +128,12 @@ export class FakeHub {
       if (msg.seq <= (this.lastSeq.get(ws.data.hostId) ?? -1)) return
       this.lastSeq.set(ws.data.hostId, msg.seq)
       this.events.push(...(msg.events as BotEvent[]))
+      return
+    }
+    if (msg.type === 'action') {
+      this.actions.push(msg)
+      const answer = this.onAction(msg)
+      ws.send(JSON.stringify({ ch: 'bots', type: 'action-result', reqId: msg.reqId, ...answer }))
       return
     }
     if (msg.type === 'ack') {

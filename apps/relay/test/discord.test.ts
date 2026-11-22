@@ -399,6 +399,39 @@ describe('questions and approvals', () => {
   })
 })
 
+describe('phase B2 in Discord', () => {
+  it('tells the requester in a DM when the owner answers their access request', async () => {
+    await pair()
+    sendEvents([
+      { kind: 'access-answered', conversation: { source: 'discord', externalId: 'access:u-stranger' }, botId: 'bot-reviewer', requester: { id: 'u-stranger', name: 'Stranger' }, allowed: true }
+    ])
+    const [dm] = await until(() => calls('POST', /^\/channels\/dm-u-stranger\/messages$/))
+    expect(dm!.body.content).toContain('The owner let you ask **Reviewer**')
+  })
+
+  it('posts a bot automation result in a channel, as a reply to a message, once per idempotency key', async () => {
+    await pair()
+    const act = (reqId: string, ref: string, key: string) =>
+      link.send({ ch: 'bots', type: 'action', helloRev, reqId, verb: 'post', ref, args: { text: 'Yesterday: 3 PRs merged.' }, idempotencyKey: key })
+    act('r1', 'discord:g1:c1', 'automation:run-1')
+    const result = await link.take((f) => f.type === 'action-result' && f.reqId === 'r1')
+    expect(result).toMatchObject({ ok: true })
+    const [post] = await until(() => calls('POST', /^\/channels\/c1\/messages$/))
+    expect(post!.body.content).toBe('Yesterday: 3 PRs merged.')
+    act('r2', 'discord:g1:c1', 'automation:run-1')
+    await link.take((f) => f.type === 'action-result' && f.reqId === 'r2')
+    act('r3', 'discord:g1:c1::m-42', 'automation:run-2')
+    await link.take((f) => f.type === 'action-result' && f.reqId === 'r3')
+    const posts = await until(async () => {
+      const list = await calls('POST', /^\/channels\/c1\/messages$/)
+      return list.length >= 2 ? list : null
+    })
+    await new Promise((r) => setTimeout(r, 200))
+    expect(await calls('POST', /^\/channels\/c1\/messages$/)).toHaveLength(2)
+    expect(posts[1]!.body.message_reference).toMatchObject({ message_id: 'm-42' })
+  })
+})
+
 describe('/ask', () => {
   it('starts a conversation from the slash command and threads from its reply', async () => {
     await pair()

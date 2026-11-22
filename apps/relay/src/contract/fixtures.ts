@@ -178,6 +178,7 @@ export const eventFixtures: { [K in BotEvent['kind']]: Extract<BotEvent, { kind:
   activity: { kind: 'activity', conversation, turnId: 'turn-1', text: 'Reading README.md', steps: [{ text: 'Find the typo', status: 'done' }] },
   workers: { kind: 'workers', conversation, workers: [{ sessionId: 's-2', title: 'Fix typo', status: 'running' }] },
   'turn-ended': { kind: 'turn-ended', conversation, turnId: 'turn-1', outcome: 'answered' },
+  'access-answered': { kind: 'access-answered', conversation: { source: 'discord', externalId: 'access:u-2' }, botId: 'bot-1', requester: { id: 'u-2', name: 'Sam' }, allowed: true },
   reply: {
     kind: 'reply',
     conversation,

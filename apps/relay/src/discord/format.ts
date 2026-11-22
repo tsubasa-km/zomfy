@@ -210,6 +210,8 @@ export const NOTES = {
   onlyAsker: (askerId: string | null) => `Only ${askerId ? `<@${askerId}>` : 'the person who asked'} or the bot’s owner can answer this.`,
   answerInZomfy: (bot: string) => `Open Zomfy to answer: the chat is in **${bot}**’s home.`,
   accessRequested: 'Access requested; the owner will see it in Zomfy.',
+  accessAnswered: (bot: string, allowed: boolean) =>
+    allowed ? `The owner let you ask **${bot}**; ask again whenever you like.` : `The owner declined your request to ask **${bot}**.`,
   asked: (bot: string) => `Asked **${bot}**.`,
   stopping: 'Stopping…'
 }

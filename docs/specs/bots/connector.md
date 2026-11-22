@@ -163,6 +163,10 @@ queues `trigger` deliveries (`src/sources/triggers.ts`), and actions are dispatc
 source, by `args.source`, or to webhooks for `webhook.*`. The tables `webhooks` and
 `webhook_calls` hold hooks and their calls. The phone routes come with their phase.
 
+Phase B2: `access-answered` reaches the requester (a DM in Discord and Slack, a comment on the
+issue the request was made on in GitHub and Linear, whose access conversations now name it), and
+Discord takes the `post` and `reply` actions, so a bot's schedule can post in a channel or thread.
+
 # Non-goals
 
 - A hosted deployment, accounts, or several people on one deployment.

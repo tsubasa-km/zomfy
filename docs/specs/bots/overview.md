@@ -89,7 +89,7 @@ Each phase ends with its acceptance checks passing. The shared groundwork comes 
 | --- | --- | --- |
 | B0 Groundwork (done) | `packages/relay-contract`; `packages/protocol/src/bots.ts`; `apps/relay` with host registration and the `/v1/host` link (shared with the phone relay) and the delivery queue (lease, ack, re-send, expiry); the daemon's pairing, link and connector client | Contract fixtures round-trip; a fake daemon registers and says `hello` against `wrangler dev` |
 | B1 MVP | Bot records, home, SOUL/MEMORY; talk to a bot from Zomfy; Discord mentions, DMs and threads; replies; Who can ask; Stop; the 24 h offline queue; deploy button and `bun run deploy` | **Zomfy app itself**, then **Discord** |
-| B2 Back to the person | Questions and approvals as Discord buttons and in Zomfy's Needs you; live activity; access requests; schedules with a bot | Discord |
+| B2 Back to the person (built; Discord end-to-end check left) | Questions and approvals as Discord buttons and in Zomfy's Needs you; live activity; access requests; schedules with a bot | Discord |
 | B3 Slack | Slack to Orca's level: mentions, DMs, threads, Block Kit questions, approvals, Stop, status edits | Slack test workspace (the person does not use Slack; checked with a free workspace) |
 | B4 GitHub | GitHub App; mention on issues and PRs; replies and review notes; PR events for the bot's own PRs | A test repository |
 | B5 Webhooks and triggers | Webhook URLs; event triggers from every source; trigger deliveries with grace | `curl` and recorded source events |

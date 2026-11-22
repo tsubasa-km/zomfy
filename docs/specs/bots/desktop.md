@@ -114,10 +114,27 @@ Phase B1 (`apps/desktop`: `stores/bots-store.ts`, `lib/bot-state.ts`, `lib/bot-m
   `@reviewer summarise this chat` opened a chat under the bot with a link back; pairing with a
   `wrangler dev` relay showed connected and the host id, and Unpair returned to the form.
 
-Not yet: the URLs of Slack, GitHub, Linear and webhooks on their cards (their routes come with
-their phases), a bot's automations with **New schedule** / **New trigger** (the `bot` automation
-target is B2), answering a source's question in the inbox clearing it in the source (B2), and
-`@handle` on the New thread page.
+Phase B2 (`lib/bot-automation.ts`, `lib/automation-draft.ts`,
+`components/automations/BotAutomationFields.tsx`, `components/bots/BotNoticeRow.tsx`,
+`components/bots/CopyField.tsx`; tested in `tests/bots.test.ts`):
+
+- Settings → Bots, per bot: **Schedules and triggers** lists its automations (trigger, on/off,
+  click to edit) with **New schedule** and **New trigger**. The automation editor takes a bot: it
+  hides host, workspace and agent (the bot's home and agent), and adds Runs in (a new chat each
+  time, or one chat) and Results go to (its chat, the thread, nowhere, or a place's ref); a
+  trigger picks the source, its event kinds, places, "only from" and "text contains".
+- **New trigger → Webhook**: **Create webhook URL** mints a hook through the relay and shows the
+  URL and key once, with Copy.
+- Linear's Who can ask has a member search (`find` through the relay).
+- Needs you shows bot notices (a webhook refused in a burst or at its cap) with Dismiss; they
+  count with access requests.
+- The Sources cards show the Slack, GitHub and Linear URLs with Copy.
+- `@handle …` on the New thread page opens a bot chat, as in a chat's composer.
+- A source's question answered in the inbox is answered for every side: the daemon clears it in
+  the source ([daemon](daemon.md#built-so-far)).
+- Checked in a preview: New schedule from a bot saved and listed under it (no relay paired).
+
+Not yet: the end-to-end check of a question answered in the inbox against a relay.
 
 # Decisions
 

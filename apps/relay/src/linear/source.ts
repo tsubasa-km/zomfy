@@ -239,7 +239,7 @@ export class LinearSource implements HubSource, OutboundRunner {
           id: `linear-access-${bot.id}-${actor.id}`,
           kind: 'access_request',
           botId: bot.id,
-          conversation: { source: 'linear', externalId: `access:${actor.id}` },
+          conversation: { source: 'linear', externalId: `access:${actor.id}:${issueUuid}:${issue.identifier}` },
           askedAt: now(),
           requester: { source: 'linear', id: actor.id!, name },
           message: `Asked on ${issue.identifier}`
@@ -323,6 +323,13 @@ export class LinearSource implements HubSource, OutboundRunner {
     const externalId = event.conversation.externalId
     if (event.kind === 'unlinked' || event.kind === 'chat-gone') {
       this.sql.exec('DELETE FROM linear_context WHERE external_id = ?', externalId)
+      return
+    }
+    if (event.kind === 'access-answered') {
+      const [, , issueUuid, identifier] = /^access:([^:]+):([^:]+):([^:]+)$/.exec(externalId) ?? []
+      if (!issueUuid || !identifier) return
+      const body = `${event.requester.name}: ${NOTES.accessAnswered(this.bot(event.botId)?.name ?? 'the bot', event.allowed)}`
+      this.queueComment(issueUuid, body, `linear:access-answered:${externalId}:${now()}`, identifier)
       return
     }
     const conv = this.conv(externalId)

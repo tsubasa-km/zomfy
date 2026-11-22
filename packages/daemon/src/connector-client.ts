@@ -8,6 +8,7 @@ import {
   deliverySchema,
   limits,
   type AckOutcome,
+  type ActionVerb,
   type BotEvent,
   type BotsToHost,
   type Delivery,
@@ -58,6 +59,18 @@ export interface ConnectorClientOptions {
 
 const FEATURES = ['hello-bots-pages', 'events-seq']
 
+/** How long an action waits for its `action-result`. */
+const ACTION_TIMEOUT_MS = 60_000
+
+export class ActionError extends Error {
+  constructor(
+    readonly code: string,
+    message: string
+  ) {
+    super(message)
+  }
+}
+
 export class ConnectorClient {
   private readonly link: RelayLink
   private helloRev = 0
@@ -66,6 +79,9 @@ export class ConnectorClient {
   private seq = 0
   private flushTimer: ReturnType<typeof setTimeout> | null = null
   private flushAttempt = 0
+  /** A hello was sent and its hello-ok has not come: events wait, as the Hub would refuse their old helloRev. */
+  private helloPending = false
+  private readonly actions = new Map<string, { resolve: (result: unknown) => void; reject: (error: Error) => void; timer: ReturnType<typeof setTimeout> }>()
 
   constructor(private readonly options: ConnectorClientOptions) {
     this.link = new RelayLink({
@@ -94,6 +110,42 @@ export class ConnectorClient {
     if (this.flushTimer) clearTimeout(this.flushTimer)
     this.flushTimer = null
     this.link.stop()
+    for (const [reqId, pending] of this.actions) {
+      clearTimeout(pending.timer)
+      pending.reject(new ActionError('offline', 'The relay link stopped'))
+      this.actions.delete(reqId)
+    }
+  }
+
+  /**
+   * One action in a source (a post, a hook's management, a file download), answered by the Hub's
+   * `action-result`. Fails at once while the link is down: actions are not queued.
+   */
+  action(verb: ActionVerb, ref: string | undefined, args: Record<string, unknown> = {}, idempotencyKey?: string): Promise<unknown> {
+    if (!this.helloRev || !this.link.online) return Promise.reject(new ActionError('offline', 'The relay is not linked'))
+    const reqId = crypto.randomUUID()
+    return new Promise((resolve, reject) => {
+      const timer = setTimeout(() => {
+        this.actions.delete(reqId)
+        reject(new ActionError('timeout', `${verb}: no answer from the relay`))
+      }, ACTION_TIMEOUT_MS)
+      this.actions.set(reqId, { resolve, reject, timer })
+      const sent = this.link.send({
+        ch: 'bots',
+        type: 'action',
+        helloRev: this.helloRev,
+        reqId,
+        verb,
+        ...(ref ? { ref } : {}),
+        args,
+        ...(idempotencyKey ? { idempotencyKey } : {})
+      })
+      if (!sent) {
+        clearTimeout(timer)
+        this.actions.delete(reqId)
+        reject(new ActionError('offline', 'The relay is not linked'))
+      }
+    })
   }
 
   /** Durably queues an event and sends it now if the link is up. */
@@ -108,7 +160,7 @@ export class ConnectorClient {
     const outbox = this.options.outbox
     if (!outbox || this.flushTimer) return
     for (;;) {
-      if (!this.helloRev || !this.link.online) return
+      if (!this.helloRev || this.helloPending || !this.link.online) return
       const batch = outbox.nextBatch()
       if (!batch.length) {
         this.flushAttempt = 0
@@ -196,6 +248,7 @@ export class ConnectorClient {
       pages.length = limits.maxHelloBotPages
     }
     const rules = (this.options.rules?.() ?? []).slice(0, limits.maxRulesPerHello)
+    this.helloPending = true
     this.link.send({
       ch: 'bots',
       type: 'hello',
@@ -217,6 +270,7 @@ export class ConnectorClient {
     switch (message.type) {
       case 'hello-ok':
         this.helloRev = message.helloRev
+        this.helloPending = false
         this.seq = 0
         if (this.options.snapshot) this.sendEvents([this.options.snapshot()])
         this.flush()
@@ -234,8 +288,15 @@ export class ConnectorClient {
         if (message.action === 'reconnect') this.link.reconnect()
         else this.options.log?.(`connector: relay asked to ${message.action}`)
         return
-      case 'action-result':
+      case 'action-result': {
+        const pending = this.actions.get(message.reqId)
+        if (!pending) return
+        this.actions.delete(message.reqId)
+        clearTimeout(pending.timer)
+        if (message.ok) pending.resolve(message.result)
+        else pending.reject(new ActionError(message.error?.code ?? 'failed', message.error?.message ?? 'The action failed'))
         return
+      }
     }
   }
 

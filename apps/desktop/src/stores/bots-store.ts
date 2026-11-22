@@ -4,6 +4,7 @@ import {
   type BotAsker,
   type BotInput,
   type BotSource,
+  type BotWindowAction,
   type ConnectorStatus
 } from '@zomfy/protocol'
 import { ensureSessionLoaded, harnessRequest } from '@/daemon-connection'
@@ -31,7 +32,7 @@ export function selectBot(id: string | null): void {
   store.update((s) => ({ ...s, selectedId: id }))
 }
 
-/** Once this computer's daemon is up: loads the bots, the relay status and access requests. */
+/** Once this computer's daemon is up: loads the bots, the relay status, access requests and notices. */
 export async function startBots(): Promise<void> {
   try {
     const [{ bots }, connector, { requests }] = await Promise.all([
@@ -42,6 +43,13 @@ export async function startBots(): Promise<void> {
     store.update((s) => ({ ...s, bots, connector, accessRequests: requests }))
   } catch {
     // An older daemon has no bots.
+    return
+  }
+  try {
+    const { notices } = await harnessRequest(BOT_METHODS.botsNotices, {}, LOCAL_HOST)
+    store.update((s) => ({ ...s, notices }))
+  } catch {
+    // A daemon from before bot notices.
   }
 }
 
@@ -75,6 +83,18 @@ export async function answerAccessRequest(id: string, allow: boolean): Promise<v
   // Optimistic: the daemon's broadcast confirms it.
   store.update((s) => ({ ...s, accessRequests: s.accessRequests.filter((r) => r.id !== id) }))
   await harnessRequest(BOT_METHODS.botsAnswerAccessRequest, { id, allow }, LOCAL_HOST)
+}
+
+export async function dismissBotNotice(id: string): Promise<void> {
+  // Optimistic, as access requests are.
+  store.update((s) => ({ ...s, notices: s.notices.filter((n) => n.id !== id) }))
+  await harnessRequest(BOT_METHODS.botsDismissNotice, { id }, LOCAL_HOST)
+}
+
+/** One relay action over this computer's link (minting a webhook, finding people); fails with no relay. */
+export async function botAction(verb: BotWindowAction, args: Record<string, unknown>, ref?: string): Promise<unknown> {
+  const { result } = await harnessRequest(BOT_METHODS.botsAction, { verb, args, ...(ref ? { ref } : {}) }, LOCAL_HOST)
+  return result
 }
 
 export async function pairConnector(relayUrl: string, setupCode: string): Promise<ConnectorStatus> {

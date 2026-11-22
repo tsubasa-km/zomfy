@@ -3,8 +3,10 @@ import type { HandlerContext } from "./handler-context.ts";
 import { AutomationService } from "../automation-service.ts";
 import { log } from "../log.ts";
 
-export function registerAutomationHandlers({ handle, workspaces, sessions, runTurn, broadcast }: HandlerContext): void {
+export function registerAutomationHandlers({ handle, workspaces, sessions, runTurn, broadcast, services }: HandlerContext): void {
   const service = new AutomationService({ workspaces, sessions, runTurn, broadcast });
+  // The bots run their schedules and triggers through it (bot-handlers.ts).
+  services.automations = service;
   // Started with the daemon, not a window: runs go on while no client is connected.
   const started = service.start().catch((error) => log(`automations failed to start: ${String(error)}`));
 

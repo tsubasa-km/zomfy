@@ -127,8 +127,11 @@ Details settled while building:
   its comments), `edit`, `delete` (comments) and `check` (a pull request's state and check runs).
 - Tested in workerd against a fake GitHub API (`apps/relay/test/github.test.ts`).
 
-Left: the end-to-end check on a test repository, and the daemon test that `pr_event
-check_failed` reaches the worker chat (the daemon's part).
+The daemon's part followed with phase B2: `pr_event` reaches the worker chat on that branch
+(tested in the daemon), and the owner's answer to an access request is commented on the issue it
+was asked on.
+
+Left: the end-to-end check on a test repository.
 
 # Non-goals
 

@@ -19,6 +19,20 @@ export interface AskEveryClientDeps {
   closed: (client: acp.AgentContext) => Promise<void>;
   broadcast: (method: string, params: unknown) => void;
   waitMs: number;
+  /** How long an ask nobody holds waits for one of this chat; `waitMs` when left out or null. */
+  waitMsFor?: (request: acp.RequestPermissionRequest) => number | null;
+}
+
+/** Who settled an ask: a client (window, phone), an outside answerer (a bot's source), the wait, or the turn. */
+export type AskSettledBy = "client" | "outside" | "expired" | "withdrawn";
+
+/**
+ * Sees every ask and how it ends, and may answer it from outside the clients: a bot chat's source
+ * (docs/specs/bots/daemon.md#questions-and-approvals). The first answer wins either way.
+ */
+export interface AskObserver {
+  asked(askId: string, request: acp.RequestPermissionRequest): void;
+  settled(askId: string, request: acp.RequestPermissionRequest, response: acp.RequestPermissionResponse, by: AskSettledBy): void;
 }
 
 export type AskOutcome = { response: acp.RequestPermissionResponse; unanswered: boolean };
@@ -31,14 +45,29 @@ interface PendingAsk {
   /** A client answered "cancelled" while others still held the ask; it wins only if they all go. */
   cancelledBy: acp.RequestPermissionResponse | null;
   timer: ReturnType<typeof setTimeout> | null;
-  settle: (outcome: AskOutcome) => void;
+  settle: (outcome: AskOutcome, by?: AskSettledBy) => void;
 }
 
 const CANCELLED: acp.RequestPermissionResponse = { outcome: { outcome: "cancelled" } };
 
 export class AskEveryClient {
   private readonly pending = new Map<string, PendingAsk>();
+  private readonly observers = new Set<AskObserver>();
   constructor(private readonly deps: AskEveryClientDeps) {}
+
+  /** Adds an observer of every ask from now on; returns how to remove it. */
+  observe(observer: AskObserver): () => void {
+    this.observers.add(observer);
+    return () => this.observers.delete(observer);
+  }
+
+  /** Answers a waiting ask from outside the clients; false when it is no longer waiting. */
+  answer(askId: string, response: acp.RequestPermissionResponse): boolean {
+    const entry = this.pending.get(askId);
+    if (!entry) return false;
+    entry.settle({ response, unanswered: false }, "outside");
+    return true;
+  }
 
   /** Asks every client; `unanswered` is true when nobody held the ask long enough to answer it. */
   ask(request: acp.RequestPermissionRequest, signal?: AbortSignal): Promise<AskOutcome> {
@@ -55,7 +84,7 @@ export class AskEveryClient {
         asked: new Set(),
         cancelledBy: null,
         timer: null,
-        settle: (outcome) => {
+        settle: (outcome, by = "client") => {
           if (!this.pending.delete(askId)) return;
           if (entry.timer) clearTimeout(entry.timer);
           signal?.removeEventListener("abort", onAbort);
@@ -67,13 +96,27 @@ export class AskEveryClient {
             optionId: selected,
             ...(selected && answers ? { answers } : {}),
           } satisfies PermissionAskResolved);
+          for (const observer of this.observers) {
+            try {
+              observer.settled(askId, params, outcome.response, by);
+            } catch {
+              // An observer's trouble never keeps the answer from the agent.
+            }
+          }
           resolve(outcome);
         },
       };
-      const onAbort = () => entry.settle({ response: CANCELLED, unanswered: false });
+      const onAbort = () => entry.settle({ response: CANCELLED, unanswered: false }, "withdrawn");
       if (signal?.aborted) return resolve({ response: CANCELLED, unanswered: false });
       signal?.addEventListener("abort", onAbort, { once: true });
       this.pending.set(askId, entry);
+      for (const observer of this.observers) {
+        try {
+          observer.asked(askId, params);
+        } catch {
+          // As above.
+        }
+      }
       for (const client of this.deps.clients()) this.send(entry, client);
       this.waitIfUnheld(entry);
     });
@@ -87,7 +130,7 @@ export class AskEveryClient {
   /** Withdraws every ask of a chat (its turn ended), as if it had been cancelled. */
   withdraw(sessionId: string): void {
     for (const entry of [...this.pending.values()]) {
-      if (entry.params.sessionId === sessionId) entry.settle({ response: CANCELLED, unanswered: false });
+      if (entry.params.sessionId === sessionId) entry.settle({ response: CANCELLED, unanswered: false }, "withdrawn");
     }
   }
 
@@ -133,6 +176,7 @@ export class AskEveryClient {
 
   private waitIfUnheld(entry: PendingAsk): void {
     if (entry.holders.size > 0 || entry.timer || !this.pending.has(entry.askId)) return;
-    entry.timer = setTimeout(() => entry.settle({ response: CANCELLED, unanswered: true }), this.deps.waitMs);
+    const waitMs = this.deps.waitMsFor?.(entry.params) ?? this.deps.waitMs;
+    entry.timer = setTimeout(() => entry.settle({ response: CANCELLED, unanswered: true }, "expired"), waitMs);
   }
 }
