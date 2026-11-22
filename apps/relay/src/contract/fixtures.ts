@@ -32,6 +32,22 @@ export const fixtureRule = {
   graceMs: 60_000
 }
 
+/** A webhook rule: its hook and filters. */
+export const fixtureWebhookRule = {
+  id: 'rule-wh',
+  botId: 'bot-reviewer',
+  source: 'webhook' as const,
+  kinds: ['call'],
+  places: [],
+  graceMs: 60_000,
+  webhook: {
+    hookId: 'wh_AAAAAAAAAAAAAAAA',
+    where: [{ path: 'body.level', op: '=' as const, values: ['error'] }],
+    pick: ['body.title'],
+    subjectFrom: 'body.issue_id'
+  }
+}
+
 export const deliveryFixtures: { [K in Delivery['kind']]: Extract<Delivery, { kind: K }> } = {
   start: {
     id: 'dl-start',
@@ -122,6 +138,17 @@ export const deliveryFixtures: { [K in Delivery['kind']]: Extract<Delivery, { ki
     expiresAt: T0 + 86_400_000,
     requester: { source: 'discord', id: 'u-stranger', name: 'Stranger' },
     message: 'may I use the reviewer?'
+  },
+  webhook_alert: {
+    id: 'dl-alert',
+    kind: 'webhook_alert',
+    botId: 'bot-reviewer',
+    conversation: { source: 'webhook', externalId: 'wh_AAAAAAAAAAAAAAAA' },
+    askedAt: T0,
+    expiresAt: T0 + 86_400_000,
+    hookId: 'wh_AAAAAAAAAAAAAAAA',
+    condition: 'cap_reached',
+    count: 200
   }
 }
 
@@ -180,7 +207,7 @@ export const messageFixtures = {
     sources: ['discord'],
     promptKinds: ['approval', 'question'],
     bots: [fixtureBot],
-    rules: [fixtureRule],
+    rules: [fixtureRule, fixtureWebhookRule],
     pages: 1
   },
   'bots/hello-bots': { ch: 'bots', type: 'hello-bots', page: 2, bots: [{ ...fixtureBot, id: 'bot-2', handle: 'second' }] },

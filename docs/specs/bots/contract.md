@@ -92,6 +92,16 @@ Common fields: `id` (stable across re-sends), `kind`, `botId`, `conversation {so
 | `webhook_notice` | `hookId`, `callId` | The daemon fetches the stored call with an action |
 | `pr_event` | `repo`, `number`, `branch`, `headSha`, `event` | Wakes the worker whose workspace is that branch at that commit |
 | `access_request` | `requester`, `message?` | Shown to the owner in Zomfy |
+| `webhook_alert` | `hookId`, `condition: refusal_burst\|cap_reached`, `count?` | A notice to the owner in Zomfy ([webhooks](sources/webhooks.md)) |
+
+Optional fields added with the sources (an older daemon ignores them): `start.placeKind`
+(`direct_message`, `group_message`, `public_channel`, `private_channel`, `issue`, `pull_request`, as
+in Orca), `start.ruleIds` and `send.ruleIds` (rules of the same bot the asking message also matched,
+run inside that turn: `triggerInTurn`), `webhook_notice.ruleId` and `.subject`, and on `pr_event`
+`actor`, `check`, `reviewState`, `url`, `text`, `ref`; `pr_event.event` also takes `review_comment`
+and `reopened`. A `trigger` delivery's `event` has the shape `triggerEventSchema` documents
+(`source`, `kind`, `key`, `actorId`, `fromOwner?`, `actor?`, `placeRef?`, `place?`, `subject?`,
+`url?`, `text?`, `occurredAt`, `conversation?`).
 
 `context[]` items carry a `label` (`earlier`, `no_access`, `issue`, `bot`, `more`, `unreadable`) as
 in Orca, so the agent can tell its own posts and others' text apart.[^orca-bots]
@@ -114,15 +124,21 @@ Reply outcomes, as Orca's: `answered`, `quiet`, `no_answer`, `interrupted`, `fai
 ## Actions
 
 Shared verbs, as Orca's `/v1/connector/actions`: `reply`, `react`, `read`, `post`, `find`, `check`,
-`edit`, `delete`, `attach`, `set`, plus `webhook.fetch` and `capabilities`. A `ref` names a place in
+`edit`, `delete`, `attach`, `set`, plus `webhook.fetch` and `capabilities`; Slack's `pin`, `canvas`,
+`list`, `scheduled`; and the hook verbs `webhook.mint`, `webhook.list`, `webhook.state`,
+`webhook.rotate`, `webhook.secret`, `webhook.delete`, `webhook.done`, whose arguments are
+`webhookActionArgs` ([webhooks](sources/webhooks.md)). A `ref` names a place in
 a source: `discord:<guild>:<channel>:<thread?>:<message?>`, `slack:<team>:<channel>:<thread_ts?>`,
-`github:<installation>:<owner/repo>:<number>`, `linear:<org>:<issue>`, `zomfy:<sessionId>`. A `post`
-carries an `idempotencyKey`, so a retry never posts twice.
+`github:<installation>:<owner/repo>:<number?>` (no number: the whole repository, as a rule's place),
+`linear:<org>:<issue>`, `zomfy:<sessionId>`. An action on a source as a whole names it in
+`args.source` instead of a ref. A `post` carries an `idempotencyKey`, so a retry never posts twice.
 
 ## Triggers
 
-A rule: `id`, `botId`, `source`, `kinds[]`, `places[] ≤10`, `from?`, `fromOwner?`, `label?`,
-`workflowRun?`, `inThread?`, `graceMs ≤24 h`. At most 100 rules per hello. The Hub matches source
+A rule: `id`, `botId`, `source`, `kinds[]`, `places[] ≤10`, `from?` (ids separated by commas or
+spaces), `fromOwner?`, `label?`, `workflowRun?`, `inThread?`, `graceMs ≤24 h`, and, added with the
+sources, `textContains?`, `subject?`, `team?` and `states[]?` (Linear), and `webhook?` (a webhook
+rule's `hookId` and filters). The kinds per source are `TRIGGER_KINDS`, Orca's. At most 100 rules per hello. The Hub matches source
 events against them and queues a `trigger` delivery; a message that both asks the bot and matches a
 rule runs the rule inside that turn (`triggerInTurn`).[^orca-bots]
 
