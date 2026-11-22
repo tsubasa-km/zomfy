@@ -121,6 +121,8 @@ export class SessionRegistry {
           | 'handoffContext'
           | 'localOnly'
           | 'origin'
+          | 'botId'
+          | 'botFrom'
           | 'agentSessionIds'
           | 'agentState'
           | 'importedFrom'

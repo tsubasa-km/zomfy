@@ -13,6 +13,7 @@ import {
   PING_FRAME,
   PONG_FRAME,
   type Ack,
+  type BotEvent,
   type Delivery,
   type Hello
 } from '@zomfy/relay-contract'
@@ -28,6 +29,9 @@ export class FakeHub {
   readonly hellos: Hello[] = []
   readonly acks: Ack[] = []
   readonly frames: unknown[] = []
+  /** Events from batches taken in order, as the Hub keeps them (a seen `seq` is skipped). */
+  readonly events: BotEvent[] = []
+  private readonly lastSeq = new Map<string, number>()
   /** Connections that got as far as auth-ok. */
   connections = 0
   private readonly hosts = new Map<string, string>()
@@ -105,9 +109,20 @@ export class FakeHub {
       this.hellos.push(msg)
       const rev = (this.helloRev.get(ws.data.hostId) ?? 0) + 1
       this.helloRev.set(ws.data.hostId, rev)
+      this.lastSeq.set(ws.data.hostId, -1)
       const open = [...this.deliveries.values()].filter((d) => !d.done).map((d) => d.delivery)
       ws.send(JSON.stringify({ ch: 'bots', type: 'hello-ok', helloRev: rev, features: [], unsettled: open.map((d) => d.id) }))
       if (open.length) this.sendTo(ws, open)
+      return
+    }
+    if (msg.type === 'events') {
+      if (msg.helloRev !== this.helloRev.get(ws.data.hostId)) {
+        ws.send(JSON.stringify({ ch: 'bots', type: 'error', code: 'hello_required', message: 'stale helloRev' }))
+        return
+      }
+      if (msg.seq <= (this.lastSeq.get(ws.data.hostId) ?? -1)) return
+      this.lastSeq.set(ws.data.hostId, msg.seq)
+      this.events.push(...(msg.events as BotEvent[]))
       return
     }
     if (msg.type === 'ack') {
@@ -153,6 +168,11 @@ export class FakeHub {
   revokeAll() {
     this.hosts.clear()
     this.dropAll(limits.closeUnauthorized, 'revoked')
+  }
+
+  /** The events of one kind, in the order taken. */
+  eventsOf<K extends BotEvent['kind']>(kind: K): Extract<BotEvent, { kind: K }>[] {
+    return this.events.filter((e): e is Extract<BotEvent, { kind: K }> => e.kind === kind)
   }
 
   acksFor(id: string) {
