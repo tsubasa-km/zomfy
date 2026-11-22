@@ -80,6 +80,7 @@ import { log } from "./log.ts";
 import { ConnectionClients } from "./connection-clients.ts";
 import { AskEveryClient } from "./ask-every-client.ts";
 import { DeviceStore } from "./device-store.ts";
+import { envVar } from "./harness-home.ts";
 import { RemoteGateway } from "./remote-gateway.ts";
 import { registerRemoteDeviceHandlers } from "./handlers/remote-device-handlers.ts";
 import { compactTranscript } from "./transcript-compaction.ts";
@@ -828,6 +829,8 @@ export function createHarnessAgent(
     store: new DeviceStore(),
     connect: (stream) => app.connect(stream),
     onChange: (snapshot) => broadcast(REMOTE_DEVICE_NOTIFICATIONS.devicesChanged, snapshot),
+    // ZOMFY_REMOTE_BIND=127.0.0.1 keeps it on this computer (previews, the Android Emulator).
+    ...(envVar("REMOTE_BIND") ? { bindHostname: envVar("REMOTE_BIND") } : {}),
   });
   registerRemoteDeviceHandlers(handle, gateway, options.remoteGateway === true);
 

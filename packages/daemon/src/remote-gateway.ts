@@ -181,7 +181,15 @@ export class RemoteGateway {
       port,
       running: this.server !== null,
       error: this.error,
-      routes: this.server ? localRoutes(bound, (this.deps.interfaces ?? networkInterfaces)()) : [],
+      routes: !this.server
+        ? []
+        : this.deps.bindHostname === "127.0.0.1"
+          ? // Loopback only: the Android Emulator reaches this computer's 127.0.0.1 as 10.0.2.2.
+            [
+              { kind: "lan", url: `http://10.0.2.2:${bound}` },
+              { kind: "lan", url: `http://127.0.0.1:${bound}` },
+            ]
+          : localRoutes(bound, (this.deps.interfaces ?? networkInterfaces)()),
     };
   }
 
