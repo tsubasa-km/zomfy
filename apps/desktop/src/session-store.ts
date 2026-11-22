@@ -13,7 +13,7 @@ import type {
   Workspace
 } from '@zomfy/protocol'
 import { LEGACY_NEW_CHAT_TITLE, NEW_CHAT_TITLE } from '@zomfy/protocol'
-import { WINDOW_ROLE } from '@/lib/window-role'
+import { WINDOW_ROLE, WINDOW_WORKSPACE_ID } from '@/lib/window-role'
 import {
   carriesOverOpenChats,
   carryOverOpenChats,
@@ -30,11 +30,12 @@ import {
   setTabMeta,
   setTabScopeResolver,
   showChat,
+  tabScope,
   WINDOW_TABS
 } from '@/stores/tab-layout-store'
 import { openWorkflows } from '@/stores/workflows-store'
 import { getSidebarState, useSidebarStore } from '@/stores/sidebar-store'
-import { hidePaneSidebar, showPaneSidebar, togglePaneSidebar } from '@/stores/pane-sidebar-store'
+import { hidePaneSidebar, paneSidebarKey, showPaneSidebar, togglePaneSidebar } from '@/stores/pane-sidebar-store'
 import { forgetHostSnapshot, saveHostSnapshot } from '@/lib/host-snapshots'
 import {
   appendPane,
@@ -960,32 +961,42 @@ function panelOf(tab: RightSidebarTab): string {
 }
 
 /**
- * The right sidebar is each workspace pane's own now (stores/pane-sidebar-store), so this shows
- * (with `tab`) or hides the active workspace's; `togglePaneSidebarOf` flips it.
+ * The right sidebar is each split pane's own (stores/pane-sidebar-store, docs/specs/pane-sidebars.md),
+ * so this shows (with `tab`) or hides the focused pane's.
  */
 export function setRightSidebar(change: Partial<StoreState['rightSidebar']>): void {
   set({ ...state, rightSidebar: { ...state.rightSidebar, ...change } })
-  const workspaceId = state.activeWorkspaceId
-  if (!workspaceId) return
-  if (change.open === false) hidePaneSidebar(workspaceId)
-  else showPaneSidebar(workspaceId, change.tab ? panelOf(change.tab) : undefined)
+  const key = focusedPaneSidebarKey()
+  if (change.open === false) hidePaneSidebar(key)
+  else showPaneSidebar(key, change.tab ? panelOf(change.tab) : undefined)
 }
 
-/** The active workspace's sidebar on `tab`, or closed when it already shows that (or, without `tab`, anything). */
+/** The sidebar of the pane being worked in, in this window's tabs: the main window's, or a pop-out's. */
+export function focusedPaneSidebarKey(): string {
+  const scope = WINDOW_WORKSPACE_ID ? tabScope(WINDOW_WORKSPACE_ID) : WINDOW_TABS
+  return paneSidebarKey(scope, layoutFor(scope).focusedGroupId)
+}
+
+/** Where the "New thread" tab's chat starts: the workspace it was opened from, else the main checkout of the project picked there. */
+function startTabWorkspaceId(s: StoreState, startProject: string | null, live: (id: string | null) => id is string): string | null {
+  if (live(s.startTab.workspaceId)) return s.startTab.workspaceId
+  const folder = allWorkspaces(s).find((w) => w.isPrimary && `${w.hostId}:${w.projectId}` === startProject)?.id ?? null
+  return live(folder) ? folder : null
+}
+
+function liveInWindow(s: StoreState): (id: string | null) => id is string {
+  return (id): id is string => id !== null && inWindowTabs(id, s) && allWorkspaces(s).some((w) => w.id === id)
+}
+
 /**
  * The workspace the right sidebar shows: the one in front. With the "New thread" tab in front, the
- * one its chat starts in: the workspace it was opened from, else the main checkout of the project
- * picked there (as its composer uses), else none, for a quick thread has no project yet. With no
- * tab in front at all, the one last in front, so closing the last tab does not take it away.
+ * one its chat starts in (startTabWorkspaceId), else none, for a quick thread has no project yet.
+ * With no tab in front at all, the one last in front, so closing the last tab does not take it away.
  */
 export function sidebarWorkspaceId(s: StoreState = state, startProject: string | null = getSidebarState().startProject): string | null {
-  const live = (id: string | null): id is string => id !== null && inWindowTabs(id, s) && allWorkspaces(s).some((w) => w.id === id)
+  const live = liveInWindow(s)
   if (live(s.activeWorkspaceId)) return s.activeWorkspaceId
-  if (s.startTab.open && s.activeSessionByWorkspace[WINDOW_TABS] === START_TAB) {
-    if (live(s.startTab.workspaceId)) return s.startTab.workspaceId
-    const folder = allWorkspaces(s).find((w) => w.isPrimary && `${w.hostId}:${w.projectId}` === startProject)?.id ?? null
-    return live(folder) ? folder : null
-  }
+  if (s.startTab.open && s.activeSessionByWorkspace[WINDOW_TABS] === START_TAB) return startTabWorkspaceId(s, startProject, live)
   return live(lastActiveWorkspaceId) ? lastActiveWorkspaceId : null
 }
 
@@ -995,9 +1006,33 @@ export function useSidebarWorkspaceId(): string | null {
   return useStore((s) => sidebarWorkspaceId(s, startProject))
 }
 
+/**
+ * The workspace one pane's sidebar shows. A pop-out window's or the floating panel's tabs are one
+ * workspace's. Among the window's, the workspace of the pane's front tab (`front`: its workspace,
+ * 'start' for the "New thread" tab, null for no tab); with none in front, sidebarWorkspaceId's.
+ */
+export function paneSidebarWorkspaceId(
+  scope: string,
+  front: string | 'start' | null,
+  s: StoreState = state,
+  startProject: string | null = getSidebarState().startProject
+): string | null {
+  if (scope !== WINDOW_TABS) return allWorkspaces(s).some((w) => w.id === scope) ? scope : null
+  const live = liveInWindow(s)
+  if (front === 'start') return startTabWorkspaceId(s, startProject, live)
+  if (front !== null) return live(front) ? front : null
+  return sidebarWorkspaceId(s, startProject)
+}
+
+/** paneSidebarWorkspaceId as a hook: a string, so the pane redraws only when it changes. */
+export function usePaneSidebarWorkspaceId(scope: string, front: string | 'start' | null): string | null {
+  const startProject = useSidebarStore((s) => (front === 'start' || front === null ? s.startProject : null))
+  return useStore((s) => paneSidebarWorkspaceId(scope, front, s, startProject))
+}
+
+/** The focused pane's sidebar on `tab`, or closed when it already shows that (or, without `tab`, anything). */
 export function toggleActivePaneSidebar(tab?: RightSidebarTab): void {
-  const workspaceId = sidebarWorkspaceId()
-  if (workspaceId) togglePaneSidebar(workspaceId, tab ? panelOf(tab) : undefined)
+  togglePaneSidebar(focusedPaneSidebarKey(), tab ? panelOf(tab) : undefined)
 }
 
 export function markSeen(sessionId: string): void {

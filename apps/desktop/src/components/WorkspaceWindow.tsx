@@ -7,7 +7,6 @@ import { getState, selectWorkspace, useStore } from '@/session-store'
 import { WorkspaceTabs } from '@/components/WorkspaceTabs'
 import { DragChip, PointerDragLayer } from '@/components/PointerDragLayer'
 import { usePaneTitle } from '@/components/WorkspaceColumns'
-import { PaneSidebar, PaneSidebarToggle } from '@/components/tab-layout/PaneSidebar'
 import { paneDrag } from '@/components/pane-drop'
 import { Toaster } from '@/components/ui/sonner'
 import { ChatLightbox } from '@/components/native-chat/ChatLightbox'
@@ -82,7 +81,6 @@ export default function WorkspaceWindow() {
                   </div>
                 }
               />
-              <PaneSidebar workspaceId={workspaceId} />
             </div>
           ) : (
             <div className="m-auto text-sm text-muted-foreground">{t('Connecting…')}</div>
@@ -116,9 +114,6 @@ function WindowPaneHeader({ workspaceId }: { workspaceId: string }) {
     >
       <span className="shrink-0 text-sm font-medium text-foreground">{title}</span>
       {detail && <span className="min-w-0 truncate text-xs text-muted-foreground">{detail}</span>}
-      <div className="ml-auto flex min-w-0 items-center gap-0.5">
-        <PaneSidebarToggle workspaceId={workspaceId} />
-      </div>
     </div>
   )
 }
