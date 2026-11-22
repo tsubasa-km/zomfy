@@ -12,6 +12,7 @@ import {
 import { log } from './log.ts'
 import { HARNESS_HOME } from './harness-home.ts'
 import { CHAT_ATTACHMENT_DIR } from './chat-attachment-files.ts'
+import { stoppedToolCallUpdates } from './stopped-tool-calls.ts'
 
 const SESSIONS_DIR = join(HARNESS_HOME, 'sessions')
 const INDEX_PATH = join(SESSIONS_DIR, 'index.json')
@@ -66,6 +67,8 @@ export class SessionRegistry {
         if (r.status === 'working' || r.status === 'needs-you') {
           // Recorded, so the chat shows where it stopped and can offer Continue.
           const end: TurnEndMeta = { reason: 'interrupted' }
+          // Its calls died with that daemon: they read as stopped, not running (stopped-tool-calls.md).
+          for (const stopped of stoppedToolCallUpdates(await this.readTranscript(r.id))) await this.record(r.id, stopped).catch(() => undefined)
           await this.record(r.id, {
             sessionUpdate: 'notice',
             severity: 'warning',

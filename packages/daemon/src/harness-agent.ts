@@ -44,6 +44,7 @@ import { chatAgentLaunch } from "./chat-agent-launch-settings.ts";
 import { noteSlashCommands } from "./claude-catalog.ts";
 import { liveClaudeQueries } from "./live-claude-queries.ts";
 import { BackgroundTaskMarks } from "./background-task-marks.ts";
+import { PROCESS_GONE_META, stopsOpenToolCalls, stoppedToolCallUpdates } from "./stopped-tool-calls.ts";
 import type { SessionRegistry } from "./session-registry.ts";
 import { SessionMover } from "./session-move.ts";
 import type { TerminalManager } from "./terminal-manager.ts";
@@ -296,6 +297,10 @@ export function createHarnessAgent(
 
   /** Recorded for replay, then sent to every client so a reconnected window sees live turns. */
   async function emit(sessionId: string, update: acp.SessionUpdate): Promise<void> {
+    // A turn or process that stopped leaves its open calls stopped, not running (stopped-tool-calls.md).
+    if (stopsOpenToolCalls(update)) {
+      for (const stopped of stoppedToolCallUpdates(await sessions.transcript(sessionId))) await emit(sessionId, stopped);
+    }
     const seq = await sessions.record(sessionId, update);
     broadcast(acp.methods.client.session.update, { sessionId, update, _meta: { [SESSION_REPLAY_META.seq]: seq } });
   }
@@ -344,6 +349,7 @@ export function createHarnessAgent(
       sessionUpdate: "notice",
       severity: "warning",
       title: `Zomfy restarted, which stopped the background tasks this chat was running: ${tasks.join(", ")}`,
+      _meta: { [PROCESS_GONE_META]: true },
     }).catch(() => undefined);
   }
 
