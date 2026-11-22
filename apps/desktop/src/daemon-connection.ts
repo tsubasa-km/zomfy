@@ -41,6 +41,11 @@ import {
   type TerminalInfo,
   type TerminalOutput,
   type TodoItem,
+  PERMISSION_ASK_META,
+  PERMISSION_ASK_NOTIFICATIONS,
+  type PermissionAskResolved,
+  REMOTE_DEVICE_NOTIFICATIONS,
+  type RemoteDevicesSnapshot,
 } from "@zomfy/protocol";
 import { applyChatUpdate, latestTurnEnd } from "./chat-transcript";
 import { WINDOW_ROLE } from "./lib/window-role";
@@ -83,6 +88,9 @@ import { runManagerTool } from "./manager/manager-tool-runner";
 import { applyAutomationSnapshot } from "./stores/automation-store";
 import { notifyAutoResumed } from "./agent-notifications";
 import { dispatchLspEvent } from "./lib/lsp/lsp-events";
+import { setDevicesSnapshot } from "./stores/devices-store";
+import { applyBotsNotification, startBots } from "./stores/bots-store";
+import { BOT_NOTIFICATIONS } from "@zomfy/protocol";
 
 interface DaemonInfo {
   url: string;
@@ -95,7 +103,18 @@ interface DaemonInfo {
 const connections = new Map<HostId, acp.ClientConnection>();
 const connecting = new Map<HostId, Promise<void>>();
 /** Approvals this window was asked, by request id; settled when answered or when the ask is gone. */
-const pendingPermissions = new Map<string, { sessionId: string; hostId: HostId; settle: (optionId: string | null, answers?: Record<string, string>) => void }>();
+const pendingPermissions = new Map<string, { sessionId: string; hostId: HostId; askId?: string; settle: (optionId: string | null, answers?: Record<string, string>) => void }>();
+/** Asks answered in another window or on a phone, by `${hostId} ${askId}`; one this window draws late closes at once. */
+const resolvedAsks = new Set<string>();
+
+/** Another client answered an ask (or the daemon withdrew it): this window's card for it closes. */
+function closeResolvedAsk(hostId: HostId, resolved: PermissionAskResolved): void {
+  resolvedAsks.add(`${hostId} ${resolved.askId}`);
+  if (resolvedAsks.size > 200) resolvedAsks.delete(resolvedAsks.values().next().value!);
+  for (const entry of [...pendingPermissions.values()]) {
+    if (entry.hostId === hostId && entry.askId === resolved.askId) entry.settle(resolved.optionId, resolved.answers);
+  }
+}
 
 /** The daemon no longer waits on these (the turn ended, or the link carrying them closed). */
 function expirePermissions(match: (entry: { sessionId: string; hostId: HostId }) => boolean): void {
@@ -253,6 +272,39 @@ async function openConnection(hostId: HostId): Promise<void> {
         if (hostId === LOCAL_HOST) setTodos(ctx.params);
       },
     )
+    .onNotification(
+      REMOTE_DEVICE_NOTIFICATIONS.devicesChanged,
+      (raw: unknown) => raw as RemoteDevicesSnapshot,
+      (ctx) => {
+        if (hostId === LOCAL_HOST) setDevicesSnapshot(ctx.params);
+      },
+    )
+    .onNotification(
+      BOT_NOTIFICATIONS.botsChanged,
+      (raw: unknown) => raw,
+      (ctx) => {
+        if (hostId === LOCAL_HOST) applyBotsNotification(BOT_NOTIFICATIONS.botsChanged, ctx.params);
+      },
+    )
+    .onNotification(
+      BOT_NOTIFICATIONS.connectorStatusChanged,
+      (raw: unknown) => raw,
+      (ctx) => {
+        if (hostId === LOCAL_HOST) applyBotsNotification(BOT_NOTIFICATIONS.connectorStatusChanged, ctx.params);
+      },
+    )
+    .onNotification(
+      BOT_NOTIFICATIONS.accessRequestsChanged,
+      (raw: unknown) => raw,
+      (ctx) => {
+        if (hostId === LOCAL_HOST) applyBotsNotification(BOT_NOTIFICATIONS.accessRequestsChanged, ctx.params);
+      },
+    )
+    .onNotification(
+      PERMISSION_ASK_NOTIFICATIONS.resolved,
+      (raw: unknown) => raw as PermissionAskResolved,
+      (ctx) => closeResolvedAsk(hostId, ctx.params),
+    )
     .onNotification("session/update", (ctx) => {
       const replay = replayBuffers.get(ctx.params.sessionId);
       if (replay) replay.push(ctx.params);
@@ -357,6 +409,8 @@ async function openConnection(hostId: HostId): Promise<void> {
     if (hostId === LOCAL_HOST) void opened.agent.request<TodoItem[]>(HARNESS_METHODS.todosList, {}).then(setTodos, () => undefined);
     // The project catalog lives on this computer's daemon too; an older daemon has none.
     if (hostId === LOCAL_HOST) void startProjectCatalog();
+    // Bots live on this computer's daemon; an older daemon has none.
+    if (hostId === LOCAL_HOST) void startBots();
     reconnectAttempts.delete(hostId);
   } catch (error) {
     opened.close();
@@ -681,6 +735,9 @@ async function requestPermission(
 ): Promise<acp.RequestPermissionResponse> {
   // A window that just (re)connected may be asked before its session list has arrived.
   await whenState((s) => s.sessions.some((x) => x.id === params.sessionId), 30_000);
+  const askId = typeof params._meta?.[PERMISSION_ASK_META.askId] === "string" ? (params._meta[PERMISSION_ASK_META.askId] as string) : undefined;
+  // Answered elsewhere while this window was still catching up: nothing to draw.
+  if (askId && resolvedAsks.has(`${hostId} ${askId}`)) return { outcome: { outcome: "cancelled" } };
   const requestId = crypto.randomUUID();
   updateSession(params.sessionId, (s) => ({
     ...s,
@@ -699,7 +756,7 @@ async function requestPermission(
     ],
   }));
   return new Promise((resolve) => {
-    pendingPermissions.set(requestId, { sessionId: params.sessionId, hostId, settle: (optionId, answers) => {
+    pendingPermissions.set(requestId, { sessionId: params.sessionId, hostId, ...(askId ? { askId } : {}), settle: (optionId, answers) => {
       if (!pendingPermissions.delete(requestId)) return;
       updateSession(params.sessionId, (s) => ({
         ...s,

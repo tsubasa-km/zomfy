@@ -1,8 +1,8 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
   "productName": "Zomfy",
-  "mainBinaryName": "acp-harness-desktop",
-  "version": "0.2.51",
+  "mainBinaryName": "zomfy",
+  "version": "0.2.52",
   "identifier": "io.github.tsubasa-km.zomfy",
   "build": {
     "beforeDevCommand": "bun run --cwd ../../packages/daemon build && bun run dev",

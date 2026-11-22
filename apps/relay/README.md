@@ -1,0 +1,160 @@
+# Zomfy Relay
+
+The Cloudflare Worker each person deploys to their own account: the bots connector and the phone
+relay in one Worker with one Durable Object, `Hub`, plus `DiscordGateway`, which holds Discord's
+Gateway connection ([decision](../../docs/decisions/one-relay-worker.md),
+[connector spec](../../docs/specs/bots/connector.md), [Discord spec](../../docs/specs/bots/sources/discord.md)).
+
+It builds on its own: the contract is vendored into `src/contract/` by `bun run relay:vendor` at the
+repository root, so there is no `workspace:*` dependency.
+
+## Deploy
+
+Either way works on the Workers Free plan for one person. Holding the Discord Gateway all day uses
+about 11,000 of the free 13,000 GB-s of Durable Object time a day; if Cloudflare reports going over,
+move the account to Workers Paid (5 USD a month). `GET /health` shows the Gateway's uptime.
+
+### Deploy to Cloudflare button
+
+[![Deploy to Cloudflare](https://deploy.workers.cloudflare.com/button)](https://deploy.workers.cloudflare.com/?url=https://github.com/tsubasa-km/zomfy/tree/main/apps/relay)
+
+Cloudflare copies this directory into a repository of yours, creates the Worker and its Durable
+Objects, and asks for the secrets in [`.dev.vars.example`](.dev.vars.example). Fill in
+`SETUP_CODE` (make one with `openssl rand -hex 16`) and the secrets of the sources you want, from
+each source's steps below; leave the rest empty. Then continue with each source's steps (Discord
+from step 2).
+
+### `bun run deploy`
+
+From a clone of the repository:
+
+```sh
+cd apps/relay
+npx wrangler login     # once
+bun run deploy         # or npm run deploy
+```
+
+It checks that wrangler is signed in, runs `wrangler deploy`, makes a new single-use `SETUP_CODE`
+(the first time, or when you ask), asks for the Discord secrets if you want Discord, and prints the
+Worker URL, the setup code, the Interactions Endpoint URL and the link that adds the app to your
+server. `bun run deploy -- --dry-run` prints the steps without running them.
+
+## Discord
+
+1. At [discord.com/developers/applications](https://discord.com/developers/applications) →
+   **New Application** ("Zomfy"). Copy **Application ID** and **Public Key** from General
+   Information. On **Bot**: **Reset Token** and copy it, and turn on **Message Content Intent**
+   (free for bots in fewer than 100 servers). Give these to `bun run deploy` (or the button).
+2. **General Information → Interactions Endpoint URL**: `<worker URL>/discord/interactions`, then
+   **Save** (Discord checks it with a signed PING the Worker answers).
+3. Add the app to your server with the link `bun run deploy` printed, or **OAuth2 → URL Generator**:
+   scopes `bot` and `applications.commands`; permissions View Channels, Send Messages, Send Messages
+   in Threads, Create Public Threads, Read Message History, Add Reactions, Embed Links, Attach Files.
+4. Open `<worker URL>/health` once: `discordGateway.state` should be `ready`. The Worker registers
+   `/ask` and the message command **Ask bot** when the Gateway first connects.
+5. In Zomfy: **Settings → Bots → Relay**, paste the Worker URL and the setup code, **Pair**. For each
+   bot, **Who can ask → Discord**: your own user id (Discord **Settings → Advanced → Developer
+   Mode**, then right-click yourself → **Copy User ID**) as owner, and members the same way.
+
+Then `@Zomfy fix the typo in README` in a channel opens a thread with a status and a Stop button;
+`@Zomfy reviewer …` names a bot by handle, otherwise the default bot answers. A DM to the app is a
+conversation of its own until you write `new`.
+
+## Slack
+
+One Slack app serves every bot ([spec](../../docs/specs/bots/sources/slack.md)); bots are named by
+handle (`@Zomfy reviewer …`).
+
+1. [api.slack.com/apps](https://api.slack.com/apps) → **Create New App → From a manifest**, pick the
+   workspace, and paste [`slack-manifest.yaml`](slack-manifest.yaml) with your Worker URL in place
+   of `https://YOUR-WORKER.workers.dev` (`bun run deploy` prints it filled in). Nothing else in it
+   needs editing.
+2. **Install to Workspace** (an admin may have to approve). Copy **OAuth & Permissions → Bot User
+   OAuth Token** (`xoxb-…`) and **Basic Information → App Credentials → Signing Secret**, and give
+   them to `bun run deploy` (or `wrangler secret put SLACK_BOT_TOKEN` and `SLACK_SIGNING_SECRET`).
+3. Back in the app: **Event Subscriptions** shows the Request URL `<worker URL>/slack/events`; press
+   **Retry** if Slack checked it before the secrets were set. **Interactivity** is
+   `<worker URL>/slack/interactivity`.
+4. Invite the app to the channels it should hear (`/invite @Zomfy`); a DM to the app works anywhere.
+5. In Zomfy, each bot's **Who can ask → Slack**: your member id (your profile → **⋯** → **Copy member
+   ID**) as owner; members the same way.
+
+Then `@Zomfy fix the typo in README` in a channel answers in that message's thread, with a status
+line and a **Stop** button; questions and approvals come as buttons. A bare `@Zomfy` takes your own
+last messages before it as the request.
+
+## GitHub
+
+Your own GitHub App ([spec](../../docs/specs/bots/sources/github.md)); people ask with
+`@<app-slug> <handle> …` on issues and pull requests.
+
+1. `bun run deploy --github` (or answer **y** to GitHub in `bun run deploy`): give the app a name
+   that is free on GitHub (e.g. `zomfy-bots-<you>`) and, if an organization should own it, its
+   login. Your browser opens GitHub's **Create GitHub App** page filled in from
+   [`github-app-manifest.json`](github-app-manifest.json) (webhook URL, permissions, events); press
+   **Create**. GitHub sends the browser back to the script on your computer, which stores
+   `GITHUB_APP_ID`, `GITHUB_APP_SLUG`, `GITHUB_APP_PRIVATE_KEY` and `GITHUB_WEBHOOK_SECRET` as
+   Worker secrets.
+2. **Install** the app on the repositories it should hear (the link the script prints, or the app's
+   page → **Install App**); an organization owner may have to approve.
+3. In Zomfy, each bot's **Who can ask → GitHub**: your login as owner; members by login.
+
+The app may read issues, pull requests, checks, contents, Actions, deployments and security
+alerts, and write issues and pull requests. It answers in comments (review notes as one review),
+shows 👀 while it works, asks questions as numbered comments (reply with the number), and
+leaves approvals to Zomfy. A failed check on a pull request you opened wakes the worker on that
+branch. Code work (pushes, new pull requests) uses your own `gh` sign-in on the computer, never the
+app.
+
+## Linear
+
+Your own Linear app ([spec](../../docs/specs/bots/sources/linear.md)); people ask with
+`@Zomfy <handle> …` in a comment or description, or by adding the label `bot:<handle>` to an issue.
+
+1. Linear → **Settings → API → OAuth applications → New**: name it "Zomfy", any callback URL (the
+   Worker URL will do), and turn on **Client credentials**. Copy the client id and secret. (Or,
+   just for yourself: **Settings → Security & access → Personal API keys**; comments then come from
+   you, with an "asked by" line for others.)
+2. **Settings → API → Webhooks → New**: URL `<worker URL>/linear/webhook`, resources **Issues**,
+   **Comments** and **Issue labels**; copy the signing secret.
+3. `bun run deploy --linear` asks for these and stores them (`LINEAR_CLIENT_ID`,
+   `LINEAR_CLIENT_SECRET` or `LINEAR_ACCESS_TOKEN`, and `LINEAR_WEBHOOK_SECRET`). With the app, the
+   Worker gets its own 30-day app token from Linear and renews it by itself.
+4. In Zomfy, each bot's **Who can ask → Linear**: pick yourself as owner, and members, from the list
+   the relay reads.
+
+The bot answers with an "On it…" comment that shows its progress and becomes the answer;
+questions are numbered comments you answer by replying; approvals are answered in Zomfy.
+
+## Webhooks
+
+Any system can wake a bot with one HTTP call ([spec](../../docs/specs/bots/sources/webhooks.md));
+nothing needs setting up in Cloudflare. In Zomfy, a bot → **New trigger → Webhook** makes the hook
+and shows its URL and key once. Callers send
+
+```sh
+curl -X POST <worker URL>/hooks/<hookId> -H "Authorization: Bearer <key>" -H "Content-Type: application/json" -d '{"level":"error"}'
+```
+
+or put the key in the path (`<worker URL>/hooks/<hookId>/<key>`) when they cannot set headers. A
+hook can also check the sender's own signature (Standard Webhooks, GitHub, Sentry, Linear,
+PagerDuty, Stripe). The answer is `{callId, status}` with `queued`, `ignored` (filters),
+`duplicate` or `paused`; 401 is a bad key or signature, 413 a body over 1 MiB, 429 more than the
+hook's runs for the hour (200 at most, 300 for the deployment). Bodies are kept at most 7 days,
+without the key or credential headers.
+
+## Develop
+
+```sh
+bun run test        # Worker tests in workerd (@cloudflare/vitest-plugin), with a fake Discord
+cp .dev.vars.example .dev.vars   # put a made-up SETUP_CODE in it; leave Discord empty
+bun run dev         # wrangler dev
+bun scripts/fake-daemon.ts http://127.0.0.1:8787 <that setup code>
+```
+
+Routes: `GET /health`, `POST /v1/hosts/register`, `POST /v1/hosts/invite`, the daemon's link
+`GET /v1/host`, `POST /discord/interactions`, `POST /slack/events` and `/slack/interactivity`,
+`POST /github/webhook`, `POST /linear/webhook` (each source's routes answer 404 until its secrets
+are set), and
+`POST /hooks/<hookId>` for webhooks. Tests reach fake Slack, GitHub and
+Linear APIs (`test/fake-apis.mjs`) through the `SOURCES_TRANSPORT` binding.

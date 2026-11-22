@@ -1,0 +1,70 @@
+{
+  "name": "@zomfy/relay",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "wrangler dev",
+    "deploy": "node scripts/deploy.mjs",
+    "test": "vitest run",
+    "typecheck": "bun check"
+  },
+  "dependencies": {
+    "zod": "4.6.7"
+  },
+  "devDependencies": {
+    "@cloudflare/vitest-plugin": "1.9.0",
+    "@cloudflare/workers-types": "5.20261121.1",
+    "typescript": "7.0.2",
+    "vitest": "5.1.1",
+    "wrangler": "4.166.0"
+  },
+  "cloudflare": {
+    "bindings": {
+      "SETUP_CODE": {
+        "description": "Required. A one-time code Zomfy pairs with: make one with `openssl rand -hex 16` and keep it for Settings → Bots → Relay."
+      },
+      "DISCORD_APPLICATION_ID": {
+        "description": "Discord (optional): **General Information → Application ID** of your app at [discord.com/developers](https://discord.com/developers/applications). Leave empty to turn Discord off."
+      },
+      "DISCORD_PUBLIC_KEY": {
+        "description": "Discord: **General Information → Public Key** (64 hex characters)."
+      },
+      "DISCORD_BOT_TOKEN": {
+        "description": "Discord: **Bot → Reset Token**. Turn on **Message Content Intent** on the same page."
+      },
+      "SLACK_BOT_TOKEN": {
+        "description": "Slack (optional): the **Bot User OAuth Token** (`xoxb-…`) of the app made from `apps/relay/slack-manifest.yaml` (README, \"Slack\"). Leave empty to turn Slack off."
+      },
+      "SLACK_SIGNING_SECRET": {
+        "description": "Slack: **Basic Information → App Credentials → Signing Secret**."
+      },
+      "GITHUB_APP_ID": {
+        "description": "GitHub (optional): your GitHub App's **App ID**. Easiest: leave the four GITHUB_* empty here and run `bun run deploy --github` later, which makes the app and sets them (README, \"GitHub\")."
+      },
+      "GITHUB_APP_PRIVATE_KEY": {
+        "description": "GitHub: the app's private key (the whole `.pem`, line breaks kept or written as `\\n`)."
+      },
+      "GITHUB_WEBHOOK_SECRET": {
+        "description": "GitHub: the app's webhook secret."
+      },
+      "GITHUB_APP_SLUG": {
+        "description": "GitHub: the app's slug, as in github.com/apps/<slug>; people ask with @<slug>."
+      },
+      "LINEAR_ACCESS_TOKEN": {
+        "description": "Linear (optional), one of two ways: a **personal API key** (`lin_api_…`; comments then come from you). Leave empty when you use LINEAR_CLIENT_ID and LINEAR_CLIENT_SECRET (README, \"Linear\")."
+      },
+      "LINEAR_CLIENT_ID": {
+        "description": "Linear, the other way: your OAuth app's client id, with **Client credentials** turned on (comments come from the app)."
+      },
+      "LINEAR_CLIENT_SECRET": {
+        "description": "Linear: that OAuth app's client secret."
+      },
+      "LINEAR_WEBHOOK_SECRET": {
+        "description": "Linear: the signing secret of the webhook to `<worker URL>/linear/webhook` (Issues, Comments, Issue labels). Leave empty to turn Linear off."
+      },
+      "EXPO_ACCESS_TOKEN": {
+        "description": "Phone push notifications (a later phase): leave empty."
+      }
+    }
+  }
+}

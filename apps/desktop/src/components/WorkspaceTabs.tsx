@@ -18,6 +18,7 @@ import { syncWorkspaceFocus, useWorkspaceTabs } from '@/components/tab-layout/wo
 import { TerminalWorkspaceDialogs } from '@/components/terminal/TerminalWorkspaceDialogs'
 import { reconcileWorkspacePanes } from '@/components/terminal/terminal-pane-commands'
 import { paneOwnerTab, setActivePane, useTerminalPaneState } from '@/stores/terminal-pane-store'
+import { syncPaneSidebars } from '@/stores/pane-sidebar-store'
 import '@/components/tab-layout/tab-layout.css'
 import { t } from '@/i18n/i18n'
 
@@ -28,12 +29,15 @@ import { t } from '@/i18n/i18n'
 export function WorkspaceTabs({
   workspaceId,
   trailing,
-  emptyHint
+  emptyHint,
+  sidebars = true
 }: {
   workspaceId: string
   /** Controls drawn at the strip's right edge (the floating panel's window buttons). */
   trailing?: React.ReactNode
   emptyHint: string
+  /** Whether each pane has its own right sidebar (docs/specs/pane-sidebars.md). */
+  sidebars?: boolean
 }) {
   const tabs = useWorkspaceTabs(workspaceId)
   // The terminal menus' dialogs belong to a workspace: among the window's tabs, the one in front.
@@ -72,6 +76,12 @@ export function WorkspaceTabs({
     syncWorkspaceFocus(workspaceId)
   }, [workspaceId, layout, liveIds, focusTabId, hostListed])
 
+  // Panes that went away take their sidebars' state with them; until the hosts have listed their
+  // tabs the layout may still change, so it waits for them.
+  useEffect(() => {
+    if (sidebars && hostListed) syncPaneSidebars(tabScope(workspaceId), leafGroupIds(layout.root), layout.focusedGroupId)
+  }, [sidebars, hostListed, workspaceId, layout])
+
   const rootRef = useRef<HTMLDivElement>(null)
   const switcher = useTabKeyboard({ workspaceId, rootRef, tabs, layout })
   const byId = useMemo(() => new Map(tabs.map((t) => [t.id, t])), [tabs])
@@ -108,6 +118,7 @@ export function WorkspaceTabs({
               hasSplit={hasSplit}
               trailing={groupId === trailingGroup ? trailing : undefined}
               emptyHint={hasSplit ? t('Empty pane') : emptyHint}
+              sidebar={sidebars}
             />
           )
         }}

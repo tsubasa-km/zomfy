@@ -17,6 +17,15 @@ When a reply mentions an English UI label, command or file name, keep it as writ
 
 Keep to Japanese even when the last message was an English button label, a tool result, or an agent's report.
 
+# Documentation first
+
+`docs/` is an Open Knowledge Format (OKF v0.3) bundle; read the specs that touch your task before
+changing code. A new feature or a change in behaviour starts with its spec in `docs/specs/`, agreed
+before the code, and the work closes by marking it done — the flow is in
+[docs/specs/documentation-driven-development.md](docs/specs/documentation-driven-development.md).
+Write and validate the docs with the `okf-generate` skill (`.claude/skills/`); answer questions
+from them with `okf-consume`. Small fixes that change no behaviour need no spec.
+
 # Working in parallel
 
 This repo is often worked on by several agents at once, each in a git worktree of its own. Keep the
@@ -31,7 +40,9 @@ merges cheap:
   in one place only.
 - Commit on your own branch; do not merge, rebase or switch branches unless asked.
 - Before you say the work is done, run what CI runs: `bun run typecheck`, then `bun test` in
-  `packages/daemon` and in `apps/desktop`.
+  `packages/daemon`, `apps/desktop` and `packages/relay-contract`, and `bun run test` in `apps/relay`
+  when you touched the relay. Run them in the foreground: in a Zomfy chat a background command does
+  not wake you once your turn has ended.
 
 # Branches
 

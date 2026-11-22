@@ -14,6 +14,9 @@ import { sessionAgent } from '@/lib/chat-agents'
 import { inboxEntries, questionsOf, type Approval, type InboxEntry } from './inbox-entries'
 import { questionsToAnswer } from '@/components/native-chat/agent-questions'
 import type { TodoItem, TodoLink } from '@zomfy/protocol'
+import { useBots } from '@/stores/bots-store'
+import { BotAvatar } from '@/components/bots/BotAvatar'
+import { AccessRequestRow } from '@/components/bots/AccessRequestRow'
 import { t } from '@/i18n/i18n'
 
 // One place for everything waiting on the person across hosts (the sidebar's "Waiting for you" and
@@ -39,6 +42,8 @@ function InboxSurface() {
   const unread = useStore((s) => s.unread)
   const hosts = useStore((s) => s.hosts)
   const todos = useInbox((s) => s.todos)
+  const accessRequests = useBots((s) => s.accessRequests)
+  const bots = useBots((s) => s.bots)
   const entries = useMemo(() => inboxEntries(sessions, unread), [sessions, unread])
   const managerShortcut = useShortcutLabel('manager.open')
   const waiting = entries.filter((e) => e.kind !== 'finished')
@@ -60,7 +65,7 @@ function InboxSurface() {
       <div className="flex shrink-0 items-center gap-2 border-b border-border px-3 py-2">
         <Inbox className="size-4 text-muted-foreground" />
         <h2 className="text-[13px] font-semibold">{t('Inbox')}</h2>
-        <span className="text-[11px] text-muted-foreground tabular-nums">{waiting.length + finished.length + openTodos.length}</span>
+        <span className="text-[11px] text-muted-foreground tabular-nums">{waiting.length + accessRequests.length + finished.length + openTodos.length}</span>
         <div className="ml-auto flex items-center gap-1">
           <button
             type="button"
@@ -86,9 +91,15 @@ function InboxSurface() {
         </div>
       </div>
       <div className="scrollbar-sleek min-h-0 flex-1 overflow-y-auto">
-        <InboxSection id="Needs you" title={t('Needs you')} count={waiting.length}>
+        <InboxSection id="Needs you" title={t('Needs you')} count={waiting.length + accessRequests.length}>
           {waiting.map((entry) => (
             <EntryRow key={entryKey(entry)} entry={entry} where={where(entry.session)} offline={offline(entry.session)} />
+          ))}
+          {/* A bot's access requests wait for its owner here and in Settings → Bots. */}
+          {accessRequests.map((request) => (
+            <div key={request.id} className="rounded-md border border-agent-question/40 bg-agent-question/[0.06] px-2 py-0.5" data-inbox-entry="access-request">
+              <AccessRequestRow request={request} bot={bots?.find((b) => b.id === request.botId)} />
+            </div>
           ))}
         </InboxSection>
         <InboxSection
@@ -149,6 +160,8 @@ function InboxSection({
 
 function EntryRow({ entry, where, offline }: { entry: InboxEntry; where: string; offline: boolean }) {
   const { session } = entry
+  // A bot chat's entry wears the bot's avatar, as Orca's Needs you does.
+  const bot = useBots((s) => (session.origin === 'bot' && session.botId ? s.bots?.find((b) => b.id === session.botId) : undefined))
   const lastReply = entry.kind === 'finished' ? session.items.findLast((i) => i.kind === 'agent') : undefined
   return (
     <div
@@ -168,8 +181,8 @@ function EntryRow({ entry, where, offline }: { entry: InboxEntry; where: string;
         }}
         className="flex w-full items-center gap-1.5 text-left focus-visible:rounded-sm focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
       >
-        <TuiAgentIcon agent={sessionAgent(session)} size={12} />
-        <span className="min-w-0 truncate text-[12px] font-medium">{session.title}</span>
+        {bot ? <BotAvatar bot={bot} size={14} /> : <TuiAgentIcon agent={sessionAgent(session)} size={12} />}
+        <span className="min-w-0 truncate text-[12px] font-medium">{bot ? `${bot.name} · ${session.title}` : session.title}</span>
         {offline ? (
           <span className="ml-auto shrink-0 text-[10px] text-muted-foreground" title={t('Its host is out of contact; it may still be running')}>
             {t('unverifiable')}

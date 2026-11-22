@@ -1,4 +1,4 @@
-import { Bell, BookOpen, Bot, Blocks, Keyboard, Mic, Palette, Server, SlidersHorizontal, SquareTerminal, TextCursorInput, type LucideIcon } from 'lucide-react'
+import { Bell, BookOpen, Bot, BotMessageSquare, Blocks, Keyboard, Mic, Palette, Server, SlidersHorizontal, Smartphone, SquareTerminal, TextCursorInput, type LucideIcon } from 'lucide-react'
 import { t } from '@/i18n/i18n'
 
 // Orca's settings sidebar groups and sections (hooks/settings-navigation-*-sections.ts), trimmed
@@ -184,6 +184,30 @@ export const SETTINGS_SECTIONS: readonly SettingsNavSection[] = [
     entries: [
       { title: t('Connection'), keywords: ['daemon', 'wsl', 'ssh', 'remote', 'tunnel', 'connected', 'offline'] },
       { title: t('Default shell'), keywords: ['shell'] }
+    ]
+  },
+  {
+    id: 'bots',
+    title: t('Bots'),
+    description: t('Your relay, the sources it carries, and each bot: its files, who can ask, pause and delete.'),
+    icon: BotMessageSquare,
+    group: 'remote',
+    entries: [
+      { title: t('Relay'), keywords: ['relay', 'cloudflare', 'worker', 'pair', 'setup code', 'deploy', 'unpair'] },
+      { title: t('Sources'), keywords: ['discord', 'slack', 'github', 'linear', 'webhook', 'interactions'] },
+      { title: t('Create bot'), keywords: ['bot', 'soul', 'memory', 'who can ask', 'handle'] }
+    ]
+  },
+  {
+    id: 'devices',
+    title: t('Devices'),
+    description: t('Pair an Android phone with this computer, and revoke phones you no longer use.'),
+    icon: Smartphone,
+    group: 'remote',
+    entries: [
+      { title: t('Let phones connect'), keywords: ['phone', 'android', 'mobile', 'lan', 'tailscale', 'listener', 'port'] },
+      { title: t('Pair a phone'), keywords: ['pair', 'qr', 'phone', 'android', 'link'] },
+      { title: t('Paired phones'), keywords: ['revoke', 'unpair', 'phone', 'device'] }
     ]
   }
 ]

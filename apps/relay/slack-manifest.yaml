@@ -1,0 +1,52 @@
+# The Slack app for Zomfy Relay (docs/specs/bots/sources/slack.md). api.slack.com/apps → Create New
+# App → From a manifest → paste this with your Worker URL in place of https://YOUR-WORKER.workers.dev
+# (`bun run deploy` prints it filled in). One app serves every bot; bots are named by handle.
+display_information:
+  name: Zomfy
+  description: Ask your Zomfy bots from Slack
+  background_color: "#1f2430"
+features:
+  app_home:
+    home_tab_enabled: false
+    messages_tab_enabled: true
+    messages_tab_read_only_enabled: false
+  bot_user:
+    display_name: Zomfy
+    always_online: true
+oauth_config:
+  scopes:
+    bot:
+      - app_mentions:read
+      - chat:write
+      - chat:write.customize
+      - channels:history
+      - channels:read
+      - groups:history
+      - groups:read
+      - im:history
+      - im:read
+      - im:write
+      - mpim:history
+      - reactions:read
+      - reactions:write
+      - files:read
+      - files:write
+      - users:read
+      - pins:write
+      - canvases:write
+settings:
+  event_subscriptions:
+    request_url: https://YOUR-WORKER.workers.dev/slack/events
+    bot_events:
+      - app_mention
+      - message.channels
+      - message.groups
+      - message.im
+      - message.mpim
+      - reaction_added
+  interactivity:
+    is_enabled: true
+    request_url: https://YOUR-WORKER.workers.dev/slack/interactivity
+  org_deploy_enabled: false
+  socket_mode_enabled: false
+  token_rotation_enabled: false

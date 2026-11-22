@@ -58,6 +58,15 @@ export function ChatListOptionsMenu() {
         >
           {t('Workflow threads')}
         </DropdownMenuCheckboxItem>
+        <DropdownMenuCheckboxItem
+          data-option="bot-chats"
+          title={t('Threads with your bots. The Bots page lists them either way; one waiting for you shows here anyway.')}
+          checked={view.botChats === true}
+          onCheckedChange={(checked) => setSidebarView({ botChats: checked === true })}
+          onSelect={(e) => e.preventDefault()}
+        >
+          {t('Show bot chats')}
+        </DropdownMenuCheckboxItem>
       </DropdownMenuContent>
     </DropdownMenu>
   )

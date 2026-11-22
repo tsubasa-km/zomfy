@@ -3,6 +3,11 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { Progress } from '@/components/ui/progress'
 import { cn } from '@/lib/utils'
 import type { ContextUsage } from '@/stores/chat-store'
+import type { HostId } from '@/session-store'
+import { useUsageLimits } from '@/stores/usage-limits-store'
+import { requestDrawer } from '@/stores/drawer-request-store'
+import { ProviderLimits } from '@/components/right-sidebar/session-panel/UsageLimitsSection'
+import { PanelRight } from 'lucide-react'
 import { t } from '@/i18n/i18n'
 
 // Ported from Orca's NativeChatContextUsageRing and native-chat-context-usage-summary.
@@ -58,8 +63,46 @@ function useContextCardOpen() {
   return { open, setOpen, setOpenAfterHover }
 }
 
-/** Composer ring for context-window usage; hover, click, or Enter shows the breakdown. */
-export function NativeChatContextUsageRing({ usage }: { usage: ContextUsage }) {
+/** Where the chat runs, for the account's usage limits and the Session panel link. */
+export interface ContextRingChat {
+  hostId: HostId
+  sessionId: string
+  workspaceId: string
+}
+
+/**
+ * The account's usage limits under the context numbers, as the Session panel shows them. Mounted
+ * only while the card is open, so a closed ring asks for nothing.
+ */
+function ContextCardUsageLimits({ chat, onOpenPanel }: { chat: ContextRingChat; onOpenPanel: () => void }) {
+  const limits = useUsageLimits(chat.hostId, chat.sessionId)
+  return (
+    <div className="mt-3 border-t border-border pt-3 text-xs" data-context-usage-limits>
+      <div className="mb-2 font-medium text-foreground">{t('Usage limits')}</div>
+      <div className="space-y-3">
+        {limits.providers.map((provider) => (
+          <ProviderLimits key={provider.provider} provider={provider} />
+        ))}
+        {limits.providers.length === 0 && (
+          <p className="text-muted-foreground">{limits.loading ? t('Reading the limits…') : (limits.error ?? t('No limits to show.'))}</p>
+        )}
+      </div>
+      <button
+        type="button"
+        className="mt-3 flex items-center gap-1 text-xs text-muted-foreground outline-none hover:text-foreground hover:underline focus-visible:ring-2 focus-visible:ring-ring"
+        onMouseDown={(event) => event.preventDefault()}
+        onClick={onOpenPanel}
+        data-context-open-session-panel
+      >
+        <PanelRight className="size-3" />
+        {t('Open the Session panel')}
+      </button>
+    </div>
+  )
+}
+
+/** Composer ring for context-window usage; hover, click, or Enter shows the breakdown and the account's limits. */
+export function NativeChatContextUsageRing({ usage, chat }: { usage: ContextUsage; chat?: ContextRingChat }) {
   const percentage = usage.size > 0 ? Math.round((usage.used / usage.size) * 100) : 0
   const filled = Math.min(Math.max(percentage, 0), 100)
   const critical = percentage >= CRITICAL_PERCENTAGE
@@ -144,6 +187,15 @@ export function NativeChatContextUsageRing({ usage }: { usage: ContextUsage }) {
               <p className="mt-3 text-xs text-muted-foreground tabular-nums">{t('Session cost ${cost}', { cost: usage.costUsd.toFixed(2) })}</p>
             ) : null}
             {usage.estimated ? <p className="mt-3 text-2xs text-muted-foreground">{t('Estimated from the last response.')}</p> : null}
+            {chat ? (
+              <ContextCardUsageLimits
+                chat={chat}
+                onOpenPanel={() => {
+                  setOpen(false)
+                  requestDrawer(chat.workspaceId, 'panel:agent', 'show')
+                }}
+              />
+            ) : null}
           </div>
         </PopoverContent>
       </Popover>

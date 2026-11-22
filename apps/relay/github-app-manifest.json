@@ -1,0 +1,34 @@
+{
+  "name": "zomfy-bots",
+  "url": "https://github.com/tsubasa-km/zomfy",
+  "description": "Ask your Zomfy bots on issues and pull requests. Made by bun run deploy --github; see apps/relay/README.md.",
+  "hook_attributes": { "url": "https://YOUR-WORKER.workers.dev/github/webhook", "active": true },
+  "redirect_url": "http://127.0.0.1:PORT/github/callback",
+  "public": false,
+  "default_permissions": {
+    "issues": "write",
+    "pull_requests": "write",
+    "checks": "read",
+    "contents": "read",
+    "metadata": "read",
+    "actions": "read",
+    "deployments": "read",
+    "security_events": "read",
+    "vulnerability_alerts": "read"
+  },
+  "default_events": [
+    "issues",
+    "issue_comment",
+    "pull_request",
+    "pull_request_review",
+    "pull_request_review_comment",
+    "check_suite",
+    "check_run",
+    "workflow_run",
+    "push",
+    "deployment_status",
+    "security_advisory",
+    "dependabot_alert",
+    "code_scanning_alert"
+  ]
+}

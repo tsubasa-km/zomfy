@@ -6,7 +6,7 @@
  * old name, and leaves alone what has to keep it on purpose:
  *   - any line that mentions "legacy" (the migration code that reads old homes, env vars and keys),
  *   - the repository folder and the GitHub repository name, which are not renamed,
- *   - the installed executable's name (`mainBinaryName`), which installed copies and shortcuts use.
+ *   - the spec that retires the legacy name, which has to name what it retires.
  *
  * Usage: bun scripts/rename-to-zomfy.ts [--check]
  *   --check  only lists what would change and exits 1 when anything would.
@@ -17,12 +17,12 @@ import { join } from 'node:path'
 const root = join(import.meta.dir, '..')
 const check = process.argv.includes('--check')
 
-/** Files that are never rewritten: this script, and the lockfile, which `bun install` regenerates. */
-const SKIP_FILES = new Set(['scripts/rename-to-zomfy.ts', 'bun.lock'])
+/** Files that are never rewritten: this script, the lockfile (`bun install` regenerates it), the legacy-name spec. */
+const SKIP_FILES = new Set(['scripts/rename-to-zomfy.ts', 'bun.lock', 'docs/specs/retire-legacy-home.md'])
 const SKIP_EXTENSIONS = /\.(png|ico|icns|jpg|jpeg|gif|webp|woff2?|ttf|otf|wasm|pdf|zip|exe)$/i
 
 /** Lines containing any of these keep the old name. */
-const KEEP_LINE = [/legacy/i, /"mainBinaryName"/]
+const KEEP_LINE = [/legacy/i]
 
 /** Spans that keep the old name inside a line that is otherwise rewritten. */
 const KEEP_SPANS = [

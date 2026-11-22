@@ -57,6 +57,7 @@ import { createTranscriptBuilder } from '@/components/native-chat/native-chat-tr
 import { useNativeChatFind } from '@/components/native-chat/use-native-chat-find'
 import { ContinueInTerminalContextMenuItem } from '@/components/native-chat/NativeChatTerminalMenuItem'
 import '@/components/native-chat/native-chat-appearance.css'
+import { BotChatHeader } from '@/components/bots/BotChatHeader'
 import { t } from '@/i18n/i18n'
 import { getTabLayoutState } from '@/stores/tab-layout-store'
 import { projectLabel } from '@/components/sidebar/workspace-visibility'
@@ -258,9 +259,20 @@ export function ThreadView({ session, onSendToMain }: { session: Session; onSend
               className="scrollbar-sleek relative h-full overflow-y-auto pt-(--tab-top-inset) outline-none [overflow-anchor:none] [scrollbar-gutter:stable_both-edges]"
             >
               {empty ? (
-                session.role === 'manager' ? <ManagerEmptyState /> : <NativeChatEmptyState session={session} />
+                session.role === 'manager' ? (
+                  <ManagerEmptyState />
+                ) : (
+                  // The bot's header sits above the empty state, which fills what is left.
+                  <div className="flex h-full flex-col">
+                    <BotChatHeader session={session} />
+                    <div className="min-h-0 flex-1">
+                      <NativeChatEmptyState session={session} />
+                    </div>
+                  </div>
+                )
               ) : (
                 <div className={TRANSCRIPT_OUTER_CLASS}>
+                  <BotChatHeader session={session} />
                   <div ref={columnRef} data-native-chat-transcript-column className={TRANSCRIPT_COLUMN_CLASS}>
                     <NativeChatTranscriptRows
                       rows={model.rows}

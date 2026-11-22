@@ -5,6 +5,8 @@
   "workspaces": ["packages/*", "apps/*"],
   "scripts": {
     "daemon": "bun --cwd packages/daemon start",
-    "typecheck": "bun --filter '*' typecheck"
+    "typecheck": "bun --filter '*' typecheck",
+    "relay:vendor": "bun scripts/relay-vendor.ts",
+    "mobile:apk": "bun --cwd apps/mobile run apk"
   }
 }

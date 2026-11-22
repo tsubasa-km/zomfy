@@ -1,0 +1,31 @@
+# Secrets of Zomfy Relay. Copy to .dev.vars for `wrangler dev`; in Cloudflare they are Worker
+# secrets (`wrangler secret put <NAME>`). A source with no secrets is off and its routes answer 404.
+
+# Required: lets the first host register (128-bit random, e.g. `openssl rand -hex 16`).
+SETUP_CODE=
+
+# Discord: General Information → Application ID and Public Key; Bot → Reset Token (README, "Discord")
+DISCORD_APPLICATION_ID=
+DISCORD_PUBLIC_KEY=
+DISCORD_BOT_TOKEN=
+
+# Slack: the app from slack-manifest.yaml; OAuth & Permissions → Bot User OAuth Token, and
+# Basic Information → Signing Secret (README, "Slack")
+SLACK_BOT_TOKEN=
+SLACK_SIGNING_SECRET=
+
+# GitHub App: made by `bun run deploy --github` from github-app-manifest.json (README, "GitHub")
+GITHUB_APP_ID=
+GITHUB_APP_PRIVATE_KEY=
+GITHUB_WEBHOOK_SECRET=
+GITHUB_APP_SLUG=
+
+# Linear: an OAuth app with Client credentials on (client id and secret), or a personal API key
+# in LINEAR_ACCESS_TOKEN; and the webhook's signing secret (README, "Linear")
+LINEAR_ACCESS_TOKEN=
+LINEAR_CLIENT_ID=
+LINEAR_CLIENT_SECRET=
+LINEAR_WEBHOOK_SECRET=
+
+# Optional: push notifications to paired phones
+EXPO_ACCESS_TOKEN=

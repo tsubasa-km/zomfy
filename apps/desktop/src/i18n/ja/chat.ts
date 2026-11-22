@@ -152,6 +152,7 @@ export const CHAT: Record<string, string> = {
 
   // components/native-chat/NativeChatComposer.tsx
   'The workflow did not start': 'ワークフローを開始できませんでした',
+  '{name} could not take it': '{name} に依頼できませんでした',
   'Reconnecting to {host}… You can keep writing; sending waits until it is back.': '{host} に再接続しています… 入力は続けられます。送信は再接続を待って行われます。',
   Attachments: '添付ファイル',
   'Image {n}': '画像 {n}',
@@ -192,6 +193,7 @@ export const CHAT: Record<string, string> = {
   Context: 'コンテキスト',
   'Session cost ${cost}': 'セッションの費用 ${cost}',
   'Estimated from the last response.': '直前の応答からの推定値です。',
+  'Open the Session panel': 'セッションパネルを開く',
 
   // components/native-chat/NativeChatCopyButton.tsx
   Copied: 'コピーしました',

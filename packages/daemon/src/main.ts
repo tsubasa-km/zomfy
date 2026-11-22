@@ -9,6 +9,7 @@ import { log } from "./log.ts";
 import { runManagerMcpBridge } from "./manager-mcp-bridge.ts";
 import { pruneChatAttachments } from "./chat-attachment-files.ts";
 import { takeHomeMigrationLog } from "./harness-home.ts";
+import { retireLegacyHomeAtStart } from "./legacy-home-retire.ts";
 
 const DEFAULT_PORT = 7801;
 const bridgeIndex = process.argv.indexOf("--mcp-bridge");
@@ -18,13 +19,17 @@ if (bridgeIndex !== -1) {
   process.exit(0);
 }
 for (const line of takeHomeMigrationLog()) log(line);
+// Before any store loads: stored paths under the legacy home move to the new one.
+await retireLegacyHomeAtStart(log).catch((error) => log(`retiring the legacy home failed: ${error}`));
 const workspaces = new WorkspaceManager();
 await workspaces.load();
 const sessions = new SessionRegistry();
 await sessions.load();
 void pruneChatAttachments().catch((error) => log(`attachment cleanup failed: ${error}`));
 // Inline terminals of chats deleted while the host was down are dropped on restore.
-const agent = createHarnessAgent(workspaces, sessions, new TerminalManager((id) => sessions.get(id) !== undefined));
+const agent = createHarnessAgent(workspaces, sessions, new TerminalManager((id) => sessions.get(id) !== undefined), {
+  remoteGateway: !process.argv.includes("--stdio"),
+});
 
 if (process.argv.includes("--stdio")) {
   // For ACP clients that launch the agent themselves (Zed, Orca).

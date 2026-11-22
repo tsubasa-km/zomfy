@@ -190,11 +190,13 @@ export function TabStrip({
           <Plus className="size-4" />
         </button>
       ) : (
-        <>
+        // In a narrow pane these give way, so the pane's own buttons at the end (its actions, its
+        // sidebar's toggle) stay in reach.
+        <div className="flex min-w-0 shrink items-stretch overflow-hidden">
           <NewTabMenu workspaceId={workspaceId} groupId={groupId} />
           <NewTerminalButton workspaceId={workspaceId} groupId={groupId} />
           <QuickCommandsButton workspaceId={workspaceId} />
-        </>
+        </div>
       )}
       <div className="min-w-0 flex-1" />
       {hasSplit && (

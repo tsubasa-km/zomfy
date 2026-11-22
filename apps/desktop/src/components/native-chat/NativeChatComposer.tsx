@@ -3,6 +3,7 @@ import { leaveChatForNewChat, returnsToNewChat } from '@/lib/chat-after-send'
 import type { Session } from '@/session-store'
 import { useChatSession, useChatStore } from '@/stores/chat-store'
 import {
+  appendToDraft,
   isWorking,
   loadCatalog,
   setAgentOption,
@@ -37,7 +38,9 @@ import { projectOfSession } from '@/lib/session-project'
 import { mainLocationOf } from '@/stores/project-catalog-store'
 import { upsertWorkflowRun } from '@/stores/workflow-runs-store'
 import { confirmWorkflowStart } from '@/components/workflows/WorkflowStartConfirm'
-import { allWorkspaces, getState, hostLabel, useStore } from '@/session-store'
+import { allWorkspaces, getState, hostLabel, LOCAL_HOST, useStore } from '@/session-store'
+import { getBots, startBotChat } from '@/stores/bots-store'
+import { parseBotMention } from '@/lib/bot-mention'
 import { t } from '@/i18n/i18n'
 import { projectLabel } from '@/components/sidebar/workspace-visibility'
 
@@ -126,6 +129,17 @@ function Composer({ session, editorRef }: ComposerProps) {
       return
     }
     if (offline || (!draft.trim() && draftImages.length === 0)) return
+    // `@handle …` at the start asks that bot in a new bot chat, linked back to this one.
+    const mention = workflow ? null : parseBotMention(draft, getBots().bots ?? [])
+    if (mention) {
+      const asked = draft
+      composer.clear()
+      void startBotChat(mention.bot.id, mention.text || undefined, session.hostId === LOCAL_HOST ? session.id : undefined).catch((error: unknown) => {
+        appendToDraft(session.id, asked)
+        toast.error(t('{name} could not take it', { name: mention.bot.name }), { description: error instanceof Error ? error.message : String(error) })
+      })
+      return
+    }
     if (workflow && workflowHome.projectId) {
       // The message is the run's task; the harness runs the workflow, not this chat.
       const task = draft.trim()
@@ -321,7 +335,7 @@ function Composer({ session, editorRef }: ComposerProps) {
                     onSelect={(permissionMode) => void setSessionOptions(session.id, { permissionMode })}
                   />
                 ) : null}
-                {usage ? <NativeChatContextUsageRing usage={usage} /> : null}
+                {usage ? <NativeChatContextUsageRing usage={usage} chat={{ hostId: session.hostId, sessionId: session.id, workspaceId: session.workspaceId }} /> : null}
                 <NativeChatDictationButton
                   onTranscript={(text) => {
                     // Appends to the draft as it is when the transcript lands, not when recording began.

@@ -58,6 +58,7 @@ export interface AppSettings {
   showProjectsButton: boolean
   showNewChatButton: boolean
   showAutomationsButton: boolean
+  showBotsButton: boolean
   showAgentDashboardButton: boolean
   showWorkflowsButton: boolean
   /** The onboarding checklist row was hidden from the sidebar. */
@@ -128,6 +129,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
   showProjectsButton: true,
   showNewChatButton: true,
   showAutomationsButton: true,
+  showBotsButton: true,
   showAgentDashboardButton: true,
   showWorkflowsButton: true,
   setupGuideSidebarDismissed: false,

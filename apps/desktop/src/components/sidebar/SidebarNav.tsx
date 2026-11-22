@@ -1,5 +1,5 @@
 import { memo, type ReactNode } from 'react'
-import { BookOpen, CalendarClock, Folders, Github, Gitlab, LayoutDashboard, List, Search, SquarePen, Workflow, type LucideIcon } from 'lucide-react'
+import { BookOpen, BotMessageSquare, CalendarClock, Folders, Github, Gitlab, LayoutDashboard, List, Search, SquarePen, Workflow, type LucideIcon } from 'lucide-react'
 import type { HostingProviderId } from '@zomfy/protocol'
 import { allProjects, getState, setDashboardOpen, showQuickStart, START_TAB, useStore } from '@/session-store'
 import { WINDOW_TABS } from '@/stores/tab-layout-store'
@@ -9,6 +9,8 @@ import { setCommandPalette, setProjectsPageOpen, setSkillsPageOpen, useAppOverla
 import { getTasks, setTasks, useTasks } from '@/stores/tasks-store'
 import { openWorkflows, useWorkflowsPage } from '@/stores/workflows-store'
 import { openWorkflowsHere } from '@/lib/workflows-entry'
+import { setBotsPageOpen, useBots } from '@/stores/bots-store'
+import { botActivity } from '@/lib/bot-state'
 import { closePages } from '@/lib/app-pages'
 import { setSetting, useSetting, type SettingKey } from '@/stores/settings-store'
 import { useShortcutKeys } from '@/keybindings/keybinding-registry'
@@ -203,11 +205,28 @@ function DashboardCounts() {
   )
 }
 
+/** How many bots are waiting on the person, beside the Bots row. */
+function BotsWaiting() {
+  const bots = useBots((s) => s.bots)
+  const waiting = useStore((s) => (bots ?? []).filter((bot) => botActivity(bot, s.sessions) === 'waiting').length)
+  const requests = useBots((s) => s.accessRequests.length)
+  const count = waiting + requests
+  if (count === 0) return null
+  return (
+    <span aria-label={`${t('Needs You')}: ${count}`} className="inline-flex items-center gap-1 text-[10px] text-worktree-sidebar-foreground/55 tabular-nums">
+      <AgentQuestionIcon className="size-2.5" />
+      {count}
+    </span>
+  )
+}
+
 export const SidebarNav = memo(function SidebarNav() {
   const showSkills = useSetting('showSkillsButton')
   const showProjects = useSetting('showProjectsButton')
   const showAutomations = useSetting('showAutomationsButton')
   const showDashboard = useSetting('showAgentDashboardButton')
+  const showBots = useSetting('showBotsButton')
+  const botsOpen = useBots((s) => s.pageOpen)
   const showWorkflows = useSetting('showWorkflowsButton')
   const workflowsOpen = useWorkflowsPage() !== null
   const skillsOpen = useAppOverlays((s) => s.skills)
@@ -225,7 +244,8 @@ export const SidebarNav = memo(function SidebarNav() {
     tasks: tasksOpen,
     automations: automationsOpen,
     skills: skillsOpen,
-    projects: projectsOpen
+    projects: projectsOpen,
+    bots: botsOpen
   }
   return (
     <div className="flex flex-col gap-0.5 px-2 pt-2 pb-1" data-sidebar-navigation>
@@ -282,6 +302,17 @@ export const SidebarNav = memo(function SidebarNav() {
           active={automationsOpen}
           onClick={() => setAutomationsPageOpen(!automationsOpen)}
           hideSetting="showAutomationsButton"
+        />
+      ) : null}
+      {showBots ? (
+        <NavRow
+          icon={BotMessageSquare}
+          label={t('Bots')}
+          data="bots"
+          active={botsOpen}
+          onClick={() => setBotsPageOpen(!botsOpen)}
+          hideSetting="showBotsButton"
+          trailing={<BotsWaiting />}
         />
       ) : null}
       {showDashboard ? (
