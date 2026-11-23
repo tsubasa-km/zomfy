@@ -114,6 +114,17 @@ export const botEventSchema = z.discriminatedUnion('kind', [
       .default([]),
     /** `<sessionId>:<turnId>`: a retried reply never posts twice. */
     idempotencyKey: z.string().min(1).max(256)
+  }),
+  /**
+   * The owner answered an access request in Zomfy: the source tells the requester. `conversation`
+   * is the access request delivery's own, which the source made and can read back.
+   */
+  z.object({
+    kind: z.literal('access-answered'),
+    ...where,
+    botId: id,
+    requester: z.object({ id: z.string().min(1).max(128), name: z.string().max(256) }),
+    allowed: z.boolean()
   })
 ])
 export type BotEvent = z.infer<typeof botEventSchema>

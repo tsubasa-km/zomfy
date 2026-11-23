@@ -3,18 +3,25 @@
 
 import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from 'node:fs'
 import { dirname, join } from 'node:path'
-import { isChatAgentId, type Bot, type BotAccessRequest, type BotAsker, type BotInput, type BotSource, type ChatPermissionMode } from '@zomfy/protocol'
-import { limits, type HelloBot } from '@zomfy/relay-contract'
+import { isChatAgentId, type Bot, type BotAccessRequest, type BotAsker, type BotNotice, type BotInput, type BotSource, type ChatPermissionMode } from '@zomfy/protocol'
+import { limits, type Conversation, type HelloBot } from '@zomfy/relay-contract'
 import { refuseUnattended } from './chat-agent-launch-specs.ts'
 
 const SOURCES: readonly BotSource[] = ['discord', 'slack', 'github', 'linear']
 const HANDLE = /^[a-z0-9][a-z0-9_-]*$/
 const PERMISSION_MODES: readonly string[] = ['default', 'acceptEdits', 'plan', 'auto', 'bypassPermissions'] satisfies ChatPermissionMode[]
 
+/** An access request as kept: with the conversation its source made, to tell the requester the answer. */
+export type StoredAccessRequest = BotAccessRequest & { conversation?: Conversation }
+
 interface Saved {
   bots: Bot[]
-  accessRequests: BotAccessRequest[]
+  accessRequests: StoredAccessRequest[]
+  notices: BotNotice[]
 }
+
+/** Notices kept for the owner; the oldest go past this. */
+const MAX_NOTICES = 50
 
 export function botsPath(home: string): string {
   return join(home, 'bots.json')
@@ -144,16 +151,35 @@ export class BotStore {
     const bot = this.require(id)
     this.data.bots = this.data.bots.filter((b) => b.id !== id)
     this.data.accessRequests = this.data.accessRequests.filter((r) => r.botId !== id)
+    this.data.notices = this.data.notices.filter((n) => n.botId !== id)
     this.save()
     return bot
   }
 
   accessRequests(): BotAccessRequest[] {
-    return this.data.accessRequests
+    return this.data.accessRequests.map(({ conversation: _conversation, ...request }) => request)
+  }
+
+  notices(): BotNotice[] {
+    return this.data.notices
+  }
+
+  /** A notice for the owner; one per bot, hook and condition, the newest kept. */
+  addNotice(notice: Omit<BotNotice, 'id'>): BotNotice {
+    const kept = this.data.notices.filter((n) => !(n.botId === notice.botId && n.hookId === notice.hookId && n.condition === notice.condition))
+    const added = { ...notice, id: crypto.randomUUID() }
+    this.data.notices = [...kept, added].slice(-MAX_NOTICES)
+    this.save()
+    return added
+  }
+
+  dismissNotice(id: string): void {
+    this.data.notices = this.data.notices.filter((n) => n.id !== id)
+    this.save()
   }
 
   /** One request per person per bot: a second one replaces the first. */
-  addAccessRequest(request: Omit<BotAccessRequest, 'id'>): BotAccessRequest {
+  addAccessRequest(request: Omit<StoredAccessRequest, 'id'>): BotAccessRequest {
     const kept = this.data.accessRequests.filter(
       (r) => !(r.botId === request.botId && r.source === request.source && r.requester.id === request.requester.id)
     )
@@ -163,8 +189,8 @@ export class BotStore {
     return added
   }
 
-  /** Allow adds the requester to Who can ask as a member; either way the request goes. */
-  answerAccessRequest(id: string, allow: boolean): void {
+  /** Allow adds the requester to Who can ask as a member; either way the request goes. Returns the request. */
+  answerAccessRequest(id: string, allow: boolean): StoredAccessRequest {
     const request = this.data.accessRequests.find((r) => r.id === id)
     if (!request) throw new Error('That access request was already answered')
     this.data.accessRequests = this.data.accessRequests.filter((r) => r.id !== id)
@@ -173,10 +199,11 @@ export class BotStore {
       const list = bot.askers[request.source] ?? []
       if (!list.some((a) => a.id === request.requester.id) && bot.owner[request.source] !== request.requester.id) {
         this.setAskers(bot.id, request.source, [...list, { id: request.requester.id, name: request.requester.name, role: 'member' }])
-        return
+        return request
       }
     }
     this.save()
+    return request
   }
 
   private save() {
@@ -189,12 +216,12 @@ export class BotStore {
 }
 
 function load(path: string): Saved {
-  if (!existsSync(path)) return { bots: [], accessRequests: [] }
+  if (!existsSync(path)) return { bots: [], accessRequests: [], notices: [] }
   try {
     const saved = JSON.parse(readFileSync(path, 'utf8')) as Partial<Saved>
-    return { bots: saved.bots ?? [], accessRequests: saved.accessRequests ?? [] }
+    return { bots: saved.bots ?? [], accessRequests: saved.accessRequests ?? [], notices: saved.notices ?? [] }
   } catch {
-    return { bots: [], accessRequests: [] }
+    return { bots: [], accessRequests: [], notices: [] }
   }
 }
 

@@ -3,7 +3,7 @@ type: Spec
 title: Pairing hosts and phones
 description: How a daemon registers its host key with the person's relay at first run, and how a phone pairs with a host by QR code into a revocable, scoped device record.
 status: stable
-x-zomfy-implementation: in-progress
+x-zomfy-implementation: done
 tags: [mobile, relay, security]
 sources:
   - id: mobile-app
@@ -76,8 +76,7 @@ device records and scopes are not built yet.
 
 ## Implementation status
 
-Phone pairing on the direct route is built (M1); host registration and the relay's `device-add`
-wait for M2.
+Phone pairing on the direct route is built (M1); the relay part is built in M2 (see below).
 
 - `packages/daemon/src/device-store.ts` keeps `~/.zomfy/devices.json`, which also holds the host's
   stable `hostId` and the listener setting; the host's X25519 key is in
@@ -96,8 +95,23 @@ wait for M2.
 - Settings → Devices (`DevicesPane.tsx`): the listener switch, a QR code and link, the paired
   phones with their scopes and connection, and Revoke. Pairing offers every scope; choosing fewer
   is in the protocol but not yet in the UI.
-- On the direct route the traffic is not encrypted beyond what the tailnet gives; end-to-end
-  encryption comes with the relay (M2).
+- On the direct route the traffic is not encrypted beyond what the tailnet gives; the relay route is
+  end-to-end encrypted ([relay](relay.md#implementation-status)).
+
+M2, the relay:
+
+- The offer lists the relay last, `{kind:'relay', url, relayHostId}`, with `relayUrl`, while this host
+  is paired with a relay (Settings → Bots → Relay); LAN and tailnet come first.
+- The daemon registers device keys at the Hub with `device-sync` (the whole list) rather than one
+  `device-add` per pairing, so revokes made while the link was down are not lost.
+- A phone may pair **through the relay**: when no direct route answers it presents the grant inside
+  the end-to-end channel, under an id it chose (`d_<id>`), which becomes its device id. So a phone
+  can pair with the listener off, as long as the host is linked to the relay.
+- Settings → Devices shows each phone's route (Wi-Fi / LAN, tailnet or Zomfy Relay), whether phones
+  can reach this computer through the relay, and allows pairing when only the relay is on.
+- On the relay a 4401 from the Hub is treated by the app as a failed route, not as unpaired: only
+  the host (on any route) or a 4403 revoke unpairs a phone, so pairing the host with another relay
+  never silently drops a phone.
 
 # Non-goals
 

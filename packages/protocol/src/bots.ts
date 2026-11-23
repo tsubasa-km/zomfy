@@ -77,6 +77,31 @@ export interface BotAccessRequest {
   createdAt: number
 }
 
+/** Something a bot's owner should know that is not a question: a webhook refused in a burst or at its cap. */
+export interface BotNotice {
+  id: string
+  botId: string
+  kind: 'webhook_alert'
+  /** The hook it is about. */
+  hookId: string | null
+  condition: 'refusal_burst' | 'cap_reached'
+  count: number | null
+  createdAt: number
+}
+
+/** Relay actions a window may ask for (managing a bot's hooks, finding people for Who can ask). */
+export const BOT_WINDOW_ACTIONS = [
+  'capabilities',
+  'find',
+  'webhook.mint',
+  'webhook.list',
+  'webhook.state',
+  'webhook.rotate',
+  'webhook.secret',
+  'webhook.delete'
+] as const
+export type BotWindowAction = (typeof BOT_WINDOW_ACTIONS)[number]
+
 export const BOT_METHODS = {
   botsList: '_harness/bots/list',
   botCreate: '_harness/bots/create',
@@ -90,7 +115,12 @@ export const BOT_METHODS = {
   botsAccessRequests: '_harness/bots/accessRequests',
   botsAnswerAccessRequest: '_harness/bots/answerAccessRequest',
   /** A new chat with the bot in its home: the sidebar's New chat, or a `@handle …` prompt. */
-  botChatCreate: '_harness/bots/chatCreate'
+  botChatCreate: '_harness/bots/chatCreate',
+  /** Notices for the owner (Needs you), and dismissing one. */
+  botsNotices: '_harness/bots/notices',
+  botsDismissNotice: '_harness/bots/dismissNotice',
+  /** One relay action (`BOT_WINDOW_ACTIONS`) over the host's link; fails when the relay is not linked. */
+  botsAction: '_harness/bots/action'
 } as const
 
 export const BOT_NOTIFICATIONS = {
@@ -99,13 +129,16 @@ export const BOT_NOTIFICATIONS = {
   /** A `ConnectorStatus`. */
   connectorStatusChanged: '_harness/bots/connectorStatusChanged',
   /** Pending access requests after one arrives or is answered: `{ requests: BotAccessRequest[] }`. */
-  accessRequestsChanged: '_harness/bots/accessRequestsChanged'
+  accessRequestsChanged: '_harness/bots/accessRequestsChanged',
+  /** `{ notices: BotNotice[] }` after one arrives or is dismissed. */
+  noticesChanged: '_harness/bots/noticesChanged'
 } as const
 
 export interface BotNotifications {
   [BOT_NOTIFICATIONS.botsChanged]: { bots: Bot[] }
   [BOT_NOTIFICATIONS.connectorStatusChanged]: ConnectorStatus
   [BOT_NOTIFICATIONS.accessRequestsChanged]: { requests: BotAccessRequest[] }
+  [BOT_NOTIFICATIONS.noticesChanged]: { notices: BotNotice[] }
 }
 
 export interface BotRequests {
@@ -140,5 +173,11 @@ export interface BotRequests {
   [BOT_METHODS.botChatCreate]: {
     params: { id: string; text?: string; fromSessionId?: string }
     result: { sessionId: string }
+  }
+  [BOT_METHODS.botsNotices]: { params: Record<string, never>; result: { notices: BotNotice[] } }
+  [BOT_METHODS.botsDismissNotice]: { params: { id: string }; result: Record<string, never> }
+  [BOT_METHODS.botsAction]: {
+    params: { verb: BotWindowAction; ref?: string; args?: Record<string, unknown> }
+    result: { result: unknown }
   }
 }

@@ -163,6 +163,8 @@ export const NOTES = {
   noBots: 'No bots are set up on this relay yet. Create one in Zomfy and pair it with this relay.',
   unknownBot: (handles: string[], how: string) => `Which bot? Ask with \`${how} <handle> …\`${handles.length ? `; bots here: ${handles.map((h) => `\`${h}\``).join(', ')}` : ''}.`,
   accessRequested: 'Access requested; the owner will see it in Zomfy.',
+  accessAnswered: (bot: string, allowed: boolean) =>
+    allowed ? `The owner let you ask **${bot}**; ask again whenever you like.` : `The owner declined your request to ask **${bot}**.`,
   stopping: 'Stopping…',
   working: 'Working…'
 }

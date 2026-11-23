@@ -18,6 +18,8 @@ import type { TerminalManager } from "../terminal-manager.ts";
 import type { WorkspaceManager } from "../workspace-manager.ts";
 import type { ManagerRoute } from "../manager-mcp-server.ts";
 import type { CliConversations } from "../cli-conversations.ts";
+import type { AskEveryClient } from "../ask-every-client.ts";
+import type { AutomationService } from "../automation-service.ts";
 
 /** Files a step turn read and edited, and the commands it ran. */
 export interface StepToolUse {
@@ -53,6 +55,12 @@ export interface HandlerContext {
   broadcast(method: string, params: unknown): void;
   /** Records an update in a session's transcript and sends it to every client. */
   emit(sessionId: string, update: acp.SessionUpdate): Promise<void>;
+  /** Every permission ask, sent to every client at once; observed and answered from a bot's source too. */
+  asks: AskEveryClient;
+  /** Services one area makes and another uses (the bots run their schedules as automations). */
+  services: { automations?: AutomationService };
+  /** Hears each update `emit` records, before it is sent; returns how to stop. */
+  onSessionUpdate(listener: (sessionId: string, update: acp.SessionUpdate) => void): () => void;
   /** Runs one turn no client asked for (automations); permission asks go to an open window. */
   runTurn(sessionId: string, text: string): Promise<acp.StopReason>;
   /** The workspace's directory on this host; throws for unknown ids. */

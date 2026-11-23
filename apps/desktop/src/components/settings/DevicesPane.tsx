@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Copy, Smartphone, Trash2, QrCode, X } from 'lucide-react'
-import type { PairingOffer, RemoteDevice } from '@zomfy/protocol'
+import type { PairingOffer, RemoteDevice, RemoteRoute } from '@zomfy/protocol'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 import { qrPath } from '@/lib/qr-path'
@@ -15,7 +15,8 @@ import { SettingsRow, SettingsSubsectionHeader, SettingsSwitchRow } from './sett
 import { t } from '@/i18n/i18n'
 
 // Settings → Devices (docs/specs/mobile/pairing.md): the phone listener, a one-time pairing QR code
-// and link, and the paired phones with Revoke. Phones pair with this computer's daemon.
+// and link, and the paired phones with the route each uses, and Revoke. Phones pair with this
+// computer's daemon, directly or through Zomfy Relay (docs/specs/mobile/relay.md).
 
 const SCOPE_LABELS: Record<string, string> = {
   'chats:read': 'Read chats',
@@ -42,6 +43,10 @@ function QrCodeView({ text }: { text: string }) {
   )
 }
 
+function routeName(kind: RemoteRoute['kind']): string {
+  return kind === 'relay' ? t('Zomfy Relay') : kind === 'tailnet' ? t('Tailnet') : t('Wi-Fi / LAN')
+}
+
 function minutesLeft(expiresAt: number, now: number): number {
   return Math.max(0, Math.ceil((expiresAt - now) / 60_000))
 }
@@ -62,9 +67,11 @@ function PairingCard({ offer, link, onClose }: { offer: PairingOffer; link: stri
           <div className="space-y-1">
             <p className="text-sm font-medium">{t('Scan this with the Zomfy app')}</p>
             <p className="text-xs text-muted-foreground">
-              {left > 0
-                ? t('Works once, for {n} more minutes. The phone must be on the same network or tailnet.', { n: String(left) })
-                : t('This code expired. Make a new one.')}
+              {left === 0
+                ? t('This code expired. Make a new one.')
+                : offer.routes.some((r) => r.kind === 'relay')
+                  ? t('Works once, for {n} more minutes.', { n: String(left) })
+                  : t('Works once, for {n} more minutes. The phone must be on the same network or tailnet.', { n: String(left) })}
             </p>
           </div>
           <Button variant="ghost" size="icon-xs" aria-label={t('Close')} onClick={onClose}>
@@ -94,7 +101,7 @@ function PairingCard({ offer, link, onClose }: { offer: PairingOffer; link: stri
           <ul className="list-inside list-disc">
             {offer.routes.map((r) => (
               <li key={r.url}>
-                {r.kind === 'tailnet' ? t('Tailnet') : t('Wi-Fi / LAN')}: <code>{r.url}</code>
+                {routeName(r.kind)}: <code>{r.url}</code>
               </li>
             ))}
           </ul>
@@ -107,7 +114,9 @@ function PairingCard({ offer, link, onClose }: { offer: PairingOffer; link: stri
 function DeviceRow({ device }: { device: RemoteDevice }) {
   const [busy, setBusy] = useState(false)
   const seen = device.connected
-    ? t('Connected now')
+    ? device.route
+      ? t('Connected now through {route}', { route: routeName(device.route) })
+      : t('Connected now')
     : device.lastSeenAt
       ? t('Last seen {time}', { time: new Date(device.lastSeenAt).toLocaleString() })
       : t('Not connected yet')
@@ -156,6 +165,8 @@ export function DevicesPane() {
   }, [pairing, deviceCount, countAtOffer])
 
   const listener = snapshot?.listener
+  const relay = snapshot?.relay ?? null
+  const canPair = Boolean(listener?.running || relay)
   const run = (task: Promise<unknown>) => {
     setError(null)
     void task.catch((e) => setError(e instanceof Error ? e.message : String(e)))
@@ -185,14 +196,16 @@ export function DevicesPane() {
           description={
             listener?.running
               ? t('Shows a QR code for the Zomfy app on your Android phone.')
-              : t('Turn on “Let phones connect” first.')
+              : relay
+                ? t('Shows a QR code for the Zomfy app on your Android phone. Without the listener the phone pairs through Zomfy Relay.')
+                : t('Turn on “Let phones connect”, or pair Zomfy Relay in Settings → Bots, first.')
           }
           keywords={['pair', 'qr', 'phone', 'android', 'link']}
           control={
             <Button
               variant="outline"
               size="sm"
-              disabled={!listener?.running}
+              disabled={!canPair}
               onClick={() =>
                 run(
                   createPairingOffer().then((next) => {
@@ -208,6 +221,13 @@ export function DevicesPane() {
           }
         />
       </div>
+      {relay ? (
+        <p className="text-xs text-muted-foreground" data-relay-route={relay.online ? 'online' : 'offline'}>
+          {relay.online
+            ? t('Phones can also reach this computer from anywhere through Zomfy Relay, end-to-end encrypted.')
+            : t('Zomfy Relay is paired but not connected right now; phones use it once it is back.')}
+        </p>
+      ) : null}
       {error ? <p className="text-xs text-destructive">{error}</p> : null}
       {pairing ? <PairingCard offer={pairing.offer} link={pairing.link} onClose={() => setPairing(null)} /> : null}
       <div className="space-y-1 rounded-lg border border-border/60 bg-background/40 px-4 py-3" data-paired-devices>

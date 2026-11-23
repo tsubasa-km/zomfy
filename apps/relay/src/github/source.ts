@@ -206,7 +206,7 @@ export class GitHubSource implements HubSource, OutboundRunner {
           id: `github-access-${bot.id}-${login.toLowerCase()}`,
           kind: 'access_request',
           botId: bot.id,
-          conversation: { source: 'github', externalId: `access:${login.toLowerCase()}` },
+          conversation: { source: 'github', externalId: `access:${login.toLowerCase()}:${a.installation}:${a.repo}:${a.number}` },
           askedAt: now(),
           requester: { source: 'github', id: login, name: login },
           message: `Asked on ${a.repo}#${a.number}`
@@ -493,6 +493,13 @@ export class GitHubSource implements HubSource, OutboundRunner {
     const externalId = event.conversation.externalId
     if (event.kind === 'unlinked' || event.kind === 'chat-gone') {
       this.sql.exec('DELETE FROM gh_context WHERE external_id = ?', externalId)
+      return
+    }
+    if (event.kind === 'access-answered') {
+      const [, login, installation, repo, number] = /^access:([^:]+):([^:]+):([^:]+\/[^:]+):(\d+)$/.exec(externalId) ?? []
+      if (!login || !installation || !repo || !number) return
+      const body = `@${login} ${NOTES.accessAnswered(this.bot(event.botId)?.name ?? 'the bot', event.allowed)}`
+      this.queueComment({ installation, repo, number: Number(number) }, body, `github:access-answered:${externalId}:${now()}`)
       return
     }
     const conv = this.conv(externalId)

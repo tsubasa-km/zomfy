@@ -12,7 +12,7 @@ import { SafeAreaView } from 'react-native-safe-area-context'
 import type { PairingOffer } from '@zomfy/protocol'
 import { pairFromOffer } from '../src/lib/host-registry'
 import { readOffer } from '../src/lib/pairing'
-import { app, appFetch, randomBytes } from '../src/ui/app-model'
+import { app, appFetch, createSocket, randomBytes } from '../src/ui/app-model'
 import { Button, routeLabel, Section, styles } from '../src/ui/components'
 import { useNow } from '../src/ui/hooks'
 import { t } from '../src/ui/i18n'
@@ -85,7 +85,7 @@ export default function PairScreen() {
     setBusy(true)
     setError(null)
     try {
-      const host = await pairFromOffer({ offer, name, model: Device.modelName ?? null, fetch: appFetch, randomBytes })
+      const host = await pairFromOffer({ offer, name, model: Device.modelName ?? null, fetch: appFetch, randomBytes, createSocket })
       await app.addHost(host)
       router.replace({ pathname: '/host/[hostId]', params: { hostId: host.hostId } })
     } catch (e) {

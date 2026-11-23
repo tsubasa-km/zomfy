@@ -89,7 +89,20 @@ const ja: Record<string, string> = {
   'bots:read': 'ボットの閲覧',
   'Untitled chat': '無題のチャット',
   'Waiting for the host': 'ホストを待っています',
-  'Chat not found': 'チャットが見つかりません'
+  'Chat not found': 'チャットが見つかりません',
+  Queue: 'キューに入れる',
+  Queued: '送信待ち',
+  'Remove queued message': '送信待ちのメッセージを取り消す',
+  'The host is offline': 'ホストはオフラインです',
+  'The relay did not answer in time': 'リレーが時間内に応答しませんでした',
+  'The relay does not know this phone; pair again': 'リレーはこのスマートフォンを知りません。もう一度ペアリングしてください',
+  'The encrypted channel broke; reconnecting': '暗号化された通信路が切れました。再接続しています',
+  'Another connection of this phone replaced this one': 'このスマートフォンの別の接続に置き換えられました',
+  'The host did not prove the key it paired with': 'ホストがペアリング時の鍵を証明しませんでした',
+  'The host did not answer through the relay in time': 'ホストがリレー経由で時間内に応答しませんでした',
+  'The host did not prove the key in the pairing code': 'ホストがペアリングコードの鍵を証明しませんでした',
+  'The relay refused this pairing': 'リレーがこのペアリングを拒否しました',
+  'The host reconnected': 'ホストが再接続しました'
 }
 
 const TABLES: Record<Language, Record<string, string>> = { en: {}, ja }

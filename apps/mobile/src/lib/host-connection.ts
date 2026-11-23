@@ -17,7 +17,8 @@ import type { AskStore } from './asks'
 import { connectDevice, GatewayError, probeRoute, type FetchLike, type GatewaySocket, type SocketFactory } from './gateway-client'
 import { JsonRpcPeer } from './json-rpc'
 import { Observable } from './observable'
-import type { DeviceKeys } from './pairing'
+import type { DeviceKeys, RandomBytes } from './pairing'
+import { probeRelay, relayDeviceId, RelaySession } from './relay-client'
 import { backoffDelay, realTimers, RouteChooser, type Timers } from './routes'
 
 /** ACP's protocol version; the SDK's PROTOCOL_VERSION, kept here so the app needs no SDK runtime. */
@@ -35,6 +36,8 @@ export interface PairedHost {
   routes: RemoteRoute[]
   keys: DeviceKeys
   pairedAt: number
+  /** The host's X25519 key from the offer, pinned for the relay's end-to-end channel (M2). */
+  hostBoxPublicKey?: string
 }
 
 export type ConnectionStatus = 'connecting' | 'connected' | 'offline' | 'unpaired' | 'stopped'
@@ -62,11 +65,18 @@ export interface HostConnectionDeps {
   timers?: Timers
   random?: () => number
   probeTimeoutMs?: number
+  /** Secure random bytes, for the relay's end-to-end handshake. */
+  randomBytes?: RandomBytes
+  /** How long a relay connect waits for an offline host before it counts as a failed attempt. */
+  relayOpenTimeoutMs?: number
 }
+
+/** Why the app nudges a connection (after T3 Code's connection wakeups). */
+export type ConnectionWakeup = 'foreground' | 'network'
 
 export type SessionUpdateListener = (notification: acp.SessionNotification) => void
 
-const NOT_CONNECTED = 'Not connected to this host'
+export const NOT_CONNECTED = 'Not connected to this host'
 
 export class HostConnection {
   readonly state: Observable<HostConnectionState>
@@ -82,6 +92,8 @@ export class HostConnection {
   private connecting = false
   private switchTo: number | null = null
   private stopped = true
+  /** The relay route's socket, kept across host-offline and channel restarts. */
+  private relaySession: RelaySession | null = null
 
   constructor(
     readonly host: PairedHost,
@@ -101,7 +113,9 @@ export class HostConnection {
     this.chooser = new RouteChooser({
       routes: host.routes,
       probe: async (route) =>
-        (await probeRoute(deps.fetch, route.url, deps.probeTimeoutMs ?? 3000)).hostId === host.hostId,
+        route.kind === 'relay'
+          ? this.relayUsable(route) && (await probeRelay(deps.fetch, route.url, deps.probeTimeoutMs ?? 3000))
+          : (await probeRoute(deps.fetch, route.url, deps.probeTimeoutMs ?? 3000)).hostId === host.hostId,
       timers: this.timers,
       ...(deps.random ? { random: deps.random } : {}),
       onPreferredRecovered: (index) => {
@@ -125,7 +139,58 @@ export class HostConnection {
     this.clearRetry()
     this.chooser.stop()
     this.teardown()
+    this.relaySession?.close()
+    this.relaySession = null
     this.patch({ status: 'stopped', route: null, nextRetryAt: null })
+  }
+
+  /**
+   * The app came to the front or the network changed: an offline host is tried at once with the
+   * backoff reset; a connected one checks that its route still answers (a socket on a network that
+   * went away can look open for minutes) and looks for a better route now.
+   */
+  wake(_reason: ConnectionWakeup): void {
+    if (this.stopped) return
+    const { status, route } = this.state.get()
+    if (status === 'offline') {
+      this.retryNow()
+      return
+    }
+    if (status !== 'connected' || !route) return
+    this.chooser.probeNow()
+    const socket = this.socket
+    const check = route.kind === 'relay'
+      ? probeRelay(this.deps.fetch, route.url, this.deps.probeTimeoutMs ?? 3000)
+      : probeRoute(this.deps.fetch, route.url, this.deps.probeTimeoutMs ?? 3000).then((hello) => hello.hostId === this.host.hostId, () => false)
+    void check.then((alive) => {
+      // Still the same socket, and its route is gone: drop it, which reconnects.
+      if (!alive && socket && socket === this.socket) socket.close()
+    })
+  }
+
+  /** A relay route this phone can use: it needs the host's pinned key and the relay's host id. */
+  private relayUsable(route: RemoteRoute): boolean {
+    return Boolean(route.relayHostId && this.host.hostBoxPublicKey && this.deps.randomBytes)
+  }
+
+  private relay(route: RemoteRoute): RelaySession {
+    if (!this.relaySession) {
+      this.relaySession = new RelaySession({
+        createSocket: this.deps.createSocket,
+        identity: {
+          relayUrl: route.url,
+          relayHostId: route.relayHostId!,
+          hostBoxPublicKey: this.host.hostBoxPublicKey!,
+          relayDeviceId: relayDeviceId(this.host.deviceId),
+          secretKey: this.host.keys.secretKey
+        },
+        deviceId: this.host.deviceId,
+        random: this.deps.randomBytes!,
+        // The host came back behind the relay: connect now instead of at the next retry.
+        onHostOnline: () => this.retryNow()
+      })
+    }
+    return this.relaySession
   }
 
   /** Try again now (the app came to the foreground, or the person asked). */
@@ -191,6 +256,8 @@ export class HostConnection {
     this.clearRetry()
     this.chooser.stop()
     this.teardown()
+    this.relaySession?.close()
+    this.relaySession = null
     this.patch({ status: 'unpaired', route: null, error: error.message, nextRetryAt: null })
   }
 
@@ -209,11 +276,19 @@ export class HostConnection {
       const route = this.host.routes[index]!
       let socket: GatewaySocket
       try {
-        socket = await connectDevice(this.deps.createSocket, route.url, {
-          hostId: this.host.hostId,
-          deviceId: this.host.deviceId,
-          secretKey: this.host.keys.secretKey
-        })
+        socket =
+          route.kind === 'relay'
+            ? await this.relay(route).open(this.deps.relayOpenTimeoutMs ?? 15_000)
+            : await connectDevice(this.deps.createSocket, route.url, {
+                hostId: this.host.hostId,
+                deviceId: this.host.deviceId,
+                secretKey: this.host.keys.secretKey
+              })
+        // Off the relay: its socket is not needed while a direct route works.
+        if (route.kind !== 'relay' && this.relaySession) {
+          this.relaySession.close()
+          this.relaySession = null
+        }
       } catch (error) {
         if (run !== this.run) return
         if (error instanceof GatewayError && error.unpaired) this.unpaired(error)

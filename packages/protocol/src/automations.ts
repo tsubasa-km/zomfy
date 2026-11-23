@@ -14,6 +14,56 @@ export type AutomationTrigger =
   | { kind: 'schedule'; rrule: string }
   | { kind: 'workspace-created'; projectId: string | null }
   | { kind: 'agent-finished'; workspaceId: string | null }
+  | AutomationSourceTrigger
+
+/**
+ * An event in a bot's source (docs/specs/bots/daemon.md#schedules-and-triggers): sent to the relay
+ * as a rule in `hello`, matched there, and run here when its `trigger` delivery comes. Only for an
+ * automation with a `bot` target.
+ */
+export interface AutomationSourceTrigger {
+  kind: 'discord-message' | 'slack-message' | 'github-event' | 'linear-event' | 'webhook'
+  /** The source's event kinds (the relay contract's `TRIGGER_KINDS`); none means all of them. */
+  kinds: string[]
+  /** Refs of channels, repositories or issues; none means anywhere. */
+  places: string[]
+  /** Only these people's events, by their ids in the source, separated by commas or spaces. */
+  from?: string
+  fromOwner?: boolean
+  label?: string
+  workflowRun?: string
+  inThread?: boolean
+  textContains?: string
+  subject?: string
+  team?: string
+  states?: string[]
+  /** `webhook`: the hook (minted with the `webhook.mint` action) and its filters. */
+  webhook?: {
+    hookId: string
+    where?: { path: string; op: '=' | '!=' | 'in' | 'contains' | 'exists' | '!exists'; values?: string[] }[]
+    textContains?: string
+    pick?: string[]
+    subjectFrom?: string
+    subject?: string
+  }
+}
+
+export type AutomationSourceTriggerKind = AutomationSourceTrigger['kind']
+
+/** Where a bot automation's result goes: its chat only, the thread it ran for, nowhere, or a place. */
+export type AutomationBotResults = 'chat' | 'thread' | 'none' | { ref: string }
+
+/**
+ * Orca's `AutomationBotTarget`: the run is the bot's, in its home and with its persona. `runsIn:
+ * 'chat'` continues `chat` (a session id) instead of opening a new chat; `resultsTo` takes a
+ * Discord or Slack channel's or a Linear issue's ref.
+ */
+export interface AutomationBotTarget {
+  botId: string
+  runsIn: 'new' | 'chat'
+  chat?: string
+  resultsTo: AutomationBotResults
+}
 
 export type AutomationRunStatus =
   | 'dispatched'
@@ -45,6 +95,8 @@ export interface Automation {
   missedRunGraceMinutes: number
   createdAt: number
   updatedAt: number
+  /** A bot's automation: runs in the bot's home, and may post its result in a source. */
+  bot?: AutomationBotTarget
 }
 
 export interface AutomationRun {
@@ -69,7 +121,7 @@ export type AutomationInput = Pick<
   Automation,
   'name' | 'prompt' | 'agent' | 'effort' | 'permissionMode' | 'trigger' | 'workspaceId' | 'reuseSession' | 'enabled'
 > &
-  Partial<Pick<Automation, 'missedRunGraceMinutes'>>
+  Partial<Pick<Automation, 'missedRunGraceMinutes' | 'bot'>>
 
 export const AUTOMATION_DEFAULT_GRACE_MINUTES = 30
 

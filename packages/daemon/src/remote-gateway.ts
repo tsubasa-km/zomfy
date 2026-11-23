@@ -33,6 +33,8 @@ import { MAX_INCOMING_FRAME_BYTES } from "./websocket-server.ts";
 // loopback, private and tailnet peers. A phone pairs once with a one-time grant, then proves its
 // device key on every connect; after that its socket is an ACP connection to the same agent the
 // windows use, with every message checked against the scope allowlist in `remote-devices.ts`.
+// Phase M2 adds the relay: a phone whose end-to-end channel opened in `phone-relay.ts` is served
+// here the same way, through `attachRelay`, so both routes share one connection path.
 
 type Message = Record<string, unknown>;
 type WireStream = acp.Stream;
@@ -48,6 +50,8 @@ export interface RemoteGatewayDeps {
   interfaces?: () => ReturnType<typeof networkInterfaces>;
   /** How long a socket may take to answer its challenge. */
   authTimeoutMs?: number;
+  /** The relay route offers list, while this host is linked to Zomfy Relay. */
+  relayRoute?: () => (RemoteRoute & { online: boolean }) | null;
 }
 
 interface SocketData {
@@ -56,6 +60,23 @@ interface SocketData {
   scopes: DeviceScope[];
   inbox: ReadableStreamDefaultController<Message> | null;
   timer: ReturnType<typeof setTimeout> | null;
+  /** The route this connection came in on: the peer's kind of address, or the relay. */
+  route: RemoteRoute["kind"];
+}
+
+/** One phone connection: a socket of the listener, or an end-to-end channel through the relay. */
+interface PhoneConn {
+  data: SocketData;
+  readonly readyState: number;
+  send(text: string): void;
+  close(code?: number, reason?: string): void;
+}
+
+/** What `attachRelay` hands back: the decrypted stream goes in here. */
+export interface RelayConnection {
+  receive(text: string): void;
+  /** The channel closed (the phone left, the link dropped, or it broke). */
+  closed(): void;
 }
 
 /** Loopback, RFC 1918, link-local, CGNAT/Tailscale (100.64/10) and IPv6 ULA/link-local peers. */
@@ -108,7 +129,7 @@ const json = (body: unknown, status = 200) => Response.json(body, { status, head
 export class RemoteGateway {
   private server: Server<SocketData> | null = null;
   private error: string | null = null;
-  private readonly sockets = new Map<string, Set<ServerWebSocket<SocketData>>>();
+  private readonly sockets = new Map<string, Set<PhoneConn>>();
 
   constructor(private readonly deps: RemoteGatewayDeps) {}
 
@@ -124,8 +145,12 @@ export class RemoteGateway {
     return {
       hostId: store.hostId,
       hostName: store.hostName,
-      devices: store.list().map((d) => store.toPublic(d, (this.sockets.get(d.id)?.size ?? 0) > 0)),
+      devices: store.list().map((d) => {
+        const open = [...(this.sockets.get(d.id) ?? [])];
+        return { ...store.toPublic(d, open.length > 0), route: open.at(-1)?.data.route ?? null };
+      }),
       listener: this.listenerStatus(),
+      relay: this.deps.relayRoute?.() ?? null,
     };
   }
 
@@ -141,11 +166,17 @@ export class RemoteGateway {
   offer(scopes?: DeviceScope[]): { offer: PairingOffer; link: string } {
     const { store } = this.deps;
     const grant = store.createGrant(scopes);
+    const relay = this.deps.relayRoute?.() ?? null;
     const offer: PairingOffer = {
       v: 1,
       hostId: store.hostId,
       hostName: store.hostName,
-      routes: this.server ? this.listenerStatus().routes : [],
+      // LAN, then tailnet, then the relay: the phone prefers the first that answers.
+      routes: [
+        ...(this.server ? this.listenerStatus().routes : []),
+        ...(relay ? [{ kind: relay.kind, url: relay.url, ...(relay.relayHostId ? { relayHostId: relay.relayHostId } : {}) }] : []),
+      ],
+      ...(relay ? { relayUrl: relay.url } : {}),
       hostBoxPublicKey: store.hostBoxPublicKey,
       grant: grant.grant,
       expiresAt: grant.expiresAt,
@@ -167,6 +198,62 @@ export class RemoteGateway {
 
   stop(): void {
     this.close();
+  }
+
+  /** Settings → Devices hears that something it shows changed (the relay link came or went). */
+  notifyChanged(): void {
+    this.changed();
+  }
+
+  /** Pairs a phone that presented its grant inside a relay channel; throws PairingError. */
+  async pairDevice(request: PairRequest, id?: string): Promise<PairResponse> {
+    const record = await this.deps.store.pair(request, id);
+    this.changed();
+    log(`paired device ${record.id} (${record.name}) through the relay`);
+    const { store } = this.deps;
+    return { deviceId: record.id, hostId: store.hostId, hostName: store.hostName, scopes: record.scopes };
+  }
+
+  /**
+   * Serves a phone whose relay channel proved its device key: from here its decrypted messages go
+   * through the same scope checks and ACP connection as a direct socket's. Null for an unknown device.
+   */
+  attachRelay(
+    deviceId: string,
+    sink: { send(text: string): void; close(code: number, reason: string): void },
+  ): { scopes: DeviceScope[]; connection: RelayConnection } | null {
+    const device = this.deps.store.get(deviceId);
+    if (!device) return null;
+    let open = true;
+    const conn: PhoneConn = {
+      data: { nonce: "", deviceId: null, scopes: [], inbox: null, timer: null, route: "relay" },
+      get readyState() {
+        return open ? 1 : 3;
+      },
+      send: (text) => {
+        if (open) sink.send(text);
+      },
+      close: (code = 1000, reason = "") => {
+        if (!open) return;
+        open = false;
+        sink.close(code, reason);
+        this.closed(conn);
+      },
+    };
+    this.authenticated(conn, device.id, device.scopes);
+    return {
+      scopes: [...device.scopes],
+      connection: {
+        receive: (text) => {
+          if (open) void this.received(conn, text);
+        },
+        closed: () => {
+          if (!open) return;
+          open = false;
+          this.closed(conn);
+        },
+      },
+    };
   }
 
   get port(): number | null {
@@ -198,8 +285,15 @@ export class RemoteGateway {
   }
 
   private close(): void {
-    for (const set of this.sockets.values()) for (const ws of set) ws.close(1001, "The listener was turned off");
-    this.sockets.clear();
+    // Only the listener's own sockets: phones on the relay stay.
+    for (const [id, set] of this.sockets) {
+      for (const ws of set) {
+        if (ws.data.route === "relay") continue;
+        ws.close(1001, "The listener was turned off");
+        set.delete(ws);
+      }
+      if (set.size === 0) this.sockets.delete(id);
+    }
     this.server?.stop(true);
     this.server = null;
   }
@@ -250,7 +344,9 @@ export class RemoteGateway {
       }
     }
     if (url.pathname === GATEWAY_PATHS.device) {
-      const data: SocketData = { nonce: toBase64Url(crypto.getRandomValues(new Uint8Array(32))), deviceId: null, scopes: [], inbox: null, timer: null };
+      const [first, second] = peer.replace(/^::ffff:/, "").split(".").map(Number);
+      const route: RemoteRoute["kind"] = first === 100 && second! >= 64 && second! <= 127 ? "tailnet" : "lan";
+      const data: SocketData = { nonce: toBase64Url(crypto.getRandomValues(new Uint8Array(32))), deviceId: null, scopes: [], inbox: null, timer: null, route };
       if (srv.upgrade(req, { data })) return undefined;
       return new Response("upgrade failed", { status: 400 });
     }
@@ -262,14 +358,14 @@ export class RemoteGateway {
     ws.data.timer = setTimeout(() => ws.close(GATEWAY_CLOSE.unauthorized, "No answer to the challenge"), this.deps.authTimeoutMs ?? 10_000);
   }
 
-  private async received(ws: ServerWebSocket<SocketData>, text: string): Promise<void> {
+  private async received(ws: PhoneConn, text: string): Promise<void> {
     let message: unknown;
     try {
       message = JSON.parse(text);
     } catch {
       return;
     }
-    if (ws.data.deviceId === null) return this.authenticate(ws, message as GatewayFrame);
+    if (ws.data.deviceId === null) return this.authenticate(ws as ServerWebSocket<SocketData>, message as GatewayFrame);
     const device = this.deps.store.get(ws.data.deviceId);
     if (!device) return ws.close(GATEWAY_CLOSE.revoked, "This phone was unpaired");
     void this.deps.store.seen(device.id);
@@ -286,19 +382,24 @@ export class RemoteGateway {
     // Revoked while the signature was being checked.
     if (!ok || !store.get(frame.deviceId)) return ws.close(GATEWAY_CLOSE.unauthorized, "This phone is not paired with this host");
     if (ws.data.timer) clearTimeout(ws.data.timer);
-    ws.data.deviceId = device.id;
-    ws.data.scopes = [...device.scopes];
-    const set = this.sockets.get(device.id) ?? new Set();
+    this.authenticated(ws, device.id, device.scopes, () => ws.send(JSON.stringify({ type: "ready", scopes: ws.data.scopes } satisfies GatewayFrame)));
+  }
+
+  /** The connection proved its device: it joins the device's connections and becomes an ACP client. */
+  private authenticated(ws: PhoneConn, deviceId: string, scopes: DeviceScope[], ready?: () => void): void {
+    ws.data.deviceId = deviceId;
+    ws.data.scopes = [...scopes];
+    const set = this.sockets.get(deviceId) ?? new Set();
     set.add(ws);
-    this.sockets.set(device.id, set);
-    ws.send(JSON.stringify({ type: "ready", scopes: ws.data.scopes } satisfies GatewayFrame));
-    void store.seen(device.id);
+    this.sockets.set(deviceId, set);
+    ready?.();
+    void this.deps.store.seen(deviceId);
     this.deps.connect(this.streamOf(ws));
     this.changed();
   }
 
   /** The ACP stream of an authenticated socket; what the daemon sends the phone is checked here. */
-  private streamOf(ws: ServerWebSocket<SocketData>): WireStream {
+  private streamOf(ws: PhoneConn): WireStream {
     const readable = new ReadableStream<Message>({
       start: (controller) => {
         ws.data.inbox = controller;
@@ -314,7 +415,7 @@ export class RemoteGateway {
     return { readable, writable } as unknown as WireStream;
   }
 
-  private fromPhone(ws: ServerWebSocket<SocketData>, message: Message): void {
+  private fromPhone(ws: PhoneConn, message: Message): void {
     const method = typeof message.method === "string" ? message.method : null;
     if (method && !scopeAllows(REMOTE_METHOD_SCOPES, method, ws.data.scopes)) {
       if (message.id !== undefined) {
@@ -325,7 +426,7 @@ export class RemoteGateway {
     ws.data.inbox?.enqueue(message);
   }
 
-  private toPhone(ws: ServerWebSocket<SocketData>, message: Message): void {
+  private toPhone(ws: PhoneConn, message: Message): void {
     const method = typeof message.method === "string" ? message.method : null;
     if (method && message.id !== undefined) {
       if (!scopeAllows(REMOTE_CLIENT_REQUEST_SCOPES, method, ws.data.scopes)) {
@@ -339,7 +440,7 @@ export class RemoteGateway {
     if (ws.readyState === 1) ws.send(JSON.stringify(message));
   }
 
-  private closed(ws: ServerWebSocket<SocketData>): void {
+  private closed(ws: PhoneConn): void {
     if (ws.data.timer) clearTimeout(ws.data.timer);
     try {
       ws.data.inbox?.close();

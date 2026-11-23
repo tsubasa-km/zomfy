@@ -114,7 +114,9 @@ Each event has a `kind`; the Hub parses them one by one and skips a kind it does
 (`conversation ↔ sessionId`), `chat-gone`, `prompt` (kind `approval {tool, summary, options[]}`,
 `question {text, header, options[], byReply}` or `unsupported {text ≤1500 bytes}`),
 `prompt-cleared`, `turn-started`, `activity {text ≤120 chars, steps ≤20}`, `workers`, `turn-ended`,
-`reply {turnId, text, outcome, prLinks ≤5, reviewNotes ≤30, idempotencyKey}`.
+`reply {turnId, text, outcome, prLinks ≤5, reviewNotes ≤30, idempotencyKey}`, and, added with
+phase B2, `access-answered {botId, requester, allowed}` on the access request's own conversation,
+for the source to tell the requester.
 
 Reply outcomes, as Orca's: `answered`, `quiet`, `no_answer`, `interrupted`, `failed`,
 `cancelled`, `withdrawn`, `cleared`, `not_found`, `unattributed`. Failure categories are typed —

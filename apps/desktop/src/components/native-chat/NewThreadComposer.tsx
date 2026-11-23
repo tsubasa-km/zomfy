@@ -1,6 +1,7 @@
 import { useEffect, useRef } from 'react'
 import { chatAgentLabel } from '@zomfy/protocol'
-import { loadCatalog } from '@/chat-actions'
+import { toast } from 'sonner'
+import { appendToDraft, loadCatalog } from '@/chat-actions'
 import { useChatAgents } from '@/lib/chat-agents'
 import type { MarkdownEditorHandle } from '@/components/markdown-editor/MarkdownEditor'
 import { allWorkspaces, useStore, type ChatImage, type HostId } from '@/session-store'
@@ -13,6 +14,8 @@ import { NativeChatDictationButton } from './NativeChatDictationButton'
 import { NativeChatPermissionModePicker } from './NativeChatPermissionModePicker'
 import { NativeChatSessionOptionChoices, sessionOptionLabels } from './NativeChatSessionOptionPicker'
 import { useNativeChatComposer } from './use-native-chat-composer'
+import { getBots, startBotChat } from '@/stores/bots-store'
+import { parseBotMention } from '@/lib/bot-mention'
 import { t } from '@/i18n/i18n'
 
 // The "New thread" tab's composer: the same box and input as an open chat's (NativeChatComposer),
@@ -83,6 +86,17 @@ export function NewThreadComposer({
 
   function submit() {
     if (busy || !canSend) return
+    // `@handle …` at the start asks that bot in a new bot chat, as an open chat's composer does.
+    const mention = parseBotMention(draft, getBots().bots ?? [])
+    if (mention) {
+      const asked = draft
+      composer.clear()
+      void startBotChat(mention.bot.id, mention.text || undefined).catch((error: unknown) => {
+        appendToDraft(NEW_THREAD_DRAFT, asked)
+        toast.error(t('{name} could not take it', { name: mention.bot.name }), { description: error instanceof Error ? error.message : String(error) })
+      })
+      return
+    }
     onStart(draft.trim(), draftImages, { agent, options })
   }
 

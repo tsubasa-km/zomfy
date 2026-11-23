@@ -1,15 +1,9 @@
 import { useMemo, useState } from 'react'
 import {
-  AUTOMATION_DEFAULT_GRACE_MINUTES,
   HARNESS_METHODS,
-  automationScheduleFields,
-  buildAutomationRrule,
   isChatAgentId,
-  type AutomationInput,
   type AutomationSchedulePreset,
-  type AutomationScheduleFields,
-  type AutomationTrigger,
-  type ChatAgentId,
+  type Bot,
   type ChatEffort,
   type ChatPermissionMode,
   isGuardedChatAgent
@@ -29,11 +23,23 @@ import { Textarea } from '@/components/ui/textarea'
 import { t } from '@/i18n/i18n'
 import { projectLabel } from '@/components/sidebar/workspace-visibility'
 import { useProjectCatalog } from '@/stores/project-catalog-store'
+import { useBots } from '@/stores/bots-store'
+import {
+  ANY,
+  automationInputOf,
+  initialAutomationDraft,
+  type AutomationDraft,
+  type BotPreset,
+  type DraftTriggerKind
+} from '@/lib/automation-draft'
+import { botDraftProblem, type BotAutomationDraft } from '@/lib/bot-automation'
+import { BotAutomationFields } from './BotAutomationFields'
 
 // Fields follow Orca's AutomationEditorDialog (prompt, schedule picker, workspace, agent,
-// reuse session); event triggers are the harness's addition.
+// reuse session); event triggers are the harness's addition. With a bot (Settings → Bots), it makes
+// that bot's schedule or source trigger: the run is in the bot's home with its agent.
 
-type TriggerKind = AutomationTrigger['kind']
+type TriggerKind = DraftTriggerKind
 const TRIGGER_LABEL: Record<TriggerKind, string> = {
   schedule: t('On a schedule'),
   'workspace-created': t('When a workspace is created'),
@@ -57,110 +63,67 @@ const PERMISSION_LABEL: Record<ChatPermissionMode, string> = {
 const TRIGGER_KINDS: TriggerKind[] = ['schedule', 'workspace-created', 'agent-finished']
 const PRESETS: AutomationSchedulePreset[] = ['hourly', 'daily', 'weekdays', 'weekly']
 const PERMISSION_MODES: ChatPermissionMode[] = ['default', 'acceptEdits', 'plan', 'auto', 'bypassPermissions']
-/** Select values cannot be empty strings; this stands for "any". */
-const ANY = '__any__'
-
-interface Draft {
-  hostId: HostId
-  name: string
-  prompt: string
-  agent: ChatAgentId
-  effort: ChatEffort | 'default'
-  permissionMode: ChatPermissionMode
-  triggerKind: TriggerKind
-  schedule: AutomationScheduleFields
-  workspaceId: string
-  projectId: string
-  reuseSession: boolean
-  enabled: boolean
-  graceMinutes: string
-}
-
-function initialDraft(existing: HostedAutomation | null, defaultWorkspace: { id: string; hostId: HostId } | null): Draft {
-  const trigger = existing?.trigger
-  return {
-    hostId: existing?.hostId ?? defaultWorkspace?.hostId ?? LOCAL_HOST,
-    name: existing?.name ?? '',
-    prompt: existing?.prompt ?? '',
-    agent: existing?.agent ?? 'claude',
-    effort: existing ? (existing.effort ?? 'default') : 'low',
-    permissionMode: existing?.permissionMode ?? 'default',
-    triggerKind: trigger?.kind ?? 'schedule',
-    schedule: (trigger?.kind === 'schedule' && automationScheduleFields(trigger.rrule)) || {
-      preset: 'weekdays',
-      hour: 9,
-      minute: 0,
-      dayOfWeek: 1
-    },
-    workspaceId:
-      (trigger?.kind === 'agent-finished' ? trigger.workspaceId : existing?.workspaceId) ??
-      (existing ? ANY : (defaultWorkspace?.id ?? '')),
-    projectId: (trigger?.kind === 'workspace-created' ? trigger.projectId : null) ?? ANY,
-    reuseSession: existing?.reuseSession ?? false,
-    enabled: existing?.enabled ?? true,
-    graceMinutes: String(existing?.missedRunGraceMinutes ?? AUTOMATION_DEFAULT_GRACE_MINUTES)
-  }
-}
-
-function toInput(d: Draft): AutomationInput {
-  const workspaceId = d.workspaceId && d.workspaceId !== ANY ? d.workspaceId : null
-  const trigger: AutomationTrigger =
-    d.triggerKind === 'schedule'
-      ? { kind: 'schedule', rrule: buildAutomationRrule(d.schedule) }
-      : d.triggerKind === 'workspace-created'
-        ? { kind: 'workspace-created', projectId: d.projectId === ANY ? null : d.projectId }
-        : { kind: 'agent-finished', workspaceId }
-  const grace = Number(d.graceMinutes)
-  return {
-    name: d.name,
-    prompt: d.prompt,
-    agent: d.agent,
-    effort: d.agent === 'claude' && d.effort !== 'default' ? d.effort : null,
-    permissionMode: d.permissionMode,
-    trigger,
-    workspaceId: d.triggerKind === 'schedule' ? workspaceId : null,
-    reuseSession: d.reuseSession,
-    enabled: d.enabled,
-    ...(Number.isFinite(grace) && grace > 0 ? { missedRunGraceMinutes: grace } : {})
-  }
-}
-
 export function AutomationEditorDialog({
   open,
   existing,
   defaultWorkspace,
+  botPreset = null,
   onOpenChange
 }: {
   open: boolean
   existing: HostedAutomation | null
   defaultWorkspace: { id: string; hostId: HostId } | null
+  /** A new automation for this bot: a schedule or a source trigger. */
+  botPreset?: { bot: Bot; mode: 'schedule' | 'trigger' } | null
   onOpenChange: (open: boolean) => void
 }) {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-xl" data-automation-editor>
         {open ? (
-          <EditorBody existing={existing} defaultWorkspace={defaultWorkspace} onDone={() => onOpenChange(false)} />
+          <EditorBody existing={existing} defaultWorkspace={defaultWorkspace} botPreset={botPreset} onDone={() => onOpenChange(false)} />
         ) : null}
       </DialogContent>
     </Dialog>
   )
 }
 
+/** The bot an automation belongs to: the one it was opened for, or the saved automation's. */
+function useBotPreset(existing: HostedAutomation | null, botPreset: { bot: Bot; mode: 'schedule' | 'trigger' } | null): BotPreset | null {
+  const bots = useBots((s) => s.bots)
+  if (botPreset) return botPreset
+  const target = existing?.bot
+  if (!existing || !target) return null
+  const bot = bots?.find((b) => b.id === target.botId) ?? {
+    id: target.botId,
+    agent: existing.agent,
+    homeWorkspaceId: existing.workspaceId ?? '',
+    permissionMode: existing.permissionMode
+  }
+  return { bot, mode: existing.trigger.kind === 'schedule' ? 'schedule' : 'trigger' }
+}
+
 function EditorBody({
   existing,
   defaultWorkspace,
+  botPreset,
   onDone
 }: {
   existing: HostedAutomation | null
   defaultWorkspace: { id: string; hostId: HostId } | null
+  botPreset: { bot: Bot; mode: 'schedule' | 'trigger' } | null
   onDone: () => void
 }) {
-  const [draft, setDraft] = useState(() => initialDraft(existing, defaultWorkspace))
+  const preset = useBotPreset(existing, botPreset)
+  const [draft, setDraft] = useState<AutomationDraft>(() => initialAutomationDraft(existing, defaultWorkspace, LOCAL_HOST, preset))
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const hosts = useStore((s) => s.hosts)
-  const patch = (change: Partial<Draft>) => setDraft((d) => ({ ...d, ...change }))
+  const patch = (change: Partial<AutomationDraft>) => setDraft((d) => ({ ...d, ...change }))
+  const patchBot = (change: Partial<BotAutomationDraft>) => setDraft((d) => (d.bot ? { ...d, bot: { ...d.bot, ...change } } : d))
+  const bot = draft.bot
+  const showSchedule = bot ? bot.mode === 'schedule' : draft.triggerKind === 'schedule'
+  const botProblem = bot ? botDraftProblem(bot) : null
   const { agents } = useChatAgents(draft.hostId)
   // Antigravity never runs on a schedule (GUARDED_CHAT_AGENTS).
   const readyAgents = agents.filter((a) => a.id !== 'claude' && a.status === 'ready' && !isGuardedChatAgent(a.id))
@@ -176,7 +139,7 @@ function EditorBody({
     setSaving(true)
     setError(null)
     try {
-      const input = toInput(draft)
+      const input = automationInputOf(draft)
       const saved = existing
         ? await harnessRequest(HARNESS_METHODS.automationUpdate, { id: existing.id, patch: input }, existing.hostId)
         : await harnessRequest(HARNESS_METHODS.automationCreate, { input }, draft.hostId)
@@ -193,7 +156,19 @@ function EditorBody({
   return (
     <>
       <DialogHeader>
-        <DialogTitle>{existing ? t('Edit automation') : t('New automation')}</DialogTitle>
+        <DialogTitle>
+          {bot
+            ? existing
+              ? bot.mode === 'schedule'
+                ? t('Edit schedule')
+                : t('Edit trigger')
+              : bot.mode === 'schedule'
+                ? t('New schedule')
+                : t('New trigger')
+            : existing
+              ? t('Edit automation')
+              : t('New automation')}
+        </DialogTitle>
         <DialogDescription>
           {t('The host runs it, in a thread you can open from its run history, even while this window is closed.')}
         </DialogDescription>
@@ -216,7 +191,7 @@ function EditorBody({
             onChange={(e) => patch({ prompt: e.target.value })}
           />
         </Field>
-        {connectedHosts.length > 1 && !existing ? (
+        {connectedHosts.length > 1 && !existing && !bot ? (
           <Field label={t('Host')}>
             <Select
               value={draft.hostId}
@@ -235,6 +210,9 @@ function EditorBody({
             </Select>
           </Field>
         ) : null}
+        {bot ? (
+          <BotAutomationFields draft={bot} isNew={!existing} onChange={patchBot} />
+        ) : (
         <Field label={t('Trigger')}>
           <Select
             value={draft.triggerKind}
@@ -255,7 +233,8 @@ function EditorBody({
             </SelectContent>
           </Select>
         </Field>
-        {draft.triggerKind === 'schedule' ? (
+        )}
+        {showSchedule ? (
           <div className="grid grid-cols-3 gap-3">
             <Field label={t('Cadence')}>
               <Select
@@ -319,7 +298,7 @@ function EditorBody({
             </Field>
           </div>
         ) : null}
-        {draft.triggerKind === 'workspace-created' ? (
+        {bot ? null : draft.triggerKind === 'workspace-created' ? (
           <Field label={t('Project')} hint={t('The run uses the new workspace.')}>
             <Select value={draft.projectId} onValueChange={(projectId) => patch({ projectId })}>
               <SelectTrigger className="w-full">
@@ -356,6 +335,7 @@ function EditorBody({
           </Field>
         )}
         <div className="grid grid-cols-2 gap-3">
+          {bot ? null : (
           <Field label={t('Agent')}>
             <Select value={draft.agent} onValueChange={(value) => isChatAgentId(value) && patch({ agent: value })}>
               <SelectTrigger className="w-full">
@@ -375,6 +355,7 @@ function EditorBody({
               </SelectContent>
             </Select>
           </Field>
+          )}
           {draft.agent === 'claude' ? (
             <Field label={t('Effort')}>
               <Select
@@ -422,12 +403,14 @@ function EditorBody({
             </SelectContent>
           </Select>
         </Field>
-        <ToggleRow
-          label={t("Continue the previous run's thread")}
-          checked={draft.reuseSession}
-          onChange={(reuseSession) => patch({ reuseSession })}
-        />
-        {draft.triggerKind === 'schedule' ? (
+        {bot ? null : (
+          <ToggleRow
+            label={t("Continue the previous run's thread")}
+            checked={draft.reuseSession}
+            onChange={(reuseSession) => patch({ reuseSession })}
+          />
+        )}
+        {showSchedule ? (
           <Field label={t('Skip a run missed by more than (minutes)')}>
             <Input
               type="number"
@@ -440,12 +423,21 @@ function EditorBody({
         ) : null}
         <ToggleRow label={t('Enabled')} checked={draft.enabled} onChange={(enabled) => patch({ enabled })} />
         {error ? <p className="text-xs text-destructive">{error}</p> : null}
+        {botProblem ? (
+          <p className="text-xs text-muted-foreground" data-automation-problem={botProblem}>
+            {botProblem === 'chat'
+              ? t('Pick the chat it continues.')
+              : botProblem === 'ref'
+                ? t('Name the place results go to.')
+                : t('Create a webhook URL first.')}
+          </p>
+        ) : null}
       </div>
       <DialogFooter>
         <Button variant="outline" onClick={onDone}>
           {t('Cancel')}
         </Button>
-        <Button disabled={saving} data-automation-save onClick={() => void save()}>
+        <Button disabled={saving || botProblem !== null} data-automation-save onClick={() => void save()}>
           {saving ? t('Saving…') : existing ? t('Save') : t('Create')}
         </Button>
       </DialogFooter>

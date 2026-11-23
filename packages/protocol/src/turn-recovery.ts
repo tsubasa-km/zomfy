@@ -8,7 +8,9 @@ export const TURN_RECOVERY_META = {
   /** notice: how the turn before it ended (TurnEndMeta). */
   turnEnd: 'harness/turnEnd',
   /** user_message_chunk: the prompt was a recovery, not typed (TurnResumeKind); shown as a divider. */
-  resumed: 'harness/resumed'
+  resumed: 'harness/resumed',
+  /** tool_call_update (`true`): the call was still open when its turn or process stopped; `failed` in ACP, stopped to read. */
+  toolStopped: 'harness/toolStopped'
 } as const
 
 export type TurnEndMeta =

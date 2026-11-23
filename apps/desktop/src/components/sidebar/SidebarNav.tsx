@@ -209,7 +209,7 @@ function DashboardCounts() {
 function BotsWaiting() {
   const bots = useBots((s) => s.bots)
   const waiting = useStore((s) => (bots ?? []).filter((bot) => botActivity(bot, s.sessions) === 'waiting').length)
-  const requests = useBots((s) => s.accessRequests.length)
+  const requests = useBots((s) => s.accessRequests.length + s.notices.length)
   const count = waiting + requests
   if (count === 0) return null
   return (

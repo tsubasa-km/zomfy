@@ -99,8 +99,11 @@ settled while building:
 - Tested in workerd against a fake Linear (`apps/relay/test/linear.test.ts`), with a pasted token;
   the client-credentials fetch is not covered by a test.
 
-Left: the end-to-end check in a Linear workspace, the desktop's member picker that calls `find`,
-and the nightly memory tidy-up (the daemon's part of B6).
+The desktop's member picker that calls `find` and the answer to an access request (a comment on
+the issue) followed with phase B2.
+
+Left: the end-to-end check in a Linear workspace, and the nightly memory tidy-up (the daemon's part
+of B6).
 
 # Non-goals
 

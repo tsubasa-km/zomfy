@@ -121,9 +121,11 @@ README. Details settled while building:
   idempotency key posts once.
 - Tested in workerd against fake Slack APIs (`apps/relay/test/slack.test.ts`).
 
-Left: the end-to-end checks in a test workspace, and on the daemon side (a follow-up for the
-daemon's agent): mirroring the owner's Zomfy messages with `post {mirror: true}`, downloading
-files with `read {download}`, and running `ruleIds` inside the turn.
+The daemon's side followed with phase B2: the owner's Zomfy messages are mirrored with
+`post {mirror: true}`, files are downloaded with `read {download}`, `ruleIds` run inside the turn,
+and the owner's answer to an access request is a DM.
+
+Left: the end-to-end checks in a test workspace.
 
 # Non-goals
 

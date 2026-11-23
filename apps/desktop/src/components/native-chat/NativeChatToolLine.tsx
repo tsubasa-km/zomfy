@@ -18,6 +18,7 @@ import { cn } from '@/lib/utils'
 import type { ChatImage } from '@/session-store'
 import { chatImageSrc, openChatLightbox } from './ChatLightbox'
 import { t } from '@/i18n/i18n'
+import { STOPPED_TOOL } from '@/stopped-tools'
 import { NativeChatExpandable } from './NativeChatExpandable'
 import { NativeChatDiffView } from './NativeChatDiffView'
 import { shortenPaths, toolNameOf, type ToolItem } from './native-chat-transcript-model'
@@ -50,6 +51,7 @@ export function NativeChatToolLine({ tool, cwd }: { tool: ToolItem; cwd: string 
   const [expanded, setExpanded] = useState(false)
   const Glyph = glyphFor(tool)
   const failed = tool.status === 'failed'
+  const stopped = tool.status === STOPPED_TOOL
   const [verb, ...rest] = tool.title.split(': ')
   const target = shortenPaths(rest.join(': '), cwd)
   const command = commandOf(tool.input)
@@ -88,6 +90,12 @@ export function NativeChatToolLine({ tool, cwd }: { tool: ToolItem; cwd: string 
           </span>
         ) : null}
         <span className="ml-auto flex shrink-0 items-center gap-1.5 pl-2">
+          {/* Its turn or process stopped before it finished: not running, not failed (stopped-tool-calls.md). */}
+          {stopped ? (
+            <span data-native-chat-tool-stopped className="text-xs text-chat-foreground-faint">
+              {t('Stopped')}
+            </span>
+          ) : null}
           {hasDetail ? (
             <ChevronRight
               className={cn(

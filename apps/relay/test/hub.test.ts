@@ -334,7 +334,7 @@ describe('events and actions', () => {
     const { link, helloRev } = track(await connectAndHello(hostId, key))
     link.send({ ch: 'bots', type: 'action', helloRev, reqId: 'r1', verb: 'capabilities' })
     expect(await link.type('action-result')).toMatchObject({ reqId: 'r1', ok: true })
-    link.send({ ch: 'bots', type: 'action', helloRev, reqId: 'r2', verb: 'post', ref: 'discord:g1:c1', idempotencyKey: 'k' })
+    link.send({ ch: 'bots', type: 'action', helloRev, reqId: 'r2', verb: 'react', ref: 'discord:g1:c1', idempotencyKey: 'k' })
     expect(await link.type('action-result')).toMatchObject({ reqId: 'r2', ok: false, error: { code: 'unsupported' } })
   })
 })

@@ -18,6 +18,18 @@ import { DEFAULT_SESSION_OPTIONS, type SessionRegistry } from './session-registr
 import type { WorkspaceManager } from './workspace-manager.ts'
 import { log } from './log.ts'
 import { refuseUnattended } from './chat-agent-launch-specs.ts'
+import { automationRule, checkSourceTrigger, isSourceTrigger } from './bot-automations.ts'
+import type { Rule } from '@zomfy/relay-contract'
+
+/** Runs a bot's automations in its home (bot-service.ts); without one, bot automations cannot be saved. */
+export interface BotAutomationRunner {
+  /** The bot's home workspace; throws when the bot is unknown or cannot run unattended. */
+  home(botId: string): string
+  /** The run's chat: a new bot chat, or the one the automation continues. */
+  session(automation: Automation, title: string): string
+  /** Runs the turn and sends its result where the automation says. */
+  run(automation: Automation, run: AutomationRun, sessionId: string, text: string): Promise<acp.StopReason>
+}
 
 const TICK_MS = 15_000
 
@@ -39,12 +51,53 @@ export class AutomationService {
   private knownWorkspaces = new Set<string>()
   private lastStatus = new Map<string, SessionInfo['status']>()
   private timer: ReturnType<typeof setInterval> | null = null
+  private bots: BotAutomationRunner | null = null
+  private readonly rulesListeners = new Set<() => void>()
+  private loaded = false
+  private lastRules = '[]'
 
   constructor(private readonly deps: AutomationServiceDeps) {}
+
+  /** Bots run their automations through this; set by the bot service. */
+  setBotRunner(runner: BotAutomationRunner): void {
+    this.bots = runner
+  }
+
+  /** The rules of bots' event automations, for the relay's `hello`. */
+  botRules(): Rule[] {
+    return this.automations.flatMap((a) => {
+      const rule = a.enabled ? automationRule(a) : null
+      return rule ? [rule] : []
+    })
+  }
+
+  /** Hears when the rules may have changed. */
+  onRulesChanged(listener: () => void): () => void {
+    this.rulesListeners.add(listener)
+    return () => this.rulesListeners.delete(listener)
+  }
+
+  /** A bot's event automation by its rule id (the automation's id). */
+  botAutomation(ruleId: string): Automation | undefined {
+    return this.automations.find((a) => a.id === ruleId && a.bot)
+  }
+
+  /** Runs a bot's event automation now, its event quoted as information; null when it is off or gone. */
+  fireBotTrigger(ruleId: string, eventContext: string): AutomationRun | null {
+    const automation = this.botAutomation(ruleId)
+    if (!automation?.enabled || !isSourceTrigger(automation.trigger)) return null
+    return this.dispatch(automation, 'event', automation.workspaceId, Date.now(), eventContext)
+  }
+
+  /** Every saved automation is loaded. */
+  get ready(): boolean {
+    return this.loaded
+  }
 
   async start(): Promise<void> {
     const saved = await loadAutomations()
     this.automations = saved.automations
+    this.loaded = true
     // A turn cannot outlive the daemon that ran it.
     this.runs = saved.runs.map((r) =>
       r.status === 'dispatched'
@@ -188,12 +241,20 @@ export class AutomationService {
       return run
     }
     const run = this.newRun(automation, trigger, workspaceId, scheduledFor, 'dispatched', null)
-    const sessionId = this.sessionFor(automation, workspaceId, cwd, run.title)
+    let sessionId: string
+    try {
+      sessionId = automation.bot && this.bots ? this.bots.session(automation, run.title) : this.sessionFor(automation, workspaceId, cwd, run.title)
+    } catch (error) {
+      const failed = { ...run, status: 'dispatch_failed' as const, error: error instanceof Error ? error.message : String(error), completedAt: Date.now() }
+      this.record(failed)
+      return failed
+    }
     run.sessionId = sessionId
     run.startedAt = Date.now()
     this.record(run)
     const text = eventContext ? `${eventContext}\n\n${automation.prompt}` : automation.prompt
-    this.deps.runTurn(sessionId, text).then(
+    const turn = automation.bot && this.bots ? this.bots.run(automation, run, sessionId, eventContext ?? '') : this.deps.runTurn(sessionId, text)
+    turn.then(
       (stopReason) => this.finish(run.id, 'completed', stopReason === 'cancelled' ? 'Stopped before it finished' : null),
       (error: unknown) => this.finish(run.id, 'failed', error instanceof Error ? error.message : String(error))
     )
@@ -273,6 +334,16 @@ export class AutomationService {
   }
 
   private validate(input: AutomationInput): AutomationInput {
+    if (input.bot) {
+      if (!this.bots) throw new Error('Bots are not running on this host')
+      // A bot's automation always runs in its home.
+      input = { ...input, workspaceId: this.bots.home(input.bot.botId) }
+      if (isSourceTrigger(input.trigger)) checkSourceTrigger(input.trigger)
+      const results = input.bot?.resultsTo
+      if (typeof results === 'object' && !results?.ref?.trim()) throw new Error('Name the place the results go to')
+    } else if (isSourceTrigger(input.trigger)) {
+      throw new Error('Source triggers are for a bot: create it from the bot')
+    }
     const name = input.name.trim()
     const prompt = input.prompt.trim()
     if (!name) throw new Error('Give the automation a name')
@@ -283,7 +354,7 @@ export class AutomationService {
     if (trigger.kind === 'schedule') {
       parseAutomationRrule(trigger.rrule)
       if (!input.workspaceId) throw new Error('Pick the workspace scheduled runs go to')
-    } else if (trigger.kind !== 'workspace-created' && trigger.kind !== 'agent-finished') {
+    } else if (trigger.kind !== 'workspace-created' && trigger.kind !== 'agent-finished' && !isSourceTrigger(trigger)) {
       throw new Error('Unknown trigger')
     }
     if (input.workspaceId && !this.deps.workspaces.workspacePath(input.workspaceId)) {
@@ -308,6 +379,11 @@ export class AutomationService {
     const snapshot = this.snapshot()
     this.deps.broadcast(AUTOMATION_NOTIFICATIONS.automationsChanged, snapshot)
     void saveAutomations({ automations: this.automations, runs: this.runs })
+    const rules = JSON.stringify(this.botRules())
+    if (rules !== this.lastRules) {
+      this.lastRules = rules
+      for (const listener of this.rulesListeners) listener()
+    }
   }
 }
 

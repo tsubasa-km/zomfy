@@ -44,6 +44,7 @@ import { chatAgentLaunch } from "./chat-agent-launch-settings.ts";
 import { noteSlashCommands } from "./claude-catalog.ts";
 import { liveClaudeQueries } from "./live-claude-queries.ts";
 import { BackgroundTaskMarks } from "./background-task-marks.ts";
+import { PROCESS_GONE_META, stopsOpenToolCalls, stoppedToolCallUpdates } from "./stopped-tool-calls.ts";
 import type { SessionRegistry } from "./session-registry.ts";
 import { SessionMover } from "./session-move.ts";
 import type { TerminalManager } from "./terminal-manager.ts";
@@ -82,8 +83,11 @@ import { log } from "./log.ts";
 import { ConnectionClients } from "./connection-clients.ts";
 import { AskEveryClient } from "./ask-every-client.ts";
 import { DeviceStore } from "./device-store.ts";
-import { envVar } from "./harness-home.ts";
+import { envVar, HARNESS_HOME } from "./harness-home.ts";
 import { RemoteGateway } from "./remote-gateway.ts";
+import { PhoneRelay } from "./phone-relay.ts";
+import { relayChannels } from "./relay-channels.ts";
+import { readRelayConfig } from "./relay-pairing.ts";
 import { registerRemoteDeviceHandlers } from "./handlers/remote-device-handlers.ts";
 import { compactTranscript } from "./transcript-compaction.ts";
 import { toolCallCommand, toolCallPaths } from "./conversation-messages.ts";
@@ -295,7 +299,13 @@ export function createHarnessAgent(
   });
 
   /** Recorded for replay, then sent to every client so a reconnected window sees live turns. */
+  const updateListeners = new Set<(sessionId: string, update: acp.SessionUpdate) => void>();
   async function emit(sessionId: string, update: acp.SessionUpdate): Promise<void> {
+    // A turn or process that stopped leaves its open calls stopped, not running (stopped-tool-calls.md).
+    if (stopsOpenToolCalls(update)) {
+      for (const stopped of stoppedToolCallUpdates(await sessions.transcript(sessionId))) await emit(sessionId, stopped);
+    }
+    for (const listener of updateListeners) listener(sessionId, update);
     const seq = await sessions.record(sessionId, update);
     broadcast(acp.methods.client.session.update, { sessionId, update, _meta: { [SESSION_REPLAY_META.seq]: seq } });
   }
@@ -344,18 +354,22 @@ export function createHarnessAgent(
       sessionUpdate: "notice",
       severity: "warning",
       title: `Zomfy restarted, which stopped the background tasks this chat was running: ${tasks.join(", ")}`,
+      _meta: { [PROCESS_GONE_META]: true },
     }).catch(() => undefined);
   }
 
   type Ask =(request: acp.RequestPermissionRequest) => Promise<acp.RequestPermissionResponse>;
 
   const ASK_WAIT_MS = 5 * 60_000;
+  const BOT_ASK_WAIT_MS = 24 * 60 * 60_000;
   const clientClosed = new Map<acp.AgentContext, Promise<void>>();
   const asks = new AskEveryClient({
     clients: () => clients,
     closed: (client) => clientClosed.get(client) ?? Promise.resolve(),
     broadcast,
     waitMs: ASK_WAIT_MS,
+    // A bot chat's ask waits as long as its turn may: its asker answers from the source (bots/daemon.md).
+    waitMsFor: (request) => (sessions.get(request.sessionId)?.origin === "bot" ? BOT_ASK_WAIT_MS : null),
   });
 
   const autoApproved = (request: acp.RequestPermissionRequest): acp.RequestPermissionResponse | null => {
@@ -767,6 +781,12 @@ export function createHarnessAgent(
     acpAgents,
     broadcast,
     emit,
+    asks,
+    services: {},
+    onSessionUpdate(listener) {
+      updateListeners.add(listener);
+      return () => updateListeners.delete(listener);
+    },
     async runTurn(sessionId, text) {
       const { stopReason } = await prompt({ sessionId, prompt: [{ type: "text", text }] }, askAnyClient, null);
       return stopReason;
@@ -857,13 +877,22 @@ export function createHarnessAgent(
   }
 
   // Phones on the LAN or a tailnet (docs/specs/mobile/pairing.md): ACP clients of this same agent.
+  // Through Zomfy Relay too (docs/specs/mobile/relay.md), on the link the bots connector keeps.
+  const deviceStore = new DeviceStore();
+  let phoneRelay: PhoneRelay | null = null;
   const gateway = new RemoteGateway({
-    store: new DeviceStore(),
+    store: deviceStore,
     connect: (stream) => app.connect(stream),
-    onChange: (snapshot) => broadcast(REMOTE_DEVICE_NOTIFICATIONS.devicesChanged, snapshot),
+    onChange: (snapshot) => {
+      broadcast(REMOTE_DEVICE_NOTIFICATIONS.devicesChanged, snapshot);
+      phoneRelay?.devicesChanged();
+    },
+    relayRoute: () => phoneRelay?.route() ?? null,
     // ZOMFY_REMOTE_BIND=127.0.0.1 keeps it on this computer (previews, the Android Emulator).
     ...(envVar("REMOTE_BIND") ? { bindHostname: envVar("REMOTE_BIND") } : {}),
   });
+  phoneRelay = new PhoneRelay({ gateway, store: deviceStore, relayConfig: () => readRelayConfig(HARNESS_HOME), log });
+  phoneRelay.attach(relayChannels);
   registerRemoteDeviceHandlers(handle, gateway, options.remoteGateway === true);
 
   return app;

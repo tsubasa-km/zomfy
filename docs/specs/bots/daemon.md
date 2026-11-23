@@ -162,10 +162,53 @@ Phase B1, the daemon part (`bot-store.ts`, `bot-home.ts`, `bot-service.ts`, `bot
   reply sent twice still posts once by its idempotency key.
 - The link drops a socket that gets no challenge within two ping intervals.
 
-Not yet: approvals and questions to the source (B2, so a bot turn's approval still goes to an open
-window and is denied after 5 minutes without one), `activity` and `workers` events, PR links and
-review notes in replies, and replying again after a usage-limit resume. A bot record may be the
-default (`isDefault`, one per host), and its `hello` entry says so.
+A bot record may be the default (`isDefault`, one per host), and its `hello` entry says so.
+
+Phase B2 (`bot-prompts.ts`, `bot-turn-extras.ts`, `bot-automations.ts`, `bot-runs.ts`, with
+`ask-every-client.ts`, `automation-service.ts` and `connector-client.ts`; tested in
+`bot-service.test.ts` against the fake Hub):
+
+- **Questions and approvals.** `AskEveryClient` takes observers and an outside answer; the bot
+  service observes every ask, and one in a chat whose conversation has a turn running goes to the
+  source as `prompt` (its `promptId` is the ask's id) while every window and phone is asked too.
+  An approval's options are the ACP options; a single AskUserQuestion is a `question` with options
+  `q0`…, `byReply` when it has none or takes several picks; several questions, or more than 8
+  options, are `unsupported` and answered in Zomfy. An `answer` delivery picks the option, or its
+  `text` is the answer (a number or a label picks that option); the first answer wins and
+  `prompt-cleared` says `source`, `zomfy` (a window or phone) or `expired` (the turn ended). An
+  answer to a settled prompt is `expired`. A bot chat's ask waits 24 hours, not 5 minutes.
+- **Activity and workers.** The daemon's `emit` has listeners; a running bot turn's tool calls and
+  plan go out as `activity` at most once per 3 s (the last change of a window at its end), and the
+  running child chats of a linked chat as `workers` when the list changes.
+- **Replies.** PR links are the URLs printed by `gh pr create` (or a pull-request creating tool)
+  and those the reply names, at most 5. Review notes are a fenced `zomfy-review` JSON block the bot
+  ends a review with (its `AGENTS.md` says how); the daemon takes the block out of the text.
+- **Turns the chat runs on its own.** After a usage-limit stop the link waits for the resumed
+  turn (`turn-auto-resume.ts`), which is announced (`turn-started`) and replied when the chat goes
+  idle. In a Slack-linked chat the owner's own turn in Zomfy is too, and their words are posted in
+  the thread first with `post {mirror: true}`.
+- **Access requests** keep the conversation their source made; the owner's answer goes back as
+  the new `access-answered` event ([contract](contract.md#events-daemon--hub)).
+- **Schedules and triggers.** `Automation.bot` and the source trigger kinds are in the protocol;
+  the automation service runs a bot automation through the bot service (`BotAutomationRunner`):
+  in the bot's home, a new bot chat per run (scheduled runs in `plan` mode) or the chat it
+  continues, and the answer posted with `post` to the ref in `resultsTo`, or to the event's thread
+  for `thread`. Enabled event automations are `rules` in `hello` (re-sent when they change); a
+  `trigger` past its `graceMs` is `expired`, otherwise its event is quoted as information in the
+  run. `ruleIds` of a `start` or `send` add those automations' prompts to that turn. Bots save
+  their own with `create_bot_automation` (a daemon-offered manager tool, offered to bot chats only).
+- **Webhooks, PR events, alerts.** `webhook_notice` fetches the call (`webhook.fetch`), runs the
+  hook's automation with the body quoted, then `webhook.done`; a call with the subject of an
+  unfinished run goes into that run's chat. `pr_event` finds the workspace on that branch whose
+  HEAD is or descends from `headSha` and runs the event in its newest chat. `webhook_alert` is a
+  notice for the owner (`botsNotices`, `noticesChanged`).
+- **Slack files** of a `start` are downloaded with `read {download}` into
+  `~/.zomfy/attachments/bots/<delivery>/` and listed in the prompt as information.
+- The connector client sends actions (`action`, answered by `action-result`, 60 s) and holds
+  events while a `hello` waits for its `hello-ok`, since the Hub refuses a batch with the old
+  `helloRev`; a window may ask for `BOT_WINDOW_ACTIONS` through `_harness/bots/action`.
+
+Not yet: the nightly memory tidy-up (B6), and the end-to-end checks on Discord.
 
 # Non-goals
 

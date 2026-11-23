@@ -108,7 +108,16 @@ describe('asking', () => {
     await p.link.settle(200)
     expect(p.deliveries()).toHaveLength(0)
     await hook('issue_comment', issueComment(`@${SLUG} reviewer request access`, 'stranger'))
-    expect(await p.next('access_request')).toMatchObject({ requester: { source: 'github', id: 'stranger' } })
+    const request = await p.next('access_request')
+    expect(request).toMatchObject({ requester: { source: 'github', id: 'stranger' } })
+    // The owner's answer in Zomfy comes back as access-answered, a comment on the same issue.
+    const before = (await ghCalls('POST', /\/issues\/7\/comments$/)).length
+    p.events([{ kind: 'access-answered', conversation: request.conversation, botId: request.botId, requester: { id: 'stranger', name: 'stranger' }, allowed: true }])
+    const answered = await until(async () => {
+      const list = await ghCalls('POST', /\/issues\/7\/comments$/)
+      return list.length > before ? list : null
+    })
+    expect(answered.at(-1)!.body.body).toContain('@stranger The owner let you ask **Reviewer**')
   })
 
   it('makes a later mention a send, and a plain reply by an asker the answer to an open question', async () => {

@@ -1,4 +1,4 @@
-import { BOT_NOTIFICATIONS, type Bot, type BotAccessRequest, type BotChatFrom, type ConnectorStatus } from '@zomfy/protocol'
+import { BOT_NOTIFICATIONS, type Bot, type BotAccessRequest, type BotChatFrom, type BotNotice, type ConnectorStatus } from '@zomfy/protocol'
 import type { Session } from '@/session-store'
 
 // The bots state as pure functions, for the bots store and its tests (docs/specs/bots/desktop.md).
@@ -11,13 +11,15 @@ export interface BotsState {
   bots: Bot[] | null
   connector: ConnectorStatus | null
   accessRequests: BotAccessRequest[]
+  /** Notices for the owner (a webhook refusing calls, or at its cap), shown in Needs you. */
+  notices: BotNotice[]
   /** The Bots page the sidebar's Bots row opens. */
   pageOpen: boolean
   /** The bot Settings → Bots shows; null for the list. */
   selectedId: string | null
 }
 
-export const INITIAL_BOTS_STATE: BotsState = { bots: null, connector: null, accessRequests: [], pageOpen: false, selectedId: null }
+export const INITIAL_BOTS_STATE: BotsState = { bots: null, connector: null, accessRequests: [], notices: [], pageOpen: false, selectedId: null }
 
 /** A bots notification applied to the state; unknown methods leave it as it was. */
 export function reduceBotsNotification(state: BotsState, method: string, params: unknown): BotsState {
@@ -32,6 +34,8 @@ export function reduceBotsNotification(state: BotsState, method: string, params:
       return { ...state, connector: params as ConnectorStatus }
     case BOT_NOTIFICATIONS.accessRequestsChanged:
       return { ...state, accessRequests: (params as { requests: BotAccessRequest[] }).requests }
+    case BOT_NOTIFICATIONS.noticesChanged:
+      return { ...state, notices: (params as { notices: BotNotice[] }).notices }
     default:
       return state
   }

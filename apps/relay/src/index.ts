@@ -181,7 +181,15 @@ export default {
       return Response.json(answer.body, { status: answer.status })
     }
 
-    // The phone routes arrive with their phase; a source without secrets answers 404.
+    // A phone's socket for one host (docs/specs/mobile/relay.md); the Hub checks its device key.
+    if (/^\/v1\/device\/[^/]+\/ws$/.test(pathname) && request.method === 'GET') {
+      if (request.headers.get('Upgrade')?.toLowerCase() !== 'websocket') {
+        return Response.json({ error: 'bad_request' }, { status: 426 })
+      }
+      return hub(env).fetch(request)
+    }
+
+    // A source without secrets answers 404.
     return notFound()
   }
 } satisfies ExportedHandler<Env>
