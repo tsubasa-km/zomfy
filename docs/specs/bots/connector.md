@@ -116,6 +116,8 @@ Event triggers are not gated by Who can ask (as in Orca); their `from` field nar
   Worker URL, the setup code, and each source URL to paste.
 - Both work on the Workers Free plan for one person, except as noted in
   [Discord](sources/discord.md#open-questions).
+- **`bun run relay:local`** runs the same Worker on the person's own machine (workerd, storage on
+  disk) behind a tunnel they control: [running Zomfy Relay on your own machine](self-host.md).
 
 ## Secrets
 

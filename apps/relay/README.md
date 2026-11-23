@@ -39,6 +39,113 @@ It checks that wrangler is signed in, runs `wrangler deploy`, makes a new single
 Worker URL, the setup code, the Interactions Endpoint URL and the link that adds the app to your
 server. `bun run deploy -- --dry-run` prints the steps without running them.
 
+## Run it on your own machine
+
+The same Worker also runs on a computer of yours, on [workerd](https://github.com/cloudflare/workerd)
+(the open-source Workers runtime) through `wrangler dev --local`, with its storage on disk, reached
+from the internet through a tunnel you control ([spec](../../docs/specs/bots/self-host.md)). No
+Cloudflare Workers account is needed.
+
+**Limits.** The relay is off whenever that machine is off or asleep: there is no 24-hour queue then.
+Slack and Linear retry a little and give up, GitHub does not retry, Discord says "This interaction
+failed", webhook callers get an error, and phones cannot reach their hosts. A machine that stays on
+(a home server, a desktop that does not sleep, WSL on one) suits it; on the same laptop as Zomfy it
+gains little.
+
+You need Node 20+, Bun, a clone of this repository with `bun install` run, and one of the tunnels.
+
+### Quick try (Cloudflare quick tunnel)
+
+Install [`cloudflared`](https://developers.cloudflare.com/cloudflare-one/connections/connect-networks/downloads/)
+(`winget install Cloudflare.cloudflared`, `brew install cloudflared`, or your distribution's
+package), then at the repository root:
+
+```sh
+bun run relay:local
+```
+
+It makes `~/.zomfy/relay/relay.env` with a new setup code, starts a quick tunnel and the relay, and
+prints the public URL (`https://….trycloudflare.com`) and the setup code. In Zomfy: **Settings →
+Bots → Relay**, paste that URL and the code, **Pair**. A quick tunnel gets a **new URL every
+start**, so use it only to try things out.
+
+### Daily use: a named Cloudflare tunnel
+
+Free, with a stable URL on a domain you have on Cloudflare (no Workers involved):
+
+1. Cloudflare dashboard → **Zero Trust → Networks → Tunnels → Create a tunnel → Cloudflared**,
+   name it `zomfy-relay`, and copy the token from the install command it shows (the long string
+   after `--token`). Skip installing it as a service: the launcher runs it.
+2. **Public Hostname**: e.g. `relay.example.com`, service **HTTP** `localhost:8787`.
+3. Once:
+
+   ```sh
+   bun run relay:local -- --tunnel-token <token> --public-url https://relay.example.com
+   ```
+
+   The token is kept in `~/.zomfy/relay/cloudflared.token` and the choice in `local.json`, so
+   afterwards plain `bun run relay:local` does the same.
+
+### Or: Tailscale Funnel
+
+With Tailscale signed in and [Funnel](https://tailscale.com/kb/1223/funnel) allowed for this machine
+in the tailnet's policy:
+
+```sh
+bun run relay:local -- --tunnel tailscale
+```
+
+The URL is `https://<machine>.<tailnet>.ts.net` and stays the same: the launcher runs
+`tailscale funnel 8787`, which serves it on port 443 and forwards to the relay on 127.0.0.1.
+
+### Or: your own
+
+`--tunnel none --public-url https://…` when something else of yours (a reverse proxy, a VPS with
+SSH forwarding) forwards that URL to `http://127.0.0.1:8787`.
+
+### Sources and secrets
+
+Put the secrets of the sources you want in `~/.zomfy/relay/relay.env` (the same names as
+[`.dev.vars.example`](.dev.vars.example), from each source's steps below), then stop the relay
+(Ctrl+C) and start it again; it prints each source's URL to paste, with your public URL in place of
+the Worker URL. For Slack, put your public URL in [`slack-manifest.yaml`](slack-manifest.yaml); for
+GitHub, make the app by hand from [`github-app-manifest.json`](github-app-manifest.json)'s
+permissions and events with webhook URL `<public URL>/github/webhook` (`bun run deploy --github`
+writes to Cloudflare, not to `relay.env`). `--new-setup-code` makes a new single-use code for pairing
+another computer.
+
+Pair Zomfy with the **public** URL, not `127.0.0.1`: phones are given the paired URL as their relay
+route. Storage is in `~/.zomfy/relay/state` (`--dir` or `ZOMFY_RELAY_HOME` moves the whole home);
+deleting it forgets every paired host. The launcher keeps the Local Explorer of `wrangler dev` off
+and answers `/cdn-cgi/…` with 404, so nothing but the relay's own routes is reachable through the
+tunnel. If wrangler or the tunnel exits it is started again; a quick tunnel that comes back with a
+new URL prints it.
+
+### Keep it running
+
+`--json` prints one JSON line per event (`ready`, `tunnel`, `restart`, `stopped`) and stops on a
+`stop` line on stdin; run it from `apps/relay` so the service needs no Bun:
+
+- **Linux / WSL (systemd)**: `~/.config/systemd/user/zomfy-relay.service` with
+  `WorkingDirectory=<clone>/apps/relay`, `ExecStart=/usr/bin/node scripts/local.mjs --json`,
+  `Restart=on-failure`; then `systemctl --user enable --now zomfy-relay` and
+  `loginctl enable-linger $USER` so it runs while you are logged out.
+- **macOS (launchd)**: a `~/Library/LaunchAgents/dev.zomfy.relay.plist` with `ProgramArguments`
+  `node scripts/local.mjs --json`, `WorkingDirectory` `<clone>/apps/relay`, `RunAtLoad` and
+  `KeepAlive` true; `launchctl load` it.
+- **Windows**: `schtasks /create /tn "Zomfy Relay" /sc onlogon /tr "cmd /c cd /d <clone>\apps\relay && node scripts\local.mjs --json >> %USERPROFILE%\.zomfy\relay\relay.log 2>&1"`,
+  and turn off sleep in **Settings → System → Power**.
+
+`wrangler dev` reloads when `apps/relay/src` changes, so a `git pull` takes effect by itself.
+
+### Discord on your own machine
+
+The Gateway object runs as it does in Cloudflare: it opens Discord's Gateway from your machine, its
+heartbeat alarm is stored with the rest of the state, and after a restart it resumes the session
+(the launcher's first `/health` starts it). If a firewall blocks outgoing WebSockets, `/ask` and
+buttons still work (they come over HTTPS); mentions and DMs need the Gateway. `<public URL>/health`
+shows `discordGateway.state` and `lastError`.
+
 ## Discord
 
 1. At [discord.com/developers/applications](https://discord.com/developers/applications) →
@@ -155,7 +262,8 @@ nothing it says.
 ## Develop
 
 ```sh
-bun run test        # Worker tests in workerd (@cloudflare/vitest-plugin), with a fake Discord
+bun run test        # Worker tests in workerd (@cloudflare/vitest-plugin), with a fake Discord,
+                    # then the local launcher's tests in Node (vitest.local.config.ts)
 cp .dev.vars.example .dev.vars   # put a made-up SETUP_CODE in it; leave Discord empty
 bun run dev         # wrangler dev
 bun scripts/fake-daemon.ts http://127.0.0.1:8787 <that setup code>

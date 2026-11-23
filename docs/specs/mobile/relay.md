@@ -25,7 +25,9 @@ generated: { by: "claude-code/opus-5.5", at: "2026-11-22T00:00:00Z" }
 
 Away from the LAN or tailnet, the phone cannot reach a daemon that listens on 127.0.0.1 behind NAT.
 The relay must connect them without seeing what they say, in the person's own Cloudflare account,
-in the same Worker as the bots connector ([decision](../../decisions/one-relay-worker.md)).
+in the same Worker as the bots connector ([decision](../../decisions/one-relay-worker.md)). The
+Worker can also run on the person's own machine behind a tunnel
+([self-hosting](../bots/self-host.md)); phones then use the tunnel's public URL.
 
 # Behaviour
 

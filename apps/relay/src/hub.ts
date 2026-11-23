@@ -35,7 +35,7 @@ import { GitHubSource } from './github/source'
 import { LinearSource } from './linear/source'
 import { WebhookSource, type CallAnswer, type IncomingCall } from './webhooks/source'
 import { SlackSource } from './slack/source'
-import { configuredSources, type Env } from './env'
+import { configuredSources, publicOrigin, type Env } from './env'
 import { Outbound, OUTBOUND_DUE, type OutboundRunner } from './outbound'
 import { PhoneRelay, type PhoneAttachment } from './phone'
 import { within, type HubSource, type SourceHub } from './sources/common'
@@ -123,7 +123,7 @@ export class Hub extends DurableObject<Env> {
       rules: () => this.allRules(),
       markSeen: (key) => this.markSeen(key),
       scheduleDue: (key, at) => hub.scheduleDue(key, at),
-      origin: () => this.meta('origin'),
+      origin: () => publicOrigin(env) ?? this.meta('origin'),
       settle: (id, outcome) => {
         const row = this.sql.exec<{ state: string }>('SELECT state FROM deliveries WHERE id = ?', id).toArray()[0]
         if (row && row.state !== 'done') this.finish(id, outcome, Date.now())

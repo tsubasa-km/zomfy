@@ -21,6 +21,11 @@ export interface Env {
   LINEAR_CLIENT_ID?: string
   LINEAR_CLIENT_SECRET?: string
   EXPO_ACCESS_TOKEN?: string
+  /**
+   * The relay's public origin when it runs behind a tunnel on the person's own machine
+   * (docs/specs/bots/self-host.md); the URLs the Hub hands out use it. Unset in Cloudflare.
+   */
+  PUBLIC_URL?: string
   /** Tests only: a fake Discord (REST and Gateway) behind a service binding. Never set in a deployment. */
   DISCORD_TRANSPORT?: Fetcher
   /** Tests only: fake Slack, GitHub and Linear APIs behind a service binding. Never set in a deployment. */
@@ -28,6 +33,18 @@ export interface Env {
 }
 
 export const RELAY_VERSION = '0.1.0'
+
+/** The origin of `PUBLIC_URL` (`https://relay.example.com`), or null when it is unset or not an http(s) URL. */
+export function publicOrigin(env: Pick<Env, 'PUBLIC_URL'>): string | null {
+  const value = env.PUBLIC_URL?.trim()
+  if (!value) return null
+  try {
+    const url = new URL(value)
+    return url.protocol === 'https:' || url.protocol === 'http:' ? url.origin : null
+  } catch {
+    return null
+  }
+}
 
 /** Sources whose secrets are all set; the rest are off and their routes answer 404. */
 export function configuredSources(env: Env): string[] {
