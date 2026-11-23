@@ -163,12 +163,39 @@ describe('the link', () => {
   })
 
   test('says hello again when the relay answers hello_required, or bots change', async () => {
-    const s = await setup()
+    const bots = [fixtureBot]
+    const s = await setup({ bots })
     await online(s)
     s.hub.send({ ch: 'bots', type: 'error', code: 'hello_required', message: 'again' })
     await eventually(() => s.hub.hellos.length === 2, 2000, 'second hello')
+    await eventually(() => s.client.rev === 2, 2000, 'second hello-ok')
+    bots.push({ ...fixtureBot, id: 'bot-2', handle: 'second' })
     s.client.botsChanged()
     await eventually(() => s.hub.hellos.length === 3, 2000, 'third hello')
+  })
+
+  test('says no hello when nothing a hello carries changed', async () => {
+    const s = await setup()
+    await online(s)
+    for (let i = 0; i < 5; i++) s.client.botsChanged()
+    await Bun.sleep(200)
+    expect(s.hub.hellos.length).toBe(1)
+  })
+
+  test('a change while a hello waits for its hello-ok is announced once, after it', async () => {
+    const bots = [fixtureBot]
+    const s = await setup({ bots })
+    await online(s)
+    bots.push({ ...fixtureBot, id: 'bot-2', handle: 'second' })
+    s.client.botsChanged()
+    // The second hello is in flight; more changes and a refusal must not start a third alongside it.
+    bots.push({ ...fixtureBot, id: 'bot-3', handle: 'third' })
+    s.client.botsChanged()
+    s.client.botsChanged()
+    await eventually(() => s.hub.hellos.length === 3, 2000, 'the hello after hello-ok')
+    await Bun.sleep(200)
+    expect(s.hub.hellos.length).toBe(3)
+    expect(s.hub.hellos.at(-1)!.bots.map((b) => b.handle)).toContain('third')
   })
 })
 

@@ -84,6 +84,9 @@ export class ConnectorClient {
   private flushAttempt = 0
   /** A hello was sent and its hello-ok has not come: events wait, as the Hub would refuse their old helloRev. */
   private helloPending = false
+  /** What the last hello announced, and whether bots changed while it waited for its hello-ok. */
+  private sentHelloKey: string | null = null
+  private helloDirty = false
   private readonly actions = new Map<string, { resolve: (result: unknown) => void; reject: (error: Error) => void; timer: ReturnType<typeof setTimeout> }>()
 
   constructor(private readonly options: ConnectorClientOptions) {
@@ -222,9 +225,19 @@ export class ConnectorClient {
     return this.toStatus(this.link.status)
   }
 
-  /** Bots or rules changed: announce them again. */
+  /**
+   * Bots or rules may have changed: announce them again, once, and only when what a hello carries
+   * did change — the store also changes for requests and notices that are no part of a hello.
+   */
   botsChanged(): void {
-    if (this.link.online) this.sendHello()
+    if (!this.link.online || this.helloKey() === this.sentHelloKey) return
+    // A hello is in flight: send the next one after its hello-ok, so the Hub's helloRev and ours agree.
+    if (this.helloPending) this.helloDirty = true
+    else this.sendHello()
+  }
+
+  private helloKey(): string {
+    return JSON.stringify([this.options.bots(), this.options.rules?.() ?? [], this.options.sources?.() ?? []])
   }
 
   private now() {
@@ -266,6 +279,8 @@ export class ConnectorClient {
       pages.length = limits.maxHelloBotPages
     }
     const rules = (this.options.rules?.() ?? []).slice(0, limits.maxRulesPerHello)
+    this.sentHelloKey = this.helloKey()
+    this.helloDirty = false
     this.helloPending = true
     this.link.send({
       ch: 'bots',
@@ -290,15 +305,28 @@ export class ConnectorClient {
         this.helloRev = message.helloRev
         this.helloPending = false
         this.seq = 0
+        // A retry waiting out its backoff (sends failed before this link said hello) must not hold
+        // the outbox back now that the link is ready.
+        if (this.flushTimer) clearTimeout(this.flushTimer)
+        this.flushTimer = null
+        this.flushAttempt = 0
         if (this.options.snapshot) this.sendEvents([this.options.snapshot()])
         this.flush()
+        if (this.helloDirty) {
+          this.helloDirty = false
+          this.botsChanged()
+        }
         return
       case 'delivery':
         if (message.helloRev !== this.helloRev) return // from before the latest hello; it will come again
         for (const raw of message.deliveries) void this.onDelivery(raw)
         return
       case 'error':
-        if (message.code === 'hello_required') this.sendHello()
+        // One hello at a time: answering every refusal with another hello moves the Hub's helloRev on
+        // past the hello-ok still in flight, whose events are refused in turn, without end.
+        if (message.code === 'hello_required') {
+          if (!this.helloPending) this.sendHello()
+        }
         else if (message.code === 'too_large') this.options.outbox?.shrink()
         else this.options.log?.(`connector: relay error ${message.code}: ${message.message}`)
         return
