@@ -1,13 +1,14 @@
 import { useEffect, useState } from 'react'
 import { isTauri } from '@tauri-apps/api/core'
 import { open } from '@tauri-apps/plugin-dialog'
-import { HARNESS_METHODS, type BranchList, type ProjectHookInfo } from '@zomfy/protocol'
+import { HARNESS_METHODS, type BranchList, type HostingAccountRef, type HostingRemoteInfo, type ProjectHookInfo } from '@zomfy/protocol'
 import { harnessRequest, hostForPath } from '@/daemon-connection'
-import type { HostedProject } from '@/session-store'
+import { useStore, type HostedProject } from '@/session-store'
 import { projectLabel } from '@/components/sidebar/workspace-visibility'
 import { catalogEntryOf, renameProject } from '@/stores/project-catalog-store'
 import { BranchCombobox } from '@/components/sidebar/BranchCombobox'
 import { BundledSkillsSettings } from '@/components/sidebar/BundledSkillsSettings'
+import { HostingAccountField } from '@/components/sidebar/HostingAccountField'
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
@@ -40,6 +41,10 @@ export function ProjectSettingsDialog({ project, onClose }: { project: HostedPro
   const [claudeChrome, setClaudeChrome] = useState<'host' | 'on' | 'off'>('host')
   const [branches, setBranches] = useState<BranchList | null>(null)
   const [hooks, setHooks] = useState<ProjectHookInfo | null>(null)
+  const [account, setAccount] = useState<HostingAccountRef | null>(null)
+  /** undefined while asking the daemon; null without a GitHub or GitLab remote. */
+  const [remote, setRemote] = useState<HostingRemoteInfo | null | undefined>(undefined)
+  const primaryId = useStore((s) => (project ? s.hosts[project.hostId]?.harness?.workspaces.find((w) => w.projectId === project.id && w.isPrimary)?.id : undefined))
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
@@ -58,7 +63,11 @@ export function ProjectSettingsDialog({ project, onClose }: { project: HostedPro
     setError(null)
     setBranches(null)
     setHooks(null)
+    setAccount(project?.hostingAccount ?? null)
+    setRemote(undefined)
     if (project?.kind === 'git') {
+      // docs/specs/project-hosting-accounts.md; an older daemon has no accounts, and the field stays away.
+      void harnessRequest(HARNESS_METHODS.hostingRemoteOf, { path: project.path }, project.hostId).then(setRemote, () => setRemote(undefined))
       void harnessRequest(HARNESS_METHODS.branchesList, { projectId: project.id }, project.hostId).then(setBranches, () => undefined)
       void harnessRequest(HARNESS_METHODS.projectHooks, { projectId: project.id }, project.hostId).then(setHooks, () => undefined)
     }
@@ -111,6 +120,7 @@ export function ProjectSettingsDialog({ project, onClose }: { project: HostedPro
                   finishWith,
                   agentSplitWork,
                   mergeTarget,
+                  ...(remote !== undefined ? { hostingAccount: account } : {}),
                   // Only the switch this dialog shows is the project's own; the rest follow the host.
                   cleanup: cleanupMode === 'host' ? { ...project.cleanup, deleteMerged: undefined } : { ...project.cleanup, deleteMerged: cleanupMode === 'on' }
                 }
@@ -189,6 +199,22 @@ export function ProjectSettingsDialog({ project, onClose }: { project: HostedPro
                   )}
                 </div>
               </div>
+              {project && remote !== undefined && (
+                <div className="space-y-1.5">
+                  <Label htmlFor="project-account" className={fieldLabel}>
+                    {t('Account')}
+                  </Label>
+                  <HostingAccountField
+                    id="project-account"
+                    hostId={project.hostId}
+                    remote={remote}
+                    value={account}
+                    onChange={setAccount}
+                    workspaceId={primaryId}
+                    onLoginOpened={onClose}
+                  />
+                </div>
+              )}
               <div className="space-y-1.5">
                 <Label htmlFor="project-finish-with" className={fieldLabel}>
                   {t("When a thread's work is done")}
