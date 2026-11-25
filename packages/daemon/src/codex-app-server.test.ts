@@ -1,4 +1,6 @@
 import { expect, test } from 'bun:test'
+import type * as acp from '@agentclientprotocol/sdk'
+import { CodexAppServer } from './codex-app-server.ts'
 import { CodexAppServerRpc, type CodexFields } from './codex-app-server-rpc.ts'
 
 // An in-memory App Server: the test reads what the client writes and writes the server's frames.
@@ -90,4 +92,55 @@ test('a server request that waits for the person does not hold back later notifi
   await Bun.sleep(30)
   expect(order).toEqual(['turn/completed'])
   rpc.close()
+})
+
+async function opened(server: ReturnType<typeof wire>, updates: acp.SessionUpdate[] = [], mcpServers: acp.McpServer[] = []) {
+  const codex = new CodexAppServer(server.input, server.output, async (update) => { updates.push(update) }, async () => ({ outcome: { outcome: 'cancelled' } }))
+  const opening = codex.open('/work', null, mcpServers)
+  await server.send({ id: (await server.next(method('initialize'))).id, result: {} })
+  const start = await server.next(method('thread/start'))
+  await server.send({ id: start.id, result: { thread: { id: 'thread' }, model: 'm' } })
+  await server.send({ id: (await server.next(method('model/list'))).id, result: { data: [] } })
+  await opening
+  return { codex, start }
+}
+
+test('a turn/start the server rejects fails the turn but keeps the connection', async () => {
+  const server = wire()
+  const { codex } = await opened(server)
+  const turn = codex.prompt([{ type: 'text', text: 'hi' }])
+  const start = await server.next(method('turn/start'))
+  await server.send({ id: start.id, error: { code: -32600, message: 'Model is not available' } })
+  await expect(turn).rejects.toThrow('Model is not available')
+  expect(codex.closed).toBe(false)
+  codex.close()
+})
+
+test('a late event from the previous turn does not claim the new turn', async () => {
+  const server = wire()
+  const updates: acp.SessionUpdate[] = []
+  const { codex } = await opened(server, updates)
+  const turn = codex.prompt([{ type: 'text', text: 'hi' }])
+  const start = await server.next(method('turn/start'))
+  await server.send({ method: 'item/agentMessage/delta', params: { threadId: 'thread', turnId: 'old', itemId: 'a', delta: 'stale' } })
+  await server.send({ method: 'turn/started', params: { threadId: 'thread', turn: { id: 'new', status: 'inProgress' } } })
+  await server.send({ method: 'item/agentMessage/delta', params: { threadId: 'thread', turnId: 'new', itemId: 'b', delta: 'fresh' } })
+  await server.send({ id: start.id, result: { turn: { id: 'new' } } })
+  await server.send({ method: 'turn/completed', params: { threadId: 'thread', turn: { id: 'new', status: 'completed' } } })
+  expect((await turn).stopReason).toBe('end_turn')
+  const said = updates.flatMap((update) => update.sessionUpdate === 'agent_message_chunk' && update.content.type === 'text' ? [update.content.text] : [])
+  expect(said).toEqual(['fresh'])
+  codex.close()
+})
+
+test('an MCP server Codex cannot take is skipped with a notice', async () => {
+  const server = wire()
+  const updates: acp.SessionUpdate[] = []
+  const { codex, start } = await opened(server, updates, [
+    { type: 'sse', name: 'events', url: 'http://localhost/sse', headers: [] },
+    { type: 'http', name: 'tools', url: 'http://localhost/mcp', headers: [] }
+  ])
+  expect(Object.keys((start.params as CodexFields).config as CodexFields)).toEqual(['mcp_servers.tools'])
+  expect(updates.some((update) => update.sessionUpdate === 'notice' && update.title.includes('events'))).toBe(true)
+  codex.close()
 })

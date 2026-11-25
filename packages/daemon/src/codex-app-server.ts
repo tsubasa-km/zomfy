@@ -1,7 +1,7 @@
 import type * as acp from '@agentclientprotocol/sdk'
 import { CHAT_AGENT_OPTION_IDS, type ChatAgentOption } from '@zomfy/protocol'
 import { CodexTurnEvents, codexServerRequest } from './codex-app-server-events.ts'
-import { CodexAppServerRpc, fields, list, string, type CodexFields } from './codex-app-server-rpc.ts'
+import { CodexAppServerRpc, CodexRpcError, fields, list, string, type CodexFields } from './codex-app-server-rpc.ts'
 
 export const CODEX_APP_SERVER_CAPABILITIES: acp.AgentCapabilities = {
   promptCapabilities: { image: true },
@@ -69,7 +69,10 @@ export class CodexAppServer {
       capabilities: { experimentalApi: true }
     })
     await this.rpc.initialized()
-    const config = mcpConfig(mcpServers)
+    const { config, skipped } = mcpConfig(mcpServers)
+    for (const name of skipped) {
+      await this.emit({ sessionUpdate: 'notice', severity: 'warning', title: `Codex App Server cannot connect to the MCP server ${name}; it runs without it` })
+    }
     const params = { cwd, ...(Object.keys(config).length ? { config } : {}) }
     const opened = await this.rpc.request(
       previous ? 'thread/resume' : 'thread/start',
@@ -162,7 +165,8 @@ export class CodexAppServer {
         ...(this.overrideModel ? { model: this.model } : {}),
         ...(this.overrideEffort ? { effort: this.effort } : {})
       }).catch((error: unknown) => {
-        this.close()
+        // The server refusing the turn leaves the connection usable; a timeout or a broken pipe does not.
+        if (!(error instanceof CodexRpcError)) this.close()
         throw error
       })
       const id = string(fields(result.turn).id)
@@ -196,7 +200,8 @@ export class CodexAppServer {
     if (!turn || params.threadId !== this.threadId) return
     const nativeTurn = fields(params.turn)
     const turnId = string(params.turnId) || string(nativeTurn.id)
-    if (!turnId || (turn.id && turn.id !== turnId)) return
+    // Until turn/started (or the turn/start response) names this turn, an event is a previous turn's.
+    if (!turnId || (turn.id ? turn.id !== turnId : method !== 'turn/started')) return
     turn.id = turnId
     this.interrupt(turn)
     if (method === 'turn/completed') {
@@ -248,8 +253,9 @@ function modelId(model: CodexFields): string {
   return string(model.model) || string(model.id)
 }
 
-function mcpConfig(servers: acp.McpServer[]): CodexFields {
-  return Object.fromEntries(servers.flatMap((server): [string, unknown][] => {
+function mcpConfig(servers: acp.McpServer[]): { config: CodexFields; skipped: string[] } {
+  const skipped: string[] = []
+  const config = Object.fromEntries(servers.flatMap((server): [string, unknown][] => {
     const name = `mcp_servers.${server.name}`
     if ('type' in server && server.type === 'http') {
       return [[name, { url: server.url, http_headers: Object.fromEntries(server.headers.map(({ name, value }) => [name, value])) }]]
@@ -257,6 +263,8 @@ function mcpConfig(servers: acp.McpServer[]): CodexFields {
     if ('command' in server) {
       return [[name, { command: server.command, args: server.args, env: Object.fromEntries(server.env.map(({ name, value }) => [name, value])) }]]
     }
-    throw new Error(`Codex App Server does not support the MCP transport for ${server.name}`)
+    skipped.push(server.name)
+    return []
   }))
+  return { config, skipped }
 }
