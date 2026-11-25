@@ -3,7 +3,7 @@ type: Spec
 title: The master bot
 description: Zomfy comes with one bot, "Zomfy" (@zomfy), registered once per host as the Default bot, which manages chats, workspaces and worktrees across every project with the manager tools.
 status: stable
-x-zomfy-implementation: in-progress
+x-zomfy-implementation: done
 tags: [bots, daemon, desktop]
 sources:
   - id: person
@@ -89,6 +89,19 @@ does.[^person]
 
 In a preview with its own state: the Bots page lists Zomfy with Default and Master, and no folder
 appears under the person's `~/zomfy/bots`.
+
+# Built
+
+- Daemon: `MASTER_BOT` and `BotService.seedMasterBot()` (called when the bot handlers register),
+  `masterSeededAt` in `BotStore`, `manager` on records and in the rules (`bot-home.ts`), and
+  `services.managerBotChat`, which `harness-agent.ts` reads for the tools' up-front loading and
+  auto-allowing. Tested in `bot-service.test.ts` ("the master bot").
+- Desktop: `botBadges` in `lib/bot-state.ts` (tested in `tests/bots.test.ts`), the badges on the
+  Bots page and in Settings → Bots, and the switch in `BotEditorDialog.tsx`. `scripts/preview.ts`
+  sets `ZOMFY_BOTS_DIR` to the preview's own state.
+- Checked in a preview with fresh state: the Bots page lists Zomfy with Default and Master, Edit
+  bot shows Manager across projects on, and the home was made in the preview's state, not under
+  `~/zomfy/bots`. A turn of the master bot using the manager tools was not run.
 
 # Decisions
 
