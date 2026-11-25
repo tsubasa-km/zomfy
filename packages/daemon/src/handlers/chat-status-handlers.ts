@@ -18,6 +18,8 @@ import { log } from "../log.ts";
 
 const USAGE_KEY = "usage";
 const chatKey = (sessionId: string) => `chat:${sessionId}`;
+/** Chats' control processes up at once; the usage reader is not counted. */
+const CHAT_CONTROLS = 4;
 
 export function registerChatStatusHandlers(ctx: HandlerContext): void {
   const { handle, sessions, workspaces } = ctx;
@@ -49,7 +51,7 @@ export function registerChatStatusHandlers(ctx: HandlerContext): void {
     const chrome = await chromeFor(sessionId);
     startedChrome.set(key, chrome);
     return { cwd: session.cwd, env, mcpServers: managerMcp.claudeServers(sessionId), chrome };
-  });
+  }, { limit: CHAT_CONTROLS, counts: (key) => key !== USAGE_KEY });
 
   /** A control process started before the setting changed is replaced, so Connectors shows what a turn gets. */
   const freshControl = async (sessionId: string) => {
