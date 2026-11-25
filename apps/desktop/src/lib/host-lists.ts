@@ -37,3 +37,18 @@ export function hostedWorkspaces(hosts: Record<string, HostLike>, localHost: str
   }
   return list
 }
+
+/**
+ * The host that owns `workspaceId`: its id, `'pending'` while a host that has not listed its
+ * workspaces yet (still connecting) may own it, or null when none does. A request for a workspace
+ * must not fall back to this computer while the host it belongs to is still on its way.
+ */
+export function workspaceHost(
+  hosts: Record<string, HostLike & { connection?: { kind: string } }>,
+  workspaceId: string,
+  localHost: string
+): string | 'pending' | null {
+  const found = hostedWorkspaces(hosts, localHost).find((w) => w.id === workspaceId)
+  if (found) return found.hostId
+  return Object.values(hosts).some((h) => !h.harness && h.connection?.kind !== 'offline') ? 'pending' : null
+}
