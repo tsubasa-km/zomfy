@@ -22,6 +22,7 @@ import { HARNESS_HOME, WORKSPACE_ROOT } from './harness-home.ts'
 import { moveToTrash } from './host-trash.ts'
 import { copyWorktreeIncludesSafely } from './worktree-include.ts'
 import { removeTree } from './safe-remove.ts'
+import { unlinkSkillLinks } from './bundled-skills.ts'
 
 const STATE_PATH = join(HARNESS_HOME, 'state.json')
 const FLOATING_FALLBACK = join(HARNESS_HOME, 'floating-workspace')
@@ -38,6 +39,7 @@ interface PersistedState {
 export class WorkspaceManager {
   private state: PersistedState = { projects: [], workspaces: [], projectGroups: [], floatingCwd: '' }
   private readonly listeners = new Set<(state: HarnessState) => void>()
+  private readonly worktreeListeners = new Set<(workspace: Workspace, project: Project) => Promise<void>>()
 
   /** `statePath` is for tests, which must never write the person's own state. */
   constructor(private readonly statePath = STATE_PATH) {}
@@ -48,6 +50,24 @@ export class WorkspaceManager {
     } catch {
       // First run: nothing saved yet.
     }
+  }
+
+  /** Hears each git worktree createWorkspace makes, before it returns (bundled skills link into it). */
+  onWorktreeCreated(listener: (workspace: Workspace, project: Project) => Promise<void>): () => void {
+    this.worktreeListeners.add(listener)
+    return () => this.worktreeListeners.delete(listener)
+  }
+
+  /** Turns a bundled skill on for these agents in the project (none turns it off). */
+  async setBundledSkill(projectId: string, name: string, agents: string[]): Promise<Project> {
+    const project = this.requireProject(projectId)
+    const next = { ...project.bundledSkills }
+    if (agents.length > 0) next[name] = [...new Set(agents)]
+    else delete next[name]
+    if (Object.keys(next).length > 0) project.bundledSkills = next
+    else delete project.bundledSkills
+    await this.save()
+    return project
   }
 
   onChange(listener: (state: HarnessState) => void): () => void {
@@ -319,7 +339,7 @@ export class WorkspaceManager {
       await add([path, branch])
       log(`created worktree ${path} on existing ${branch}`)
       await copyWorktreeIncludesSafely(project.path, path)
-      return this.addWorkspace({ projectId: project.id, name, path, branch, ...extra })
+      return this.worktreeAdded(project, await this.addWorkspace({ projectId: project.id, name, path, branch, ...extra }))
     }
 
     const override = params.branchName?.trim()
@@ -341,7 +361,14 @@ export class WorkspaceManager {
     await add(['--no-track', '-b', branch, path, base])
     log(`created worktree ${path} on ${branch} from ${base}`)
     await copyWorktreeIncludesSafely(project.path, path)
-    return this.addWorkspace({ projectId: project.id, name, path, branch, ...extra })
+    return this.worktreeAdded(project, await this.addWorkspace({ projectId: project.id, name, path, branch, ...extra }))
+  }
+
+  private async worktreeAdded(project: Project, workspace: Workspace): Promise<Workspace> {
+    for (const listener of this.worktreeListeners) {
+      await listener(workspace, project).catch((error) => log(`after creating ${workspace.path}: ${String(error)}`))
+    }
+    return workspace
   }
 
   async removeWorkspace(params: RemoveWorkspaceParams): Promise<void> {
@@ -363,6 +390,8 @@ export class WorkspaceManager {
 
     const sharedFolder = project.kind === 'folder'
     if (!sharedFolder) {
+      // A link to a bundled skill goes as a link first, so no removal can reach the shared copy.
+      await unlinkSkillLinks(workspace.path)
       // core.longpaths: a worktree with deep node_modules (an Expo app) has paths past Windows' 260
       // characters, which git cannot delete without it ("Filename too long").
       await git(project.path, ['-c', 'core.longpaths=true', 'worktree', 'remove', ...(params.force ? ['--force'] : []), workspace.path]).catch(
