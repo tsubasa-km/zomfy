@@ -3,7 +3,7 @@ type: Spec
 title: Bots in the phone app
 description: A Bots screen in the Android app that lists the host's bots, starts a chat with one from a first message, and marks bot chats in the lists.
 status: stable
-x-zomfy-implementation: in-progress
+x-zomfy-implementation: done
 tags: [mobile, app, bots]
 generated: { by: "claude-code/opus-5.5", at: "2026-11-25T00:00:00Z" }
 ---
@@ -64,3 +64,13 @@ Every string is in the app's i18n table (`src/lib/i18n.ts`), English as the key 
   avatar text, the label of a bot chat) and the connection's bot list (loaded with `bots:read`,
   followed on `_harness/bots/changed`, absent without the scope).
 - In `bun run web` against a preview daemon: the Bots screen lists a bot, Talk opens a chat.
+
+# Implementation status
+
+Built as above. `src/lib/bots.ts` holds the pure parts (avatar, recent chats, order, `canTalk`,
+`startBotChat`); the connection loads `_harness/bots/list` at each connect when the device has
+`bots:read` and follows `_harness/bots/changed`, so `HostConnectionState.bots` is null without the
+scope or on a host that cannot list bots (the connect still succeeds). The screen is
+`app/bots/[hostId].tsx`; the Host screen shows the Bots row and marks bot chats. Checked in
+`bun run web` against a preview daemon: paired, the Bots screen showed a paused and an active bot,
+Talk started a chat that answered, and the chat appeared under the bot and, marked, in the host tree.

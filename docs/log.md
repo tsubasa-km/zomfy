@@ -1,6 +1,7 @@
 # Directory Update Log
 
 ## 2026-11-25
+* **Update**: [Bots in the phone app](specs/mobile/bots.md) is implemented: phones may call `_harness/bots/chatCreate` under `chats:operate` ([pairing](specs/mobile/pairing.md#scopes)), and the [app](specs/mobile/app.md) gains a Bots screen with Talk and bot chats marked in the host tree; [bots on the desktop](specs/bots/desktop.md) links to it.
 * **Creation**: [Bots in the phone app](specs/mobile/bots.md), in progress.
 
 ## 2026-11-22
