@@ -708,5 +708,19 @@ export const CHAT: Record<string, string> = {
   Connector: 'コネクタ',
   'No matching skills': '一致するスキルはありません',
   'Loading connectors…': 'コネクタを読み込み中…',
-  'No connected MCP servers': '接続中の MCP サーバーはありません'
+  'No connected MCP servers': '接続中の MCP サーバーはありません',
+
+  // components/native-chat/session-option-labels.ts, NativeChatSessionOptionPicker.tsx
+  '{effort} (default)': '{effort}（デフォルト）',
+  "Model {model}, Effort {effort}, Claude's default": 'モデル {model}、思考量 {effort}（Claude のデフォルト）',
+  "Model {model}, Effort Claude's default": 'モデル {model}、思考量は Claude のデフォルト',
+  "Claude's default (now {effort})": 'Claude のデフォルト（現在は{effort}）',
+  "Claude's default": 'Claude のデフォルト',
+
+  // components/native-chat/NativeChatTurnRecovery.tsx, chat-actions.ts
+  'Sign in to Claude': 'Claude にサインイン',
+  'Opens a terminal on this host running claude auth login; finish signing in in the browser.':
+    'このホストでターミナルを開いて claude auth login を実行します。サインインはブラウザで完了してください。',
+  "Couldn't open Claude's sign-in: {error}. Run `claude auth login` in a terminal on this host, then try again.":
+    'Claude のサインインを開けませんでした: {error}。このホストのターミナルで `claude auth login` を実行してから、もう一度試してください。'
 }
