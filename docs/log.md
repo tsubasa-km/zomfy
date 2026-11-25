@@ -1,6 +1,9 @@
 # Directory Update Log
 
 ## 2026-11-25
+* **Update**: [Direct Codex connection](specs/codex-app-server.md) is implemented with a per-host setting and thread continuation when switching between turns.
+* **Creation**: [Direct Codex connection](specs/codex-app-server.md), planned.
+* **Creation**: [Zomfy's own skills, and worktrees that do not fill the disk](specs/worktree-skills-and-storage.md), draft, from the research note [Worktree skills and worktree storage](research/worktree-skills-and-storage.md).
 * **Update**: [Thinking that holds the answer shows open](specs/visible-thinking.md) is implemented: a finished turn's last thinking before a short reply starts open, whole and marked as thinking; Settings → Input & Editing → Show thinking picks collapsed, expand when the reply is short, or always expanded.
 * **Creation**: [Thinking that holds the answer shows open](specs/visible-thinking.md), in progress.
 * **Update**: [Bots in the phone app](specs/mobile/bots.md) is implemented: phones may call `_harness/bots/chatCreate` under `chats:operate` ([pairing](specs/mobile/pairing.md#scopes)), and the [app](specs/mobile/app.md) gains a Bots screen with Talk and bot chats marked in the host tree; [bots on the desktop](specs/bots/desktop.md) links to it.
@@ -19,6 +22,7 @@
 * **Update**: Built the Worker side of the [GitHub source](specs/bots/sources/github.md) (App webhooks, mentions, review replies, PR events, triggers, JWT and installation tokens, and `bun run deploy --github` with GitHub's manifest flow); in progress with a "Built so far" section.
 * **Update**: Built the Worker side of the [Slack source](specs/bots/sources/slack.md) (Events API, Block Kit buttons, status edits, actions, the app manifest and deploy steps); in progress with a "Built so far" section. The relay's outbound queue, triggers and actions are now shared by every source, and the [contract](specs/bots/contract.md) gained the pieces the remaining sources need.
 * **Update**: Built the Worker side of phase B1 of Zomfy Bots: the [Discord source](specs/bots/sources/discord.md) (Gateway object, interactions, replies, buttons, rate limits) is in progress with a "Built so far" section, the [connector](specs/bots/connector.md) gains its deploy flow, and the [contract](specs/bots/contract.md) gains `isDefault` on a hello's bots.
+* **Update**: The [bots desktop spec](specs/bots/desktop.md) is in progress: its daemon side is built, and it lists the methods the app calls.
 * **Update**: Built the daemon part of phase B1 of [Zomfy Bots](specs/bots/overview.md): bot records and homes, the `_harness/bots/*` handlers and `chatCreate`, deliveries to chats and turns, replies through a durable outbox, and the connector started with the daemon ([daemon](specs/bots/daemon.md#built-so-far)); bot chats in the protocol for the [desktop](specs/bots/desktop.md).
 * **Update**: [Wake a Claude chat when its background work finishes](specs/background-task-wake.md) is implemented.
 * **Creation**: [Wake a Claude chat when its background work finishes](specs/background-task-wake.md), in progress.
@@ -33,3 +37,4 @@
 * **Creation**: [Usage limits by the context ring, and connector icons](specs/usage-limits-and-connector-icons.md).
 * **Update**: [Usage limits by the context ring, and connector icons](specs/usage-limits-and-connector-icons.md) is implemented.
 * **Creation**: [Retire the acp-harness home and executable name](specs/retire-legacy-home.md), in progress.
+* **Creation**: [Retire the acp-harness home and executable name](specs/retire-legacy-home.md), done.

@@ -133,7 +133,8 @@ const file = (title: string) => (title === "Greeting" ? "hello.txt" : "bye.txt")
 
 /** Waits until the report turn has started (or the time is up). */
 async function reported(): Promise<string> {
-  for (let i = 0; i < 400 && turns.length === 0; i++) await Bun.sleep(10);
+  // Up to 20 s: real merges on a busy Windows machine can take more than the 4 s this once allowed.
+  for (let i = 0; i < 2000 && turns.length === 0; i++) await Bun.sleep(10);
   return turns[0]?.text ?? "";
 }
 

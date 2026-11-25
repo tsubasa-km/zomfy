@@ -39,6 +39,25 @@ bots ask. The first test path is Zomfy itself, so talking to a bot must work wit
 - Bot chats and the workers they start have `origin: 'bot'`; the normal project lists leave them
   out unless "Show bot chats" is on.
 
+## What the app calls
+
+The daemon side is built ([daemon](daemon.md#methods)); the app needs only these:
+
+- The list: `_harness/bots/list`, then `botsChanged {bots}` after every change.
+- **Create bot**: `_harness/bots/create {input}`; `input.homeWorkspaceId` or `input.homePath` picks
+  an existing folder, neither makes `~/zomfy/bots/<handle>`. Then `update {id, patch}`, `pause {id,
+  paused}`, `askers {id, source, askers}`, `delete {id, deleteHome?}`. Errors are readable messages
+  (a bad or used handle, a guarded agent).
+- **Open SOUL.md / MEMORY.md / home folder**: files in the workspace `bot.homeWorkspaceId`.
+- **New chat** and `@handle …`: `_harness/bots/chatCreate {id, text?, fromSessionId?}` →
+  `{sessionId}`; without `text` the window sends the first prompt with `session/prompt` as in any
+  chat. Bot chats are sessions with `origin: 'bot'`, `botId` and `botFrom`; a bot's newest chat is
+  its session with the latest `lastActivityAt`.
+- **Relay**: `connectorStatus`, `connectorPair {relayUrl, setupCode | invite, hostName?}`,
+  `connectorUnpair`, and `connectorStatusChanged` for the live state.
+- **Access requests**: `accessRequests`, `answerAccessRequest {id, allow}`, and
+  `accessRequestsChanged {requests}`.
+
 ## Needs you
 
 - Questions, approvals and access requests from bot chats appear in the existing inbox with the

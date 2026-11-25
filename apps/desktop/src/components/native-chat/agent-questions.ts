@@ -13,6 +13,7 @@ export interface AgentQuestion {
   /** A short tag for the question (Claude keeps it to 12 characters). */
   header: string
   multiSelect: boolean
+  allowOther?: boolean
   options: AgentQuestionOption[]
 }
 
@@ -44,7 +45,10 @@ export function agentQuestionsOf(input: unknown): AgentQuestion[] {
           return label ? [{ label, description: text(option.description) }] : []
         })
       : []
-    return [{ question, header: text(record.header), multiSelect: record.multiSelect === true, options }]
+    return [{
+      question, header: text(record.header), multiSelect: record.multiSelect === true, options,
+      ...(record.allowOther === false ? { allowOther: false } : {})
+    }]
   })
 }
 

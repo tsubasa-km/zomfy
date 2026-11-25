@@ -8,6 +8,7 @@ import {
   QUICK_CHAT_SYSTEM_PROMPT,
   SESSION_REPLAY_META,
   PROMPT_ORIGIN_META,
+  QUESTION_OPTION_IDS,
   PROMPT_NOT_SENT_REPLY_META,
   promptNotSent,
   TURN_RECOVERY_META,
@@ -373,7 +374,7 @@ export function createHarnessAgent(
   });
 
   const autoApproved = (request: acp.RequestPermissionRequest): acp.RequestPermissionResponse | null => {
-    if (!autoApprove.has(request.sessionId)) return null;
+    if (!autoApprove.has(request.sessionId) || request.options.some((option) => option.optionId === QUESTION_OPTION_IDS.answer)) return null;
     const allow = request.options.find((o) => o.kind === "allow_once") ?? request.options.find((o) => o.kind === "allow_always");
     return allow ? { outcome: { outcome: "selected", optionId: allow.optionId } } : null;
   };
@@ -633,7 +634,10 @@ export function createHarnessAgent(
       autoResume.turnEnded(session.id, failed);
       throw error;
     } finally {
-      if (pendingTurns.get(session.id) === abort) pendingTurns.delete(session.id);
+      if (pendingTurns.get(session.id) === abort) {
+        pendingTurns.delete(session.id);
+        asks.withdraw(session.id);
+      }
       claims.release(session.id);
       if (finishing.has(session.id)) void finishAfterTurn(session.id);
       void mover.followAfterTurn(session.id).catch((error) => log(`${session.id} could not follow its project: ${String(error)}`));

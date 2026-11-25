@@ -7,7 +7,7 @@
     },
     "apps/desktop": {
       "name": "@zomfy/desktop",
-      "version": "0.2.54",
+      "version": "0.2.55",
       "dependencies": {
         "@agentclientprotocol/sdk": "2.0.0",
         "@codemirror/commands": "6.11.1",
