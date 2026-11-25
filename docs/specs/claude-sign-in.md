@@ -3,7 +3,7 @@ type: Spec
 title: Signing in to Claude from a chat
 description: When a Claude turn fails because the host's Claude Code is signed out or its sign-in expired, the chat says so and offers "Sign in to Claude" (a terminal tab running `claude auth login` on the chat's host) and "Try again"; the usage limits show the same state.
 status: stable
-x-zomfy-implementation: in-progress
+x-zomfy-implementation: done
 tags: [chat, desktop, daemon, claude, auth]
 generated: { by: "claude-code/opus-5.5", at: "2026-11-25T00:00:00Z" }
 ---
@@ -44,7 +44,7 @@ The notice row of a signed-out turn shows two buttons:
 
 The session panel's and the context ring's usage limits already read Claude's account. When that
 read fails as signed out, Claude's entry says "Claude's sign-in has expired or is missing on this
-host" (as Codex's says its saved sign-in expired) and, in the session panel of a chat, offers
+host" (as Codex's says its saved sign-in expired) and, wherever a chat is known (its session panel, its context card), offers
 **Sign in to Claude**, opening the same terminal.
 
 ## Protocol

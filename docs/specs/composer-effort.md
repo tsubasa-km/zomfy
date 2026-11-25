@@ -3,7 +3,7 @@ type: Spec
 title: The thinking effort shows in the composer
 description: The composer's model button names the effort a chat runs at ("Opus · High"), including the level Claude's default resolved to on the chat's last turn, and the effort picker always has one level selected, Default included.
 status: stable
-x-zomfy-implementation: in-progress
+x-zomfy-implementation: done
 tags: [chat, desktop, daemon, composer]
 generated: { by: "claude-code/opus-5.5", at: "2026-11-25T00:00:00Z" }
 ---
