@@ -34,3 +34,4 @@
 * **Creation**: [Usage limits by the context ring, and connector icons](specs/usage-limits-and-connector-icons.md).
 * **Update**: [Usage limits by the context ring, and connector icons](specs/usage-limits-and-connector-icons.md) is implemented.
 * **Creation**: [Retire the acp-harness home and executable name](specs/retire-legacy-home.md), in progress.
+* **Creation**: [Retire the acp-harness home and executable name](specs/retire-legacy-home.md), done.
