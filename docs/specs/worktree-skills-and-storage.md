@@ -3,7 +3,7 @@ type: Spec
 title: Zomfy's own skills, and worktrees that do not fill the disk
 description: Settings turns Zomfy's bundled skills (the worktree skill first) on or off per agent and scope and keeps them updated; worktrees show their size, merged and idle ones are cleaned up by prompt or policy, idle ones lose their build output, dependencies are shared, and low disk space is warned about.
 status: stable
-x-zomfy-implementation: planned
+x-zomfy-implementation: in-progress
 tags: [worktrees, skills, storage, settings, daemon, desktop]
 generated: { by: "claude-code/opus-5.5", at: "2026-11-25T00:00:00Z" }
 ---
@@ -210,12 +210,37 @@ The person's answers to the open questions:
    override.
 3. **Automatic cleanup of merged worktrees starts on** (Orca's starts off). It still never touches a
    worktree with uncommitted or unpushed work, or one a chat is open in.
-4. bun's hardlinking is still to be measured before B8 is built.
+4. **bun already hardlinks** (measured 2026-11-25, below), so B8's dependency part is reduced to
+   the same-volume check; the Rust part stays.
 5. **No free-space thresholds**: B3's notice and refusal are left out; sizes (B2) and cleanup (B4–B6)
    stay.
 6. **Orca's three stubs were removed** from `~/.agents/skills` by hand on 2026-11-25, with 15 empty
    worktree folders left behind by earlier removals.
 
+# Measurement: bun's hardlinks (2026-11-25)
+
+A fresh `bun install` (bun 1.4.4, default isolated linker, no `bunfig.toml`) in a new worktree of
+this repo took 53 s and wrote 71,709 files (1,282 MB apparent) under `node_modules`. Of these, 71,355
+files (1,280 MB) have a link count above one: `fsutil hardlink list` shows each as the same file in
+`~/.bun/install/cache`, in the main checkout and in the worktree. Only about 1 MB (the `.bin`
+shims and bun's own metadata) belongs to the worktree alone. Cache and worktree root are both on
+`C:`.
+
+What follows from it:
+
+- **B8**: no per-project install setting is needed for space; bun's store already shares packages.
+  What remains is the same-volume check (a cache on another volume would copy) and the Rust shared
+  target.
+- **B2**: a worktree's `node_modules` counts almost nothing once hardlinked files are counted once
+  per volume; the size shown splits **own** bytes (files with one link) from **shared** bytes, so
+  the person is not told a worktree costs 1.3 GB when deleting it frees 1 MB.
+- **B6**: Free space mainly removes build output (`target/`, `dist/`); deleting `node_modules`
+  frees little and is kept only because it also drops stale per-worktree installs.
+- Bun's `readdirSync` returns nothing for a `\\?\` path, while plain absolute paths past 260
+  characters work in Bun on this machine, so B7 does not rely on namespaced paths through Bun's
+  `fs`; it keeps git's `core.longpaths` for the worktree and removes what is left with Bun's
+  recursive `rm`, falling back to the OS (`cmd /c rd /s /q` on the namespaced path).
+
 # Open questions
 
-- Whether bun hardlinks from its cache into `node_modules` here (decides how much of B8 is needed).
+None.
