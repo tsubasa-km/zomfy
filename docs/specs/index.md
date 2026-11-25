@@ -33,5 +33,5 @@
 * [Tool calls a stopped turn leaves open read as stopped](stopped-tool-calls.md) - Stop, a failed turn or a daemon restart closes every pending or running tool call as stopped, live and on replay
 * [The Next steps card](next-steps-card.md) - the card a turn ends with: recap sections open by default, "Ask to do this" and "Add to Inbox" that say what they do
 * [Direct Codex connection](codex-app-server.md) - Choose how a host runs Codex chats, through ACP or directly through Codex App Server.
-* [Zomfy's own skills, and worktrees that do not fill the disk](worktree-skills-and-storage.md) - bundled skills turned on per agent and scope from Settings, worktree sizes, cleanup by prompt or policy, freed build output, shared dependencies and a low-disk warning
+* [Zomfy's own skills, and worktrees that do not fill the disk](worktree-skills-and-storage.md) - bundled skills turned on per project and agent, worktree sizes, merged judged against the main checkout's branch, cleanup by dialog or policy, freed build output, long-path deletes
 * [Thinking that holds the answer shows open](visible-thinking.md) - a short reply after long thinking shows that thinking expanded and marked; Settings picks collapsed, expand when the reply is short, or always expanded
