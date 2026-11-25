@@ -75,6 +75,8 @@ export function useNativeChatComposer({ draftId, hostId, editorRef, commands, fi
     }
     return { ...query, mode: 'mention', items: matchFiles(files?.value ?? [], query.query), status: files?.status ?? 'loading' }
   }, [query?.mode, query?.query, query?.start, query?.end, commands?.items, commands?.status, files, dismissedAt, draft])
+  // The names a leading `/command` is drawn in color for, once it names one of them.
+  const commandNames = useMemo(() => commands?.items.map((c) => c.name) ?? [], [commands?.items])
   const optionCount = autocomplete?.items.length ?? 0
   const selected = Math.min(activeIndex, Math.max(0, optionCount - 1))
   // Tab takes the guess, as in the Claude apps.
@@ -213,6 +215,7 @@ export function useNativeChatComposer({ draftId, hostId, editorRef, commands, fi
     pickImages: () => fileInput.current?.click(),
     addImages,
     removeImage,
-    pasteFiles
+    pasteFiles,
+    commandNames
   }
 }

@@ -1,9 +1,9 @@
 ---
 type: Spec
 title: Zomfy's own skills, and worktrees that do not fill the disk
-description: Settings turns Zomfy's bundled skills (the worktree skill first) on or off per agent and scope and keeps them updated; worktrees show their size, merged and idle ones are cleaned up by prompt or policy, idle ones lose their build output, dependencies are shared, and low disk space is warned about.
-status: draft
-x-zomfy-implementation: planned
+description: Project Settings turns Zomfy's bundled skills (the worktree skill first) on or off per agent and keeps them updated; worktrees show their size, merged ones are judged against the main checkout's branch and cleaned up by dialog or by an hourly policy, idle ones can lose their dependencies and build output, and deletes survive long Windows paths.
+status: stable
+x-zomfy-implementation: done
 tags: [worktrees, skills, storage, settings, daemon, desktop]
 generated: { by: "claude-code/opus-5.5", at: "2026-11-25T00:00:00Z" }
 ---
@@ -48,35 +48,34 @@ builds only the mechanism and `zomfy-worktrees`.
 
 ### A2. Install, enable, disable
 
-Settings → Skills gains a **Zomfy skills** section listing each bundled skill with, per host:
+Project Settings gains a **Zomfy's skills** section (decision 1): each bundled skill with a switch
+per agent, **Claude Code** (`.claude/skills`) and **Codex** (`.agents/skills`). A switch applies at
+once to every workspace of the project, its main checkout and worktrees, and to each worktree made
+later (as `createWorkspace` makes it, `split_work`'s included).
 
-- a switch per agent Zomfy knows a skill folder for (Claude Code, Codex / `.agents`, and the other
-  providers in `skill-discovery.ts` that the host has), and
-- a scope: **Everywhere** (the home folders) or **This project only** (the project's folders, for
-  the projects picked).
+The host keeps one shared copy of each skill under `<harness home>/skills/<name>`. Turning a skill
+on for an agent puts a link to that copy in the agent's folder of each workspace — a junction on
+Windows, a relative symlink elsewhere, a copy where neither works — and adds the links to the
+repository's `info/exclude`, so a worktree with them still counts as clean (B1). Turning it off
+removes the link; the shared copy stays. A folder of the person's own by that name is never touched:
+the row counts the workspaces where one blocks the link. Before a worktree is deleted its links are
+removed as links, so no removal can reach the shared copy.
 
-Turning one on writes the canonical copy to `<scope>/.agents/skills/<name>` and links each chosen
-agent's folder to it — a junction on Windows, a relative symlink elsewhere, a copy where neither
-works — as Orca does. Turning it off removes the link (and the canonical copy when nothing links to
-it any more), only when the folder still holds an unedited Zomfy version (A3); an edited one is left
-and the row says so.
-
-New installs default to **off**: nothing is written into the person's agent folders until they turn
-it on, except that the first run after this ships shows a one-time prompt in Settings → Skills
-offering `zomfy-worktrees` for Claude Code and Codex everywhere.
+New projects have every bundled skill **off**; there is no global default and no first-run prompt.
 
 ### A3. Updates
 
 Each release carries the sha256 (LF-normalised) of every version of each bundled `SKILL.md` it ever
-shipped. On start the daemon classes every installed copy: **current**, **older Zomfy** (overwritten
-in place, silently), **edited** or **other** (left alone; the row shows "Edited — Replace", which
-first moves the folder to `~/.zomfy/skill-backups/<name>-<time>`). No version file is written.
+shipped. On start the daemon classes the shared copy: **current**, **older** (an earlier Zomfy version,
+overwritten in place, silently), **edited** (left alone; the section says so and offers "Replace with
+Zomfy's version", which first moves the folder to `<harness home>/skill-backups/<name>-<time>`) or
+**missing**. No version file is written. A test fails when `SKILL.md` changes without its digest
+being added to the shipped list.
 
 ### A4. Orca's stubs
 
-When a host has Orca's `orca-cli`, `orchestration` or `computer-use` stub and no `orca` executable on
-PATH, the Skills page marks them "Needs the Orca CLI, which is not installed" and offers to move them
-to the trash (the existing `skills/trash`). Zomfy never removes them on its own.
+Not built: the person removed Orca's three stubs by hand (decision 6), so there is nothing left to
+mark. The Skills page's existing trash still removes any that come back.
 
 ## B. Worktrees that do not fill the disk
 
@@ -85,81 +84,91 @@ to the trash (the existing `skills/trash`). Zomfy never removes them on its own.
 A worktree counts as merged when its branch is an ancestor of the branch its work is finished into,
 not of the project's default base: the project's **finish branch**, which is the main checkout's
 current branch (what `finish_worktree` merges into), else `defaultBaseRef`. For this repo that is
-`development`. A worktree with uncommitted or untracked changes is never merged. Clean Up Merged
-Workspaces, B4 and B5 all use this.
+`development`. A project may name another branch in Project Settings (**Work is merged into**). A
+worktree with uncommitted or untracked changes is never merged. The sidebar badges, B4 and B5 all
+use this.
 
 ### B2. Size per worktree
 
 The daemon measures each worktree's size on disk in the background (one at a time, low priority,
-hardlinked files counted once per volume where the OS tells us) and splits it into **dependencies**
-(`node_modules`), **build output** (`target/`, `dist/`, `.turbo`, `.expo`, and what the project
-lists), and **the rest**. The sidebar's workspace card shows the total on hover, the delete and
-cleanup dialogs show it per row, and the project's context menu shows the project total. Sizes older
-than a day are re-measured when shown.
+files with more than one link counted apart as **shared**, since deleting them frees nothing; see the
+measurement below) and splits it into **dependencies** (`node_modules`), **build output** (`target/`,
+`dist/`, `.turbo`, `.expo`, `.next`, `.svelte-kit`, `.parcel-cache`), and **the rest**. The sidebar's
+workspace card shows the size on hover, the cleanup dialog per row, and the project's context menu
+the project total beside Clean Up. Sizes older than a day are re-measured when asked for; the
+measurements are kept in `<harness home>/worktree-sizes.json`.
 
 ### B3. Low disk space
 
-Before creating a worktree and every 30 minutes, the daemon checks free space on the volume holding
-the worktree root. Under **10 GB** (a setting), Zomfy shows a notice with the space each project's
-worktrees use and a **Clean up…** button that opens B4's dialog. Under **2 GB** a new worktree is
-refused with that reason (an agent's `create_workspace` / `split_work` gets it as its error, so it
-can tell the person).
+Left out (decision 5): no free-space checks, notices or refusals.
 
 ### B4. Clean up — the dialog
 
 Clean Up Merged Workspaces becomes **Clean up workspaces**: every non-primary worktree of the
 project, with its state (merged, idle for N days, has changes), last activity, and size, sorted by
-size. Two actions per row:
+size. Leftover folders (B7) follow the worktrees. Two actions per row:
 
 - **Delete** (merged ones checked by default): the worktree and, if merged, its branch.
-- **Free space**: keep the worktree and its changes, delete its dependencies and build output.
+- **Free Up Space**: keep the worktree and its changes, delete its dependencies and build output.
 
 Kept always, as Orca does: the main checkout, a worktree with a running turn or terminal, and one
-with uncommitted, untracked or unpushed work (offered only for Free space).
+with uncommitted, untracked or unpushed work (offered only for Free Up Space). When bun's cache is on
+another drive than the worktrees, the dialog says so (B8).
 
 ### B5. Clean up — the policy
 
-Settings → Worktrees (per host, with a per-project override) adds **Automatic cleanup**, off by
-default, with:
+Settings → Hosts gains, per connected host:
 
-- **Delete merged worktrees** after N days merged (default 1);
-- **Free space in idle worktrees** after N days without a turn or terminal (default 3);
-- keep pinned worktrees.
+- **Delete merged worktrees** after N days (default **on**, 1 day; decision 3);
+- **Free space in idle worktrees** after N days without a turn or terminal (default off, 3 days);
+- **Keep pinned worktrees** (default on).
 
-The policy runs 2 minutes after the daemon starts and hourly, and its last run ("freed 12.3 GB") is
-shown under the setting. A worktree a chat still works in is never deleted; its chat gets a notice
-and moves as `finish_worktree` already does.
+Project Settings can turn deletion on or off for one project (**Delete merged worktrees
+automatically**: as the host, on, off). The days count from when the daemon first saw the worktree
+merged, and the worktree must also have been idle that long. The policy runs 2 minutes after the
+daemon starts and hourly; its last run ("deleted 2, freed 0") shows under the setting.
+
+What the person called "a chat is open in" is read as: a turn running or waiting on the person, a
+running terminal, or a running `split_work` keeps the worktree. Idle chats in it move to the main
+checkout with a notice, as `finish_worktree` does; a chat that cannot move (another agent than
+Claude) keeps it. Right before deleting, the daemon checks again for uncommitted, untracked and
+unpushed work.
 
 ### B6. Free space, and putting it back
 
-Freeing a worktree deletes the folders B2 counts as dependencies and build output, using B7's
-deletion. The next turn in that worktree starts with a note to the agent ("Zomfy removed this
+Freeing a worktree deletes the folders B2 counts as dependencies and build output that git ignores
+(a tracked `dist/` is source and stays), using B7's deletion. The next turn in that worktree starts with a note to the agent ("Zomfy removed this
 worktree's `node_modules` and build output to save space; run the setup script or `bun install`
 before building"), and when the project has a setup script Zomfy runs it before that turn instead.
 
 ### B7. Deleting on Windows
 
-Every removal — worktree delete, Free space, the leftover folders below — goes through one routine:
-paths are passed as `\\?\` (namespaced) paths so length does not matter, an EBUSY / EPERM /
-ENOTEMPTY retries the whole removal a few times after closing the workspace's terminals, `.git` goes
-last, and a file another program holds open is named in the error. On start the daemon also lists
-folders under the worktree root that are no worktree and no workspace (the six skeletons found
-today) and offers them in B4's dialog as **Leftover folder**.
+Every removal — worktree delete, Free Up Space, the leftover folders below — goes through one
+routine (`safe-remove.ts`). git's own removal (with `core.longpaths`) still comes first for a
+worktree; when git refuses because of changes or a lock, that error stands, and when it fails to
+delete, the routine takes over. It removes everything but `.git` first, then the rest, retrying an
+EBUSY / EPERM / ENOTEMPTY a few times after closing the workspace's terminals, falls back to `rd /s
+/q` on the `\\?\` path on Windows, and names the first file that will not go. Terminals close
+before any worktree removal. Bun's `fs` handles long absolute paths itself, but not `\\?\`
+paths (see the measurement).
+
+The cleanup dialog lists folders under the project's worktree root that are no workspace, no git
+worktree and hold no `.git` as **Leftover folder**; only a folder so listed can be deleted.
 
 ### B8. Sharing dependencies
 
-So a new worktree costs little in the first place:
+bun already hardlinks packages from its cache (measured below), so a new worktree's
+`node_modules` costs about 1 MB of its own. What was built: the cleanup dialog warns when bun's
+cache sits on another volume than the worktrees, where it would copy instead.
 
-- **Recommended (this spec):** a project setting **Install dependencies when a worktree is created**
-  (with a default command per lockfile: `bun install` for `bun.lock`), run as the setup hook, relying
-  on the package manager's global store with hardlinks or clones (bun's cache, pnpm's store) so
-  packages are not copied per worktree; Zomfy checks the cache and worktree root are on one volume
-  and says so when they are not, since hardlinks cannot cross volumes.
-- **Rust**: the setup sets `CARGO_TARGET_DIR` for the worktree's terminals and agents to one shared
-  folder per project under `~/.zomfy/cache/<project>/target`, so builds share artefacts (an option,
-  on by default for projects with a `Cargo.toml`).
-- **Not now:** linking the main checkout's `node_modules` into worktrees (Orca's shared directories)
-  breaks as soon as a branch changes dependencies; offered later as an opt-in per directory if wanted.
+Not built:
+
+- An install-on-create setting: the project's setup script already runs `bun install` where wanted.
+- **Rust**'s shared `CARGO_TARGET_DIR`: one target folder shared by worktrees makes parallel
+  builds wait on cargo's lock, which split_work's helpers would hit at once. Free Up Space and the
+  idle policy remove `target/` instead. Worth a spec of its own if Rust builds become frequent.
+- Linking the main checkout's `node_modules` into worktrees breaks as soon as a branch changes
+  dependencies.
 
 # What it does not do
 
@@ -174,42 +183,75 @@ So a new worktree costs little in the first place:
 | Question | Options | Recommendation |
 | --- | --- | --- |
 | How agents learn Zomfy's tools | chat instructions only; a skill; both | Both: instructions for Zomfy's chats, the skill for agents started elsewhere |
-| Skill install | copy per agent; canonical + links (Orca); hand roots to the launch only | Canonical + links, copy as fallback |
-| Cleanup | prompt only; policy only; both | Both, policy off by default |
-| Dependencies | per-worktree install (today); package-manager store with hardlinks; link the checkout's `node_modules` | Store with hardlinks, verified first (open question 4) |
+| Skill install | copy per agent; canonical + links (Orca); hand roots to the launch only | One shared copy per host + links per workspace, copy as fallback |
+| Cleanup | prompt only; policy only; both | Both; deleting merged worktrees on by default (decision 3) |
+| Dependencies | per-worktree install (today); package-manager store with hardlinks; link the checkout's `node_modules` | Store with hardlinks: bun already does it (measured) |
 
 # Acceptance checks
 
-- With `zomfy-worktrees` turned on for Claude Code and Codex everywhere, `~/.agents/skills/zomfy-worktrees/SKILL.md`
-  exists, `~/.claude/skills/zomfy-worktrees` is a junction to it, and the Skills page lists it once
-  for both agents; turning it off removes both.
-- A copy edited by hand is not overwritten by an update; Replace backs it up first.
+- With `zomfy-worktrees` turned on for Claude Code and Codex in a project, every workspace has
+  `.claude/skills/zomfy-worktrees` and `.agents/skills/zomfy-worktrees` linked to the shared copy,
+  `git status` stays clean, a worktree made later is linked too; turning Claude off removes only its
+  links. (Tested; checked in the preview.)
+- A copy edited by hand is not overwritten by an update; Replace backs it up first. (Tested.)
 - A release that changes the skill updates an unedited installed copy on the next daemon start.
+  (Tested through the classification; not through a real release.)
 - A worktree of this repo whose branch is merged into `development` but not `main` is offered as
-  merged.
+  merged. (Tested with a repository of its own.)
 - The cleanup dialog shows each worktree's size, and Free space on a worktree with `node_modules`
   and `apps/desktop/src-tauri/target` leaves its files and git state intact and its size under 100 MB.
-- A worktree whose `node_modules` has paths over 260 characters is deleted in full; a folder held
-  open by another program is named in the error.
-- With free space faked under 2 GB, `create_workspace` fails with the reason; under 10 GB the notice
-  appears.
+  (Tested; checked in the preview.)
+- A worktree whose `node_modules` has paths over 260 characters is deleted in full. (Tested.) A file
+  held open by another program is named in the error. (Not tested: Bun opens files shareable for
+  delete, so a test cannot hold one.)
 - With automatic cleanup on, a merged, idle worktree with no running chat is deleted within an hour
-  of the threshold, and one with uncommitted changes is not.
-- Tests: digest classification, merged-against-finish-branch, the long-path delete (a fixture of
+  of the threshold, and one with uncommitted changes is not. (Tested with a faked clock.)
+- Tests (all written): digest classification, merged-against-finish-branch, the long-path delete (a fixture of
   nested folders past 260 characters), size splitting, the policy's keep rules.
+
+# Decisions (2026-11-25)
+
+The person's answers to the open questions:
+
+1. **Bundled skills are set per project.** Whether `zomfy-worktrees` (and later bundled skills) is
+   enabled is a project setting (beside the agent-tool settings in Project Settings), per agent; a
+   project's setting installs or removes the skill in that project's scope. There is no global
+   default prompt.
+2. **"Merged into" is the main checkout's current branch**, as proposed, with a per-project
+   override.
+3. **Automatic cleanup of merged worktrees starts on** (Orca's starts off). It still never touches a
+   worktree with uncommitted or unpushed work, or one a chat is open in.
+4. **bun already hardlinks** (measured 2026-11-25, below), so B8's dependency part is reduced to
+   the same-volume check; the Rust part stays.
+5. **No free-space thresholds**: B3's notice and refusal are left out; sizes (B2) and cleanup (B4–B6)
+   stay.
+6. **Orca's three stubs were removed** from `~/.agents/skills` by hand on 2026-11-25, with 15 empty
+   worktree folders left behind by earlier removals.
+
+# Measurement: bun's hardlinks (2026-11-25)
+
+A fresh `bun install` (bun 1.4.4, default isolated linker, no `bunfig.toml`) in a new worktree of
+this repo took 53 s and wrote 71,709 files (1,282 MB apparent) under `node_modules`. Of these, 71,355
+files (1,280 MB) have a link count above one: `fsutil hardlink list` shows each as the same file in
+`~/.bun/install/cache`, in the main checkout and in the worktree. Only about 1 MB (the `.bin`
+shims and bun's own metadata) belongs to the worktree alone. Cache and worktree root are both on
+`C:`.
+
+What follows from it:
+
+- **B8**: no per-project install setting is needed for space; bun's store already shares packages.
+  What remains is the same-volume check (a cache on another volume would copy) and the Rust shared
+  target.
+- **B2**: a worktree's `node_modules` counts almost nothing once hardlinked files are counted once
+  per volume; the size shown splits **own** bytes (files with one link) from **shared** bytes, so
+  the person is not told a worktree costs 1.3 GB when deleting it frees 1 MB.
+- **B6**: Free space mainly removes build output (`target/`, `dist/`); deleting `node_modules`
+  frees little and is kept only because it also drops stale per-worktree installs.
+- Bun's `readdirSync` returns nothing for a `\\?\` path, while plain absolute paths past 260
+  characters work in Bun on this machine, so B7 does not rely on namespaced paths through Bun's
+  `fs`; it keeps git's `core.longpaths` for the worktree and removes what is left with Bun's
+  recursive `rm`, falling back to the OS (`cmd /c rd /s /q` on the namespaced path).
 
 # Open questions
 
-1. Should `zomfy-worktrees` be offered on by default for Claude Code and Codex (the one-time prompt
-   above), or stay off until the person goes to Settings?
-2. Is the finish branch (the main checkout's current branch) the right "merged into" target, or
-   should a project name it (e.g. `development`) as a setting?
-3. Should automatic cleanup start on for merged worktrees (Orca's is off), given the person just
-   cleaned 28 by hand?
-4. Does bun on this machine already hardlink from its cache into `node_modules` (so the 1–6 GB per
-   worktree is mostly the Rust `target/` and Expo's tree)? To be measured before B8 is built; if it
-   does, B8 is mostly the Rust part.
-5. Should the free-space thresholds (10 GB notice, 2 GB refusal) be different, or the refusal left
-   out?
-6. Should Orca's three stubs in `~/.agents/skills` simply be removed now, by hand, since Orca's CLI
-   is not used?
+None.

@@ -4,8 +4,49 @@ import { HARNESS_METHODS, type DiscoveredSkill, type SkillCopyOutcome, type Skil
 import { moveToTrash } from "../host-trash.ts";
 import { discoverSkills, readSkillMarkdown } from "../skill-discovery.ts";
 import type { HandlerContext } from "./handler-context.ts";
+import { BundledSkills, SKILL_AGENTS } from "../bundled-skills.ts";
+import { HARNESS_HOME } from "../harness-home.ts";
+import { log } from "../log.ts";
 
 export function registerSkillHandlers({ handle, workspaces }: HandlerContext): void {
+  // Zomfy's own skills: one shared copy per host, linked into the projects that turn them on.
+  const bundled = new BundledSkills({ copyRoot: join(HARNESS_HOME, "skills"), backupRoot: join(HARNESS_HOME, "skill-backups") });
+  const projectOf = async (projectId: string) => {
+    const state = await workspaces.snapshot();
+    const project = state.projects.find((p) => p.id === projectId);
+    if (!project) throw new Error(`Unknown project ${projectId}`);
+    return { project, workspaces: state.workspaces.filter((w) => w.projectId === projectId) };
+  };
+  const describe = async (projectId: string) => {
+    const { project, workspaces: list } = await projectOf(projectId);
+    return bundled.describe(project, list);
+  };
+  workspaces.onWorktreeCreated(async (workspace, project) => {
+    if (project.bundledSkills) await bundled.syncProject(project, [workspace]);
+  });
+  // On start: update unedited shared copies and put back links a checkout lost.
+  void (async () => {
+    for (const project of (await workspaces.snapshot()).projects.filter((p) => p.bundledSkills)) {
+      const { workspaces: list } = await projectOf(project.id);
+      await bundled.syncProject(project, list);
+    }
+  })().catch((error) => log(`syncing bundled skills failed: ${String(error)}`));
+
+  handle(HARNESS_METHODS.bundledList, (p) => describe(p.projectId));
+  handle(HARNESS_METHODS.bundledSet, async (p) => {
+    if (!SKILL_AGENTS.some((a) => a.agent === p.agent)) throw new Error(`Bundled skills cannot be turned on for ${p.agent}`);
+    const { project } = await projectOf(p.projectId);
+    const current = project.bundledSkills?.[p.name] ?? [];
+    const agents = p.enabled ? [...current, p.agent] : current.filter((a) => a !== p.agent);
+    const updated = await workspaces.setBundledSkill(p.projectId, p.name, agents);
+    await bundled.syncProject(updated, (await projectOf(p.projectId)).workspaces);
+    return describe(p.projectId);
+  });
+  handle(HARNESS_METHODS.bundledReplace, async (p) => {
+    await bundled.replace(p.name);
+    return describe(p.projectId);
+  });
+
   // Read and trash accept only files a scan reported, so the client cannot name arbitrary paths.
   let known = new Map<string, DiscoveredSkill>();
   let sources = new Map<string, SkillDiscoverySource>();

@@ -29,7 +29,8 @@ import { releaseFinishedTurn, runClaudeTurn, type StepOptions } from "./claude-t
 import { WorktreeClaims } from "./worktree-claims.ts";
 import { finishWorktree } from "./worktree-finish.ts";
 import { hostingContext } from "./handlers/hosting-handlers.ts";
-import { runArchiveHook, runSetupHook } from "./project-hooks.ts";
+import { effectiveHook, runArchiveHook, runSetupHook } from "./project-hooks.ts";
+import { restoreFreedWorkspace } from "./worktree-cleanup.ts";
 import { HELPER_RESULT_SCHEMA, helperResult, reportIn, splitWorkHint } from "./split-work.ts";
 import { SplitStore } from "./split-store.ts";
 import { SplitCoordinator } from "./split-coordinator.ts";
@@ -41,7 +42,8 @@ import { detectUsageLimit } from "./usage-limit.ts";
 import { explainClaudeFailure } from "./claude-executable.ts";
 import { registerTurnRecoveryHandlers } from "./handlers/turn-recovery-handlers.ts";
 import { AcpAgentSessions } from "./acp-agent-sessions.ts";
-import { chatAgentLaunch } from "./chat-agent-launch-settings.ts";
+import { chatAgentLaunch, claudeChromeOn } from "./chat-agent-launch-settings.ts";
+import { WRAP_UP_DONE, WRAP_UP_NO_ANSWER, repliedThisTurn } from "./wrap-up-reply.ts";
 import { noteSlashCommands } from "./claude-catalog.ts";
 import { liveClaudeQueries } from "./live-claude-queries.ts";
 import { BackgroundTaskMarks } from "./background-task-marks.ts";
@@ -293,10 +295,10 @@ export function createHarnessAgent(
   // The call itself is the card: the window draws it from the call's input, so nothing waits here.
   localTools.set("wrap_up", {
     offeredTo: () => true,
-    route: async (_caller, _tool, args) =>
-      normalizeWrapUp(args)
-        ? { result: "Shown to the person as a Next steps card under your reply. Write your final message now." }
-        : { result: "Nothing to show: give a summary and at least one step ({ owner, text }).", isError: true },
+    route: async (caller, _tool, args) => {
+      if (!normalizeWrapUp(args)) return { result: "Nothing to show: give a summary and at least one step ({ owner, text }).", isError: true };
+      return { result: repliedThisTurn(await sessions.transcript(caller)) ? WRAP_UP_DONE : WRAP_UP_NO_ANSWER };
+    },
   });
 
   /** Recorded for replay, then sent to every client so a reconnected window sees live turns. */
@@ -509,6 +511,19 @@ export function createHarnessAgent(
       }
     };
 
+    // Free space took this worktree's dependencies: its setup script puts them back first, or the agent is told.
+    const freedNote = woken
+      ? null
+      : await restoreFreedWorkspace(
+          workspaces,
+          session.workspaceId,
+          runSetupHook,
+          async (project, path) => !!(await effectiveHook(project, "setup", path)),
+          (title) => emit(session.id, { sessionUpdate: "notice", severity: "info", title }).catch(() => undefined),
+        ).catch((error) => {
+          log(`putting back ${session.workspaceId} failed: ${String(error)}`);
+          return null;
+        });
     // A side chat's seed rides on its first turn only; the transcript shows just what was typed.
     // So does the conversation so far, for an agent that just took the chat over.
     // Read when the prompt goes to the agent: one whose conversation would not reopen is handed it only then.
@@ -518,7 +533,7 @@ export function createHarnessAgent(
       if (woken) return params.prompt;
       handoff = session.handoffContext;
       // A running split's note goes with every turn while its parts run; it is never stored.
-      const seed = [handoff, session.seedContext, splits.turnNote(session.id)].filter((part) => !!part).join("\n\n");
+      const seed = [handoff, session.seedContext, splits.turnNote(session.id), freedNote].filter((part) => !!part).join("\n\n");
       if (!seed) return params.prompt;
       sessions.update(session.id, { seedContext: null, handoffContext: null });
       return [{ type: "text", text: seed }, ...params.prompt];
@@ -565,6 +580,7 @@ export function createHarnessAgent(
       ]
         .filter((p): p is string => !!p)
         .join("\n\n") || null;
+    const claudeLaunch = await chatAgentLaunch("claude");
     try {
       const stopReason = external
         ? await external.prompt(promptWithSeed, abort, askPermission)
@@ -582,7 +598,8 @@ export function createHarnessAgent(
         onPermissionMode: (permissionMode) =>
           sessions.update(session.id, { options: { ...session.options, permissionMode } }),
         onSlashCommands: (names) => noteSlashCommands(session.cwd, names),
-        env: (await chatAgentLaunch("claude")).env,
+        env: claudeLaunch.env,
+        chrome: claudeChromeOn(claudeLaunch, projectOfSession(session.id)),
         askPermission,
         // A quick chat sees its harness tools up front, so it can move itself into a project.
         // Workflow steps see them up front too, for ask_requester.

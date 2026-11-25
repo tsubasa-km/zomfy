@@ -17,10 +17,11 @@ export function registerChatAgentHandlers({ handle, broadcast }: HandlerContext)
       ...(p.agent === "claude" ? {} : { command: p.command }),
       env: p.env,
       codexConnection: p.codexConnection,
+      ...(p.agent === "claude" && p.claudeChrome !== undefined ? { claudeChrome: p.claudeChrome } : {}),
       ...(p.consent !== undefined && isGuardedChatAgent(p.agent) ? { consent: p.consent } : {}),
     });
     const agents = await listChatAgents(false);
-    if (p.codexConnection !== undefined) broadcast(CHAT_AGENT_NOTIFICATIONS.chatAgentsChanged, agents);
+    if (p.codexConnection !== undefined || p.claudeChrome !== undefined) broadcast(CHAT_AGENT_NOTIFICATIONS.chatAgentsChanged, agents);
     return agents;
   });
 }

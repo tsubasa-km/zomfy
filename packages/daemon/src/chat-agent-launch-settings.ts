@@ -1,6 +1,6 @@
 import { mkdir, readFile, rename, rm, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
-import type { ChatAgentId, ChatAgentLaunchPatch, CodexConnection } from '@zomfy/protocol'
+import type { ChatAgentId, ChatAgentLaunchPatch, CodexConnection, Project } from '@zomfy/protocol'
 import { HARNESS_HOME } from './harness-home.ts'
 import { log } from './log.ts'
 
@@ -16,6 +16,8 @@ export interface ChatAgentLaunch {
   /** A guarded agent (GUARDED_CHAT_AGENTS) the person turned on for this host. */
   consent?: boolean
   codexConnection?: CodexConnection
+  /** Claude only: this host's Claude chats start with Claude in Chrome (`--chrome`). */
+  claudeChrome?: boolean
 }
 
 type Store = Partial<Record<ChatAgentId, ChatAgentLaunch>>
@@ -39,7 +41,8 @@ export async function chatAgentLaunch(agent: ChatAgentId): Promise<ChatAgentLaun
     command: saved?.command ?? null,
     env: { ...saved?.env },
     ...(saved?.consent ? { consent: true } : {}),
-    ...(agent === 'codex' ? { codexConnection: saved?.codexConnection === 'app-server' ? 'app-server' : 'acp' } : {})
+    ...(agent === 'codex' ? { codexConnection: saved?.codexConnection === 'app-server' ? 'app-server' : 'acp' } : {}),
+    ...(agent === 'claude' && saved?.claudeChrome === true ? { claudeChrome: true } : {})
   }
 }
 
@@ -61,6 +64,11 @@ async function saveLaunch(agent: ChatAgentId, patch: ChatAgentLaunchPatch): Prom
     }
     next.codexConnection = patch.codexConnection
   }
+  if (patch.claudeChrome !== undefined) {
+    if (agent !== 'claude' || typeof patch.claudeChrome !== 'boolean') throw new Error('Invalid Claude in Chrome setting')
+    if (patch.claudeChrome) next.claudeChrome = true
+    else delete next.claudeChrome
+  }
   if (patch.env) {
     const name = patch.env.name.trim()
     if (!/^[A-Za-z_][A-Za-z0-9_]*$/.test(name)) throw new Error(`${name || 'An empty name'} is not a variable name`)
@@ -76,4 +84,9 @@ async function saveLaunch(agent: ChatAgentId, patch: ChatAgentLaunchPatch): Prom
   } finally {
     await rm(temporary, { force: true }).catch(() => undefined)
   }
+}
+
+/** Whether a Claude chat starts with Claude in Chrome: its project's choice, else the host's. */
+export function claudeChromeOn(launch: Pick<ChatAgentLaunch, 'claudeChrome'>, project: Pick<Project, 'claudeChrome'> | null): boolean {
+  return project?.claudeChrome ?? launch.claudeChrome === true
 }

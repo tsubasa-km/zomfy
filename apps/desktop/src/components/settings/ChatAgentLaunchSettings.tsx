@@ -10,7 +10,7 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/component
 import { TuiAgentIcon } from '@/components/terminal/TuiAgentIcon'
 import { loadChatAgents, setChatAgents, useChatAgents } from '@/lib/chat-agents'
 import { cn } from '@/lib/utils'
-import { SettingsRow, TextField } from './settings-form-controls'
+import { SettingsRow, SettingsSwitchRow, TextField } from './settings-form-controls'
 import { SearchableSetting, useSettingsSearchQuery } from './SettingsSection'
 import { t } from '@/i18n/i18n'
 
@@ -95,6 +95,7 @@ function ChatAgentRow({ host, agent }: { host: HostEntry; agent: ChatAgentInfo }
   const [open, setOpen] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [savingConnection, setSavingConnection] = useState(false)
+  const [savingChrome, setSavingChrome] = useState(false)
   const run = (patch: ChatAgentLaunchPatch) =>
     setLaunch(host, agent.id, patch).then(
       () => setError(null),
@@ -150,6 +151,21 @@ function ChatAgentRow({ host, agent }: { host: HostEntry; agent: ChatAgentInfo }
                   </SelectContent>
                 </Select>
               )}
+            />
+          ) : null}
+          {agent.claudeChrome !== undefined ? (
+            <SettingsSwitchRow
+              label={t('Claude in Chrome')}
+              description={t(
+                'Starts this host’s Claude chats with Claude in Chrome, so they can use your Chrome. Needs the Claude in Chrome extension installed and Chrome running. A project can override this in its settings.'
+              )}
+              keywords={['Chrome', 'browser', 'Claude in Chrome', 'extension', '--chrome']}
+              checked={agent.claudeChrome}
+              disabled={savingChrome}
+              onChange={(claudeChrome) => {
+                setSavingChrome(true)
+                void run({ claudeChrome }).finally(() => setSavingChrome(false))
+              }}
             />
           ) : null}
           {agent.detail && agent.status !== 'needs-consent' ? <p className="font-mono text-xs break-all text-muted-foreground">{agent.detail}</p> : null}

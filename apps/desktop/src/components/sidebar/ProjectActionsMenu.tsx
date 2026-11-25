@@ -10,6 +10,9 @@ import { detachFromProject } from '@/stores/project-catalog-store'
 import { openWorkflows } from '@/stores/workflows-store'
 import { startChat } from '@/lib/chat-worktree'
 import { t } from '@/i18n/i18n'
+import { useStore } from '@/session-store'
+import { useSidebarStore } from '@/stores/sidebar-store'
+import { formatBytes } from '@/components/sidebar/workspace-size'
 
 // A project's "…" menu: on its row in the sidebar, and beside its name over a workspace pane.
 
@@ -38,6 +41,11 @@ export function ProjectActionsMenuItems({
   badgeFor?: (hostId: HostId) => string | null
 }) {
   const label = projectLabel(project)
+  // What the project's worktrees hold of their own, as last measured.
+  const worktreeIds = useStore((s) =>
+    (s.hosts[project.hostId]?.harness?.workspaces ?? []).filter((w) => w.projectId === project.id && !w.isPrimary).map((w) => w.id).join(',')
+  )
+  const worktreesBytes = useSidebarStore((s) => worktreeIds.split(',').reduce((sum, id) => sum + (s.sizes[id]?.total.ownBytes ?? 0), 0))
   return (
     <>
       <ProjectMenuItems
@@ -46,6 +54,7 @@ export function ProjectActionsMenuItems({
         onNewWorkspace={() => actions.newWorkspace(project)}
         onSettings={() => actions.projectSettings(project)}
         onCleanUp={project.kind === 'git' ? () => actions.cleanUp(project) : undefined}
+        worktreesSize={worktreesBytes > 0 ? formatBytes(worktreesBytes) : undefined}
         onRemove={() => actions.removeProject(project)}
       />
       {project.kind === 'git' && (

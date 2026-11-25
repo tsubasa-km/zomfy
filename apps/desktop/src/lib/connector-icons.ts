@@ -11,6 +11,7 @@ export type ConnectorIcon =
   | { kind: 'plugin' }
   | { kind: 'remote' }
   | { kind: 'letter' }
+  | { kind: 'chrome' }
 
 /** Service names a claude.ai connector is called by, first match wins, and the service's domain. */
 const KNOWN_SERVICES: [RegExp, string][] = [
@@ -47,6 +48,7 @@ const KNOWN_SERVICES: [RegExp, string][] = [
 ]
 
 const CLAUDE_AI_PREFIX = /^claude\.ai\s+/i
+const CLAUDE_IN_CHROME = 'claude-in-chrome'
 
 /** The service a claude.ai connector's name stands for, as a domain. */
 export function knownServiceDomain(name: string): string | null {
@@ -75,6 +77,8 @@ function urlHost(url: string | undefined): string | null {
 
 export function connectorIcon(server: Pick<ChatMcpServer, 'name' | 'scope' | 'transport' | 'url' | 'harness'>): ConnectorIcon {
   if (server.harness) return { kind: 'harness' }
+  // Claude Code's built-in Claude in Chrome server (`--chrome`).
+  if (server.name === CLAUDE_IN_CHROME) return { kind: 'chrome' }
   const claudeAi = server.scope === 'claudeai' || server.transport === 'claudeai-proxy' || CLAUDE_AI_PREFIX.test(server.name)
   if (claudeAi) {
     const known = knownServiceDomain(server.name)

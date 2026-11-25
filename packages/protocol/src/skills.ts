@@ -41,8 +41,40 @@ export const SKILL_METHODS = {
   skillsDiscover: '_harness/skills/discover',
   skillRead: '_harness/skills/read',
   skillTrash: '_harness/skills/trash',
-  skillCopy: '_harness/skills/copy'
+  skillCopy: '_harness/skills/copy',
+  bundledList: '_harness/skills/bundledList',
+  bundledSet: '_harness/skills/bundledSet',
+  bundledReplace: '_harness/skills/bundledReplace'
 } as const
+
+/**
+ * How the host's copy of a bundled skill compares with this release's: `current`; `older` (a
+ * version Zomfy shipped before, updated on start); `edited` (changed by hand, left alone); `missing`.
+ */
+export type BundledSkillCopyState = 'current' | 'older' | 'edited' | 'missing'
+
+/** One agent's switch for a bundled skill in a project. */
+export interface BundledSkillAgent {
+  /** 'claude' or 'codex'. */
+  agent: string
+  label: string
+  enabled: boolean
+  /**
+   * Workspaces of the project whose agent folder holds something else by the skill's name (a folder
+   * of the person's own), which Zomfy leaves alone.
+   */
+  blocked: number
+}
+
+/** A skill Zomfy ships, as a project sees it (spec worktree-skills-and-storage A). */
+export interface BundledSkill {
+  name: string
+  description: string
+  /** The host's shared copy, which every enabled project links to. */
+  copyPath: string
+  copyState: BundledSkillCopyState
+  agents: BundledSkillAgent[]
+}
 
 /** What copying a skill into one skill folder came to. */
 export interface SkillCopyOutcome {
@@ -63,4 +95,10 @@ export interface SkillRequests {
    * agents load it too. A folder that already has one by that name keeps its own.
    */
   [SKILL_METHODS.skillCopy]: { params: { skillFilePath: string; sourceIds: string[] }; result: { outcomes: SkillCopyOutcome[] } }
+  /** Zomfy's bundled skills and their switches in one project. Newer daemons only. */
+  [SKILL_METHODS.bundledList]: { params: { projectId: string }; result: BundledSkill[] }
+  /** Turns a bundled skill on or off for one agent in a project: links or unlinks it in every workspace. */
+  [SKILL_METHODS.bundledSet]: { params: { projectId: string; name: string; agent: string; enabled: boolean }; result: BundledSkill[] }
+  /** Replaces an edited shared copy with this release's, after moving it to `~/.zomfy/skill-backups`. */
+  [SKILL_METHODS.bundledReplace]: { params: { projectId: string; name: string }; result: BundledSkill[] }
 }

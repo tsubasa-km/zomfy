@@ -485,7 +485,7 @@ export const MANAGER_TOOLS = [
   {
     name: 'wrap_up',
     description:
-      "Call once at the end of a turn in which you worked, just before your final message. It shows the person a Next steps card under your reply: a 2-3 sentence summary of what you did and what is still unchecked, the next steps (most important first, at most five) with who owns each, and a button per step to hand it back to you or put it in their todos. Add a question with 2-4 short answers only when the first step waits on the person's decision; pressing an answer sends it to you as their next prompt. It returns at once and does not end the turn; write your final message as usual afterwards.",
+      "Call once, as the very last step of a turn in which you worked, after you have written your complete answer as visible reply text (your thinking is never shown to the person). It shows the person a Next steps card under your reply: a 2-3 sentence summary of what you did and what is still unchecked, the next steps (most important first, at most five) with who owns each, and a button per step to hand it back to you or put it in their todos. Add a question with 2-4 short answers only when the first step waits on the person's decision; pressing an answer sends it to you as their next prompt. It returns at once; then end the turn without repeating your answer (one short line at most).",
     inputSchema: {
       type: 'object',
       properties: {

@@ -3,7 +3,8 @@ import { git } from './git-cli.ts'
 
 // Card badges and delete-dialog facts. Git 2.25: diff --numstat, rev-list --left-right --count, @{u}.
 
-export async function workspaceSummary(workspace: Workspace, baseRef: string): Promise<WorkspaceSummary | null> {
+/** `mergeTarget` is what "merged" is judged against (B1); badges count against upstream or `baseRef`. */
+export async function workspaceSummary(workspace: Workspace, baseRef: string, mergeTarget = baseRef): Promise<WorkspaceSummary | null> {
   const cwd = workspace.path
   const [numstat, untracked, upstream] = await Promise.all([
     git(cwd, ['diff', '--numstat', 'HEAD'], { quiet: true }).catch(() => null),
@@ -26,7 +27,7 @@ export async function workspaceSummary(workspace: Workspace, baseRef: string): P
 
   const compareRef = upstream ?? (workspace.isPrimary ? null : baseRef)
   const counts = compareRef ? await leftRight(cwd, compareRef) : null
-  const aheadOfBase = compareRef === baseRef ? (counts?.ahead ?? null) : await countRange(cwd, `${baseRef}..HEAD`)
+  const aheadOfTarget = compareRef === mergeTarget ? (counts?.ahead ?? null) : await countRange(cwd, `${mergeTarget}..HEAD`)
   return {
     workspaceId: workspace.id,
     additions,
@@ -35,7 +36,8 @@ export async function workspaceSummary(workspace: Workspace, baseRef: string): P
     ahead: counts?.ahead ?? null,
     behind: counts?.behind ?? null,
     compareRef,
-    merged: !workspace.isPrimary && changedFiles === 0 && aheadOfBase === 0
+    merged: !workspace.isPrimary && changedFiles === 0 && aheadOfTarget === 0,
+    mergeTarget
   }
 }
 
