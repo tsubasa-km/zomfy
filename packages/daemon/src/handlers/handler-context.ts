@@ -58,7 +58,11 @@ export interface HandlerContext {
   /** Every permission ask, sent to every client at once; observed and answered from a bot's source too. */
   asks: AskEveryClient;
   /** Services one area makes and another uses (the bots run their schedules as automations). */
-  services: { automations?: AutomationService };
+  services: {
+    automations?: AutomationService;
+    /** Whether a chat belongs to a manager bot, which gets the Manager chat's tools (docs/specs/bots/master-bot.md). */
+    managerBotChat?: (sessionId: string) => boolean;
+  };
   /** Hears each update `emit` records, before it is sent; returns how to stop. */
   onSessionUpdate(listener: (sessionId: string, update: acp.SessionUpdate) => void): () => void;
   /** Runs one turn no client asked for (automations); permission asks go to an open window. */

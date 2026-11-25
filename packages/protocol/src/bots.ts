@@ -37,10 +37,15 @@ export interface Bot {
    * one bot is the default; absent from older daemons.
    */
   isDefault?: boolean
+  /**
+   * A manager bot: its chats get the Manager chat's tools across every project, loaded up front
+   * and run without asking (docs/specs/bots/master-bot.md). Absent is false.
+   */
+  manager?: boolean
 }
 
 export type BotInput = Pick<Bot, 'name' | 'handle' | 'agent'> &
-  Partial<Pick<Bot, 'avatar' | 'purpose' | 'model' | 'permissionMode' | 'owner' | 'askers' | 'isDefault'>> & {
+  Partial<Pick<Bot, 'avatar' | 'purpose' | 'model' | 'permissionMode' | 'owner' | 'askers' | 'isDefault' | 'manager'>> & {
     /** An existing workspace as the home; omitted: a new folder `~/zomfy/bots/<handle>`. */
     homeWorkspaceId?: string
     /** An existing folder or repository on this host as the home, when it is not a workspace yet. */

@@ -569,6 +569,7 @@ function BotsList() {
                   {bot.agent}
                   {bot.paused ? ` · ${t('Paused')}` : ''}
                   {bot.isDefault ? ` · ${t('Default')}` : ''}
+                  {bot.manager ? ` · ${t('Master')}` : ''}
                   {pending ? ` · ${t('{n} access requests', { n: pending })}` : ''}
                 </span>
               </span>

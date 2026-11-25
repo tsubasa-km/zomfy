@@ -1,6 +1,7 @@
 # Directory Update Log
 
 ## 2026-11-25
+* **Creation**: [The master bot](specs/bots/master-bot.md), implemented: the daemon registers Zomfy (@zomfy) once per host as a manager bot, the Default bot unless another is, and never again once deleted; a manager bot's chats get the Manager chat's tools, its rules a Manager section, and the desktop a Master badge and a Manager across projects switch.
 * **Update**: [Skills and connectors in the composer](specs/composer-skills-and-connectors.md) is implemented: `ChatCommand.kind` from the probe's skills list, the `/` menu's Commands, Skills and MCP prompts groups, Skill and Connector in the `+` menu, connected MCP servers in the `@` menu, and `@mcp:` chips the daemon turns into an instruction for the agent.
 * **Creation**: [Skills and connectors in the composer](specs/composer-skills-and-connectors.md), draft.
 * **Update**: [Worktree skills and storage](specs/worktree-skills-and-storage.md) is implemented: the `zomfy-worktrees` skill turned on per project and agent, merged judged against the main checkout's branch, worktree sizes, the Clean up workspaces dialog with Free Up Space and leftover folders, automatic deletion of merged worktrees (on by default) and long-path-safe deletes. bun was measured to hardlink already; the Rust shared target and the Orca stub marks were not built.

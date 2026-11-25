@@ -77,6 +77,7 @@ The connector is the same Worker as the phone relay ([decision](../../decisions/
 - Team deployments where several people's daemons share one connector with per-user ownership.
 - Bots with manager powers (delegating across hosts, other projects' chats) in the MVP: manager
   calls run in a desktop window today, and MVP bots must work with no window open.[^person]
+  The [master bot](master-bot.md) later added manager bots, whose manager calls still need a window.
 - Gmail and Google Calendar triggers (Orca's local-only Google rules) — not in the requested source
   list; may follow later.
 - One Slack app per bot: one Slack app per deployment, bots named by handle.[^person]

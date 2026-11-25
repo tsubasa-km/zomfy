@@ -18,6 +18,8 @@ interface Saved {
   bots: Bot[]
   accessRequests: StoredAccessRequest[]
   notices: BotNotice[]
+  /** When the master bot was registered (docs/specs/bots/master-bot.md); it is never registered again. */
+  masterSeededAt?: number
 }
 
 /** Notices kept for the owner; the oldest go past this. */
@@ -104,7 +106,8 @@ export class BotStore {
       askers: normalizeAskers(input.askers),
       paused: false,
       createdAt: now,
-      ...(input.isDefault ? { isDefault: true } : {})
+      ...(input.isDefault ? { isDefault: true } : {}),
+      ...(input.manager ? { manager: true } : {})
     }
     this.data.bots = [...(bot.isDefault ? this.data.bots.map(notDefault) : this.data.bots), bot]
     this.save()
@@ -128,6 +131,7 @@ export class BotStore {
     const clash = this.byHandle(next.handle)
     if (clash && clash.id !== id) throw new Error(`Another bot is already @${next.handle}`)
     if (!next.isDefault) delete next.isDefault
+    if (!next.manager) delete next.manager
     // One default bot per host: making this one the default unsets the others.
     this.data.bots = this.data.bots.map((b) => (b.id === id ? next : next.isDefault ? notDefault(b) : b))
     this.save()
@@ -154,6 +158,16 @@ export class BotStore {
     this.data.notices = this.data.notices.filter((n) => n.botId !== id)
     this.save()
     return bot
+  }
+
+  /** Whether the master bot was registered on this host once already. */
+  masterSeeded(): boolean {
+    return this.data.masterSeededAt !== undefined
+  }
+
+  markMasterSeeded(now = Date.now()): void {
+    this.data.masterSeededAt = now
+    this.save()
   }
 
   accessRequests(): BotAccessRequest[] {
@@ -219,7 +233,12 @@ function load(path: string): Saved {
   if (!existsSync(path)) return { bots: [], accessRequests: [], notices: [] }
   try {
     const saved = JSON.parse(readFileSync(path, 'utf8')) as Partial<Saved>
-    return { bots: saved.bots ?? [], accessRequests: saved.accessRequests ?? [], notices: saved.notices ?? [] }
+    return {
+      bots: saved.bots ?? [],
+      accessRequests: saved.accessRequests ?? [],
+      notices: saved.notices ?? [],
+      ...(typeof saved.masterSeededAt === 'number' ? { masterSeededAt: saved.masterSeededAt } : {})
+    }
   } catch {
     return { bots: [], accessRequests: [], notices: [] }
   }
