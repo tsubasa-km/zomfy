@@ -41,7 +41,7 @@ import { detectUsageLimit } from "./usage-limit.ts";
 import { explainClaudeFailure } from "./claude-executable.ts";
 import { registerTurnRecoveryHandlers } from "./handlers/turn-recovery-handlers.ts";
 import { AcpAgentSessions } from "./acp-agent-sessions.ts";
-import { chatAgentLaunch } from "./chat-agent-launch-settings.ts";
+import { chatAgentLaunch, claudeChromeOn } from "./chat-agent-launch-settings.ts";
 import { noteSlashCommands } from "./claude-catalog.ts";
 import { liveClaudeQueries } from "./live-claude-queries.ts";
 import { BackgroundTaskMarks } from "./background-task-marks.ts";
@@ -565,6 +565,7 @@ export function createHarnessAgent(
       ]
         .filter((p): p is string => !!p)
         .join("\n\n") || null;
+    const claudeLaunch = await chatAgentLaunch("claude");
     try {
       const stopReason = external
         ? await external.prompt(promptWithSeed, abort, askPermission)
@@ -582,7 +583,8 @@ export function createHarnessAgent(
         onPermissionMode: (permissionMode) =>
           sessions.update(session.id, { options: { ...session.options, permissionMode } }),
         onSlashCommands: (names) => noteSlashCommands(session.cwd, names),
-        env: (await chatAgentLaunch("claude")).env,
+        env: claudeLaunch.env,
+        chrome: claudeChromeOn(claudeLaunch, projectOfSession(session.id)),
         askPermission,
         // A quick chat sees its harness tools up front, so it can move itself into a project.
         // Workflow steps see them up front too, for ask_requester.

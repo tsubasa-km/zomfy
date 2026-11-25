@@ -82,3 +82,6 @@ export async function updateClaudeCli(): Promise<ClaudeCliUpdateResult> {
   const status = await claudeCliStatus();
   return { status, ok: code === 0 && !status.outdated, output };
 }
+
+/** Claude Code's flag that turns on its built-in Claude in Chrome MCP server (needs the extension and Chrome running). */
+export const CLAUDE_CHROME_ARGS: Record<string, string | null> = { chrome: null };

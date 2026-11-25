@@ -21,7 +21,7 @@ import {
   type WorkflowStepContext,
   type WorkflowStepUsage,
 } from "@zomfy/protocol";
-import { explainClaudeFailure, resolveClaudeExecutable } from "./claude-executable.ts";
+import { CLAUDE_CHROME_ARGS, explainClaudeFailure, resolveClaudeExecutable } from "./claude-executable.ts";
 import { CHAT_ATTACHMENT_DIR, deferAttachmentMentions } from "./chat-attachment-files.ts";
 import { detectUsageLimit } from "./usage-limit.ts";
 import { noteClaudeTurnEnded } from "./usage-limits.ts";
@@ -59,6 +59,8 @@ interface TurnInput {
   env?: Record<string, string>;
   /** MCP servers the daemon provides (the manager tools). */
   mcpServers?: Options["mcpServers"];
+  /** Start Claude Code with Claude in Chrome (`--chrome`), from the Agents or project settings. */
+  chrome?: boolean;
   /** Tools that run without asking (the read-only manager tools). */
   allowedTools?: string[];
   /** Added to Claude Code's own system prompt (the Manager chat's instructions). */
@@ -238,6 +240,7 @@ function spawnKey(input: TurnInput): string {
     allowed: input.allowedTools ?? [],
     append: input.appendSystemPrompt ?? null,
     guards: !!input.worktreeGuards,
+    chrome: !!input.chrome,
   });
 }
 
@@ -406,6 +409,7 @@ async function spawn(input: TurnInput, userMessage: SDKUserMessage): Promise<acp
       ...(mcpServers && Object.keys(mcpServers).length > 0 ? { mcpServers } : {}),
       ...(allowedTools.length ? { allowedTools } : {}),
       disallowedTools,
+      ...(input.chrome ? { extraArgs: CLAUDE_CHROME_ARGS } : {}),
       ...(input.step?.skills ? { skills: input.step.skills } : {}),
       ...(input.step?.strictMcpConfig ? { strictMcpConfig: true } : {}),
       ...(input.step?.outputFormat ? { outputFormat: input.step.outputFormat } : {}),

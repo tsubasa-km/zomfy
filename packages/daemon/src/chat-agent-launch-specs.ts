@@ -189,6 +189,7 @@ export async function listChatAgents(refresh: boolean): Promise<ChatAgentInfo[]>
           ? (update?.packageName === '@openai/codex' ? update : null)
           : launch.command ? null : update,
         ...(id === 'codex' ? { codexConnection: launch.codexConnection ?? 'acp' } : {}),
+        ...(id === 'claude' ? { claudeChrome: launch.claudeChrome === true } : {}),
         ...(isGuardedChatAgent(id) ? { consent: !!launch.consent } : {})
       }
     })

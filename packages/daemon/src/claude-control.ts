@@ -1,6 +1,6 @@
 import { query, type McpServerStatus, type Options, type Query, type SDKUserMessage } from "@anthropic-ai/claude-agent-sdk";
 import type { ChatMcpAuthStart, ChatMcpServer } from "@zomfy/protocol";
-import { resolveClaudeExecutable } from "./claude-executable.ts";
+import { CLAUDE_CHROME_ARGS, resolveClaudeExecutable } from "./claude-executable.ts";
 import { log } from "./log.ts";
 
 // A Claude Code process with no turn in it, started for what only a running CLI can answer between
@@ -19,6 +19,8 @@ export interface ControlLaunch {
   mcpServers?: Options["mcpServers"];
   /** Connect no MCP server at all (a process that only reads the account's limits). */
   noMcp?: boolean;
+  /** Start with Claude in Chrome, like the chat's turns, so its server is listed. */
+  chrome?: boolean;
 }
 
 interface Held {
@@ -109,6 +111,7 @@ export class ClaudeControl {
         env: { ...process.env, ...launch.env },
         ...(launch.mcpServers && Object.keys(launch.mcpServers).length > 0 ? { mcpServers: launch.mcpServers } : {}),
         ...(launch.noMcp ? { strictMcpConfig: true } : {}),
+        ...(launch.chrome && !launch.noMcp ? { extraArgs: CLAUDE_CHROME_ARGS } : {}),
       },
     });
     // Drained so the SDK's message queue never backs up; an idle process sends next to nothing.

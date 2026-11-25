@@ -216,6 +216,11 @@ export class WorkspaceManager {
       if (patch[key] === false) project[key] = false
       else delete project[key]
     }
+    // true or false overrides the host's Claude in Chrome setting; null or anything else follows it.
+    if ('claudeChrome' in patch) {
+      if (typeof patch.claudeChrome === 'boolean') project.claudeChrome = patch.claudeChrome
+      else delete project.claudeChrome
+    }
     if ('hooks' in patch) {
       const setup = patch.hooks?.setup?.trim()
       const archive = patch.hooks?.archive?.trim()
