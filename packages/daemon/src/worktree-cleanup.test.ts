@@ -202,3 +202,17 @@ describe("the policy", () => {
     await manager.updateProject(projectId, { cleanup: null });
   });
 });
+
+describe("the package cache", () => {
+  test("on another volume than the worktrees is reported", async () => {
+    const { cacheOnOtherVolume } = await import("./worktree-cleanup.ts");
+    const project = (await manager.snapshot()).projects[0]!;
+    await writeFile(join(repo, "bun.lock"), "{}\n");
+    const elsewhere = process.platform === "win32" ? "Q:\bun-cache" : "/";
+    const here = process.platform === "win32" ? join(root, "bun-cache") : root;
+    expect(await cacheOnOtherVolume(project, worktrees, { BUN_INSTALL_CACHE_DIR: here })).toBeNull();
+    if (process.platform === "win32") expect(await cacheOnOtherVolume(project, worktrees, { BUN_INSTALL_CACHE_DIR: elsewhere })).toEqual({ cache: elsewhere, worktrees });
+    await rm(join(repo, "bun.lock"));
+    expect(await cacheOnOtherVolume(project, worktrees, { BUN_INSTALL_CACHE_DIR: elsewhere })).toBeNull();
+  });
+});

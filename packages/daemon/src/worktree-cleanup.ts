@@ -1,6 +1,7 @@
 import { existsSync } from 'node:fs'
 import { mkdir, readdir, readFile, stat, writeFile } from 'node:fs/promises'
-import { dirname, join, resolve } from 'node:path'
+import { homedir } from 'node:os'
+import { dirname, join, parse, resolve } from 'node:path'
 import {
   DEFAULT_WORKTREE_CLEANUP_POLICY,
   type CleanupCandidate,
@@ -118,7 +119,12 @@ export class WorktreeCleanup {
       })
     }
     candidates.sort((a, b) => (b.size?.total.ownBytes ?? 0) - (a.size?.total.ownBytes ?? 0))
-    return { mergeTarget: target, candidates, leftovers: await this.leftovers(project) }
+    return {
+      mergeTarget: target,
+      candidates,
+      leftovers: await this.leftovers(project),
+      cacheElsewhere: await cacheOnOtherVolume(project, this.deps.worktreeRoot(project))
+    }
   }
 
   /** Deletes a worktree's dependencies and build output (git-ignored ones only), keeping the rest. */
@@ -284,6 +290,14 @@ export class WorktreeCleanup {
 /** The project's folder of worktrees, as createWorkspace makes it. */
 export function projectWorktreeRoot(project: Project, defaultRoot: string): string {
   return join(project.worktreeRoot || defaultRoot, sanitizeWorkspaceName(project.name))
+}
+
+/** bun's cache, when the project uses bun and the cache sits on another volume than its worktrees. */
+export async function cacheOnOtherVolume(project: Project, worktrees: string, env = process.env, home = homedir()): Promise<{ cache: string; worktrees: string } | null> {
+  if (!existsSync(join(project.path, 'bun.lock')) && !existsSync(join(project.path, 'bun.lockb'))) return null
+  const cache = env.BUN_INSTALL_CACHE_DIR || join(env.BUN_INSTALL || join(home, '.bun'), 'install', 'cache')
+  const volume = (p: string) => parse(resolve(p)).root.toLowerCase()
+  return volume(cache) === volume(worktrees) ? null : { cache, worktrees }
 }
 
 async function ignoredByGit(cwd: string, path: string): Promise<boolean> {
