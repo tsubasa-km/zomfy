@@ -45,6 +45,7 @@ import { AcpAgentSessions } from "./acp-agent-sessions.ts";
 import { chatAgentLaunch, claudeChromeOn } from "./chat-agent-launch-settings.ts";
 import { WRAP_UP_DONE, WRAP_UP_NO_ANSWER, repliedThisTurn } from "./wrap-up-reply.ts";
 import { noteSlashCommands } from "./claude-catalog.ts";
+import { expandMcpMentionsInPrompt } from "./mcp-mentions.ts";
 import { liveClaudeQueries } from "./live-claude-queries.ts";
 import { BackgroundTaskMarks } from "./background-task-marks.ts";
 import { PROCESS_GONE_META, stopsOpenToolCalls, stoppedToolCallUpdates } from "./stopped-tool-calls.ts";
@@ -532,11 +533,13 @@ export function createHarnessAgent(
       // Not sent: the seed waits for the next prompt the agent reads.
       if (woken) return params.prompt;
       handoff = session.handoffContext;
+      // `@mcp:` chips reach the agent as an instruction; the transcript keeps them as typed.
+      const typed = expandMcpMentionsInPrompt(params.prompt, external ? "other" : "claude");
       // A running split's note goes with every turn while its parts run; it is never stored.
       const seed = [handoff, session.seedContext, splits.turnNote(session.id), freedNote].filter((part) => !!part).join("\n\n");
-      if (!seed) return params.prompt;
+      if (!seed) return typed;
       sessions.update(session.id, { seedContext: null, handoffContext: null });
-      return [{ type: "text", text: seed }, ...params.prompt];
+      return [{ type: "text", text: seed }, ...typed];
     };
     /** A turn that ended before the agent answered may never have reached it: the handoff goes with the next one. */
     const keepUnansweredHandoff = async (): Promise<void> => {
@@ -597,7 +600,7 @@ export function createHarnessAgent(
         },
         onPermissionMode: (permissionMode) =>
           sessions.update(session.id, { options: { ...session.options, permissionMode } }),
-        onSlashCommands: (names) => noteSlashCommands(session.cwd, names),
+        onSlashCommands: (names, skills) => noteSlashCommands(session.cwd, names, skills),
         env: claudeLaunch.env,
         chrome: claudeChromeOn(claudeLaunch, projectOfSession(session.id)),
         askPermission,

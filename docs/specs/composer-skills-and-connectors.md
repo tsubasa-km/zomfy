@@ -2,8 +2,8 @@
 type: Spec
 title: Skills and connectors in the composer
 description: The chat composer's `/` menu splits commands from skills, the `+` menu lists skills and connected MCP servers, and an `@mcp:` chip asks the agent to use a server.
-status: draft
-x-zomfy-implementation: planned
+status: stable
+x-zomfy-implementation: in-progress
 tags: [chat, composer, skills, mcp]
 generated: { by: "claude-code/opus-5.5", at: "2026-11-25T00:00:00Z" }
 ---
