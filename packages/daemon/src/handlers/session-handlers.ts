@@ -12,7 +12,7 @@ import { agentEras, agentSwitchNotice, answeredBefore, pendingHandoff, type Agen
 import { emptyAgentState } from "../acp-agent-session.ts";
 import { refuseUnattended, resolveChatAgent } from "../chat-agent-launch-specs.ts";
 import { releaseFinishedTurn } from "../claude-turn.ts";
-import { resolveClaudeExecutable } from "../claude-executable.ts";
+import { CLAUDE_SIGN_IN_ARGS, resolveClaudeExecutable } from "../claude-executable.ts";
 import { chatAgentLaunch } from "../chat-agent-launch-settings.ts";
 import { mentionFiles } from "../mention-files.ts";
 import { noteActivity } from "../session-activity.ts";
@@ -73,7 +73,21 @@ export function registerSessionHandlers(ctx: HandlerContext): void {
       ctx.cli.settle(record.id, terminalId);
     }
   });
-  handle(HARNESS_METHODS.sessionConsultLead, (p) => consultRequester(ctx, p.leadSessionId, p.from, p.question));
+  // docs/specs/claude-sign-in.md: the CLI's own login, under the account the chat's turns use.
+  handle(HARNESS_METHODS.sessionClaudeSignIn, async (p) => {
+    const record = sessions.get(p.sessionId);
+    if (!record?.workspaceId) throw new Error("This thread has no folder to open a terminal in.");
+    const exe = await resolveClaudeExecutable();
+    if (!exe) throw new Error("Claude Code was not found on this host. Install it (npm i -g @anthropic-ai/claude-code), then sign in.");
+    return ctx.terminals.create({
+      workspaceId: record.workspaceId,
+      cwd: record.cwd,
+      cols: 120,
+      rows: 30,
+      program: { argv: [exe, ...CLAUDE_SIGN_IN_ARGS], title: "Sign in to Claude", env: (await chatAgentLaunch("claude")).env },
+    });
+  });
+  handle(HARNESS_METHODS.sessionConsultLead,(p) => consultRequester(ctx, p.leadSessionId, p.from, p.question));
   handle(HARNESS_METHODS.sessionAddContext, async (p) => {
     noteActivity(sessions, p.sessionId, p.text);
     return {};
