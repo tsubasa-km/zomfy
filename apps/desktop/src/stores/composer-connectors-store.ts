@@ -5,28 +5,46 @@ import type { HostId } from '@/session-store'
 import { createExternalStore } from './external-store'
 
 // The MCP servers a chat's composer offers in its @ and + menus (composer-skills-and-connectors.md):
-// read once per chat when a menu first needs them, with the request the Session panel's Connectors
+// read when a menu first needs them (again while servers are still connecting), with the request the Session panel's Connectors
 // uses, and replaced whenever that panel reads the list. Only connected servers are offered, never
 // Zomfy's own tools server.
 
-type Entry = { status: 'loading' | 'ready' | 'error'; servers: ChatMcpServer[] }
+/** `stale`: read again the next time a menu wants it. */
+type Entry = { status: 'loading' | 'ready' | 'error'; servers: ChatMcpServer[]; stale?: boolean }
 
 const store = createExternalStore<Record<string, Entry>>({})
 const EMPTY: Entry = { status: 'ready', servers: [] }
 
+/** Servers still connecting: the chat's Claude process was just started to answer, so it asks again. */
+const connecting = (servers: readonly ChatMcpServer[]) => servers.some((s) => s.status === 'pending')
+/** How often, and how many times, a list with servers still connecting is read again. */
+const RETRY_MS = 1500
+const RETRIES = 20
+
 /** The Session panel read the chat's servers: the composer offers the same. */
 export function noteChatConnectors(sessionId: string, servers: ChatMcpServer[]): void {
-  store.update((all) => ({ ...all, [sessionId]: { status: 'ready', servers } }))
+  store.update((all) => ({ ...all, [sessionId]: { status: connecting(servers) ? 'loading' : 'ready', servers } }))
+}
+
+function read(sessionId: string, hostId: HostId, retries: number): void {
+  harnessRequest(HARNESS_METHODS.chatMcpStatus, { sessionId }, hostId).then(
+    (result) => {
+      noteChatConnectors(sessionId, result.servers)
+      if (!connecting(result.servers)) return
+      if (retries > 0) setTimeout(() => read(sessionId, hostId, retries - 1), RETRY_MS)
+      // Still connecting after the retries: offer what is connected; the next open reads again.
+      else store.update((all) => ({ ...all, [sessionId]: { status: 'ready', servers: result.servers, stale: true } }))
+    },
+    // Not a Claude chat, or the host could not say: none offered now; the next open asks again.
+    () => store.update((all) => ({ ...all, [sessionId]: { status: 'error', servers: [], stale: true } }))
+  )
 }
 
 function load(sessionId: string, hostId: HostId): void {
-  if (store.get()[sessionId]) return
-  store.update((all) => ({ ...all, [sessionId]: { status: 'loading', servers: [] } }))
-  harnessRequest(HARNESS_METHODS.chatMcpStatus, { sessionId }, hostId).then(
-    (result) => noteChatConnectors(sessionId, result.servers),
-    // Not a Claude chat, or the host could not say: no connectors are offered.
-    () => store.update((all) => ({ ...all, [sessionId]: { status: 'error', servers: [] } }))
-  )
+  const entry = store.get()[sessionId]
+  if (entry && !entry.stale) return
+  store.update((all) => ({ ...all, [sessionId]: { status: 'loading', servers: entry?.servers ?? [] } }))
+  read(sessionId, hostId, RETRIES)
 }
 
 /**
