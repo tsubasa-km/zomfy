@@ -1,6 +1,8 @@
 # Directory Update Log
 
 ## 2026-11-25
+* **Creation**: [Claude in Chrome from Zomfy](specs/claude-in-chrome.md), implemented: Settings → Agents → Claude has a per-host switch and Project Settings an override; when on, turns and the session panel's control process start Claude Code with `--chrome`, and Connectors shows `claude-in-chrome` with Chrome's icon.
+* **Update**: [The Next steps card](specs/next-steps-card.md): agents are asked to write the answer first and call `wrap_up` last; a `wrap_up` called before any reply text tells the agent to write its answer, and a recap in the answer before `wrap_up` still folds into the card.
 * **Update**: [Worktree skills and storage](specs/worktree-skills-and-storage.md) is stable with the person's decisions: skills per project, merged-into is the main checkout's branch, automatic cleanup on, no free-space thresholds.
 * **Update**: [Direct Codex connection](specs/codex-app-server.md) is implemented with a per-host setting and thread continuation when switching between turns.
 * **Creation**: [Direct Codex connection](specs/codex-app-server.md), planned.

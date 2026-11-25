@@ -3,7 +3,7 @@ type: Spec
 title: The Next steps card
 description: The card a turn ends with, from wrap_up or the reply's recap; its done/check sections open by default, and its buttons say plainly what they do, the person's own steps going to the Inbox's To do list.
 status: stable
-x-zomfy-implementation: in-progress
+x-zomfy-implementation: done
 tags: [chat, desktop, next-steps, inbox, todos]
 generated: { by: "claude-code/opus-5.5", at: "2026-11-25T00:00:00Z" }
 ---
@@ -22,6 +22,11 @@ sections, each step with its owner, and the agent's question as buttons.
   then, as the very last step, call `wrap_up`; after it, end the turn without repeating the
   answer, at most one short line. Asking for the call "before your final message" led models to
   hold the answer back and write it inside their thinking, leaving a one-sentence reply.
+- The order is not left to the wording alone. When `wrap_up` is called in a turn that has no
+  reply text yet (only tool calls and thinking since the prompt), its result still shows the card
+  but tells the agent that its thinking is never shown and to write the complete answer now
+  (`wrap-up-reply.ts`). In trials on Opus 5.5 the model still called `wrap_up` first; this result
+  is what got the full answer written out, with the card under it.
 - The card is placed when the turn ends: right under the turn's last reply (the short line, or
   the answer when nothing follows the call). A recap the answer ends with is still folded into the
   card when it sits in the turn's final run of replies (no tool call after it), even with a short

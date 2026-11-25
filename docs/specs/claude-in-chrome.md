@@ -3,7 +3,7 @@ type: Spec
 title: Claude in Chrome from Zomfy
 description: A per-host setting, with a per-project override, that starts Zomfy's Claude chats with Claude Code's built-in Claude in Chrome server.
 status: stable
-x-zomfy-implementation: in-progress
+x-zomfy-implementation: done
 tags: [chat, claude, daemon, desktop, connectors, settings]
 sources:
   - id: request
