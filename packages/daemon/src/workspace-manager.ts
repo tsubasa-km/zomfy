@@ -346,7 +346,16 @@ export class WorkspaceManager {
 
     const sharedFolder = project.kind === 'folder'
     if (!sharedFolder) {
-      await git(project.path, ['worktree', 'remove', ...(params.force ? ['--force'] : []), workspace.path])
+      // core.longpaths: a worktree with deep node_modules (an Expo app) has paths past Windows' 260
+      // characters, which git cannot delete without it ("Filename too long").
+      await git(project.path, ['-c', 'core.longpaths=true', 'worktree', 'remove', ...(params.force ? ['--force'] : []), workspace.path]).catch(
+        async (error) => {
+          // A worktree already gone (deleted by hand, or a removal git gave up on half way) still
+          // leaves its record to remove; whatever is left of the folder goes too.
+          if (!/is not a working tree/.test(String(error))) throw error
+          await rm(workspace.path, { recursive: true, force: true }).catch(() => undefined)
+        }
+      )
       await git(project.path, ['worktree', 'prune']).catch(() => undefined)
       if (params.deleteBranch && workspace.branch) {
         // -d keeps unmerged work unless the user forced it, as Orca does.
