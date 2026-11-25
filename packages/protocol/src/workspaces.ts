@@ -228,6 +228,11 @@ export interface LeftoverFolder {
 
 export interface CleanupList {
   mergeTarget: string | null
+  /**
+   * Set when the package manager's cache is on another volume than the worktrees, where it cannot
+   * hardlink and copies every package instead (spec B8). Newer daemons only.
+   */
+  cacheElsewhere?: { cache: string; worktrees: string } | null
   candidates: CleanupCandidate[]
   leftovers: LeftoverFolder[]
 }
