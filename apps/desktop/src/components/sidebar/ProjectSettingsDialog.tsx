@@ -37,6 +37,7 @@ export function ProjectSettingsDialog({ project, onClose }: { project: HostedPro
   const [agentSplitWork, setAgentSplitWork] = useState(true)
   const [mergeTarget, setMergeTarget] = useState('')
   const [cleanupMode, setCleanupMode] = useState<'host' | 'on' | 'off'>('host')
+  const [claudeChrome, setClaudeChrome] = useState<'host' | 'on' | 'off'>('host')
   const [branches, setBranches] = useState<BranchList | null>(null)
   const [hooks, setHooks] = useState<ProjectHookInfo | null>(null)
   const [error, setError] = useState<string | null>(null)
@@ -53,6 +54,7 @@ export function ProjectSettingsDialog({ project, onClose }: { project: HostedPro
     setAgentSplitWork(project?.agentSplitWork !== false)
     setMergeTarget(project?.mergeTarget ?? '')
     setCleanupMode(project?.cleanup?.deleteMerged === undefined ? 'host' : project.cleanup.deleteMerged ? 'on' : 'off')
+    setClaudeChrome(project?.claudeChrome === undefined ? 'host' : project.claudeChrome ? 'on' : 'off')
     setError(null)
     setBranches(null)
     setHooks(null)
@@ -100,6 +102,7 @@ export function ProjectSettingsDialog({ project, onClose }: { project: HostedPro
           patch: {
             ...(shared ? {} : { displayName: ownName ? '' : displayName }),
             agentWorkflows,
+            claudeChrome: claudeChrome === 'host' ? null : claudeChrome === 'on',
             ...(project.kind === 'git'
               ? {
                   defaultBaseRef: baseRef,
@@ -304,6 +307,24 @@ export function ProjectSettingsDialog({ project, onClose }: { project: HostedPro
                 onChange={setAgentSplitWork}
               />
             )}
+          </div>
+          <div className="space-y-1.5" data-project-claude-chrome={claudeChrome}>
+            <Label htmlFor="project-claude-chrome" className={fieldLabel}>
+              {t('Claude in Chrome')}
+            </Label>
+            <Select value={claudeChrome} onValueChange={(value) => setClaudeChrome(value as 'host' | 'on' | 'off')}>
+              <SelectTrigger id="project-claude-chrome" className="w-full">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="host">{t('Use the host’s setting (Settings › Agents › Claude)')}</SelectItem>
+                <SelectItem value="on">{t('On for this project')}</SelectItem>
+                <SelectItem value="off">{t('Off for this project')}</SelectItem>
+              </SelectContent>
+            </Select>
+            <p className="text-[11px] text-muted-foreground">
+              {t('Claude chats here can use your Chrome. Needs the Claude in Chrome extension installed and Chrome running.')}
+            </p>
           </div>
           {isGit && project && <BundledSkillsSettings project={project} />}
           {error && <p className="text-sm break-words text-destructive">{error}</p>}

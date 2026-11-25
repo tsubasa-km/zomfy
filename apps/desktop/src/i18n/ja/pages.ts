@@ -1362,5 +1362,9 @@ export const PAGES: Record<string, string> = {
   'After {n} days': '{n} 日後',
   'Last run {when}: deleted {deleted}, freed {freed} ({size}); {n} could not be cleaned up.':
     '前回の実行 {when}: 削除 {deleted} 件、容量を空けたもの {freed} 件（{size}）。{n} 件は整理できませんでした。',
-  'Last run {when}: deleted {deleted}, freed {freed} ({size}).': '前回の実行 {when}: 削除 {deleted} 件、容量を空けたもの {freed} 件（{size}）。'
+  'Last run {when}: deleted {deleted}, freed {freed} ({size}).': '前回の実行 {when}: 削除 {deleted} 件、容量を空けたもの {freed} 件（{size}）。',
+
+  // components/settings/ChatAgentLaunchSettings.tsx (Claude in Chrome)
+  'Starts this host’s Claude chats with Claude in Chrome, so they can use your Chrome. Needs the Claude in Chrome extension installed and Chrome running. A project can override this in its settings.':
+    'このホストの Claude チャットを Claude in Chrome 付きで起動し、あなたの Chrome を使えるようにします。Claude in Chrome 拡張機能のインストールと Chrome の起動が必要です。プロジェクトごとにプロジェクト設定で上書きできます。'
 }

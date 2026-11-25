@@ -547,6 +547,14 @@ export const SHELL: Record<string, string> = {
   'Agents can split work into parallel worktrees': 'エージェントが作業を並列のワークツリーに分割できる',
   'An agent may hand separate parts of a large task to helpers, each in a worktree of its own.': '大きなタスクの独立した部分を、それぞれ専用のワークツリーで動くヘルパーに任せられます。',
 
+  // components/sidebar/ProjectSettingsDialog.tsx (Claude in Chrome)
+  'Claude in Chrome': 'Claude in Chrome',
+  'Use the host’s setting (Settings › Agents › Claude)': 'ホストの設定に従う（設定 › エージェント › Claude）',
+  'On for this project': 'このプロジェクトではオン',
+  'Off for this project': 'このプロジェクトではオフ',
+  'Claude chats here can use your Chrome. Needs the Claude in Chrome extension installed and Chrome running.':
+    'このプロジェクトの Claude チャットがあなたの Chrome を使えるようにします。Claude in Chrome 拡張機能のインストールと Chrome の起動が必要です。',
+
   // components/sidebar/WorkspaceMenu.tsx
   'Open in': 'アプリで開く',
   'File Explorer': 'ファイル エクスプローラー',
@@ -1425,8 +1433,6 @@ export const SHELL: Record<string, string> = {
     'コミットがすべてこのブランチに入っているワークツリーは、マージ済みとして整理の対象になります。',
   'Delete merged worktrees automatically': 'マージ済みのワークツリーを自動で削除',
   "As the host's setting (Settings → Hosts)": 'ホストの設定に従う（設定 → ホスト）',
-  'On for this project': 'このプロジェクトではオン',
-  'Off for this project': 'このプロジェクトではオフ',
   'A worktree with uncommitted or unpushed work, a running chat or terminal, or a pin is never deleted.':
     'コミットされていない・プッシュされていない作業があるもの、スレッドやターミナルが動いているもの、ピン留めしたものは削除しません。',
 

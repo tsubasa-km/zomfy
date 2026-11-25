@@ -64,6 +64,8 @@ export interface ChatAgentInfo {
   consent?: boolean
   /** Present when this daemon supports selecting how Codex connects. */
   codexConnection?: CodexConnection
+  /** Claude only: whether this host's Claude chats start with Claude in Chrome (`--chrome`). Absent on older daemons. */
+  claudeChrome?: boolean
 }
 
 export interface ChatAgentLaunchPatch {
@@ -71,6 +73,8 @@ export interface ChatAgentLaunchPatch {
   env?: { name: string; value: string | null }
   consent?: boolean
   codexConnection?: CodexConnection
+  /** Claude only: turn Claude in Chrome on or off for this host's Claude chats. */
+  claudeChrome?: boolean
 }
 
 export interface ChatAgentUpdate {

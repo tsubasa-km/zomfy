@@ -35,3 +35,4 @@
 * [Direct Codex connection](codex-app-server.md) - Choose how a host runs Codex chats, through ACP or directly through Codex App Server.
 * [Zomfy's own skills, and worktrees that do not fill the disk](worktree-skills-and-storage.md) - bundled skills turned on per project and agent, worktree sizes, merged judged against the main checkout's branch, cleanup by dialog or policy, freed build output, long-path deletes
 * [Thinking that holds the answer shows open](visible-thinking.md) - a short reply after long thinking shows that thinking expanded and marked; Settings picks collapsed, expand when the reply is short, or always expanded
+* [Claude in Chrome from Zomfy](claude-in-chrome.md) - a per-host switch with a per-project override that starts Claude chats with `--chrome`, listed in Connectors with Chrome's icon

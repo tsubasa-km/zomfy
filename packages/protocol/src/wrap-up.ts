@@ -26,7 +26,7 @@ export interface WrapUpCard {
 export const WRAP_UP_TOOL_NAME = 'wrap_up'
 
 /** Appended to a chat's instructions so agents find the tool, which loads through tool search. */
-export const WRAP_UP_HINT = `When you end a turn in which you worked (changed files, ran commands, investigated), call the \`harness\` wrap_up tool before your final message: a 2-3 sentence summary, the next steps with who owns each, and, only when the first step waits on the person, a question with answer options. It returns at once and shows the person a Next steps card under your reply.`
+export const WRAP_UP_HINT = `When you end a turn in which you worked (changed files, ran commands, investigated), finish in this order. First write your complete answer as visible reply text: your thinking is never shown to the person, so an answer written only there is lost. Only then, as the very last step, call the \`harness\` wrap_up tool (load it with tool search at that point if it is not loaded): a 2-3 sentence summary, the next steps with who owns each, and, only when the first step waits on the person, a question with answer options. It shows the person a Next steps card under your reply. After it, end the turn without repeating your answer (one short line at most).`
 
 function text(value: unknown): string | null {
   return typeof value === 'string' && value.trim() ? value.trim() : null

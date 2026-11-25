@@ -39,6 +39,8 @@ export interface Project {
   cleanup?: Partial<WorktreeCleanupPolicy>
   /** Zomfy's bundled skills turned on here: skill name to the agents it is on for (skills.ts). */
   bundledSkills?: Record<string, string[]>
+  /** Claude in Chrome for this project's Claude chats: true or false overrides the host's setting; unset follows it. */
+  claudeChrome?: boolean
 }
 
 /** When the daemon deletes or frees worktrees by itself (spec worktree-skills-and-storage B5). */
@@ -71,7 +73,7 @@ export interface ProjectGroup {
 
 /** null (or '') clears a field; JSON drops undefined, so it cannot. */
 export type ProjectPatch = {
-  [K in 'displayName' | 'defaultBaseRef' | 'worktreeRoot' | 'hooks' | 'groupId' | 'finishWith' | 'agentWorkflows' | 'agentSplitWork' | 'mergeTarget' | 'cleanup']?: Project[K] | null
+  [K in 'displayName' | 'defaultBaseRef' | 'worktreeRoot' | 'hooks' | 'groupId' | 'finishWith' | 'agentWorkflows' | 'agentSplitWork' | 'mergeTarget' | 'cleanup' | 'claudeChrome']?: Project[K] | null
 }
 
 export interface Workspace {
