@@ -98,6 +98,8 @@ export interface Workspace {
   sortOrder?: number
   /** A quick chat's own throwaway folder (projectId null); its chat can move into a project later. */
   scratch?: boolean
+  /** When Free space last deleted its dependencies and build output; cleared once its next turn put them back. */
+  spaceFreedAt?: number
 }
 
 /** Orca's default workspace board statuses. */
