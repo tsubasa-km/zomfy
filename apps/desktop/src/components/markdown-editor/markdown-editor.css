@@ -137,6 +137,12 @@
   font-size: 0.8571428571em;
 }
 
+/* A leading `/command` that names a command the agent has: colored like a mention. */
+.md-editor .md-slash-command {
+  color: var(--mention-foreground);
+  font-weight: 500;
+}
+
 /* Mention chips; also drawn by the transcript (NativeChatMarkdown), so they live outside .md-editor. */
 .chat-mention-chip {
   display: inline-flex;
