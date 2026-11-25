@@ -570,6 +570,7 @@ export function createHarnessAgent(
     };
 
     const quickChat = workspaces.isScratch(session.workspaceId);
+    const managerBot = ctx.services.managerBotChat?.(session.id) === true;
     const worktreePrompt =
       [
         // A helper's own instructions say what it may touch; the sibling-worktree rules are for chats.
@@ -608,9 +609,10 @@ export function createHarnessAgent(
         // Workflow steps see them up front too, for ask_requester.
         mcpServers: managerMcp.claudeServers(
           session.id,
-          session.role === "manager" || session.role === "lead" || quickChat || stepTurns.has(session.id),
+          session.role === "manager" || session.role === "lead" || quickChat || stepTurns.has(session.id) || managerBot,
         ),
-        allowedTools: autoAllowedManagerTools(session.role, MANAGER_MCP_SERVER_NAME),
+        // A manager bot's chat runs the Manager's own tools without asking, as the Manager chat does.
+        allowedTools: autoAllowedManagerTools(managerBot ? "manager" : session.role, MANAGER_MCP_SERVER_NAME),
         ...(session.role === "manager"
           ? { appendSystemPrompt: MANAGER_SYSTEM_PROMPT }
           : quickChat
