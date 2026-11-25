@@ -7,6 +7,7 @@ import type { HostedProject } from '@/session-store'
 import { projectLabel } from '@/components/sidebar/workspace-visibility'
 import { catalogEntryOf, renameProject } from '@/stores/project-catalog-store'
 import { BranchCombobox } from '@/components/sidebar/BranchCombobox'
+import { BundledSkillsSettings } from '@/components/sidebar/BundledSkillsSettings'
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
@@ -34,6 +35,8 @@ export function ProjectSettingsDialog({ project, onClose }: { project: HostedPro
   const [finishWith, setFinishWith] = useState<'merge' | 'pull-request'>('merge')
   const [agentWorkflows, setAgentWorkflows] = useState(true)
   const [agentSplitWork, setAgentSplitWork] = useState(true)
+  const [mergeTarget, setMergeTarget] = useState('')
+  const [cleanupMode, setCleanupMode] = useState<'host' | 'on' | 'off'>('host')
   const [branches, setBranches] = useState<BranchList | null>(null)
   const [hooks, setHooks] = useState<ProjectHookInfo | null>(null)
   const [error, setError] = useState<string | null>(null)
@@ -48,6 +51,8 @@ export function ProjectSettingsDialog({ project, onClose }: { project: HostedPro
     setFinishWith(project?.finishWith ?? 'merge')
     setAgentWorkflows(project?.agentWorkflows !== false)
     setAgentSplitWork(project?.agentSplitWork !== false)
+    setMergeTarget(project?.mergeTarget ?? '')
+    setCleanupMode(project?.cleanup?.deleteMerged === undefined ? 'host' : project.cleanup.deleteMerged ? 'on' : 'off')
     setError(null)
     setBranches(null)
     setHooks(null)
@@ -95,7 +100,18 @@ export function ProjectSettingsDialog({ project, onClose }: { project: HostedPro
           patch: {
             ...(shared ? {} : { displayName: ownName ? '' : displayName }),
             agentWorkflows,
-            ...(project.kind === 'git' ? { defaultBaseRef: baseRef, worktreeRoot, hooks: { setup, archive }, finishWith, agentSplitWork } : {})
+            ...(project.kind === 'git'
+              ? {
+                  defaultBaseRef: baseRef,
+                  worktreeRoot,
+                  hooks: { setup, archive },
+                  finishWith,
+                  agentSplitWork,
+                  mergeTarget,
+                  // Only the switch this dialog shows is the project's own; the rest follow the host.
+                  cleanup: cleanupMode === 'host' ? { ...project.cleanup, deleteMerged: undefined } : { ...project.cleanup, deleteMerged: cleanupMode === 'on' }
+                }
+              : {})
           }
         },
         project.hostId
@@ -184,6 +200,53 @@ export function ProjectSettingsDialog({ project, onClose }: { project: HostedPro
                 </Select>
               </div>
               <div className="space-y-1.5">
+                <Label htmlFor="project-merge-target" className={fieldLabel}>
+                  {t('Work is merged into')}
+                </Label>
+                <div className="flex gap-2">
+                  <div className="min-w-0 flex-1">
+                    <BranchCombobox
+                      id="project-merge-target"
+                      value={mergeTarget}
+                      placeholder={
+                        branches?.current
+                          ? t("The main checkout's branch ({branch})", { branch: branches.current })
+                          : t("The main checkout's branch")
+                      }
+                      onChange={setMergeTarget}
+                      groups={[
+                        { heading: t('Local'), options: (branches?.branches ?? []).map((b) => ({ value: b })) },
+                        { heading: t('Remote'), options: (branches?.remoteBranches ?? []).map((b) => ({ value: b })) }
+                      ]}
+                    />
+                  </div>
+                  {mergeTarget && (
+                    <Button type="button" variant="ghost" size="sm" onClick={() => setMergeTarget('')}>
+                      {t('Reset')}
+                    </Button>
+                  )}
+                </div>
+                <p className="text-[11px] text-muted-foreground">{t('A worktree whose commits are all in this branch counts as merged and can be cleaned up.')}</p>
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="project-cleanup" className={fieldLabel}>
+                  {t('Delete merged worktrees automatically')}
+                </Label>
+                <Select value={cleanupMode} onValueChange={(v) => setCleanupMode(v === 'on' || v === 'off' ? v : 'host')}>
+                  <SelectTrigger id="project-cleanup" data-project-cleanup>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="host">{t("As the host's setting (Settings → Hosts)")}</SelectItem>
+                    <SelectItem value="on">{t('On for this project')}</SelectItem>
+                    <SelectItem value="off">{t('Off for this project')}</SelectItem>
+                  </SelectContent>
+                </Select>
+                <p className="text-[11px] text-muted-foreground">
+                  {t('A worktree with uncommitted or unpushed work, a running chat or terminal, or a pin is never deleted.')}
+                </p>
+              </div>
+              <div className="space-y-1.5">
                 <Label htmlFor="project-worktree-root" className={fieldLabel}>
                   {t('Worktree location')}
                 </Label>
@@ -242,6 +305,7 @@ export function ProjectSettingsDialog({ project, onClose }: { project: HostedPro
               />
             )}
           </div>
+          {isGit && project && <BundledSkillsSettings project={project} />}
           {error && <p className="text-sm break-words text-destructive">{error}</p>}
           <DialogFooter>
             <Button type="button" variant="outline" onClick={onClose}>

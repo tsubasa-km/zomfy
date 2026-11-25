@@ -1385,5 +1385,58 @@ export const SHELL: Record<string, string> = {
   'Remove {n} projects from Zomfy? Their folders and worktrees on disk are kept.':
     '{n} 件のプロジェクトを Zomfy から削除しますか？ディスク上のフォルダーとワークツリーはそのまま残ります。',
   'Hosts that are not connected keep theirs.': '接続していないホストにあるものはそのまま残ります。',
-  'Could not remove {n} of the projects': '{n} 件のプロジェクトを外せませんでした'
+  'Could not remove {n} of the projects': '{n} 件のプロジェクトを外せませんでした',
+  // components/sidebar/CleanupMergedDialog.tsx (Clean up workspaces)
+  'Clean Up Workspaces…': 'ワークスペースを整理…',
+  'Clean up workspaces': 'ワークスペースを整理',
+  'Worktrees of {project}, largest first. Merged means every commit is in {branch} and nothing is uncommitted.':
+    '{project} のワークツリーを大きい順に並べています。「マージ済み」は、すべてのコミットが {branch} に入っていて、コミットされていない変更がないものです。',
+  'Worktrees of {project}, largest first.': '{project} のワークツリーを大きい順に並べています。',
+  'Together they hold {size} of their own.': '合計で {size} を使っています。',
+  "bun's cache ({cache}) is on another drive than the worktrees ({worktrees}), so every worktree gets its own copy of each package instead of a hardlink.":
+    'bun のキャッシュ（{cache}）がワークツリー（{worktrees}）と別のドライブにあるため、ハードリンクにならず、ワークツリーごとにパッケージが丸ごとコピーされます。',
+  'Measuring…': '計測中…',
+  'Delete {name}': '{name} を削除',
+  'Not measured yet': 'まだ計測していません',
+  'Freed {size}': '{size} を空けました',
+  'Delete its dependencies and build output; its files and git state stay.': '依存パッケージとビルド成果物を削除します。ファイルと git の状態はそのまま残ります。',
+  'Freeing…': '空けています…',
+  'Free Up Space': '容量を空ける',
+  'Leftover folder': '残ったフォルダー',
+  'A chat is working here': 'スレッドが作業中',
+  'A terminal is running here': 'ターミナルが動作中',
+  'Has changes': '変更あり',
+  '{n} commits not pushed': '未プッシュのコミット {n} 件',
+  'Not merged yet': '未マージ',
+  'Active today': '今日使用',
+  'Idle for {n} days': '{n} 日使われていません',
+
+  // components/sidebar/workspace-size.ts
+  '{own} (plus {shared} shared)': '{own}（ほかに共有分 {shared}）',
+
+  // components/sidebar/WorkspaceCard.tsx (size)
+  'On disk: {size}': 'ディスク使用量: {size}',
+
+  // components/sidebar/ProjectSettingsDialog.tsx (merge target and cleanup)
+  'Work is merged into': '作業のマージ先',
+  "The main checkout's branch ({branch})": 'メインのチェックアウトのブランチ（{branch}）',
+  "The main checkout's branch": 'メインのチェックアウトのブランチ',
+  'A worktree whose commits are all in this branch counts as merged and can be cleaned up.':
+    'コミットがすべてこのブランチに入っているワークツリーは、マージ済みとして整理の対象になります。',
+  'Delete merged worktrees automatically': 'マージ済みのワークツリーを自動で削除',
+  "As the host's setting (Settings → Hosts)": 'ホストの設定に従う（設定 → ホスト）',
+  'On for this project': 'このプロジェクトではオン',
+  'Off for this project': 'このプロジェクトではオフ',
+  'A worktree with uncommitted or unpushed work, a running chat or terminal, or a pin is never deleted.':
+    'コミットされていない・プッシュされていない作業があるもの、スレッドやターミナルが動いているもの、ピン留めしたものは削除しません。',
+
+  // components/sidebar/BundledSkillsSettings.tsx
+  "Zomfy's skills": 'Zomfy のスキル',
+  "Work in git worktrees through Zomfy's harness tools instead of raw git or another tool's CLI.":
+    'git のワークツリーでの作業を、git コマンドや他ツールの CLI ではなく Zomfy のハーネス ツールで行うためのスキルです。',
+  '{n} workspaces already have a folder of their own by this name; it is left alone.':
+    '{n} 件のワークスペースには同じ名前の独自フォルダーがすでにあるため、そのままにしています。',
+  'Edited by hand, so updates leave it alone.': '手で編集されているため、更新では上書きしません。',
+  "Replace with Zomfy's version": 'Zomfy の版に置き換える',
+  'Applies right away to every workspace of the project, new ones included.': 'このプロジェクトのすべてのワークスペース（新しく作るものも含む）にすぐ反映されます。'
 }
