@@ -80,13 +80,15 @@ function QuestionBlock({ question, pick, onPick }: { question: AgentQuestion; pi
           onPick={() => onPick(togglePick(pick, option.label, question.multiSelect))}
         />
       ))}
-      <Choice
-        data="other"
-        selected={pick.other}
-        multiSelect={question.multiSelect}
-        label={t('Other')}
-        onPick={() => onPick(togglePick(pick, null, question.multiSelect))}
-      />
+      {question.allowOther !== false ? (
+        <Choice
+          data="other"
+          selected={pick.other}
+          multiSelect={question.multiSelect}
+          label={t('Other')}
+          onPick={() => onPick(togglePick(pick, null, question.multiSelect))}
+        />
+      ) : null}
       {pick.other ? (
         <input
           autoFocus
