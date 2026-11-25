@@ -146,7 +146,7 @@ function ChatAgentRow({ host, agent }: { host: HostEntry; agent: ChatAgentInfo }
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="acp">ACP</SelectItem>
-                    <SelectItem value="app-server">Direct (App Server)</SelectItem>
+                    <SelectItem value="app-server">{t('Direct (App Server)')}</SelectItem>
                   </SelectContent>
                 </Select>
               )}
