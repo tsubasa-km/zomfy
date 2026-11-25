@@ -7,9 +7,11 @@ import * as launchSpecs from './chat-agent-launch-specs.ts'
 // The agent is a scripted ACP server (acp-fake-agent.fixture.ts) run as a real child process.
 let connection: CodexConnection = 'acp'
 let resumeOnAcp = false
+let resolves = 0
 mock.module('./chat-agent-launch-specs.ts', () => ({
   ...launchSpecs,
-  resolveChatAgent: async () => ({
+  codexConnection: async () => connection,
+  resolveChatAgent: async () => (resolves++, {
     status: 'ready',
     argv: [process.execPath, join(import.meta.dir, connection === 'app-server' ? 'codex-app-server.fixture.ts' : 'acp-fake-agent.fixture.ts')],
     env: resumeOnAcp ? { TEST_RESUME_CODEX_THREAD: '1' } : {},
@@ -24,6 +26,7 @@ afterEach(() => {
   for (const session of open.splice(0)) session.dispose()
   connection = 'acp'
   resumeOnAcp = false
+  resolves = 0
 }, 30_000)
 
 function agentSession() {
@@ -124,19 +127,21 @@ test('an agent that cannot reopen its conversation is handed the chat before its
   expect(notices).toHaveLength(1)
 }, 15_000)
 
-function directSession(previous: string | null = null) {
+function directSession(previous: string | null = null, threadConnection: CodexConnection | null = null) {
   const updates: acp.SessionUpdate[] = []
   const ids: string[] = []
+  const made: CodexConnection[] = []
   const session = new AcpAgentSession('codex', process.cwd(), previous, emptyAgentState(), {
     emit: async (update) => { updates.push(update) },
     onState: () => undefined,
-    onAgentSessionId: (id) => { ids.push(id) }
-  })
+    onAgentSessionId: (id) => { ids.push(id) },
+    onCodexConnection: (connection) => { made.push(connection) }
+  }, threadConnection)
   open.push(session)
   const reply = () => updates.flatMap((update) =>
     update.sessionUpdate === 'agent_message_chunk' && update.content.type === 'text' ? [update.content.text] : []
   ).join('')
-  return { session, updates, ids, reply }
+  return { session, updates, ids, made, reply }
 }
 
 test('Direct uses the saved thread and applies a reasoning option to the next turn', async () => {
@@ -233,4 +238,25 @@ test('Direct resume failure preserves the ID and process exit does not replay th
   expect(await exited.session.prompt(text('next'), new AbortController(), neverAnswered)).toBe('end_turn')
   expect(exited.ids).toEqual(['direct-thread'])
   expect(exited.reply()).toBe('resume direct-thread: next')
+}, 15_000)
+
+test('a Direct thread is not replaced by ACP after a daemon restart, which only the saved connection tells', async () => {
+  connection = 'app-server'
+  const first = directSession()
+  expect(await first.session.prompt(text('one'), new AbortController(), neverAnswered)).toBe('end_turn')
+  expect(first.made).toEqual(['app-server'])
+  // A new daemon: the chat's record holds the thread ID and the connection that made it.
+  connection = 'acp'
+  const restarted = directSession(first.ids[0]!, first.made[0]!)
+  await expect(restarted.session.prompt(text('two'), new AbortController(), neverAnswered)).rejects.toThrow('cannot reopen this Codex thread')
+  expect(restarted.ids).toEqual([])
+  expect(restarted.updates.some((update) => update.sessionUpdate === 'notice')).toBe(false)
+}, 15_000)
+
+test('a Codex turn reads the connection setting without resolving the install again', async () => {
+  connection = 'app-server'
+  const { session } = directSession()
+  expect(await session.prompt(text('one'), new AbortController(), neverAnswered)).toBe('end_turn')
+  expect(await session.prompt(text('two'), new AbortController(), neverAnswered)).toBe('end_turn')
+  expect(resolves).toBe(1)
 }, 15_000)

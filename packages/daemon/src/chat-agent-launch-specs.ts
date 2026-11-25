@@ -96,6 +96,11 @@ export type ResolvedChatAgent = (
   | { status: Exclude<ChatAgentInfo['status'], 'ready'>; detail: string }
 ) & { codexConnection?: CodexConnection }
 
+/** The connection this host's next Codex turn uses: only the setting, without probing the install. */
+export async function codexConnection(): Promise<CodexConnection> {
+  return (await chatAgentLaunch('codex')).codexConnection ?? 'acp'
+}
+
 /**
  * How this host starts the agent's ACP server right now (custom command, PATH, probes). A guarded
  * agent the person has not turned on is never started, however it is installed.

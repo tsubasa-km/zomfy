@@ -9,7 +9,7 @@ import {
   type CodexConnection,
   type WorkflowStepUsage
 } from '@zomfy/protocol'
-import { resolveChatAgent } from './chat-agent-launch-specs.ts'
+import { codexConnection, resolveChatAgent } from './chat-agent-launch-specs.ts'
 import { CODEX_APP_SERVER_CAPABILITIES, CodexAppServer } from './codex-app-server.ts'
 import { hostPath } from './tui-agent-detection.ts'
 import { log } from './log.ts'
@@ -33,6 +33,8 @@ export interface AcpAgentSessionHooks {
   onState(state: ChatAgentSessionState): void
   /** The agent's own id for the conversation, kept so a restarted server reopens it. */
   onAgentSessionId(id: string): void
+  /** The connection that made the Codex thread now in use, kept so a restarted daemon still knows. */
+  onCodexConnection?(connection: CodexConnection): void
   /**
    * The conversation the agent had could not be reopened, and it starts a new one knowing nothing of
    * the chat. Waited for before that conversation's first turn, whose prompt is read after it.
@@ -57,7 +59,6 @@ export class AcpAgentSession {
   private running: Running | null = null
   private starting: Promise<Running> | null = null
   private stopping: Promise<void> | null = null
-  private lastConnection: CodexConnection | null = null
   /** Updates the agent replays while `session/load` reopens a conversation the transcript has. */
   private replaying = false
   private ask: AskPermission | null = null
@@ -73,7 +74,9 @@ export class AcpAgentSession {
     private readonly cwd: string,
     private agentSessionId: string | null,
     private state: ChatAgentSessionState,
-    private readonly hooks: AcpAgentSessionHooks
+    private readonly hooks: AcpAgentSessionHooks,
+    /** The connection that made the Codex thread `agentSessionId` names: ACP never replaces a Direct one. */
+    private threadConnection: CodexConnection | null = null
   ) {}
 
   /** Starts the server and opens (or reopens) its session, once. */
@@ -200,7 +203,7 @@ export class AcpAgentSession {
       // Let a previous warm start finish before making a connection decision for this turn.
       const running = this.running ?? await this.starting?.catch(() => null)
       if (running && !signal.aborted) {
-        const choice = (await resolveChatAgent('codex')).codexConnection ?? 'acp'
+        const choice = await codexConnection()
         const direct = running.conn instanceof CodexAppServer
         if (direct !== (choice === 'app-server') || (running.conn instanceof CodexAppServer && running.conn.closed)) {
           await this.stopProcess()
@@ -265,7 +268,6 @@ export class AcpAgentSession {
         throw new Error('The chat closed while its agent started')
       }
       this.running = running
-      this.lastConnection = connection
       const saved = this.state.options
       this.setState({ phase: 'ready', error: null, options, commands: connection === 'app-server' ? [] : this.state.commands })
       await this.restoreOptions(saved)
@@ -285,8 +287,14 @@ export class AcpAgentSession {
     if (id !== this.agentSessionId) {
       this.agentSessionId = id
       this.hooks.onAgentSessionId(id)
+      this.madeThread('app-server')
     }
     return id
+  }
+
+  private madeThread(connection: CodexConnection): void {
+    this.threadConnection = connection
+    this.hooks.onCodexConnection?.(connection)
   }
 
   /** Reopens the conversation a restarted server left behind, or starts one. */
@@ -312,10 +320,10 @@ export class AcpAgentSession {
           }
         }
       } catch (error) {
-        if (this.lastConnection === 'app-server') throw error
+        if (this.threadConnection === 'app-server') throw error
         log(`${this.agent} could not reopen ${previous}: ${String(error)}`)
       }
-      if (this.lastConnection === 'app-server') throw new Error('The ACP adapter cannot reopen this Codex thread')
+      if (this.threadConnection === 'app-server') throw new Error('The ACP adapter cannot reopen this Codex thread')
       await this.hooks.emit({
         sessionUpdate: 'notice',
         severity: 'warning',
@@ -325,6 +333,7 @@ export class AcpAgentSession {
     const created = await conn.agent.request(acp.methods.agent.session.new, { cwd: this.cwd, mcpServers })
     this.agentSessionId = created.sessionId
     this.hooks.onAgentSessionId(created.sessionId)
+    if (this.agent === 'codex') this.madeThread('acp')
     if (previous) await this.hooks.onConversationLost?.()
     return { agentSessionId: created.sessionId, setup: created }
   }

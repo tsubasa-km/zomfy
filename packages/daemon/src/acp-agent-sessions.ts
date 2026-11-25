@@ -60,6 +60,9 @@ export class AcpAgentSessions {
       onAgentSessionId: (agentSessionId) => {
         if (current()) this.sessions.update(record.id, { agentSessionIds: { ...record.agentSessionIds, [agentId]: agentSessionId } })
       },
+      onCodexConnection: (codexThreadConnection) => {
+        if (current()) this.sessions.update(record.id, { codexThreadConnection })
+      },
       onConversationLost: async () => {
         const transcript = await this.sessions.transcript(record.id)
         // A turn waiting on this start has its prompt in the transcript already; it follows the handoff.
@@ -70,7 +73,7 @@ export class AcpAgentSessions {
       },
       mcpServers: (capabilities) => [...managerMcp.acpServers(record.id, capabilities), ...(this.stepServers.get(record.id) ?? [])],
       ready: () => mcpServersReady(this.stepServers.get(record.id) ?? [])
-    })
+    }, agentId === 'codex' ? record.codexThreadConnection ?? null : null)
     this.live.set(record.id, agent)
     return agent
   }
