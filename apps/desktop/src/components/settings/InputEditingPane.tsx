@@ -1,4 +1,4 @@
-import { DEFAULT_SETTINGS, setSetting, useSetting, type ChatAfterSend, type ChatSendKey } from '@/stores/settings-store'
+import { DEFAULT_SETTINGS, setSetting, useSetting, type ChatAfterSend, type ChatSendKey, type ChatThinkingDisplay } from '@/stores/settings-store'
 import { isMac } from '@/lib/terminal-shortcuts'
 import { useStore } from '@/session-store'
 import { sortedHosts } from './HostsPane'
@@ -21,6 +21,7 @@ export function InputEditingPane() {
   const sendKey = useSetting('chatSendKey')
   const memos = useSetting('chatMemosEnabled')
   const afterSend = useSetting('chatAfterSend')
+  const thinking = useSetting('chatThinkingDisplay')
   const hosts = useStore((s) => s.hosts)
 
   return (
@@ -60,6 +61,29 @@ export function InputEditingPane() {
                 options={[
                   { value: 'stay', label: t('Stay in the thread') },
                   { value: 'new-chat', label: t('Go to New Thread') }
+                ]}
+              />
+            }
+          />
+          <SettingsRow
+            label={t('Show thinking')}
+            description={
+              thinking === 'short-reply'
+                ? t("Thinking starts open when the reply after it is short and the thinking is long, since it likely holds the answer.")
+                : thinking === 'expanded'
+                  ? t('Every thinking block starts open.')
+                  : t('Every thinking block starts closed.')
+            }
+            keywords={['chat', 'thinking', 'reasoning', 'thought', 'expand', 'collapse']}
+            control={
+              <SettingsSegmentedControl<ChatThinkingDisplay>
+                ariaLabel={t('Show thinking')}
+                value={thinking}
+                onChange={(value) => setSetting('chatThinkingDisplay', value)}
+                options={[
+                  { value: 'collapsed', label: t('Collapsed') },
+                  { value: 'short-reply', label: t('Expand when the reply is short') },
+                  { value: 'expanded', label: t('Always expanded') }
                 ]}
               />
             }

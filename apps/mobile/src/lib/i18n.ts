@@ -102,7 +102,19 @@ const ja: Record<string, string> = {
   'The host did not answer through the relay in time': 'ホストがリレー経由で時間内に応答しませんでした',
   'The host did not prove the key in the pairing code': 'ホストがペアリングコードの鍵を証明しませんでした',
   'The relay refused this pairing': 'リレーがこのペアリングを拒否しました',
-  'The host reconnected': 'ホストが再接続しました'
+  'The host reconnected': 'ホストが再接続しました',
+  Bots: 'ボット',
+  Talk: '話しかける',
+  Paused: '一時停止中',
+  Default: '既定',
+  'Message to {name}': '{name} へのメッセージ',
+  'Start chat': 'チャットを開始',
+  'No bots on this host': 'このホストにはボットがありません',
+  'Recent chats': '最近のチャット',
+  'No chats with this bot yet': 'このボットとのチャットはまだありません',
+  'Connect to the host to start a chat': 'チャットを始めるにはホストに接続してください',
+  'This phone may not start chats on this host': 'このスマートフォンにはこのホストでチャットを始める権限がありません',
+  '{count} bots': '{count} 個のボット'
 }
 
 const TABLES: Record<Language, Record<string, string>> = { en: {}, ja }

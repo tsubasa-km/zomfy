@@ -7,8 +7,10 @@ import {
   GATEWAY_CLOSE,
   GATEWAY_PATHS,
   PAIRING_GRANT_TTL_MS,
+  REMOTE_METHOD_SCOPES,
   SCOPE_REFUSED_CODE,
   decodePairingOffer,
+  scopeAllows,
   deviceAuthPayload,
   toBase64Url,
   type DeviceScope,
@@ -32,13 +34,19 @@ async function setup(options: { now?: () => number; devices?: unknown[] } = {}) 
   await writeFile(path, JSON.stringify({ version: 1, hostId: "host-1", listener: { enabled: true, port: 0 }, devices: options.devices ?? [] }));
   const store = new DeviceStore(path, join(dir, "box-key.json"), options.now);
   const clients: acp.AgentContext[] = [];
+  const botChats: { id: string; text?: string }[] = [];
   const agent = acp
     .agent({ name: "test" })
     .onConnect((c) => void clients.push(c.client))
     .onRequest("initialize", () => ({ protocolVersion: acp.PROTOCOL_VERSION, agentCapabilities: {} }))
     .onRequest("_harness/sessions/list", (raw: unknown) => raw, () => [{ id: "s1" }])
     .onRequest("_harness/terminals/list", (raw: unknown) => raw, () => [])
-    .onRequest("_harness/settings/get", (raw: unknown) => raw, () => ({}));
+    .onRequest("_harness/settings/get", (raw: unknown) => raw, () => ({}))
+    .onRequest("_harness/bots/chatCreate", (raw: unknown) => raw as { id: string; text?: string }, (ctx: { params: { id: string; text?: string } }) => {
+      const p = ctx.params;
+      botChats.push({ id: p.id, ...(p.text !== undefined ? { text: p.text } : {}) });
+      return { sessionId: `bot-chat-${botChats.length}` };
+    });
   const snapshots: RemoteDevicesSnapshot[] = [];
   const gateway = new RemoteGateway({
     store,
@@ -51,7 +59,7 @@ async function setup(options: { now?: () => number; devices?: unknown[] } = {}) 
   await gateway.load();
   cleanups.push(() => gateway.stop(), () => rm(dir, { recursive: true, force: true, maxRetries: 5 }));
   const base = `http://127.0.0.1:${gateway.port}`;
-  return { store, gateway, base, clients, snapshots };
+  return { store, gateway, base, clients, snapshots, botChats };
 }
 
 async function deviceKeys() {
@@ -159,6 +167,29 @@ test("a paired device connects, calls what its scopes allow and is refused the r
   const unlisted = await phone.call("_harness/settings/get");
   expect((unlisted.error as { code: number }).code).toBe(SCOPE_REFUSED_CODE);
   expect(s.snapshots.at(-1)?.devices[0]?.connected).toBe(true);
+});
+
+test("the allowlist lets chats:operate start a bot chat and bots:read only list bots", () => {
+  expect(scopeAllows(REMOTE_METHOD_SCOPES, "_harness/bots/chatCreate", ["chats:operate"])).toBe(true);
+  expect(scopeAllows(REMOTE_METHOD_SCOPES, "_harness/bots/chatCreate", ["chats:read", "bots:read"])).toBe(false);
+  expect(scopeAllows(REMOTE_METHOD_SCOPES, "_harness/bots/list", ["bots:read"])).toBe(true);
+  // Managing bots stays on the desktop.
+  for (const method of ["_harness/bots/create", "_harness/bots/update", "_harness/bots/pause", "_harness/bots/delete"]) {
+    expect(scopeAllows(REMOTE_METHOD_SCOPES, method, ["chats:read", "chats:operate", "bots:read"])).toBe(false);
+  }
+});
+
+test("a phone with chats:operate starts a bot chat; one without it is refused", async () => {
+  const s = await setup();
+  const phone = await paired(s, ["chats:read", "chats:operate", "bots:read"]);
+  const created = await phone.call("_harness/bots/chatCreate", { id: "bot-1", text: "hello" });
+  expect(created.result).toEqual({ sessionId: "bot-chat-1" });
+  expect(s.botChats).toEqual([{ id: "bot-1", text: "hello" }]);
+
+  const reader = await paired(s, ["chats:read", "bots:read"]);
+  const refused = await reader.call("_harness/bots/chatCreate", { id: "bot-1", text: "hi" });
+  expect((refused.error as { code: number }).code).toBe(SCOPE_REFUSED_CODE);
+  expect(s.botChats).toHaveLength(1);
 });
 
 test("notifications and requests a device's scopes do not cover never reach it", async () => {

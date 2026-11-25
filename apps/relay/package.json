@@ -5,7 +5,8 @@
   "scripts": {
     "dev": "wrangler dev",
     "deploy": "node scripts/deploy.mjs",
-    "test": "vitest run",
+    "local": "node scripts/local.mjs",
+    "test": "vitest run && vitest run --config vitest.local.config.ts",
     "typecheck": "bun check"
   },
   "dependencies": {

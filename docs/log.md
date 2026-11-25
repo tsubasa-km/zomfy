@@ -1,6 +1,14 @@
 # Directory Update Log
 
+## 2026-11-25
+* **Update**: [Thinking that holds the answer shows open](specs/visible-thinking.md) is implemented: a finished turn's last thinking before a short reply starts open, whole and marked as thinking; Settings → Input & Editing → Show thinking picks collapsed, expand when the reply is short, or always expanded.
+* **Creation**: [Thinking that holds the answer shows open](specs/visible-thinking.md), in progress.
+* **Update**: [Bots in the phone app](specs/mobile/bots.md) is implemented: phones may call `_harness/bots/chatCreate` under `chats:operate` ([pairing](specs/mobile/pairing.md#scopes)), and the [app](specs/mobile/app.md) gains a Bots screen with Talk and bot chats marked in the host tree; [bots on the desktop](specs/bots/desktop.md) links to it.
+* **Creation**: [Bots in the phone app](specs/mobile/bots.md), in progress.
+
 ## 2026-11-22
+* **Update**: [Running Zomfy Relay on your own machine](specs/bots/self-host.md) is implemented: `bun run relay:local` runs the Relay Worker on local workerd with storage in `~/.zomfy/relay`, behind a cloudflared or Tailscale Funnel tunnel; the [connector](specs/bots/connector.md) and [phone relay](specs/mobile/relay.md) link to it.
+* **Creation**: [Running Zomfy Relay on your own machine](specs/bots/self-host.md), in progress.
 * **Update**: [Tool calls a stopped turn leaves open read as stopped](specs/stopped-tool-calls.md) and [The Next steps card](specs/next-steps-card.md) are implemented.
 * **Creation**: [Tool calls a stopped turn leaves open read as stopped](specs/stopped-tool-calls.md) and [The Next steps card](specs/next-steps-card.md), in progress.
 * **Update**: Built phase B2 of [Zomfy Bots](specs/bots/overview.md): a bot chat's questions and approvals go to the source while every window is asked, first answer wins ([daemon](specs/bots/daemon.md#built-so-far)); live activity and workers; PR links and review notes in replies; replies after a usage-limit resume; access requests answered back to the requester (the [contract](specs/bots/contract.md)'s new `access-answered`); schedules and triggers as automations with a bot target, rules in `hello`, webhook notices and alerts, PR events, and `create_bot_automation`; the [desktop](specs/bots/desktop.md#built-so-far) gains bot schedules and triggers, webhook URLs, member search, notices and `@handle` on the New thread page; the [connector](specs/bots/connector.md) posts in Discord channels and tells requesters the answer.

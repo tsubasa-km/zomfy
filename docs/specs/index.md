@@ -7,6 +7,7 @@
 
 * [Zomfy Bots](bots/overview.md) - named agents in a folder on the person's computer, asked from Zomfy, Discord, Slack, GitHub, Linear, webhooks and schedules, copied from Orca Bots
 * [Bots connector (Zomfy Relay Worker)](bots/connector.md) - the Cloudflare Worker and Durable Object each person deploys to receive source events, check Who can ask, queue deliveries and post replies
+* [Running Zomfy Relay on your own machine](bots/self-host.md) - the same Relay Worker on local workerd with durable storage, behind a Cloudflare Tunnel or Tailscale Funnel, started with `bun run relay:local`
 * [Bots connector contract](bots/contract.md) - the versioned messages between the daemon and Zomfy Relay, in packages/relay-contract
 * [Bots in the daemon](bots/daemon.md) - bot records and homes, deliveries to chats and turns, replies, questions and approvals, schedules and triggers
 * [Bots in the desktop app](bots/desktop.md) - the Bots settings pane, the sidebar's bots, Needs you, and talking to a bot from Zomfy itself
@@ -31,3 +32,4 @@
 * [Wake a Claude chat when its background work finishes](background-task-wake.md) - a turn that ends with background tasks running keeps its Claude process, and the chat resumes on its own when a task finishes
 * [Tool calls a stopped turn leaves open read as stopped](stopped-tool-calls.md) - Stop, a failed turn or a daemon restart closes every pending or running tool call as stopped, live and on replay
 * [The Next steps card](next-steps-card.md) - the card a turn ends with: recap sections open by default, "Ask to do this" and "Add to Inbox" that say what they do
+* [Thinking that holds the answer shows open](visible-thinking.md) - a short reply after long thinking shows that thinking expanded and marked; Settings picks collapsed, expand when the reply is short, or always expanded

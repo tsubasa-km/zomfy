@@ -63,7 +63,8 @@ expires or drops is what reviews of both researched apps punish most.[^mobile-ap
 
 ## Scopes
 
-`chats:read`, `chats:operate` (prompt, Stop, approvals, questions), `terminals:operate`,
+`chats:read`, `chats:operate` (prompt, Stop, approvals, questions, and starting a bot chat with
+`_harness/bots/chatCreate` — [bots in the phone app](bots.md)), `terminals:operate`,
 `workspaces:operate`, `bots:read`. Every ACP and `_harness/*` method has one required scope in
 `remote-devices.ts`; a method not in the table is refused for phones. All scopes are on by default
 for the person's own phone; a pairing can drop any.

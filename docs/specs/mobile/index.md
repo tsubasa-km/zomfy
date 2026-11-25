@@ -5,3 +5,4 @@
 * [Phone relay](relay.md) - the phone routes on the shared Worker, splicing end-to-end encrypted frames to the host's link
 * [The Android app](app.md) - screens, Expo stack, connection and offline behaviour, APK build
 * [Push notifications on the phone](push.md) - when the daemon notifies a phone, sent through Expo's free push service by the relay
+* [Bots in the phone app](bots.md) - a Bots screen that lists the host's bots, starts a chat with one from a first message, and marks bot chats in the lists

@@ -1,0 +1,28 @@
+# What EAS Build uploads for apps/mobile. When this file exists EAS uses it instead of .gitignore,
+# so it repeats .gitignore's rules and leaves out what the Android build never reads.
+
+# from .gitignore
+node_modules
+out
+dist
+*.tgz
+coverage
+*.lcov
+logs
+.env
+.env.*
+.eslintcache
+.cache
+*.tsbuildinfo
+.idea
+.DS_Store
+.bun-cache
+.claude/worktrees
+.claude/settings.local.json
+
+# never needed to build the phone app
+apps/desktop/src-tauri/target
+apps/desktop/src-tauri/gen
+apps/relay/.wrangler
+packages/daemon/dist
+docs
