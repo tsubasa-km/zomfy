@@ -39,7 +39,7 @@ export function parseRemoteUrl(url: string): { host: string; path: string } | nu
 const hostProbes = new TtlCache<HostingProviderId | null>(10 * 60_000)
 
 /** github.com/gitlab.com by name; a self-hosted name is whichever CLI has a login for it. */
-async function providerForHost(host: string, cwd: string): Promise<HostingProviderId | null> {
+export async function providerForHost(host: string, cwd: string): Promise<HostingProviderId | null> {
   if (host === 'github.com' || host.endsWith('.github.com') || host.includes('github')) return 'github'
   if (host === 'gitlab.com' || host.includes('gitlab')) return 'gitlab'
   return hostProbes.get(host, async () => {

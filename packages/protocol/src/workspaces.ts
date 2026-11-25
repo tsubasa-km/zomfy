@@ -1,3 +1,5 @@
+import type { HostingAccountRef, HostingRemoteInfo } from './hosting'
+
 export type ProjectKind = 'git' | 'folder'
 
 /** Scripts Orca keeps under `scripts:` in orca.yaml; the project's own copy runs after the file's. */
@@ -41,6 +43,8 @@ export interface Project {
   bundledSkills?: Record<string, string[]>
   /** Claude in Chrome for this project's Claude chats: true or false overrides the host's setting; unset follows it. */
   claudeChrome?: boolean
+  /** The GitHub or GitLab account Zomfy, agents and git use for the project's remote; unset is the CLI's active one. Newer daemons only. */
+  hostingAccount?: HostingAccountRef
 }
 
 /** When the daemon deletes or frees worktrees by itself (spec worktree-skills-and-storage B5). */
@@ -73,7 +77,7 @@ export interface ProjectGroup {
 
 /** null (or '') clears a field; JSON drops undefined, so it cannot. */
 export type ProjectPatch = {
-  [K in 'displayName' | 'defaultBaseRef' | 'worktreeRoot' | 'hooks' | 'groupId' | 'finishWith' | 'agentWorkflows' | 'agentSplitWork' | 'mergeTarget' | 'cleanup' | 'claudeChrome']?: Project[K] | null
+  [K in 'displayName' | 'defaultBaseRef' | 'worktreeRoot' | 'hooks' | 'groupId' | 'finishWith' | 'agentWorkflows' | 'agentSplitWork' | 'mergeTarget' | 'cleanup' | 'claudeChrome' | 'hostingAccount']?: Project[K] | null
 }
 
 export interface Workspace {
@@ -284,6 +288,27 @@ export interface ProjectCreationDefaults {
 /** Starts the error `projectAdd` throws for a folder outside git when `requireGit` is set. */
 export const NOT_A_GIT_REPOSITORY = 'Not a git repository'
 
+/** What the Add a project dialog shows under a typed or picked folder (docs/specs/add-project-dialog.md). */
+export interface FolderInspection {
+  /** The folder as the daemon resolved it (`~` expanded). */
+  path: string
+  exists: boolean
+  /** null when the folder does not exist. */
+  kind: ProjectKind | null
+  /** Its remote, when that is GitHub or GitLab. */
+  remote: HostingRemoteInfo | null
+  /** Whether it has any remote at all. */
+  hasRemote: boolean
+}
+
+/** Publishing a new repository to GitHub as it is created. */
+export interface PublishRepoParams {
+  account: HostingAccountRef
+  /** The account's login when absent; an organisation otherwise. */
+  owner?: string
+  visibility: 'private' | 'public'
+}
+
 export const WORKSPACE_METHODS = {
   stateGet: '_harness/state/get',
   projectAdd: '_harness/projects/add',
@@ -312,7 +337,8 @@ export const WORKSPACE_METHODS = {
   cleanupList: '_harness/workspaces/cleanupList',
   workspaceFreeSpace: '_harness/workspaces/freeSpace',
   leftoverRemove: '_harness/workspaces/leftoverRemove',
-  cleanupLastRun: '_harness/workspaces/cleanupLastRun'
+  cleanupLastRun: '_harness/workspaces/cleanupLastRun',
+  projectInspectFolder: '_harness/projects/inspectFolder'
 } as const
 
 export interface WorkspaceRequests {
@@ -322,7 +348,7 @@ export interface WorkspaceRequests {
    * `requireGit` (Orca's NonGitFolderDialog): a folder outside git fails with NOT_A_GIT_REPOSITORY
    * so the client can confirm first. Without it, such a folder is added as a folder project.
    */
-  [WORKSPACE_METHODS.projectAdd]: { params: { path: string; requireGit?: boolean }; result: Project }
+  [WORKSPACE_METHODS.projectAdd]: { params: { path: string; requireGit?: boolean; hostingAccount?: HostingAccountRef }; result: Project }
   [WORKSPACE_METHODS.projectRemove]: { params: { projectId: string }; result: Record<string, never> }
   [WORKSPACE_METHODS.workspaceCreate]: { params: CreateWorkspaceParams; result: CreateWorkspaceResult }
   [WORKSPACE_METHODS.workspaceRemove]: { params: RemoveWorkspaceParams; result: Record<string, never> }
@@ -341,10 +367,14 @@ export interface WorkspaceRequests {
   [WORKSPACE_METHODS.projectHooks]: { params: { projectId: string }; result: ProjectHookInfo }
   /** Without `parentPath`, the host's ProjectCreationDefaults apply (an older daemon requires it). */
   [WORKSPACE_METHODS.projectClone]: {
-    params: { url: string; parentPath?: string; name?: string }
+    params: { url: string; parentPath?: string; name?: string; hostingAccount?: HostingAccountRef }
     result: Project
   }
-  [WORKSPACE_METHODS.projectCreateRepo]: { params: { parentPath?: string; name: string }; result: Project }
+  /** With `publish`, the new repository is also created on GitHub; a failed publish keeps the local project and sets `publishError`. */
+  [WORKSPACE_METHODS.projectCreateRepo]: {
+    params: { parentPath?: string; name: string; publish?: PublishRepoParams }
+    result: Project & { publishError?: string }
+  }
   /** Newer daemons only; an older one rejects it as an unknown method. */
   [WORKSPACE_METHODS.projectCreationDefaults]: { params: Record<string, never>; result: ProjectCreationDefaults }
   [WORKSPACE_METHODS.projectGroupCreate]: {
@@ -372,4 +402,6 @@ export interface WorkspaceRequests {
   /** Deletes a folder `cleanupList` offered as a leftover. */
   [WORKSPACE_METHODS.leftoverRemove]: { params: { projectId: string; path: string }; result: Record<string, never> }
   [WORKSPACE_METHODS.cleanupLastRun]: { params: Record<string, never>; result: CleanupRun | null }
+  /** Newer daemons only. */
+  [WORKSPACE_METHODS.projectInspectFolder]: { params: { path: string }; result: FolderInspection }
 }

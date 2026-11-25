@@ -54,13 +54,19 @@ async function requireGit(): Promise<void> {
   if ((await probeGitAvailable()) === false) throw new Error('Git is required, and it was not found on this host')
 }
 
-export async function cloneRepository(url: string, parentPath: string | undefined, name?: string): Promise<string> {
+/** How a clone authenticates as a chosen account: `-c` entries before `clone`, and variables for its credential helper. */
+export interface CloneAuth {
+  configArgs: string[]
+  env: Record<string, string>
+}
+
+export async function cloneRepository(url: string, parentPath: string | undefined, name?: string, auth?: CloneAuth): Promise<string> {
   if (!url.trim()) throw new Error('Enter a repository URL')
   await requireGit()
   const parent = await prepareParent(parentPath, CLONE_ROOT)
   const target = join(parent, name?.trim() ? sanitizeWorkspaceName(name) : repoNameFromUrl(url))
   if (existsSync(target)) throw new Error(`${target} already exists`)
-  await git(parent, ['clone', '--', url.trim(), target])
+  await git(parent, [...(auth?.configArgs ?? []), 'clone', '--', url.trim(), target], auth ? { env: auth.env } : {})
   log(`cloned ${url} into ${target}`)
   return target
 }

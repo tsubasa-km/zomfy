@@ -13,7 +13,9 @@ export class AcpAgentSessions {
 
   constructor(
     private readonly sessions: SessionRegistry,
-    private readonly emit: (sessionId: string, update: acp.SessionUpdate) => Promise<void>
+    private readonly emit: (sessionId: string, update: acp.SessionUpdate) => Promise<void>,
+    /** Variables the session's project adds when its agent starts (its GitHub/GitLab account). */
+    private readonly envFor: (record: SessionRecord) => Promise<Record<string, string>> = async () => ({})
   ) {
     // However a session goes (closed, its workspace removed), its server goes with it.
     sessions.onChange((list) => {
@@ -72,7 +74,8 @@ export class AcpAgentSessions {
         if (handoffContext && current()) this.sessions.update(record.id, { handoffContext })
       },
       mcpServers: (capabilities) => [...managerMcp.acpServers(record.id, capabilities), ...(this.stepServers.get(record.id) ?? [])],
-      ready: () => mcpServersReady(this.stepServers.get(record.id) ?? [])
+      ready: () => mcpServersReady(this.stepServers.get(record.id) ?? []),
+      env: () => this.envFor(record)
     }, agentId === 'codex' ? record.codexThreadConnection ?? null : null)
     this.live.set(record.id, agent)
     return agent
