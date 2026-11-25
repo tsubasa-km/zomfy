@@ -64,6 +64,18 @@ describe("removing a worktree workspace", () => {
     expect(await git(repo, ["branch", "--list", "t/gone"])).toBe("");
   });
 
+  test("a worktree whose node_modules passes 260 characters is deleted in full", async () => {
+    await writeFile(join(repo, ".git", "info", "exclude"), "node_modules/\n");
+    const workspace = await worktreeWorkspace("deep");
+    let deep = join(workspace.path, "node_modules");
+    while (deep.length < 330) deep = join(deep, ".bun", "some-package@1.0.0", "node_modules");
+    await mkdir(deep, { recursive: true });
+    await writeFile(join(deep, "index.js"), "module.exports = 1\n");
+    await manager.removeWorkspace({ workspaceId: workspace.id, deleteBranch: true });
+    expect(existsSync(workspace.path)).toBe(false);
+    expect(await git(repo, ["worktree", "list", "--porcelain"])).not.toContain("deep");
+  });
+
   test("a worktree whose folder was deleted by hand still has its record removed", async () => {
     const workspace = await worktreeWorkspace("deleted");
     await rm(workspace.path, { recursive: true, force: true });

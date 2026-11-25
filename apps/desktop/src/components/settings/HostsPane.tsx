@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 import { SshHostPicker } from '@/components/ssh/SshHostPicker'
 import { DefaultShellRow } from './TerminalPane'
+import { WorktreeCleanupRows } from './WorktreeCleanupSettings'
 import { SettingsRow, SettingsSubsectionHeader } from './settings-form-controls'
 import { t } from '@/i18n/i18n'
 
@@ -93,6 +94,7 @@ function HostCard({ host }: { host: HostEntry }) {
           }
         />
         {host.connection.kind === 'connected' ? <DefaultShellRow hostId={host.id} /> : null}
+        {host.connection.kind === 'connected' ? <WorktreeCleanupRows hostId={host.id} /> : null}
       </div>
     </div>
   )

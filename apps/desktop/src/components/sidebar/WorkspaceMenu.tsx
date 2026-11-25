@@ -247,6 +247,7 @@ export function ProjectMenuItems({
   onNewWorkspace,
   onSettings,
   onCleanUp,
+  worktreesSize,
   onRemove
 }: {
   hostId: HostId
@@ -254,6 +255,8 @@ export function ProjectMenuItems({
   onNewWorkspace: () => void
   onSettings: () => void
   onCleanUp?: () => void
+  /** The project's worktrees on disk, shown beside Clean Up. */
+  worktreesSize?: string
   onRemove: () => void
 }) {
   return (
@@ -269,7 +272,8 @@ export function ProjectMenuItems({
       {onCleanUp && (
         <DropdownMenuItem data-project-action="cleanup" onSelect={onCleanUp}>
           <Sparkles className="size-3.5" />
-          {t('Clean Up Merged Workspaces…')}
+          {t('Clean Up Workspaces…')}
+          {worktreesSize && <span className="ml-auto pl-3 text-xs text-muted-foreground" data-project-worktrees-size>{worktreesSize}</span>}
         </DropdownMenuItem>
       )}
       <DropdownMenuSeparator />

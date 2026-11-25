@@ -183,7 +183,9 @@ export const SETTINGS_SECTIONS: readonly SettingsNavSection[] = [
     group: 'remote',
     entries: [
       { title: t('Connection'), keywords: ['daemon', 'wsl', 'ssh', 'remote', 'tunnel', 'connected', 'offline'] },
-      { title: t('Default shell'), keywords: ['shell'] }
+      { title: t('Default shell'), keywords: ['shell'] },
+      { title: t('Delete merged worktrees'), keywords: ['worktree', 'cleanup', 'merged', 'disk', 'space'] },
+      { title: t('Free space in idle worktrees'), keywords: ['worktree', 'cleanup', 'node_modules', 'target', 'disk', 'space'] }
     ]
   },
   {

@@ -1,6 +1,6 @@
 import { useSyncExternalStore } from 'react'
 import { nextSelection, type Gesture } from './list-selection'
-import type { WorkspaceStatusId, WorkspaceSummary } from '@zomfy/protocol'
+import type { WorkspaceSize, WorkspaceStatusId, WorkspaceSummary } from '@zomfy/protocol'
 import type { HostId } from '@/session-store'
 import { t } from '@/i18n/i18n'
 
@@ -71,6 +71,8 @@ interface SidebarState {
   selectionAnchor: string | null
   boardOpen: boolean
   summaries: Record<string, WorkspaceSummary>
+  /** Worktree sizes on disk, from the daemons' background measuring. */
+  sizes: Record<string, WorkspaceSize>
   dropTarget: DropTarget | null
 }
 
@@ -104,6 +106,7 @@ let state: SidebarState = {
   selectionAnchor: null,
   boardOpen: false,
   summaries: {},
+  sizes: {},
   dropTarget: null
 }
 const listeners = new Set<() => void>()
@@ -210,6 +213,12 @@ export function setSummaries(hostWorkspaceIds: string[], list: WorkspaceSummary[
   for (const id of hostWorkspaceIds) delete summaries[id]
   for (const s of list) summaries[s.workspaceId] = s
   set({ summaries })
+}
+
+export function setSizes(list: WorkspaceSize[]): void {
+  const sizes = { ...state.sizes }
+  for (const s of list) sizes[s.workspaceId] = s
+  set({ sizes })
 }
 
 export function setDropTarget(dropTarget: DropTarget | null): void {

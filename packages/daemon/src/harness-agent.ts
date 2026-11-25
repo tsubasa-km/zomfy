@@ -29,7 +29,8 @@ import { releaseFinishedTurn, runClaudeTurn, type StepOptions } from "./claude-t
 import { WorktreeClaims } from "./worktree-claims.ts";
 import { finishWorktree } from "./worktree-finish.ts";
 import { hostingContext } from "./handlers/hosting-handlers.ts";
-import { runArchiveHook, runSetupHook } from "./project-hooks.ts";
+import { effectiveHook, runArchiveHook, runSetupHook } from "./project-hooks.ts";
+import { restoreFreedWorkspace } from "./worktree-cleanup.ts";
 import { HELPER_RESULT_SCHEMA, helperResult, reportIn, splitWorkHint } from "./split-work.ts";
 import { SplitStore } from "./split-store.ts";
 import { SplitCoordinator } from "./split-coordinator.ts";
@@ -509,6 +510,19 @@ export function createHarnessAgent(
       }
     };
 
+    // Free space took this worktree's dependencies: its setup script puts them back first, or the agent is told.
+    const freedNote = woken
+      ? null
+      : await restoreFreedWorkspace(
+          workspaces,
+          session.workspaceId,
+          runSetupHook,
+          async (project, path) => !!(await effectiveHook(project, "setup", path)),
+          (title) => emit(session.id, { sessionUpdate: "notice", severity: "info", title }).catch(() => undefined),
+        ).catch((error) => {
+          log(`putting back ${session.workspaceId} failed: ${String(error)}`);
+          return null;
+        });
     // A side chat's seed rides on its first turn only; the transcript shows just what was typed.
     // So does the conversation so far, for an agent that just took the chat over.
     // Read when the prompt goes to the agent: one whose conversation would not reopen is handed it only then.
@@ -518,7 +532,7 @@ export function createHarnessAgent(
       if (woken) return params.prompt;
       handoff = session.handoffContext;
       // A running split's note goes with every turn while its parts run; it is never stored.
-      const seed = [handoff, session.seedContext, splits.turnNote(session.id)].filter((part) => !!part).join("\n\n");
+      const seed = [handoff, session.seedContext, splits.turnNote(session.id), freedNote].filter((part) => !!part).join("\n\n");
       if (!seed) return params.prompt;
       sessions.update(session.id, { seedContext: null, handoffContext: null });
       return [{ type: "text", text: seed }, ...params.prompt];

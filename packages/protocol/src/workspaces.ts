@@ -30,6 +30,35 @@ export interface Project {
   agentWorkflows?: boolean
   /** false keeps agents in this project from splitting work into parallel worktrees (split_work); unset allows it. */
   agentSplitWork?: boolean
+  /**
+   * Branch a worktree's work is finished into, which "merged" is judged against; unset is the main
+   * checkout's current branch, else `defaultBaseRef`. Newer daemons only.
+   */
+  mergeTarget?: string
+  /** This project's own automatic cleanup, over the host's (settings.ts). Newer daemons only. */
+  cleanup?: Partial<WorktreeCleanupPolicy>
+  /** Zomfy's bundled skills turned on here: skill name to the agents it is on for (skills.ts). */
+  bundledSkills?: Record<string, string[]>
+}
+
+/** When the daemon deletes or frees worktrees by itself (spec worktree-skills-and-storage B5). */
+export interface WorktreeCleanupPolicy {
+  /** Delete worktrees merged into their merge target for `deleteMergedAfterDays`. */
+  deleteMerged: boolean
+  deleteMergedAfterDays: number
+  /** Delete the dependencies and build output of worktrees idle for `freeIdleAfterDays`. */
+  freeIdle: boolean
+  freeIdleAfterDays: number
+  /** Pinned worktrees are left alone. */
+  keepPinned: boolean
+}
+
+export const DEFAULT_WORKTREE_CLEANUP_POLICY: WorktreeCleanupPolicy = {
+  deleteMerged: true,
+  deleteMergedAfterDays: 1,
+  freeIdle: false,
+  freeIdleAfterDays: 3,
+  keepPinned: true
 }
 
 /** Orca's project groups: a named folder of projects in the sidebar. */
@@ -42,7 +71,7 @@ export interface ProjectGroup {
 
 /** null (or '') clears a field; JSON drops undefined, so it cannot. */
 export type ProjectPatch = {
-  [K in 'displayName' | 'defaultBaseRef' | 'worktreeRoot' | 'hooks' | 'groupId' | 'finishWith' | 'agentWorkflows' | 'agentSplitWork']?: Project[K] | null
+  [K in 'displayName' | 'defaultBaseRef' | 'worktreeRoot' | 'hooks' | 'groupId' | 'finishWith' | 'agentWorkflows' | 'agentSplitWork' | 'mergeTarget' | 'cleanup']?: Project[K] | null
 }
 
 export interface Workspace {
@@ -69,6 +98,8 @@ export interface Workspace {
   sortOrder?: number
   /** A quick chat's own throwaway folder (projectId null); its chat can move into a project later. */
   scratch?: boolean
+  /** When Free space last deleted its dependencies and build output; cleared once its next turn put them back. */
+  spaceFreedAt?: number
 }
 
 /** Orca's default workspace board statuses. */
@@ -151,8 +182,68 @@ export interface WorkspaceSummary {
   behind: number | null
   /** What ahead/behind count against. */
   compareRef: string | null
-  /** Every commit is already in the base ref and nothing is uncommitted: safe to clean up. */
+  /** Every commit is already in the merge target and nothing is uncommitted: safe to clean up. */
   merged: boolean
+  /** What `merged` was judged against: the project's merge target. Newer daemons only. */
+  mergeTarget?: string | null
+}
+
+/** Bytes on disk; `ownBytes` leaves out files hardlinked elsewhere (bun's cache), so it is what deleting frees. */
+export interface SizeSplit {
+  bytes: number
+  ownBytes: number
+}
+
+/** A worktree's size, measured in the background (spec B2). */
+export interface WorkspaceSize {
+  workspaceId: string
+  total: SizeSplit
+  /** `node_modules` folders. */
+  dependencies: SizeSplit
+  /** `target/`, `dist/`, `.turbo`, `.expo` and the like. */
+  build: SizeSplit
+  measuredAt: number
+}
+
+/** One row of the cleanup dialog (spec B4). */
+export interface CleanupCandidate {
+  workspaceId: string
+  merged: boolean
+  modifiedFiles: number
+  untrackedFiles: number
+  /** Commits on no upstream and not in the merge target; null when unknown. */
+  unpushedCommits: number | null
+  /** Latest turn, terminal or creation time. */
+  lastActivityAt: number
+  /** Why it cannot be deleted now: a turn or a terminal is running in it. */
+  busy: 'turn' | 'terminal' | null
+  size: WorkspaceSize | null
+}
+
+/** A folder under the project's worktree root that is no worktree and no workspace (spec B7). */
+export interface LeftoverFolder {
+  path: string
+  size: SizeSplit | null
+}
+
+export interface CleanupList {
+  mergeTarget: string | null
+  /**
+   * Set when the package manager's cache is on another volume than the worktrees, where it cannot
+   * hardlink and copies every package instead (spec B8). Newer daemons only.
+   */
+  cacheElsewhere?: { cache: string; worktrees: string } | null
+  candidates: CleanupCandidate[]
+  leftovers: LeftoverFolder[]
+}
+
+/** What the last automatic cleanup on this host did. */
+export interface CleanupRun {
+  at: number
+  deleted: number
+  freed: number
+  freedBytes: number
+  errors: string[]
 }
 
 /** What deleting a workspace would throw away (Orca's DeleteWorktreeDirtyChangeHint). */
@@ -214,7 +305,12 @@ export const WORKSPACE_METHODS = {
   workspacesReorder: '_harness/workspaces/reorder',
   workspaceSummaries: '_harness/workspaces/summaries',
   workspaceInspect: '_harness/workspaces/inspect',
-  workspaceCreateScratch: '_harness/workspaces/createScratch'
+  workspaceCreateScratch: '_harness/workspaces/createScratch',
+  workspaceSizes: '_harness/workspaces/sizes',
+  cleanupList: '_harness/workspaces/cleanupList',
+  workspaceFreeSpace: '_harness/workspaces/freeSpace',
+  leftoverRemove: '_harness/workspaces/leftoverRemove',
+  cleanupLastRun: '_harness/workspaces/cleanupLastRun'
 } as const
 
 export interface WorkspaceRequests {
@@ -262,4 +358,16 @@ export interface WorkspaceRequests {
   [WORKSPACE_METHODS.workspacesReorder]: { params: { workspaceIds: string[] }; result: Record<string, never> }
   [WORKSPACE_METHODS.workspaceSummaries]: { params: Record<string, never>; result: WorkspaceSummary[] }
   [WORKSPACE_METHODS.workspaceInspect]: { params: { workspaceId: string }; result: WorkspaceInspection }
+  /**
+   * Sizes measured so far (all workspaces when `workspaceIds` is absent); missing or day-old ones are
+   * queued for measuring, and `wait` resolves once those are in. Newer daemons only.
+   */
+  [WORKSPACE_METHODS.workspaceSizes]: { params: { workspaceIds?: string[]; wait?: boolean }; result: WorkspaceSize[] }
+  /** Every non-primary worktree of the project with its state, and leftover folders. Newer daemons only. */
+  [WORKSPACE_METHODS.cleanupList]: { params: { projectId: string }; result: CleanupList }
+  /** Deletes the worktree's dependencies and build output, keeping its files and git state. */
+  [WORKSPACE_METHODS.workspaceFreeSpace]: { params: { workspaceId: string }; result: { freedBytes: number } }
+  /** Deletes a folder `cleanupList` offered as a leftover. */
+  [WORKSPACE_METHODS.leftoverRemove]: { params: { projectId: string; path: string }; result: Record<string, never> }
+  [WORKSPACE_METHODS.cleanupLastRun]: { params: Record<string, never>; result: CleanupRun | null }
 }

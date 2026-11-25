@@ -21,6 +21,8 @@ import { log } from './log.ts'
 import { HARNESS_HOME, WORKSPACE_ROOT } from './harness-home.ts'
 import { moveToTrash } from './host-trash.ts'
 import { copyWorktreeIncludesSafely } from './worktree-include.ts'
+import { removeTree } from './safe-remove.ts'
+import { unlinkSkillLinks } from './bundled-skills.ts'
 
 const STATE_PATH = join(HARNESS_HOME, 'state.json')
 const FLOATING_FALLBACK = join(HARNESS_HOME, 'floating-workspace')
@@ -37,6 +39,7 @@ interface PersistedState {
 export class WorkspaceManager {
   private state: PersistedState = { projects: [], workspaces: [], projectGroups: [], floatingCwd: '' }
   private readonly listeners = new Set<(state: HarnessState) => void>()
+  private readonly worktreeListeners = new Set<(workspace: Workspace, project: Project) => Promise<void>>()
 
   /** `statePath` is for tests, which must never write the person's own state. */
   constructor(private readonly statePath = STATE_PATH) {}
@@ -47,6 +50,24 @@ export class WorkspaceManager {
     } catch {
       // First run: nothing saved yet.
     }
+  }
+
+  /** Hears each git worktree createWorkspace makes, before it returns (bundled skills link into it). */
+  onWorktreeCreated(listener: (workspace: Workspace, project: Project) => Promise<void>): () => void {
+    this.worktreeListeners.add(listener)
+    return () => this.worktreeListeners.delete(listener)
+  }
+
+  /** Turns a bundled skill on for these agents in the project (none turns it off). */
+  async setBundledSkill(projectId: string, name: string, agents: string[]): Promise<Project> {
+    const project = this.requireProject(projectId)
+    const next = { ...project.bundledSkills }
+    if (agents.length > 0) next[name] = [...new Set(agents)]
+    else delete next[name]
+    if (Object.keys(next).length > 0) project.bundledSkills = next
+    else delete project.bundledSkills
+    await this.save()
+    return project
   }
 
   onChange(listener: (state: HarnessState) => void): () => void {
@@ -81,6 +102,17 @@ export class WorkspaceManager {
   /** The project's configured base, else Orca's default chain. */
   async baseRefOf(project: Project): Promise<string> {
     return project.defaultBaseRef || (await defaultBaseRef(project.path))
+  }
+
+  /**
+   * The branch work is finished into, which "merged" is judged against: the project's override, else
+   * the main checkout's current branch (what finish_worktree merges into), else the base ref.
+   */
+  async mergeTargetOf(project: Project): Promise<string> {
+    if (project.mergeTarget) return project.mergeTarget
+    const primary = this.state.workspaces.find((w) => w.projectId === project.id && w.isPrimary)
+    const branch = primary && existsSync(primary.path) ? await currentBranch(primary.path) : null
+    return branch || (await this.baseRefOf(project))
   }
 
   isScratch(workspaceId: string | null): boolean {
@@ -200,7 +232,7 @@ export class WorkspaceManager {
 
   async updateProject(projectId: string, patch: ProjectPatch): Promise<Project> {
     const project = this.requireProject(projectId)
-    for (const key of ['displayName', 'defaultBaseRef', 'worktreeRoot', 'groupId'] as const) {
+    for (const key of ['displayName', 'defaultBaseRef', 'worktreeRoot', 'groupId', 'mergeTarget'] as const) {
       if (!(key in patch)) continue
       const value = patch[key]?.trim()
       if (value) project[key] = value
@@ -215,6 +247,11 @@ export class WorkspaceManager {
       if (!(key in patch)) continue
       if (patch[key] === false) project[key] = false
       else delete project[key]
+    }
+    if ('cleanup' in patch) {
+      const cleanup = Object.fromEntries(Object.entries(patch.cleanup ?? {}).filter(([, v]) => v !== undefined && v !== null))
+      if (Object.keys(cleanup).length > 0) project.cleanup = cleanup
+      else delete project.cleanup
     }
     if ('hooks' in patch) {
       const setup = patch.hooks?.setup?.trim()
@@ -302,7 +339,7 @@ export class WorkspaceManager {
       await add([path, branch])
       log(`created worktree ${path} on existing ${branch}`)
       await copyWorktreeIncludesSafely(project.path, path)
-      return this.addWorkspace({ projectId: project.id, name, path, branch, ...extra })
+      return this.worktreeAdded(project, await this.addWorkspace({ projectId: project.id, name, path, branch, ...extra }))
     }
 
     const override = params.branchName?.trim()
@@ -324,7 +361,14 @@ export class WorkspaceManager {
     await add(['--no-track', '-b', branch, path, base])
     log(`created worktree ${path} on ${branch} from ${base}`)
     await copyWorktreeIncludesSafely(project.path, path)
-    return this.addWorkspace({ projectId: project.id, name, path, branch, ...extra })
+    return this.worktreeAdded(project, await this.addWorkspace({ projectId: project.id, name, path, branch, ...extra }))
+  }
+
+  private async worktreeAdded(project: Project, workspace: Workspace): Promise<Workspace> {
+    for (const listener of this.worktreeListeners) {
+      await listener(workspace, project).catch((error) => log(`after creating ${workspace.path}: ${String(error)}`))
+    }
+    return workspace
   }
 
   async removeWorkspace(params: RemoveWorkspaceParams): Promise<void> {
@@ -346,16 +390,25 @@ export class WorkspaceManager {
 
     const sharedFolder = project.kind === 'folder'
     if (!sharedFolder) {
+      // A link to a bundled skill goes as a link first, so no removal can reach the shared copy.
+      await unlinkSkillLinks(workspace.path)
       // core.longpaths: a worktree with deep node_modules (an Expo app) has paths past Windows' 260
       // characters, which git cannot delete without it ("Filename too long").
       await git(project.path, ['-c', 'core.longpaths=true', 'worktree', 'remove', ...(params.force ? ['--force'] : []), workspace.path]).catch(
         async (error) => {
+          const message = String(error)
           // A worktree already gone (deleted by hand, or a removal git gave up on half way) still
           // leaves its record to remove; whatever is left of the folder goes too.
-          if (!/is not a working tree/.test(String(error))) throw error
-          await rm(workspace.path, { recursive: true, force: true }).catch(() => undefined)
+          if (/is not a working tree/.test(message)) return removeTree(workspace.path).catch(() => undefined)
+          // Changes, a lock or a main checkout: git refused before deleting anything.
+          if (/modified or untracked|is locked|main working tree|use --force|use 'move -f -f'/i.test(message)) throw error
+          // git checked the worktree and then failed to delete it (a path too long, a file held open).
+          log(`git could not delete ${workspace.path}, removing it directly: ${message}`)
+          await removeTree(workspace.path)
         }
       )
+      // git leaves a folder it could not empty behind; it goes the same way.
+      if (existsSync(workspace.path)) await removeTree(workspace.path)
       await git(project.path, ['worktree', 'prune']).catch(() => undefined)
       if (params.deleteBranch && workspace.branch) {
         // -d keeps unmerged work unless the user forced it, as Orca does.
@@ -397,6 +450,15 @@ export class WorkspaceManager {
     }
     await this.save()
     return workspace
+  }
+
+  /** Marks (or clears, with null) that Free space deleted the workspace's dependencies and build output. */
+  async setSpaceFreed(workspaceId: string, at: number | null): Promise<void> {
+    const workspace = this.state.workspaces.find((w) => w.id === workspaceId)
+    if (!workspace) return
+    if (at === null) delete workspace.spaceFreedAt
+    else workspace.spaceFreedAt = at
+    await this.save()
   }
 
   /** A quick chat's own dated folder, so a chat can start before anyone picks a project. */

@@ -1,3 +1,5 @@
+import type { WorktreeCleanupPolicy } from './workspaces'
+
 /**
  * Settings the daemon must know, kept per host under the harness home. UI preferences live in
  * the desktop's own settings store instead; only what a host acts on belongs here.
@@ -7,6 +9,8 @@ export interface HostSettings {
   defaultShellId: string | null
   /** Claude Code CLI the agent runs; null finds `claude` on PATH. */
   claudeExecutablePath: string | null
+  /** Automatic worktree cleanup; absent is DEFAULT_WORKTREE_CLEANUP_POLICY. Newer daemons only. */
+  worktreeCleanup?: WorktreeCleanupPolicy
 }
 
 export const DEFAULT_HOST_SETTINGS: HostSettings = {
