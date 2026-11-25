@@ -16,8 +16,11 @@ export function registerChatAgentHandlers({ handle, broadcast }: HandlerContext)
     await updateChatAgentLaunch(p.agent, {
       ...(p.agent === "claude" ? {} : { command: p.command }),
       env: p.env,
+      codexConnection: p.codexConnection,
       ...(p.consent !== undefined && isGuardedChatAgent(p.agent) ? { consent: p.consent } : {}),
     });
-    return listChatAgents(false);
+    const agents = await listChatAgents(false);
+    if (p.codexConnection !== undefined) broadcast(CHAT_AGENT_NOTIFICATIONS.chatAgentsChanged, agents);
+    return agents;
   });
 }

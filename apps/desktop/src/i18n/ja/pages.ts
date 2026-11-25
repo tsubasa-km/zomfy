@@ -1343,5 +1343,10 @@ export const PAGES: Record<string, string> = {
   'Close projects': 'プロジェクトを閉じる',
   'No projects yet. Add a folder, clone a repository or create one.': 'プロジェクトはまだありません。フォルダーを追加するか、リポジトリをクローンするか、新しく作成してください。',
   '{n} worktrees': 'ワークツリー {n} 件',
-  'Show Projects Button': 'プロジェクトボタンを表示'
+  'Show Projects Button': 'プロジェクトボタンを表示',
+
+  // components/settings/ChatAgentLaunchSettings.tsx (Codex connection)
+  'Codex connection': 'Codex の接続方法',
+  'Applies to the next Codex message on this host.': 'このホストで次に送る Codex のメッセージから適用されます。',
+  'Direct (App Server)': '直接（App Server）'
 }

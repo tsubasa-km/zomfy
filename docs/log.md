@@ -1,6 +1,8 @@
 # Directory Update Log
 
 ## 2026-11-25
+* **Update**: [Direct Codex connection](specs/codex-app-server.md) is implemented with a per-host setting and thread continuation when switching between turns.
+* **Creation**: [Direct Codex connection](specs/codex-app-server.md), planned.
 * **Creation**: [Zomfy's own skills, and worktrees that do not fill the disk](specs/worktree-skills-and-storage.md), draft, from the research note [Worktree skills and worktree storage](research/worktree-skills-and-storage.md).
 * **Update**: [Thinking that holds the answer shows open](specs/visible-thinking.md) is implemented: a finished turn's last thinking before a short reply starts open, whole and marked as thinking; Settings → Input & Editing → Show thinking picks collapsed, expand when the reply is short, or always expanded.
 * **Creation**: [Thinking that holds the answer shows open](specs/visible-thinking.md), in progress.

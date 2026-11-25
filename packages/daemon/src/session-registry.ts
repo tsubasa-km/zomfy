@@ -5,6 +5,7 @@ import {
   TURN_RECOVERY_META,
   NEW_CHAT_TITLE,
   type ChatAgentId,
+  type CodexConnection,
   type SessionInfo,
   type SessionOptions,
   type TurnEndMeta
@@ -25,6 +26,11 @@ export interface SessionRecord extends SessionInfo {
    * agent was changed keeps each one's, so changing back reopens that agent's conversation.
    */
   agentSessionIds?: Partial<Record<ChatAgentId, string>>
+  /**
+   * How Codex last opened the chat's Codex thread (codex-app-server.md): ACP must not replace a
+   * thread Direct mode made, also after a daemon restart.
+   */
+  codexThreadConnection?: CodexConnection
   options: SessionOptions
   /** Context the next turn's prompt starts with, unseen in the transcript (a side chat's seed). */
   seedContext?: string | null
@@ -298,6 +304,7 @@ export function publicInfo(record: SessionRecord): SessionInfo {
     seedContext: _seedHidden,
     handoffContext: _handoffHidden,
     importedFrom: _importHidden,
+    codexThreadConnection: _codexHidden,
     ...info
   } = record
   return info

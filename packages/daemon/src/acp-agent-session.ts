@@ -6,16 +6,16 @@ import {
   type ChatAgentId,
   type ChatAgentOption,
   type ChatAgentSessionState,
+  type CodexConnection,
   type WorkflowStepUsage
 } from '@zomfy/protocol'
-import { resolveChatAgent } from './chat-agent-launch-specs.ts'
+import { codexConnection, resolveChatAgent } from './chat-agent-launch-specs.ts'
+import { CODEX_APP_SERVER_CAPABILITIES, CodexAppServer } from './codex-app-server.ts'
 import { hostPath } from './tui-agent-detection.ts'
 import { log } from './log.ts'
 
-// One external agent's ACP server, run for one harness session on this host (Orca's
-// acp-structured-connection). The daemon is that server's client: it forwards prompts, cancels and
-// option changes, and re-emits the agent's updates under the harness session id, so the transcript,
-// status, replay and notifications work as they do for Claude.
+// One external agent process per harness session. The daemon forwards prompts, cancels and option
+// changes and records the resulting chat updates. Codex can use ACP or App Server.
 
 /** A server left idle this long exits; the next turn starts it again on the same conversation. */
 const IDLE_EXIT_MS = 15 * 60_000
@@ -33,6 +33,8 @@ export interface AcpAgentSessionHooks {
   onState(state: ChatAgentSessionState): void
   /** The agent's own id for the conversation, kept so a restarted server reopens it. */
   onAgentSessionId(id: string): void
+  /** The connection that made the Codex thread now in use, kept so a restarted daemon still knows. */
+  onCodexConnection?(connection: CodexConnection): void
   /**
    * The conversation the agent had could not be reopened, and it starts a new one knowing nothing of
    * the chat. Waited for before that conversation's first turn, whose prompt is read after it.
@@ -46,7 +48,7 @@ export interface AcpAgentSessionHooks {
 
 interface Running {
   proc: Bun.Subprocess<'pipe', 'pipe', 'pipe'>
-  conn: acp.ClientConnection
+  conn: acp.ClientConnection | CodexAppServer
   agentSessionId: string
   capabilities: acp.AgentCapabilities
 }
@@ -56,6 +58,7 @@ type SessionSetup = Pick<acp.NewSessionResponse, 'modes' | 'configOptions'> & { 
 export class AcpAgentSession {
   private running: Running | null = null
   private starting: Promise<Running> | null = null
+  private stopping: Promise<void> | null = null
   /** Updates the agent replays while `session/load` reopens a conversation the transcript has. */
   private replaying = false
   private ask: AskPermission | null = null
@@ -71,7 +74,9 @@ export class AcpAgentSession {
     private readonly cwd: string,
     private agentSessionId: string | null,
     private state: ChatAgentSessionState,
-    private readonly hooks: AcpAgentSessionHooks
+    private readonly hooks: AcpAgentSessionHooks,
+    /** The connection that made the Codex thread `agentSessionId` names: ACP never replaces a Direct one. */
+    private threadConnection: CodexConnection | null = null
   ) {}
 
   /** Starts the server and opens (or reopens) its session, once. */
@@ -108,29 +113,34 @@ export class AcpAgentSession {
     const aborted = whenAborted(signal)
     try {
       // A Stop while the server starts ends the turn now; the start goes on for the next one.
-      const running = await Promise.race([this.ensureStarted(), aborted.promise])
+      const running = await Promise.race([this.startForTurn(signal), aborted.promise])
       if (!running || signal.aborted) return 'cancelled'
       this.clearIdle()
       const prompt = await this.promptFor(typeof blocks === 'function' ? blocks() : blocks, running.capabilities.promptCapabilities)
       if (signal.aborted) return 'cancelled'
       this.ask = ask
       this.turnSignal = signal
-      const request = running.conn.agent.request(acp.methods.agent.session.prompt, { sessionId: running.agentSessionId, prompt })
+      const conn = running.conn
+      const request = conn instanceof CodexAppServer
+        ? conn.prompt(prompt)
+        : conn.agent.request(acp.methods.agent.session.prompt, { sessionId: running.agentSessionId, prompt })
       const answeredAtAll = request.then(
         () => true,
         () => true
       )
       const cancelled = aborted.promise.then(async () => {
-        void running.conn.agent.notify(acp.methods.agent.session.cancel, { sessionId: running.agentSessionId }).catch(() => undefined)
+        if (conn instanceof CodexAppServer) conn.cancel()
+        else void conn.agent.notify(acp.methods.agent.session.cancel, { sessionId: running.agentSessionId }).catch(() => undefined)
         const ended = await Promise.race([answeredAtAll, Bun.sleep(this.cancelGraceMs).then(() => false)])
         if (!ended && this.running === running) {
           log(`${this.agent} ignored a cancel for ${this.cancelGraceMs}ms; stopping its server`)
-          this.stopProcess()
+          await this.stopProcess()
         }
         return 'cancelled' as const
       })
       // A cancelled turn whose server was stopped fails its request; that is still just a Stop.
-      const answered = request.catch((error: unknown) => {
+      const answered = request.catch(async (error: unknown) => {
+        if (conn instanceof CodexAppServer && conn.closed && this.running === running) await this.stopProcess()
         if (signal.aborted) return 'cancelled' as const
         throw error
       })
@@ -161,7 +171,10 @@ export class AcpAgentSession {
 
   async setOption(optionId: string, value: string): Promise<void> {
     const { conn, agentSessionId: sessionId } = await this.ensureStarted()
-    if (optionId === CHAT_AGENT_OPTION_IDS.mode) {
+    if (conn instanceof CodexAppServer) {
+      conn.setOption(optionId, value)
+      this.setState({ options: conn.options() })
+    } else if (optionId === CHAT_AGENT_OPTION_IDS.mode) {
       await conn.agent.request(acp.methods.agent.session.setMode, { sessionId, modeId: value })
       this.patchOption(optionId, value)
     } else if (optionId === CHAT_AGENT_OPTION_IDS.model) {
@@ -182,10 +195,27 @@ export class AcpAgentSession {
   dispose(): void {
     this.disposed = true
     this.clearIdle()
-    this.stopProcess()
+    void this.stopProcess()
+  }
+
+  private async startForTurn(signal: AbortSignal): Promise<Running | null> {
+    if (this.agent === 'codex') {
+      // Let a previous warm start finish before making a connection decision for this turn.
+      const running = this.running ?? await this.starting?.catch(() => null)
+      if (running && !signal.aborted) {
+        const choice = await codexConnection()
+        const direct = running.conn instanceof CodexAppServer
+        if (direct !== (choice === 'app-server') || (running.conn instanceof CodexAppServer && running.conn.closed)) {
+          await this.stopProcess()
+        }
+      }
+    }
+    return signal.aborted ? null : this.ensureStarted()
   }
 
   private async start(): Promise<Running> {
+    await this.stopping
+    if (this.disposed) throw new Error('The chat closed while its agent started')
     this.setState({ phase: 'starting', error: null })
     const resolved = await resolveChatAgent(this.agent)
     if (resolved.status !== 'ready') return this.fail(resolved.detail)
@@ -202,26 +232,34 @@ export class AcpAgentSession {
     })
     trackChild(proc)
     void pipeStderr(proc.stderr, this.agent)
-    const conn = acp
-      .client({ name: 'zomfy' })
-      .onRequest('session/request_permission', (ctx) => this.permission(ctx.params))
-      .onNotification('session/update', (ctx) => this.onUpdate(ctx.params))
-      .connect(acp.ndJsonStream(stdinWriter(proc.stdin), proc.stdout))
-    void proc.exited.then((code) => {
-      log(`${this.agent} ACP server exited (${code})`)
-      conn.close()
+    const connection = resolved.codexConnection ?? 'acp'
+    const input = stdinWriter(proc.stdin)
+    const conn = connection === 'app-server'
+      ? new CodexAppServer(input, proc.stdout, (update) => this.hooks.emit(update), (request) => this.permission(request))
+      : acp.client({ name: 'zomfy' })
+        .onRequest('session/request_permission', (ctx) => this.permission(ctx.params))
+        .onNotification('session/update', (ctx) => this.onUpdate(ctx.params))
+        .connect(acp.ndJsonStream(input, proc.stdout))
+    void proc.exited.then(async (code) => {
+      log(`${this.agent} ${connection} server exited (${code})`)
+      if (conn instanceof CodexAppServer) await conn.drained
+      else conn.close()
       if (this.running?.proc === proc) this.running = null
     })
 
     try {
-      const init = await conn.agent.request(acp.methods.agent.initialize, {
-        protocolVersion: acp.PROTOCOL_VERSION,
-        // No fs or terminal: the agent edits and runs commands itself, on this same host.
-        clientCapabilities: { fs: { readTextFile: false, writeTextFile: false }, terminal: false },
-        clientInfo: { name: 'zomfy', title: 'Zomfy', version: '0.0.1' }
-      })
-      const capabilities = init.agentCapabilities ?? {}
-      const { agentSessionId, setup } = await this.openSession(conn, capabilities)
+      const capabilities = conn instanceof CodexAppServer
+        ? CODEX_APP_SERVER_CAPABILITIES
+        : (await conn.agent.request(acp.methods.agent.initialize, {
+          protocolVersion: acp.PROTOCOL_VERSION,
+          // The agent edits and runs commands locally.
+          clientCapabilities: { fs: { readTextFile: false, writeTextFile: false }, terminal: false },
+          clientInfo: { name: 'zomfy', title: 'Zomfy', version: '0.0.1' }
+        })).agentCapabilities ?? {}
+      const opened = conn instanceof CodexAppServer
+        ? { agentSessionId: await this.openCodex(conn, capabilities), options: conn.options() }
+        : await this.openSession(conn, capabilities).then(({ agentSessionId, setup }) => ({ agentSessionId, options: optionsFrom(setup) }))
+      const { agentSessionId, options } = opened
       await this.hooks.ready?.()
       const running: Running = { proc, conn, agentSessionId, capabilities }
       if (this.disposed) {
@@ -231,15 +269,32 @@ export class AcpAgentSession {
       }
       this.running = running
       const saved = this.state.options
-      this.setState({ phase: 'ready', error: null, options: optionsFrom(setup) })
+      this.setState({ phase: 'ready', error: null, options, commands: connection === 'app-server' ? [] : this.state.commands })
       await this.restoreOptions(saved)
       this.armIdle()
       return running
     } catch (error) {
+      conn.close()
       killTree(proc)
+      if (proc.exitCode === null) proc.kill()
       const message = error instanceof Error ? error.message : String(error)
       return this.fail(/auth/i.test(message) ? `${label} is not signed in on this host: ${message}` : message)
     }
+  }
+
+  private async openCodex(conn: CodexAppServer, capabilities: acp.AgentCapabilities): Promise<string> {
+    const id = await conn.open(this.cwd, this.agentSessionId, this.hooks.mcpServers?.(capabilities) ?? [])
+    if (id !== this.agentSessionId) {
+      this.agentSessionId = id
+      this.hooks.onAgentSessionId(id)
+      this.madeThread('app-server')
+    }
+    return id
+  }
+
+  private madeThread(connection: CodexConnection): void {
+    this.threadConnection = connection
+    this.hooks.onCodexConnection?.(connection)
   }
 
   /** Reopens the conversation a restarted server left behind, or starts one. */
@@ -265,8 +320,10 @@ export class AcpAgentSession {
           }
         }
       } catch (error) {
+        if (this.threadConnection === 'app-server') throw error
         log(`${this.agent} could not reopen ${previous}: ${String(error)}`)
       }
+      if (this.threadConnection === 'app-server') throw new Error('The ACP adapter cannot reopen this Codex thread')
       await this.hooks.emit({
         sessionUpdate: 'notice',
         severity: 'warning',
@@ -276,6 +333,7 @@ export class AcpAgentSession {
     const created = await conn.agent.request(acp.methods.agent.session.new, { cwd: this.cwd, mcpServers })
     this.agentSessionId = created.sessionId
     this.hooks.onAgentSessionId(created.sessionId)
+    if (this.agent === 'codex') this.madeThread('acp')
     if (previous) await this.hooks.onConversationLost?.()
     return { agentSessionId: created.sessionId, setup: created }
   }
@@ -284,10 +342,12 @@ export class AcpAgentSession {
   private async restoreOptions(saved: ChatAgentOption[]): Promise<void> {
     for (const option of saved) {
       const now = this.state.options.find((o) => o.id === option.id)
+        ?? (this.agent === 'codex' && (option.category === 'model' || option.category === 'thought_level')
+          ? this.state.options.find((o) => o.category === option.category) : undefined)
       if (!now || now.currentValue === option.currentValue) continue
       if (!now.choices.some((c) => c.value === option.currentValue)) continue
-      await this.setOption(option.id, option.currentValue).catch((error) =>
-        log(`restoring ${option.id} failed: ${String(error)}`)
+      await this.setOption(now.id, option.currentValue).catch((error) =>
+        log(`restoring ${now.id} failed: ${String(error)}`)
       )
     }
   }
@@ -369,7 +429,7 @@ export class AcpAgentSession {
 
   private armIdle(): void {
     this.clearIdle()
-    this.idleTimer = setTimeout(() => this.stopProcess(), IDLE_EXIT_MS)
+    this.idleTimer = setTimeout(() => void this.stopProcess(), IDLE_EXIT_MS)
   }
 
   private clearIdle(): void {
@@ -377,15 +437,23 @@ export class AcpAgentSession {
     this.idleTimer = null
   }
 
-  private stopProcess(): void {
+  private stopProcess(): Promise<void> {
     const running = this.running
+    if (!running) return this.stopping ?? Promise.resolve()
     this.running = null
-    if (!running) return
     running.conn.close()
-    // Closing stdin is how ACP servers (OpenCode 2.x's private child too) are asked to exit.
+    // Wait for the old process to release any thread lock before opening the other transport.
     void Promise.resolve(running.proc.stdin.end()).catch(() => undefined)
-    const timer = setTimeout(() => killTree(running.proc), 3_000)
-    void running.proc.exited.finally(() => clearTimeout(timer))
+    const timer = setTimeout(() => {
+      killTree(running.proc)
+      if (running.proc.exitCode === null) running.proc.kill()
+    }, 3_000)
+    const stopped = running.proc.exited.then(() => {
+      clearTimeout(timer)
+      if (this.stopping === stopped) this.stopping = null
+    })
+    this.stopping = stopped
+    return stopped
   }
 }
 
