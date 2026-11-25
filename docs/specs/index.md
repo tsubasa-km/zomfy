@@ -32,3 +32,4 @@
 * [Wake a Claude chat when its background work finishes](background-task-wake.md) - a turn that ends with background tasks running keeps its Claude process, and the chat resumes on its own when a task finishes
 * [Tool calls a stopped turn leaves open read as stopped](stopped-tool-calls.md) - Stop, a failed turn or a daemon restart closes every pending or running tool call as stopped, live and on replay
 * [The Next steps card](next-steps-card.md) - the card a turn ends with: recap sections open by default, "Ask to do this" and "Add to Inbox" that say what they do
+* [Direct Codex connection](codex-app-server.md) - Choose how a host runs Codex chats, through ACP or directly through Codex App Server.
