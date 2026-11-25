@@ -33,7 +33,12 @@ afterAll(async () => {
 }, 30_000);
 
 async function worktreeWorkspace(name: string) {
-  const project = (await manager.snapshot()).projects[0] ?? (await manager.addProject(repo));
+  let project = (await manager.snapshot()).projects[0]
+  if (!project) {
+    project = await manager.addProject(repo)
+    // Worktrees go under the test's own folder, never the person's ~/zomfy/workspaces.
+    await manager.updateProject(project.id, { worktreeRoot: join(root, "worktrees") })
+  }
   const workspace = await manager.createWorkspace({ projectId: project.id, name, branchName: `t/${name}` });
   return workspace;
 }
