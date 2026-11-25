@@ -2,12 +2,12 @@
 type: Spec
 title: Direct Codex connection
 description: Choose how a host runs Codex chats, through ACP or directly through Codex App Server.
-status: draft
-x-zomfy-implementation: planned
+status: stable
+x-zomfy-implementation: in-progress
 tags: [chat, codex, daemon, desktop]
 sources:
   - id: request
-    resource: Feature request in the Zomfy development conversation on 2026-11-25
+    resource: Feature request and approved connection behavior in the Zomfy development conversation on 2026-11-25
     title: Keep both Codex connections selectable
   - id: app-server
     resource: https://learn.chatgpt.com/docs/app-server

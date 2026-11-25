@@ -1,5 +1,5 @@
-// Agents a chat tab can run. Claude runs in-process through the Agent SDK; every other agent is an
-// external ACP server the daemon spawns on its own host (Orca's acp-launch-specs). Ids are the
+// Agents a chat tab can run. Claude uses the Agent SDK. The daemon spawns the other agents on
+// their host and talks to them over ACP or, for Codex, App Server. Ids are the
 // terminal catalog's (tui-agents.ts), so icons, labels and detection are shared.
 
 import { tuiAgentSpec } from './tui-agents'
@@ -42,6 +42,8 @@ export function isUntitledChat(title: string): boolean {
  *  `needs-consent`: a guarded agent (GUARDED_CHAT_AGENTS) the person has not turned on for this host. */
 export type ChatAgentStatus = 'ready' | 'missing' | 'needs-adapter' | 'unsupported' | 'needs-consent'
 
+export type CodexConnection = 'acp' | 'app-server'
+
 export interface ChatAgentInfo {
   id: ChatAgentId
   label: string
@@ -60,6 +62,15 @@ export interface ChatAgentInfo {
   update?: ChatAgentUpdate | null
   /** For a guarded agent: whether the person turned it on for this host. Absent on the others. */
   consent?: boolean
+  /** Present when this daemon supports selecting how Codex connects. */
+  codexConnection?: CodexConnection
+}
+
+export interface ChatAgentLaunchPatch {
+  command?: string | null
+  env?: { name: string; value: string | null }
+  consent?: boolean
+  codexConnection?: CodexConnection
 }
 
 export interface ChatAgentUpdate {
@@ -104,7 +115,7 @@ export interface ChatAgentRequests {
   [CHAT_AGENT_METHODS.chatAgentsList]: { params: { refresh?: boolean }; result: ChatAgentInfo[] }
   /** `env.value: null` removes the variable; `command: null` restores the catalog command; `consent` turns a guarded agent on or off. */
   [CHAT_AGENT_METHODS.chatAgentSetLaunch]: {
-    params: { agent: ChatAgentId; command?: string | null; env?: { name: string; value: string | null }; consent?: boolean }
+    params: { agent: ChatAgentId } & ChatAgentLaunchPatch
     result: ChatAgentInfo[]
   }
 }
