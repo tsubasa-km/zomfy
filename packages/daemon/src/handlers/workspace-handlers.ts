@@ -99,15 +99,16 @@ export function registerWorkspaceHandlers({ handle, workspaces, sessions, termin
     return {};
   });
   handle(HARNESS_METHODS.workspaceSummaries, async () => {
-    const baseRefs = new Map<string, Promise<string>>();
+    const refs = new Map<string, Promise<[string, string]>>();
     const summaries = await Promise.all(
       workspaces
         .projectWorkspaces()
         .filter(({ project }) => project.kind === "git")
         .map(async ({ workspace, project }) => {
-          let base = baseRefs.get(project.id);
-          if (!base) baseRefs.set(project.id, (base = workspaces.baseRefOf(project)));
-          return workspaceSummary(workspace, await base).catch(() => null);
+          let pair = refs.get(project.id);
+          if (!pair) refs.set(project.id, (pair = Promise.all([workspaces.baseRefOf(project), workspaces.mergeTargetOf(project)])));
+          const [base, target] = await pair;
+          return workspaceSummary(workspace, base, target).catch(() => null);
         }),
     );
     return summaries.filter((s): s is WorkspaceSummary => s !== null);
@@ -115,6 +116,6 @@ export function registerWorkspaceHandlers({ handle, workspaces, sessions, termin
   handle(HARNESS_METHODS.workspaceInspect, async (p) => {
     const { workspace, project } = workspaces.requireWorkspace(p.workspaceId);
     if (project.kind !== "git") return { modifiedFiles: 0, untrackedFiles: 0, unpushedCommits: null };
-    return inspectWorkspace(workspace, await workspaces.baseRefOf(project));
+    return inspectWorkspace(workspace, await workspaces.mergeTargetOf(project));
   });
 }

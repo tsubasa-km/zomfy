@@ -83,6 +83,17 @@ export class WorkspaceManager {
     return project.defaultBaseRef || (await defaultBaseRef(project.path))
   }
 
+  /**
+   * The branch work is finished into, which "merged" is judged against: the project's override, else
+   * the main checkout's current branch (what finish_worktree merges into), else the base ref.
+   */
+  async mergeTargetOf(project: Project): Promise<string> {
+    if (project.mergeTarget) return project.mergeTarget
+    const primary = this.state.workspaces.find((w) => w.projectId === project.id && w.isPrimary)
+    const branch = primary && existsSync(primary.path) ? await currentBranch(primary.path) : null
+    return branch || (await this.baseRefOf(project))
+  }
+
   isScratch(workspaceId: string | null): boolean {
     return this.state.workspaces.some((w) => w.id === workspaceId && w.scratch)
   }
@@ -200,7 +211,7 @@ export class WorkspaceManager {
 
   async updateProject(projectId: string, patch: ProjectPatch): Promise<Project> {
     const project = this.requireProject(projectId)
-    for (const key of ['displayName', 'defaultBaseRef', 'worktreeRoot', 'groupId'] as const) {
+    for (const key of ['displayName', 'defaultBaseRef', 'worktreeRoot', 'groupId', 'mergeTarget'] as const) {
       if (!(key in patch)) continue
       const value = patch[key]?.trim()
       if (value) project[key] = value
@@ -215,6 +226,11 @@ export class WorkspaceManager {
       if (!(key in patch)) continue
       if (patch[key] === false) project[key] = false
       else delete project[key]
+    }
+    if ('cleanup' in patch) {
+      const cleanup = Object.fromEntries(Object.entries(patch.cleanup ?? {}).filter(([, v]) => v !== undefined && v !== null))
+      if (Object.keys(cleanup).length > 0) project.cleanup = cleanup
+      else delete project.cleanup
     }
     if ('hooks' in patch) {
       const setup = patch.hooks?.setup?.trim()
