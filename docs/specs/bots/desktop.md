@@ -32,6 +32,8 @@ bots ask. The first test path is Zomfy itself, so talking to a bot must work wit
 - A bot chat is an ordinary chat (composer, transcript, approvals, Stop) with a header showing the
   bot and, for chats started elsewhere, where it came from ("from Discord · #eng · asked by
   Alex") with a link that opens the thread in the browser.
+- The phone app starts a bot chat the same way, from its Bots screen
+  ([bots in the phone app](../mobile/bots.md)); the chat then shows in the windows like any other.
 - Typing `@<handle>` at the start of a prompt in any chat sends that prompt to the bot as a new bot
   chat, with a link back to the chat it came from.
 - Bot chats and the workers they start have `origin: 'bot'`; the normal project lists leave them

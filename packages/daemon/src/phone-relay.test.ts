@@ -139,6 +139,8 @@ describe("phone relay", () => {
     expect((refused.error as { code: number }).code).toBe(SCOPE_REFUSED_CODE);
     const prompt = await phone.request("session/prompt", { sessionId: "s1", prompt: [] });
     expect((prompt.error as { code: number }).code).toBe(SCOPE_REFUSED_CODE);
+    const botChat = await phone.request("_harness/bots/chatCreate", { id: "bot-1", text: "hi" });
+    expect((botChat.error as { code: number }).code).toBe(SCOPE_REFUSED_CODE);
   });
 
   test("a replayed ciphertext frame closes the channel on the daemon side", async () => {

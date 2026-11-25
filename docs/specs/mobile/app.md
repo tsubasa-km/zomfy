@@ -98,6 +98,8 @@ M2 (relay, connection and offline):
   secure storage. A queued prompt shows as a chip that removes it; on each connect the queue is sent
   in order, one turn at a time. A prompt leaves the queue as it is sent, so a connection lost
   mid-turn never sends it twice (at most once); one that surely did not leave goes back first in line.
+- Bots ([bots in the phone app](bots.md)): the Host screen's Bots row opens a Bots screen that
+  starts a bot chat from a first message; bot chats show their bot in the host tree.
 - Not in yet: cached host, workspace and chat lists and transcripts for offline reading (a reconnect
   replays the open chat with `session/load` as before). Not yet tried on a phone switching from
   Wi-Fi to mobile data.

@@ -1,7 +1,8 @@
 import type { ReactNode } from 'react'
-import { ActivityIndicator, Pressable, StyleSheet, Text, View, type StyleProp, type ViewStyle } from 'react-native'
+import { ActivityIndicator, Image, Pressable, StyleSheet, Text, View, type StyleProp, type ViewStyle } from 'react-native'
 import { router, usePathname } from 'expo-router'
-import type { RemoteRoute, SessionStatus } from '@zomfy/protocol'
+import type { Bot, RemoteRoute, SessionStatus } from '@zomfy/protocol'
+import { botAvatar, botColour } from '../lib/bots'
 import type { ConnectionStatus } from '../lib/host-connection'
 import { useNeedsYouTotal } from './hooks'
 import { t } from './i18n'
@@ -158,3 +159,15 @@ export const styles = StyleSheet.create({
   tabText: { color: colors.muted, fontSize: 14, fontWeight: '600' },
   tabTextActive: { color: colors.accent }
 })
+
+/** A bot's round avatar: its picture, or one or two characters on its colour. */
+export function BotAvatar({ bot, size = 28 }: { bot: Pick<Bot, 'name' | 'handle' | 'avatar'>; size?: number }) {
+  const view = botAvatar(bot)
+  const round = { width: size, height: size, borderRadius: size / 2 }
+  if (view.kind === 'image') return <Image source={{ uri: view.uri }} style={round} accessibilityIgnoresInvertColors />
+  return (
+    <View style={[round, { alignItems: 'center', justifyContent: 'center', backgroundColor: bot.avatar ? colors.surfaceRaised : botColour(bot.handle) }]}>
+      <Text style={{ color: '#fff', fontSize: Math.round(size * 0.45), fontWeight: '700' }}>{view.text}</Text>
+    </View>
+  )
+}
