@@ -3,7 +3,7 @@ type: Spec
 title: Thinking that holds the answer shows open
 description: When a turn's reply is short and its last thinking is long, the chat shows that thinking expanded, as markdown marked as thinking; a setting picks collapsed, expand when the reply is short (default), or always expanded.
 status: stable
-x-zomfy-implementation: in-progress
+x-zomfy-implementation: done
 tags: [chat, desktop, transcript, settings]
 generated: { by: "claude-code/opus-5.5", at: "2026-11-25T00:00:00Z" }
 ---
