@@ -1,6 +1,8 @@
 # Directory Update Log
 
 ## 2026-11-25
+* **Creation**: [A GitHub or GitLab account per project](specs/project-hosting-accounts.md), implemented: `Project.hostingAccount`, the host's gh/glab accounts and GitLab tokens Zomfy keeps in the OS credential store, the account's token in the environment of Zomfy's gh/glab calls and of the project's agents, a repo-local git credential helper for HTTPS pushes, and an Account field in Project Settings.
+* **Creation**: [The Add a project dialog](specs/add-project-dialog.md), implemented: one dialog with Open folder, Clone and New repository tabs, a host row only when there are several hosts, what the folder is shown as it is typed, the account picked as the project is added, and publishing a new repository to GitHub.
 * **Creation**: [The master bot](specs/bots/master-bot.md), implemented: the daemon registers Zomfy (@zomfy) once per host as a manager bot, the Default bot unless another is, and never again once deleted; a manager bot's chats get the Manager chat's tools, its rules a Manager section, and the desktop a Master badge and a Manager across projects switch.
 * **Update**: [Skills and connectors in the composer](specs/composer-skills-and-connectors.md) is implemented: `ChatCommand.kind` from the probe's skills list, the `/` menu's Commands, Skills and MCP prompts groups, Skill and Connector in the `+` menu, connected MCP servers in the `@` menu, and `@mcp:` chips the daemon turns into an instruction for the agent.
 * **Creation**: [Skills and connectors in the composer](specs/composer-skills-and-connectors.md), draft.

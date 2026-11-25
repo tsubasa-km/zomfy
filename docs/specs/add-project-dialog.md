@@ -2,8 +2,8 @@
 type: Spec
 title: The Add a project dialog
 description: One compact dialog with three tabs (Open folder, Clone, New repository), the host as a light inline choice shown only when there is more than one, and the project's GitHub or GitLab account picked as it is added.
-status: draft
-x-zomfy-implementation: planned
+status: stable
+x-zomfy-implementation: done
 tags: [projects, desktop, onboarding, hosting]
 generated: { by: "claude-code/opus-5.5", at: "2026-11-25T00:00:00Z" }
 ---
@@ -23,7 +23,7 @@ One dialog, `sm:max-w-xl`, the same look as Project Settings (shadcn inputs, sel
 
 ```
 Add a project                                              [x]
-On  (●This computer) (●WSL: Ubuntu) (○devbox · Connect) (+ SSH)
+Where  (●This computer) (●WSL) (○devbox) (+)
 [ Open folder | Clone | New repository ]
   …the tab's fields…
   Account  [ tsubasa-km ▾ ]          (when there is a GitHub/GitLab remote)
@@ -36,10 +36,10 @@ Import from Orca…                               [Cancel] [Add project]
 - Shown only when more than one host is known (this computer plus a WSL distro, an SSH or remote
   host). With one host nothing about hosts is shown, and the footer offers "On another machine…",
   which opens Connect SSH host.
-- Each host is a small pill with a dot: green connected, pulsing amber connecting, hollow not
-  connected. Clicking a connected host selects it; clicking a not-connected one connects it and
-  selects it once connected. "+ SSH" opens Connect SSH host; the new host is selected when it
-  connects. WSL distros the app has not started are listed as not connected.
+- Each host is a small pill with a dot: green connected, a spinner while connecting, hollow not
+  connected (its tooltip says "click to connect"). Clicking a connected host selects it; clicking a
+  not-connected one connects it and selects it once connected. The round "+" opens Connect SSH
+  host; the new host is selected when it connects. WSL distros the app has not started are listed as not connected.
 - Default: the host the request names, else the active workspace's host when connected, else the
   Default host setting (`lib/default-host.ts`).
 - Changing host keeps what was typed; paths and accounts are read again on the new host.

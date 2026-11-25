@@ -2,8 +2,8 @@
 type: Spec
 title: A GitHub or GitLab account per project
 description: Each project can pick which GitHub or GitLab account Zomfy, its agents and git use for its remote, without switching the CLI's global account; GitLab tokens Zomfy holds itself live in the OS credential store.
-status: draft
-x-zomfy-implementation: planned
+status: stable
+x-zomfy-implementation: done
 tags: [projects, hosting, github, gitlab, git, daemon, desktop]
 generated: { by: "claude-code/opus-5.5", at: "2026-11-25T00:00:00Z" }
 ---
@@ -134,5 +134,5 @@ The Add a project dialog uses the same field ([its spec](add-project-dialog.md))
   inactive accounts), parsing `glab auth status` (JSON and text, a failing host), the environment
   for github.com, GHES and GitLab, the credential helper's config entries and their removal, the
   account matching the remote, and the token store with a fake keyring that fails over to the file.
-- Hosting calls for a project with an account run with its env (a fake runner sees `GH_TOKEN`).
+- A project's account turns into `GH_TOKEN` from `gh auth token --hostname <host> --user <login>` (a fake runner sees the call), and a temporary repository's config gains and loses exactly Zomfy's helper entries.
 - In the preview, Project Settings shows the Account field with this host's accounts.
