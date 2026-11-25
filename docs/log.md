@@ -1,6 +1,7 @@
 # Directory Update Log
 
 ## 2026-11-25
+* **Update**: [Worktree skills and storage](specs/worktree-skills-and-storage.md) is stable with the person's decisions: skills per project, merged-into is the main checkout's branch, automatic cleanup on, no free-space thresholds.
 * **Update**: [Direct Codex connection](specs/codex-app-server.md) is implemented with a per-host setting and thread continuation when switching between turns.
 * **Creation**: [Direct Codex connection](specs/codex-app-server.md), planned.
 * **Creation**: [Zomfy's own skills, and worktrees that do not fill the disk](specs/worktree-skills-and-storage.md), draft, from the research note [Worktree skills and worktree storage](research/worktree-skills-and-storage.md).
