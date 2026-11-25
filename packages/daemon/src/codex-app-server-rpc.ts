@@ -1,3 +1,5 @@
+import { log } from './log.ts'
+
 // Codex App Server uses newline-delimited JSON-RPC envelopes with no "jsonrpc" property.
 export type CodexFields = Record<string, unknown>
 type RequestId = number | string
@@ -5,6 +7,9 @@ type Pending = { resolve: (value: CodexFields) => void; reject: (error: Error) =
 
 const REQUEST_TIMEOUT_MS = 60_000
 const MAX_LINE_CHARS = 32 * 1024 * 1024
+
+/** The server answered a request with a JSON-RPC error: the request failed, the connection is fine. */
+export class CodexRpcError extends Error {}
 
 export function fields(value: unknown): CodexFields {
   return value && typeof value === 'object' && !Array.isArray(value) ? value as CodexFields : {}
@@ -94,13 +99,25 @@ export class CodexAppServerRpc {
   private receive(line: string): void {
     if (!line.trim() || this.closed) return
     if (line.length > MAX_LINE_CHARS) throw new Error('Codex App Server sent an oversized frame')
-    const message = fields(JSON.parse(line))
+    let parsed: unknown
+    try {
+      parsed = JSON.parse(line)
+    } catch {
+      // A stray line (a warning printed to stdout) is not a frame; the connection goes on.
+      log(`Codex App Server sent a line that is not JSON: ${line.slice(0, 200)}`)
+      return
+    }
+    const message = fields(parsed)
     const id = message.id
     const method = string(message.method)
     const params = fields(message.params)
     if (method) {
       if (typeof id === 'number' || typeof id === 'string') {
-        void this.answer(id, method, params).catch((error: unknown) => this.close(asError(error)))
+        // An ask follows the notifications before it (its item's tool call), but is not waited for:
+        // later notifications (an interrupt's turn/completed) go on while the person decides.
+        this.updates = this.updates.then(() => {
+          if (!this.closed) void this.answer(id, method, params).catch((error: unknown) => this.close(asError(error)))
+        })
       } else {
         this.updates = this.updates.then(async () => {
           if (!this.closed) await this.notify(method, params)
@@ -113,7 +130,7 @@ export class CodexAppServerRpc {
     if (!pending) return
     this.pending.delete(id)
     clearTimeout(pending.timer)
-    if (message.error) pending.reject(new Error(string(fields(message.error).message) || 'Codex App Server rejected the request'))
+    if (message.error) pending.reject(new CodexRpcError(string(fields(message.error).message) || 'Codex App Server rejected the request'))
     else pending.resolve(fields(message.result))
   }
 
