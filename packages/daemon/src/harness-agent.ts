@@ -42,6 +42,7 @@ import { explainClaudeFailure } from "./claude-executable.ts";
 import { registerTurnRecoveryHandlers } from "./handlers/turn-recovery-handlers.ts";
 import { AcpAgentSessions } from "./acp-agent-sessions.ts";
 import { chatAgentLaunch, claudeChromeOn } from "./chat-agent-launch-settings.ts";
+import { WRAP_UP_DONE, WRAP_UP_NO_ANSWER, repliedThisTurn } from "./wrap-up-reply.ts";
 import { noteSlashCommands } from "./claude-catalog.ts";
 import { liveClaudeQueries } from "./live-claude-queries.ts";
 import { BackgroundTaskMarks } from "./background-task-marks.ts";
@@ -293,10 +294,10 @@ export function createHarnessAgent(
   // The call itself is the card: the window draws it from the call's input, so nothing waits here.
   localTools.set("wrap_up", {
     offeredTo: () => true,
-    route: async (_caller, _tool, args) =>
-      normalizeWrapUp(args)
-        ? { result: "Shown to the person as a Next steps card under your reply. End the turn now without repeating your answer (one short line at most)." }
-        : { result: "Nothing to show: give a summary and at least one step ({ owner, text }).", isError: true },
+    route: async (caller, _tool, args) => {
+      if (!normalizeWrapUp(args)) return { result: "Nothing to show: give a summary and at least one step ({ owner, text }).", isError: true };
+      return { result: repliedThisTurn(await sessions.transcript(caller)) ? WRAP_UP_DONE : WRAP_UP_NO_ANSWER };
+    },
   });
 
   /** Recorded for replay, then sent to every client so a reconnected window sees live turns. */
