@@ -1,4 +1,5 @@
-import { RefreshCw } from 'lucide-react'
+import { LogIn, RefreshCw } from 'lucide-react'
+import { signInToClaude } from '@/chat-actions'
 import type { ProviderUsageLimits, UsageLimitWindow } from '@zomfy/protocol'
 import type { HostId } from '@/session-store'
 import { refreshUsageLimits, useUsageLimits } from '@/stores/usage-limits-store'
@@ -28,7 +29,16 @@ function planName(plan: string | null): string {
   return plan ? plan.charAt(0).toUpperCase() + plan.slice(1) : ''
 }
 
-export function ProviderLimits({ provider, compact = false }: { provider: ProviderUsageLimits; compact?: boolean }) {
+export function ProviderLimits({
+  provider,
+  compact = false,
+  onSignIn
+}: {
+  provider: ProviderUsageLimits
+  compact?: boolean
+  /** Where a chat is known: opens Claude Code's login when Claude's sign-in is missing or expired. */
+  onSignIn?: () => void
+}) {
   return (
     <div className="space-y-1.5" data-usage-provider={provider.provider}>
       <div className="flex items-baseline gap-2">
@@ -41,6 +51,12 @@ export function ProviderLimits({ provider, compact = false }: { provider: Provid
         </p>
       )}
       {provider.status === 'error' && <p className="text-[11px] break-words text-status-warning">{provider.error ?? t('Could not read the limits.')}</p>}
+      {provider.status === 'error' && provider.signedOut && provider.provider === 'claude' && onSignIn && (
+        <Button type="button" size="xs" variant="outline" data-usage-claude-sign-in onClick={onSignIn}>
+          <LogIn />
+          {t('Sign in to Claude')}
+        </Button>
+      )}
       {provider.windows.map((window) => (
         <div key={`${window.id}:${window.label ?? ''}`} className="space-y-0.5">
           <div className="flex items-baseline gap-2">
@@ -78,7 +94,11 @@ export function UsageLimitsSection({ hostId, sessionId }: { hostId: HostId; sess
     >
       <div className="space-y-3" data-session-usage-limits>
         {limits.providers.map((provider) => (
-          <ProviderLimits key={provider.provider} provider={provider} />
+          <ProviderLimits
+            key={provider.provider}
+            provider={provider}
+            {...(sessionId ? { onSignIn: () => void signInToClaude(sessionId) } : {})}
+          />
         ))}
         {limits.providers.length === 0 && (
           <p className="text-muted-foreground">{limits.loading ? t('Reading the limits…') : (limits.error ?? t('No limits to show.'))}</p>

@@ -14,6 +14,7 @@ import {
 import {
   CHAT_META,
   TURN_RECOVERY_META,
+  type ChatEffort,
   type ChatPermissionMode,
   type ContextUsageMeta,
   type SessionOptions,
@@ -21,7 +22,7 @@ import {
   type WorkflowStepContext,
   type WorkflowStepUsage,
 } from "@zomfy/protocol";
-import { CLAUDE_CHROME_ARGS, explainClaudeFailure, resolveClaudeExecutable } from "./claude-executable.ts";
+import { CLAUDE_CHROME_ARGS, explainClaudeFailure, isClaudeSignedOut, resolveClaudeExecutable, signedOutNotice } from "./claude-executable.ts";
 import { CHAT_ATTACHMENT_DIR, deferAttachmentMentions } from "./chat-attachment-files.ts";
 import { detectUsageLimit } from "./usage-limit.ts";
 import { noteClaudeTurnEnded } from "./usage-limits.ts";
@@ -84,6 +85,16 @@ interface TurnInput {
   onWake?: (notification: string) => void;
   /** The chat's live background tasks changed (their descriptions; empty when none run any more). */
   onBackgroundTasks?: (tasks: string[]) => void;
+  /** A turn run with no effort picked ended at this level: Claude's default for `model` (null: the default model). */
+  onDefaultEffort?: (found: { model: string | null; effort: ChatEffort }) => void;
+}
+
+const EFFORT_LEVELS: readonly ChatEffort[] = ["low", "medium", "high", "xhigh", "max"];
+
+/** The effort a hook's input says the turn ran at, when it is one Zomfy knows. */
+export function turnEffort(hookInput: unknown): ChatEffort | null {
+  const level = (hookInput as { effort?: { level?: unknown } } | null)?.effort?.level;
+  return EFFORT_LEVELS.find((e) => e === level) ?? null;
 }
 
 export interface StepOptions {
@@ -413,9 +424,24 @@ async function spawn(input: TurnInput, userMessage: SDKUserMessage): Promise<acp
       ...(input.step?.skills ? { skills: input.step.skills } : {}),
       ...(input.step?.strictMcpConfig ? { strictMcpConfig: true } : {}),
       ...(input.step?.outputFormat ? { outputFormat: input.step.outputFormat } : {}),
-      ...(input.step?.guards?.length || input.worktreeGuards
-        ? { hooks: pathGuardHooks(() => [...(input.step?.guards ?? []), ...(input.worktreeGuards?.() ?? [])]) }
-        : {}),
+      hooks: {
+        ...(input.step?.guards?.length || input.worktreeGuards
+          ? pathGuardHooks(() => [...(input.step?.guards ?? []), ...(input.worktreeGuards?.() ?? [])])
+          : {}),
+        // Claude says the effort a turn ran at only to hooks; with none picked, that is its default
+        // for the model (docs/specs/composer-effort.md). It only reads, so the turn ends as before.
+        Stop: [
+          {
+            hooks: [
+              async (hookInput) => {
+                const level = turnEffort(hookInput);
+                if (level && !effort) proc.last.onDefaultEffort?.({ model: model ?? null, effort: level });
+                return {};
+              },
+            ],
+          },
+        ],
+      },
       ...(input.appendSystemPrompt
         ? { systemPrompt: { type: "preset" as const, preset: "claude_code" as const, append: input.appendSystemPrompt } }
         : {}),
@@ -689,10 +715,17 @@ async function finishTurn(
 ): Promise<acp.StopReason> {
   const failed = async (title: string, errorText: string): Promise<void> => {
     const limit = detectUsageLimit({ text: errorText, assistantError: progress.assistantError, rejected: progress.rejected });
-    const end: TurnEndMeta = limit ? { reason: "usage-limit", resetsAt: limit.resetsAt } : { reason: "error" };
+    const said = `${title}
+${errorText}`;
+    const signedOut = !limit && isClaudeSignedOut(said, progress.assistantError);
+    const end: TurnEndMeta = limit
+      ? { reason: "usage-limit", resetsAt: limit.resetsAt }
+      : signedOut
+        ? { reason: "error", signIn: "claude" }
+        : { reason: "error" };
     onTurnEnd?.(end);
-    await update({ sessionUpdate: "notice", severity: "error", title: explainClaudeFailure(`${title}
-${errorText}`) ?? title, _meta: { [TURN_RECOVERY_META.turnEnd]: end } });
+    const notice = signedOut ? signedOutNotice(errorText.trim() || title) : (explainClaudeFailure(said) ?? title);
+    await update({ sessionUpdate: "notice", severity: "error", title: notice, _meta: { [TURN_RECOVERY_META.turnEnd]: end } });
   };
   if (message.subtype === "success") {
     // Local commands (/context, /cost…) answer only in the result. A turn that answered through its

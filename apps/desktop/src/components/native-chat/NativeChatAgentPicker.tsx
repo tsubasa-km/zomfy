@@ -102,7 +102,14 @@ export function NativeChatAgentPicker({
                 <TuiAgentIcon agent={current} size={12} />
               </span>
               <span className="truncate text-chat-foreground">{model ?? label}</span>
-              {detail ? <span className="shrink-0">{detail}</span> : null}
+              {detail ? (
+                <span className="shrink-0" data-native-chat-effort-label>
+                  <span aria-hidden className="text-chat-foreground-faint">
+                    ·{' '}
+                  </span>
+                  {detail}
+                </span>
+              ) : null}
               <ChevronDown className="size-3" />
             </Button>
           </PopoverTrigger>

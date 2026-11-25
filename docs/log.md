@@ -45,3 +45,6 @@
 * **Update**: [Usage limits by the context ring, and connector icons](specs/usage-limits-and-connector-icons.md) is implemented.
 * **Creation**: [Retire the acp-harness home and executable name](specs/retire-legacy-home.md), in progress.
 * **Creation**: [Retire the acp-harness home and executable name](specs/retire-legacy-home.md), done.
+* **Creation**: [Signing in to Claude from a chat](specs/claude-sign-in.md), done: a signed-out turn offers "Sign in to Claude" and "Try again".
+* **Creation**: [The thinking effort shows in the composer](specs/composer-effort.md), done.
+* **Update**: [Thinking that holds the answer shows open](specs/visible-thinking.md): thinking now starts expanded by default; [The Next steps card](specs/next-steps-card.md) no longer answers a wrap_up made before any reply differently.

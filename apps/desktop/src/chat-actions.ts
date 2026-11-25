@@ -1,7 +1,7 @@
 import { HARNESS_METHODS, type ChatAgentId, type SessionInfo, type SessionOptions, type TurnResumeKind } from '@zomfy/protocol'
 import { isExternalAgentSession, sessionAgent } from '@/lib/chat-agents'
 import { keepTab } from '@/stores/tab-layout-store'
-import { cancelTurn, continueChatInTerminal, ensureSessionLoaded, harnessRequest, reloadSessionTranscript, sendPrompt } from '@/daemon-connection'
+import { cancelTurn, continueChatInTerminal, ensureSessionLoaded, harnessRequest, openClaudeSignIn, reloadSessionTranscript, sendPrompt } from '@/daemon-connection'
 import {
   addSession,
   getState,
@@ -243,6 +243,19 @@ export async function continueInTerminal(sessionId: string): Promise<void> {
       ...s,
       items: [...s.items, { kind: 'notice', text: error instanceof Error ? error.message : String(error), severity: 'error' }]
     }))
+  }
+}
+
+/** Opens Claude Code's login in a terminal tab on the chat's host; a failure is said in the chat. */
+export async function signInToClaude(sessionId: string): Promise<void> {
+  const source = session(sessionId)
+  if (!source) return
+  try {
+    await openClaudeSignIn(source.id, source.hostId)
+  } catch (error) {
+    const reason = error instanceof Error ? error.message : String(error)
+    const text = t("Couldn't open Claude's sign-in: {error}. Run `claude auth login` in a terminal on this host, then try again.", { error: reason })
+    updateSession(sessionId, (s) => ({ ...s, items: [...s.items, { kind: 'notice', text, severity: 'error' }] }))
   }
 }
 

@@ -57,6 +57,8 @@ export interface ProviderUsageLimits {
   /** ok: windows are filled; unavailable: no plan limits apply (an API key) or no account; error: reading failed. */
   status: 'ok' | 'unavailable' | 'error'
   error?: string
+  /** With status error: the read failed because the account's sign-in is missing or expired. */
+  signedOut?: boolean
   windows: UsageLimitWindow[]
   /** When this was read (epoch ms). */
   updatedAt: number

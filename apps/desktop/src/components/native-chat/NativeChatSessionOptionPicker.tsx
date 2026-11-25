@@ -1,24 +1,16 @@
 import { useId, useRef } from 'react'
 import { Check } from 'lucide-react'
-import type { ChatEffort, ChatModel, SessionOptions } from '@zomfy/protocol'
+import type { ChatModel, SessionOptions } from '@zomfy/protocol'
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command'
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group'
 import { t } from '@/i18n/i18n'
+import { currentChoice, DEFAULT_EFFORT, DEFAULT_MODEL, EFFORT_LABEL, EFFORT_SHORT, type DefaultEffort } from './session-option-labels'
 
 // Ported from Orca's NativeChatSessionOptionPickers, NativeChatModelCombobox and
 // NativeChatSessionOptionRows: Claude's models as a searchable list with the model's effort levels
 // pinned under it. The composer's agent-and-model menu (NativeChatAgentPicker) shows it.
 
-const EFFORT_LABEL: Record<ChatEffort, string> = {
-  low: t('Low'),
-  medium: t('Medium'),
-  high: t('High'),
-  xhigh: t('Extra high'),
-  max: t('Max')
-}
-const EFFORT_SHORT: Record<ChatEffort, string> = { low: t('Low'), medium: t('Med'), high: t('High'), xhigh: t('XHigh'), max: t('Max') }
-/** The CLI's own default, shown when the session names none. */
-const DEFAULT_MODEL = 'default'
+export { sessionOptionLabels, type DefaultEffort } from './session-option-labels'
 
 // Why not cmdk's scorer: it matches scattered letters and reorders the host's list.
 function modelChoiceFilter(value: string, search: string, keywords?: string[]): number {
@@ -27,41 +19,26 @@ function modelChoiceFilter(value: string, search: string, keywords?: string[]): 
   return terms.every((term) => haystack.includes(term)) ? 1 : 0
 }
 
-function currentChoice(options: SessionOptions, models: ChatModel[]): { value: string; model: ChatModel | undefined; effort: ChatEffort | null } {
-  const value = options.model ?? models.find((m) => m.value === DEFAULT_MODEL)?.value ?? DEFAULT_MODEL
-  const model = models.find((m) => m.value === value)
-  return { value, model, effort: options.effort && model?.efforts.includes(options.effort) ? options.effort : null }
-}
-
-/** How the menu's trigger names Claude's options: the model (null when nothing names one), its effort, and both as a screen reader hears them. */
-export function sessionOptionLabels(options: SessionOptions, models: ChatModel[]): { model: string | null; effort: string | null; spoken: string } {
-  const { model, effort } = currentChoice(options, models)
-  const name = model?.displayName ?? options.model
-  const spoken = name ?? t('Model')
-  return {
-    model: name,
-    effort: effort ? EFFORT_SHORT[effort] : null,
-    spoken: effort ? t('Model {model}, Effort {effort}', { model: spoken, effort: EFFORT_LABEL[effort] }) : t('Model {model}', { model: spoken })
-  }
-}
-
 export function NativeChatSessionOptionChoices({
   options,
   models,
   loading,
+  defaultEffort,
   onChange,
   onDone
 }: {
   options: SessionOptions
   models: ChatModel[]
   loading: boolean
+  /** The level Claude's default resolved to on the chat's last turn, named on the Default choice. */
+  defaultEffort?: DefaultEffort
   onChange: (patch: Partial<SessionOptions>) => void
   /** Closes the menu the list sits in. */
   onDone: () => void
 }) {
   const search = useRef<HTMLInputElement>(null)
   const effortLabelId = useId()
-  const { value: currentValue, model: current, effort } = currentChoice(options, models)
+  const { value: currentValue, model: current, effort, resolved } = currentChoice(options, models, defaultEffort)
   const efforts = current?.efforts ?? []
 
   return (
@@ -119,15 +96,24 @@ export function NativeChatSessionOptionChoices({
               spacing={0.5}
               role="radiogroup"
               aria-labelledby={effortLabelId}
-              value={effort ?? ''}
+              value={effort ?? DEFAULT_EFFORT}
               onValueChange={(value) => {
                 // Effort is the last thing set before typing, so a level closes the picker.
                 onDone()
-                const picked = efforts.find((e) => e === value)
-                onChange({ effort: picked ?? null })
+                // Pressing the selected choice again leaves it as it is.
+                if (!value) return
+                const picked = efforts.find((e) => e === value) ?? null
+                if (picked !== effort) onChange({ effort: picked })
               }}
               className="-ml-2 flex-wrap"
             >
+              <ToggleGroupItem
+                value={DEFAULT_EFFORT}
+                title={resolved ? t("Claude's default (now {effort})", { effort: EFFORT_LABEL[resolved] }) : t("Claude's default")}
+                data-effort={DEFAULT_EFFORT}
+              >
+                {t('Default')}
+              </ToggleGroupItem>
               {efforts.map((level) => (
                 <ToggleGroupItem key={level} value={level} title={EFFORT_LABEL[level]} data-effort={level}>
                   {EFFORT_SHORT[level]}

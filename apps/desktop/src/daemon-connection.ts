@@ -620,6 +620,15 @@ export async function continueChatInTerminal(sessionId: string, hostId: HostId):
   return info.id;
 }
 
+/** A terminal tab in the chat's folder running `claude auth login` on its host (docs/specs/claude-sign-in.md). */
+export async function openClaudeSignIn(sessionId: string, hostId: HostId): Promise<string> {
+  const info = await harnessRequest(HARNESS_METHODS.sessionClaudeSignIn, { sessionId }, hostId);
+  const others = getState().terminals.filter((t) => t.hostId === hostId && t.id !== info.id);
+  setTerminals(hostId, [...others, info]);
+  selectTerminal(info.id);
+  return info.id;
+}
+
 /** Live output for one terminal; returns the unsubscribe function. */
 export function subscribeTerminalOutput(terminalId: string, listener: (data: string) => void): () => void {
   const set = terminalOutputListeners.get(terminalId) ?? new Set();
