@@ -30,6 +30,8 @@ export interface Project {
   agentWorkflows?: boolean
   /** false keeps agents in this project from splitting work into parallel worktrees (split_work); unset allows it. */
   agentSplitWork?: boolean
+  /** Claude in Chrome for this project's Claude chats: true or false overrides the host's setting; unset follows it. */
+  claudeChrome?: boolean
 }
 
 /** Orca's project groups: a named folder of projects in the sidebar. */
@@ -42,7 +44,7 @@ export interface ProjectGroup {
 
 /** null (or '') clears a field; JSON drops undefined, so it cannot. */
 export type ProjectPatch = {
-  [K in 'displayName' | 'defaultBaseRef' | 'worktreeRoot' | 'hooks' | 'groupId' | 'finishWith' | 'agentWorkflows' | 'agentSplitWork']?: Project[K] | null
+  [K in 'displayName' | 'defaultBaseRef' | 'worktreeRoot' | 'hooks' | 'groupId' | 'finishWith' | 'agentWorkflows' | 'agentSplitWork' | 'claudeChrome']?: Project[K] | null
 }
 
 export interface Workspace {
