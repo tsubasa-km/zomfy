@@ -52,9 +52,10 @@ export function registerWorkspaceHandlers({ handle, workspaces, sessions, termin
       const { workspace, project } = workspaces.requireWorkspace(p.workspaceId);
       if (project.kind === "git" && !workspace.isPrimary) await runArchiveHook(project, workspace.path);
     }
+    // Its terminals hold the folder open on Windows; they go first.
+    terminals.closeWorkspace(p.workspaceId);
     await workspaces.removeWorkspace(p);
     await sessions.removeWorkspace(p.workspaceId);
-    terminals.closeWorkspace(p.workspaceId);
     return {};
   });
   handle(HARNESS_METHODS.workspaceUpdate, (p) => workspaces.updateWorkspace(p.workspaceId, p.patch));

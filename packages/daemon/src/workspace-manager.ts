@@ -21,6 +21,7 @@ import { log } from './log.ts'
 import { HARNESS_HOME, WORKSPACE_ROOT } from './harness-home.ts'
 import { moveToTrash } from './host-trash.ts'
 import { copyWorktreeIncludesSafely } from './worktree-include.ts'
+import { removeTree } from './safe-remove.ts'
 
 const STATE_PATH = join(HARNESS_HOME, 'state.json')
 const FLOATING_FALLBACK = join(HARNESS_HOME, 'floating-workspace')
@@ -366,12 +367,19 @@ export class WorkspaceManager {
       // characters, which git cannot delete without it ("Filename too long").
       await git(project.path, ['-c', 'core.longpaths=true', 'worktree', 'remove', ...(params.force ? ['--force'] : []), workspace.path]).catch(
         async (error) => {
+          const message = String(error)
           // A worktree already gone (deleted by hand, or a removal git gave up on half way) still
           // leaves its record to remove; whatever is left of the folder goes too.
-          if (!/is not a working tree/.test(String(error))) throw error
-          await rm(workspace.path, { recursive: true, force: true }).catch(() => undefined)
+          if (/is not a working tree/.test(message)) return removeTree(workspace.path).catch(() => undefined)
+          // Changes, a lock or a main checkout: git refused before deleting anything.
+          if (/modified or untracked|is locked|main working tree|use --force|use 'move -f -f'/i.test(message)) throw error
+          // git checked the worktree and then failed to delete it (a path too long, a file held open).
+          log(`git could not delete ${workspace.path}, removing it directly: ${message}`)
+          await removeTree(workspace.path)
         }
       )
+      // git leaves a folder it could not empty behind; it goes the same way.
+      if (existsSync(workspace.path)) await removeTree(workspace.path)
       await git(project.path, ['worktree', 'prune']).catch(() => undefined)
       if (params.deleteBranch && workspace.branch) {
         // -d keeps unmerged work unless the user forced it, as Orca does.
