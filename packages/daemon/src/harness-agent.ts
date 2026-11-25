@@ -295,7 +295,7 @@ export function createHarnessAgent(
     offeredTo: () => true,
     route: async (_caller, _tool, args) =>
       normalizeWrapUp(args)
-        ? { result: "Shown to the person as a Next steps card under your reply. Write your final message now." }
+        ? { result: "Shown to the person as a Next steps card under your reply. End the turn now without repeating your answer (one short line at most)." }
         : { result: "Nothing to show: give a summary and at least one step ({ owner, text }).", isError: true },
   });
 

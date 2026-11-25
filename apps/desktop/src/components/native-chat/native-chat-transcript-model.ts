@@ -231,9 +231,13 @@ class TranscriptBuilder {
     const { rows } = this
     const diff = turnDiff(this.turnEdits, this.cwd)
     if (diff) rows.push({ kind: 'turn-diff', diff })
-    const at = rows.findLastIndex((row, index) => index >= this.turnStart && row.kind === 'agent')
+    const last = rows.findLastIndex((row, index) => index >= this.turnStart && row.kind === 'agent')
+    // The answer, recap and all, comes before wrap_up; a short line may follow it. The recap is
+    // looked for in the turn's final run of replies (no tool in between), newest first.
+    const recapAt = this.recapIndex(last)
+    const at = recapAt >= 0 ? recapAt : last
     const reply = at >= 0 ? rows[at] : undefined
-    const parsed = reply?.kind === 'agent' ? parseRecap(reply.text) : null
+    const parsed = recapAt >= 0 && reply?.kind === 'agent' ? parseRecap(reply.text) : null
     const card = this.wrapUp ?? (parsed ? { summary: '', steps: parsed.steps } : null)
     if (card) {
       const row: NextStepsRow = {
@@ -252,6 +256,16 @@ class TranscriptBuilder {
     this.turnEdits = []
     this.wrapUp = null
     this.turnStart = rows.length
+  }
+
+  /** The newest reply from `last` back to the turn's last tool run that ends with a recap, or -1. */
+  private recapIndex(last: number): number {
+    for (let i = last; i >= this.turnStart; i--) {
+      const row = this.rows[i]!
+      if (row.kind === 'tools') return -1
+      if (row.kind === 'agent' && parseRecap(row.text)) return i
+    }
+    return -1
   }
 
   finish(turnRunning: boolean): TranscriptModel {

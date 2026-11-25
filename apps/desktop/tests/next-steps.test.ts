@@ -121,6 +121,34 @@ describe('buildTranscript next steps', () => {
     expect(row.recap?.parsed.sections).toHaveLength(2)
   })
 
+  test('answer, then wrap_up, then a short line: the card ends the turn under the reply', () => {
+    const { rows } = buildTranscript([user('go'), agent('The full answer.'), wrapUp(card), agent('Done.')], false, '')
+    expect(rows.map((r) => r.kind)).toEqual(['user', 'agent', 'agent', 'next-steps'])
+    expect(rows[1]).toMatchObject({ kind: 'agent', text: 'The full answer.' })
+    expect(rows[3]).toMatchObject({ kind: 'next-steps', card })
+  })
+
+  test('answer, then wrap_up, and no text after it: the card sits under the answer', () => {
+    const { rows } = buildTranscript([user('go'), agent('The full answer.'), wrapUp(card)], false, '')
+    expect(rows.map((r) => r.kind)).toEqual(['user', 'agent', 'next-steps'])
+  })
+
+  test('a recap in the answer before wrap_up still folds into the card, the short line kept after it', () => {
+    const { rows } = buildTranscript([user('go'), agent(RECAP), wrapUp(card), agent('Done.'), user('Next')], false, '')
+    expect(rows.map((r) => r.kind)).toEqual(['user', 'next-steps', 'agent', 'user'])
+    const row = rows[1]
+    if (row?.kind !== 'next-steps') throw new Error('no card')
+    expect(row.card).toEqual(card)
+    expect(row.recap?.text).toBe(RECAP)
+    expect(row.followUp).toBe('Next')
+  })
+
+  test('a recap before the turn’s last tool call is not the turn’s recap', () => {
+    const tool: ThreadItem = { kind: 'tool', id: 't', title: 'Read', toolKind: 'read', status: 'completed', input: {}, output: '', toolName: 'Read' }
+    const { rows } = buildTranscript([user('go'), agent(RECAP), tool, agent('More.')], false, '')
+    expect(rows.map((r) => r.kind)).toEqual(['user', 'agent', 'tools', 'agent'])
+  })
+
   test('a reply without a recap stays as it was', () => {
     const { rows } = buildTranscript([user('go'), agent('Just an answer.')], false, '')
     expect(rows.map((r) => r.kind)).toEqual(['user', 'agent'])
