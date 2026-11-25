@@ -100,7 +100,12 @@ export interface AppSettings {
   chatMemosEnabled: boolean
   /** docs/specs/visible-thinking.md */
   chatThinkingDisplay: ChatThinkingDisplay
+  /** Which one-time moves of saved values (SETTINGS_REVISION) these settings have had. */
+  settingsRevision: number
 }
+
+/** Bumped with each move of a saved default; a window saved before it gets the move once. */
+export const SETTINGS_REVISION = 1
 
 export const DEFAULT_SETTINGS: AppSettings = {
   theme: 'system',
@@ -155,17 +160,32 @@ export const DEFAULT_SETTINGS: AppSettings = {
   chatSendKey: 'mod-enter',
   chatAfterSend: 'stay',
   chatMemosEnabled: true,
-  chatThinkingDisplay: 'short-reply'
+  chatThinkingDisplay: 'expanded',
+  settingsRevision: SETTINGS_REVISION
 }
 
 export type SettingKey = keyof AppSettings
 
 export const STORAGE_KEY = 'zomfy.settings.v1'
 
+/**
+ * Every key is saved, so a new default reaches a saved window only through a move here. Revision 1:
+ * thinking starts expanded, where "expand when the reply is short" was the default before.
+ */
+export function migrateSettings(saved: Record<string, unknown>): Record<string, unknown> {
+  const revision = typeof saved.settingsRevision === 'number' ? saved.settingsRevision : 0
+  if (revision >= SETTINGS_REVISION) return saved
+  const moved: Record<string, unknown> = { ...saved, settingsRevision: SETTINGS_REVISION }
+  if (revision < 1 && moved.chatThinkingDisplay === 'short-reply') moved.chatThinkingDisplay = 'expanded'
+  return moved
+}
+
 function readSaved(): AppSettings {
   try {
-    const saved: unknown = JSON.parse(localStorage.getItem(STORAGE_KEY) ?? '{}')
-    if (!saved || typeof saved !== 'object') return { ...DEFAULT_SETTINGS }
+    const raw: unknown = JSON.parse(localStorage.getItem(STORAGE_KEY) ?? '{}')
+    if (!raw || typeof raw !== 'object') return { ...DEFAULT_SETTINGS }
+    // oxlint-disable-next-line typescript/consistent-type-assertions -- SAFETY: a JSON object; each value is checked against DEFAULT_SETTINGS below.
+    const saved = migrateSettings(raw as Record<string, unknown>)
     // Drop keys whose type no longer matches, so a stale value cannot break a reader.
     const merged: Record<string, unknown> = { ...DEFAULT_SETTINGS }
     for (const [key, value] of Object.entries(saved)) {
