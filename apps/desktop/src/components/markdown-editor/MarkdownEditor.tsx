@@ -14,6 +14,7 @@ import { markdownLivePreview } from './markdown-live-preview'
 import { markdownAutoPairs, markdownEditingKeymap } from './markdown-editing-commands'
 import { codeHighlighting } from './markdown-code-highlight'
 import { chatMentionChips } from './chat-mention-chips'
+import { slashCommandMark, slashCommandNames } from './slash-command-mark'
 import './markdown-editor.css'
 
 // A CodeMirror 6 markdown source editor with Obsidian-style live preview, shared by the chat
@@ -39,6 +40,8 @@ export interface MarkdownEditorProps {
   onKeyDown?: (event: KeyboardEvent) => boolean
   /** Pasted files; true when taken (the editor then inserts nothing). */
   onPasteFiles?: (files: File[]) => boolean
+  /** Commands a leading `/name` is drawn in color for (the chat composer's). */
+  commandNames?: readonly string[]
   minHeight?: string
   maxHeight?: string
   className?: string
@@ -60,6 +63,7 @@ export function MarkdownEditor({
   contentAttributes,
   onKeyDown,
   onPasteFiles,
+  commandNames,
   minHeight,
   maxHeight,
   className,
@@ -69,7 +73,7 @@ export function MarkdownEditor({
   const viewRef = useRef<EditorView | null>(null)
   const latest = useRef({ onChange, onCaretChange, onKeyDown, onPasteFiles })
   latest.current = { onChange, onCaretChange, onKeyDown, onPasteFiles }
-  const compartments = useRef({ placeholder: new Compartment(), attributes: new Compartment() })
+  const compartments = useRef({ placeholder: new Compartment(), attributes: new Compartment(), commands: new Compartment() })
 
   useLayoutEffect(() => {
     const host = hostRef.current
@@ -119,6 +123,8 @@ export function MarkdownEditor({
           markdownLivePreview,
           codeHighlighting,
           chatMentionChips,
+          slashCommandMark,
+          compartments.current.commands.of(slashCommandNames.of(commandNames ?? [])),
           EditorView.lineWrapping,
           compartments.current.placeholder.of(placeholder ? placeholderExtension(placeholder) : []),
           compartments.current.attributes.of(EditorView.contentAttributes.of(definedAttributes(contentAttributes))),
@@ -159,6 +165,10 @@ export function MarkdownEditor({
       effects: compartments.current.placeholder.reconfigure(placeholder ? placeholderExtension(placeholder) : [])
     })
   }, [placeholder])
+
+  useEffect(() => {
+    viewRef.current?.dispatch({ effects: compartments.current.commands.reconfigure(slashCommandNames.of(commandNames ?? [])) })
+  }, [commandNames])
 
   const attributesKey = JSON.stringify(contentAttributes ?? {})
   useEffect(() => {

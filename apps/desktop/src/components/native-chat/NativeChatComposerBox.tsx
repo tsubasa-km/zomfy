@@ -196,6 +196,7 @@ export function NativeChatComposerBox({
           onCaretChange={composer.setCaret}
           onKeyDown={composer.handleKeyDown}
           onPasteFiles={composer.pasteFiles}
+          commandNames={composer.commandNames}
           minHeight="3rem"
           maxHeight="calc(12lh + 0.5rem)"
           className="px-2 py-1 text-sm text-chat-foreground-strong"
