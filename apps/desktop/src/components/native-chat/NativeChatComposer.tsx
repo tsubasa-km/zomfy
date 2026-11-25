@@ -112,6 +112,8 @@ function Composer({ session, editorRef }: ComposerProps) {
       ? { items: agentState?.commands ?? [], status: agentState?.phase === 'starting' ? 'loading' : 'ready' }
       : { items: catalog?.value?.commands ?? [], status: catalog?.status ?? 'loading' },
     filesWorkspaceId: session.workspaceId,
+    // The daemon lists a chat's MCP servers for Claude chats; other agents' get none.
+    connectorsSessionId: external ? null : session.id,
     // Claude's guess at the next prompt shows in the empty composer.
     suggestion: working ? null : (session.promptSuggestion ?? null),
     // Read when asked: the composer does not render with each streamed chunk of the transcript.
@@ -255,7 +257,15 @@ function Composer({ session, editorRef }: ComposerProps) {
             }
             left={
               <>
-                <NativeChatAttachMenu session={session} onPickImages={composer.pickImages} onMentionFile={composer.startFileMention} />
+                <NativeChatAttachMenu
+                  session={session}
+                  onPickImages={composer.pickImages}
+                  onMentionFile={composer.startFileMention}
+                  skills={composer.skills}
+                  onPickSkill={composer.insertSkill}
+                  connectors={external ? null : { sessionId: session.id, hostId: session.hostId }}
+                  onPickConnector={composer.insertConnector}
+                />
                 <NativeChatWorkflowPicker home={workflowHome} picked={workflow} onPick={setWorkflow} />
                 {memos ? <NativeChatMemoButton sessionId={session.id} /> : null}
               </>
