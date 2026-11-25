@@ -687,6 +687,15 @@ export const PAGES: Record<string, string> = {
   'The thread stays open, so you can watch the reply.': 'スレッドを開いたままにして、返答を見られます。',
   'Stay in the thread': 'スレッドのまま',
   'Go to New Thread': '新しいスレッドへ',
+  // components/settings/InputEditingPane.tsx (thinking)
+  'Show thinking': '思考の表示',
+  'Thinking starts open when the reply after it is short and the thinking is long, since it likely holds the answer.':
+    '返答が短く思考が長いときは、答えが思考の中にあることが多いので、思考を開いて表示します。',
+  'Every thinking block starts open.': 'すべての思考を開いて表示します。',
+  'Every thinking block starts closed.': 'すべての思考を閉じて表示します。',
+  Collapsed: '閉じる',
+  'Expand when the reply is short': '返答が短いときは開く',
+  'Always expanded': '常に開く',
   // lib/chat-after-send.ts
   'Message sent. The thread keeps running in the sidebar.': '送信しました。スレッドはサイドバーで動き続けます。',
   'Open a Terminal When Empty': '空のときはターミナルを開く',

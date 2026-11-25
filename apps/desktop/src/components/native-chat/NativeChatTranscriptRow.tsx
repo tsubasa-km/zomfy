@@ -1,4 +1,4 @@
-import { memo, useState } from 'react'
+import { memo } from 'react'
 import { ChevronRight, CircleAlert, GitFork, SquareTerminal, Undo2 } from 'lucide-react'
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
@@ -18,7 +18,9 @@ import { NATIVE_CHAT_QUOTE_SOURCE_PROPS } from './NativeChatSelectionQuote'
 import { NativeChatWorkflowRunCard } from './NativeChatWorkflowRunCard'
 import { NativeChatPromptOrigin } from './NativeChatPromptOrigin'
 import { NativeChatNextStepsCard, type NextStepsActions } from './NativeChatNextStepsCard'
-import { sameTranscriptRow, type TranscriptRowModel } from './native-chat-transcript-model'
+import { sameTranscriptRow, thinkingStartsOpen, type TranscriptRowModel } from './native-chat-transcript-model'
+import { useNativeChatDisclosure } from './native-chat-disclosure-store'
+import { useSetting } from '@/stores/settings-store'
 import { t } from '@/i18n/i18n'
 
 // Rows follow Orca's NativeChatUserMessageRow, NativeChatAssistantMessageRow,
@@ -124,7 +126,7 @@ function TranscriptRow({ row, rowKey, actions }: TranscriptRowProps) {
         </div>
       )
     case 'thought':
-      return <ReasoningRow markdown={row.text} rowKey={rowKey} />
+      return <ReasoningRow markdown={row.text} prominent={row.prominent === true} rowKey={rowKey} />
     case 'tools':
       return <NativeChatToolGroup tools={row.tools} rowKey={rowKey} cwd={actions.cwd} />
     case 'tasks':
@@ -226,11 +228,15 @@ function MetaActionButton({
   )
 }
 
-function ReasoningRow({ markdown, rowKey }: { markdown: string; rowKey: string }) {
-  const [open, setOpen] = useState(false)
+function ReasoningRow({ markdown, prominent, rowKey }: { markdown: string; prominent: boolean; rowKey: string }) {
+  const display = useSetting('chatThinkingDisplay')
+  // The start state follows the setting and the turn's end; a click holds until either changes.
+  const { open, setOpen } = useNativeChatDisclosure(`${rowKey}:reasoning`, thinkingStartsOpen(display, prominent))
   if (!markdown.trim()) return null
+  // Thinking that likely holds the answer reads whole; the rest keeps its own scroll box.
+  const shown = prominent && display !== 'collapsed'
   return (
-    <div className="min-w-0 text-sm text-chat-foreground-faint">
+    <div className="min-w-0 text-sm text-chat-foreground-faint" data-native-chat-thought={shown ? 'prominent' : ''}>
       <Collapsible open={open} onOpenChange={setOpen}>
         <CollapsibleTrigger asChild>
           <button
@@ -247,7 +253,12 @@ function ReasoningRow({ markdown, rowKey }: { markdown: string; rowKey: string }
           </button>
         </CollapsibleTrigger>
         <CollapsibleContent>
-          <div className="scrollbar-sleek mt-1 max-h-80 overflow-y-auto pl-5.5 text-chat-foreground-faint">
+          <div
+            className={cn(
+              'mt-1 ml-2 border-l-2 border-border pl-3.5 text-chat-foreground-faint',
+              !shown && 'scrollbar-sleek max-h-80 overflow-y-auto'
+            )}
+          >
             <NativeChatMarkdown rowKey={`${rowKey}:reasoning`} content={markdown} className="text-sm" />
           </div>
         </CollapsibleContent>

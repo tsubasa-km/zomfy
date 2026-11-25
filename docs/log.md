@@ -1,6 +1,8 @@
 # Directory Update Log
 
 ## 2026-11-25
+* **Update**: [Thinking that holds the answer shows open](specs/visible-thinking.md) is implemented: a finished turn's last thinking before a short reply starts open, whole and marked as thinking; Settings → Input & Editing → Show thinking picks collapsed, expand when the reply is short, or always expanded.
+* **Creation**: [Thinking that holds the answer shows open](specs/visible-thinking.md), in progress.
 * **Update**: [Bots in the phone app](specs/mobile/bots.md) is implemented: phones may call `_harness/bots/chatCreate` under `chats:operate` ([pairing](specs/mobile/pairing.md#scopes)), and the [app](specs/mobile/app.md) gains a Bots screen with Talk and bot chats marked in the host tree; [bots on the desktop](specs/bots/desktop.md) links to it.
 * **Creation**: [Bots in the phone app](specs/mobile/bots.md), in progress.
 

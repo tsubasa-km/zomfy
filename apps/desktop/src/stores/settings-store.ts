@@ -14,6 +14,8 @@ export type TerminalRightClick = 'menu' | 'copy-paste'
 export type ChatSendKey = 'mod-enter' | 'enter'
 /** Where the main view goes once a chat message is sent: it stays on the chat, or goes back to New Chat. */
 export type ChatAfterSend = 'stay' | 'new-chat'
+/** How an agent's thinking rows start: closed, open when the reply after them is short, or open. */
+export type ChatThinkingDisplay = 'collapsed' | 'short-reply' | 'expanded'
 
 /** Orca's floatingTerminalTriggerLocation: where the floating workspace toggle lives. */
 export type FloatingWorkspaceTriggerLocation = 'floating-button' | 'status-bar'
@@ -96,6 +98,8 @@ export interface AppSettings {
   chatAfterSend: ChatAfterSend
   /** Experimental: a markdown memo per chat, kept by the session's host. */
   chatMemosEnabled: boolean
+  /** docs/specs/visible-thinking.md */
+  chatThinkingDisplay: ChatThinkingDisplay
 }
 
 export const DEFAULT_SETTINGS: AppSettings = {
@@ -150,7 +154,8 @@ export const DEFAULT_SETTINGS: AppSettings = {
   dictationLanguage: '',
   chatSendKey: 'mod-enter',
   chatAfterSend: 'stay',
-  chatMemosEnabled: true
+  chatMemosEnabled: true,
+  chatThinkingDisplay: 'short-reply'
 }
 
 export type SettingKey = keyof AppSettings
