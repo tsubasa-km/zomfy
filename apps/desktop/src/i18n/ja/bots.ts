@@ -180,5 +180,9 @@ export const BOTS: Record<string, string> = {
   'Nobody found.': '見つかりませんでした。',
   'Runs in the bot’s home with its persona, on this computer while Zomfy runs. A trigger needs the relay.':
     'ボットのホームでそのペルソナのまま、Zomfy が動いている間このコンピューターで実行されます。トリガーにはリレーが必要です。',
-  Untitled: '無題'
+  Untitled: '無題',
+  Master: 'マスター',
+  'Manager across projects': 'プロジェクト横断のマネージャー',
+  'Sees and drives the chats, workspaces and worktrees of every project, as the Manager chat does.':
+    'Manager チャットと同じように、すべてのプロジェクトのチャット・ワークスペース・ワークツリーを見て動かします。'
 }
