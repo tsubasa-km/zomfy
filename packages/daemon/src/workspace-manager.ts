@@ -423,6 +423,15 @@ export class WorkspaceManager {
     return workspace
   }
 
+  /** Marks (or clears, with null) that Free space deleted the workspace's dependencies and build output. */
+  async setSpaceFreed(workspaceId: string, at: number | null): Promise<void> {
+    const workspace = this.state.workspaces.find((w) => w.id === workspaceId)
+    if (!workspace) return
+    if (at === null) delete workspace.spaceFreedAt
+    else workspace.spaceFreedAt = at
+    await this.save()
+  }
+
   /** A quick chat's own dated folder, so a chat can start before anyone picks a project. */
   async createScratchWorkspace(): Promise<Workspace> {
     const day = new Date().toISOString().slice(0, 10)
