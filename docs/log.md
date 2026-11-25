@@ -1,5 +1,8 @@
 # Directory Update Log
 
+## 2026-11-25
+* **Creation**: [Bots in the phone app](specs/mobile/bots.md), in progress.
+
 ## 2026-11-22
 * **Update**: [Running Zomfy Relay on your own machine](specs/bots/self-host.md) is implemented: `bun run relay:local` runs the Relay Worker on local workerd with storage in `~/.zomfy/relay`, behind a cloudflared or Tailscale Funnel tunnel; the [connector](specs/bots/connector.md) and [phone relay](specs/mobile/relay.md) link to it.
 * **Creation**: [Running Zomfy Relay on your own machine](specs/bots/self-host.md), in progress.
