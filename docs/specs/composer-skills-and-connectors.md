@@ -3,7 +3,7 @@ type: Spec
 title: Skills and connectors in the composer
 description: The chat composer's `/` menu splits commands from skills, the `+` menu lists skills and connected MCP servers, and an `@mcp:` chip asks the agent to use a server.
 status: stable
-x-zomfy-implementation: in-progress
+x-zomfy-implementation: done
 tags: [chat, composer, skills, mcp]
 generated: { by: "claude-code/opus-5.5", at: "2026-11-25T00:00:00Z" }
 ---
@@ -25,7 +25,9 @@ should be as easy to reach, from the same places: the `+` menu and a typed symbo
   as one list, with only `builtin` set. The daemon's catalog probe (`claude-catalog.ts`) asks the
   same probe process for `reloadSkills()`, whose answer lists exactly the skills (from
   `~/.claude/skills`, the project's `.claude/skills`, and plugins' skills, under their
-  `plugin:skill` names). A command whose name is in that list is a `skill`.
+  `plugin:skill` names, and Claude Code's bundled skills such as `code-review`). A command whose
+  name is in that list is a `skill`, even when it is also `builtin`. A CLI that does not answer
+  within 10 s leaves every row a command.
 - A name of the form `mcp__<server>__<prompt>` is an MCP server's prompt: `mcp-prompt`.
 - Everything else is a `command` (`builtin` still marks Claude Code's own).
 - A turn's init frame names the session's skills too; the catalog's late additions
@@ -45,7 +47,9 @@ should be as easy to reach, from the same places: the `+` menu and a typed symbo
 - The `+` menu gains **Skill**, a submenu with a search box and the session's skills (name and
   description). Picking one puts `/skill-name ` at the start of the message, as choosing it from
   the `/` menu does: a leading `/command` already there is replaced, other text is kept after it.
-- The entry shows only where the composer has a command list with at least one skill.
+- The search box has focus when the submenu opens; Enter in it picks the first match.
+- The entry shows only where the composer has a command list with at least one skill (an open
+  Claude chat and the New thread tab; the side chat has no `/` menu).
 
 # Connectors
 
@@ -68,7 +72,8 @@ should be as easy to reach, from the same places: the `+` menu and a typed symbo
 ## The `+` menu
 
 - **Connector**, a submenu listing the connected servers with their icons; picking one inserts the
-  chip at the caret, like *File in this workspace*. Shown only when there is at least one.
+  chip at the caret, like *File in this workspace*. The list is read when the menu opens; while it
+  loads the entry says so, and once read it is shown only when there is at least one.
 
 ## The chip
 

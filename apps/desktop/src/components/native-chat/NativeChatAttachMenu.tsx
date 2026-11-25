@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { AtSign, ImagePlus, MessageSquare, Plug, Plus, Sparkles, SquareTerminal } from 'lucide-react'
 import type { ChatCommand, ChatMcpServer } from '@zomfy/protocol'
 import { Input } from '@/components/ui/input'
@@ -81,7 +81,15 @@ export function NativeChatAttachMenu({
             {t('File in this workspace…')}
           </DropdownMenuItem>
         ) : null}
-        {onPickSkill && skills.length > 0 ? <SkillItems skills={skills} onPick={onPickSkill} /> : null}
+        {onPickSkill && skills.length > 0 ? (
+          <SkillItems
+            skills={skills}
+            onPick={(name) => {
+              setOpen(false)
+              onPickSkill(name)
+            }}
+          />
+        ) : null}
         {connectors && onPickConnector ? <ConnectorItems chat={connectors} wanted={open} onPick={onPickConnector} /> : null}
         {session ? <SnapshotItems session={session} /> : null}
       </DropdownMenuContent>
@@ -91,46 +99,61 @@ export function NativeChatAttachMenu({
 
 /** Skills, searchable by name and description; picking one starts the message with `/name`. */
 function SkillItems({ skills, onPick }: { skills: ChatCommand[]; onPick: (name: string) => void }) {
-  const [query, setQuery] = useState('')
-  const shown = matchSkills(skills, query)
   return (
-    <DropdownMenuSub onOpenChange={(subOpen) => !subOpen && setQuery('')}>
+    <DropdownMenuSub>
       <DropdownMenuSubTrigger data-attach-skills>
         <Sparkles />
         {t('Skill')}
       </DropdownMenuSubTrigger>
       <DropdownMenuSubContent className="max-h-80 w-80 overflow-y-auto">
-        <div className="p-1">
-          <Input
-            autoFocus
-            value={query}
-            placeholder={t('Search skills')}
-            aria-label={t('Search skills')}
-            className="h-7 text-xs md:text-xs"
-            data-attach-skill-search
-            onChange={(event) => setQuery(event.target.value)}
-            onKeyDown={(event) => {
-              // The menu's own keys move between rows; the rest are typing, not its type-ahead.
-              if (event.key === 'Enter' && shown[0]) {
-                event.preventDefault()
-                onPick(shown[0].name)
-                return
-              }
-              if (!['ArrowDown', 'ArrowUp', 'Escape', 'Tab'].includes(event.key)) event.stopPropagation()
-            }}
-          />
-        </div>
-        {shown.length === 0 ? <DropdownMenuItem disabled>{t('No matching skills')}</DropdownMenuItem> : null}
-        {shown.map((skill) => (
-          <DropdownMenuItem key={skill.name} data-attach-skill={skill.name} onSelect={() => onPick(skill.name)}>
-            <span className="min-w-0 flex-1">
-              <span className="block truncate font-mono text-xs">/{skill.name}</span>
-              {skill.description ? <span className="block truncate text-xs text-muted-foreground">{skill.description}</span> : null}
-            </span>
-          </DropdownMenuItem>
-        ))}
+        <SkillList skills={skills} onPick={onPick} />
       </DropdownMenuSubContent>
     </DropdownMenuSub>
+  )
+}
+
+/** Mounted while the submenu is open, so each opening starts with an empty search that has focus. */
+function SkillList({ skills, onPick }: { skills: ChatCommand[]; onPick: (name: string) => void }) {
+  const [query, setQuery] = useState('')
+  const search = useRef<HTMLInputElement>(null)
+  // The menu focuses its first row (keyboard) or keeps the trigger's (pointer) as it opens; typing goes to the search.
+  useEffect(() => {
+    const frame = requestAnimationFrame(() => search.current?.focus())
+    return () => cancelAnimationFrame(frame)
+  }, [])
+  const shown = matchSkills(skills, query)
+  return (
+    <>
+      <div className="p-1">
+        <Input
+          ref={search}
+          value={query}
+          placeholder={t('Search skills')}
+          aria-label={t('Search skills')}
+          className="h-7 text-xs md:text-xs"
+          data-attach-skill-search
+          onChange={(event) => setQuery(event.target.value)}
+          onKeyDown={(event) => {
+            // The menu's own keys move between rows; the rest are typing, not its type-ahead.
+            if (event.key === 'Enter' && shown[0]) {
+              event.preventDefault()
+              onPick(shown[0].name)
+              return
+            }
+            if (!['ArrowDown', 'ArrowUp', 'Escape', 'Tab'].includes(event.key)) event.stopPropagation()
+          }}
+        />
+      </div>
+      {shown.length === 0 ? <DropdownMenuItem disabled>{t('No matching skills')}</DropdownMenuItem> : null}
+      {shown.map((skill) => (
+        <DropdownMenuItem key={skill.name} data-attach-skill={skill.name} onSelect={() => onPick(skill.name)}>
+          <span className="min-w-0 flex-1">
+            <span className="block truncate font-mono text-xs">/{skill.name}</span>
+            {skill.description ? <span className="block truncate text-xs text-muted-foreground">{skill.description}</span> : null}
+          </span>
+        </DropdownMenuItem>
+      ))}
+    </>
   )
 }
 

@@ -1,6 +1,7 @@
 # Directory Update Log
 
 ## 2026-11-25
+* **Update**: [Skills and connectors in the composer](specs/composer-skills-and-connectors.md) is implemented: `ChatCommand.kind` from the probe's skills list, the `/` menu's Commands, Skills and MCP prompts groups, Skill and Connector in the `+` menu, connected MCP servers in the `@` menu, and `@mcp:` chips the daemon turns into an instruction for the agent.
 * **Creation**: [Skills and connectors in the composer](specs/composer-skills-and-connectors.md), draft.
 * **Update**: [Worktree skills and storage](specs/worktree-skills-and-storage.md) is implemented: the `zomfy-worktrees` skill turned on per project and agent, merged judged against the main checkout's branch, worktree sizes, the Clean up workspaces dialog with Free Up Space and leftover folders, automatic deletion of merged worktrees (on by default) and long-path-safe deletes. bun was measured to hardlink already; the Rust shared target and the Orca stub marks were not built.
 * **Creation**: [Claude in Chrome from Zomfy](specs/claude-in-chrome.md), implemented: Settings → Agents → Claude has a per-host switch and Project Settings an override; when on, turns and the session panel's control process start Claude Code with `--chrome`, and Connectors shows `claude-in-chrome` with Chrome's icon.
