@@ -8,6 +8,7 @@ import { Input } from '@/components/ui/input'
 import { cn } from '@/lib/utils'
 import { Section } from './panel-parts'
 import { ConnectorIcon } from './ConnectorIcon'
+import { noteChatConnectors } from '@/stores/composer-connectors-store'
 import { t } from '@/i18n/i18n'
 
 // The chat's MCP servers (connectors) and their state, with sign-in for one that needs it and
@@ -68,6 +69,7 @@ export function ConnectorsSection({ sessionId }: { sessionId: string }) {
       const result = await harnessRequest(HARNESS_METHODS.chatMcpStatus, { sessionId })
       if (current.current !== sessionId) return
       setServers(result.servers)
+      noteChatConnectors(sessionId, result.servers)
       setError(null)
       if (result.servers.some((s) => s.status === 'pending')) watchUntil.current = Math.max(watchUntil.current, Date.now() + PENDING_WATCH_MS)
     } catch (e) {
@@ -114,6 +116,7 @@ export function ConnectorsSection({ sessionId }: { sessionId: string }) {
     act(server, async () => {
       const result = await harnessRequest(HARNESS_METHODS.chatMcpReconnect, { sessionId, server })
       setServers(result.servers)
+      noteChatConnectors(sessionId, result.servers)
     })
 
   const startSignIn = (server: string) =>
@@ -129,6 +132,7 @@ export function ConnectorsSection({ sessionId }: { sessionId: string }) {
     act(server, async () => {
       const result = await harnessRequest(HARNESS_METHODS.chatMcpCallback, { sessionId, server, callbackUrl })
       setServers(result.servers)
+      noteChatConnectors(sessionId, result.servers)
     })
 
   const sorted = [...(servers ?? [])].sort((a, b) => ORDER[a.status] - ORDER[b.status] || a.name.localeCompare(b.name))

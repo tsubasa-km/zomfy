@@ -1,58 +1,24 @@
 import { useEffect, useRef } from 'react'
 import { FileIcon } from '@/components/FileIcon'
-import { Package } from 'lucide-react'
-import type { ChatCommand } from '@zomfy/protocol'
+import { Package, Sparkles } from 'lucide-react'
+import type { ChatCommand, ChatCommandKind } from '@zomfy/protocol'
+import { ConnectorIcon } from '@/components/right-sidebar/session-panel/ConnectorIcon'
+import { MCP_MENTION_QUERY, slashGroups, type MentionOption } from './composer-menu-items'
 import { cn } from '@/lib/utils'
 import { t } from '@/i18n/i18n'
 
 // Ported from Orca's NativeChatAutocompleteMenus: the `/` command menu and the `@` file menu
-// open above the composer; the textarea keeps focus and drives the active row.
+// open above the composer; the textarea keeps focus and drives the active row. What they list, and
+// in which order, is composer-menu-items.ts.
 
 export type ComposerAutocomplete =
   | { mode: 'slash'; query: string; start: number; end: number; items: ChatCommand[]; status: 'loading' | 'ready' | 'error' }
-  | { mode: 'mention'; query: string; start: number; end: number; items: string[]; status: 'loading' | 'ready' | 'error' }
+  | { mode: 'mention'; query: string; start: number; end: number; items: MentionOption[]; status: 'loading' | 'ready' | 'error' }
 
-const MAX_FILE_MATCHES = 50
-
-/** What the caret sits in: a leading `/command`, an `@path`, or neither. */
-export function composerAutocompleteQuery(
-  text: string,
-  caret: number
-): { mode: 'slash' | 'mention'; query: string; start: number; end: number } | null {
-  const before = text.slice(0, caret)
-  const slash = /^\/(\S*)$/.exec(before)
-  if (slash) return { mode: 'slash', query: slash[1] ?? '', start: 0, end: caret }
-  const mention = /(^|\s)@([^\s@]*)$/.exec(before)
-  if (mention) {
-    const query = mention[2] ?? ''
-    return { mode: 'mention', query, start: caret - query.length - 1, end: caret }
-  }
-  return null
-}
-
-export function matchCommands(commands: ChatCommand[], query: string): ChatCommand[] {
-  const q = query.toLowerCase()
-  const starts = commands.filter((c) => c.name.toLowerCase().startsWith(q))
-  const contains = commands.filter((c) => !c.name.toLowerCase().startsWith(q) && c.name.toLowerCase().includes(q))
-  // Claude's own commands first, then the user's, project's and plugins'.
-  return [...starts, ...contains].sort((a, b) => Number(Boolean(b.builtin)) - Number(Boolean(a.builtin)))
-}
-
-/** Filename matches before path matches, shorter paths first, like Orca's quick open. */
-export function matchFiles(files: string[], query: string): string[] {
-  const q = query.toLowerCase().replaceAll('\\', '/')
-  if (!q) return files.slice(0, MAX_FILE_MATCHES)
-  const scored: { path: string; score: number }[] = []
-  for (const path of files) {
-    const lower = path.toLowerCase()
-    const name = lower.slice(lower.lastIndexOf('/') + 1)
-    const score = name.startsWith(q) ? 0 : name.includes(q) ? 1 : lower.includes(q) ? 2 : -1
-    if (score >= 0) scored.push({ path, score })
-  }
-  return scored
-    .sort((a, b) => a.score - b.score || a.path.length - b.path.length)
-    .slice(0, MAX_FILE_MATCHES)
-    .map((s) => s.path)
+const GROUP_TITLE: Record<ChatCommandKind, string> = {
+  command: t('Commands'),
+  skill: t('Skills'),
+  'mcp-prompt': t('MCP prompts')
 }
 
 function PickerListbox({ id, children }: { id: string; children: React.ReactNode }) {
@@ -130,7 +96,24 @@ export function NativeChatAutocompleteMenu({
     const { items } = autocomplete
     return (
       <PickerListbox id={listboxId}>
-        {items.map((path, index) => {
+        {items.map((item, index) => {
+          if (item.kind === 'mcp') {
+            return (
+              <PickerOptionButton
+                key={`mcp:${item.server.name}`}
+                id={`${listboxId}-option-${index}`}
+                selected={index === activeIndex}
+                onChoose={() => onChoose(index)}
+              >
+                <ConnectorIcon server={item.server} className="size-4" />
+                <span className="flex min-w-0 items-baseline gap-1.5" data-mention-option-mcp={item.server.name}>
+                  <span className="shrink-0 truncate">{item.server.name}</span>
+                  <span className="min-w-0 truncate text-xs text-muted-foreground">{t('MCP server')}</span>
+                </span>
+              </PickerOptionButton>
+            )
+          }
+          const path = item.path
           const slash = path.lastIndexOf('/')
           return (
             <PickerOptionButton
@@ -149,31 +132,40 @@ export function NativeChatAutocompleteMenu({
         })}
         {items.length === 0 ? (
           <PickerStatus>
-            {autocomplete.status === 'loading'
-              ? t('Loading files...')
-              : autocomplete.status === 'error'
-                ? t("Couldn't load files")
-                : t('No matching files')}
+            {autocomplete.query.toLowerCase().startsWith(MCP_MENTION_QUERY)
+              ? autocomplete.status === 'loading'
+                ? t('Loading connectors…')
+                : t('No connected MCP servers')
+              : autocomplete.status === 'loading'
+                ? t('Loading files...')
+                : autocomplete.status === 'error'
+                  ? t("Couldn't load files")
+                  : t('No matching files')}
           </PickerStatus>
         ) : null}
       </PickerListbox>
     )
   }
 
-  const builtin = autocomplete.items.filter((c) => c.builtin)
-  const custom = autocomplete.items.filter((c) => !c.builtin)
-  const grouped = builtin.length > 0 && custom.length > 0
+  // The rows come in slashMenuOrder already; each group gets its heading once there are two.
+  const groups = slashGroups(autocomplete.items)
+  const grouped = groups.length > 1
   let optionIndex = 0
   const option = (command: ChatCommand) => {
     const index = optionIndex++
+    const kind = command.kind ?? 'command'
     return (
       <PickerOptionButton
-        key={`${command.builtin ? 'b' : 'c'}:${command.name}`}
+        key={`${kind}:${command.builtin ? 'b' : 'c'}:${command.name}`}
         id={`${listboxId}-option-${index}`}
         selected={index === activeIndex}
         onChoose={() => onChoose(index)}
       >
-        {command.builtin ? null : <Package className="mt-0.5 size-3.5 shrink-0 text-muted-foreground" />}
+        {kind === 'skill' ? (
+          <Sparkles className="mt-0.5 size-3.5 shrink-0 text-muted-foreground" />
+        ) : command.builtin ? null : (
+          <Package className="mt-0.5 size-3.5 shrink-0 text-muted-foreground" />
+        )}
         <span className="min-w-0 flex-1">
           <span className="flex min-w-0 items-baseline gap-1.5">
             <span className="max-w-full shrink-0 truncate font-mono text-chat-code font-medium">/{command.name}</span>
@@ -188,10 +180,12 @@ export function NativeChatAutocompleteMenu({
   }
   return (
     <PickerListbox id={listboxId}>
-      {grouped ? <PickerGroupHeading>{t('Commands')}</PickerGroupHeading> : null}
-      {builtin.map(option)}
-      {grouped ? <PickerGroupHeading>{t('Skills and custom commands')}</PickerGroupHeading> : null}
-      {custom.map(option)}
+      {groups.map((group) => (
+        <div key={group.kind} role="group" aria-label={GROUP_TITLE[group.kind]} data-slash-group={group.kind}>
+          {grouped ? <PickerGroupHeading>{GROUP_TITLE[group.kind]}</PickerGroupHeading> : null}
+          {group.items.map(option)}
+        </div>
+      ))}
       {autocomplete.items.length === 0 ? (
         <PickerStatus>
           {autocomplete.status === 'loading'
@@ -203,9 +197,4 @@ export function NativeChatAutocompleteMenu({
       ) : null}
     </PickerListbox>
   )
-}
-
-/** The commands in the order the menu draws them, so the active index means the same row. */
-export function slashMenuOrder(items: ChatCommand[]): ChatCommand[] {
-  return [...items.filter((c) => c.builtin), ...items.filter((c) => !c.builtin)]
 }

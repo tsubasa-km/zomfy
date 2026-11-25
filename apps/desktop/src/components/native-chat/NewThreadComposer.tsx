@@ -111,7 +111,13 @@ export function NewThreadComposer({
       editorRef={editorRef}
       placeholder={t('Ask anything, or describe a task')}
       left={
-        <NativeChatAttachMenu session={null} onPickImages={composer.pickImages} onMentionFile={workspaceId ? composer.startFileMention : undefined} />
+        <NativeChatAttachMenu
+          session={null}
+          onPickImages={composer.pickImages}
+          onMentionFile={workspaceId ? composer.startFileMention : undefined}
+          skills={composer.skills}
+          onPickSkill={composer.insertSkill}
+        />
       }
       right={
         <>

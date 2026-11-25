@@ -701,5 +701,12 @@ export const CHAT: Record<string, string> = {
   'Answer in its thread': 'スレッドで回答',
   // components/native-chat/NativeChatToolGroup.tsx
   Answered: '回答済み',
-  Skipped: 'スキップ'
+  Skipped: 'スキップ',
+  // components/native-chat (skills and connectors in the composer)
+  'MCP prompts': 'MCP プロンプト',
+  'MCP server': 'MCP サーバー',
+  Connector: 'コネクタ',
+  'No matching skills': '一致するスキルはありません',
+  'Loading connectors…': 'コネクタを読み込み中…',
+  'No connected MCP servers': '接続中の MCP サーバーはありません'
 }

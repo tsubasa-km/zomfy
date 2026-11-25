@@ -54,7 +54,7 @@ interface TurnInput {
   /** Claude changed its own permission mode (plan approved, a mode tool). */
   onPermissionMode?: (mode: ChatPermissionMode) => void;
   /** The `/` menu Claude reported at the start of the turn. */
-  onSlashCommands?: (names: string[]) => void;
+  onSlashCommands?: (names: string[], skills?: string[]) => void;
   /** This host's Claude variables from the Agents settings (an account's CLAUDE_CONFIG_DIR…). */
   env?: Record<string, string>;
   /** MCP servers the daemon provides (the manager tools). */
@@ -584,7 +584,7 @@ async function forwardMessage(
     case "system":
       if (message.subtype === "init") {
         state.claudeSessionId = message.session_id;
-        input.onSlashCommands?.(message.slash_commands);
+        input.onSlashCommands?.(message.slash_commands, message.skills);
         noteMode(message.permissionMode, input);
       } else if (message.subtype === "status") {
         if (message.permissionMode) noteMode(message.permissionMode, input);
