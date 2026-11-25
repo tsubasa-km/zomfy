@@ -90,7 +90,14 @@ export interface ChatCommand {
   argumentHint: string
   /** Claude Code's own command, not one from the user, project, a plugin or an MCP server. */
   builtin?: boolean
+  /**
+   * What it is: a command, a skill (a SKILL.md the agent loads) or an MCP server's prompt. Absent
+   * from older daemons and from agents that do not say; read as a command.
+   */
+  kind?: ChatCommandKind
 }
+
+export type ChatCommandKind = 'command' | 'skill' | 'mcp-prompt'
 
 /** Claude's `/` menu and model list for a folder, read without running a turn. */
 export interface ChatCatalog {
