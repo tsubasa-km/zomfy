@@ -17,6 +17,8 @@ export class HostingCliError extends Error {
 export interface HostingRunOptions {
   /** Killed after this long (default 30s): a hung network call must not freeze the panel. */
   timeoutMs?: number
+  /** Laid over the daemon's environment: a project's account (GH_TOKEN, GITLAB_TOKEN; docs/specs/project-hosting-accounts.md). */
+  env?: Record<string, string>
 }
 
 /** Runs gh/glab; swappable so tests can check the exact argv without touching a real host. */
@@ -36,7 +38,7 @@ export function loginHint(tool: HostingTool, host: string | null): string {
   return `Run \`${tool} auth login${flag}\` on this host to sign in.`
 }
 
-function spawnTool(tool: HostingTool, cwd: string, args: string[]) {
+function spawnTool(tool: HostingTool, cwd: string, args: string[], extraEnv: Record<string, string> = {}) {
   try {
     return Bun.spawn([tool, ...args], {
       cwd,
@@ -54,7 +56,8 @@ function spawnTool(tool: HostingTool, cwd: string, args: string[]) {
         NO_COLOR: '1',
         PAGER: 'cat',
         GH_PAGER: 'cat',
-        GIT_TERMINAL_PROMPT: '0'
+        GIT_TERMINAL_PROMPT: '0',
+        ...extraEnv
       }
     })
   } catch {
@@ -62,8 +65,15 @@ function spawnTool(tool: HostingTool, cwd: string, args: string[]) {
   }
 }
 
-export const runHostingCli: HostingRunner = async (tool, cwd, args, options = {}) => {
-  const proc = spawnTool(tool, cwd, args)
+export interface HostingCliOutput {
+  stdout: string
+  stderr: string
+  code: number
+}
+
+/** Runs gh/glab and returns what it printed whatever its exit code: `auth status` exits 1 when any account fails. */
+export async function runHostingCliOutput(tool: HostingTool, cwd: string, args: string[], options: HostingRunOptions = {}): Promise<HostingCliOutput> {
+  const proc = spawnTool(tool, cwd, args, options.env)
   const timeoutMs = options.timeoutMs ?? 30_000
   let timedOut = false
   const timer = setTimeout(() => {
@@ -76,6 +86,11 @@ export const runHostingCli: HostingRunner = async (tool, cwd, args, options = {}
     proc.exited
   ]).finally(() => clearTimeout(timer))
   if (timedOut) throw new HostingCliError(`${tool} ${args[0]} timed out after ${Math.round(timeoutMs / 1000)}s`, 'failed', tool)
+  return { stdout, stderr, code }
+}
+
+export const runHostingCli: HostingRunner = async (tool, cwd, args, options = {}) => {
+  const { stdout, stderr, code } = await runHostingCliOutput(tool, cwd, args, options)
   if (code !== 0) {
     const message = stderr.trim() || stdout.trim() || `${tool} ${args[0]} exited with ${code}`
     log(`${tool} ${args.slice(0, 3).join(' ')} failed in ${cwd}: ${message.slice(0, 300)}`)

@@ -43,6 +43,7 @@ import { explainClaudeFailure, isClaudeSignedOut, signedOutNotice } from "./clau
 import { registerTurnRecoveryHandlers } from "./handlers/turn-recovery-handlers.ts";
 import { AcpAgentSessions } from "./acp-agent-sessions.ts";
 import { chatAgentLaunch, claudeChromeOn } from "./chat-agent-launch-settings.ts";
+import { hostingAccounts } from "./hosting-account-service.ts";
 import { noteSlashCommands } from "./claude-catalog.ts";
 import { expandMcpMentionsInPrompt } from "./mcp-mentions.ts";
 import { liveClaudeQueries } from "./live-claude-queries.ts";
@@ -213,7 +214,7 @@ export function createHarnessAgent(
             requireWorkspace: (id) => workspaces.requireWorkspace(id),
             primaryOf: (projectId) => workspaces.projectWorkspaces().find((w) => w.project.id === projectId && w.workspace.isPrimary)?.workspace,
             hosting: async (cwd) => {
-              const { availability, ctx, provider } = await hostingContext(cwd);
+              const { availability, ctx, provider } = await hostingContext(cwd, projectOfSession(caller));
               if (!ctx || !provider) throw new Error(availability.message ?? "No GitHub or GitLab remote to open a pull request on.");
               return { ctx, provider };
             },
@@ -312,7 +313,7 @@ export function createHarnessAgent(
     const seq = await sessions.record(sessionId, update);
     broadcast(acp.methods.client.session.update, { sessionId, update, _meta: { [SESSION_REPLAY_META.seq]: seq } });
   }
-  const acpAgents = new AcpAgentSessions(sessions, emit);
+  const acpAgents = new AcpAgentSessions(sessions, emit, (record) => hostingAccounts().projectEnv(projectOfSession(record.id)));
   const mover = new SessionMover({ workspaces, sessions, pendingTurns, emit });
   /** Workflow step turns: their tool policy and result shape, picked up when the turn starts. */
   const stepTurns = new Map<
@@ -601,7 +602,8 @@ export function createHarnessAgent(
         onPermissionMode: (permissionMode) =>
           sessions.update(session.id, { options: { ...session.options, permissionMode } }),
         onSlashCommands: (names, skills) => noteSlashCommands(session.cwd, names, skills),
-        env: claudeLaunch.env,
+        // The project's GitHub/GitLab account, over the host's agent variables (docs/specs/project-hosting-accounts.md).
+        env: { ...claudeLaunch.env, ...(await hostingAccounts().projectEnv(projectOfSession(session.id))) },
         chrome: claudeChromeOn(claudeLaunch, projectOfSession(session.id)),
         askPermission,
         // A quick chat sees its harness tools up front, so it can move itself into a project.
