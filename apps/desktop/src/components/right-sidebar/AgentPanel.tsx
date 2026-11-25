@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react'
+import { useEffect, useMemo, useRef } from 'react'
 import { ExternalLink } from 'lucide-react'
 import { chatAgentLabel, workflowScorecard } from '@zomfy/protocol'
 import { allProjects, allWorkspaces, useStore, type Session } from '@/session-store'
@@ -31,12 +31,12 @@ function useFrontChat(workspaceId: string): Session | null {
 }
 
 /** What this chat called: tools by name, and the skills, MCP servers and subagents behind them. */
-function chatActivity(session: Session) {
+function chatActivity(items: Session['items']) {
   const tools = new Map<string, number>()
   const used = { skill: new Map<string, number>(), mcp: new Map<string, number>(), agent: new Map<string, number>() }
   const bump = (map: Map<string, number>, key: string) => map.set(key, (map.get(key) ?? 0) + 1)
   let turns = 0
-  for (const item of session.items) {
+  for (const item of items) {
     if (item.kind === 'user') turns++
     if (item.kind !== 'tool') continue
     const name = item.toolName ?? item.title.split(':')[0] ?? 'tool'
@@ -59,6 +59,9 @@ export function AgentPanel({ workspaceId }: { workspaceId: string }) {
   const projectName = useStore((s) => allProjects(s.hosts).find((p) => p.id === projectId)?.name ?? '')
   const usage = useChatSession(session?.id ?? '').usage
   const runs = useWorkflowRuns(hostId, projectId ?? '')
+  // The panel re-renders on every change to any chat; the count walks this chat's whole transcript.
+  const items = session?.items
+  const activity = useMemo(() => chatActivity(items ?? []), [items])
 
   useEffect(() => {
     if (hostId && projectId) void loadWorkflowRuns(hostId, projectId).catch(() => undefined)
@@ -69,7 +72,6 @@ export function AgentPanel({ workspaceId }: { workspaceId: string }) {
   }
 
   const agent = session.agent ?? 'claude'
-  const activity = chatActivity(session)
   const run = runs.find((r) => r.steps.some((s) => s.sessionIds.includes(session.id)))
   const openRun = (r: HostedWorkflowRun) =>
     openWorkflows({ hostId: r.hostId, projectId: r.projectId, projectName, runId: r.id })

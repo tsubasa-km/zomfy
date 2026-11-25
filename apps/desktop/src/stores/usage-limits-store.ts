@@ -1,4 +1,4 @@
-import { useEffect } from 'react'
+import { useEffect, useRef } from 'react'
 import { HARNESS_METHODS, type ProviderUsageLimits } from '@zomfy/protocol'
 import { harnessRequest } from '@/daemon-connection'
 import type { HostId } from '@/session-store'
@@ -44,9 +44,13 @@ export function refreshUsageLimits(hostId: HostId, options: { refresh?: boolean;
 /** This host's limits, kept fresh while the calling component is mounted. */
 export function useUsageLimits(hostId: HostId | null, sessionId?: string): HostUsageLimits {
   const limits = store.use((all) => (hostId ? all[hostId] : undefined)) ?? EMPTY
+  // The chat only says which Claude process may answer; another chat in front is no reason to ask.
+  const chat = useRef(sessionId)
+  chat.current = sessionId
   useEffect(() => {
     if (!hostId) return
     const read = () => {
+      const sessionId = chat.current
       if (document.visibilityState === 'visible') void refreshUsageLimits(hostId, sessionId ? { sessionId } : {})
     }
     read()
@@ -56,6 +60,6 @@ export function useUsageLimits(hostId: HostId | null, sessionId?: string): HostU
       clearInterval(timer)
       document.removeEventListener('visibilitychange', read)
     }
-  }, [hostId, sessionId])
+  }, [hostId])
   return limits
 }
