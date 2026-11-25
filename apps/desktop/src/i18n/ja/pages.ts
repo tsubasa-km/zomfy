@@ -1348,5 +1348,9 @@ export const PAGES: Record<string, string> = {
   // components/settings/ChatAgentLaunchSettings.tsx (Codex connection)
   'Codex connection': 'Codex の接続方法',
   'Applies to the next Codex message on this host.': 'このホストで次に送る Codex のメッセージから適用されます。',
-  'Direct (App Server)': '直接（App Server）'
+  'Direct (App Server)': '直接（App Server）',
+
+  // components/settings/ChatAgentLaunchSettings.tsx (Claude in Chrome)
+  'Starts this host’s Claude chats with Claude in Chrome, so they can use your Chrome. Needs the Claude in Chrome extension installed and Chrome running. A project can override this in its settings.':
+    'このホストの Claude チャットを Claude in Chrome 付きで起動し、あなたの Chrome を使えるようにします。Claude in Chrome 拡張機能のインストールと Chrome の起動が必要です。プロジェクトごとにプロジェクト設定で上書きできます。'
 }
