@@ -1444,5 +1444,6 @@ export const SHELL: Record<string, string> = {
     '{n} 件のワークスペースには同じ名前の独自フォルダーがすでにあるため、そのままにしています。',
   'Edited by hand, so updates leave it alone.': '手で編集されているため、更新では上書きしません。',
   "Replace with Zomfy's version": 'Zomfy の版に置き換える',
-  'Applies right away to every workspace of the project, new ones included.': 'このプロジェクトのすべてのワークスペース（新しく作るものも含む）にすぐ反映されます。'
+  'Applies right away to every workspace of the project, new ones included.': 'このプロジェクトのすべてのワークスペース（新しく作るものも含む）にすぐ反映されます。',
+  '{path} is outside the workspace, so it cannot be opened here.': '{path} はワークスペースの外にあるため、ここでは開けません。'
 }

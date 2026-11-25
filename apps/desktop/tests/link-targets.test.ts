@@ -1,5 +1,25 @@
 import { describe, expect, test } from 'bun:test'
-import { classifyLinkHref, looksLikeFilePath, workspaceRelativePath } from '../src/lib/link-targets.ts'
+import { classifyLinkHref, containingWorkspace, looksLikeFilePath, workspaceRelativePath } from '../src/lib/link-targets.ts'
+
+describe('containingWorkspace', () => {
+  const workspaces = [
+    { id: 'main', path: '/home/me/repo' },
+    { id: 'wt', path: '/home/me/repo/.worktrees/fix' },
+    { id: 'win', path: 'C:\\dev\\app' }
+  ]
+
+  test('finds the checkout a full path lies in, the deepest root first', () => {
+    expect(containingWorkspace('/home/me/repo/src/a.ts', workspaces)).toEqual({ workspaceId: 'main', path: 'src/a.ts' })
+    expect(containingWorkspace('/home/me/repo/.worktrees/fix/src/a.ts', workspaces)).toEqual({ workspaceId: 'wt', path: 'src/a.ts' })
+    expect(containingWorkspace('c:/DEV/app/README.md', workspaces)).toEqual({ workspaceId: 'win', path: 'README.md' })
+  })
+
+  test('nothing for a path in no workspace, or a relative one', () => {
+    expect(containingWorkspace('/etc/hosts', workspaces)).toBeNull()
+    expect(containingWorkspace('/home/me/repository/a.ts', workspaces)).toBeNull()
+    expect(containingWorkspace('src/a.ts', workspaces)).toBeNull()
+  })
+})
 
 describe('classifyLinkHref', () => {
   test('web, system, anchor and blocked schemes', () => {

@@ -1,11 +1,14 @@
 import { isTauri } from '@tauri-apps/api/core'
 import { openUrl } from '@tauri-apps/plugin-opener'
-import { LOCAL_HOST, findWorkspace, getState, openEditorTab, type HostId } from '@/session-store'
+import { toast } from 'sonner'
+import { LOCAL_HOST, allWorkspaces, findWorkspace, getState, openEditorTab, whenState, type HostId } from '@/session-store'
 import { isSshHost } from '@/daemon-connection'
+import { workspaceHost } from '@/lib/host-lists'
+import { t } from '@/i18n/i18n'
 import { openWorkspaceIn } from '@/components/sidebar/WorkspaceMenu'
 import { openBrowserTab, workspacePath } from '@/components/tab-layout/workspace-tab-model'
 import { IS_MAC } from '@/keybindings/keybinding-chords'
-import { classifyLinkHref, isAbsolutePath, workspaceRelativePath, type LinkTarget } from './link-targets'
+import { classifyLinkHref, containingWorkspace, isAbsolutePath, workspaceRelativePath, type LinkTarget } from './link-targets'
 
 // One route for every link the app shows, as Orca's http-link-routing: http(s) goes to the system
 // browser, Mod+click to an in-app browser tab, paths to the editor. The webview itself never
@@ -40,35 +43,60 @@ export function openLinkTarget(target: LinkTarget, options: { inApp: boolean; wo
     case 'system':
       openExternalUrl(target.url)
       return
-    case 'file': {
-      const { workspaceId } = options
-      const path = workspaceId ? workspaceRelativePath(target.path, workspacePath(workspaceId)) : null
-      if (workspaceId && path !== null) {
-        openEditorTab({ workspaceId, kind: 'file', path, staged: false, ...(target.line ? { line: target.line } : {}) })
-        return
-      }
-      // The editor reads only the workspace's files; one elsewhere goes to the OS.
-      openOutsideWorkspace(target.path, workspaceId)
+    case 'file':
+      void openFileLink(target, options.workspaceId)
       return
-    }
     case 'anchor':
     case 'blocked':
       return
   }
 }
 
+/** How long a link waits for its chat's host to list its workspaces (still connecting). */
+const HOST_LISTING_WAIT_MS = 20_000
+
+/**
+ * A path in the editor: relative to the chat's workspace, or a full path inside it or inside
+ * another workspace of the same host (the project's main checkout, a sibling worktree).
+ */
+async function openFileLink(target: Extract<LinkTarget, { kind: 'file' }>, workspaceId: string | null): Promise<void> {
+  // A workspace on a host still connecting has no root yet; its paths are not "outside" it.
+  if (workspaceId && workspaceHost(getState().hosts, workspaceId, LOCAL_HOST) === 'pending') {
+    await whenState((s) => workspaceHost(s.hosts, workspaceId, LOCAL_HOST) !== 'pending', HOST_LISTING_WAIT_MS)
+  }
+  const line = target.line ? { line: target.line } : {}
+  const path = workspaceId ? workspaceRelativePath(target.path, workspacePath(workspaceId)) : null
+  if (workspaceId && path !== null) {
+    openEditorTab({ workspaceId, kind: 'file', path, staged: false, ...line })
+    return
+  }
+  const hostId = (workspaceId ? findWorkspace(workspaceId)?.hostId : null) ?? LOCAL_HOST
+  const other = containingWorkspace(target.path, allWorkspaces(getState()).filter((w) => w.hostId === hostId))
+  if (other) {
+    openEditorTab({ workspaceId: other.workspaceId, kind: 'file', path: other.path, staged: false, ...line })
+    return
+  }
+  // The editor reads only the workspaces' files; one elsewhere goes to the OS.
+  openOutsideWorkspace(target.path, workspaceId)
+}
+
 /**
  * A full path outside the workspace, shown selected in the file manager. It is never handed to the
- * app the OS opens it with, so a click on a path an agent wrote never starts a program.
+ * app the OS opens it with, so a click on a path an agent wrote never starts a program. Where it
+ * cannot be shown (another computer's file, a preview without a file manager) the click says so
+ * rather than doing nothing.
  */
 function openOutsideWorkspace(path: string, workspaceId: string | null): void {
-  if (!isTauri() || !isAbsolutePath(path)) return
+  const cannot = (): void => {
+    toast.info(t('{path} is outside the workspace, so it cannot be opened here.', { path }))
+  }
+  if (!isTauri() || !isAbsolutePath(path)) return cannot()
   const workspace = workspaceId ? findWorkspace(workspaceId) : null
   let hostId: HostId = LOCAL_HOST
   if (path.startsWith('/')) {
     // A POSIX path is the workspace's host's own: WSL's, or this computer's where it is not Windows.
     hostId = workspace?.hostId ?? LOCAL_HOST
-    if (isSshHost(hostId) || (hostId === LOCAL_HOST && IS_WINDOWS)) return
+    if (isSshHost(hostId) || (hostId === LOCAL_HOST && IS_WINDOWS)) return cannot()
   }
   openWorkspaceIn('reveal', hostId, path)
 }
