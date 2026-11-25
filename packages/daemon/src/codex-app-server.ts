@@ -178,6 +178,7 @@ export class CodexAppServer {
       this.interrupt(turn)
       return await turn.finished.promise
     } finally {
+      turn.events.close()
       this.active = null
     }
   }

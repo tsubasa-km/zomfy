@@ -4,6 +4,8 @@ import { answersOf, QUESTION_OPTIONS, QUESTION_TOOL } from './ask-user-question.
 import { fields, list, string, type CodexFields } from './codex-app-server-rpc.ts'
 
 const OUTPUT_CHARS = 24_000
+/** A running command's output reaches the chat at most this often; its completion carries the rest. */
+const OUTPUT_INTERVAL_MS = 1_000
 
 interface Tool {
   kind: acp.ToolKind
@@ -15,8 +17,13 @@ export class CodexTurnEvents {
   private readonly messages = new Set<string>()
   private readonly tools = new Set<string>()
   private readonly commandOutput = new Map<string, string>()
+  private readonly outputSent = new Map<string, number>()
+  private readonly outputTimers = new Map<string, ReturnType<typeof setTimeout>>()
 
-  constructor(private readonly emit: (update: acp.SessionUpdate) => Promise<void>) {}
+  constructor(
+    private readonly emit: (update: acp.SessionUpdate) => Promise<void>,
+    private readonly outputIntervalMs = OUTPUT_INTERVAL_MS
+  ) {}
 
   async update(method: string, params: CodexFields): Promise<void> {
     const itemId = string(params.itemId)
@@ -48,15 +55,43 @@ export class CodexTurnEvents {
         if (this.tools.has(itemId) && string(params.delta)) {
           const output = tail((this.commandOutput.get(itemId) ?? '') + string(params.delta))
           this.commandOutput.set(itemId, output)
-          await this.emit({ sessionUpdate: 'tool_call_update', toolCallId: itemId, content: outputText(output) })
+          await this.sendOutput(itemId)
         }
         break
     }
   }
 
+  /** Drops output still waiting to be sent: the turn is over. */
+  close(): void {
+    for (const timer of this.outputTimers.values()) clearTimeout(timer)
+    this.outputTimers.clear()
+  }
+
+  /** Sends a running command's output now, or once the interval since the last send has passed. */
+  private async sendOutput(id: string): Promise<void> {
+    if (this.outputTimers.has(id)) return
+    const wait = (this.outputSent.get(id) ?? -Infinity) + this.outputIntervalMs - Date.now()
+    if (wait > 0) {
+      this.outputTimers.set(id, setTimeout(() => {
+        this.outputTimers.delete(id)
+        void this.sendOutput(id)
+      }, wait))
+      return
+    }
+    const output = this.commandOutput.get(id)
+    if (output === undefined) return
+    this.outputSent.set(id, Date.now())
+    await this.emit({ sessionUpdate: 'tool_call_update', toolCallId: id, content: outputText(output) })
+  }
+
   private async item(item: CodexFields, complete: boolean): Promise<void> {
     const id = string(item.id)
     if (!id) return
+    if (complete) {
+      clearTimeout(this.outputTimers.get(id))
+      this.outputTimers.delete(id)
+      this.outputSent.delete(id)
+    }
     if (item.type === 'agentMessage') {
       if (complete && !this.messages.has(id) && string(item.text)) await this.message('agent_message_chunk', id, string(item.text))
       return
@@ -173,6 +208,14 @@ export async function codexServerRequest(
           : []
       })
       if (questions.length === 0) return { answers: {} }
+      // Chat clients answer by question text, so each question shown must read differently.
+      const seen = new Map<string, number>()
+      for (const entry of questions) {
+        const count = (seen.get(entry.question) ?? 0) + 1
+        seen.set(entry.question, count)
+        if (count > 1) entry.question = `${entry.question} (${entry.header || count})`
+        while (questions.some((other) => other !== entry && other.question === entry.question)) entry.question += ` (${count})`
+      }
       const response = await permission(QUESTION_TOOL, 'other', { questions }, QUESTION_OPTIONS)
       if (response.outcome.outcome !== 'selected' || response.outcome.optionId !== QUESTION_OPTION_IDS.answer) return { answers: {} }
       const reply = answersOf(response)
