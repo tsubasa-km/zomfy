@@ -128,19 +128,20 @@ export function ProjectSettingsDialog({ project, onClose }: { project: HostedPro
   const isGit = project?.kind === 'git'
   return (
     <Dialog open={project !== null} onOpenChange={(o) => !o && onClose()}>
-      <DialogContent className="flex max-h-[calc(100vh-2rem)] flex-col sm:max-w-lg" data-project-settings-dialog>
+      <DialogContent className="flex max-h-[calc(100vh-2rem)] flex-col sm:max-w-3xl" data-project-settings-dialog>
         <DialogHeader>
           <DialogTitle>{t('Project Settings')}</DialogTitle>
           <DialogDescription className="break-all">{project?.path}</DialogDescription>
         </DialogHeader>
         <form
-          className="min-h-0 space-y-4 overflow-y-auto px-0.5"
+          // Two columns from sm up: related settings side by side; the folder, skills and buttons span both.
+          className="grid min-h-0 grid-cols-1 content-start gap-x-6 gap-y-4 overflow-y-auto px-0.5 sm:grid-cols-2"
           onSubmit={(e) => {
             e.preventDefault()
             void save()
           }}
         >
-          <div className="space-y-1.5">
+          <div className="space-y-1.5 sm:col-span-2">
             <Label htmlFor="project-folder" className={fieldLabel}>
               {t('Folder')}
             </Label>
@@ -193,7 +194,7 @@ export function ProjectSettingsDialog({ project, onClose }: { project: HostedPro
                   {t("When a thread's work is done")}
                 </Label>
                 <Select value={finishWith} onValueChange={(v) => setFinishWith(v === 'pull-request' ? 'pull-request' : 'merge')}>
-                  <SelectTrigger id="project-finish-with" data-project-finish-with>
+                  <SelectTrigger id="project-finish-with" className="w-full" data-project-finish-with>
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
@@ -236,7 +237,7 @@ export function ProjectSettingsDialog({ project, onClose }: { project: HostedPro
                   {t('Delete merged worktrees automatically')}
                 </Label>
                 <Select value={cleanupMode} onValueChange={(v) => setCleanupMode(v === 'on' || v === 'off' ? v : 'host')}>
-                  <SelectTrigger id="project-cleanup" data-project-cleanup>
+                  <SelectTrigger id="project-cleanup" className="w-full" data-project-cleanup>
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
@@ -326,9 +327,13 @@ export function ProjectSettingsDialog({ project, onClose }: { project: HostedPro
               {t('Claude chats here can use your Chrome. Needs the Claude in Chrome extension installed and Chrome running.')}
             </p>
           </div>
-          {isGit && project && <BundledSkillsSettings project={project} />}
-          {error && <p className="text-sm break-words text-destructive">{error}</p>}
-          <DialogFooter>
+          {isGit && project && (
+            <div className="sm:col-span-2">
+              <BundledSkillsSettings project={project} />
+            </div>
+          )}
+          {error && <p className="text-sm break-words text-destructive sm:col-span-2">{error}</p>}
+          <DialogFooter className="sm:col-span-2">
             <Button type="button" variant="outline" onClick={onClose}>
               {t('Cancel')}
             </Button>
