@@ -5,7 +5,7 @@ import { managerMcp } from './manager-mcp-server.ts'
 import { mcpServersReady } from './mcp-ready.ts'
 import { restartHandoff } from './agent-handoff.ts'
 
-/** The ACP servers running for this daemon's external-agent sessions, one per session. */
+/** The external agent processes running for this daemon, one per session. */
 export class AcpAgentSessions {
   private readonly live = new Map<string, AcpAgentSession>()
   /** MCP servers a workflow step gives its session, on top of the harness's own. */

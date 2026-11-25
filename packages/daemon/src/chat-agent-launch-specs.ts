@@ -6,9 +6,10 @@ import {
   isGuardedChatAgent,
   tuiAgentSpec,
   type ChatAgentId,
-  type ChatAgentInfo
+  type ChatAgentInfo,
+  type CodexConnection
 } from '@zomfy/protocol'
-import { chatAgentLaunch } from './chat-agent-launch-settings.ts'
+import { chatAgentLaunch, type ChatAgentLaunch } from './chat-agent-launch-settings.ts'
 import { hostPath } from './tui-agent-detection.ts'
 import { resolveClaudeExecutable } from './claude-executable.ts'
 import { log } from './log.ts'
@@ -90,17 +91,20 @@ const SPECS: AcpLaunchSpec[] = [
 const PROBE_TIMEOUT_MS = 8_000
 const helpCache = new Map<string, Promise<string>>()
 
-export type ResolvedChatAgent =
+export type ResolvedChatAgent = (
   | { status: 'ready'; argv: string[]; env: Record<string, string>; display: string }
   | { status: Exclude<ChatAgentInfo['status'], 'ready'>; detail: string }
+) & { codexConnection?: CodexConnection }
 
 /**
  * How this host starts the agent's ACP server right now (custom command, PATH, probes). A guarded
  * agent the person has not turned on is never started, however it is installed.
  */
 export async function resolveChatAgent(agent: ChatAgentId): Promise<ResolvedChatAgent> {
-  const resolved = await resolveInstalledChatAgent(agent)
-  if (resolved.status !== 'ready' || !isGuardedChatAgent(agent) || (await chatAgentLaunch(agent)).consent) return resolved
+  const launch = await chatAgentLaunch(agent)
+  const resolved = await resolveInstalledChatAgent(agent, launch)
+  if (agent === 'codex') return { ...resolved, codexConnection: launch.codexConnection ?? 'acp' }
+  if (resolved.status !== 'ready' || !isGuardedChatAgent(agent) || launch.consent) return resolved
   return { status: 'needs-consent', detail: guardedAgentNotice(agent) }
 }
 
@@ -115,8 +119,7 @@ export function refuseUnattended(agent: string | null | undefined, where: string
   throw new Error(`${chatAgentLabel(agent)} runs only in threads you start yourself, not in ${where}: its terms forbid driving it from another app, and accounts that do are suspended.`)
 }
 
-async function resolveInstalledChatAgent(agent: ChatAgentId): Promise<ResolvedChatAgent> {
-  const launch = await chatAgentLaunch(agent)
+async function resolveInstalledChatAgent(agent: ChatAgentId, launch: ChatAgentLaunch): Promise<ResolvedChatAgent> {
   if (agent === 'claude') {
     const cli = await resolveClaudeExecutable()
     // Without the CLI the SDK's bundled copy runs, which has no login unless an API key is set.
@@ -129,6 +132,15 @@ async function resolveInstalledChatAgent(agent: ChatAgentId): Promise<ResolvedCh
   if (!spec) return { status: 'unsupported', detail: `${chatAgentLabel(agent)} has no chat mode yet` }
   const PATH = await hostPath()
   const env = { ...spec.env, ...launch.env }
+  if (agent === 'codex' && launch.codexConnection === 'app-server') {
+    const found = Bun.which('codex', { PATH: env.PATH ?? PATH })
+    if (!found) return { status: 'missing', detail: '`codex` is not on this host’s PATH' }
+    const base = await resolveShim(found)
+    if (!/^\s+app-server\b/m.test(await helpText(base, ['--help']))) {
+      return { status: 'unsupported', detail: 'This Codex release does not advertise app-server in `codex --help`' }
+    }
+    return { status: 'ready', argv: [...base, 'app-server'], env, display: 'codex app-server' }
+  }
   if (launch.command) {
     const [program = '', ...args] = splitCommand(launch.command)
     const found = Bun.which(program, { PATH })
@@ -158,6 +170,7 @@ export async function listChatAgents(refresh: boolean): Promise<ChatAgentInfo[]>
   return Promise.all(
     CHAT_AGENT_IDS.map(async (id): Promise<ChatAgentInfo> => {
       const [resolved, launch] = await Promise.all([resolveChatAgent(id), chatAgentLaunch(id)])
+      const update = agentUpdate(id)
       return {
         id,
         label: chatAgentLabel(id),
@@ -167,7 +180,10 @@ export async function listChatAgents(refresh: boolean): Promise<ChatAgentInfo[]>
         command: launch.command,
         envNames: Object.keys(launch.env).sort(),
         installUrl: installUrl(id, resolved.status),
-        update: launch.command ? null : agentUpdate(id),
+        update: launch.codexConnection === 'app-server'
+          ? (update?.packageName === '@openai/codex' ? update : null)
+          : launch.command ? null : update,
+        ...(id === 'codex' ? { codexConnection: launch.codexConnection ?? 'acp' } : {}),
         ...(isGuardedChatAgent(id) ? { consent: !!launch.consent } : {})
       }
     })

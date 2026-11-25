@@ -3,7 +3,7 @@ type: Spec
 title: Direct Codex connection
 description: Choose how a host runs Codex chats, through ACP or directly through Codex App Server.
 status: stable
-x-zomfy-implementation: in-progress
+x-zomfy-implementation: done
 tags: [chat, codex, daemon, desktop]
 sources:
   - id: request
@@ -12,7 +12,7 @@ sources:
   - id: app-server
     resource: https://learn.chatgpt.com/docs/app-server
     title: Codex App Server protocol
-generated: { by: "codex/gpt-6", at: "2026-11-25T01:28:07.745Z" }
+generated: { by: "codex/gpt-6", at: "2026-11-25T02:23:53.591Z" }
 ---
 
 # Problem
@@ -29,8 +29,9 @@ the CLI's App Server directly and keep the ACP option for hosts that already use
   launch environment and existing Codex account, including a configured `CODEX_HOME`. A custom
   ACP command applies in ACP mode. The app identifies which executable is needed in each mode.
 - The daemon maps App Server threads, turns, streaming messages, supported attachments, tool
-  events, approvals, and questions to its chat interfaces.[^app-server] The session registry
-  continues to associate a chat with its Codex thread ID.
+  events, approvals, and non-secret questions to its chat interfaces.[^app-server] Secret
+  questions are skipped with a notice. The session registry associates a chat with its Codex
+  thread ID.
 - An in-flight turn continues on the connection that started it. The next turn opens the
   saved thread on the selected connection. If Direct mode cannot reopen that thread, it
   reports the failure and keeps the ID for retry. Connection selection never triggers an
@@ -50,6 +51,14 @@ the CLI's App Server directly and keep the ACP option for hosts that already use
   process exit surface errors without replaying the prompt or creating a replacement thread.
 - A source build and isolated browser preview can verify both modes without opening or
   replacing the installed desktop app or its daemon.
+
+# Manual review
+
+Use a browser preview connected to a source-built daemon on a separate loopback port and
+`ZOMFY_HOME`. Open **Settings › Agents › Codex**, select **Direct (App Server)**, and send a
+message in a fresh Codex chat. Check streaming and Stop. With both transports installed and
+using the same Codex account folder, switch to ACP during a turn and verify the next message
+continues the same thread. Repeat with the transports reversed.
 
 # Open questions
 

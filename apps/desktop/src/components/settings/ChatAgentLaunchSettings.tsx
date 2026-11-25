@@ -1,10 +1,11 @@
 import { useState, type ReactNode } from 'react'
 import { ChevronRight, ExternalLink, RefreshCw, ShieldAlert } from 'lucide-react'
-import { HARNESS_METHODS, type ChatAgentId, type ChatAgentInfo } from '@zomfy/protocol'
+import { HARNESS_METHODS, type ChatAgentId, type ChatAgentInfo, type ChatAgentLaunchPatch } from '@zomfy/protocol'
 import { harnessRequest } from '@/daemon-connection'
 import type { HostEntry } from '@/session-store'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible'
 import { TuiAgentIcon } from '@/components/terminal/TuiAgentIcon'
 import { loadChatAgents, setChatAgents, useChatAgents } from '@/lib/chat-agents'
@@ -26,9 +27,7 @@ const STATUS_LABEL: Record<ChatAgentInfo['status'], string> = {
   'needs-consent': t('Off')
 }
 
-type LaunchPatch = { command?: string | null; env?: { name: string; value: string | null }; consent?: boolean }
-
-async function setLaunch(host: HostEntry, agent: ChatAgentId, patch: LaunchPatch): Promise<void> {
+async function setLaunch(host: HostEntry, agent: ChatAgentId, patch: ChatAgentLaunchPatch): Promise<void> {
   setChatAgents(host.id, await harnessRequest(HARNESS_METHODS.chatAgentSetLaunch, { agent, ...patch }, host.id))
 }
 
@@ -95,7 +94,8 @@ function ChatAgentRow({ host, agent }: { host: HostEntry; agent: ChatAgentInfo }
   const searching = useSettingsSearchQuery().trim() !== ''
   const [open, setOpen] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const run = (patch: LaunchPatch) =>
+  const [savingConnection, setSavingConnection] = useState(false)
+  const run = (patch: ChatAgentLaunchPatch) =>
     setLaunch(host, agent.id, patch).then(
       () => setError(null),
       (e: unknown) => setError(e instanceof Error ? e.message : String(e))
@@ -126,6 +126,32 @@ function ChatAgentRow({ host, agent }: { host: HostEntry; agent: ChatAgentInfo }
       <CollapsibleContent animation="height">
         <div className="space-y-2 pb-3 pl-6">
           {agent.consent !== undefined ? <ConsentSection agent={agent} onChange={(consent) => run({ consent })} /> : null}
+          {agent.codexConnection !== undefined ? (
+            <SettingsRow
+              label={t('Codex connection')}
+              description={t('Applies to the next Codex message on this host.')}
+              keywords={['Codex', 'ACP', 'App Server', 'connection']}
+              control={(
+                <Select
+                  value={agent.codexConnection}
+                  disabled={savingConnection}
+                  onValueChange={(value) => {
+                    if (value !== 'acp' && value !== 'app-server') return
+                    setSavingConnection(true)
+                    void run({ codexConnection: value }).finally(() => setSavingConnection(false))
+                  }}
+                >
+                  <SelectTrigger className="h-8 w-48" aria-label={t('Codex connection')}>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="acp">ACP</SelectItem>
+                    <SelectItem value="app-server">Direct (App Server)</SelectItem>
+                  </SelectContent>
+                </Select>
+              )}
+            />
+          ) : null}
           {agent.detail && agent.status !== 'needs-consent' ? <p className="font-mono text-xs break-all text-muted-foreground">{agent.detail}</p> : null}
           {agent.update ? (
             <InstallHint>
@@ -138,7 +164,7 @@ function ChatAgentRow({ host, agent }: { host: HostEntry; agent: ChatAgentInfo }
           ) : agent.status !== 'ready' && agent.status !== 'needs-consent' ? (
             <InstallHint>{t('Install it on {host} from the official page, then press Reload.', { host: host.label })}</InstallHint>
           ) : null}
-          {agent.id !== 'claude' ? (
+          {agent.id !== 'claude' && agent.codexConnection !== 'app-server' ? (
             <TextField
               label={t('{agent} command', { agent: agent.label })}
               description={t('Starts this agent’s ACP server. Empty uses the catalog command.')}

@@ -12,6 +12,7 @@ interface Recorded extends acp.SessionInfo {
 }
 
 const recorded: Recorded[] = process.env.FAKE_ACP_SESSIONS ? JSON.parse(readFileSync(process.env.FAKE_ACP_SESSIONS, 'utf8')) : []
+const resumeTestThread = process.env.TEST_RESUME_CODEX_THREAD === '1'
 const PAGE = 2
 const cancels = new Map<string, () => void>()
 let running = false
@@ -27,9 +28,15 @@ acp
   .agent({ name: 'fake' })
   .onRequest('initialize', () => ({
     protocolVersion: acp.PROTOCOL_VERSION,
-    agentCapabilities: recorded.length > 0 ? { loadSession: true, sessionCapabilities: { list: {} } } : {}
+    agentCapabilities: resumeTestThread
+      ? { sessionCapabilities: { resume: {} } }
+      : recorded.length > 0 ? { loadSession: true, sessionCapabilities: { list: {} } } : {}
   }))
   .onRequest('session/new', () => ({ sessionId: crypto.randomUUID() }))
+  .onRequest('session/resume', (ctx) => {
+    if (!resumeTestThread || ctx.params.sessionId !== 'direct-thread') throw new Error('No matching thread')
+    return {}
+  })
   .onRequest('session/list', (ctx) => {
     // Like some agents, it answers with every folder's sessions whatever `cwd` asks for.
     const start = Number(ctx.params.cursor ?? 0)
