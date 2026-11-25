@@ -2,7 +2,7 @@
 type: Spec
 title: Zomfy's own skills, and worktrees that do not fill the disk
 description: Settings turns Zomfy's bundled skills (the worktree skill first) on or off per agent and scope and keeps them updated; worktrees show their size, merged and idle ones are cleaned up by prompt or policy, idle ones lose their build output, dependencies are shared, and low disk space is warned about.
-status: draft
+status: stable
 x-zomfy-implementation: planned
 tags: [worktrees, skills, storage, settings, daemon, desktop]
 generated: { by: "claude-code/opus-5.5", at: "2026-11-25T00:00:00Z" }
@@ -198,18 +198,24 @@ So a new worktree costs little in the first place:
 - Tests: digest classification, merged-against-finish-branch, the long-path delete (a fixture of
   nested folders past 260 characters), size splitting, the policy's keep rules.
 
+# Decisions (2026-11-25)
+
+The person's answers to the open questions:
+
+1. **Bundled skills are set per project.** Whether `zomfy-worktrees` (and later bundled skills) is
+   enabled is a project setting (beside the agent-tool settings in Project Settings), per agent; a
+   project's setting installs or removes the skill in that project's scope. There is no global
+   default prompt.
+2. **"Merged into" is the main checkout's current branch**, as proposed, with a per-project
+   override.
+3. **Automatic cleanup of merged worktrees starts on** (Orca's starts off). It still never touches a
+   worktree with uncommitted or unpushed work, or one a chat is open in.
+4. bun's hardlinking is still to be measured before B8 is built.
+5. **No free-space thresholds**: B3's notice and refusal are left out; sizes (B2) and cleanup (B4–B6)
+   stay.
+6. **Orca's three stubs were removed** from `~/.agents/skills` by hand on 2026-11-25, with 15 empty
+   worktree folders left behind by earlier removals.
+
 # Open questions
 
-1. Should `zomfy-worktrees` be offered on by default for Claude Code and Codex (the one-time prompt
-   above), or stay off until the person goes to Settings?
-2. Is the finish branch (the main checkout's current branch) the right "merged into" target, or
-   should a project name it (e.g. `development`) as a setting?
-3. Should automatic cleanup start on for merged worktrees (Orca's is off), given the person just
-   cleaned 28 by hand?
-4. Does bun on this machine already hardlink from its cache into `node_modules` (so the 1–6 GB per
-   worktree is mostly the Rust `target/` and Expo's tree)? To be measured before B8 is built; if it
-   does, B8 is mostly the Rust part.
-5. Should the free-space thresholds (10 GB notice, 2 GB refusal) be different, or the refusal left
-   out?
-6. Should Orca's three stubs in `~/.agents/skills` simply be removed now, by hand, since Orca's CLI
-   is not used?
+- Whether bun hardlinks from its cache into `node_modules` here (decides how much of B8 is needed).
