@@ -6,7 +6,8 @@ import { botAvatar, botColour } from '../lib/bots'
 import type { ConnectionStatus } from '../lib/host-connection'
 import { useNeedsYouTotal } from './hooks'
 import { t } from './i18n'
-import { colors, space, statusColors } from './theme'
+import { colors, phaseColors, space, statusColors } from './theme'
+import { phaseOf, phaseText } from '../lib/turn-phase'
 
 export function Button(props: {
   label: string
@@ -43,6 +44,15 @@ export function Button(props: {
 export function StatusDot({ status }: { status: SessionStatus }) {
   return <View style={[styles.dot, { backgroundColor: statusColors[status] }]} />
 }
+
+/** A thread's turn-taking state as a dot: a failed turn in red, the rest by phase. */
+export function PhaseDot({ info }: { info: Parameters<typeof phaseOf>[0] }) {
+  const color = info.status === 'error' ? statusColors.error : phaseColors[phaseOf(info)]
+  return <View style={[styles.dot, { backgroundColor: color }]} />
+}
+
+/** The state in a word for a list row; null for a quiet thread. */
+export const phaseLabel = (info: Parameters<typeof phaseText>[0]): string | null => phaseText(info, t)
 
 export const statusLabel = (status: SessionStatus): string =>
   status === 'needs-you' ? t('Needs you') : status === 'working' ? t('Working') : status === 'error' ? t('Error') : t('Idle')
@@ -96,7 +106,7 @@ export function TabBar() {
   const count = useNeedsYouTotal()
   const tabs = [
     { path: '/', label: t('Hosts') },
-    { path: '/needs-you', label: count > 0 ? `${t('Needs you')} (${count})` : t('Needs you') },
+    { path: '/needs-you', label: count > 0 ? `${t('Needs your answer')} (${count})` : t('Needs your answer') },
     { path: '/settings', label: t('Settings') }
   ]
   return (
