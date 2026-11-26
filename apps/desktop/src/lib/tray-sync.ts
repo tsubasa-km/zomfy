@@ -5,6 +5,7 @@ import { getState, onSessionTransition } from '@/session-store'
 import { getSetting, onSettingsChange } from '@/stores/settings-store'
 import { runCommand } from '@/keybindings/keybinding-registry'
 import { t } from '@/i18n/i18n'
+import { speaksToPerson } from '@/lib/child-threads'
 
 // Feeds the native tray (src-tauri/src/tray.rs): Orca's attention dot while the window is hidden,
 // the number of agents waiting on the user, and the minimize-to-tray preference.
@@ -17,10 +18,12 @@ export function installTraySync(): void {
   const waiting = () => getState().sessions.filter((s) => s.status === 'needs-you').length
   const push = () => void invoke('set_tray_attention', { attention, waiting: waiting() }).catch(() => undefined)
 
-  onSessionTransition(({ from, to }) => {
+  onSessionTransition(({ session, from, to }) => {
     const finished = from === 'working' && (to === 'idle' || to === 'error')
-    // Orca lights the dot only when the window cannot be seen; showing it clears the dot.
-    if ((finished || to === 'needs-you') && document.visibilityState === 'hidden') attention = true
+    // Orca lights the dot only when the window cannot be seen; showing it clears the dot. A helper
+    // lights it only when it needs the person (lib/child-threads).
+    const heard = speaksToPerson(session, to, getSetting('notifyHelperThreads'))
+    if ((finished || to === 'needs-you') && heard && document.visibilityState === 'hidden') attention = true
     push()
   })
   document.addEventListener('visibilitychange', () => {

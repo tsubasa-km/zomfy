@@ -1373,5 +1373,10 @@ export const PAGES: Record<string, string> = {
   'How the composer’s border shows that the thread waits for your answer.': 'スレッドが回答を待つ間の入力欄の枠の光り方。',
   Rainbow: 'レインボー',
   'Accent pulse': 'アクセントの明滅',
-  'Static outline': '静止した枠線'
+  'Static outline': '静止した枠線',
+
+  // components/settings/NotificationsPane.tsx (threads another thread started)
+  'Helper threads': 'ヘルパーのスレッド',
+  'Notify and mark unread when a thread another thread started finishes. Off, you hear from the thread that started it, and only a helper that needs you notifies.':
+    '別のスレッドが始めたスレッドが完了したときも通知し、未読にします。オフのときは始めたスレッドから知らせが届き、ヘルパーからはあなたの対応が必要なときだけ通知します。'
 }

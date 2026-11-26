@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useContext, useState } from 'react'
 import { toast } from 'sonner'
 import { Check, ChevronRight, ListTodo, MessageSquareReply, SquareArrowRight } from 'lucide-react'
 import type { WrapUpStep } from '@zomfy/protocol'
@@ -10,6 +10,8 @@ import { NativeChatCopyButton } from './NativeChatCopyButton'
 import { NATIVE_CHAT_QUOTE_SOURCE_PROPS } from './NativeChatSelectionQuote'
 import type { NextStepsRow } from './native-chat-transcript-model'
 import type { RecapSection } from './next-steps'
+import { useWaitingGlow } from './composer-waiting-glow'
+import { NextStepsGlowContext } from './waiting-glow-target'
 import { t } from '@/i18n/i18n'
 
 /** What the card does with a press; absent where the chat cannot take a prompt. */
@@ -36,6 +38,8 @@ const SMALL_BUTTON =
  */
 export function NativeChatNextStepsCard({ row, rowKey, actions }: { row: NextStepsRow; rowKey: string; actions: NextStepsActions }) {
   const [original, setOriginal] = useState(false)
+  // The thread's last card, its question unanswered, on the person's turn (composer-waiting-glow.md).
+  const glow = useContext(NextStepsGlowContext) === row
   const recap = row.recap
   if (recap && original) {
     return (
@@ -90,7 +94,7 @@ export function NativeChatNextStepsCard({ row, rowKey, actions }: { row: NextSte
             ))}
           </ol>
         ) : null}
-        {row.card.question ? <Question question={row.card.question} followUp={row.followUp} actions={actions} /> : null}
+        {row.card.question ? <Question question={row.card.question} followUp={row.followUp} actions={actions} glow={glow} /> : null}
       </section>
     </div>
   )
@@ -207,16 +211,26 @@ function OwnerChip({ owner, agentName }: { owner: string; agentName: string }) {
 function Question({
   question,
   followUp,
-  actions
+  actions,
+  glow
 }: {
   question: { text: string; options: string[] }
   followUp: string | undefined
   actions: NextStepsActions
+  glow: boolean
 }) {
   const [picked, setPicked] = useState<string | null>(null)
   const answer = picked ?? (followUp !== undefined && question.options.includes(followUp) ? followUp : null)
+  const glowing = useWaitingGlow(glow && answer === null)
   return (
-    <div className="mt-2.5 border-t border-border pt-2" data-next-steps-question>
+    <div className="mt-2.5 border-t border-border pt-2">
+      {/* Its own border, clear until the question glows, so the glow moves nothing. */}
+      <div
+        data-next-steps-question
+        data-waiting-glow={glowing}
+        style={{ '--composer-glow-surface': 'color-mix(in oklab, var(--card) 60%, var(--chat-canvas))' } as React.CSSProperties}
+        className="-mx-2 rounded-lg border border-transparent px-2 py-1.5"
+      >
       <p className="font-medium break-words text-chat-foreground-strong select-text">{question.text}</p>
       <div className="mt-1.5 flex flex-wrap gap-1.5">
         {question.options.map((option) => (
@@ -240,6 +254,7 @@ function Question({
             {option}
           </button>
         ))}
+      </div>
       </div>
     </div>
   )

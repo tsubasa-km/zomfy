@@ -114,7 +114,12 @@ const ja: Record<string, string> = {
   'No chats with this bot yet': 'このボットとのチャットはまだありません',
   'Connect to the host to start a chat': 'チャットを始めるにはホストに接続してください',
   'This phone may not start chats on this host': 'このスマートフォンにはこのホストでチャットを始める権限がありません',
-  '{count} bots': '{count} 個のボット'
+  '{count} bots': '{count} 個のボット',
+  // turn-phase.ts (docs/specs/turn-taking-states.md), in the desktop's words
+  'Needs your answer': '回答待ち',
+  'Your turn': 'あなたの番です',
+  'Background work running': 'バックグラウンドで作業中',
+  'Wakes {time}': '{time} に再開'
 }
 
 const TABLES: Record<Language, Record<string, string>> = { en: {}, ja }

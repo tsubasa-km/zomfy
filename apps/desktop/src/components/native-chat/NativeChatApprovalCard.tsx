@@ -8,9 +8,13 @@ import { splitPartCount, splitPlanOf } from './split-plan'
 import { terminalSendDetails, terminalSendTitle } from './terminal-send-request'
 import { questionsToAnswer } from './agent-questions'
 import { NativeChatQuestionCard } from './NativeChatQuestionCard'
+import { useWaitingGlow } from './composer-waiting-glow'
 import { t } from '@/i18n/i18n'
 
 type Permission = Extract<ThreadItem, { kind: 'permission' }>
+
+/** A glowing card keeps its own background under the glow's border. */
+export const CARD_GLOW_SURFACE = { '--composer-glow-surface': 'var(--card)' } as React.CSSProperties
 
 function planOf(input: unknown): string | null {
   if (typeof input !== 'object' || input === null || !('plan' in input)) return null
@@ -27,15 +31,19 @@ function optionLabel(option: Permission['options'][number], split: boolean): str
 export function NativeChatApprovalCard({
   permission,
   cwd,
-  from
+  from,
+  glow = false
 }: {
   permission: Permission
   cwd: string
   /** The helper chat asking, when the ask is shown in the thread it works for. */
   from?: string
+  /** The person acts here next: the card's border glows (composer-waiting-glow.md). */
+  glow?: boolean
 }) {
   const questions = questionsToAnswer(permission)
-  if (questions.length > 0) return <NativeChatQuestionCard key={permission.requestId} permission={permission} questions={questions} from={from} />
+  const glowing = useWaitingGlow(glow && questions.length === 0)
+  if (questions.length > 0) return <NativeChatQuestionCard key={permission.requestId} permission={permission} questions={questions} from={from} glow={glow} />
   // Allow first, as Orca puts the primary choice first.
   const options = [...permission.options].sort(
     (a, b) => Number(b.kind.startsWith('allow')) - Number(a.kind.startsWith('allow'))
@@ -51,6 +59,9 @@ export function NativeChatApprovalCard({
         <div
           role="group"
           aria-label={permission.title}
+          data-approval-card
+          data-waiting-glow={glowing}
+          style={CARD_GLOW_SURFACE}
           className="flex min-h-0 w-full flex-1 flex-col gap-2 overflow-hidden rounded-lg border border-input bg-card px-4 py-3 shadow-xs"
         >
           <div className="flex shrink-0 items-start gap-2">

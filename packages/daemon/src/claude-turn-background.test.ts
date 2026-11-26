@@ -4,13 +4,16 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type * as acp from "@agentclientprotocol/sdk";
 import type { query, SDKMessage, SDKUserMessage } from "@anthropic-ai/claude-agent-sdk";
+import type { SessionWakeUp } from "@zomfy/protocol";
 import {
   releaseFinishedTurn,
   runClaudeTurn,
   setBackgroundIdleCapForTests,
   useQueryForTests,
+  wakeUpsOf,
 } from "./claude-turn.ts";
 import { BackgroundTaskMarks } from "./background-task-marks.ts";
+import { HeldWakeUps } from "./held-wake-ups.ts";
 
 /** A Claude process the test drives: it reads the prompt stream and yields what the test emits. */
 class FakeClaude {
@@ -18,12 +21,16 @@ class FakeClaude {
   inputClosed = false;
   aborted = false;
   starts = 0;
+  /** The daemon's Stop hook, which the CLI runs at every turn's end. */
+  stopHook: ((input: unknown) => Promise<unknown>) | null = null;
   private queue: SDKMessage[] = [];
   private wake: (() => void) | null = null;
   private ended = false;
 
   readonly query = ((params: Parameters<typeof query>[0]) => {
     this.starts++;
+    const stop = params.options?.hooks?.Stop?.[0]?.hooks[0];
+    this.stopHook = stop ? (input) => stop(input as never, undefined, { signal: new AbortController().signal }) : null;
     const prompt = params.prompt as AsyncIterable<SDKUserMessage>;
     params.options?.abortController?.signal.addEventListener("abort", () => {
       this.aborted = true;
@@ -304,6 +311,165 @@ describe("a resumed conversation", () => {
     await until(() => claude.sent.length === 1);
     claude.emit(init(), said("hi"), result("hi"));
     expect(await done).toBe("end_turn");
+  });
+});
+
+/** A one-shot cron for the minute starting within the next 60 s, as ScheduleWakeup writes it. */
+function nextMinuteCron(): string {
+  const d = new Date(Date.now() + 60_000);
+  return `${d.getMinutes()} ${d.getHours()} ${d.getDate()} ${d.getMonth() + 1} *`;
+}
+
+describe("scheduled wake-ups", () => {
+  afterEach(() => useQueryForTests(null));
+
+  test("the Stop hook's session_crons become wake-ups with their next time", () => {
+    const now = new Date(2026, 10, 26, 16, 31, 32).getTime();
+    expect(wakeUpsOf({ session_crons: [{ id: "b1", schedule: "33 16 * * *", recurring: false, prompt: "check" }] }, now)).toEqual([
+      { id: "b1", at: new Date(2026, 10, 26, 16, 33).getTime(), recurring: false, prompt: "check" },
+    ]);
+    expect(wakeUpsOf({ session_crons: [] }, now)).toEqual([]);
+    expect(wakeUpsOf({ effort: { level: "high" } }, now)).toBeNull();
+  });
+
+  test("a turn ending with a wake-up keeps its process, and the CLI's wake turn is the chat's", async () => {
+    const claude = new FakeClaude();
+    useQueryForTests(claude.query);
+    const sessionId = `wake-${++chat}`;
+    const updates: acp.SessionUpdate[] = [];
+    const reported: SessionWakeUp[][] = [];
+    const woken: { notification: string; wakeUp?: SessionWakeUp }[] = [];
+    const done = runClaudeTurn(
+      turnFor(sessionId, updates, { onWakeUps: (w) => reported.push(w), onWake: (notification, wakeUp) => woken.push({ notification, wakeUp }) }),
+    );
+    await until(() => claude.sent.length === 1);
+    claude.emit(init());
+    await claude.stopHook!({ hook_event_name: "Stop", session_crons: [{ id: "w1", schedule: nextMinuteCron(), recurring: false, prompt: "look again" }] });
+    claude.emit(result("I'll look again in a minute"));
+    expect(await done).toBe("end_turn");
+    expect(reported.at(-1)?.[0]).toMatchObject({ id: "w1", recurring: false, prompt: "look again" });
+    expect(reported.at(-1)?.[0]?.at).toBeGreaterThan(Date.now() - 60_000);
+    // The suggestion no longer lets it go: the CLI must still be there to fire.
+    claude.emit(suggestion("next"));
+    await new Promise((resolve) => setTimeout(resolve, 30));
+    expect(claude.inputClosed).toBe(false);
+
+    // The CLI fires: a turn of its own, with no task notification.
+    claude.emit(init());
+    await until(() => woken.length === 1);
+    expect(woken[0]).toMatchObject({ notification: "", wakeUp: { id: "w1", prompt: "look again" } });
+    const wokenUpdates: acp.SessionUpdate[] = [];
+    const wokenTurn = runClaudeTurn(turnFor(sessionId, wokenUpdates, { attach: true, onWakeUps: (w) => reported.push(w) }));
+    await new Promise((resolve) => setTimeout(resolve, 10));
+    await claude.stopHook!({ hook_event_name: "Stop", session_crons: [] });
+    claude.emit(said("looked"), result("looked"));
+    expect(await wokenTurn).toBe("end_turn");
+    expect(reported.at(-1)).toEqual([]);
+    // Nothing is scheduled any more: it goes as an ordinary process does.
+    claude.emit(suggestion("again"));
+    await until(() => claude.inputClosed);
+  });
+
+  test("a process stopped before its wake-up hands it to the daemon", async () => {
+    const claude = new FakeClaude();
+    useQueryForTests(claude.query);
+    const sessionId = `wake-${++chat}`;
+    const orphaned: SessionWakeUp[][] = [];
+    const first = turnFor(sessionId, [], { onWakeUpsOrphaned: (w) => orphaned.push(w) });
+    const done = runClaudeTurn(first);
+    await until(() => claude.sent.length === 1);
+    claude.emit(init());
+    await claude.stopHook!({ hook_event_name: "Stop", session_crons: [{ id: "w2", schedule: nextMinuteCron(), recurring: false, prompt: "p" }] });
+    claude.emit(result("scheduled"));
+    await done;
+    // The next prompt joins the kept process; Stop kills it, wake-up and all.
+    const abort = new AbortController();
+    const second = runClaudeTurn(
+      turnFor(sessionId, [], { abort, state: { ...first.state, claudeSessionId: "claude-1" }, onWakeUpsOrphaned: (w) => orphaned.push(w) }),
+    );
+    await until(() => claude.sent.length === 2);
+    expect(claude.starts).toBe(1);
+    abort.abort();
+    expect(await second).toBe("cancelled");
+    await until(() => orphaned.length === 1);
+    expect(orphaned[0]?.[0]).toMatchObject({ id: "w2" });
+  });
+
+  test("a chat let go on purpose drops its wake-ups", async () => {
+    const claude = new FakeClaude();
+    useQueryForTests(claude.query);
+    const sessionId = `wake-${++chat}`;
+    const orphaned: SessionWakeUp[][] = [];
+    const reported: SessionWakeUp[][] = [];
+    const done = runClaudeTurn(turnFor(sessionId, [], { onWakeUpsOrphaned: (w) => orphaned.push(w), onWakeUps: (w) => reported.push(w) }));
+    await until(() => claude.sent.length === 1);
+    claude.emit(init());
+    await claude.stopHook!({ hook_event_name: "Stop", session_crons: [{ id: "w3", schedule: nextMinuteCron(), recurring: false, prompt: "p" }] });
+    claude.emit(result("scheduled"));
+    await done;
+    await releaseFinishedTurn(sessionId);
+    expect(orphaned).toEqual([]);
+    expect(reported.at(-1)).toEqual([]);
+  });
+});
+
+describe("HeldWakeUps", () => {
+  const wakeUp = (over: Partial<SessionWakeUp>): SessionWakeUp => ({ id: "w", at: Date.now(), recurring: false, prompt: "go on", ...over });
+
+  test("fires a one-shot at its time, waiting out a busy chat", async () => {
+    const fired: string[] = [];
+    let busy = true;
+    const held = new HeldWakeUps({
+      fire: async (sessionId, w) => {
+        if (busy) {
+          busy = false;
+          return "busy";
+        }
+        fired.push(`${sessionId}:${w.prompt}`);
+        return "started";
+      },
+      notice: () => undefined,
+      changed: () => undefined,
+    });
+    held.hold("s", [wakeUp({ at: Date.now() + 20 })], "gone");
+    expect(held.list("s").map((w) => w.id)).toEqual(["w"]);
+    await new Promise((resolve) => setTimeout(resolve, 60));
+    // Busy the first time: it stays held and tries again.
+    expect(fired).toEqual([]);
+    expect(held.list("s").length).toBe(1);
+    held.drop("s");
+    expect(held.list("s")).toEqual([]);
+  });
+
+  test("a due one fires at once; recurring, timeless and long-late ones are noticed and dropped", async () => {
+    const fired: string[] = [];
+    const notices: string[] = [];
+    const held = new HeldWakeUps({
+      fire: async (_s, w) => {
+        fired.push(w.id);
+        return "started";
+      },
+      notice: (_s, title) => notices.push(title),
+      changed: () => undefined,
+    });
+    held.hold(
+      "s",
+      [
+        wakeUp({ id: "due", at: Date.now() - 5 * 60_000 }),
+        wakeUp({ id: "loop", recurring: true, prompt: "every five minutes" }),
+        wakeUp({ id: "never", at: null }),
+        wakeUp({ id: "stale", at: Date.now() - 2 * 60 * 60_000, prompt: "old" }),
+      ],
+      "Zomfy restarted",
+    );
+    await until(() => fired.length === 1);
+    expect(fired).toEqual(["due"]);
+    expect(held.list("s")).toEqual([]);
+    expect(notices).toEqual([
+      'Stopped the scheduled task "every five minutes": Zomfy restarted',
+      'Stopped the scheduled task "go on": Zomfy restarted',
+      'Dropped the scheduled wake-up "old": it was due over an hour ago',
+    ]);
   });
 });
 

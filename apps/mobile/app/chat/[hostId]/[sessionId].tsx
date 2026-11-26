@@ -10,7 +10,7 @@ import { SafeAreaView } from 'react-native-safe-area-context'
 import type { TranscriptItem } from '../../../src/lib/transcript'
 import { app } from '../../../src/ui/app-model'
 import { AskCard } from '../../../src/ui/AskCard'
-import { Button, connectionLabel, StatusDot, styles } from '../../../src/ui/components'
+import { Button, connectionLabel, PhaseDot, phaseLabel, styles } from '../../../src/ui/components'
 import { useAsks, useChatSession, useConnection, useConnectionState, useObservable } from '../../../src/ui/hooks'
 import { t } from '../../../src/ui/i18n'
 import { TranscriptItemView } from '../../../src/ui/TranscriptItemView'
@@ -121,7 +121,11 @@ export default function ChatScreen() {
           </View>
         ) : null}
         <View style={{ flexDirection: 'row', gap: space.sm, padding: space.sm, borderTopWidth: 1, borderTopColor: colors.border, alignItems: 'flex-end' }}>
-          {info ? <View style={{ paddingBottom: 14 }}><StatusDot status={info.status} /></View> : null}
+          {info ? (
+            <View style={{ paddingBottom: 14 }} accessibilityLabel={phaseLabel(info) ?? undefined}>
+              <PhaseDot info={info} />
+            </View>
+          ) : null}
           <TextInput
             style={[styles.input, { flex: 1, maxHeight: 140 }]}
             value={draft}

@@ -7,7 +7,7 @@ import { router, Stack, useLocalSearchParams } from 'expo-router'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { botOfChat } from '../../src/lib/bots'
 import { hostTree, projectLabel, workspaceLabel } from '../../src/lib/host-tree'
-import { BotAvatar, Button, connectionColor, connectionLabel, Empty, routeLabel, Section, StatusDot, statusLabel, styles } from '../../src/ui/components'
+import { BotAvatar, Button, connectionColor, connectionLabel, Empty, PhaseDot, phaseLabel, routeLabel, Section, styles } from '../../src/ui/components'
 import { useConnection, useConnectionState, useHost } from '../../src/ui/hooks'
 import { t } from '../../src/ui/i18n'
 import { colors, space } from '../../src/ui/theme'
@@ -67,14 +67,14 @@ export default function HostScreen() {
                       style={({ pressed }) => [styles.row, { paddingVertical: space.sm }, pressed && { opacity: 0.6 }]}
                       onPress={() => router.push({ pathname: '/chat/[hostId]/[sessionId]', params: { hostId: hostId!, sessionId: chat.id } })}
                     >
-                      <StatusDot status={chat.status} />
+                      <PhaseDot info={chat} />
                       {bot ? <BotAvatar bot={bot} size={18} /> : null}
                       <Text style={[styles.text, { flex: 1 }]} numberOfLines={1}>
                         {bot ? <Text style={styles.muted}>@{bot.handle} </Text> : null}
                         {chat.title || t('Untitled chat')}
                       </Text>
-                      {chat.status !== 'idle' ? (
-                        <Text style={{ color: chat.status === 'error' ? colors.danger : colors.muted, fontSize: 12 }}>{statusLabel(chat.status)}</Text>
+                      {phaseLabel(chat) ? (
+                        <Text style={{ color: chat.status === 'error' ? colors.danger : colors.muted, fontSize: 12 }}>{phaseLabel(chat)}</Text>
                       ) : null}
                     </Pressable>
                     )

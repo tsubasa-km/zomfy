@@ -105,7 +105,7 @@ export const MANAGER_TOOLS = [
   {
     name: 'send_prompt',
     description:
-      'Sends a prompt to another session and returns at once; use wait_for_session for the result. Fails while that session is still working.',
+      'Sends a prompt to another session and returns at once. When that turn stops (finished, needs the person, failed), Zomfy starts your next turn with its status and last reply, so end your turn instead of polling; use wait_for_session only when you must act on the result within this turn. Fails while that session is still working.',
     inputSchema: {
       type: 'object',
       properties: { sessionId: str('Target session.'), text: str('The prompt.') },
@@ -117,7 +117,7 @@ export const MANAGER_TOOLS = [
   {
     name: 'create_session',
     description:
-      'Starts a new agent chat in an existing workspace (any host), optionally with a first prompt. For folder projects, use the project\'s primary workspace.',
+      'Starts a new agent chat in an existing workspace (any host), optionally with a first prompt. For folder projects, use the project\'s primary workspace. With a prompt, Zomfy tells you when that turn stops (it starts your next turn with the chat\'s report), so end your turn instead of polling.',
     inputSchema: {
       type: 'object',
       properties: {
@@ -133,7 +133,7 @@ export const MANAGER_TOOLS = [
   {
     name: 'create_workspace',
     description:
-      'Creates a new git worktree workspace in a project (on that project\'s host) and starts an agent in it with a prompt. Only for git projects; reuse an existing workspace unless isolation is needed.',
+      'Creates a new git worktree workspace in a project (on that project\'s host) and starts an agent in it with a prompt. Only for git projects; reuse an existing workspace unless isolation is needed. Zomfy tells you when the agent\'s turn stops (it starts your next turn with its report), so end your turn instead of polling.',
     inputSchema: {
       type: 'object',
       properties: {
@@ -187,12 +187,13 @@ export const MANAGER_TOOLS = [
   {
     name: 'wait_for_session',
     description:
-      'Waits until any of the sessions stops working (finished, needs the person, failed) or the timeout passes, then reports each one\'s status and last reply. A timeout or "unverifiable" is a checkpoint, not a failure: wait again or inspect.',
+      'Waits until any of the sessions (or, with all, every one) stops working (finished, needs the person, failed) or the timeout passes, then reports each one\'s status and last reply. Only for acting on a result within this turn: a chat you prompted is reported to you anyway when it stops, in a turn Zomfy starts, so you can end your turn instead. A timeout or "unverifiable" is a checkpoint, not a failure: wait again or inspect.',
     inputSchema: {
       type: 'object',
       properties: {
         sessionIds: { type: 'array', items: { type: 'string' }, description: 'Sessions to wait on.' },
-        timeoutSeconds: { type: 'number', description: 'Default 300, max 1800.' }
+        timeoutSeconds: { type: 'number', description: 'Default 300, max 1800.' },
+        all: { type: 'boolean', description: 'Wait until every session has stopped, not just one. Default false.' }
       },
       required: ['sessionIds']
     },
@@ -562,7 +563,7 @@ How to work:
 - Start with list_hosts / list_workspaces / list_sessions to see what exists. Ids are exact; never guess them.
 - Prefer an existing workspace and session. Use create_session for a fresh agent in an existing workspace; create_workspace only when work needs its own branch.
 - Give each agent a self-contained prompt: target files or area, the change, constraints, and how to verify.
-- After send_prompt or create_*, call wait_for_session. A timeout or "unverifiable" (host out of contact) is a checkpoint, not a failure: never assume an agent died. Read its transcript with read_session before deciding.
+- After send_prompt or create_*, end your turn: when that agent stops, Zomfy starts your next turn with its status and last reply. Agents on another host than this chat's are not reported; wait for those with wait_for_session, as for a result you need within the same turn. A timeout or "unverifiable" (host out of contact) is a checkpoint, not a failure: never assume an agent died. Read its transcript with read_session before deciding.
 - When an agent needs the person (status needs-you), list_approvals shows what it asks. Forward decisions to the person with forward_to_person rather than approving risky actions yourself.
 - Finish with a short report per task: outcome, evidence (what you read), and anything still waiting on the person.`
 

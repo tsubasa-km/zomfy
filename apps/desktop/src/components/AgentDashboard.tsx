@@ -1,14 +1,8 @@
 import { useEffect, useState } from 'react'
 import { ExternalLink } from 'lucide-react'
 import { PageCloseButton } from '@/components/PageCloseButton'
-import {
-  allWorkspaces,
-  selectSession,
-  setDashboardOpen,
-  useStore,
-  type Session,
-  type StoreState
-} from '@/session-store'
+import { allWorkspaces, selectSession, setDashboardOpen, useStore, type Session } from '@/session-store'
+import { phaseOf, type TurnPhase } from '@/lib/turn-phase'
 import { AgentStateDot, type AgentDotState } from '@/components/AgentStateDot'
 import { AgentQuestionIcon } from '@/components/AgentQuestionIcon'
 import { TuiAgentIcon } from '@/components/terminal/TuiAgentIcon'
@@ -20,28 +14,26 @@ import { WINDOW_ROLE } from '@/lib/window-role'
 import { agentQuestionsOf } from '@/components/native-chat/agent-questions'
 import { t } from '@/i18n/i18n'
 
-// Follows Orca's agent dashboard (dashboard-popout/AgentKanbanBoard.tsx, AgentKanbanCard.tsx):
-// Needs You / Working / Done / Idle lanes; Done holds turns the user has not looked at yet.
+// Follows Orca's agent dashboard (dashboard-popout/AgentKanbanBoard.tsx, AgentKanbanCard.tsx), its
+// lanes named for whose turn each thread is (docs/specs/turn-taking-states.md): Needs your answer /
+// Working (background work too) / Your turn / Quiet.
 
 type Bucket = 'attention' | 'working' | 'done' | 'idle'
 const BUCKET_LABEL: Record<Bucket, string> = {
-  attention: t('Needs You'),
+  attention: t('Needs your answer'),
   working: t('Working'),
-  done: t('Done'),
-  idle: t('Idle')
+  done: t('Your turn'),
+  idle: t('Quiet')
 }
 
-function bucketOf(session: Session, unread: StoreState['unread']): Bucket {
-  if (session.status === 'needs-you') return 'attention'
-  if (session.status === 'working') return 'working'
-  // A failed turn is not done: until it is looked at, it waits on the person.
-  if (session.status === 'error') return unread[session.id] ? 'attention' : 'idle'
-  return unread[session.id] ? 'done' : 'idle'
+const BUCKET_OF: Record<TurnPhase, Bucket> = { 'needs-answer': 'attention', working: 'working', background: 'working', 'your-turn': 'done', quiet: 'idle' }
+
+function bucketOf(session: Session): Bucket {
+  return BUCKET_OF[phaseOf(session)]
 }
 
 export function AgentDashboard() {
   const sessions = useStore((s) => s.sessions)
-  const unread = useStore((s) => s.unread)
   const hosts = useStore((s) => s.hosts)
   const [showIdle, setShowIdle] = useState(false)
   const workspaces = allWorkspaces({ hosts })
@@ -87,7 +79,7 @@ export function AgentDashboard() {
       <div className="scrollbar-sleek flex min-h-0 flex-1 overflow-x-auto p-3">
         <div className="mx-auto flex w-full max-w-[1280px] gap-3">
           {buckets.map((bucket) => {
-            const cards = sessions.filter((s) => bucketOf(s, unread) === bucket)
+            const cards = sessions.filter((s) => bucketOf(s) === bucket)
             return (
               <section
                 key={bucket}
@@ -123,7 +115,7 @@ export function AgentDashboard() {
   )
 }
 
-const DOT: Record<Bucket, AgentDotState> = { attention: 'waiting', working: 'working', done: 'done', idle: 'idle' }
+const DOT: Record<Bucket, AgentDotState> = { attention: 'waiting', working: 'working', done: 'your-turn', idle: 'idle' }
 
 function AgentCard({
   session,
@@ -146,7 +138,7 @@ function AgentCard({
         bucket === 'attention'
           ? 'border-agent-question/40 bg-agent-question/[0.06] hover:border-agent-question/60 hover:bg-agent-question/10'
           : bucket === 'done'
-            ? 'border-emerald-500/40 bg-emerald-500/[0.06] hover:border-emerald-500/60 hover:bg-emerald-500/10'
+            ? 'border-highlight/40 bg-highlight/[0.06] hover:border-highlight/60 hover:bg-highlight/10'
             : 'border-border/60 bg-card hover:border-border hover:bg-accent/40'
       )}
     >

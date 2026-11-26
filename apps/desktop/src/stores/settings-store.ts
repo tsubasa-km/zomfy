@@ -48,6 +48,8 @@ export interface AppSettings {
   notifyAgentFinished: boolean
   notifyAgentNeedsYou: boolean
   notifySuppressWhenFocused: boolean
+  /** Threads another thread started notify and get unread marks of their own; off, only their asks reach the person. */
+  notifyHelperThreads: boolean
   statusBarVisible: boolean
   /** The project sidebar on the left; the title bar's toggle hides it. */
   sidebarVisible: boolean
@@ -110,6 +112,8 @@ export interface AppSettings {
   chatWaitingGlow: ChatWaitingGlow
   /** "+" menu items pinned as tab-strip buttons, in pin order (docs/specs/new-tab-menu-and-pins.md). */
   newTabPins: string[]
+  /** Hours a seen thread stays Your turn after its last activity before it goes Quiet; 0 never (docs/specs/turn-taking-states.md). */
+  chatQuietAfterHours: number
 }
 
 /** Bumped with each move of a saved default; a window saved before it gets the move once. */
@@ -137,6 +141,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
   notifyAgentFinished: true,
   notifyAgentNeedsYou: true,
   notifySuppressWhenFocused: true,
+  notifyHelperThreads: false,
   statusBarVisible: true,
   sidebarVisible: true,
   statusBarHiddenItems: [],
@@ -172,7 +177,8 @@ export const DEFAULT_SETTINGS: AppSettings = {
   settingsRevision: SETTINGS_REVISION,
   relayFeatures: ['phone'],
   chatWaitingGlow: 'rainbow',
-  newTabPins: ['terminal']
+  newTabPins: ['terminal'],
+  chatQuietAfterHours: 24
 }
 
 export type SettingKey = keyof AppSettings

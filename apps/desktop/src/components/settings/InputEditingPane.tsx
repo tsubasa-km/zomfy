@@ -24,6 +24,7 @@ export function InputEditingPane() {
   const afterSend = useSetting('chatAfterSend')
   const thinking = useSetting('chatThinkingDisplay')
   const waitingGlow = useSetting('chatWaitingGlow')
+  const quietAfter = useSetting('chatQuietAfterHours')
   const hosts = useStore((s) => s.hosts)
 
   return (
@@ -92,8 +93,8 @@ export function InputEditingPane() {
           />
           <SettingsRow
             label={t('Waiting glow')}
-            description={t('How the composer’s border shows that the thread waits for your answer.')}
-            keywords={['chat', 'composer', 'glow', 'rainbow', 'pulse', 'outline', 'needs you', 'waiting', 'question', 'approval', 'border']}
+            description={t('How the place you act next shows it is your turn: a question or approval card, or the composer.')}
+            keywords={['chat', 'composer', 'glow', 'rainbow', 'pulse', 'outline', 'needs you', 'your turn', 'waiting', 'question', 'approval', 'border']}
             control={
               <SettingsSegmentedControl<ChatWaitingGlow>
                 ariaLabel={t('Waiting glow')}
@@ -115,6 +116,25 @@ export function InputEditingPane() {
                     </span>
                   )
                 }))}
+              />
+            }
+          />
+          <SettingsRow
+            label={t('Quiet after')}
+            description={t('How long a thread you have seen stays under Your turn before it goes Quiet.')}
+            keywords={['chat', 'sidebar', 'quiet', 'your turn', 'settled', 'done', 'idle']}
+            control={
+              <SettingsSegmentedControl<number>
+                ariaLabel={t('Quiet after')}
+                value={quietAfter}
+                onChange={(value) => setSetting('chatQuietAfterHours', value)}
+                options={[
+                  { value: 1, label: t('{n}h', { n: 1 }) },
+                  { value: 4, label: t('{n}h', { n: 4 }) },
+                  { value: 24, label: t('{n}h', { n: 24 }) },
+                  { value: 72, label: t('{n}d', { n: 3 }) },
+                  { value: 0, label: t('Never') }
+                ]}
               />
             }
           />

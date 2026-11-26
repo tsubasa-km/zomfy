@@ -1,7 +1,7 @@
 import { memo, useEffect, useRef, useState } from 'react'
 import { Bot, Pin, X } from 'lucide-react'
-import type { Session } from '@/session-store'
-import { AgentStateDot, type AgentDotState } from '@/components/AgentStateDot'
+import { AgentStateDot } from '@/components/AgentStateDot'
+import { phaseOf, turnPhaseDot, turnPhaseLabel } from '@/lib/turn-phase'
 import { Input } from '@/components/ui/input'
 import { isImeOwnedKeyboardEvent } from '@/lib/ime-composition-keyboard-event'
 import { cn } from '@/lib/utils'
@@ -26,12 +26,6 @@ import { SshTagBadge } from '@/components/ssh/SshTagBadge'
 import { t } from '@/i18n/i18n'
 
 // Tab chrome follows Orca's SortableTab / EditorFileTab / BrowserTab (drop-indicator.ts, tab-width-rules.ts).
-
-const TAB_DOT: Partial<Record<Session['status'], AgentDotState>> = {
-  'needs-you': 'waiting',
-  working: 'working',
-  error: 'failed'
-}
 
 // Why: Orca's vivid insertion bar; the theme accent is too subtle for a drag cue.
 const DROP_BEFORE = "before:absolute before:inset-y-0 before:left-0 before:z-10 before:w-[2px] before:bg-blue-500 before:content-['']"
@@ -99,7 +93,10 @@ export const TabItem = memo(function TabItem({
       else if (result === 'unsupported') keepHere()
     })
   }
-  const dot = tab.kind === 'chat' ? TAB_DOT[tab.session.status] : undefined
+  // Whose turn the chat is (docs/specs/turn-taking-states.md); a quiet one shows its kind's icon.
+  const phase = tab.kind === 'chat' ? phaseOf(tab.session) : undefined
+  const dot = tab.kind === 'chat' && phase ? (turnPhaseDot(phase, tab.session.status) ?? undefined) : undefined
+  const dotLabel = tab.kind === 'chat' && phase ? turnPhaseLabel(phase, tab.session.status) : undefined
   const dirty = tab.kind === 'editor' && tab.editor.dirty
 
   return (
@@ -110,6 +107,7 @@ export const TabItem = memo(function TabItem({
         aria-selected={active}
         data-tab-id={tab.id}
         data-tab-kind={tab.kind}
+        data-tab-phase={phase}
         data-tab-title={title}
         data-pinned={pinned ? 'true' : 'false'}
         data-tab-selected={selected || undefined}
@@ -165,7 +163,7 @@ ${place}` : title}
         )}
       >
         <span className="flex size-4 shrink-0 items-center justify-center">
-          {dot ? <AgentStateDot state={dot} size="sm" /> : <TabKindIcon tab={tab} />}
+          {dot ? <AgentStateDot state={dot} size="sm" title={dotLabel} /> : <TabKindIcon tab={tab} />}
         </span>
         {renaming !== null ? (
           <Input

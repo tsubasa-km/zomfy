@@ -16,7 +16,9 @@ import { sortedHosts } from '@/components/settings/HostsPane'
 import { Button } from '@/components/ui/button'
 import { DropdownMenu, DropdownMenuContent, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
-import { byUrgency, chatSectionLabel, chatSections, chatTree, searchTree, type ChatNode, type ChatSectionId } from '@/lib/chat-list'
+import { foldedTurnPhase } from '@zomfy/protocol'
+import { byUrgency, chatSectionLabel, chatSections, chatTree, searchTree, useCoarseNow, type ChatNode, type ChatSectionId } from '@/lib/chat-list'
+import { phaseOf, useQuietAfterHours } from '@/lib/turn-phase'
 import { startChat } from '@/lib/chat-worktree'
 import { defaultHostId } from '@/lib/default-host'
 import { cn } from '@/lib/utils'
@@ -31,7 +33,7 @@ type HostedWorkspace = Workspace & { hostId: HostId }
 const NO_PROJECT = 'none'
 
 /** The sections held at the list's top; the rest sit at its bottom. */
-const TOP_SECTIONS: ChatSectionId[] = ['pinned', 'needs-you', 'unread']
+const TOP_SECTIONS: ChatSectionId[] = ['pinned', 'needs-answer', 'your-turn']
 
 /** How many chats the list holds and how many the search keeps, for the search field's counter. */
 export function useChatListCounts(): { total: number; matched: number } {
@@ -92,11 +94,12 @@ function SectionHeader({
         toggleSectionCollapsed(id)
       }}
     >
-      {id === 'needs-you' && <span className="block size-1.5 shrink-0 rounded-full bg-agent-question" />}
+      {id === 'needs-answer' && <span className="block size-1.5 shrink-0 rounded-full bg-agent-question" />}
+      {id === 'your-turn' && <span className="block size-1.5 shrink-0 rounded-full bg-highlight" />}
       <div
         className={cn(
           'min-w-0 truncate text-[12px] leading-none font-semibold',
-          id === 'needs-you' ? 'text-agent-question-text' : 'text-muted-foreground'
+          id === 'needs-answer' ? 'text-agent-question-text' : id === 'your-turn' ? 'text-foreground/85' : 'text-muted-foreground'
         )}
       >
         {label}
@@ -134,6 +137,10 @@ export function ChatList({ actions }: { actions: SidebarActions }) {
   const catalog = useProjectCatalog()
   useSetting('defaultHost')
   const defaultHost = defaultHostId()
+  // A seen thread goes Quiet with time, not only with a change: the list looks again twice a minute.
+  const now = useCoarseNow()
+  const quietAfter = useQuietAfterHours()
+  const phase = (s: Session) => phaseOf(s, now, quietAfter)
 
   const ordered = sortedHosts(hosts)
   const names = shortHostNames(ordered)
@@ -184,7 +191,8 @@ export function ChatList({ actions }: { actions: SidebarActions }) {
     return [s.title, card.project, card.branch ?? ''].some((text) => text.toLowerCase().includes(needle))
   }
   // A search lists the chats it found at the top; one it found under another shows beneath that one, quieter.
-  const nodes: (ChatNode & { hits?: Session[] })[] = needle ? searchTree(chatTree(listed), matches) : chatTree(listed)
+  const tree = chatTree(listed, phase)
+  const nodes: (ChatNode & { hits?: Session[] })[] = needle ? searchTree(tree, matches) : tree
 
   const row = (node: ChatNode & { hits?: Session[] }) => {
     const { chat, children } = node
@@ -192,10 +200,8 @@ export function ChatList({ actions }: { actions: SidebarActions }) {
     const under = open ? children : (node.hits ?? [])
     const w = workspaceById.get(chat.workspaceId)
     const dragOf = (s: Session) => (w ? { kind: 'workspace' as const, id: w.id, hostId: w.hostId, projectId: w.projectId, sessionId: s.id } : undefined)
-    const childStatus = children.reduce<Session['status']>(
-      (top, s) => (s.status === 'needs-you' || (s.status === 'error' && top !== 'needs-you') || (s.status === 'working' && top === 'idle') ? s.status : top),
-      'idle'
-    )
+    // What the chats under it are doing that lifts the row: a child's own Your turn or Quiet does not.
+    const childPhase = foldedTurnPhase('quiet', children.map(phase))
     return (
       <Fragment key={chat.id}>
         <SessionRow
@@ -203,24 +209,17 @@ export function ChatList({ actions }: { actions: SidebarActions }) {
           showActive
           drag={dragOf(chat)}
           card={cardOf(chat)}
-          fold={children.length > 0 ? { count: children.length, expanded: open, status: childStatus } : undefined}
+          phase={node.phase}
+          fold={children.length > 0 ? { count: children.length, expanded: open, phase: childPhase } : undefined}
         />
         {under.map((child) => (
-          <SessionRow key={child.id} session={child} showActive drag={dragOf(child)} card={cardOf(child)} child muted={Boolean(needle)} />
+          <SessionRow key={child.id} session={child} showActive drag={dragOf(child)} card={cardOf(child)} phase={phase(child)} child muted={Boolean(needle)} />
         ))}
       </Fragment>
     )
   }
 
   const section = (id: ChatSectionId, list: ChatNode[], trailing?: ReactNode) => {
-    // What finished since the person last looked heads the list with no header, as in T3 Code.
-    if (id === 'unread') {
-      return (
-        <section key={id} className="mb-1.5 space-y-px pt-1 pr-1" data-chat-section={id}>
-          {list.map(row)}
-        </section>
-      )
-    }
     const collapsed = collapsedSections.includes(id) && !needle
     return (
       <section key={id} className="mb-1.5" data-chat-section={id}>
@@ -236,7 +235,7 @@ export function ChatList({ actions }: { actions: SidebarActions }) {
     </button>
   )
 
-  const sections = chatSections(nodes, pinned, (id) => Boolean(unread[id]))
+  const sections = chatSections(nodes, pinned)
   const empty = (
     <div className="flex flex-col items-center gap-2 px-4 pt-8 text-center text-xs text-muted-foreground" data-chat-list-empty>
       <MessageSquare className="size-5 opacity-60" />
@@ -247,7 +246,7 @@ export function ChatList({ actions }: { actions: SidebarActions }) {
   if (groupBy === 'state') {
     // As T3 Code's: what wants the person sits at the top, what is working and what has settled at
     // the bottom, so each stays where the eye expects it however long the other gets.
-    const draw = (s: (typeof sections)[number]) => section(s.id, s.nodes, s.id === 'needs-you' ? inbox : undefined)
+    const draw = (s: (typeof sections)[number]) => section(s.id, s.nodes, s.id === 'needs-answer' ? inbox : undefined)
     const top = sections.filter((s) => TOP_SECTIONS.includes(s.id))
     const bottom = sections.filter((s) => !TOP_SECTIONS.includes(s.id))
     return (

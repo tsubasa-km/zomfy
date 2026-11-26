@@ -68,6 +68,7 @@ export * from './bots'
 export * from './permission-asks'
 export * from './remote-devices'
 export * from './phone-e2ee'
+export * from './turn-taking'
 
 export const HARNESS_METHODS = {
   ...WORKSPACE_METHODS,

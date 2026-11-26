@@ -44,6 +44,13 @@ merges cheap:
   when you touched the relay. Run them in the foreground: in a Zomfy chat a background command does
   not wake you once your turn has ended.
 
+# Checking what you changed
+
+A change that shows on screen is checked on screen before you call it done: run a preview of the
+app, look at the result in screenshots, and say what you checked and what you could not. How to run
+and drive a preview is in [apps/desktop/VERIFYING.md](apps/desktop/VERIFYING.md); read it when your
+change touches the UI.
+
 # Branches
 
 The GitHub repository is `tsubasa-km/zomfy` (remote `github`); push and merge there with the

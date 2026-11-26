@@ -23,12 +23,20 @@ Zomfy manages:
 | Start another agent on work that needs its own branch | `create_workspace` (a new worktree with an agent in it) |
 | Start another agent in an existing worktree | `create_session` |
 | Run two or more independent parts of your task at once | `split_work` (one worktree and helper per part, merged back into yours) |
-| Talk to another chat, and wait for it | `send_prompt`, then `wait_for_session`; `read_session` to see what it did |
+| Talk to another chat | `send_prompt`, then end your turn: Zomfy starts your next turn with its report when it stops; `read_session` to see what it did |
+| Act on another chat's result within this turn | `wait_for_session` (`all: true` waits for every one) |
 | Change another worktree yourself, briefly | `claim_worktree` (every chat there must be idle) |
 | Bring your finished, committed work home | `finish_worktree` (merges or opens a pull request, as the project is set up) |
 
 Prefer an existing worktree and chat over a new one. Give a new agent a prompt that stands on its
 own: the goal, the files, what is already decided, and how to check the result.
+
+When a chat you prompted (`send_prompt`, or `create_session` / `create_workspace` with a prompt)
+stops, whether finished, needing the person or failed, Zomfy tells you: it starts your next turn with
+a note listing each chat, its status and its last reply, gathered into one note when several stop
+together. So hand the work out and end your turn; do not poll. A chat that needs the person shows its
+question in your thread too: answer it with `answer_approval` when you can decide, else ask the
+person. Chats on another host are not reported; wait for those with `wait_for_session`.
 
 ## Before finishing
 
