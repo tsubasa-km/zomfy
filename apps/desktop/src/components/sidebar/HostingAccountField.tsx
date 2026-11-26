@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { ExternalLink, Loader2, Terminal } from 'lucide-react'
+import { AlertTriangle, ExternalLink, Loader2, Terminal } from 'lucide-react'
 import { toast } from 'sonner'
 import { HARNESS_METHODS, type HostingAccount, type HostingAccountRef, type HostingRemoteInfo } from '@zomfy/protocol'
 import { harnessRequest } from '@/daemon-connection'
@@ -170,11 +170,10 @@ export function HostingAccountField({
         </SelectContent>
       </Select>
       {addForm}
-      {!adding && (
-        <p className={hint}>
-          {missing
-            ? t('{login} is not signed in on this host; until it is, the active account is used.', { login: missing.login })
-            : t('Zomfy, agents and git pushes over HTTPS act as this account for {host}, without switching the CLI.', { host: remote.host })}
+      {!adding && missing && (
+        <p className={cn(hint, 'flex items-center gap-1 text-amber-600 dark:text-amber-400')} data-account-missing>
+          <AlertTriangle className="size-3 shrink-0" aria-hidden="true" />
+          {t('{login} (not signed in here)', { login: missing.login })}
         </p>
       )}
     </div>
@@ -206,12 +205,7 @@ function AddAccount({
     setBusy(true)
     try {
       await openAccountLogin(hostId, remote.provider, remote.host, workspaceId)
-      toast.info(t('Finish signing in in the terminal'), {
-        description:
-          remote.provider === 'github'
-            ? t('gh makes the account it signs in active. Then pick it under Account.')
-            : t('Then pick the account under Account.')
-      })
+      toast.info(t('Finish signing in in the terminal'))
       onLoginOpened()
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e))
@@ -245,7 +239,6 @@ function AddAccount({
     <div className="space-y-2 rounded-md border border-border/70 bg-muted/25 p-3" data-account-add-form={remote.provider}>
       {remote.provider === 'github' ? (
         <>
-          <p className={hint}>{t('A terminal on this host runs gh auth login for {host}; finish there in the browser.', { host: remote.host })}</p>
           <div className="flex flex-wrap gap-2">
             {terminalButton(t('Sign in with gh'))}
             <Button type="button" variant="ghost" size="sm" onClick={onCancel}>
@@ -255,11 +248,6 @@ function AddAccount({
         </>
       ) : (
         <>
-          <p className={hint}>
-            {glabSignedIn
-              ? t('glab keeps one account per host, so Zomfy keeps a token for another one, in the system credential store.')
-              : t('Sign in with glab, or give Zomfy a token to keep in the system credential store.')}
-          </p>
           {/* Not a form: it sits inside Project Settings' own, and Enter must add the token, not save. */}
           <div
             className="flex gap-2"

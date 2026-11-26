@@ -197,7 +197,7 @@ function DashboardCounts() {
           {bucket.id === 'attention' ? (
             <AgentQuestionIcon className="size-2.5" />
           ) : (
-            <span className={cn('size-1.5 rounded-full', bucket.id === 'working' ? 'bg-yellow-500' : 'bg-highlight')} />
+            <span className={cn('size-1.5 rounded-full', bucket.id === 'working' ? 'bg-yellow-500' : 'bg-emerald-500')} />
           )}
           {bucket.count}
         </span>

@@ -5,6 +5,8 @@ import { allWorkspaces, selectSession, setDashboardOpen, useStore, type Session 
 import { phaseOf, type TurnPhase } from '@/lib/turn-phase'
 import { AgentStateDot, type AgentDotState } from '@/components/AgentStateDot'
 import { AgentQuestionIcon } from '@/components/AgentQuestionIcon'
+import { TurnGroupMark } from '@/components/TurnGroupMark'
+import type { ChatSectionId } from '@/lib/chat-list'
 import { TuiAgentIcon } from '@/components/terminal/TuiAgentIcon'
 import { sessionAgent } from '@/lib/chat-agents'
 import { Switch } from '@/components/ui/switch'
@@ -15,8 +17,8 @@ import { agentQuestionsOf } from '@/components/native-chat/agent-questions'
 import { t } from '@/i18n/i18n'
 
 // Follows Orca's agent dashboard (dashboard-popout/AgentKanbanBoard.tsx, AgentKanbanCard.tsx), its
-// lanes named for whose turn each thread is (docs/specs/turn-taking-states.md): Needs your answer /
-// Working (background work too) / Your turn / Quiet.
+// lanes for whose turn each thread is (docs/specs/turn-taking-states.md): Needs your answer /
+// Working (background work too) / Your turn / Quiet, each known by its mark; the name is its tooltip.
 
 type Bucket = 'attention' | 'working' | 'done' | 'idle'
 const BUCKET_LABEL: Record<Bucket, string> = {
@@ -25,6 +27,8 @@ const BUCKET_LABEL: Record<Bucket, string> = {
   done: t('Your turn'),
   idle: t('Quiet')
 }
+
+const BUCKET_MARK: Record<Bucket, ChatSectionId> = { attention: 'needs-answer', working: 'working', done: 'your-turn', idle: 'quiet' }
 
 const BUCKET_OF: Record<TurnPhase, Bucket> = { 'needs-answer': 'attention', working: 'working', background: 'working', 'your-turn': 'done', quiet: 'idle' }
 
@@ -86,16 +90,13 @@ export function AgentDashboard() {
                 data-bucket={bucket}
                 className="flex min-w-[264px] flex-1 flex-col rounded-xl border border-border/60 bg-muted/30"
               >
-                <header className="flex items-center gap-2 px-3 py-2">
-                  <span className="text-[11px] font-semibold tracking-[0.05em] text-muted-foreground uppercase">
-                    {BUCKET_LABEL[bucket]}
-                  </span>
+                <header className="flex items-center gap-2 px-3 py-2" title={BUCKET_LABEL[bucket]} aria-label={BUCKET_LABEL[bucket]}>
+                  <TurnGroupMark id={BUCKET_MARK[bucket]} />
                   <span className="ml-auto rounded-full bg-background px-1.5 text-[11px] text-muted-foreground tabular-nums">
                     {cards.length}
                   </span>
                 </header>
                 <div className="scrollbar-sleek flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto px-2 pb-2">
-                  {cards.length === 0 && <p className="px-1 py-2 text-[11px] text-muted-foreground">{t('Nothing here.')}</p>}
                   {cards.map((session) => (
                     <AgentCard
                       key={session.id}
@@ -138,7 +139,7 @@ function AgentCard({
         bucket === 'attention'
           ? 'border-agent-question/40 bg-agent-question/[0.06] hover:border-agent-question/60 hover:bg-agent-question/10'
           : bucket === 'done'
-            ? 'border-highlight/40 bg-highlight/[0.06] hover:border-highlight/60 hover:bg-highlight/10'
+            ? 'border-emerald-500/35 bg-emerald-500/[0.05] hover:border-emerald-500/55 hover:bg-emerald-500/10'
             : 'border-border/60 bg-card hover:border-border hover:bg-accent/40'
       )}
     >

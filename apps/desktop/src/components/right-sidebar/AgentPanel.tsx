@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef } from 'react'
-import { ExternalLink } from 'lucide-react'
+import { AlarmClock, ExternalLink, Repeat } from 'lucide-react'
 import { chatAgentLabel, workflowScorecard } from '@zomfy/protocol'
 import { allProjects, allWorkspaces, useStore, type Session } from '@/session-store'
 import { useChatSession } from '@/stores/chat-store'
@@ -89,10 +89,13 @@ export function AgentPanel({ workspaceId }: { workspaceId: string }) {
       <div className="flex items-center gap-2 border-b border-border px-3 py-2.5">
         <TuiAgentIcon agent={agent} size={16} />
         <div className="min-w-0 flex-1">
-          <div className="truncate text-sm font-medium">{session.title}</div>
-          <div className="flex items-center gap-1 text-[11px] text-foreground/80" data-agent-panel-phase={phase}>
-            {phaseDot && <AgentStateDot state={phaseDot} size="sm" title={null} />}
-            {turnPhaseLabel(phase, session.status)}
+          <div className="flex min-w-0 items-center gap-1.5">
+            <div className="truncate text-sm font-medium">{session.title}</div>
+            {phaseDot && (
+              <span className="flex shrink-0" data-agent-panel-phase={phase}>
+                <AgentStateDot state={phaseDot} size="md" title={turnPhaseLabel(phase, session.status)} />
+              </span>
+            )}
           </div>
           <div className="truncate text-[11px] text-muted-foreground">
             {chatAgentLabel(agent)}
@@ -111,16 +114,16 @@ export function AgentPanel({ workspaceId }: { workspaceId: string }) {
                 <span className="min-w-0 flex-1 truncate" title={task}>
                   {task}
                 </span>
-                <span className="shrink-0 text-muted-foreground">{t('Running')}</span>
               </li>
             ))}
             {session.background.wakeUps.map((wakeUp) => (
               <li key={`wake:${wakeUp.id}`} className="flex items-center gap-2">
+                <AlarmClock className="size-3 shrink-0 text-yellow-600 dark:text-yellow-400" aria-hidden="true" />
                 <span className="shrink-0 text-muted-foreground tabular-nums">{wakeUp.at === null ? '—' : wakeTime(wakeUp.at, now)}</span>
                 <span className="min-w-0 flex-1 truncate" title={wakeUp.prompt}>
                   {wakeUp.prompt || t('Scheduled wake-up')}
                 </span>
-                {wakeUp.recurring && <span className="shrink-0 text-muted-foreground">{t('Repeats')}</span>}
+                {wakeUp.recurring && <Repeat className="size-3 shrink-0 text-muted-foreground" aria-label={t('Repeats')} />}
               </li>
             ))}
           </ul>

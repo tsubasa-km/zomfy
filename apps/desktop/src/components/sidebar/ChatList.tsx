@@ -1,5 +1,5 @@
 import { Fragment, useMemo, type ReactNode } from 'react'
-import { ChevronRight, FolderGit2, FolderOpen, MessageSquare, MoreHorizontal, Plus } from 'lucide-react'
+import { ChevronRight, FolderGit2, FolderOpen, Inbox, MessageSquare, MoreHorizontal, Plus } from 'lucide-react'
 import type { Workspace } from '@zomfy/protocol'
 import { floatingWorkspaceId, selectWorkspace, useStore, type HostedProject, type HostId, type Session } from '@/session-store'
 import { toggleProjectCollapsed, toggleSectionCollapsed, useSidebarStore } from '@/stores/sidebar-store'
@@ -7,6 +7,7 @@ import { setInboxOpen } from '@/stores/inbox-store'
 import { useProjectCatalog } from '@/stores/project-catalog-store'
 import { useSetting } from '@/stores/settings-store'
 import { SessionRow } from '@/components/sidebar/SessionRow'
+import { TurnGroupMark } from '@/components/TurnGroupMark'
 import type { ChatCardInfo } from '@/components/sidebar/ChatCard'
 import type { SidebarActions } from '@/components/sidebar/sidebar-actions'
 import { ProjectActionsMenuItems } from '@/components/sidebar/ProjectActionsMenu'
@@ -69,12 +70,15 @@ export function useChatListCounts(): { total: number; matched: number } {
 function SectionHeader({
   id,
   label,
+  mark,
   count,
   collapsed,
   trailing
 }: {
   id: string
   label: string
+  /** A state group: its mark and a hairline instead of its name. */
+  mark?: ChatSectionId
   count: number
   collapsed: boolean
   trailing?: ReactNode
@@ -84,9 +88,11 @@ function SectionHeader({
       role="button"
       tabIndex={0}
       aria-expanded={!collapsed}
+      aria-label={mark ? label : undefined}
+      title={mark ? label : undefined}
       data-chat-section-header={id}
-      // As T3 Code's: the name on the left, the count and the fold on the right.
-      className="flex h-8 min-w-0 cursor-pointer items-center gap-1.5 pt-2 pr-2 pl-2 select-none"
+      // As T3 Code's: the name (or the group's mark) on the left, the count and the fold on the right.
+      className="group/section flex h-8 min-w-0 cursor-pointer items-center gap-1.5 pt-2 pr-2 pl-2 select-none"
       onClick={() => toggleSectionCollapsed(id)}
       onKeyDown={(e) => {
         if (e.key !== 'Enter' && e.key !== ' ') return
@@ -94,17 +100,20 @@ function SectionHeader({
         toggleSectionCollapsed(id)
       }}
     >
-      {id === 'needs-answer' && <span className="block size-1.5 shrink-0 rounded-full bg-agent-question" />}
-      {id === 'your-turn' && <span className="block size-1.5 shrink-0 rounded-full bg-highlight" />}
-      <div
-        className={cn(
-          'min-w-0 truncate text-[12px] leading-none font-semibold',
-          id === 'needs-answer' ? 'text-agent-question-text' : id === 'your-turn' ? 'text-foreground/85' : 'text-muted-foreground'
-        )}
-      >
-        {label}
-      </div>
-      <div className="ml-auto flex shrink-0 items-center gap-1">
+      {mark ? (
+        <>
+          <TurnGroupMark id={mark} />
+          <div
+            className={cn(
+              'h-px min-w-4 flex-1',
+              mark === 'needs-answer' ? 'bg-agent-question/35' : mark === 'your-turn' ? 'bg-emerald-500/30' : 'bg-border'
+            )}
+          />
+        </>
+      ) : (
+        <div className="min-w-0 truncate text-[12px] leading-none font-semibold text-muted-foreground">{label}</div>
+      )}
+      <div className={cn('flex shrink-0 items-center gap-1', !mark && 'ml-auto')}>
         {trailing && (
           <div className="flex items-center" onClick={(e) => e.stopPropagation()}>
             {trailing}
@@ -223,15 +232,21 @@ export function ChatList({ actions }: { actions: SidebarActions }) {
     const collapsed = collapsedSections.includes(id) && !needle
     return (
       <section key={id} className="mb-1.5" data-chat-section={id}>
-        <SectionHeader id={id} label={chatSectionLabel(id)} count={list.length} collapsed={collapsed} trailing={trailing} />
+        <SectionHeader id={id} label={chatSectionLabel(id)} mark={id} count={list.length} collapsed={collapsed} trailing={trailing} />
         {!collapsed && <div className="space-y-px pr-1">{list.map(row)}</div>}
       </section>
     )
   }
 
   const inbox = (
-    <button type="button" className="px-1 text-[11px] text-muted-foreground hover:text-foreground" onClick={() => setInboxOpen(true)}>
-      {t('Inbox')}
+    <button
+      type="button"
+      aria-label={t('Inbox')}
+      title={t('Inbox')}
+      className="flex size-5 items-center justify-center rounded-sm text-muted-foreground hover:bg-worktree-sidebar-accent hover:text-foreground"
+      onClick={() => setInboxOpen(true)}
+    >
+      <Inbox className="size-3.5" />
     </button>
   )
 

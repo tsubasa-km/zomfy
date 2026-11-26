@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react'
-import { Bot, ExternalLink, RefreshCw } from 'lucide-react'
+import { Bot, ExternalLink, RefreshCw, Terminal } from 'lucide-react'
 import type { ConnectorStatus } from '@zomfy/protocol'
 import { pairConnector, unpairConnector, useBots } from '@/stores/bots-store'
 import { setSetting, useSetting } from '@/stores/settings-store'
@@ -106,10 +106,7 @@ function StatusSection({
   }
   return (
     <div className={CARD} data-relay-status>
-      <SettingsSubsectionHeader
-        title={t('Status')}
-        description={t('One Worker on your own Cloudflare account carries both the phone app and the bots’ sources to this computer.')}
-      />
+      <SettingsSubsectionHeader title={t('Status')} />
       {paired && status ? (
         <div className="space-y-2">
           <p className="flex items-center gap-2 text-sm" data-relay-state={status.state}>
@@ -186,7 +183,6 @@ function StatusSection({
               <RefreshCw />
               {checking ? t('Checking…') : t('Check')}
             </Button>
-            <span className="text-xs text-muted-foreground">{t('Check reads what a relay serves before you pair with it.')}</span>
           </div>
           {health ? (
             <p className="flex flex-wrap items-center gap-2 text-xs" data-relay-checked>
@@ -264,7 +260,7 @@ function FeaturesSection({ health, base, info }: { health: RelayHealth | null; b
   const value = featuresValue(wanted)
   return (
     <div className={CARD} data-relay-features>
-      <SettingsSubsectionHeader title={t('Features')} description={t('Tick what you want the relay for. Each shows what it needs and whether your relay has it.')} />
+      <SettingsSubsectionHeader title={t('Features')} />
       <div className="flex flex-wrap gap-x-5 gap-y-2">
         {info.map((f) => (
           <label key={f.id} className="flex items-center gap-2 text-sm">
@@ -273,7 +269,6 @@ function FeaturesSection({ health, base, info }: { health: RelayHealth | null; b
           </label>
         ))}
       </div>
-      {wanted.length === 0 ? <p className="py-1 text-xs text-muted-foreground">{t('Tick a feature to see what it needs.')}</p> : null}
       <div className="grid gap-2 sm:grid-cols-2">
         {info
           .filter((f) => wanted.includes(f.id))
@@ -283,9 +278,7 @@ function FeaturesSection({ health, base, info }: { health: RelayHealth | null; b
       </div>
       {value ? (
         <div className="space-y-0.5 pt-1">
-          <p className="text-[11px] text-muted-foreground">
-            {t('To serve only these, set FEATURES on the Worker to this (unset, the relay serves the phone, webhooks and every source with its secrets):')}
-          </p>
+          <p className="font-mono text-[11px] text-muted-foreground">FEATURES</p>
           <CopyField value={value} data="relay-features-value" />
         </div>
       ) : null}
@@ -298,10 +291,7 @@ function SetupSection({ relayUrl }: { relayUrl: string | null }) {
   const [open, setOpen] = useState(false)
   return (
     <div className={CARD} data-relay-setup>
-      <SettingsSubsectionHeader
-        title={t('Set up')}
-        description={t('Deploy the relay to your Cloudflare account and give it the secrets the ticked features need, or let an agent walk you through it.')}
-      />
+      <SettingsSubsectionHeader title={t('Set up')} />
       <div className="flex flex-wrap items-center gap-2">
         <Button size="sm" disabled={wanted.length === 0} data-relay-setup-agent onClick={() => setOpen(true)}>
           <Bot />
@@ -316,8 +306,11 @@ function SetupSection({ relayUrl }: { relayUrl: string | null }) {
           {t('Guide')}
         </Button>
       </div>
-      <p className="text-xs text-muted-foreground">
-        {t('or run')} <code>bun run deploy</code> {t('in apps/relay;')} <code>bun run relay:local</code> {t('runs it on this computer instead.')}
+      <p className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+        <Terminal className="size-3" aria-hidden="true" />
+        <code title="apps/relay">bun run deploy</code>
+        <span aria-hidden="true">·</span>
+        <code title={t('This computer')}>bun run relay:local</code>
       </p>
       <RelaySetupDialog open={open} onOpenChange={setOpen} features={wanted} relayUrl={relayUrl} />
     </div>
