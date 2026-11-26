@@ -8,7 +8,7 @@ import { relayFeatureInfo, relayFeatureList, ZOMFY_REPO } from '@/lib/relay-feat
 import { buildRelaySetupPrompt, type RelayPromptLanguage } from '@/lib/relay-setup-prompt'
 import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
+import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Textarea } from '@/components/ui/textarea'
 import { cn } from '@/lib/utils'
@@ -130,16 +130,12 @@ export function RelaySetupDialog({
       <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-2xl" data-relay-setup-dialog>
         <DialogHeader>
           <DialogTitle>{t('Set up Zomfy Relay with an agent')}</DialogTitle>
-          <DialogDescription>
-            {t('Starts a Claude chat that deploys and configures your relay step by step. It asks you for every secret and never shows one back.')}
-          </DialogDescription>
         </DialogHeader>
 
         <div className="grid gap-4 text-sm">
           <div className="grid gap-1">
             <p className="text-xs text-muted-foreground">{t('Features')}</p>
             <p data-relay-setup-features>{chosen.map((f) => labels.get(f) ?? f).join(', ') || t('None ticked')}</p>
-            <p className="text-[11px] text-muted-foreground">{t('Change them on the Zomfy Relay page.')}</p>
           </div>
 
           <div className="grid gap-1">
@@ -157,25 +153,13 @@ export function RelaySetupDialog({
                 <SelectItem value={CLONE}>{t('Clone Zomfy into a new folder')}</SelectItem>
               </SelectContent>
             </Select>
-            <p className="text-[11px] text-muted-foreground">
-              {checkouts === null
-                ? t('Looking for a Zomfy checkout on this computer…')
-                : checkouts.length === 0
-                  ? t('No Zomfy checkout among your projects: the chat starts in a fresh clone of {repo}.', { repo: ZOMFY_REPO })
-                  : t('A project on this computer with apps/relay in it.')}
-            </p>
           </div>
 
           <label className="flex items-start gap-2" data-relay-setup-mcp>
             <Checkbox className="mt-0.5" checked={cloudflareMcp} onCheckedChange={(v) => setCloudflareMcp(v === true)} />
             <span className="grid gap-0.5">
               <span>{t('Give this chat Cloudflare’s MCP server')}</span>
-              <span className="text-[11px] text-muted-foreground">
-                {t(
-                  'The server of Cloudflare’s own agent plugin (cloudflare@claude-plugins-official), at {url}, which covers the whole Cloudflare API. It is added to this chat only; sign in to Cloudflare from the chat’s Connectors when it asks. Without it the agent uses wrangler.',
-                  { url: CLOUDFLARE_MCP_URL }
-                )}
-              </span>
+              <span className="font-mono text-[11px] text-muted-foreground">{CLOUDFLARE_MCP_URL}</span>
             </span>
           </label>
 
@@ -214,7 +198,6 @@ export function RelaySetupDialog({
               className="font-mono text-xs"
               onChange={(e) => setEdited(e.target.value)}
             />
-            {edited !== null ? <p className="text-[11px] text-muted-foreground">{t('Edited: changing a choice above no longer rewrites it.')}</p> : null}
           </div>
           {error ? <p className="text-xs text-destructive">{error}</p> : null}
         </div>

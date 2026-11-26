@@ -128,24 +128,9 @@ export function QuickStart() {
     }
   }
 
-  const where = workspace
-    ? t('Starts in {place}.', {
-        place: workspaceProject ? `${projectLabel(workspaceProject)} · ${workspace.branch ?? workspaceLabel(workspace)}` : workspaceLabel(workspace)
-      })
-    : project?.kind === 'git'
-      ? t('Starts in a worktree of its own in {project}, so it never edits the same checkout as another thread.', { project: projectLabel(project) })
-      : project
-        ? t('Starts in {place}.', { place: projectLabel(project) })
-        : t('Starts right away in a fresh folder. The agent moves the thread into a project when the work needs one.')
-
   return (
     <div className="m-auto flex w-full max-w-(--chat-content-max-width) flex-col gap-4 px-3 py-6 sm:px-4" data-quick-start>
-      <div className="space-y-1 text-center">
-        <h1 className="text-lg font-medium text-foreground">{t('What should we work on?')}</h1>
-        <p className="text-xs text-muted-foreground" data-quick-start-where>
-          {where}
-        </p>
-      </div>
+      <h1 className="text-center text-lg font-medium text-foreground">{t('What should we work on?')}</h1>
       <div className="flex flex-col gap-1.5 select-none">
         <NewThreadComposer
           hostId={workspace?.hostId ?? project?.hostId ?? target}

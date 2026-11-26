@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { ShieldCheck } from 'lucide-react'
 import { isTauri } from '@tauri-apps/api/core'
 import { open } from '@tauri-apps/plugin-dialog'
 import { HARNESS_METHODS, type BranchList, type HostingAccountRef, type HostingRemoteInfo, type ProjectHookInfo } from '@zomfy/protocol'
@@ -173,9 +174,6 @@ export function ProjectSettingsDialog({ project, onClose }: { project: HostedPro
                 </Button>
               )}
             </div>
-            <p className="text-[11px] text-muted-foreground">
-              {t('Moved or renamed the folder? Point the project at its new place; its threads, workflows and settings stay. Nothing is moved on disk.')}
-            </p>
           </div>
           <div className="space-y-1.5">
             <Label htmlFor="project-display-name" className={fieldLabel}>
@@ -266,7 +264,6 @@ export function ProjectSettingsDialog({ project, onClose }: { project: HostedPro
                     </Button>
                   )}
                 </div>
-                <p className="text-[11px] text-muted-foreground">{t('A worktree whose commits are all in this branch counts as merged and can be cleaned up.')}</p>
               </div>
               <div className="space-y-1.5">
                 <Label htmlFor="project-cleanup" className={fieldLabel}>
@@ -282,9 +279,12 @@ export function ProjectSettingsDialog({ project, onClose }: { project: HostedPro
                     <SelectItem value="off">{t('Off for this project')}</SelectItem>
                   </SelectContent>
                 </Select>
-                <p className="text-[11px] text-muted-foreground">
-                  {t('A worktree with uncommitted or unpushed work, a running chat or terminal, or a pin is never deleted.')}
-                </p>
+                {cleanupMode !== 'off' && (
+                  <p className="flex items-center gap-1 text-[11px] text-muted-foreground" data-project-cleanup-kept>
+                    <ShieldCheck className="size-3 shrink-0 text-emerald-600 dark:text-emerald-400" aria-hidden="true" />
+                    {t('Kept: unpushed work, running threads and terminals, pins')}
+                  </p>
+                )}
               </div>
               <div className="space-y-1.5">
                 <Label htmlFor="project-worktree-root" className={fieldLabel}>
@@ -304,7 +304,6 @@ export function ProjectSettingsDialog({ project, onClose }: { project: HostedPro
                     </Button>
                   )}
                 </div>
-                <p className="text-[11px] text-muted-foreground">{t('New worktrees go in a folder named after the project here.')}</p>
               </div>
               <HookField
                 id="project-setup"
@@ -331,7 +330,6 @@ export function ProjectSettingsDialog({ project, onClose }: { project: HostedPro
             <SettingSwitch
               id="project-agent-workflows"
               label={t('Agents can start workflows')}
-              hint={t("An agent in this project may run one of the project's workflows on a task.")}
               checked={agentWorkflows}
               onChange={setAgentWorkflows}
             />
@@ -339,7 +337,6 @@ export function ProjectSettingsDialog({ project, onClose }: { project: HostedPro
               <SettingSwitch
                 id="project-agent-split-work"
                 label={t('Agents can split work into parallel worktrees')}
-                hint={t('An agent may hand separate parts of a large task to helpers, each in a worktree of its own.')}
                 checked={agentSplitWork}
                 onChange={setAgentSplitWork}
               />
@@ -359,9 +356,6 @@ export function ProjectSettingsDialog({ project, onClose }: { project: HostedPro
                 <SelectItem value="off">{t('Off for this project')}</SelectItem>
               </SelectContent>
             </Select>
-            <p className="text-[11px] text-muted-foreground">
-              {t('Claude chats here can use your Chrome. Needs the Claude in Chrome extension installed and Chrome running.')}
-            </p>
           </div>
           {isGit && project && (
             <div className="sm:col-span-2">
@@ -427,7 +421,7 @@ function SettingSwitch({
 }: {
   id: string
   label: string
-  hint: string
+  hint?: string
   checked: boolean
   onChange: (checked: boolean) => void
 }) {
@@ -437,7 +431,7 @@ function SettingSwitch({
         <Label htmlFor={id} className="text-sm font-normal">
           {label}
         </Label>
-        <p className="text-[11px] text-muted-foreground">{hint}</p>
+        {hint && <p className="text-[11px] text-muted-foreground">{hint}</p>}
       </div>
       <Switch id={id} checked={checked} onCheckedChange={onChange} data-setting={id} />
     </div>

@@ -93,7 +93,6 @@ export function InputEditingPane() {
           />
           <SettingsRow
             label={t('Waiting glow')}
-            description={t('How the place you act next shows it is your turn: a question or approval card, or the composer.')}
             keywords={['chat', 'composer', 'glow', 'rainbow', 'pulse', 'outline', 'needs you', 'your turn', 'waiting', 'question', 'approval', 'border']}
             control={
               <SettingsSegmentedControl<ChatWaitingGlow>
@@ -121,7 +120,6 @@ export function InputEditingPane() {
           />
           <SettingsRow
             label={t('Quiet after')}
-            description={t('How long a thread you have seen stays under Your turn before it goes Quiet.')}
             keywords={['chat', 'sidebar', 'quiet', 'your turn', 'settled', 'done', 'idle']}
             control={
               <SettingsSegmentedControl<number>

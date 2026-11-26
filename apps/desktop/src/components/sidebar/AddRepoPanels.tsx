@@ -127,7 +127,6 @@ export function DisplayNameField({
         spellCheck={false}
         autoComplete="off"
       />
-      <p className={hint}>{t('Shown in the sidebar; editable later.')}</p>
     </div>
   )
 }
@@ -186,11 +185,7 @@ export function OpenFolderPanel({
               <Icon className={cn('size-3 shrink-0', status.kind === 'checking' && 'animate-spin')} />
               <span className="min-w-0 truncate">{statusText(status, hostLabel)}</span>
             </>
-          ) : onPick ? (
-            t('Browse, or paste a path.')
-          ) : (
-            t('{host} has no folder picker here; type the path.', { host: hostLabel })
-          )}
+          ) : null}
         </p>
       </div>
       {displayName}
@@ -339,9 +334,16 @@ export function ClonePanel({
             autoComplete="off"
             data-add-repo-clone-name
           />
-          <p className={cn(hint, folderProblem && 'text-destructive')} data-add-repo-clone-name-hint>
-            {folderProblem ?? folderNote ?? t("The repository's name unless you change it.")}
-          </p>
+          {folderProblem || folderNote ? (
+            <p className={cn(hint, 'flex min-w-0 items-center gap-1', folderProblem && 'text-destructive')} data-add-repo-clone-name-hint>
+              {folderProblem ?? (
+                <>
+                  <Folder className="size-3 shrink-0" aria-label={t('Folder name')} />
+                  <span className="min-w-0 truncate font-mono">{folderNote}</span>
+                </>
+              )}
+            </p>
+          ) : null}
         </div>
         {displayName}
       </div>
@@ -428,7 +430,12 @@ export function CreatePanel({
             autoComplete="off"
             data-add-repo-field="name"
           />
-          <p className={hint}>{name.trim() && folderName !== name.trim() ? t('The folder is named {name}.', { name: folderName }) : t('A Git repository with a first commit, ready for worktrees.')}</p>
+          {name.trim() && folderName !== name.trim() ? (
+            <p className={cn(hint, 'flex min-w-0 items-center gap-1')}>
+              <Folder className="size-3 shrink-0" aria-label={t('Folder name')} />
+              <span className="min-w-0 truncate font-mono">{folderName}</span>
+            </p>
+          ) : null}
         </div>
         {displayName}
       </div>
@@ -441,7 +448,6 @@ export function CreatePanel({
               <Label htmlFor="add-repo-publish" className="text-sm font-normal">
                 {t('Publish to GitHub')}
               </Label>
-              <p className={hint}>{t('Creates the repository on GitHub and pushes the first commit.')}</p>
             </div>
             <Switch id="add-repo-publish" checked={publish.on} disabled={busy} onCheckedChange={(on) => onPublishChange({ ...publish, on, account })} />
           </div>

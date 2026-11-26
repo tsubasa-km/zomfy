@@ -1,5 +1,5 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
-import { Copy, CornerDownLeft, FileText, GitFork, MessagesSquare, Quote, Search, TextSelect } from 'lucide-react'
+import { AlarmClock, Copy, CornerDownLeft, FileText, GitFork, MessagesSquare, Quote, Search, TextSelect } from 'lucide-react'
 import { markSeen, openEditorTab, useStore, type Session, type ThreadItem } from '@/session-store'
 import { projectOfSession } from '@/lib/session-project'
 import { mainLocationOf } from '@/stores/project-catalog-store'
@@ -18,7 +18,7 @@ import {
   submitPrompt
 } from '@/chat-actions'
 import { addTodo } from '@/stores/inbox-store'
-import { chatAgentLabel } from '@zomfy/protocol'
+import { chatAgentLabel, nextWakeUpAt } from '@zomfy/protocol'
 import { latestTurnEnd } from '@/chat-transcript'
 import { askInSideChat } from '@/side-chat-actions'
 import { NativeChatUsageLimitBanner } from '@/components/native-chat/NativeChatTurnRecovery'
@@ -62,7 +62,7 @@ import { BotChatHeader } from '@/components/bots/BotChatHeader'
 import { t } from '@/i18n/i18n'
 import { getTabLayoutState } from '@/stores/tab-layout-store'
 import { noteChatSeen } from '@/chat-seen'
-import { backgroundSummary, phaseOf, useQuietAfterHours } from '@/lib/turn-phase'
+import { backgroundSummary, backgroundTasksLabel, phaseOf, useQuietAfterHours, wakeTime } from '@/lib/turn-phase'
 import { AgentStateDot } from '@/components/AgentStateDot'
 import { NextStepsGlowContext, waitingGlowTarget } from '@/components/native-chat/waiting-glow-target'
 import { projectLabel } from '@/components/sidebar/workspace-visibility'
@@ -138,6 +138,7 @@ export function ThreadView({ session, onSendToMain }: { session: Session; onSend
       onRevealFile: (path) => openEditorTab({ workspaceId: session.workspaceId, kind: 'file', path, staged: false }),
       nextSteps: {
         agentName,
+        agent: sessionAgent(session),
         onFollowUp: (text) => submitPrompt(session.id, text, []),
         onAddTodo: (text) => addTodo(text, { hostId: session.hostId, workspaceId: session.workspaceId, sessionId: session.id }, sessionTitle)
       }
@@ -410,16 +411,24 @@ export function ThreadView({ session, onSendToMain }: { session: Session; onSend
   )
 }
 
-/** The thread's state while its turn has ended and background work goes on: what runs, and when it wakes. */
+/**
+ * The thread's state while its turn has ended and background work goes on: the Activity mark, what
+ * runs, and an alarm clock with the time it wakes. No words: the mark is the state.
+ */
 function BackgroundWorkStatus({ session }: { session: Session }) {
-  const summary = backgroundSummary(session)
+  const tasks = backgroundTasksLabel(session)
+  const at = nextWakeUpAt(session)
   return (
-    <div className="bg-chat-canvas" data-thread-background-status>
+    <div className="bg-chat-canvas" data-thread-background-status title={backgroundSummary(session) || t('Background work running')}>
       <div className="mx-auto flex w-full max-w-(--chat-content-max-width) items-center gap-1.5 px-4 pt-1.5 text-xs text-chat-foreground-faint sm:px-5">
         <AgentStateDot state="monitoring" size="sm" title={null} />
-        <span className="font-medium text-yellow-700 dark:text-yellow-400">{t('Background work running')}</span>
-        {summary && <span className="min-w-0 truncate">· {summary}</span>}
-        <span className="ml-auto shrink-0">{t('The thread goes on by itself')}</span>
+        {tasks && <span className="min-w-0 truncate font-mono text-[11px]">{tasks}</span>}
+        {at !== null && (
+          <span className="inline-flex shrink-0 items-center gap-1 text-yellow-700 tabular-nums dark:text-yellow-400">
+            <AlarmClock className="size-3" aria-hidden="true" />
+            {wakeTime(at)}
+          </span>
+        )}
       </div>
     </div>
   )

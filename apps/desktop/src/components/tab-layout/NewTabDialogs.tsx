@@ -3,7 +3,7 @@ import { toast } from 'sonner'
 import { HARNESS_METHODS } from '@zomfy/protocol'
 import { harnessRequest } from '@/daemon-connection'
 import { Button } from '@/components/ui/button'
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
+import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { allProjects, allWorkspaces, useStore, type HostId } from '@/session-store'
@@ -136,7 +136,6 @@ function NewTerminalDialog({ from }: { from: string }) {
       >
         <DialogHeader>
           <DialogTitle>{t('New terminal')}</DialogTitle>
-          <DialogDescription>{t('Choose where the terminal runs.')}</DialogDescription>
         </DialogHeader>
         <div className="space-y-3">
           {connected.length > 1 && (
@@ -160,7 +159,7 @@ function NewTerminalDialog({ from }: { from: string }) {
             <Label>{t('Folder')}</Label>
             {folders.length === 0 ? (
               <p className="text-sm text-muted-foreground" data-new-terminal-no-folder>
-                {t('This host has no project folder yet. Add a project on it first.')}
+                {t('No project folder on this host')}
               </p>
             ) : (
               <Select value={folder ?? ''} onValueChange={setFolder}>

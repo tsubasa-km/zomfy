@@ -22,7 +22,7 @@ import { useHostAccounts } from '@/lib/hosting-accounts'
 import { displayNameToSend, folderNameProblem, joinHostPath, projectFolderName, repoFolderName, type FolderNameProblem } from '@/lib/project-target-path'
 import { folderName as lastSegment } from '@/lib/thread-import'
 import { Button } from '@/components/ui/button'
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
+import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Label } from '@/components/ui/label'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { AddRepoHostRow } from '@/components/sidebar/AddRepoHostRow'
@@ -100,7 +100,6 @@ function useDebounced<T>(key: string | null, ask: () => Promise<T>): T | null | 
 export function AddRepoDialog() {
   const request = useAddProjectRequest()
   const hosts = useStore((s) => s.hosts)
-  const projectCount = useStore((s) => Object.values(s.hosts).reduce((n, h) => n + (h.harness?.projects.length ?? 0), 0))
   const [tab, setTab] = useState<AddTab>('open')
   const [hostId, setHostId] = useState<HostId>('local')
   const [distros, setDistros] = useState<string[]>([])
@@ -359,11 +358,6 @@ export function AddRepoDialog() {
         >
           <DialogHeader>
             <DialogTitle>{linkTo ? t('Add a workspace to {project}', { project: linkTo }) : t('Add a project')}</DialogTitle>
-            {linkTo ? (
-              <DialogDescription>{t("A folder or repository on any host; it lists under {project} with its host's name.", { project: linkTo })}</DialogDescription>
-            ) : projectCount === 0 ? (
-              <DialogDescription>{t('Add a project to get started with Zomfy.')}</DialogDescription>
-            ) : null}
           </DialogHeader>
 
           {showHostRow(pills) && (
@@ -423,7 +417,7 @@ export function AddRepoDialog() {
                 url={url}
                 folderName={cloneNameInput}
                 folderProblem={cloneNameIssue ? folderNameText(cloneNameIssue) : null}
-                folderNote={cloneFolder && cloneFolder !== cloneNameInput.trim() ? t('The folder is named {name}.', { name: cloneFolder }) : null}
+                folderNote={cloneFolder && cloneFolder !== cloneNameInput.trim() ? cloneFolder : null}
                 targetProblem={cloneTargetExists ? t('{path} already exists.', { path: cloneTarget }) : null}
                 displayName={displayNameField(cloneFolder, canClone, clone)}
                 onFolderNameChange={(v) => {

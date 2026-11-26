@@ -370,20 +370,15 @@ export const CHAT: Record<string, string> = {
   // components/native-chat/NativeChatNextStepsCard.tsx
   'Please go ahead with this next step: {step}': '次のステップを進めてください：{step}',
   'Next steps': 'ネクストステップ',
-  'Show original': '元の文面を表示',
-  'Show as card': 'カードで表示',
   'Ask to do this': 'これを頼む',
   Asked: '依頼済み',
   'Add to Inbox': '受信箱のやることに追加',
   'In Inbox': '受信箱に追加済み',
   You: 'あなた',
-  'Sends {agent} a message in this chat asking it to do this step.': 'このチャットで {agent} にこのステップを頼むメッセージを送ります。',
-  'This step is in the To do list of your Inbox. Click to open it.': 'このステップは受信箱の「やること」にあります。クリックで開きます。',
-  'Adds this step to the To do list in your Inbox (in the status bar), linked to this chat. Nothing is sent to {agent}.':
-    'このステップを受信箱（ステータスバー）の「やること」に、このチャットへのリンク付きで追加します。{agent} には何も送りません。',
-  "Added to your Inbox's To do list": '受信箱の「やること」に追加しました',
   'Open Inbox': '受信箱を開く',
+  'Added to Inbox': '受信箱に追加しました',
   'Could not add it to your Inbox': '受信箱に追加できませんでした',
+  'Next, {agent} will:': '次に {agent} がやること：',
 
   // components/native-chat/NativeChatTurnDiffRollup.tsx
   'Hide diff': '差分を隠す',

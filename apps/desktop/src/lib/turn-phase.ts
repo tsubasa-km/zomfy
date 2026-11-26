@@ -3,8 +3,8 @@ import type { AgentDotState } from '@/components/AgentStateDot'
 import { getSetting, useSetting } from '@/stores/settings-store'
 import { t } from '@/i18n/i18n'
 
-// docs/specs/turn-taking-states.md: whose turn a thread is, in the words and marks every surface
-// of the window uses (sidebar, tab, thread, session panel).
+// docs/specs/turn-taking-states.md: whose turn a thread is, in the marks every surface of the window
+// uses (sidebar, tab, thread, session panel). The words are for tooltips and screen readers only.
 
 export type { TurnPhase }
 
@@ -66,19 +66,27 @@ export function wakeTime(at: number, now = Date.now()): string {
     : when.toLocaleString(undefined, { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })
 }
 
-/** A row's short word for background work: "Background" while tasks run, else when it wakes. */
-export function backgroundShortLabel(session: Pick<SessionInfo, 'background'>, now = Date.now()): string {
-  if ((session.background?.tasks.length ?? 0) > 0) return t('Background')
+/**
+ * When background work wakes, as a bare time ("14:30") for beside the Activity mark; null while
+ * tasks run or nothing is scheduled. A row shows marks and values, not words (docs/specs/ui-principles.md).
+ */
+export function backgroundWakeLabel(session: Pick<SessionInfo, 'background'>, now = Date.now()): string | null {
+  if ((session.background?.tasks.length ?? 0) > 0) return null
   const at = nextWakeUpAt(session)
-  return at === null ? t('Background') : t('Wakes {time}', { time: wakeTime(at, now) })
+  return at === null ? null : wakeTime(at, now)
 }
 
-/** One line for the thread: what runs and when it wakes, e.g. "bun test · wakes at 14:30". */
-export function backgroundSummary(session: Pick<SessionInfo, 'background'>, now = Date.now()): string {
+/** What runs in the background, for the thread's line: "bun test", or "bun test and 2 more". */
+export function backgroundTasksLabel(session: Pick<SessionInfo, 'background'>): string {
   const tasks = session.background?.tasks ?? []
+  return tasks.length > 2 ? t('{first} and {n} more', { first: tasks[0]!, n: tasks.length - 1 }) : tasks.join(', ')
+}
+
+/** A tooltip's line: what runs and when it wakes, e.g. "bun test · wakes at 14:30". */
+export function backgroundSummary(session: Pick<SessionInfo, 'background'>, now = Date.now()): string {
   const at = nextWakeUpAt(session)
   return [
-    tasks.length > 2 ? t('{first} and {n} more', { first: tasks[0]!, n: tasks.length - 1 }) : tasks.join(', '),
+    backgroundTasksLabel(session),
     at === null ? '' : t('wakes at {time}', { time: wakeTime(at, now) })
   ]
     .filter(Boolean)

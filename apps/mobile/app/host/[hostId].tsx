@@ -7,7 +7,8 @@ import { router, Stack, useLocalSearchParams } from 'expo-router'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { botOfChat } from '../../src/lib/bots'
 import { hostTree, projectLabel, workspaceLabel } from '../../src/lib/host-tree'
-import { BotAvatar, Button, connectionColor, connectionLabel, Empty, PhaseDot, phaseLabel, routeLabel, Section, styles } from '../../src/ui/components'
+import { BotAvatar, Button, connectionColor, connectionLabel, Empty, PhaseDot, routeLabel, Section, styles } from '../../src/ui/components'
+import { phaseValue } from '../../src/lib/turn-phase'
 import { useConnection, useConnectionState, useHost } from '../../src/ui/hooks'
 import { t } from '../../src/ui/i18n'
 import { colors, space } from '../../src/ui/theme'
@@ -73,9 +74,7 @@ export default function HostScreen() {
                         {bot ? <Text style={styles.muted}>@{bot.handle} </Text> : null}
                         {chat.title || t('Untitled chat')}
                       </Text>
-                      {phaseLabel(chat) ? (
-                        <Text style={{ color: chat.status === 'error' ? colors.danger : colors.muted, fontSize: 12 }}>{phaseLabel(chat)}</Text>
-                      ) : null}
+                      {phaseValue(chat) ? <Text style={{ color: colors.muted, fontSize: 12 }}>{phaseValue(chat)}</Text> : null}
                     </Pressable>
                     )
                   })}

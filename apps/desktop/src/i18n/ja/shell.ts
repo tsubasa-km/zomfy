@@ -166,7 +166,6 @@ export const SHELL: Record<string, string> = {
 
   // components/OrcaImportDialog.tsx
   'Import from Orca': 'Orca からインポート',
-  'Projects from Orca\'s active profile. Each is added on the machine it lives on: WSL folders open in that distro\'s daemon, so git and agents run inside WSL. Existing worktrees come along as workspaces.': 'Orca のアクティブなプロファイルにあるプロジェクトです。それぞれ、そのプロジェクトがあるマシンに追加されます。WSL のフォルダーはそのディストリビューションのデーモンで開くため、git とエージェントは WSL 内で動きます。既存のワークツリーはワークスペースとして取り込まれます。',
   'Reading Orca…': 'Orca を読み込み中…',
   'Orca has no projects.': 'Orca にプロジェクトがありません。',
   'Already added': '追加済み',
@@ -191,7 +190,6 @@ export const SHELL: Record<string, string> = {
   // components/QuickStart.tsx
   'Could not start the thread': 'スレッドを開始できませんでした',
   'What should we work on?': '何に取り組みますか？',
-  'Starts right away in a fresh folder. The agent moves the thread into a project when the work needs one.': '新しいフォルダーですぐに始まります。作業にプロジェクトが必要になると、エージェントがスレッドをプロジェクトに移動します。',
   'Ask anything, or describe a task': '質問するか、タスクを説明してください',
   Host: 'ホスト',
   'Start thread ({key})': 'スレッドを開始（{key}）',
@@ -431,8 +429,6 @@ export const SHELL: Record<string, string> = {
   'Create new project': '新しいプロジェクトを作成',
   'Start from an empty folder': '空のフォルダーから始めます',
   'Add a workspace to {project}': '{project} にワークスペースを追加',
-  'A folder or repository on any host; it lists under {project} with its host\'s name.': '任意のホスト上のフォルダーまたはリポジトリです。{project} の下に、ホスト名付きで表示されます。',
-  'Add a project to get started with Zomfy.': 'プロジェクトを追加して Zomfy を始めましょう。',
   'Other ways to add': 'ほかの追加方法',
   'Adding project…': 'プロジェクトを追加中…',
 
@@ -531,8 +527,6 @@ export const SHELL: Record<string, string> = {
   'Folder': 'フォルダー',
   'Project folder': 'プロジェクトのフォルダー',
   'Pick a folder on the same host as the project.': 'プロジェクトと同じホストのフォルダーを選んでください。',
-  'Moved or renamed the folder? Point the project at its new place; its threads, workflows and settings stay. Nothing is moved on disk.': 'フォルダーを移動・名前変更したら、ここで新しい場所を指定します。スレッド、ワークフロー、設定はそのまま残ります。ディスク上のファイルは移動しません。',
-  'New worktrees go in a folder named after the project here.': '新しいワークツリーは、ここにあるプロジェクト名のフォルダーに作られます。',
   'Setup script': 'セットアップ スクリプト',
   'Runs in a terminal after a worktree is created.': 'ワークツリーの作成後にターミナルで実行されます。',
   'Archive script': 'アーカイブ スクリプト',
@@ -543,17 +537,13 @@ export const SHELL: Record<string, string> = {
   'On Windows the script runs with cmd unless it starts with #!, which runs it in Git Bash.': 'Windows では、スクリプトは cmd で実行されます。#! で始まる場合は Git Bash で実行されます。',
   'What agents may do on their own': 'エージェントが自分の判断でできること',
   'Agents can start workflows': 'エージェントがワークフローを開始できる',
-  "An agent in this project may run one of the project's workflows on a task.": 'このプロジェクトのエージェントが、タスクにプロジェクトのワークフローを実行できます。',
   'Agents can split work into parallel worktrees': 'エージェントが作業を並列のワークツリーに分割できる',
-  'An agent may hand separate parts of a large task to helpers, each in a worktree of its own.': '大きなタスクの独立した部分を、それぞれ専用のワークツリーで動くヘルパーに任せられます。',
 
   // components/sidebar/ProjectSettingsDialog.tsx (Claude in Chrome)
   'Claude in Chrome': 'Claude in Chrome',
   'Use the host’s setting (Settings › Agents › Claude)': 'ホストの設定に従う（設定 › エージェント › Claude）',
   'On for this project': 'このプロジェクトではオン',
   'Off for this project': 'このプロジェクトではオフ',
-  'Claude chats here can use your Chrome. Needs the Claude in Chrome extension installed and Chrome running.':
-    'このプロジェクトの Claude チャットがあなたの Chrome を使えるようにします。Claude in Chrome 拡張機能のインストールと Chrome の起動が必要です。',
 
   // components/sidebar/WorkspaceMenu.tsx
   'Open in': 'アプリで開く',
@@ -1164,8 +1154,6 @@ export const SHELL: Record<string, string> = {
   '{n} waiting on you · click to jump': '{n} 件が対応待ち · クリックで移動',
   '{n} agent session · open dashboard': '{n} 件のエージェント セッション · ダッシュボードを開く',
   '{n} agent sessions · open dashboard': '{n} 件のエージェント セッション · ダッシュボードを開く',
-  '{n} working': '{n} 件作業中',
-  '{n} idle': '{n} 件待機中',
   'UI zoom': 'UI の拡大率',
   'Reset zoom': '拡大率をリセット',
   'Floating workspace, new activity': 'フローティング ワークスペース（新しいアクティビティあり）',
@@ -1291,8 +1279,6 @@ export const SHELL: Record<string, string> = {
   'No threads yet. Start one with New thread.': 'スレッドはまだありません。「新しいスレッド」から始められます。',
 
   // components/QuickStart.tsx, WorkspaceColumns.tsx (window tabs)
-  'Starts in {place}.': '{place} で始めます。',
-  'Starts in a worktree of its own in {project}, so it never edits the same checkout as another thread.': '{project} に専用のワークツリーを作って始めます。ほかのスレッドと同じチェックアウトを編集することはありません。',
   'Start somewhere else': '別の場所で始める',
   'No project': 'プロジェクトなし',
   'Drag out of the window to open this workspace in a window of its own': 'ウィンドウの外へドラッグすると、このワークスペースを別ウィンドウで開きます',
@@ -1429,12 +1415,9 @@ export const SHELL: Record<string, string> = {
   'Work is merged into': '作業のマージ先',
   "The main checkout's branch ({branch})": 'メインのチェックアウトのブランチ（{branch}）',
   "The main checkout's branch": 'メインのチェックアウトのブランチ',
-  'A worktree whose commits are all in this branch counts as merged and can be cleaned up.':
-    'コミットがすべてこのブランチに入っているワークツリーは、マージ済みとして整理の対象になります。',
   'Delete merged worktrees automatically': 'マージ済みのワークツリーを自動で削除',
+  'Kept: unpushed work, running threads and terminals, pins': '残すもの: 未プッシュの作業、実行中のスレッドとターミナル、ピン留め',
   "As the host's setting (Settings → Hosts)": 'ホストの設定に従う（設定 → ホスト）',
-  'A worktree with uncommitted or unpushed work, a running chat or terminal, or a pin is never deleted.':
-    'コミットされていない・プッシュされていない作業があるもの、スレッドやターミナルが動いているもの、ピン留めしたものは削除しません。',
 
   // components/sidebar/BundledSkillsSettings.tsx
   "Zomfy's skills": 'Zomfy のスキル',
@@ -1461,17 +1444,12 @@ export const SHELL: Record<string, string> = {
   'No folder at this path on {host}': '{host} のこのパスにフォルダーがありません',
   'A Git repository or any folder': 'Git リポジトリ、または任意のフォルダー',
   'Path on {host}, e.g. ~/src/project': '{host} 上のパス（例: ~/src/project）',
-  'Browse, or paste a path.': '参照するか、パスを貼り付けてください。',
-  '{host} has no folder picker here; type the path.': '{host} ではフォルダーを選べないため、パスを入力してください。',
   Change: '変更',
   'Choose a parent folder': '親フォルダーを選んでください',
   'Repository URL': 'リポジトリの URL',
   'Clone into': 'クローン先',
-  'The folder is named {name}.': 'フォルダー名は {name} になります。',
-  'A Git repository with a first commit, ready for worktrees.': '最初のコミット付きの Git リポジトリを作り、すぐにワークツリーを使えます。',
   'Create in': '作成先',
   'Publish to GitHub': 'GitHub に公開',
-  'Creates the repository on GitHub and pushes the first commit.': 'GitHub にリポジトリを作り、最初のコミットをプッシュします。',
   Visibility: '公開範囲',
   Private: 'プライベート',
   Public: 'パブリック',
@@ -1490,17 +1468,8 @@ export const SHELL: Record<string, string> = {
   "The CLI's active account ({login})": 'CLI のアクティブなアカウント（{login}）',
   "The CLI's active account": 'CLI のアクティブなアカウント',
   '{login} (not signed in here)': '{login}（このホストでは未サインイン）',
-  '{login} is not signed in on this host; until it is, the active account is used.': '{login} はこのホストでサインインしていません。サインインするまではアクティブなアカウントを使います。',
-  'Zomfy, agents and git pushes over HTTPS act as this account for {host}, without switching the CLI.':
-    'Zomfy、エージェント、HTTPS での git push は、CLI を切り替えずに {host} でこのアカウントとして動きます。',
   'Finish signing in in the terminal': 'ターミナルでサインインを完了してください',
-  'gh makes the account it signs in active. Then pick it under Account.': 'gh はサインインしたアカウントをアクティブにします。そのあと「アカウント」で選んでください。',
-  'Then pick the account under Account.': 'そのあと「アカウント」で選んでください。',
-  'A terminal on this host runs gh auth login for {host}; finish there in the browser.': 'このホストのターミナルで {host} 向けに gh auth login を実行します。ブラウザーで完了してください。',
   'Sign in with gh': 'gh でサインイン',
-  'glab keeps one account per host, so Zomfy keeps a token for another one, in the system credential store.':
-    'glab はホストごとに 1 アカウントしか持てないため、別のアカウントのトークンは Zomfy がシステムの資格情報ストアに保管します。',
-  'Sign in with glab, or give Zomfy a token to keep in the system credential store.': 'glab でサインインするか、トークンを Zomfy に渡してシステムの資格情報ストアに保管します。',
   'Personal access token for {host}': '{host} の個人アクセストークン',
   'Create a token on {host} (api, read_repository, write_repository)': '{host} でトークンを作成（api、read_repository、write_repository）',
   'Sign in with glab instead': '代わりに glab でサインイン',
@@ -1510,20 +1479,13 @@ export const SHELL: Record<string, string> = {
   'Import…': 'インポート…',
   'Import from': 'インポート元',
   'Looking for {sources}…': '{sources} を探しています…',
-  'Conversations {agent} recorded on {host}. An imported thread keeps its transcript, and your next message continues the conversation.':
-    '{host} で {agent} が記録した会話です。インポートしたスレッドには会話の内容が残り、次のメッセージでその会話を続けられます。',
-  'Projects and past conversations from other apps on {host}.': '{host} にある他のアプリのプロジェクトや過去の会話です。',
   'Looking for things to import on {host}…': '{host} でインポートできるものを探しています…',
   'Nothing to import on {host}.': '{host} にはインポートできるものがありません。',
-  "Zomfy imports Orca's projects (on this computer) and the conversations Claude Code, Codex and the other chat agents recorded on a host.":
-    'Zomfy がインポートできるのは、Orca のプロジェクト（このコンピューター上）と、Claude Code、Codex などのチャットエージェントがホストに記録した会話です。',
 
   // components/sidebar/AddRepoPanels.tsx, AddRepoDialog.tsx (display name, clone folder name)
   "The folder's name": 'フォルダー名',
-  'Shown in the sidebar; editable later.': 'サイドバーに表示。あとで変更できます。',
   'Folder name': 'フォルダー名',
   'From the repository URL': 'リポジトリの URL から',
-  "The repository's name unless you change it.": '変更しなければリポジトリ名になります。',
   '{path} already exists.': '{path} はすでに存在します。',
   'Enter a folder name.': 'フォルダー名を入力してください。',
   'A folder name cannot hold / or \\.': 'フォルダー名に / や \\ は使えません。',
@@ -1540,9 +1502,8 @@ export const SHELL: Record<string, string> = {
   'Run {name}…': '{name} を実行…',
   'Unpin {label}': '{label} のピン留めを外す',
   'Pin {label} to the tab bar': '{label} をタブバーにピン留め',
-  'Choose where the terminal runs.': 'ターミナルを開く場所を選んでください。',
   Shell: 'シェル',
-  'This host has no project folder yet. Add a project on it first.': 'このホストにはまだプロジェクトのフォルダーがありません。先にプロジェクトを追加してください。',
+  'No project folder on this host': 'このホストにプロジェクトのフォルダーがありません',
   'Opening…': '開いています…',
   // components/QuickStart.tsx (where a new thread starts)
   'Choose where the thread starts': 'スレッドを始める場所を選ぶ',
@@ -1552,17 +1513,11 @@ export const SHELL: Record<string, string> = {
   'Needs your answer': '回答待ち',
   'Background work running': 'バックグラウンドで作業中',
   Quiet: '静か',
-  Background: 'バックグラウンド',
-  'Wakes {time}': '{time} に再開',
   'wakes at {time}': '{time} に再開',
   '{first} and {n} more': '{first} ほか {n} 件',
-  'The thread goes on by itself': '終わると自動で続きます',
   'Background work': 'バックグラウンドの作業',
   Repeats: '繰り返し',
   'Scheduled wake-up': '予約した再開',
   'Quiet after': '「静か」に移すまで',
-  'How long a thread you have seen stays under Your turn before it goes Quiet.': '見たスレッドが「あなたの番です」から「静か」に移るまでの時間。',
   Never: '移さない',
-  'How the place you act next shows it is your turn: a question or approval card, or the composer.':
-    '次に操作する場所（質問・承認のカード、または入力欄）が、あなたの番であることをどう示すか。'
 }

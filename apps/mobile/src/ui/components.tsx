@@ -45,13 +45,35 @@ export function StatusDot({ status }: { status: SessionStatus }) {
   return <View style={[styles.dot, { backgroundColor: statusColors[status] }]} />
 }
 
-/** A thread's turn-taking state as a dot: a failed turn in red, the rest by phase. */
-export function PhaseDot({ info }: { info: Parameters<typeof phaseOf>[0] }) {
-  const color = info.status === 'error' ? statusColors.error : phaseColors[phaseOf(info)]
-  return <View style={[styles.dot, { backgroundColor: color }]} />
+/**
+ * A thread's turn-taking state as a mark (docs/specs/ui-principles.md), told apart by shape as well
+ * as colour: Your turn a filled dot with a halo, Needs your answer a larger filled dot, Working and
+ * background work a ring, a failed turn a red square, Quiet a small grey dot. Its name is the
+ * accessibility label.
+ */
+export function PhaseDot({ info }: { info: Parameters<typeof phaseText>[0] }) {
+  const phase = phaseOf(info)
+  const label = phaseText(info, t) ?? undefined
+  if (info.status === 'error') return <View accessibilityLabel={label} style={[styles.dot, { borderRadius: 2, backgroundColor: statusColors.error }]} />
+  const color = phaseColors[phase]
+  switch (phase) {
+    case 'needs-answer':
+      return <View accessibilityLabel={label} style={[styles.dot, { width: 12, height: 12, borderRadius: 6, backgroundColor: color }]} />
+    case 'your-turn':
+      return (
+        <View accessibilityLabel={label} style={{ width: 14, height: 14, borderRadius: 7, alignItems: 'center', justifyContent: 'center', backgroundColor: `${color}40` }}>
+          <View style={[styles.dot, { backgroundColor: color }]} />
+        </View>
+      )
+    case 'working':
+    case 'background':
+      return <View accessibilityLabel={label} style={[styles.dot, { borderWidth: 2, borderColor: color, borderStyle: phase === 'background' ? 'dashed' : 'solid' }]} />
+    case 'quiet':
+      return <View style={[styles.dot, { width: 6, height: 6, borderRadius: 3, marginHorizontal: 2, backgroundColor: color }]} />
+  }
 }
 
-/** The state in a word for a list row; null for a quiet thread. */
+/** The state's name, for a screen reader; null for a quiet thread. */
 export const phaseLabel = (info: Parameters<typeof phaseText>[0]): string | null => phaseText(info, t)
 
 export const statusLabel = (status: SessionStatus): string =>

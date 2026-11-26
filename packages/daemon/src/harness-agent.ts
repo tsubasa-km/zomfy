@@ -336,7 +336,7 @@ export function createHarnessAgent(
     route: async (_caller, _tool, args) =>
       normalizeWrapUp(args)
         ? { result: "Shown to the person as a Next steps card under your reply. End the turn now without repeating your answer (one short line at most)." }
-        : { result: "Nothing to show: give a summary and at least one step ({ owner, text }).", isError: true },
+        : { result: "Nothing to show: give personActions, what the person should do next (an empty list when nothing needs them).", isError: true },
   });
 
   /** Recorded for replay, then sent to every client so a reconnected window sees live turns. */

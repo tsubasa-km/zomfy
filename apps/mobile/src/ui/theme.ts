@@ -27,7 +27,7 @@ export const phaseColors: Record<TurnPhase, string> = {
   'needs-answer': colors.warning,
   working: '#38bdf8',
   background: '#eab308',
-  'your-turn': colors.accent,
+  'your-turn': colors.success,
   quiet: '#6b6e75'
 }
 

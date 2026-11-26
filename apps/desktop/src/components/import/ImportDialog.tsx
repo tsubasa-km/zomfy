@@ -9,7 +9,7 @@ import { listedThreads, type ImportableThread } from '@/lib/thread-import'
 import { TuiAgentIcon } from '@/components/terminal/TuiAgentIcon'
 import { AgentThreadsPanel } from '@/components/import/AgentThreadsPanel'
 import { OrcaProjectsPanel } from '@/components/import/OrcaProjectsPanel'
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
+import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { cn } from '@/lib/utils'
@@ -89,18 +89,6 @@ function ImportBody({ request }: { request: ImportRequest }) {
   const connected = Object.values(hosts).filter((h) => h.connection.kind === 'connected' || h.id === hostId)
   const host = hostLabel(hostId)
 
-  const description =
-    source === 'orca'
-      ? t(
-          "Projects from Orca's active profile. Each is added on the machine it lives on: WSL folders open in that distro's daemon, so git and agents run inside WSL. Existing worktrees come along as workspaces."
-        )
-      : source
-        ? t('Conversations {agent} recorded on {host}. An imported thread keeps its transcript, and your next message continues the conversation.', {
-            agent: chatAgentLabel(source),
-            host
-          })
-        : t('Projects and past conversations from other apps on {host}.', { host })
-
   const orcaAnswer = orca?.status === 'ready' ? orca.items : null
   const agentAnswer = source && source !== 'orca' ? threads[source] : undefined
 
@@ -108,7 +96,6 @@ function ImportBody({ request }: { request: ImportRequest }) {
     <>
       <DialogHeader>
         <DialogTitle>{t('Import')}</DialogTitle>
-        <DialogDescription>{description}</DialogDescription>
       </DialogHeader>
       <div className="flex min-w-0 items-start gap-3">
         <div className="flex min-w-0 flex-1 flex-wrap items-center gap-1.5" role="radiogroup" aria-labelledby="import-sources-label" data-import-sources>
@@ -179,10 +166,7 @@ function ImportBody({ request }: { request: ImportRequest }) {
               <p className="text-sm text-muted-foreground">{t('Looking for things to import on {host}…', { host })}</p>
             ) : (
               <>
-                <p className="text-sm text-foreground">{t('Nothing to import on {host}.', { host })}</p>
-                <p className="max-w-md text-xs text-muted-foreground">
-                  {t("Zomfy imports Orca's projects (on this computer) and the conversations Claude Code, Codex and the other chat agents recorded on a host.")}
-                </p>
+                <p className="text-sm text-muted-foreground">{t('Nothing to import on {host}.', { host })}</p>
               </>
             )}
           </div>
