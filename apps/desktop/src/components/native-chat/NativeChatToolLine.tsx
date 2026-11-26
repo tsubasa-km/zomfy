@@ -3,6 +3,7 @@ import type * as acp from '@agentclientprotocol/sdk'
 import {
   Bot,
   ChevronRight,
+  CircleX,
   Eye,
   Globe,
   ListChecks,
@@ -77,6 +78,9 @@ export function NativeChatToolLine({ tool, cwd }: { tool: ToolItem; cwd: string 
         >
           {tool.status === 'in_progress' || tool.status === 'pending' ? (
             <span className="agent-working-spinner block size-2.5 rounded-full border-[1.5px] border-current border-t-transparent" />
+          ) : failed ? (
+            // A failed call trades its kind's glyph for a cross, so it is told apart by shape, not hue alone.
+            <CircleX role="img" aria-label={t('Failed')} className="size-3.5" />
           ) : (
             <Glyph aria-hidden className="size-3.5" />
           )}

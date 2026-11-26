@@ -176,7 +176,11 @@ function TranscriptRow({ row, rowKey, actions }: TranscriptRowProps) {
         ) : null
       return row.severity === 'error' ? (
         <div className="flex min-w-0 max-w-full flex-col items-start gap-1.5" data-native-chat-sign-in={row.turnEnd?.reason === 'error' && row.turnEnd.signIn ? '' : undefined}>
-          <p className="min-w-0 max-w-full text-sm break-words whitespace-pre-line text-destructive select-text">{row.text}</p>
+          {/* An icon as well as the colour, so the failure reads in greyscale and to colour-blind eyes too. */}
+          <p className="flex min-w-0 max-w-full items-start gap-1.5 text-sm break-words whitespace-pre-line text-destructive select-text">
+            <CircleAlert className="mt-0.5 size-3.5 shrink-0" aria-hidden />
+            <span className="min-w-0">{row.text}</span>
+          </p>
           {recovery}
         </div>
       ) : (
