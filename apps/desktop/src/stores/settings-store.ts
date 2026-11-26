@@ -102,6 +102,8 @@ export interface AppSettings {
   chatThinkingDisplay: ChatThinkingDisplay
   /** Which one-time moves of saved values (SETTINGS_REVISION) these settings have had. */
   settingsRevision: number
+  /** The Zomfy Relay features the person wants (docs/specs/relay-settings.md): `phone`, `discord`, … */
+  relayFeatures: string[]
 }
 
 /** Bumped with each move of a saved default; a window saved before it gets the move once. */
@@ -161,7 +163,8 @@ export const DEFAULT_SETTINGS: AppSettings = {
   chatAfterSend: 'stay',
   chatMemosEnabled: true,
   chatThinkingDisplay: 'expanded',
-  settingsRevision: SETTINGS_REVISION
+  settingsRevision: SETTINGS_REVISION,
+  relayFeatures: ['phone']
 }
 
 export type SettingKey = keyof AppSettings

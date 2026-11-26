@@ -1,26 +1,22 @@
 import { useMemo, useState } from 'react'
-import { ArrowLeft, CalendarClock, ExternalLink, FileText, FolderOpen, Pencil, Plus, Search, Trash2, X, Zap } from 'lucide-react'
+import { ArrowLeft, CalendarClock, FileText, FolderOpen, Pencil, Plus, Search, Trash2, X, Zap } from 'lucide-react'
 import { HARNESS_METHODS, type Bot, type BotAsker, type BotSource, type ConnectorStatus } from '@zomfy/protocol'
 import { harnessRequest } from '@/daemon-connection'
 import { allWorkspaces, LOCAL_HOST, openEditorTab, selectWorkspace, useStore } from '@/session-store'
 import {
   botAction,
   deleteBot,
-  pairConnector,
   pauseBot,
   selectBot,
   setBotAskers,
-  unpairConnector,
   updateBot,
   useBots
 } from '@/stores/bots-store'
-import { closeSettings } from '@/stores/app-overlay-store'
-import { openExternalUrl } from '@/lib/link-routing'
+import { closeSettings, openSettings } from '@/stores/app-overlay-store'
 import { openWorkspaceIn } from '@/components/sidebar/WorkspaceMenu'
 import { BotAvatar } from '@/components/bots/BotAvatar'
 import { BotEditorDialog } from '@/components/bots/BotEditorDialog'
 import { AccessRequestRow } from '@/components/bots/AccessRequestRow'
-import { CopyField } from '@/components/bots/CopyField'
 import { AutomationEditorDialog } from '@/components/automations/AutomationEditorDialog'
 import { triggerLabel } from '@/components/automations/AutomationsPage'
 import { allAutomations, useAutomationState, useLoadAutomations, type HostedAutomation } from '@/stores/automation-store'
@@ -29,16 +25,12 @@ import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Input } from '@/components/ui/input'
 import { Switch } from '@/components/ui/switch'
-import { cn } from '@/lib/utils'
 import { SettingsSubsectionHeader } from './settings-form-controls'
+import { RelayStateDot, relayStateLabel } from './RelayPane'
 import { t } from '@/i18n/i18n'
 
-// Settings → Bots (docs/specs/bots/desktop.md#settings--bots): the relay this computer pairs with,
-// the sources the deployment has, and each bot: its files, Who can ask, pause and delete.
-
-const REPO = 'https://github.com/tsubasa-km/zomfy'
-const DEPLOY_URL = `https://deploy.workers.cloudflare.com/?url=${REPO}/tree/main/apps/relay`
-const GUIDE_URL = `${REPO}/blob/main/docs/specs/bots/connector.md#deploy`
+// Settings → Bots (docs/specs/bots/desktop.md#settings--bots): the relay's state, with its settings in
+// Settings → Zomfy Relay (docs/specs/relay-settings.md), and each bot: its files, Who can ask, pause and delete.
 
 const ASK_SOURCES: { id: BotSource; label: string; findId: string; find?: boolean }[] = [
   {
@@ -56,175 +48,28 @@ function run(task: Promise<unknown>, setError: (error: string | null) => void): 
   void task.catch((e) => setError(e instanceof Error ? e.message : String(e)))
 }
 
-function stateLabel(state: ConnectorStatus['state']): string {
-  switch (state) {
-    case 'online':
-      return t('Connected')
-    case 'connecting':
-      return t('Connecting…')
-    case 'offline':
-      return t('Offline, retrying')
-    case 'unauthorized':
-      return t('Refused: pair again')
-    default:
-      return t('Not paired')
-  }
-}
-
-function RelaySection({ status }: { status: ConnectorStatus | null }) {
-  const [url, setUrl] = useState('')
-  const [code, setCode] = useState('')
-  const [busy, setBusy] = useState(false)
-  const [error, setError] = useState<string | null>(null)
-  const paired = status !== null && status.state !== 'unpaired'
-  const pair = () => {
-    setBusy(true)
-    run(
-      pairConnector(url, code).finally(() => setBusy(false)),
-      setError
-    )
-  }
+/** The relay's one-line state here; its settings are in Settings → Zomfy Relay (docs/specs/relay-settings.md). */
+function RelaySummary({ status }: { status: ConnectorStatus | null }) {
+  const state = status?.state ?? 'unpaired'
+  const sources = status?.sources ?? []
   return (
-    <div className="space-y-2 rounded-lg border border-border/60 bg-background/40 px-4 py-3" data-bots-relay>
-      <SettingsSubsectionHeader
-        title={t('Relay')}
-        description={t('Your own Zomfy Relay on Cloudflare carries Discord and other sources to this computer. The same relay serves the phone. Bots answer in Zomfy without one.')}
-      />
-      {paired && status ? (
-        <div className="space-y-2">
-          <p className="flex items-center gap-2 text-sm" data-relay-state={status.state}>
-            <span
-              className={cn(
-                'inline-block size-2 rounded-full',
-                status.state === 'online' ? 'bg-status-success' : status.state === 'unauthorized' ? 'bg-destructive' : 'bg-yellow-500'
-              )}
-            />
-            {stateLabel(status.state)}
-          </p>
-          <dl className="grid grid-cols-[max-content_1fr] gap-x-3 gap-y-1 text-xs">
-            <dt className="text-muted-foreground">{t('Worker URL')}</dt>
-            <dd className="truncate">{status.relayUrl}</dd>
-            <dt className="text-muted-foreground">{t('Host id')}</dt>
-            <dd className="truncate font-mono" data-relay-host-id>
-              {status.hostId}
-            </dd>
-            <dt className="text-muted-foreground">{t('Last hello')}</dt>
-            <dd>{status.lastConnectedAt ? new Date(status.lastConnectedAt).toLocaleString() : t('Not yet')}</dd>
-            {status.retryAt && status.state === 'offline' ? (
-              <>
-                <dt className="text-muted-foreground">{t('Next try')}</dt>
-                <dd>{new Date(status.retryAt).toLocaleTimeString()}</dd>
-              </>
-            ) : null}
-          </dl>
-          {status.error ? <p className="text-xs text-destructive">{status.error}</p> : null}
-          <Button variant="outline" size="sm" data-relay-unpair onClick={() => run(unpairConnector(), setError)}>
-            {t('Unpair')}
-          </Button>
-        </div>
-      ) : (
-        <form
-          className="space-y-2"
-          onSubmit={(e) => {
-            e.preventDefault()
-            if (url.trim() && code.trim() && !busy) pair()
-          }}
-        >
-          <div className="grid gap-2 sm:grid-cols-[1fr_14rem]">
-            <Input value={url} data-relay-url placeholder={t('Worker URL, https://zomfy-relay.<you>.workers.dev')} onChange={(e) => setUrl(e.target.value)} />
-            <Input value={code} data-relay-setup-code type="password" placeholder={t('Setup code')} onChange={(e) => setCode(e.target.value)} />
-          </div>
-          <div className="flex flex-wrap items-center gap-2">
-            <Button type="submit" size="sm" disabled={!url.trim() || !code.trim() || busy} data-relay-pair>
-              {t('Pair')}
-            </Button>
-            <Button type="button" variant="outline" size="sm" onClick={() => openExternalUrl(DEPLOY_URL)}>
-              <ExternalLink />
-              {t('Deploy to Cloudflare')}
-            </Button>
-            <span className="text-xs text-muted-foreground">
-              {t('or run')} <code>bun run deploy</code> {t('in apps/relay;')}{' '}
-              <button type="button" className="underline underline-offset-2 hover:text-foreground" onClick={() => openExternalUrl(GUIDE_URL)}>
-                {t('the guide')}
-              </button>
-            </span>
-          </div>
-        </form>
-      )}
-      {error ? <p className="text-xs text-destructive">{error}</p> : null}
-    </div>
-  )
-}
-
-const SOURCE_CARDS: { id: string; label: string; urls: (base: string) => { label: string; url: string }[]; guide: string }[] = [
-  {
-    id: 'discord',
-    label: 'Discord',
-    urls: (base) => [{ label: t('Interactions endpoint URL'), url: `${base}/discord/interactions` }],
-    guide: 'sources/discord.md'
-  },
-  {
-    id: 'slack',
-    label: 'Slack',
-    urls: (base) => [
-      { label: t('Event Subscriptions request URL'), url: `${base}/slack/events` },
-      { label: t('Interactivity request URL'), url: `${base}/slack/interactivity` }
-    ],
-    guide: 'sources/slack.md'
-  },
-  {
-    id: 'github',
-    label: 'GitHub',
-    urls: (base) => [{ label: t('GitHub App webhook URL'), url: `${base}/github/webhook` }],
-    guide: 'sources/github.md'
-  },
-  {
-    id: 'linear',
-    label: 'Linear',
-    urls: (base) => [{ label: t('Linear webhook URL'), url: `${base}/linear/webhook` }],
-    guide: 'sources/linear.md'
-  },
-  { id: 'webhooks', label: t('Webhooks'), urls: () => [], guide: 'sources/webhooks.md' }
-]
-
-function SourcesSection({ status }: { status: ConnectorStatus | null }) {
-  const base = status?.relayUrl?.replace(/\/+$/, '') ?? null
-  return (
-    <div className="space-y-2 rounded-lg border border-border/60 bg-background/40 px-4 py-3" data-bots-sources>
-      <SettingsSubsectionHeader title={t('Sources')} description={t('Where bots can be asked. A source is on when the relay has its secrets.')} />
-      <div className="grid gap-2 sm:grid-cols-2">
-        {SOURCE_CARDS.map((source) => {
-          const on = status?.sources.includes(source.id) ?? false
-          return (
-            <div key={source.id} className="space-y-1.5 rounded-md border border-border/50 px-3 py-2" data-bots-source={source.id}>
-              <p className="flex items-center gap-2 text-sm font-medium">
-                {source.label}
-                <span className={cn('rounded px-1.5 text-[10px]', on ? 'bg-status-success/15 text-status-success' : 'bg-muted text-muted-foreground')}>
-                  {on ? t('Configured') : base ? t('Not configured') : t('No relay')}
-                </span>
-              </p>
-              {base && on
-                ? source.urls(base).map((u) => (
-                    <div key={u.url} className="space-y-0.5">
-                      <p className="text-[11px] text-muted-foreground">{u.label}</p>
-                      <CopyField value={u.url} />
-                    </div>
-                  ))
-                : null}
-              {source.id === 'webhooks' ? (
-                <p className="text-[11px] text-muted-foreground">{t('Each webhook trigger gets a URL of its own: make one with New trigger on a bot.')}</p>
-              ) : null}
-              <button
-                type="button"
-                className="text-[11px] text-muted-foreground underline underline-offset-2 hover:text-foreground"
-                onClick={() => openExternalUrl(`${REPO}/blob/main/docs/specs/bots/${source.guide}`)}
-              >
-                {t('Setup steps')}
-              </button>
-            </div>
-          )
-        })}
-      </div>
+    <div className="flex items-center gap-3 rounded-lg border border-border/60 bg-background/40 px-4 py-3" data-bots-relay>
+      <span className="min-w-0 flex-1">
+        <span className="flex items-center gap-2 text-sm font-medium" data-relay-state={state}>
+          <RelayStateDot state={state} />
+          {t('Zomfy Relay')} · {relayStateLabel(state)}
+        </span>
+        <span className="block truncate text-xs text-muted-foreground">
+          {state === 'unpaired'
+            ? t('Bots answer in Zomfy without it; Discord, Slack, GitHub, Linear and webhooks reach them through it.')
+            : sources.length > 0
+              ? t('Sources: {sources}', { sources: sources.join(', ') })
+              : t('No sources configured on the relay yet.')}
+        </span>
+      </span>
+      <Button size="sm" variant="outline" data-bots-relay-settings onClick={() => openSettings('relay')}>
+        {t('Relay settings')}
+      </Button>
     </div>
   )
 }
@@ -588,8 +433,7 @@ export function BotsPane() {
   if (selected) return <BotDetail bot={selected} />
   return (
     <div className="space-y-4">
-      <RelaySection status={status} />
-      <SourcesSection status={status} />
+      <RelaySummary status={status} />
       <BotsList />
     </div>
   )

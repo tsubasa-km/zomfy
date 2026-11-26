@@ -1,4 +1,4 @@
-import { Bell, BookOpen, Bot, BotMessageSquare, Blocks, Keyboard, Mic, Palette, Server, SlidersHorizontal, Smartphone, SquareTerminal, TextCursorInput, type LucideIcon } from 'lucide-react'
+import { Bell, BookOpen, Bot, BotMessageSquare, Blocks, Cloud, Keyboard, Mic, Palette, Server, SlidersHorizontal, Smartphone, SquareTerminal, TextCursorInput, type LucideIcon } from 'lucide-react'
 import { t } from '@/i18n/i18n'
 
 // Orca's settings sidebar groups and sections (hooks/settings-navigation-*-sections.ts), trimmed
@@ -189,14 +189,25 @@ export const SETTINGS_SECTIONS: readonly SettingsNavSection[] = [
     ]
   },
   {
+    id: 'relay',
+    title: t('Zomfy Relay'),
+    description: t('Your own Cloudflare Worker for the phone app and the bots’ sources: pairing, the features you use, and what each needs.'),
+    icon: Cloud,
+    group: 'remote',
+    entries: [
+      { title: t('Status'), keywords: ['relay', 'cloudflare', 'worker', 'pair', 'setup code', 'unpair', 'health'] },
+      { title: t('Features'), keywords: ['phone', 'discord', 'slack', 'github', 'linear', 'webhook', 'secrets', 'FEATURES', 'interactions'] },
+      { title: t('Set up with an agent'), keywords: ['deploy', 'cloudflare', 'wrangler', 'mcp', 'plugin', 'agent', 'setup'] }
+    ]
+  },
+  {
     id: 'bots',
     title: t('Bots'),
-    description: t('Your relay, the sources it carries, and each bot: its files, who can ask, pause and delete.'),
+    description: t('Each bot: its files, who can ask, pause and delete. The relay that carries their sources is in Zomfy Relay.'),
     icon: BotMessageSquare,
     group: 'remote',
     entries: [
-      { title: t('Relay'), keywords: ['relay', 'cloudflare', 'worker', 'pair', 'setup code', 'deploy', 'unpair'] },
-      { title: t('Sources'), keywords: ['discord', 'slack', 'github', 'linear', 'webhook', 'interactions'] },
+      { title: t('Relay'), keywords: ['relay', 'cloudflare', 'worker', 'pair'] },
       { title: t('Create bot'), keywords: ['bot', 'soul', 'memory', 'who can ask', 'handle'] }
     ]
   },

@@ -12,6 +12,7 @@ import {
   useDevicesSnapshot
 } from '@/stores/devices-store'
 import { SettingsRow, SettingsSubsectionHeader, SettingsSwitchRow } from './settings-form-controls'
+import { openSettings } from '@/stores/app-overlay-store'
 import { t } from '@/i18n/i18n'
 
 // Settings → Devices (docs/specs/mobile/pairing.md): the phone listener, a one-time pairing QR code
@@ -198,7 +199,7 @@ export function DevicesPane() {
               ? t('Shows a QR code for the Zomfy app on your Android phone.')
               : relay
                 ? t('Shows a QR code for the Zomfy app on your Android phone. Without the listener the phone pairs through Zomfy Relay.')
-                : t('Turn on “Let phones connect”, or pair Zomfy Relay in Settings → Bots, first.')
+                : t('Turn on “Let phones connect”, or pair Zomfy Relay in Settings → Zomfy Relay, first.')
           }
           keywords={['pair', 'qr', 'phone', 'android', 'link']}
           control={
@@ -221,6 +222,12 @@ export function DevicesPane() {
           }
         />
       </div>
+      <p className="text-xs text-muted-foreground">
+        {t('Away from home, phones reach this computer through Zomfy Relay.')}{' '}
+        <button type="button" className="underline underline-offset-2 hover:text-foreground" data-devices-relay-settings onClick={() => openSettings('relay')}>
+          {t('Zomfy Relay settings')}
+        </button>
+      </p>
       {relay ? (
         <p className="text-xs text-muted-foreground" data-relay-route={relay.online ? 'online' : 'offline'}>
           {relay.online
