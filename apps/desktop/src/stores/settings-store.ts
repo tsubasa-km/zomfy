@@ -17,6 +17,7 @@ export type ChatAfterSend = 'stay' | 'new-chat'
 
 /** Orca's floatingTerminalTriggerLocation: where the floating workspace toggle lives. */
 export type FloatingWorkspaceTriggerLocation = 'floating-button' | 'status-bar'
+export type DrawerOpenAction = 'hover' | 'click'
 
 export interface AppSettings {
   theme: ThemePreference
@@ -68,6 +69,7 @@ export interface AppSettings {
   floatingWorkspaceTriggerLocation: FloatingWorkspaceTriggerLocation
   /** Opening the floating workspace with no tabs starts a terminal in it. */
   floatingWorkspaceOpenTerminal: boolean
+  drawerOpenAction: DrawerOpenAction
   /** Agent new chats start with (Orca's defaultTuiAgent); 'claude' unless onboarding or settings pick another. */
   defaultChatAgent: string
   /** The permission mode new Claude chats start in. */
@@ -136,6 +138,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
   floatingWorkspaceEnabled: true,
   floatingWorkspaceTriggerLocation: 'floating-button',
   floatingWorkspaceOpenTerminal: true,
+  drawerOpenAction: 'hover',
   defaultChatAgent: 'claude',
   defaultPermissionMode: 'auto',
   defaultHost: 'auto',
@@ -164,6 +167,7 @@ function readSaved(): AppSettings {
     // Drop keys whose type no longer matches, so a stale value cannot break a reader.
     const merged: Record<string, unknown> = { ...DEFAULT_SETTINGS }
     for (const [key, value] of Object.entries(saved)) {
+      if (key === 'drawerOpenAction' && value !== 'hover' && value !== 'click') continue
       const fallback = (DEFAULT_SETTINGS as unknown as Record<string, unknown>)[key]
       if (fallback !== undefined && typeof value === typeof fallback && Array.isArray(value) === Array.isArray(fallback)) {
         merged[key] = value
