@@ -1503,5 +1503,9 @@ export const SHELL: Record<string, string> = {
   'Sign in with glab, or give Zomfy a token to keep in the system credential store.': 'glab でサインインするか、トークンを Zomfy に渡してシステムの資格情報ストアに保管します。',
   'Personal access token for {host}': '{host} の個人アクセストークン',
   'Create a token on {host} (api, read_repository, write_repository)': '{host} でトークンを作成（api、read_repository、write_repository）',
-  'Sign in with glab instead': '代わりに glab でサインイン'
+  'Sign in with glab instead': '代わりに glab でサインイン',
+
+  // lib/use-save-state.ts (Save offered only with unsaved changes)
+  'Nothing has changed': '変更はありません',
+  'Saved': '保存しました'
 }
