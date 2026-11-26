@@ -43,6 +43,9 @@ put the UI into a state that is hard to reach by clicking (a waiting chat, a lon
 - Look at every screenshot you take: alignment, spacing, truncation, overflow, and both light and
   dark themes when colours changed.
 - Check the states around the change too: empty, loading, error, one item and many.
+- For startup, record it: `bun scripts/preview.ts start <slot> --prod` (a production build), then
+  `bun scripts/record-startup.ts record <out-dir>` and `compare <before> <after>`; the steps are in
+  [docs/specs/calm-startup.md](../../docs/specs/calm-startup.md).
 - For speed, measure rather than guess: a `PerformanceObserver` for `longtask` entries in `eval`,
   timed before and after the change.
 - Say in your report what you looked at and what you could not (for example a second host).
