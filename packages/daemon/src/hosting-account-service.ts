@@ -175,7 +175,19 @@ async function originUrl(repo: string): Promise<string | null> {
 }
 
 /** Replaces the repository-local values of the host's helper key with `change(values)`; null leaves them. */
-async function rewriteHelpers(repo: string, host: string, change: (values: string[]) => string[] | null): Promise<void> {
+/** One rewrite at a time per repository: two at once read each other's half-written values. */
+const rewrites = new Map<string, Promise<void>>()
+
+function rewriteHelpers(repo: string, host: string, change: (values: string[]) => string[] | null): Promise<void> {
+  const run = (rewrites.get(repo) ?? Promise.resolve()).catch(() => undefined).then(() => rewriteHelpersNow(repo, host, change))
+  rewrites.set(repo, run)
+  void run.finally(() => {
+    if (rewrites.get(repo) === run) rewrites.delete(repo)
+  }).catch(() => undefined)
+  return run
+}
+
+async function rewriteHelpersNow(repo: string, host: string, change: (values: string[]) => string[] | null): Promise<void> {
   const key = credentialHelperKey(host)
   const current = (await git(repo, ['config', '--local', '--get-all', key], { quiet: true }).catch(() => '')).split('\n')
   // `--get-all` prints nothing for an unset key; one empty value is the reset entry.

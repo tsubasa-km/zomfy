@@ -155,6 +155,9 @@ describe('the git credential helper', () => {
     const helper = credentialHelper(home, 'gh')!
     expect(withZomfyHelper([], helper)).toEqual(['', helper])
     expect(withZomfyHelper(['store', '', helper], helper)).toEqual(['store', '', helper])
+    // A second reset left by an earlier write folds into the one before the helper.
+    expect(withZomfyHelper(['', '', helper], helper)).toEqual(['', helper])
+    expect(withZomfyHelper([''], helper)).toEqual(['', helper])
     expect(withoutZomfyHelper(['store', '', helper])).toEqual(['store'])
     expect(withoutZomfyHelper(['store'])).toBeNull()
     expect(credentialHelperKey('GitHub.com')).toBe('credential.https://github.com.helper')
