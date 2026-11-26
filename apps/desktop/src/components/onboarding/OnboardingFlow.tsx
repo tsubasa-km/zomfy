@@ -5,7 +5,8 @@ import { setOnboardingOpen, useAppOverlays } from '@/stores/app-overlay-store'
 import { getSetting, setSetting } from '@/stores/settings-store'
 import { registerKeybindingDefinitions } from '@/keybindings/keybinding-definitions'
 import { registerCommandHandler } from '@/keybindings/keybinding-registry'
-import { openAddProjectDialog, setOrcaImportOpen, type AddProjectStep } from '@/lib/project-dialogs'
+import { openAddProjectDialog, type AddProjectStep } from '@/lib/project-dialogs'
+import { openImport } from '@/stores/import-store'
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
@@ -135,7 +136,7 @@ function OnboardingFlow() {
                 onAddProject={addProject}
                 onImportOrca={() => {
                   finishOnboarding()
-                  setOrcaImportOpen(true)
+                  openImport({ source: 'orca', hostId: 'local' })
                 }}
               />
             ) : null}

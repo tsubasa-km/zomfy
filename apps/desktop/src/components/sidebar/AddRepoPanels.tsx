@@ -98,6 +98,40 @@ function statusText(status: FolderStatus, hostLabel: string): string {
   }
 }
 
+/** The project's display name (Project Settings' Display name), set as it is added; empty is the placeholder's. */
+export function DisplayNameField({
+  value,
+  placeholder,
+  busy,
+  onChange,
+  onEnter
+}: {
+  value: string
+  placeholder: string
+  busy: boolean
+  onChange: (value: string) => void
+  onEnter: (event: KeyboardEvent<HTMLInputElement>) => void
+}) {
+  return (
+    <div className="min-w-0 space-y-1.5" data-add-repo-display-name>
+      <Label htmlFor="add-repo-display-name" className={fieldLabel}>
+        {t('Display name')}
+      </Label>
+      <Input
+        id="add-repo-display-name"
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        onKeyDown={onEnter}
+        placeholder={placeholder || t("The folder's name")}
+        disabled={busy}
+        spellCheck={false}
+        autoComplete="off"
+      />
+      <p className={hint}>{t('Shown in the sidebar. Project Settings can change it later.')}</p>
+    </div>
+  )
+}
+
 export function OpenFolderPanel({
   path,
   status,
@@ -107,6 +141,7 @@ export function OpenFolderPanel({
   onPathChange,
   onPick,
   onSubmit,
+  displayName,
   account
 }: {
   path: string
@@ -117,6 +152,7 @@ export function OpenFolderPanel({
   onPathChange: (value: string) => void
   onPick?: () => void
   onSubmit: () => void
+  displayName: ReactNode
   /** The account field, when the folder's remote is GitHub or GitLab. */
   account: ReactNode
 }) {
@@ -157,6 +193,7 @@ export function OpenFolderPanel({
           )}
         </p>
       </div>
+      {displayName}
       {account}
     </div>
   )
@@ -172,7 +209,8 @@ function LocationSummary({
   startOpen,
   onParentChange,
   onPick,
-  onEnter
+  onEnter,
+  problem
 }: {
   id: string
   label: string
@@ -183,6 +221,8 @@ function LocationSummary({
   onParentChange: (value: string) => void
   onPick?: () => void
   onEnter: (event: KeyboardEvent<HTMLInputElement>) => void
+  /** Why nothing can be made at the target (it already exists), shown under it. */
+  problem?: string | null
 }) {
   const [open, setOpen] = useState(startOpen)
   return (
@@ -198,15 +238,32 @@ function LocationSummary({
       {open ? (
         <PathInput id={id} value={parent} placeholder="~/src" busy={busy} onChange={onParentChange} onPick={onPick} onEnter={onEnter} data="parent" />
       ) : null}
-      <p className="truncate rounded-md border border-border/70 bg-muted/30 px-2.5 py-1.5 font-mono text-[11px] text-muted-foreground" title={target} data-add-repo-target>
+      <p
+        className={cn(
+          'truncate rounded-md border bg-muted/30 px-2.5 py-1.5 font-mono text-[11px] text-muted-foreground',
+          problem ? 'border-destructive/60' : 'border-border/70'
+        )}
+        title={target}
+        data-add-repo-target
+      >
         {target || t('Choose a parent folder')}
       </p>
+      {problem && (
+        <p className="text-[11px] break-words text-destructive" data-add-repo-target-problem>
+          {problem}
+        </p>
+      )}
     </div>
   )
 }
 
 export function ClonePanel({
   url,
+  folderName,
+  folderProblem,
+  folderNote,
+  targetProblem,
+  displayName,
   parent,
   target,
   busy,
@@ -214,12 +271,22 @@ export function ClonePanel({
   gitMissing,
   typedParent,
   onUrlChange,
+  onFolderNameChange,
   onParentChange,
   onPickParent,
   onSubmit,
   account
 }: {
   url: string
+  /** The folder the clone makes, as typed; the repository's name until edited. */
+  folderName: string
+  /** Why that name cannot be a folder, if it cannot. */
+  folderProblem: string | null
+  /** The folder really made, when the daemon's name rule changes what was typed. */
+  folderNote: string | null
+  /** Why the target cannot be cloned into (it already exists). */
+  targetProblem: string | null
+  displayName: ReactNode
   parent: string
   target: string
   busy: boolean
@@ -227,6 +294,7 @@ export function ClonePanel({
   gitMissing: boolean
   typedParent: boolean
   onUrlChange: (value: string) => void
+  onFolderNameChange: (value: string) => void
   onParentChange: (value: string) => void
   onPickParent?: () => void
   onSubmit: () => void
@@ -253,8 +321,43 @@ export function ClonePanel({
           data-add-repo-field="url"
         />
       </div>
+      <div className="grid grid-cols-1 items-start gap-3 sm:grid-cols-2">
+        <div className="min-w-0 space-y-1.5">
+          <Label htmlFor="add-repo-clone-name" className={fieldLabel}>
+            {t('Folder name')}
+          </Label>
+          <Input
+            id="add-repo-clone-name"
+            value={folderName}
+            onChange={(e) => onFolderNameChange(e.target.value)}
+            onKeyDown={enter}
+            placeholder={t('From the repository URL')}
+            className="font-mono text-xs placeholder:font-sans"
+            disabled={busy}
+            aria-invalid={folderProblem ? true : undefined}
+            spellCheck={false}
+            autoComplete="off"
+            data-add-repo-clone-name
+          />
+          <p className={cn(hint, folderProblem && 'text-destructive')} data-add-repo-clone-name-hint>
+            {folderProblem ?? folderNote ?? t("The repository's name unless you change it.")}
+          </p>
+        </div>
+        {displayName}
+      </div>
       {account}
-      <LocationSummary id="add-repo-clone-parent" label={t('Clone into')} target={target} parent={parent} busy={busy} startOpen={typedParent && !parent} onParentChange={onParentChange} onPick={onPickParent} onEnter={enter} />
+      <LocationSummary
+        id="add-repo-clone-parent"
+        label={t('Clone into')}
+        target={target}
+        parent={parent}
+        busy={busy}
+        startOpen={typedParent && !parent}
+        onParentChange={onParentChange}
+        onPick={onPickParent}
+        onEnter={enter}
+        problem={targetProblem}
+      />
       {gitMissing && <p className="text-[11px] text-destructive">{t('Git is required to clone a repository.')}</p>}
     </div>
   )
@@ -278,6 +381,7 @@ export function CreatePanel({
   typedParent,
   publishAccounts,
   publish,
+  displayName,
   onNameChange,
   onParentChange,
   onPickParent,
@@ -295,6 +399,7 @@ export function CreatePanel({
   /** GitHub accounts on the host; publishing is offered only with one. */
   publishAccounts: HostingAccount[]
   publish: PublishDraft
+  displayName: ReactNode
   onNameChange: (value: string) => void
   onParentChange: (value: string) => void
   onPickParent?: () => void
@@ -305,24 +410,27 @@ export function CreatePanel({
   const account = publish.account ?? publishAccounts[0] ?? null
   return (
     <div className="space-y-4" data-add-repo-panel="create">
-      <div className="space-y-1.5">
-        <Label htmlFor="add-repo-name" className={fieldLabel}>
-          {t('Name')}
-        </Label>
-        <Input
-          id="add-repo-name"
-          value={name}
-          onChange={(e) => onNameChange(e.target.value)}
-          onKeyDown={enter}
-          placeholder="my-project"
-          className="font-mono text-sm"
-          disabled={busy}
-          autoFocus
-          spellCheck={false}
-          autoComplete="off"
-          data-add-repo-field="name"
-        />
-        <p className={hint}>{name.trim() && folderName !== name.trim() ? t('The folder is named {name}.', { name: folderName }) : t('A Git repository with a first commit, ready for worktrees.')}</p>
+      <div className="grid grid-cols-1 items-start gap-3 sm:grid-cols-2">
+        <div className="min-w-0 space-y-1.5">
+          <Label htmlFor="add-repo-name" className={fieldLabel}>
+            {t('Name')}
+          </Label>
+          <Input
+            id="add-repo-name"
+            value={name}
+            onChange={(e) => onNameChange(e.target.value)}
+            onKeyDown={enter}
+            placeholder="my-project"
+            className="font-mono text-sm"
+            disabled={busy}
+            autoFocus
+            spellCheck={false}
+            autoComplete="off"
+            data-add-repo-field="name"
+          />
+          <p className={hint}>{name.trim() && folderName !== name.trim() ? t('The folder is named {name}.', { name: folderName }) : t('A Git repository with a first commit, ready for worktrees.')}</p>
+        </div>
+        {displayName}
       </div>
       <LocationSummary id="add-repo-create-parent" label={t('Create in')} target={target} parent={parent} busy={busy} startOpen={typedParent && !parent} onParentChange={onParentChange} onPick={onPickParent} onEnter={enter} />
       {gitMissing && <p className="text-[11px] text-destructive">{t('Git is required to create a project.')}</p>}
