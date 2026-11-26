@@ -50,3 +50,4 @@
 * **Creation**: [Signing in to Claude from a chat](specs/claude-sign-in.md), done: a signed-out turn offers "Sign in to Claude" and "Try again".
 * **Creation**: [The thinking effort shows in the composer](specs/composer-effort.md), done.
 * **Update**: [Thinking that holds the answer shows open](specs/visible-thinking.md): thinking now starts expanded by default; [The Next steps card](specs/next-steps-card.md) no longer answers a wrap_up made before any reply differently.
+* **Creation**: [Zomfy Relay settings, its features, and setting it up with an agent](specs/relay-settings.md), in progress.
