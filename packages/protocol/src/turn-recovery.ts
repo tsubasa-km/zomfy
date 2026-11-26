@@ -18,7 +18,8 @@ export type TurnEndMeta =
   | { reason: 'interrupted' }
   /** Claude refused for a plan usage/rate limit; `resetsAt` (epoch ms) when the limit said. */
   | { reason: 'usage-limit'; resetsAt: number | null }
-  | { reason: 'error' }
+  /** `signIn`: the agent's sign-in is missing or expired, so signing in again fixes it (docs/specs/claude-sign-in.md). */
+  | { reason: 'error'; signIn?: 'claude' }
 
 /** 'moved': the chat moved to another workspace mid-task and continues there. */
 export type TurnResumeKind = 'continue' | 'retry' | 'resume' | 'auto' | 'moved'

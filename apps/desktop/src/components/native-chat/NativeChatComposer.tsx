@@ -213,7 +213,7 @@ function Composer({ session, editorRef }: ComposerProps) {
     : offline
       ? t('Reconnecting to {host}…', { host: hostLabel(session.hostId) })
       : null
-  const claudeLabels = !external && options ? sessionOptionLabels(options, models) : null
+  const claudeLabels = !external && options ? sessionOptionLabels(options, models, session.defaultEffort) : null
   const reconnecting = t('Reconnecting to {host}…', { host: hostLabel(session.hostId) })
   const key = SEND_LABEL[sendKey]
 
@@ -320,6 +320,7 @@ function Composer({ session, editorRef }: ComposerProps) {
                           options={options}
                           models={models}
                           loading={catalog?.status === 'loading'}
+                          defaultEffort={session.defaultEffort}
                           onChange={(patch) => void setSessionOptions(session.id, patch)}
                           onDone={close}
                         />

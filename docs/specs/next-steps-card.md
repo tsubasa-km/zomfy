@@ -22,11 +22,11 @@ sections, each step with its owner, and the agent's question as buttons.
   then, as the very last step, call `wrap_up`; after it, end the turn without repeating the
   answer, at most one short line. Asking for the call "before your final message" led models to
   hold the answer back and write it inside their thinking, leaving a one-sentence reply.
-- The order is not left to the wording alone. When `wrap_up` is called in a turn that has no
-  reply text yet (only tool calls and thinking since the prompt), its result still shows the card
-  but tells the agent that its thinking is never shown and to write the complete answer now
-  (`wrap-up-reply.ts`). In trials on Opus 5.5 the model still called `wrap_up` first; this result
-  is what got the full answer written out, with the card under it.
+- The order is left to that wording. A `wrap_up` called before any reply text gets the same result
+  as any other: the card is shown and the agent is told to end the turn. An earlier check that
+  answered such a call with "write your complete answer now" (`wrap-up-reply.ts`) was removed:
+  thinking now starts expanded in the transcript ([visible thinking](visible-thinking.md)), so an
+  answer written there is no longer hidden from the person.
 - The card is placed when the turn ends: right under the turn's last reply (the short line, or
   the answer when nothing follows the call). A recap the answer ends with is still folded into the
   card when it sits in the turn's final run of replies (no tool call after it), even with a short

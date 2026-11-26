@@ -62,6 +62,11 @@ export interface SessionInfo {
   botId?: string
   /** Where a bot chat was asked from; absent for chats opened in Zomfy with no link back. */
   botFrom?: BotChatFrom
+  /**
+   * The effort Claude's default resolved to on the chat's last turn run with no effort picked, and
+   * the chat's model option then (null: the default model). Absent until such a turn, and from older daemons.
+   */
+  defaultEffort?: { model: string | null; effort: ChatEffort } | null
 }
 
 /** Where a bot chat came from, for its header ("from Discord · asked by Alex"). */
@@ -236,7 +241,9 @@ export const SESSION_METHODS = {
   sessionSetArchived: '_harness/sessions/setArchived',
   sessionSetAgent: '_harness/sessions/setAgent',
   /** Absent from older daemons: the request fails as an unknown method. */
-  sessionContinueInTerminal: '_harness/sessions/continueInTerminal'
+  sessionContinueInTerminal: '_harness/sessions/continueInTerminal',
+  /** Absent from older daemons: the request fails as an unknown method. */
+  sessionClaudeSignIn: '_harness/sessions/claudeSignIn'
 } as const
 
 /** What a chat made of a question put to it by another session (sessionConsultLead). */
@@ -313,6 +320,11 @@ export interface SessionRequests {
    * SDK the chat runs on; the chat picks the conversation up again, terminal turns included, on its next prompt.
    */
   [SESSION_METHODS.sessionContinueInTerminal]: { params: { sessionId: string }; result: TerminalInfo }
+  /**
+   * Opens a terminal in the chat's folder running `claude auth login` with the env the chat's turns
+   * get, so Claude Code signs in again on the account the chat uses (docs/specs/claude-sign-in.md).
+   */
+  [SESSION_METHODS.sessionClaudeSignIn]: { params: { sessionId: string }; result: TerminalInfo }
   /** Queues a line the session's next turn starts with, unseen in its transcript (a lead's project activity). */
   [SESSION_METHODS.sessionAddContext]: { params: { sessionId: string; text: string }; result: Record<string, never> }
   /** Puts a session's question to another chat (a run's starting chat) as a turn of its own, once it is free: an answer, or the question for the person. */

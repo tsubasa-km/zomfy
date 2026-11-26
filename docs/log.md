@@ -1,6 +1,9 @@
 # Directory Update Log
 
 ## 2026-11-25
+* **Creation**: [A GitHub or GitLab account per project](specs/project-hosting-accounts.md), implemented: `Project.hostingAccount`, the host's gh/glab accounts and GitLab tokens Zomfy keeps in the OS credential store, the account's token in the environment of Zomfy's gh/glab calls and of the project's agents, a repo-local git credential helper for HTTPS pushes, and an Account field in Project Settings.
+* **Creation**: [The Add a project dialog](specs/add-project-dialog.md), implemented: one dialog with Open folder, Clone and New repository tabs, a host row only when there are several hosts, what the folder is shown as it is typed, the account picked as the project is added, and publishing a new repository to GitHub.
+* **Creation**: [The master bot](specs/bots/master-bot.md), implemented: the daemon registers Zomfy (@zomfy) once per host as a manager bot, the Default bot unless another is, and never again once deleted; a manager bot's chats get the Manager chat's tools, its rules a Manager section, and the desktop a Master badge and a Manager across projects switch.
 * **Update**: [Skills and connectors in the composer](specs/composer-skills-and-connectors.md) is implemented: `ChatCommand.kind` from the probe's skills list, the `/` menu's Commands, Skills and MCP prompts groups, Skill and Connector in the `+` menu, connected MCP servers in the `@` menu, and `@mcp:` chips the daemon turns into an instruction for the agent.
 * **Creation**: [Skills and connectors in the composer](specs/composer-skills-and-connectors.md), draft.
 * **Update**: [Worktree skills and storage](specs/worktree-skills-and-storage.md) is implemented: the `zomfy-worktrees` skill turned on per project and agent, merged judged against the main checkout's branch, worktree sizes, the Clean up workspaces dialog with Free Up Space and leftover folders, automatic deletion of merged worktrees (on by default) and long-path-safe deletes. bun was measured to hardlink already; the Rust shared target and the Orca stub marks were not built.
@@ -44,3 +47,6 @@
 * **Update**: [Usage limits by the context ring, and connector icons](specs/usage-limits-and-connector-icons.md) is implemented.
 * **Creation**: [Retire the acp-harness home and executable name](specs/retire-legacy-home.md), in progress.
 * **Creation**: [Retire the acp-harness home and executable name](specs/retire-legacy-home.md), done.
+* **Creation**: [Signing in to Claude from a chat](specs/claude-sign-in.md), done: a signed-out turn offers "Sign in to Claude" and "Try again".
+* **Creation**: [The thinking effort shows in the composer](specs/composer-effort.md), done.
+* **Update**: [Thinking that holds the answer shows open](specs/visible-thinking.md): thinking now starts expanded by default; [The Next steps card](specs/next-steps-card.md) no longer answers a wrap_up made before any reply differently.

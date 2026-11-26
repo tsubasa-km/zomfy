@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import Editor, { type OnMount } from '@monaco-editor/react'
 import { HARNESS_METHODS, type FileStat, type TextEncoding } from '@zomfy/protocol'
 import { harnessRequest } from '@/daemon-connection'
-import { getState, setEditorDirty, type EditorTab } from '@/session-store'
+import { allWorkspaces, getState, setEditorDirty, useStore, type EditorTab } from '@/session-store'
 import { monaco } from '@/lib/monaco-setup'
 import { DropdownMenuCheckboxItem, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuShortcut } from '@/components/ui/dropdown-menu'
 import { EditorPanelHeader } from '@/components/editor/EditorPanelHeader'
@@ -231,6 +231,19 @@ export function TextFileEditor({ tab }: { tab: EditorTab }) {
   useEffect(() => {
     void load('open')
   }, [load])
+
+  // A read that failed while the file's host was away (still connecting at startup, or dropped) is
+  // tried again once the host is back, rather than leaving the tab blank until it is reopened.
+  const hostUp = useStore((s) => {
+    const hostId = allWorkspaces(s).find((w) => w.id === tab.workspaceId)?.hostId
+    return hostId !== undefined && s.hosts[hostId]?.connection.kind === 'connected'
+  })
+  const wasUp = useRef(hostUp)
+  useEffect(() => {
+    const cameBack = hostUp && !wasUp.current
+    wasUp.current = hostUp
+    if (cameBack && error && !file) void load('open')
+  }, [hostUp, error, file, load])
 
   // Unsaved edits are the model being at another version than the saved one, so undoing back to it is clean again.
   useEffect(() => {
@@ -601,8 +614,17 @@ export function TextFileEditor({ tab }: { tab: EditorTab }) {
             </Button>
           </div>
         </div>
+      ) : error ? (
+        <div className="flex h-full items-center justify-center px-6 text-center" data-editor-load-error>
+          <div className="space-y-2">
+            <div className="text-xs break-words text-destructive">{error}</div>
+            <Button type="button" size="xs" variant="outline" onClick={() => void load('reload')}>
+              {t('Try again')}
+            </Button>
+          </div>
+        </div>
       ) : (
-        !error && <p className="p-3 text-xs text-muted-foreground">{t('Loading…')}</p>
+        <p className="p-3 text-xs text-muted-foreground">{t('Loading…')}</p>
       )}
       {compareOpen && (
         <ExternalFileChangeCompareDialog

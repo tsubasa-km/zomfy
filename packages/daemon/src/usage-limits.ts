@@ -4,6 +4,7 @@ import { join } from "node:path";
 import type { Query } from "@anthropic-ai/claude-agent-sdk";
 import type { ProviderUsageLimits, UsageLimitWindow, UsageLimitsResult } from "@zomfy/protocol";
 import { log } from "./log.ts";
+import { isClaudeSignedOut } from "./claude-executable.ts";
 
 // How much of the host's accounts' usage limits is spent, as Orca's rate-limit service reads it:
 // Claude from Claude Code's own /usage data (the claude.ai plan's windows), Codex from the ChatGPT
@@ -121,6 +122,21 @@ async function readCodexLimits(codexHome: string | undefined): Promise<ProviderU
   }
 }
 
+/** Claude's limits after a failed read: what was read before stays, and a lost sign-in says so. */
+export function claudeReadFailed(error: unknown, before: ProviderUsageLimits | null, now = Date.now()): ProviderUsageLimits {
+  const text = error instanceof Error ? error.message : String(error);
+  const signedOut = isClaudeSignedOut(text);
+  return {
+    provider: "claude",
+    plan: before?.plan ?? null,
+    status: "error",
+    error: signedOut ? "Claude's sign-in has expired or is missing on this host; sign in to Claude to read the limits" : text,
+    ...(signedOut ? { signedOut: true } : {}),
+    windows: signedOut ? [] : (before?.windows ?? []),
+    updatedAt: now,
+  };
+}
+
 export interface UsageLimitSources {
   /** Runs `read` against a Claude process with the host's Claude account (a chat's, or one of its own). */
   withClaude<T>(read: (query: Query) => Promise<T>, sessionId?: string): Promise<T>;
@@ -170,7 +186,7 @@ export class UsageLimits {
     await Promise.all([
       claude && this.sources.withClaude((stream) => this.readClaude(stream), sessionId).catch((error) => {
         log(`usage limits: ${String(error)}`);
-        this.claude = { provider: "claude", plan: this.claude?.plan ?? null, status: "error", error: String(error), windows: this.claude?.windows ?? [], updatedAt: Date.now() };
+        this.claude = claudeReadFailed(error, this.claude);
       }),
       codex &&
         (async () => {

@@ -258,6 +258,13 @@ export class WorkspaceManager {
       if (typeof patch.claudeChrome === 'boolean') project.claudeChrome = patch.claudeChrome
       else delete project.claudeChrome
     }
+    // docs/specs/project-hosting-accounts.md: a well-formed account, else back to the CLI's active one.
+    if ('hostingAccount' in patch) {
+      const account = patch.hostingAccount
+      if (account && (account.provider === 'github' || account.provider === 'gitlab') && account.host?.trim() && account.login?.trim()) {
+        project.hostingAccount = { provider: account.provider, host: account.host.trim().toLowerCase(), login: account.login.trim() }
+      } else delete project.hostingAccount
+    }
     if ('hooks' in patch) {
       const setup = patch.hooks?.setup?.trim()
       const archive = patch.hooks?.archive?.trim()

@@ -14,6 +14,7 @@ import {
   resumeTurn,
   rewindTo,
   setAutoResume,
+  signInToClaude,
   submitPrompt
 } from '@/chat-actions'
 import { addTodo } from '@/stores/inbox-store'
@@ -140,7 +141,11 @@ export function ThreadView({ session, onSendToMain }: { session: Session; onSend
     [working, claudeOnly, forkReason, session.id, session.cwd, session.workspaceId, session.hostId, sessionTitle, agentName, workflowHome.hostId, workflowHome.projectId, workflowHome.projectName]
   )
   const recoveryActions = useMemo(
-    (): TranscriptRowActions => ({ ...rowActions, onRecover: (kind) => void resumeTurn(session.id, kind) }),
+    (): TranscriptRowActions => ({
+      ...rowActions,
+      onRecover: (kind) => void resumeTurn(session.id, kind),
+      onSignIn: () => void signInToClaude(session.id)
+    }),
     [rowActions, session.id]
   )
   const limitResetsAt = turnEnd?.reason === 'usage-limit' ? turnEnd.resetsAt : null

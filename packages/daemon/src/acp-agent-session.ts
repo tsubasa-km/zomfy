@@ -44,6 +44,8 @@ export interface AcpAgentSessionHooks {
   mcpServers?(capabilities: acp.AgentCapabilities): acp.McpServer[]
   /** Waited for once the session is open, before its first turn (slow MCP servers coming up). */
   ready?(): Promise<void>
+  /** Laid over the agent's environment when its server starts (the project's GitHub/GitLab account). */
+  env?(): Promise<Record<string, string>>
 }
 
 interface Running {
@@ -225,7 +227,7 @@ export class AcpAgentSession {
       stdin: 'pipe',
       stdout: 'pipe',
       stderr: 'pipe',
-      env: { ...process.env, PATH: await hostPath(), ...resolved.env },
+      env: { ...process.env, PATH: await hostPath(), ...resolved.env, ...(await this.hooks.env?.().catch(() => ({}))) },
       windowsHide: true,
       // Its own process group, so stopping it reaches the CLI and MCP servers it starts.
       detached: process.platform !== 'win32'

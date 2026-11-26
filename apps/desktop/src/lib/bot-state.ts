@@ -48,6 +48,13 @@ export function botChats(sessions: readonly Session[], botId: string): Session[]
     .sort((a, b) => (b.lastActivityAt ?? b.createdAt) - (a.lastActivityAt ?? a.createdAt))
 }
 
+export type BotBadge = 'Default' | 'Master'
+
+/** The badges beside a bot's name: Default for the default bot, Master for a manager bot (docs/specs/bots/master-bot.md). */
+export function botBadges(bot: Pick<Bot, 'isDefault' | 'manager'>): BotBadge[] {
+  return [...(bot.isDefault ? (['Default'] as const) : []), ...(bot.manager ? (['Master'] as const) : [])]
+}
+
 export type BotActivity = 'paused' | 'waiting' | 'running' | 'idle'
 
 /** The dot beside a bot: waiting on the person beats running; a paused bot says so. */

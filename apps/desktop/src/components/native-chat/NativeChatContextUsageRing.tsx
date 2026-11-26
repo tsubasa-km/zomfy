@@ -7,6 +7,7 @@ import type { HostId } from '@/session-store'
 import { useUsageLimits } from '@/stores/usage-limits-store'
 import { requestDrawer } from '@/stores/drawer-request-store'
 import { ProviderLimits } from '@/components/right-sidebar/session-panel/UsageLimitsSection'
+import { signInToClaude } from '@/chat-actions'
 import { PanelRight } from 'lucide-react'
 import { t } from '@/i18n/i18n'
 
@@ -81,7 +82,7 @@ function ContextCardUsageLimits({ chat, onOpenPanel }: { chat: ContextRingChat; 
       <div className="mb-2 font-medium text-foreground">{t('Usage limits')}</div>
       <div className="space-y-3">
         {limits.providers.map((provider) => (
-          <ProviderLimits key={provider.provider} provider={provider} />
+          <ProviderLimits key={provider.provider} provider={provider} onSignIn={() => void signInToClaude(chat.sessionId)} />
         ))}
         {limits.providers.length === 0 && (
           <p className="text-muted-foreground">{limits.loading ? t('Reading the limits…') : (limits.error ?? t('No limits to show.'))}</p>

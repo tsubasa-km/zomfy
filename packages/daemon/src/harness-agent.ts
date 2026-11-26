@@ -39,11 +39,11 @@ import { hostPath } from "./tui-agent-detection.ts";
 import { TurnAutoResume } from "./turn-auto-resume.ts";
 import { recoveryPrompt } from "./turn-recovery.ts";
 import { detectUsageLimit } from "./usage-limit.ts";
-import { explainClaudeFailure } from "./claude-executable.ts";
+import { explainClaudeFailure, isClaudeSignedOut, signedOutNotice } from "./claude-executable.ts";
 import { registerTurnRecoveryHandlers } from "./handlers/turn-recovery-handlers.ts";
 import { AcpAgentSessions } from "./acp-agent-sessions.ts";
 import { chatAgentLaunch, claudeChromeOn } from "./chat-agent-launch-settings.ts";
-import { WRAP_UP_DONE, WRAP_UP_NO_ANSWER, repliedThisTurn } from "./wrap-up-reply.ts";
+import { hostingAccounts } from "./hosting-account-service.ts";
 import { noteSlashCommands } from "./claude-catalog.ts";
 import { expandMcpMentionsInPrompt } from "./mcp-mentions.ts";
 import { liveClaudeQueries } from "./live-claude-queries.ts";
@@ -214,7 +214,7 @@ export function createHarnessAgent(
             requireWorkspace: (id) => workspaces.requireWorkspace(id),
             primaryOf: (projectId) => workspaces.projectWorkspaces().find((w) => w.project.id === projectId && w.workspace.isPrimary)?.workspace,
             hosting: async (cwd) => {
-              const { availability, ctx, provider } = await hostingContext(cwd);
+              const { availability, ctx, provider } = await hostingContext(cwd, projectOfSession(caller));
               if (!ctx || !provider) throw new Error(availability.message ?? "No GitHub or GitLab remote to open a pull request on.");
               return { ctx, provider };
             },
@@ -296,10 +296,10 @@ export function createHarnessAgent(
   // The call itself is the card: the window draws it from the call's input, so nothing waits here.
   localTools.set("wrap_up", {
     offeredTo: () => true,
-    route: async (caller, _tool, args) => {
-      if (!normalizeWrapUp(args)) return { result: "Nothing to show: give a summary and at least one step ({ owner, text }).", isError: true };
-      return { result: repliedThisTurn(await sessions.transcript(caller)) ? WRAP_UP_DONE : WRAP_UP_NO_ANSWER };
-    },
+    route: async (_caller, _tool, args) =>
+      normalizeWrapUp(args)
+        ? { result: "Shown to the person as a Next steps card under your reply. End the turn now without repeating your answer (one short line at most)." }
+        : { result: "Nothing to show: give a summary and at least one step ({ owner, text }).", isError: true },
   });
 
   /** Recorded for replay, then sent to every client so a reconnected window sees live turns. */
@@ -313,7 +313,7 @@ export function createHarnessAgent(
     const seq = await sessions.record(sessionId, update);
     broadcast(acp.methods.client.session.update, { sessionId, update, _meta: { [SESSION_REPLAY_META.seq]: seq } });
   }
-  const acpAgents = new AcpAgentSessions(sessions, emit);
+  const acpAgents = new AcpAgentSessions(sessions, emit, (record) => hostingAccounts().projectEnv(projectOfSession(record.id)));
   const mover = new SessionMover({ workspaces, sessions, pendingTurns, emit });
   /** Workflow step turns: their tool policy and result shape, picked up when the turn starts. */
   const stepTurns = new Map<
@@ -570,6 +570,7 @@ export function createHarnessAgent(
     };
 
     const quickChat = workspaces.isScratch(session.workspaceId);
+    const managerBot = ctx.services.managerBotChat?.(session.id) === true;
     const worktreePrompt =
       [
         // A helper's own instructions say what it may touch; the sibling-worktree rules are for chats.
@@ -601,16 +602,18 @@ export function createHarnessAgent(
         onPermissionMode: (permissionMode) =>
           sessions.update(session.id, { options: { ...session.options, permissionMode } }),
         onSlashCommands: (names, skills) => noteSlashCommands(session.cwd, names, skills),
-        env: claudeLaunch.env,
+        // The project's GitHub/GitLab account, over the host's agent variables (docs/specs/project-hosting-accounts.md).
+        env: { ...claudeLaunch.env, ...(await hostingAccounts().projectEnv(projectOfSession(session.id))) },
         chrome: claudeChromeOn(claudeLaunch, projectOfSession(session.id)),
         askPermission,
         // A quick chat sees its harness tools up front, so it can move itself into a project.
         // Workflow steps see them up front too, for ask_requester.
         mcpServers: managerMcp.claudeServers(
           session.id,
-          session.role === "manager" || session.role === "lead" || quickChat || stepTurns.has(session.id),
+          session.role === "manager" || session.role === "lead" || quickChat || stepTurns.has(session.id) || managerBot,
         ),
-        allowedTools: autoAllowedManagerTools(session.role, MANAGER_MCP_SERVER_NAME),
+        // A manager bot's chat runs the Manager's own tools without asking, as the Manager chat does.
+        allowedTools: autoAllowedManagerTools(managerBot ? "manager" : session.role, MANAGER_MCP_SERVER_NAME),
         ...(session.role === "manager"
           ? { appendSystemPrompt: MANAGER_SYSTEM_PROMPT }
           : quickChat
@@ -624,6 +627,10 @@ export function createHarnessAgent(
         attach: woken,
         onWake: (notification) => wakeChat(session.id, notification),
         onBackgroundTasks: (tasks) => backgroundMarks.set(session.id, tasks),
+        onDefaultEffort: (defaultEffort) => {
+          const known = sessions.get(session.id)?.defaultEffort;
+          if (known?.model !== defaultEffort.model || known.effort !== defaultEffort.effort) sessions.update(session.id, { defaultEffort });
+        },
         ...(stepTurns.get(session.id) ?? {}),
       });
       if (stopReason === "cancelled" || abort.signal.aborted) return await interrupted();
@@ -641,9 +648,14 @@ export function createHarnessAgent(
       await keepUnansweredHandoff();
       // The failure stays in the transcript, not just this reply, and can offer Retry or Resume.
       const raw = error instanceof Error ? error.message : String(error);
-      const title = (external ? null : explainClaudeFailure(raw)) ?? raw;
       const limit = external ? undefined : detectUsageLimit({ text: raw });
-      const failed: TurnEndMeta = limit ? { reason: "usage-limit", resetsAt: limit.resetsAt } : { reason: "error" };
+      const signedOut = !external && !limit && isClaudeSignedOut(raw);
+      const title = signedOut ? signedOutNotice(raw) : ((external ? null : explainClaudeFailure(raw)) ?? raw);
+      const failed: TurnEndMeta = limit
+        ? { reason: "usage-limit", resetsAt: limit.resetsAt }
+        : signedOut
+          ? { reason: "error", signIn: "claude" }
+          : { reason: "error" };
       await emit(session.id, {
         sessionUpdate: "notice",
         severity: "error",

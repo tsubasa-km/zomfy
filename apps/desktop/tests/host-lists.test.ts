@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test'
-import { hostedProjects as allProjects, hostedWorkspaces } from '../src/lib/host-lists.ts'
+import { hostedProjects as allProjects, hostedWorkspaces, workspaceHost } from '../src/lib/host-lists.ts'
 
 const allWorkspaces = ({ hosts }: { hosts: Record<string, never> }) => hostedWorkspaces(hosts, 'local')
 
@@ -37,5 +37,22 @@ describe('store lists', () => {
     const hosts = { 'wsl:Old': { id: 'wsl:Old', label: 'Old', connection: { kind: 'connected' }, harness: {} } as never }
     expect(allWorkspaces({ hosts })).toEqual([])
     expect(allProjects(hosts)).toEqual([])
+  })
+})
+
+describe('workspaceHost', () => {
+  const connecting = (id: string) => ({ id, label: id, connection: { kind: 'connecting' }, harness: null }) as never
+  const offline = (id: string) => ({ id, label: id, connection: { kind: 'offline', reason: 'x' }, harness: null }) as never
+
+  test('names the host that lists the workspace', () => {
+    expect(workspaceHost({ local: host('local', []), 'ssh:box': host('ssh:box', [{ id: 'w1', projectId: 'p' }]) }, 'w1', 'local')).toBe('ssh:box')
+  })
+
+  test('waits on a host still connecting rather than falling back to this computer', () => {
+    expect(workspaceHost({ local: host('local', []), 'ssh:box': connecting('ssh:box') }, 'w1', 'local')).toBe('pending')
+  })
+
+  test('no host once every host has listed or is offline', () => {
+    expect(workspaceHost({ local: host('local', []), 'ssh:box': offline('ssh:box') }, 'w1', 'local')).toBeNull()
   })
 })

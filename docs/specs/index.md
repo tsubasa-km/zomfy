@@ -37,3 +37,7 @@
 * [Thinking that holds the answer shows open](visible-thinking.md) - a short reply after long thinking shows that thinking expanded and marked; Settings picks collapsed, expand when the reply is short, or always expanded
 * [Claude in Chrome from Zomfy](claude-in-chrome.md) - a per-host switch with a per-project override that starts Claude chats with `--chrome`, listed in Connectors with Chrome's icon
 * [Skills and connectors in the composer](composer-skills-and-connectors.md) - the `/` menu splits commands from skills, the `+` menu lists skills and connected MCP servers, and an `@mcp:` chip asks the agent to use a server
+* [Signing in to Claude from a chat](claude-sign-in.md) - a signed-out or expired Claude sign-in ends the turn with "Sign in to Claude" (a terminal running `claude auth login`) and "Try again"; the usage limits show it too
+* [The thinking effort shows in the composer](composer-effort.md) - the model button reads "Opus · High", the default included, and the picker always selects a level
+* [A GitHub or GitLab account per project](project-hosting-accounts.md) - each project picks the account Zomfy, its agents and git use for its remote, through the CLI's env and a repo-local credential helper, never by switching
+* [The Add a project dialog](add-project-dialog.md) - one dialog with Open folder, Clone and New repository tabs, an inline host row only when there are several hosts, and the project's account

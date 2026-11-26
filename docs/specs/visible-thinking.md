@@ -1,7 +1,7 @@
 ---
 type: Spec
 title: Thinking that holds the answer shows open
-description: When a turn's reply is short and its last thinking is long, the chat shows that thinking expanded, as markdown marked as thinking; a setting picks collapsed, expand when the reply is short (default), or always expanded.
+description: When a turn's reply is short and its last thinking is long, the chat shows that thinking expanded, as markdown marked as thinking; a setting picks collapsed, expand when the reply is short, or always expanded (default).
 status: stable
 x-zomfy-implementation: done
 tags: [chat, desktop, transcript, settings]
@@ -43,8 +43,13 @@ Settings → Input & Editing → Thread → **Show thinking**, persisted with th
 (`chatThinkingDisplay`):
 
 - **Collapsed** – every thinking row starts closed, as before.
-- **Expand when the reply is short** (default) – prominent rows start open.
-- **Always expanded** – every thinking row starts open; a non-prominent one keeps its scroll box.
+- **Expand when the reply is short** – prominent rows start open.
+- **Always expanded** (default) – every thinking row starts open; a non-prominent one keeps its scroll box.
+
+The default was "Expand when the reply is short" until the person asked for thinking to start
+expanded. Saved settings carry every key, so a window that saved the old default is moved to
+**Always expanded** once (a `settingsRevision` below 1); a choice made after that is kept. Any row
+still collapses from its disclosure.
 
 ## Performance
 

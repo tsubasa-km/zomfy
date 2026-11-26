@@ -3,7 +3,7 @@ import { Bot as BotIcon, MessageSquarePlus, Plus, Settings2 } from 'lucide-react
 import { toast } from 'sonner'
 import type { Bot } from '@zomfy/protocol'
 import { useStore } from '@/session-store'
-import { botActivity, botChats } from '@/lib/bot-state'
+import { botActivity, botBadges, botChats } from '@/lib/bot-state'
 import { openBot, selectBot, setBotsPageOpen, startBotChat, useBots } from '@/stores/bots-store'
 import { openSettings } from '@/stores/app-overlay-store'
 import { showThread } from '@/chat-actions'
@@ -48,7 +48,11 @@ function BotRow({ bot }: { bot: Bot }) {
             <span className="flex items-center gap-2 text-[13px] font-medium">
               <span className="truncate">{bot.name}</span>
               <span className="text-[11px] font-normal text-muted-foreground">@{bot.handle}</span>
-              {bot.isDefault ? <span className="rounded bg-muted px-1 text-[10px] text-muted-foreground">{t('Default')}</span> : null}
+              {botBadges(bot).map((badge) => (
+                <span key={badge} className="rounded bg-muted px-1 text-[10px] text-muted-foreground" data-bot-badge={badge}>
+                  {badge === 'Master' ? t('Master') : t('Default')}
+                </span>
+              ))}
               <BotActivityDot activity={activity} />
             </span>
             <span className="block truncate text-[11px] text-muted-foreground">

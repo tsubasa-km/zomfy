@@ -14,6 +14,8 @@ export interface GitRunOptions {
   quiet?: boolean
   /** Kills git after this long; a stalled network operation must not hang the panel. */
   timeoutMs?: number
+  /** Laid over the daemon's environment (a project account's GITLAB_TOKEN for its credential helper). */
+  env?: Record<string, string>
 }
 
 /** Runs the host's git. stdout is returned trimmed of the trailing newline. */
@@ -24,7 +26,7 @@ export async function git(cwd: string, args: string[], options: GitRunOptions = 
     stderr: 'pipe',
     windowsHide: true,
     // A credential or editor prompt would hang a daemon nobody is watching.
-    env: { ...process.env, GIT_TERMINAL_PROMPT: '0', GIT_EDITOR: 'true' }
+    env: { ...process.env, GIT_TERMINAL_PROMPT: '0', GIT_EDITOR: 'true', ...options.env }
   })
   let timedOut = false
   const timer = options.timeoutMs

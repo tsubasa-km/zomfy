@@ -9,9 +9,9 @@ import { homedir } from 'node:os'
 import { join } from 'node:path'
 import type { Bot } from '@zomfy/protocol'
 
-/** `~/zomfy/bots`: where new homes go. */
-export function defaultBotsRoot(): string {
-  return join(homedir(), 'zomfy', 'bots')
+/** `~/zomfy/bots`: where new homes go; `ZOMFY_BOTS_DIR` moves it (previews and tests). */
+export function defaultBotsRoot(env: Record<string, string | undefined> = process.env): string {
+  return env.ZOMFY_BOTS_DIR || join(homedir(), 'zomfy', 'bots')
 }
 
 /** The first line of every rules file Zomfy writes, so it knows the file is its own to rewrite. */
@@ -25,7 +25,22 @@ export function soulTemplate(name: string): string {
 
 export const MEMORY_TEMPLATE = '# Memory\n\nOne line per fact, newest first. Longer notes go in memory/<topic>.md.\n'
 
-export function rulesText(bot: Pick<Bot, 'name' | 'handle' | 'purpose'>): string {
+/** The rules a manager bot adds (docs/specs/bots/master-bot.md#manager-bots). */
+const MANAGER_RULES = [
+  '## Manager',
+  '',
+  'You are the person’s manager across their projects. The `harness` tools let you see and drive the chats, workspaces and worktrees of every project on every host this Zomfy is linked to.',
+  '',
+  '- Look before you act: `list_hosts`, `list_workspaces` and `list_sessions` show what exists. Ids are exact; never guess them.',
+  '- Prefer an existing chat or workspace. Start a chat with `create_session`; make a workspace with `create_workspace` only when work needs its own branch.',
+  '- Code work goes to a worker chat in its own worktree, with a self-contained prompt: the area, the change, the constraints and how to check it.',
+  '- After `send_prompt` or `create_*`, call `wait_for_session`, then read what the worker did with `read_session` before you report.',
+  '- When a chat needs the person, `list_approvals` shows what it asks. Forward their decisions with `forward_to_person` rather than approving risky actions yourself.',
+  '- The tools are carried by an open Zomfy window. When one says no window is open, say so and ask the person to open the app.',
+  ''
+]
+
+export function rulesText(bot: Pick<Bot, 'name' | 'handle' | 'purpose' | 'manager'>): string {
   return [
     MARK,
     '',
@@ -53,6 +68,7 @@ export function rulesText(bot: Pick<Bot, 'name' | 'handle' | 'purpose'>): string
     '',
     'Code work happens in a new worktree, never in a checkout someone is using, and comes back as a branch or a pull request.',
     '',
+    ...(bot.manager ? MANAGER_RULES : []),
     '## Replies',
     '',
     'Your last message in a turn is the reply posted where you were asked. Links to pull requests you opened are added to it.',

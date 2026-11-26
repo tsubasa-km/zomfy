@@ -12,7 +12,8 @@ import { NativeChatTurnDiffRollup } from './NativeChatTurnDiffRollup'
 import {
   NativeChatInterruptedContinueButton,
   NativeChatResumedDivider,
-  NativeChatRetryButton
+  NativeChatRetryButton,
+  NativeChatSignInActions
 } from './NativeChatTurnRecovery'
 import { NATIVE_CHAT_QUOTE_SOURCE_PROPS } from './NativeChatSelectionQuote'
 import { NativeChatWorkflowRunCard } from './NativeChatWorkflowRunCard'
@@ -40,6 +41,8 @@ export type TranscriptRowActions = {
   forkUnavailable?: string
   /** Only on the row of a turn that ended short with nothing after it: Continue or Retry. */
   onRecover?: (kind: 'continue' | 'retry') => void
+  /** Opens Claude Code's login on the chat's host, offered with Try again when a turn failed signed out. */
+  onSignIn?: () => void
   /** The workspace folder, dropped from the paths rows show. */
   cwd: string
   /** Where this chat's workflow runs live: its host and (main) project. */
@@ -161,17 +164,19 @@ function TranscriptRow({ row, rowKey, actions }: TranscriptRowProps) {
     }
     case 'notice': {
       if (row.runId) return <NativeChatWorkflowRunCard runId={row.runId} {...actions.workflows} />
-      const { onRecover } = actions
+      const { onRecover, onSignIn } = actions
       // A usage limit's actions live in the banner above the composer.
       const recovery =
         onRecover && row.turnEnd?.reason === 'interrupted' ? (
           <NativeChatInterruptedContinueButton onContinue={() => onRecover('continue')} />
+        ) : onRecover && row.turnEnd?.reason === 'error' && row.turnEnd.signIn === 'claude' && onSignIn ? (
+          <NativeChatSignInActions onSignIn={onSignIn} onRetry={() => onRecover('retry')} />
         ) : onRecover && row.turnEnd?.reason === 'error' ? (
           <NativeChatRetryButton onRetry={() => onRecover('retry')} />
         ) : null
       return row.severity === 'error' ? (
-        <div className="flex min-w-0 max-w-full flex-col items-start gap-1.5">
-          <p className="min-w-0 max-w-full text-sm break-words text-destructive select-text">{row.text}</p>
+        <div className="flex min-w-0 max-w-full flex-col items-start gap-1.5" data-native-chat-sign-in={row.turnEnd?.reason === 'error' && row.turnEnd.signIn ? '' : undefined}>
+          <p className="min-w-0 max-w-full text-sm break-words whitespace-pre-line text-destructive select-text">{row.text}</p>
           {recovery}
         </div>
       ) : (

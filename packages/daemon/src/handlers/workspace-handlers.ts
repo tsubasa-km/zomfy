@@ -2,6 +2,8 @@ import { HARNESS_METHODS, type WorkspaceSummary } from "@zomfy/protocol";
 import { readOrcaProjects } from "../orca-import.ts";
 import { effectiveHook, projectHookInfo, runArchiveHook, writeHookRunner } from "../project-hooks.ts";
 import { cloneRepository, createRepository, expandHome, projectCreationDefaults } from "../repo-bootstrap.ts";
+import { hostingAccounts } from "../hosting-account-service.ts";
+import { cloneAuth, giveAccount, inspectFolder, publishToGitHub } from "../project-accounts.ts";
 import { inspectWorkspace, workspaceSummary } from "../workspace-git-summary.ts";
 import { log } from "../log.ts";
 import { join } from "node:path";
@@ -38,9 +40,11 @@ export function registerWorkspaceHandlers(ctx: HandlerContext): void {
   if (process.env.NODE_ENV !== "test") cleanup.start();
 
   handle(HARNESS_METHODS.stateGet, () => workspaces.snapshot());
-  handle(HARNESS_METHODS.projectAdd, (p) =>
-    workspaces.addProject(expandHome(p.path), { requireGit: p.requireGit === true }),
-  );
+  handle(HARNESS_METHODS.projectAdd, async (p) => {
+    const project = await workspaces.addProject(expandHome(p.path), { requireGit: p.requireGit === true });
+    return giveAccount(workspaces, hostingAccounts(), project, p.hostingAccount);
+  });
+  handle(HARNESS_METHODS.projectInspectFolder, (p) => inspectFolder(expandHome(p.path)));
   handle(HARNESS_METHODS.projectRemove, async (p) => {
     const state = await workspaces.snapshot();
     await workspaces.removeProject(p.projectId);
@@ -93,7 +97,17 @@ export function registerWorkspaceHandlers(ctx: HandlerContext): void {
   handle(HARNESS_METHODS.branchesList, (p) => workspaces.listBranches(p.projectId));
   handle(HARNESS_METHODS.floatingCwdSet, (p) => workspaces.setFloatingCwd(p.path));
   handle(HARNESS_METHODS.orcaProjects, () => readOrcaProjects());
-  handle(HARNESS_METHODS.projectUpdate, (p) => workspaces.updateProject(p.projectId, p.patch));
+  handle(HARNESS_METHODS.projectUpdate, async (p) => {
+    const before = (await workspaces.snapshot()).projects.find((x) => x.id === p.projectId)?.hostingAccount;
+    const project = await workspaces.updateProject(p.projectId, p.patch);
+    // docs/specs/project-hosting-accounts.md: git pushes over HTTPS follow the project's account.
+    if ("hostingAccount" in p.patch && project.kind === "git") {
+      await hostingAccounts()
+        .applyGitCredential(project.path, before, project.hostingAccount)
+        .catch((error: unknown) => log(`credential helper for ${project.path} not updated: ${String(error)}`));
+    }
+    return project;
+  });
   handle(HARNESS_METHODS.projectRelocate, async (p) => {
     const { project, primary } = await workspaces.relocateProject(p.projectId, expandHome(p.path));
     let waiting = 0;
@@ -113,12 +127,20 @@ export function registerWorkspaceHandlers(ctx: HandlerContext): void {
     if (!project) throw new Error(`Unknown project ${p.projectId}`);
     return projectHookInfo(project);
   });
-  handle(HARNESS_METHODS.projectClone, async (p) =>
-    workspaces.addProject(await cloneRepository(p.url, p.parentPath, p.name)),
-  );
-  handle(HARNESS_METHODS.projectCreateRepo, async (p) =>
-    workspaces.addProject(await createRepository(p.parentPath, p.name)),
-  );
+  handle(HARNESS_METHODS.projectClone, async (p) => {
+    const accounts = hostingAccounts();
+    const path = await cloneRepository(p.url, p.parentPath, p.name, await cloneAuth(accounts, p.url, p.hostingAccount));
+    return giveAccount(workspaces, accounts, await workspaces.addProject(path), p.hostingAccount);
+  });
+  handle(HARNESS_METHODS.projectCreateRepo, async (p) => {
+    const project = await workspaces.addProject(await createRepository(p.parentPath, p.name));
+    if (!p.publish) return project;
+    // The account first, so the push gh makes goes through its credential helper.
+    const accounts = hostingAccounts();
+    const withAccount = await giveAccount(workspaces, accounts, project, p.publish.account);
+    const publishError = await publishToGitHub(accounts, withAccount, p.publish);
+    return publishError ? { ...withAccount, publishError } : withAccount;
+  });
   handle(HARNESS_METHODS.projectCreationDefaults, () => projectCreationDefaults());
   handle(HARNESS_METHODS.projectGroupCreate, (p) => workspaces.createProjectGroup(p.name, p.projectIds));
   handle(HARNESS_METHODS.projectGroupUpdate, (p) => workspaces.updateProjectGroup(p.groupId, p.patch));

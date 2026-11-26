@@ -32,6 +32,7 @@ interface Draft {
   home: 'new' | 'existing'
   homePath: string
   isDefault: boolean
+  manager: boolean
 }
 
 /** A handle from a name: lower-case letters, digits, - and _. */
@@ -55,7 +56,8 @@ function draftOf(bot: Bot | null): Draft {
     permissionMode: bot?.permissionMode ?? 'default',
     home: 'new',
     homePath: '',
-    isDefault: bot?.isDefault === true
+    isDefault: bot?.isDefault === true,
+    manager: bot?.manager === true
   }
 }
 
@@ -115,7 +117,8 @@ function BotEditorForm({ existing, onDone }: { existing: Bot | null; onDone: (bo
       agent: draft.agent,
       model: draft.model.trim() || null,
       permissionMode: draft.permissionMode,
-      isDefault: draft.isDefault
+      isDefault: draft.isDefault,
+      manager: draft.manager
     }
     try {
       const bot = existing
@@ -250,6 +253,15 @@ function BotEditorForm({ existing, onDone }: { existing: Bot | null; onDone: (bo
             <span className="text-[11px] text-muted-foreground">{t('Takes messages in Discord and other sources that name no bot.')}</span>
           </span>
           <Switch checked={draft.isDefault} data-bot-field="default" onCheckedChange={(isDefault) => patch({ isDefault })} />
+        </label>
+        <label className="flex items-center justify-between gap-3 text-sm">
+          <span className="grid gap-0.5">
+            {t('Manager across projects')}
+            <span className="text-[11px] text-muted-foreground">
+              {t('Sees and drives the chats, workspaces and worktrees of every project, as the Manager chat does.')}
+            </span>
+          </span>
+          <Switch checked={draft.manager} data-bot-field="manager" onCheckedChange={(manager) => patch({ manager })} />
         </label>
         {error ? (
           <p className="text-xs text-destructive" data-bot-error>

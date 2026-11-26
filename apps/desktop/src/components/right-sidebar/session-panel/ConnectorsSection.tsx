@@ -8,13 +8,15 @@ import { Input } from '@/components/ui/input'
 import { cn } from '@/lib/utils'
 import { Section } from './panel-parts'
 import { ConnectorIcon } from './ConnectorIcon'
-import { noteChatConnectors } from '@/stores/composer-connectors-store'
+import { knownChatConnectors, noteChatConnectors } from '@/stores/composer-connectors-store'
+import { CONNECTORS_READ_DELAY_MS, connectorsConnecting, connectorsReadNeeded, shownConnectors } from './connectors-read'
 import { t } from '@/i18n/i18n'
 
 // The chat's MCP servers (connectors) and their state, with sign-in for one that needs it and
 // reconnect for one that failed. The daemon reads them from a Claude process of the chat's own, so
 // the first read takes a few seconds; the list is read again while a server is connecting or a
-// sign-in is waiting on the browser.
+// sign-in is waiting on the browser. A list read lately shows at once when the chat comes back to
+// the front, and a chat only passed through on the way to another is not read (connectors-read.ts).
 
 const POLL_MS = 3000
 /** A sign-in is watched this long for the server to come up. */
@@ -54,7 +56,8 @@ interface SignIn {
 }
 
 export function ConnectorsSection({ sessionId }: { sessionId: string }) {
-  const [servers, setServers] = useState<ChatMcpServer[] | null>(null)
+  // The panel is keyed by the chat, so this runs once per chat brought to the front.
+  const [servers, setServers] = useState<ChatMcpServer[] | null>(() => shownConnectors(knownChatConnectors(sessionId)))
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
   const [busy, setBusy] = useState<string | null>(null)
@@ -71,7 +74,7 @@ export function ConnectorsSection({ sessionId }: { sessionId: string }) {
       setServers(result.servers)
       noteChatConnectors(sessionId, result.servers)
       setError(null)
-      if (result.servers.some((s) => s.status === 'pending')) watchUntil.current = Math.max(watchUntil.current, Date.now() + PENDING_WATCH_MS)
+      if (connectorsConnecting(result.servers)) watchUntil.current = Math.max(watchUntil.current, Date.now() + PENDING_WATCH_MS)
     } catch (e) {
       if (current.current === sessionId) setError(e instanceof Error ? e.message : String(e))
     } finally {
@@ -79,13 +82,12 @@ export function ConnectorsSection({ sessionId }: { sessionId: string }) {
     }
   }, [sessionId])
 
+  // Read once the chat has stayed in front a moment, unless what is known is recent and settled.
   useEffect(() => {
-    setServers(null)
-    setError(null)
-    setSignIn(null)
-    watchUntil.current = 0
-    void read()
-  }, [read])
+    if (!connectorsReadNeeded(knownChatConnectors(sessionId), Date.now())) return
+    const timer = setTimeout(() => void read(), CONNECTORS_READ_DELAY_MS)
+    return () => clearTimeout(timer)
+  }, [read, sessionId])
 
   // Read again while something is changing: a server connecting, a sign-in in the browser.
   useEffect(() => {

@@ -51,6 +51,7 @@ import { applyChatUpdate, latestTurnEnd } from "./chat-transcript";
 import { WINDOW_ROLE } from "./lib/window-role";
 import { EXPIRED_APPROVAL } from "./lib/expired-approval";
 import { spliceReplay } from "./lib/replay-splice";
+import { workspaceHost } from "./lib/host-lists";
 import {
   LOCAL_HOST,
   addSession,
@@ -451,11 +452,32 @@ function hostOf(params: unknown): HostId {
   return LOCAL_HOST;
 }
 
+/** How long a request for a workspace no host has listed yet waits for the hosts still connecting. */
+const UNLISTED_WORKSPACE_WAIT_MS = 20_000;
+
+/**
+ * The host of a request that names a workspace no host has listed yet. A remote host's workspaces
+ * are known only once it has connected and sent its state; until then such a request (a file tab
+ * restored at startup, a link clicked while a host reconnects) waits for it rather than going to
+ * this computer, which answers "Unknown workspace".
+ */
+async function hostOfUnlisted(workspaceId: string): Promise<HostId> {
+  await whenState((s) => workspaceHost(s.hosts, workspaceId, LOCAL_HOST) !== "pending", UNLISTED_WORKSPACE_WAIT_MS);
+  const host = workspaceHost(getState().hosts, workspaceId, LOCAL_HOST);
+  return host && host !== "pending" ? host : LOCAL_HOST;
+}
+
 export async function harnessRequest<M extends HarnessMethod>(
   method: M,
   params: HarnessRequests[M]["params"],
-  hostId: HostId = hostOf(params),
+  explicitHost?: HostId,
 ): Promise<HarnessRequests[M]["result"]> {
+  const workspaceId = (params as { workspaceId?: unknown } | null)?.workspaceId;
+  const hostId =
+    explicitHost ??
+    (typeof workspaceId === "string" && workspaceHost(getState().hosts, workspaceId, LOCAL_HOST) === "pending"
+      ? await hostOfUnlisted(workspaceId)
+      : hostOf(params));
   const conn = await requireConnection(hostId);
   return conn.agent.request<HarnessRequests[M]["result"]>(method, params);
 }
@@ -614,6 +636,15 @@ export async function createTerminal(
 /** Opens a terminal running the `claude` CLI on a chat's conversation, as the active tab. */
 export async function continueChatInTerminal(sessionId: string, hostId: HostId): Promise<string> {
   const info = await harnessRequest(HARNESS_METHODS.sessionContinueInTerminal, { sessionId }, hostId);
+  const others = getState().terminals.filter((t) => t.hostId === hostId && t.id !== info.id);
+  setTerminals(hostId, [...others, info]);
+  selectTerminal(info.id);
+  return info.id;
+}
+
+/** A terminal tab in the chat's folder running `claude auth login` on its host (docs/specs/claude-sign-in.md). */
+export async function openClaudeSignIn(sessionId: string, hostId: HostId): Promise<string> {
+  const info = await harnessRequest(HARNESS_METHODS.sessionClaudeSignIn, { sessionId }, hostId);
   const others = getState().terminals.filter((t) => t.hostId === hostId && t.id !== info.id);
   setTerminals(hostId, [...others, info]);
   selectTerminal(info.id);

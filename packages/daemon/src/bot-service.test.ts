@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, test } from 'bun:test'
-import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { BOT_NOTIFICATIONS, type Bot, type BotChatFrom, type BotInput } from '@zomfy/protocol'
@@ -167,6 +167,72 @@ function delivery<K extends Delivery['kind']>(kind: K, bot: Bot, extra: Partial<
     ...extra
   } as Extract<Delivery, { kind: K }>
 }
+
+describe('the master bot', () => {
+  test('a first start with no bots registers Zomfy as the default manager bot in its own home', async () => {
+    const s = makeService()
+    const bot = await s.service.seedMasterBot()
+    expect(bot).toMatchObject({ name: 'Zomfy', handle: 'zomfy', agent: 'claude', model: null, permissionMode: 'default', manager: true, isDefault: true })
+    expect(s.service.list()).toHaveLength(1)
+    const home = join(s.root, 'zomfy')
+    expect(s.workspaces.get(bot!.homeWorkspaceId)).toBe(home)
+    const rules = readFileSync(join(home, 'AGENTS.md'), 'utf8')
+    expect(rules).toContain("The person's manager across their projects")
+    expect(rules).toContain('## Manager')
+    expect(rules).toContain('`list_sessions`')
+    expect(helloBot(bot!).isDefault).toBe(true)
+  })
+
+  test('it is registered once: not on a second start, nor after the person deletes it', async () => {
+    const s = makeService()
+    const bot = (await s.service.seedMasterBot())!
+    expect(await s.service.seedMasterBot()).toBeNull()
+    s.service.remove(bot.id, false)
+    expect(await s.service.seedMasterBot()).toBeNull()
+    // A new daemon on the same home remembers it too.
+    const again = makeService({ home: s.home, root: s.root, workspaces: s.workspaces })
+    expect(await again.service.seedMasterBot()).toBeNull()
+    expect(again.service.list()).toHaveLength(0)
+  })
+
+  test('an install with a default bot gets the master too, without taking the default', async () => {
+    const s = makeService()
+    const own = await s.service.create({ ...reviewer, isDefault: true })
+    const master = (await s.service.seedMasterBot())!
+    expect(master.isDefault).toBeUndefined()
+    expect(master.manager).toBe(true)
+    expect(s.service.store.get(own.id)?.isDefault).toBe(true)
+  })
+
+  test('an install whose bot is already @zomfy gets nothing', async () => {
+    const s = makeService()
+    await s.service.create({ name: 'Mine', handle: 'zomfy', agent: 'claude' })
+    expect(await s.service.seedMasterBot()).toBeNull()
+    expect(s.service.list()).toHaveLength(1)
+    expect(s.service.list()[0]!.manager).toBeUndefined()
+  })
+
+  test('a home it cannot make is tried again on the next start', async () => {
+    const s = makeService()
+    const blocked = join(s.root, 'zomfy')
+    mkdirSync(blocked, { recursive: true })
+    writeFileSync(join(blocked, 'notes.txt'), 'not a bot')
+    await expect(s.service.seedMasterBot()).rejects.toThrow('not a bot')
+    expect(s.service.store.masterSeeded()).toBe(false)
+    rmSync(blocked, { recursive: true, force: true })
+    expect((await s.service.seedMasterBot())?.handle).toBe('zomfy')
+  })
+
+  test('turning manager off and on rewrites the rules', async () => {
+    const s = makeService()
+    const bot = (await s.service.seedMasterBot())!
+    const rules = () => readFileSync(join(s.root, 'zomfy', 'AGENTS.md'), 'utf8')
+    expect(s.service.update(bot.id, { manager: false }).manager).toBeUndefined()
+    expect(rules()).not.toContain('## Manager')
+    expect(s.service.update(bot.id, { manager: true }).manager).toBe(true)
+    expect(rules()).toContain('## Manager')
+  })
+})
 
 describe('bot records and homes', () => {
   test('a new bot gets a folder under the bots root with SOUL, MEMORY, rules and bot.json, asking for approval by default', async () => {

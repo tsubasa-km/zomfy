@@ -55,6 +55,8 @@ await mkdir(home, { recursive: true });
 const env = {
   ...process.env,
   ZOMFY_HOME: home,
+  // Bot homes (the master bot's included) stay in the preview's state, not the person's ~/zomfy/bots.
+  ZOMFY_BOTS_DIR: join(home, "bots"),
   ZOMFY_ALLOWED_ORIGINS: `http://localhost:${ports.vite}`,
 };
 const pids: number[] = [];
