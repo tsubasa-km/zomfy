@@ -93,7 +93,7 @@ At the repository root (`bun run --cwd apps/relay local`, which is `node scripts
 
 ## Pairing
 
-Zomfy pairs with the **public URL** (Settings → Bots → Relay), because phones are given the paired
+Zomfy pairs with the **public URL** (Settings → Zomfy Relay), because phones are given the paired
 URL as their relay route ([pairing](../mobile/pairing.md)). A quick tunnel's URL changes on every
 start, so it is for trying the relay out; for daily use the person uses a named Cloudflare tunnel (a
 domain on Cloudflare, free) or Tailscale Funnel, whose URLs stay.
@@ -177,7 +177,7 @@ Discord in workerd, the same runtime).
 
 # Open questions
 
-1. **Settings → Bots → Relay → "Run on this computer"** (Zomfy starting and stopping the relay and
+1. **Settings → Zomfy Relay → "Run on this computer"** (Zomfy starting and stopping the relay and
    the tunnel as child processes, with status). Not built: the installed app has neither wrangler,
    workerd nor the relay's source, so it would need workerd (about 100 MB per platform) and a
    pre-built Worker in the installer, or the path to a clone. `--json` is the interface such a

@@ -3,7 +3,7 @@ type: Spec
 title: Zomfy Relay settings, its features, and setting it up with an agent
 description: A top-level Settings page for the one Zomfy Relay Worker that shows its pairing and health, lets the person tick the features they want (phone, Discord, Slack, GitHub, Linear, webhooks) and says what each needs, and starts a chat that deploys and configures it with an agent.
 status: stable
-x-zomfy-implementation: in-progress
+x-zomfy-implementation: done
 tags: [relay, cloudflare, settings, desktop, bots, mobile, mcp]
 sources:
   - id: person

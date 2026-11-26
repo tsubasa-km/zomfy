@@ -42,7 +42,7 @@ and shared with the [phone relay](../mobile/relay.md) ([decision](../../decision
 | `POST /v1/hosts/register`, `POST /v1/hosts/invite` | Host registration — [pairing](../mobile/pairing.md) |
 | `GET /v1/host` (upgrade) | The daemon's link, channels `bots` and `phone` — [contract](contract.md) |
 | `GET /v1/device/<hostId>/ws` (upgrade) | Phone sockets — [phone relay](../mobile/relay.md) |
-| `GET /health` | `{ok, version, sources: [configured…], discordGatewayUptime?}`, no secrets |
+| `GET /health` | `{ok, version, sources: [configured…], features, featuresFrom, missing, setupCode, discordGatewayUptime?}`, no secret values, any origin — [relay settings](../relay-settings.md#health) |
 
 Every source route: read the raw body, verify the source's signature (bad → 401), dedupe on the
 source's event id, hand the event to the Hub, and answer 2xx within the source's deadline (Slack
@@ -126,7 +126,7 @@ Event triggers are not gated by Who can ask (as in Orca); their `from` field nar
 `GITHUB_WEBHOOK_SECRET`, `GITHUB_APP_SLUG`; `LINEAR_WEBHOOK_SECRET` with `LINEAR_CLIENT_ID` and
 `LINEAR_CLIENT_SECRET` (an OAuth app with client credentials) or `LINEAR_ACCESS_TOKEN`;
 `EXPO_ACCESS_TOKEN` (optional, [push](../mobile/push.md)). A source with no secrets is off and its
-routes answer 404. The Hub stores public keys, in-flight requests, conversation links, recent
+routes answer 404; `FEATURES` can narrow the features further ([relay settings](../relay-settings.md#features)). The Hub stores public keys, in-flight requests, conversation links, recent
 thread text used as context, and webhook bodies for at most 7 days.
 
 ## Limits

@@ -51,3 +51,4 @@
 * **Creation**: [The thinking effort shows in the composer](specs/composer-effort.md), done.
 * **Update**: [Thinking that holds the answer shows open](specs/visible-thinking.md): thinking now starts expanded by default; [The Next steps card](specs/next-steps-card.md) no longer answers a wrap_up made before any reply differently.
 * **Creation**: [Zomfy Relay settings, its features, and setting it up with an agent](specs/relay-settings.md), in progress.
+* **Update**: [Zomfy Relay settings, its features, and setting it up with an agent](specs/relay-settings.md) is implemented: Settings → Zomfy Relay, the Worker's `FEATURES` and richer `/health`, and Set up with an agent.
