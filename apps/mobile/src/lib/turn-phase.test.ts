@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'bun:test'
 import { createTranslator } from './i18n'
-import { phaseText } from './turn-phase'
+import { phaseText, phaseValue } from './turn-phase'
 
 const NOW = 1_000_000_000_000
 const base = { createdAt: NOW - 10_000, lastActivityAt: NOW - 1000 }
@@ -16,6 +16,13 @@ describe('phaseText', () => {
     expect(phaseText({ ...base, status: 'idle', yourTurnSince: NOW - 1000, background: { tasks: ['build'], wakeUps: [] } }, ja, NOW)).toBe(
       'バックグラウンドで作業中'
     )
+  })
+
+  test('a row shows only a wake-up time beside its mark', () => {
+    const wake = { tasks: [], wakeUps: [{ id: 'w', at: NOW + 3_600_000, recurring: false, prompt: 'check' }] }
+    expect(phaseValue({ ...base, status: 'idle', background: wake }, NOW)).toMatch(/\d/)
+    expect(phaseValue({ ...base, status: 'idle', background: { tasks: ['build'], wakeUps: [] } }, NOW)).toBeNull()
+    expect(phaseValue({ ...base, status: 'idle', yourTurnSince: NOW - 1000 }, NOW)).toBeNull()
   })
 
   test('a quiet thread says nothing', () => {
