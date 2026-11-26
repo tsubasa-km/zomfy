@@ -3,7 +3,7 @@ type: Spec
 title: The composer glows while the chat waits for the person
 description: While a chat is "Needs you" (a question, a tool approval or another ask), its composer's border shows a glow; Settings picks Rainbow (default), Accent pulse, Static outline or Off, each with a live preview.
 status: stable
-x-zomfy-implementation: in-progress
+x-zomfy-implementation: done
 tags: [chat, desktop, composer, settings]
 generated: { by: "claude-code/opus-5.5", at: "2026-11-26T00:00:00Z" }
 ---
