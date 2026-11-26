@@ -85,9 +85,13 @@ what was the Relay card of Settings → Bots, and more:
      own steps in a sentence, and a link to its guide; for a source that is on, the URLs to paste
      into the source (what the Sources card of Bots showed);
    - Phone app: no secrets; pair the relay here, then Settings → Devices → Pair a phone.
-   Under the list, the `FEATURES` value for the ticked features (`phone,discord`), to set on the
-   Worker when the person wants only those served.
-3. **Set up.** *Set up with an agent* (below), *Deploy to Cloudflare*, and *Guide* (the README).
+   Under the list, the `FEATURES` value for the ticked features (`phone,discord`), labelled only
+   `FEATURES`, to set on the Worker when the person wants only those served.
+3. **Set up.** *Set up with an agent* (below), *Deploy to Cloudflare*, and *Guide* (the README),
+   then the two commands (`bun run deploy`, `bun run relay:local`) behind a terminal icon.
+
+The sections carry no description sentences ([ui-principles.md](ui-principles.md)); the feature
+rows' secret names and where to find each stay, since setting up can't be done without them.
 
 Settings → Bots keeps a one-line relay summary (state and sources) with **Relay settings**, which
 opens this section, and keeps its bots. Settings → Devices points here (*Zomfy Relay settings*)
@@ -97,14 +101,14 @@ where it said "Settings → Bots".
 
 A dialog opened from the Relay page:
 
-- **Features**: the ticked features, read-only, with "Change them on the page". The button is off
-  with none ticked.
+- **Features**: the ticked features, read-only. The button is off with none ticked. The dialog has
+  no description line and no hint sentences.
 - **Where**: the Zomfy checkouts among this computer's projects (a project whose folder has
   `apps/relay/wrangler.jsonc`), or *Clone Zomfy into a new folder* (the default when there is none),
   which clones `https://github.com/tsubasa-km/zomfy` into the default clone folder (or adds that
   folder when it is already there) and starts the chat in it.
-- **Cloudflare MCP server**: a checkbox, off by default: "Give this chat Cloudflare's MCP server".
-  Its hint names what it is: the server of Cloudflare's own agent plugin
+- **Cloudflare MCP server**: a checkbox, off by default: "Give this chat Cloudflare's MCP server",
+  with the server's URL under it. It is the server of Cloudflare's own agent plugin
   (`cloudflare@claude-plugins-official`, also `cloudflare/skills`),[^cf-plugin] at
   `https://mcp.cloudflare.com/mcp`, which covers the whole Cloudflare API; the claude.ai
   "Cloudflare Developer Platform" connector is deprecated in its favour.[^cf-mcp] It is added to

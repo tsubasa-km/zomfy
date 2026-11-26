@@ -19,7 +19,11 @@ and a screen, and nothing asks which GitHub or GitLab account the project uses
 # The dialog
 
 One dialog, `sm:max-w-xl`, the same look as Project Settings (shadcn inputs, selects, labels in
-`text-xs text-muted-foreground`, hints in `text-[11px]`).
+`text-xs text-muted-foreground`, hints in `text-[11px]`). The dialog explains nothing in sentences
+([ui-principles.md](ui-principles.md)): no description line under the title, no hint under the
+display name, the folder or the publish switch. The only lines under a field are its state (the
+folder's check, an error) and, when a typed name gives a different folder name, that folder name
+behind a folder icon.
 
 ```
 Add a project                                              [x]
