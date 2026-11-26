@@ -69,6 +69,37 @@ export interface SessionInfo {
   defaultEffort?: { model: string | null; effort: ChatEffort } | null
   /** MCP servers given to this chat alone when it was made (docs/specs/relay-settings.md); Claude only. */
   connectors?: ChatConnectorPreset[]
+  /**
+   * Work the chat has going after its turn ended, which brings it back on its own: null or absent
+   * when there is none, and from older daemons (docs/specs/turn-taking-states.md).
+   */
+  background?: SessionBackground | null
+  /**
+   * When the agent's latest turn ended and handed the thread to the person; null while a turn
+   * runs and before the first. Absent from older daemons.
+   */
+  yourTurnSince?: number | null
+  /** When a window last showed the thread to the person (sessionMarkSeen). Absent until then and from older daemons. */
+  seenAt?: number | null
+}
+
+/** A chat's background work: its Claude process's live tasks and its pending scheduled wake-ups. */
+export interface SessionBackground {
+  /** The live background tasks' descriptions (Bash, Monitor, subagents). */
+  tasks: string[]
+  /** Scheduled wake-ups still to fire (ScheduleWakeup, CronCreate, /loop), soonest first. */
+  wakeUps: SessionWakeUp[]
+}
+
+/** A wake-up the chat's agent scheduled (docs/specs/scheduled-wake-ups.md). */
+export interface SessionWakeUp {
+  /** Claude's id for the scheduled task. */
+  id: string
+  /** When it next fires (ms since the epoch); null if its schedule has no match within a year. */
+  at: number | null
+  recurring: boolean
+  /** The prompt it fires with, as Claude reports it (clipped at 1000 characters). */
+  prompt: string
 }
 
 /** An MCP server a chat can be started with: `cloudflare` is Cloudflare's API server, CLOUDFLARE_MCP_URL. */
@@ -251,7 +282,9 @@ export const SESSION_METHODS = {
   /** Absent from older daemons: the request fails as an unknown method. */
   sessionContinueInTerminal: '_harness/sessions/continueInTerminal',
   /** Absent from older daemons: the request fails as an unknown method. */
-  sessionClaudeSignIn: '_harness/sessions/claudeSignIn'
+  sessionClaudeSignIn: '_harness/sessions/claudeSignIn',
+  /** Absent from older daemons: the request fails as an unknown method. */
+  sessionMarkSeen: '_harness/sessions/markSeen'
 } as const
 
 /** What a chat made of a question put to it by another session (sessionConsultLead). */
@@ -354,4 +387,6 @@ export interface SessionRequests {
     params: { sessionId: string; agent: ChatAgentId; permissionMode?: ChatPermissionMode }
     result: SessionInfo
   }
+  /** Records that the person was shown the thread now (`seenAt`), for the Quiet state. */
+  [SESSION_METHODS.sessionMarkSeen]: { params: { sessionId: string }; result: Record<string, never> }
 }
