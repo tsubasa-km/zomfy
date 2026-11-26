@@ -3,7 +3,7 @@ type: Spec
 title: The Import dialog
 description: One Import dialog with a source picker that lists only what is found on the chosen host (Orca's projects, and each agent CLI's own recorded conversations), replacing Import from Orca and Import threads.
 status: stable
-x-zomfy-implementation: in-progress
+x-zomfy-implementation: done
 tags: [projects, desktop, onboarding, threads]
 generated: { by: "claude-code/opus-5.5", at: "2026-11-26T00:00:00Z" }
 ---

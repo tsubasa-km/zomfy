@@ -3,7 +3,7 @@ type: Spec
 title: The Add a project dialog
 description: One compact dialog with three tabs (Open folder, Clone, New repository), the host as a light inline choice shown only when there is more than one, the project's display name and GitHub or GitLab account picked as it is added, and a clone's folder name.
 status: stable
-x-zomfy-implementation: in-progress
+x-zomfy-implementation: done
 tags: [projects, desktop, onboarding, hosting]
 generated: { by: "claude-code/opus-5.5", at: "2026-11-25T00:00:00Z" }
 ---

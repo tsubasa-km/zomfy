@@ -127,7 +127,7 @@ export function DisplayNameField({
         spellCheck={false}
         autoComplete="off"
       />
-      <p className={hint}>{t('Shown in the sidebar. Project Settings can change it later.')}</p>
+      <p className={hint}>{t('Shown in the sidebar; editable later.')}</p>
     </div>
   )
 }

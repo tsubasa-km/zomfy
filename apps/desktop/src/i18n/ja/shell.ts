@@ -1520,7 +1520,7 @@ export const SHELL: Record<string, string> = {
 
   // components/sidebar/AddRepoPanels.tsx, AddRepoDialog.tsx (display name, clone folder name)
   "The folder's name": 'フォルダー名',
-  'Shown in the sidebar. Project Settings can change it later.': 'サイドバーに表示されます。あとからプロジェクト設定で変更できます。',
+  'Shown in the sidebar; editable later.': 'サイドバーに表示。あとで変更できます。',
   'Folder name': 'フォルダー名',
   'From the repository URL': 'リポジトリの URL から',
   "The repository's name unless you change it.": '変更しなければリポジトリ名になります。',
