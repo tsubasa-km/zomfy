@@ -136,6 +136,12 @@ export function registerSessionHandlers(ctx: HandlerContext): void {
     sessions.update(session.id, { archived: p.archived === true });
     return publicInfo(session);
   });
+  // A window showed the thread to the person: it can go Quiet once left alone (turn-taking-states.md).
+  handle(HARNESS_METHODS.sessionMarkSeen, async (p) => {
+    const session = requireSession(p.sessionId);
+    sessions.update(session.id, { seenAt: Date.now() });
+    return {};
+  });
 
   handle(HARNESS_METHODS.sessionSetOptions, async (p) => {
     const session = requireSession(p.sessionId);

@@ -54,7 +54,8 @@ wake-ups itself:
   late; an older one is dropped with a notice in the chat.
 - A recurring wake-up cannot be kept without its process: the chat gets a notice
   ("Stopped the scheduled task …") and it leaves the list.
-- Archiving, deleting or moving a chat (which end its process on purpose) drops its wake-ups.
+- Deleting a chat, continuing it in a terminal, changing its agent or moving it ends its process on
+  purpose and drops the wake-ups that process held; a held one whose chat was deleted never fires.
 
 # Out of scope
 
