@@ -11,6 +11,7 @@ import { GeneralPane } from './GeneralPane'
 import { HostsPane } from './HostsPane'
 import { DevicesPane } from './DevicesPane'
 import { BotsPane } from './BotsPane'
+import { RelayPane } from './RelayPane'
 import { InputEditingPane } from './InputEditingPane'
 import { NotificationsPane } from './NotificationsPane'
 import { ShortcutsPane } from './ShortcutsPane'
@@ -51,6 +52,8 @@ function renderPane(id: string, query: string): ReactNode {
       return <DevicesPane />
     case 'bots':
       return <BotsPane />
+    case 'relay':
+      return <RelayPane />
     default:
       return null
   }

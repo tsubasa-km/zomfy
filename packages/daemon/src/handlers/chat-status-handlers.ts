@@ -11,6 +11,7 @@ import { chatAgentLaunch, claudeChromeOn } from "../chat-agent-launch-settings.t
 import { liveClaudeQueries } from "../live-claude-queries.ts";
 import { managerMcp } from "../manager-mcp-server.ts";
 import { log } from "../log.ts";
+import { presetMcpServers } from "../connector-presets.ts";
 
 // The session panel's connectors and usage limits. A chat's servers are read from a control process
 // of its own (claude-control.ts) started in the chat's folder with the tools the daemon gives its
@@ -50,7 +51,8 @@ export function registerChatStatusHandlers(ctx: HandlerContext): void {
     const session = claudeChat(sessionId);
     const chrome = await chromeFor(sessionId);
     startedChrome.set(key, chrome);
-    return { cwd: session.cwd, env, mcpServers: managerMcp.claudeServers(sessionId), chrome };
+    // The servers the chat was started with too, so Connectors lists them and can sign in to them.
+    return { cwd: session.cwd, env, mcpServers: { ...presetMcpServers(session.connectors), ...managerMcp.claudeServers(sessionId) }, chrome };
   }, { limit: CHAT_CONTROLS, counts: (key) => key !== USAGE_KEY });
 
   /** A control process started before the setting changed is replaced, so Connectors shows what a turn gets. */

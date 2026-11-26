@@ -14,6 +14,29 @@ Either way works on the Workers Free plan for one person. Holding the Discord Ga
 about 11,000 of the free 13,000 GB-s of Durable Object time a day; if Cloudflare reports going over,
 move the account to Workers Paid (5 USD a month). `GET /health` shows the Gateway's uptime.
 
+### Features, and setting it up from Zomfy
+
+One relay serves every feature: `phone` (the phone app away from home), `discord`, `slack`,
+`github`, `linear` and `webhooks` ([spec](../../docs/specs/relay-settings.md)). In Zomfy,
+**Settings → Zomfy Relay** is where you pair, see what your relay serves, tick the features you want
+and read what each needs (secrets, steps, the URLs to paste). **Set up with an agent** there starts a
+Claude chat in your Zomfy checkout (or a fresh clone) with a ready-made prompt, in English or
+Japanese and editable before it is sent, that deploys and configures the relay step by step; it asks
+you to run `npx wrangler secret put NAME` yourself for every secret, so the agent never sees one. You
+can give that chat Cloudflare's MCP server (`https://mcp.cloudflare.com/mcp`, the server of
+Cloudflare's own `cloudflare@claude-plugins-official` plugin) for that chat only.
+
+Which features are on:
+
+- Without `FEATURES`, the phone and webhooks are always on, and each source is on once all of its
+  secrets are set.
+- With `FEATURES` (comma- or space-separated, e.g. `phone,discord`; set it with
+  `npx wrangler secret put FEATURES` so deploys keep it), only the listed features are served; a
+  listed source still needs its secrets. The routes of a feature that is off answer 404.
+- `GET /health` lists `features`, `featuresFrom` (`FEATURES` or `secrets`), and in `missing` the
+  **names** of the secrets a wanted source still lacks. It never holds a secret value, and any
+  origin may read it, so Zomfy can check a relay before pairing.
+
 ### Deploy to Cloudflare button
 
 [![Deploy to Cloudflare](https://deploy.workers.cloudflare.com/button)](https://deploy.workers.cloudflare.com/?url=https://github.com/tsubasa-km/zomfy/tree/main/apps/relay)
@@ -159,7 +182,7 @@ shows `discordGateway.state` and `lastError`.
    in Threads, Create Public Threads, Read Message History, Add Reactions, Embed Links, Attach Files.
 4. Open `<worker URL>/health` once: `discordGateway.state` should be `ready`. The Worker registers
    `/ask` and the message command **Ask bot** when the Gateway first connects.
-5. In Zomfy: **Settings → Bots → Relay**, paste the Worker URL and the setup code, **Pair**. For each
+5. In Zomfy: **Settings → Zomfy Relay**, paste the Worker URL and the setup code, **Pair**. For each
    bot, **Who can ask → Discord**: your own user id (Discord **Settings → Advanced → Developer
    Mode**, then right-click yourself → **Copy User ID**) as owner, and members the same way.
 
@@ -254,7 +277,7 @@ without the key or credential headers.
 
 The Android app reaches your computer through the same Worker when it is away from your Wi-Fi and
 tailnet ([spec](../../docs/specs/mobile/relay.md)). Nothing needs setting up in Cloudflare: once
-Zomfy is paired with the relay (Settings → Bots → Relay), Settings → Devices → **Pair a phone**
+Zomfy is paired with the relay (Settings → Zomfy Relay), Settings → Devices → **Pair a phone**
 lists the relay as the last route, and phones paired before that pick it up when you pair them
 again. The relay only splices end-to-end encrypted frames; it keeps each phone's public key and
 nothing it says.

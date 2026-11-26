@@ -22,6 +22,11 @@ export interface Env {
   LINEAR_CLIENT_SECRET?: string
   EXPO_ACCESS_TOKEN?: string
   /**
+   * Which features to serve, comma- or space-separated (`phone,discord`); unset serves every source
+   * with its secrets, the phone and webhooks (docs/specs/relay-settings.md#features). Not a secret.
+   */
+  FEATURES?: string
+  /**
    * The relay's public origin when it runs behind a tunnel on the person's own machine
    * (docs/specs/bots/self-host.md); the URLs the Hub hands out use it. Unset in Cloudflare.
    */
@@ -46,13 +51,79 @@ export function publicOrigin(env: Pick<Env, 'PUBLIC_URL'>): string | null {
   }
 }
 
-/** Sources whose secrets are all set; the rest are off and their routes answer 404. */
+/** Everything the relay can serve (docs/specs/relay-settings.md#features). */
+export const RELAY_FEATURES = ['phone', 'discord', 'slack', 'github', 'linear', 'webhooks'] as const
+export type RelayFeature = (typeof RELAY_FEATURES)[number]
+
+const SOURCES = ['discord', 'slack', 'github', 'linear'] as const
+type Source = (typeof SOURCES)[number]
+
+/** The secrets each source needs; Linear needs its webhook secret and one of two ways to post. */
+const SOURCE_SECRETS: Record<Exclude<Source, 'linear'>, (keyof Env)[]> = {
+  discord: ['DISCORD_APPLICATION_ID', 'DISCORD_PUBLIC_KEY', 'DISCORD_BOT_TOKEN'],
+  slack: ['SLACK_BOT_TOKEN', 'SLACK_SIGNING_SECRET'],
+  github: ['GITHUB_APP_ID', 'GITHUB_APP_PRIVATE_KEY', 'GITHUB_WEBHOOK_SECRET']
+}
+
+function isSet(env: Env, name: keyof Env): boolean {
+  const value = env[name]
+  return typeof value === 'string' && value !== ''
+}
+
+/** The names of the secrets a source still lacks (never their values); empty when it has them all. */
+export function missingSecrets(env: Env, source: Source): string[] {
+  if (source !== 'linear') return SOURCE_SECRETS[source].filter((name) => !isSet(env, name))
+  const missing: string[] = isSet(env, 'LINEAR_WEBHOOK_SECRET') ? [] : ['LINEAR_WEBHOOK_SECRET']
+  if (isSet(env, 'LINEAR_ACCESS_TOKEN') || (isSet(env, 'LINEAR_CLIENT_ID') && isSet(env, 'LINEAR_CLIENT_SECRET'))) return missing
+  // Half an OAuth app names its other half; otherwise the simpler way, a personal API key.
+  if (isSet(env, 'LINEAR_CLIENT_ID')) return [...missing, 'LINEAR_CLIENT_SECRET']
+  if (isSet(env, 'LINEAR_CLIENT_SECRET')) return [...missing, 'LINEAR_CLIENT_ID']
+  return [...missing, 'LINEAR_ACCESS_TOKEN']
+}
+
+/** The features `FEATURES` lists, or null when it is unset or empty; unknown names are ignored. */
+export function listedFeatures(env: Pick<Env, 'FEATURES'>): RelayFeature[] | null {
+  const words = (env.FEATURES ?? '').toLowerCase().split(/[\s,]+/).filter(Boolean)
+  if (words.length === 0) return null
+  return RELAY_FEATURES.filter((feature) => words.includes(feature))
+}
+
+/**
+ * Sources whose secrets are all set and, when `FEATURES` is set, that it lists; the rest are off
+ * and their routes answer 404.
+ */
 export function configuredSources(env: Env): string[] {
-  const has = (...names: (keyof Env)[]) => names.every((name) => typeof env[name] === 'string' && env[name] !== '')
-  const sources: string[] = []
-  if (has('DISCORD_APPLICATION_ID', 'DISCORD_PUBLIC_KEY', 'DISCORD_BOT_TOKEN')) sources.push('discord')
-  if (has('SLACK_BOT_TOKEN', 'SLACK_SIGNING_SECRET')) sources.push('slack')
-  if (has('GITHUB_APP_ID', 'GITHUB_APP_PRIVATE_KEY', 'GITHUB_WEBHOOK_SECRET')) sources.push('github')
-  if (has('LINEAR_WEBHOOK_SECRET') && (has('LINEAR_ACCESS_TOKEN') || has('LINEAR_CLIENT_ID', 'LINEAR_CLIENT_SECRET'))) sources.push('linear')
-  return sources
+  const listed = listedFeatures(env)
+  return SOURCES.filter((source) => missingSecrets(env, source).length === 0 && (!listed || listed.includes(source)))
+}
+
+export interface RelayFeatureState {
+  /** The features served now. */
+  features: RelayFeature[]
+  featuresFrom: 'FEATURES' | 'secrets'
+  /** For a wanted source (listed, or with some of its secrets set), the names of the secrets it lacks. */
+  missing: Partial<Record<Source, string[]>>
+}
+
+/** Whether a feature is served; `phone` and `webhooks` need no secrets of the deployment. */
+export function featureOn(env: Env, feature: RelayFeature): boolean {
+  if (feature !== 'phone' && feature !== 'webhooks') return configuredSources(env).includes(feature)
+  const listed = listedFeatures(env)
+  return !listed || listed.includes(feature)
+}
+
+/** What `/health` reports of the features: names only, never a secret's value. */
+export function relayFeatures(env: Env): RelayFeatureState {
+  const listed = listedFeatures(env)
+  const features = RELAY_FEATURES.filter((feature) => featureOn(env, feature))
+  const missing: RelayFeatureState['missing'] = {}
+  for (const source of SOURCES) {
+    const lacks = missingSecrets(env, source)
+    if (lacks.length === 0) continue
+    const names: (keyof Env)[] =
+      source === 'linear' ? ['LINEAR_WEBHOOK_SECRET', 'LINEAR_ACCESS_TOKEN', 'LINEAR_CLIENT_ID', 'LINEAR_CLIENT_SECRET'] : SOURCE_SECRETS[source]
+    const started = names.some((name) => isSet(env, name))
+    if (listed ? listed.includes(source) : started) missing[source] = lacks
+  }
+  return { features, featuresFrom: listed ? 'FEATURES' : 'secrets', missing }
 }

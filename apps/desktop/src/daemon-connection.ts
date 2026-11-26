@@ -28,6 +28,7 @@ import {
   TURN_RECOVERY_NOTIFICATIONS,
   type ChatAgentId,
   type ChatPermissionMode,
+  type ChatConnectorPreset,
   type CreateTerminalParams,
   type HarnessMethod,
   type HarnessRequests,
@@ -513,11 +514,13 @@ export async function createSession(
   workspaceId: string,
   agent?: ChatAgentId,
   /** `parentId`: the chat that started this one, which the sidebar folds it under. */
-  extra: { hostId?: HostId; role?: SessionRole; focus?: boolean; permissionMode?: ChatPermissionMode; parentId?: string } = {},
+  /** `connectors`: MCP servers for this chat alone (docs/specs/relay-settings.md); Claude only. */
+  extra: { hostId?: HostId; role?: SessionRole; focus?: boolean; permissionMode?: ChatPermissionMode; parentId?: string; connectors?: ChatConnectorPreset[] } = {},
 ): Promise<string> {
   const hostId = extra.hostId ?? hostOf({ workspaceId });
   const params = {
     workspaceId,
+    ...(extra.connectors?.length && (!agent || agent === "claude") ? { connectors: extra.connectors } : {}),
     ...(agent && agent !== "claude" ? { agent } : {}),
     ...(extra.role ? { role: extra.role } : {}),
     ...(extra.parentId ? { parentId: extra.parentId } : {}),

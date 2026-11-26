@@ -332,6 +332,6 @@ if (linearSet || hasLinear) {
   console.log('  Ask with @Zomfy <handle> … in a comment, or add the label bot:<handle> to an issue.')
 }
 console.log('\nWebhooks need nothing here: make one in Zomfy (a bot → New trigger → Webhook).')
-console.log('\nIn Zomfy: Settings → Bots → Relay: paste the Worker URL and the setup code, then Pair.')
+console.log('\nIn Zomfy: Settings → Zomfy Relay: paste the Worker URL and the setup code, then Pair.')
 console.log('Then per bot, Who can ask: your own id on each source as owner, and members the same way')
 console.log('  (Discord: Developer Mode → Copy User ID; Slack: your profile → ⋯ → Copy member ID; GitHub: your login; Linear: picked from the list).')
