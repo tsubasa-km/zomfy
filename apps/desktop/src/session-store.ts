@@ -37,7 +37,7 @@ import {
 import { openWorkflows } from '@/stores/workflows-store'
 import { getSidebarState, useSidebarStore } from '@/stores/sidebar-store'
 import { hidePaneSidebar, paneSidebarKey, showPaneSidebar, togglePaneSidebar } from '@/stores/pane-sidebar-store'
-import { forgetHostSnapshot, saveHostSnapshot } from '@/lib/host-snapshots'
+import { forgetHostSnapshot, hostSnapshot, saveHostSnapshot, saveSessionsSnapshot, sessionsSnapshot } from '@/lib/host-snapshots'
 import {
   appendPane,
   insertPane,
@@ -248,9 +248,32 @@ const initialTree =
     : saved.paneTree !== undefined
       ? readPaneTree(saved.paneTree)
       : panesFromColumns(saved.columns ?? [], saved.columnWidths)
+/** Chats shown from the last session's snapshot until their host lists them again. */
+const restoredSessions = new Set<string>()
+
+/**
+ * Each host this window shows, as it was when the window last closed, so the first frame already
+ * has the sidebar, tabs and threads in place; connecting replaces it with what the host says now.
+ */
+function restoredHosts(hostIds: HostId[]): Pick<StoreState, 'hosts' | 'sessions'> {
+  const hosts: StoreState['hosts'] = {}
+  const sessions: Session[] = []
+  for (const id of hostIds) {
+    const harness = hostSnapshot(id)
+    if (!harness || hosts[id]) continue
+    const label = harness.host.id === id ? harness.host.label : hostLabel(id)
+    hosts[id] = { id, label, connection: { kind: 'connecting' }, harness, shells: [] }
+    for (const info of sessionsSnapshot(id)) {
+      if (info.workspaceId === null) continue
+      restoredSessions.add(info.id)
+      sessions.push({ ...info, title: shownTitle(info.title), hostId: id, workspaceId: info.workspaceId, items: [], loaded: false })
+    }
+  }
+  return { hosts, sessions: sessions.sort((a, b) => a.createdAt - b.createdAt) }
+}
+
 let state: StoreState = {
-  hosts: {},
-  sessions: [],
+  ...restoredHosts([LOCAL_HOST, ...(saved.rememberedHosts ?? [])]),
   terminals: [],
   activeWorkspaceId: saved.activeWorkspaceId ?? null,
   activeSessionByWorkspace: saved.activeSessionByWorkspace ?? {},
@@ -627,7 +650,12 @@ function shownTitle(title: string): string {
 
 /** Applies one host's session list, keeping transcripts this window already has. */
 export function mergeSessions(hostId: HostId, list: SessionInfo[]): void {
-  const previous = new Map(state.sessions.map((s) => [s.id, s]))
+  saveSessionsSnapshot(hostId, list)
+  // A chat restored from the snapshot changed while the window was closed, not just now: no
+  // notification or unread mark for that.
+  const previous = new Map(state.sessions.filter((s) => !(s.hostId === hostId && restoredSessions.has(s.id))).map((s) => [s.id, s]))
+  const restoredItems = new Map(state.sessions.filter((s) => s.hostId === hostId && restoredSessions.has(s.id)).map((s) => [s.id, s]))
+  for (const id of restoredItems.keys()) restoredSessions.delete(id)
   const sessions: Session[] = state.sessions.filter((s) => s.hostId !== hostId)
   const unread = { ...state.unread }
   const transitions: SessionTransition[] = []
@@ -646,13 +674,15 @@ export function mergeSessions(hostId: HostId, list: SessionInfo[]): void {
     }
     // A prompt this window sent is working before the host says so (lib/sends-in-flight).
     const turn = sendsInFlight.shown(info.id, { status: info.status, turnStartedAt: info.turnStartedAt })
-    let items = old?.items ?? []
+    // A restored chat may have had its transcript loaded while it waited for this list.
+    const kept = old ?? restoredItems.get(info.id)
+    let items = kept?.items ?? []
     // The turn just ended: draw Orca's settled status line under it.
     if (old?.loaded && old.turnStartedAt !== null && turn.turnStartedAt === null) {
       const seconds = Math.max(1, Math.round((Date.now() - old.turnStartedAt) / 1000))
       items = [...items, { kind: 'notice', text: t('Worked for {seconds}s', { seconds }) }]
     }
-    const session: Session = { ...info, ...turn, title: shownTitle(info.title), hostId, workspaceId: info.workspaceId, items, loaded: old?.loaded ?? false }
+    const session: Session = { ...info, ...turn, title: shownTitle(info.title), hostId, workspaceId: info.workspaceId, items, loaded: kept?.loaded ?? false }
     sessions.push(session)
     if (old && old.status !== session.status) {
       transitions.push({ session, from: old.status, to: session.status })

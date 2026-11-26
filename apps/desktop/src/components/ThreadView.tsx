@@ -278,6 +278,7 @@ export function ThreadView({ session, onSendToMain }: { session: Session; onSend
                 <div className={TRANSCRIPT_OUTER_CLASS}>
                   <BotChatHeader session={session} />
                   <div ref={columnRef} data-native-chat-transcript-column className={TRANSCRIPT_COLUMN_CLASS}>
+                    {!session.loaded && session.items.length === 0 ? <TranscriptLoading /> : null}
                     <NativeChatTranscriptRows
                       rows={model.rows}
                       sessionId={session.id}
@@ -404,6 +405,23 @@ function WorkingStatus({ startedAt }: { startedAt: number }) {
   return (
     <div className="flex min-h-8 items-center gap-1 border-b border-border text-sm text-chat-foreground-faint tabular-nums select-none">
       <span>{t('Working for {seconds}s', { seconds })}</span>
+    </div>
+  )
+}
+
+/**
+ * Where a chat's history goes while it is replayed from its host: the shape of a question and an
+ * answer, so the pane is not blank and the history takes the place this held.
+ */
+function TranscriptLoading() {
+  return (
+    <div data-native-chat-loading aria-busy="true" aria-label={t('Loading the thread…')} className="flex animate-pulse flex-col gap-3 py-4">
+      <div className="ml-auto h-9 w-2/5 rounded-2xl bg-muted" />
+      <div className="h-3 w-11/12 rounded bg-muted" />
+      <div className="h-3 w-4/5 rounded bg-muted" />
+      <div className="h-3 w-3/5 rounded bg-muted" />
+      <div className="mt-2 h-20 w-full rounded-lg bg-muted/70" />
+      <div className="h-3 w-2/3 rounded bg-muted" />
     </div>
   )
 }

@@ -40,6 +40,7 @@ import { mainLocationOf } from '@/stores/project-catalog-store'
 import { upsertWorkflowRun } from '@/stores/workflow-runs-store'
 import { confirmWorkflowStart } from '@/components/workflows/WorkflowStartConfirm'
 import { allWorkspaces, getState, hostLabel, LOCAL_HOST, useStore } from '@/session-store'
+import { useLasting } from '@/hooks/use-lasting'
 import { getBots, startBotChat } from '@/stores/bots-store'
 import { parseBotMention } from '@/lib/bot-mention'
 import { t } from '@/i18n/i18n'
@@ -54,6 +55,9 @@ type ComposerProps = { session: Session; editorRef: React.RefObject<MarkdownEdit
  * The session fields the composer (and the menus it hands the session to) reads. Its session
  * changes with every streamed chunk; without this, the whole composer would render with each one.
  */
+/** How long a host may take to (re)connect before the composer says it is waiting for it. */
+const OFFLINE_NOTICE_DELAY_MS = 1500
+
 const COMPOSER_SESSION_FIELDS = ['id', 'workspaceId', 'hostId', 'status', 'agent', 'agentState', 'options', 'promptSuggestion', 'sideOf', 'role', 'localOnly'] as const
 
 export const NativeChatComposer = memo(
@@ -83,6 +87,9 @@ function Composer({ session, editorRef }: ComposerProps) {
   const stopping = useStopping(session.id)
   // Sending or stopping needs the host; while it reconnects the person can still write.
   const offline = useStore((s) => s.hosts[session.hostId]?.connection.kind !== 'connected')
+  // Connecting at startup takes a moment; saying so only when it lasts keeps the composer from
+  // growing a line and shrinking again as the window opens.
+  const offlineNotice = useLasting(offline, OFFLINE_NOTICE_DELAY_MS)
   // Other agents bring their own commands and options over ACP; the workspace catalog is Claude's.
   const external = isExternalAgentSession(session)
   const agentState = session.agentState
@@ -242,7 +249,7 @@ function Composer({ session, editorRef }: ComposerProps) {
             takesTabDrops
             waiting={session.status === 'needs-you'}
             placeholder={
-              offline
+              offlineNotice
                 ? t('Reconnecting to {host}… sending waits until it is back', { host: hostLabel(session.hostId) })
                 : workflow
                   ? t('The task for "{name}"', { name: workflow.name })
@@ -253,7 +260,7 @@ function Composer({ session, editorRef }: ComposerProps) {
                     : (suggestion ?? t('Message the agent'))
             }
             notice={
-              offline ? (
+              offlineNotice ? (
                 <p className="mb-1.5 px-1 text-xs text-muted-foreground" data-composer-offline>
                   {t('Reconnecting to {host}… You can keep writing; sending waits until it is back.', { host: hostLabel(session.hostId) })}
                 </p>

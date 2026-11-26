@@ -1,4 +1,4 @@
-import { memo, useCallback, useEffect, useState } from 'react'
+import { lazy, memo, Suspense, useCallback, useEffect, useState } from 'react'
 import { filePathDrag, type DraggedPaths } from '@/lib/file-path-drag'
 import { ensureSessionLoaded } from '@/daemon-connection'
 import { getState, sidebarWorkspaceId, usePaneSidebarWorkspaceId, useStore } from '@/session-store'
@@ -7,8 +7,6 @@ import { paneSidebarKey } from '@/stores/pane-sidebar-store'
 import { QuickStart } from '@/components/QuickStart'
 import { ThreadView } from '@/components/ThreadView'
 import { TerminalTabBody } from '@/components/terminal/TerminalPaneTree'
-import { DiffTabView } from '@/components/EditorTabViews'
-import { FileEditorView } from '@/components/FileEditorView'
 import { BrowserTabView } from './BrowserTabView'
 import { DRAWER_HANDLE_INSET, ToolDrawer } from './ToolDrawer'
 import { EmptyPane } from './EmptyPane'
@@ -25,6 +23,10 @@ import './pane-split-commands'
 import { tabWorkspaceId, type WorkspaceTab } from './workspace-tab-model'
 import { cn } from '@/lib/utils'
 import { t } from '@/i18n/i18n'
+
+// The editors bring Monaco (megabytes of script); loaded on the first file or diff tab, not at startup.
+const FileEditorView = lazy(() => import('@/components/FileEditorView').then((m) => ({ default: m.FileEditorView })))
+const DiffTabView = lazy(() => import('@/components/EditorTabViews').then((m) => ({ default: m.DiffTabView })))
 
 // The hint covers the place the new split takes: a share of the whole pane, its sidebar included.
 const pct = (share: number) => `${share * 100}%`
@@ -47,10 +49,10 @@ const TabBody = memo(function TabBody({ tab }: { tab: WorkspaceTab }) {
     case 'terminal':
       return <TerminalTabBody key={tab.id} tabId={tab.id} terminal={tab.terminal} />
     case 'editor':
-      return tab.editor.kind === 'file' ? (
-        <FileEditorView key={tab.id} tab={tab.editor} />
-      ) : (
-        <DiffTabView key={tab.id} tab={tab.editor} />
+      return (
+        <Suspense fallback={<div key={tab.id} className="min-h-0 flex-1 bg-editor-surface" />}>
+          {tab.editor.kind === 'file' ? <FileEditorView key={tab.id} tab={tab.editor} /> : <DiffTabView key={tab.id} tab={tab.editor} />}
+        </Suspense>
       )
     case 'browser':
       return <BrowserTabView key={tab.id} tab={tab.browser} />
