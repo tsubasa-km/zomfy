@@ -67,7 +67,15 @@ export interface SessionInfo {
    * the chat's model option then (null: the default model). Absent until such a turn, and from older daemons.
    */
   defaultEffort?: { model: string | null; effort: ChatEffort } | null
+  /** MCP servers given to this chat alone when it was made (docs/specs/relay-settings.md); Claude only. */
+  connectors?: ChatConnectorPreset[]
 }
+
+/** An MCP server a chat can be started with: `cloudflare` is Cloudflare's API server, CLOUDFLARE_MCP_URL. */
+export type ChatConnectorPreset = 'cloudflare'
+
+/** The Cloudflare MCP server of Cloudflare's own agent plugin; it covers the whole Cloudflare API. */
+export const CLOUDFLARE_MCP_URL = 'https://mcp.cloudflare.com/mcp'
 
 /** Where a bot chat came from, for its header ("from Discord · asked by Alex"). */
 export interface BotChatFrom {
@@ -271,7 +279,8 @@ export interface SessionRequests {
   [SESSION_METHODS.sessionCreate]: {
     /** `permissionMode`: the mode a Claude chat starts in (older daemons start in 'default'). */
     /** `parentId`: the chat that started this one (an agent's create_session); older daemons ignore it. */
-    params: { workspaceId: string; agent?: ChatAgentId; role?: SessionRole; permissionMode?: ChatPermissionMode; parentId?: string }
+    /** `connectors`: MCP servers for this chat alone, Claude only; older daemons ignore it. */
+    params: { workspaceId: string; agent?: ChatAgentId; role?: SessionRole; permissionMode?: ChatPermissionMode; parentId?: string; connectors?: ChatConnectorPreset[] }
     result: SessionInfo
   }
   [SESSION_METHODS.sessionClose]: { params: { sessionId: string }; result: Record<string, never> }
