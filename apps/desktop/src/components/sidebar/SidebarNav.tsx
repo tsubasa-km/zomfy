@@ -58,7 +58,7 @@ function NavRow({
           className={cn(ROW, active ? ROW_ACTIVE : ROW_IDLE)}
         >
           <Icon className={cn('size-4 shrink-0', !active && 'text-worktree-sidebar-foreground/30')} strokeWidth={active ? 2.25 : 1.75} />
-          <span className="flex-1">{label}</span>
+          <span className="min-w-0 flex-1 truncate">{label}</span>
           {trailing}
         </button>
       </ContextMenuTrigger>
@@ -165,43 +165,21 @@ function TasksRow() {
   )
 }
 
-/** Orca's DashboardBucketCounts: needs-your-answer, working and your-turn tallies beside the row label. */
+/**
+ * How many chats wait for the person's answer, beside the dashboard row, drawn as the Bots row
+ * draws its own. Working and your-turn chats are already counted by the chat list's group headers
+ * and the status bar; a third tally here only competed with the one count that needs the person.
+ */
 function DashboardCounts() {
-  const counts = useStore((s) => {
-    let attention = 0
-    let working = 0
-    let done = 0
-    for (const session of s.sessions) {
-      const phase = phaseOf(session)
-      if (phase === 'needs-answer') attention++
-      else if (phase === 'working' || phase === 'background') working++
-      else if (phase === 'your-turn') done++
-    }
-    return `${attention}:${working}:${done}`
-  })
-  const [attention, working, done] = counts.split(':').map(Number)
-  const buckets = [
-    { id: 'attention', label: t('Needs your answer'), count: attention ?? 0 },
-    { id: 'working', label: t('Working'), count: working ?? 0 },
-    { id: 'done', label: t('Your turn'), count: done ?? 0 }
-  ].filter((b) => b.count > 0)
-  if (buckets.length === 0) return null
+  const attention = useStore((s) => s.sessions.filter((session) => phaseOf(session) === 'needs-answer').length)
+  if (attention === 0) return null
   return (
-    <span className="flex items-center gap-1.5">
-      {buckets.map((bucket) => (
-        <span
-          key={bucket.id}
-          aria-label={`${bucket.label}: ${bucket.count}`}
-          className="inline-flex items-center gap-1 text-[10px] text-worktree-sidebar-foreground/55 tabular-nums"
-        >
-          {bucket.id === 'attention' ? (
-            <AgentQuestionIcon className="size-2.5" />
-          ) : (
-            <span className={cn('size-1.5 rounded-full', bucket.id === 'working' ? 'bg-yellow-500' : 'bg-emerald-500')} />
-          )}
-          {bucket.count}
-        </span>
-      ))}
+    <span
+      aria-label={`${t('Needs your answer')}: ${attention}`}
+      className="inline-flex shrink-0 items-center gap-1 text-[10px] text-worktree-sidebar-foreground/55 tabular-nums"
+    >
+      <AgentQuestionIcon className="size-2.5" />
+      {attention}
     </span>
   )
 }
