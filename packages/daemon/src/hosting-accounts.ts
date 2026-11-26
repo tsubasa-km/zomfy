@@ -201,7 +201,10 @@ export function withoutZomfyHelper(values: string[]): string[] | null {
 
 /** The key's values with Zomfy's helper (behind an empty reset that sets the global helpers aside for this URL). */
 export function withZomfyHelper(values: string[], helper: string): string[] {
-  return [...(withoutZomfyHelper(values) ?? values), '', helper]
+  const kept = [...(withoutZomfyHelper(values) ?? values)]
+  // One reset entry before Zomfy's helper: blanks left at the end (by an earlier write) are folded into it.
+  while (kept.at(-1) === '') kept.pop()
+  return [...kept, '', helper]
 }
 
 /** Whether git talks to the remote over HTTP(S), where credential helpers apply; SSH keys decide the rest. */
