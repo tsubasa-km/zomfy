@@ -405,14 +405,21 @@ async function openConnection(hostId: HostId): Promise<void> {
         ? t("The daemon there had exited (its terminals and agent turns ended); a new one was started.")
         : undefined,
     });
-    setHarnessState(hostId, await opened.agent.request<HarnessState>(HARNESS_METHODS.stateGet, {}));
-    mergeSessions(hostId, await opened.agent.request<SessionInfo[]>(HARNESS_METHODS.sessionsList, {}));
-    resyncTranscripts(hostId);
-    setTerminals(hostId, await opened.agent.request<TerminalInfo[]>(HARNESS_METHODS.terminalsList, {}));
-    upsertHost(hostId, {
-      shells: await opened.agent.request<ShellOption[]>(HARNESS_METHODS.shellsList, {}),
-      connection: { kind: "connected", url: info.url },
+    // Asked together and applied in one render, so the window does not redraw (and re-lay out)
+    // once per answer while it starts.
+    const [harness, sessions, terminals, shells] = await Promise.all([
+      opened.agent.request<HarnessState>(HARNESS_METHODS.stateGet, {}),
+      opened.agent.request<SessionInfo[]>(HARNESS_METHODS.sessionsList, {}),
+      opened.agent.request<TerminalInfo[]>(HARNESS_METHODS.terminalsList, {}),
+      opened.agent.request<ShellOption[]>(HARNESS_METHODS.shellsList, {}),
+    ]);
+    batchUpdates(() => {
+      setHarnessState(hostId, harness);
+      mergeSessions(hostId, sessions);
+      setTerminals(hostId, terminals);
+      upsertHost(hostId, { shells, connection: { kind: "connected", url: info.url } });
     });
+    resyncTranscripts(hostId);
     if (hostId !== LOCAL_HOST) rememberHost(hostId, true);
     // Runs interrupted while no window watched (the app was closed) are offered back.
     void offerInterruptedRuns(hostId);

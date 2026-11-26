@@ -725,5 +725,8 @@ export const CHAT: Record<string, string> = {
     'Claude のサインインを開けませんでした: {error}。このホストのターミナルで `claude auth login` を実行してから、もう一度試してください。',
 
   // components/native-chat/NativeChatComposer.tsx (Stop pressed, the agent still winding down)
-  'Stopping…': '停止中…'
+  'Stopping…': '停止中…',
+
+  // components/ThreadView.tsx (a chat's history still being replayed from its host)
+  'Loading the thread…': 'スレッドを読み込み中…'
 }
