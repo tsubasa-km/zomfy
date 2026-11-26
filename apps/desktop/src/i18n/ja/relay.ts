@@ -9,7 +9,7 @@ export const RELAY: Record<string, string> = {
   'Chosen by': '決め方',
   'its FEATURES variable': 'FEATURES 変数',
   'which secrets are set': '設定済みのシークレット',
-  'Check reads what a relay serves before you pair with it.': '「確認」で、ペアリングする前にリレーが何を提供しているかを読み取れます。',
+  'Check reads what a relay serves before you pair with it.': '「チェック」で、ペアリングする前にリレーが何を提供しているかを読み取れます。',
   'Zomfy Relay {version} serves': 'Zomfy Relay {version} の提供機能',
   'It serves': '提供機能',
   On: 'オン',

@@ -97,5 +97,5 @@ export function buildRelaySetupPrompt(input: RelaySetupPromptInput): string {
     text.health,
     features.includes('phone') ? `${text.pair} ${text.pairPhone}` : text.pair
   ]
-  return [head.join(' '), text.readFirst, steps.map((step, i) => `${i + 1}. ${step}`).join('\n'), text.limits].join('\n\n')
+  return [head.join(input.language === 'ja' ? '' : ' '), text.readFirst, steps.map((step, i) => `${i + 1}. ${step}`).join('\n'), text.limits].join('\n\n')
 }

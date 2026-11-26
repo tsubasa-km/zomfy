@@ -37,7 +37,7 @@ function useZomfyCheckouts(open: boolean): Checkout[] | null {
     void Promise.all(
       primaries.map((w) =>
         harnessRequest(HARNESS_METHODS.fsStat, { workspaceId: w.id, path: 'apps/relay/wrangler.jsonc' }, LOCAL_HOST).then(
-          () => ({ workspaceId: w.id, name: names.get(`${w.hostId}:${w.projectId}`) ?? w.name, path: w.path }),
+          (stat) => (stat.exists ? { workspaceId: w.id, name: names.get(`${w.hostId}:${w.projectId}`) ?? w.name, path: w.path } : null),
           () => null
         )
       )
