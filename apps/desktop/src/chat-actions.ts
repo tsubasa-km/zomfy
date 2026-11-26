@@ -1,3 +1,4 @@
+import { useSyncExternalStore } from 'react'
 import { HARNESS_METHODS, type ChatAgentId, type SessionInfo, type SessionOptions, type TurnResumeKind } from '@zomfy/protocol'
 import { isExternalAgentSession, sessionAgent } from '@/lib/chat-agents'
 import { keepTab } from '@/stores/tab-layout-store'
@@ -60,6 +61,33 @@ function giveBack(sessionId: string, text: string, images: ChatImage[]): void {
 export function stopTurn(sessionId: string): void {
   if (chatSession(sessionId).queue.length > 0) patchChatSession(sessionId, { queuePaused: true, queuePauseReason: null })
   cancelTurn(sessionId)
+  setStopping(sessionId, true)
+}
+
+// Chats whose Stop was pressed and whose turn has not ended yet. An agent may take a while to wind
+// down (an ACP agent is given 10 s): the button says it is stopping instead of seeming to do nothing.
+// Past STOP_RETRY_MS it offers Stop again.
+const STOP_RETRY_MS = 12_000
+const stopping = new Map<string, ReturnType<typeof setTimeout>>()
+const stoppingListeners = new Set<() => void>()
+
+function setStopping(sessionId: string, on: boolean): void {
+  const timer = stopping.get(sessionId)
+  if (timer) clearTimeout(timer)
+  if (on) stopping.set(sessionId, setTimeout(() => setStopping(sessionId, false), STOP_RETRY_MS))
+  else if (!stopping.delete(sessionId)) return
+  for (const listener of stoppingListeners) listener()
+}
+
+/** Whether this chat's Stop was pressed and its turn is still ending. */
+export function useStopping(sessionId: string): boolean {
+  return useSyncExternalStore(
+    (listener) => {
+      stoppingListeners.add(listener)
+      return () => stoppingListeners.delete(listener)
+    },
+    () => stopping.has(sessionId)
+  )
 }
 
 /** Sends a queued message now; a running turn is interrupted for it (the daemon replaces it). */
@@ -97,6 +125,7 @@ function sendNextQueued(sessionId: string): void {
 }
 
 onSessionTransition(({ session: s, to }) => {
+  if (!isWorking({ status: to })) setStopping(s.id, false)
   const next = queueOnStatus(chatSession(s.id), to)
   if (next?.kind === 'send') sendNextQueued(s.id)
   // A failed turn holds the queue, saying why, until Resume (or a message sent by hand).
