@@ -3,7 +3,7 @@ type: Spec
 title: Scheduled wake-ups fire in a Zomfy chat
 description: A Claude chat that ends its turn with a ScheduleWakeup, CronCreate or /loop keeps its Claude process until the wake-up fires; if the process goes anyway, the daemon fires one-shot wake-ups itself, also after a restart.
 status: stable
-x-zomfy-implementation: in-progress
+x-zomfy-implementation: done
 tags: [claude, chat, background-tasks, daemon]
 generated: { by: "claude-code/opus-5.5", at: "2026-11-26T00:00:00Z" }
 ---

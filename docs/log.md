@@ -59,3 +59,6 @@
 * **Update**: [Thinking that holds the answer shows open](specs/visible-thinking.md): thinking now starts expanded by default; [The Next steps card](specs/next-steps-card.md) no longer answers a wrap_up made before any reply differently.
 * **Creation**: [Zomfy Relay settings, its features, and setting it up with an agent](specs/relay-settings.md), in progress.
 * **Update**: [Zomfy Relay settings, its features, and setting it up with an agent](specs/relay-settings.md) is implemented: Settings → Zomfy Relay, the Worker's `FEATURES` and richer `/health`, and Set up with an agent.
+* **Creation**: [Threads say whose turn it is](specs/turn-taking-states.md), done: Needs your answer, Your turn, Working, Background work running and Quiet replace Done and Settled on every surface, from `SessionInfo.background`, `yourTurnSince` and `seenAt`.
+* **Creation**: [Scheduled wake-ups fire in a Zomfy chat](specs/scheduled-wake-ups.md), done: a pending ScheduleWakeup or CronCreate keeps the Claude process, and the daemon fires one-shot wake-ups whose process went.
+* **Update**: [The place the person acts next glows](specs/composer-waiting-glow.md): the glow moves to the waiting question or approval card, the open Next steps question, or the composer on Your turn.

@@ -3,7 +3,7 @@ type: Spec
 title: Threads say whose turn it is
 description: Every surface that shows a thread's state uses five turn-taking states (Needs your answer, Your turn, Working, Background work running, Quiet) derived from what the daemon reports, instead of the sidebar's "Done" and "Settled".
 status: stable
-x-zomfy-implementation: in-progress
+x-zomfy-implementation: done
 tags: [chat, sidebar, tabs, mobile, daemon, protocol]
 generated: { by: "claude-code/opus-5.5", at: "2026-11-26T00:00:00Z" }
 ---
@@ -25,7 +25,7 @@ was still going. "Done" also meant three things (the sidebar, the dashboard, the
 | **Needs your answer** | 回答待ち | A question, an approval or a split confirmation is waiting, or the last turn failed | The person, by answering |
 | **Working** | 作業中 | A turn runs (in this thread, or in a helper or worker under it) | The agent |
 | **Background work running** | バックグラウンドで作業中 | The turn ended, but background tasks run or a scheduled wake-up is due; the thread goes on by itself | The agent (the person may wait) |
-| **Your turn** | あなたの番 | The agent's last turn ended after the person's last prompt and nothing is going on | The person |
+| **Your turn** | あなたの番です | The agent's last turn ended after the person's last prompt and nothing is going on | The person |
 | **Quiet** | 静か | It was the person's turn, they have seen the thread, and it has been untouched for a while (default 24 hours); also a thread that never ran a turn | Nobody |
 
 "Background work running" is a kind of Working: it groups with Working and draws like it, with its
@@ -65,8 +65,8 @@ parent.
 
 ## Quiet after
 
-Settings → Appearance → Sidebar → **Quiet after** (`chatQuietAfterHours`): 1, 4, 24 (default) or
-72 hours, or Never. It is read by the desktop only; the phone uses the default.
+Settings → Input & Editing → Thread → **Quiet after** (`chatQuietAfterHours`): 1, 4, 24 (default)
+or 72 hours, or Never (0). It is read by the desktop only; the phone uses the default.
 
 # Where it shows
 
@@ -85,6 +85,11 @@ Settings → Appearance → Sidebar → **Quiet after** (`chatQuietAfterHours`):
 - **Hover card** in the sidebar: the state's label in place of the old Idle/Done.
 - **Phone**: the thread list and the chat screen use the same five labels and translations;
   "Needs you" becomes "Needs your answer" (回答待ち) there too.
+- **Agent Dashboard** and its counts in the sidebar: lanes Needs your answer, Working (background
+  work too), Your turn and Quiet, instead of Needs You / Working / Done / Idle. An idle chat's dot
+  elsewhere (workspace cards, Send to agent) is the plain grey dot, no longer Done's check.
+
+"Your turn" reads あなたの番です in Japanese, the translation the workflow run view already used.
 
 The words "Done" and "Settled" are no longer used for chat threads. "Done" remains only where it
 means a finished task (the task list, the workspace board, the dashboard's TUI agents).

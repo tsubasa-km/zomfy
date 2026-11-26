@@ -3,7 +3,7 @@ type: Spec
 title: The place the person acts next glows
 description: A waiting question or approval card glows, or the Next steps card's question when the turn ended with one, or else the composer when it is simply the person's turn; one place at a time, in the pattern Settings picks (Rainbow, Accent pulse, Static outline or Off).
 status: stable
-x-zomfy-implementation: in-progress
+x-zomfy-implementation: done
 tags: [chat, desktop, composer, settings]
 generated: { by: "claude-code/opus-5.5", at: "2026-11-26T00:00:00Z" }
 ---
