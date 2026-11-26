@@ -119,7 +119,14 @@ const ja: Record<string, string> = {
   'Needs your answer': '回答待ち',
   'Your turn': 'あなたの番です',
   'Background work running': 'バックグラウンドで作業中',
-  'Wakes {time}': '{time} に再開'
+  'Wakes {time}': '{time} に再開',
+  // ui/TranscriptItemView.tsx: a wrap_up call (docs/specs/next-steps-card.md)
+  'For you': 'あなたがやること',
+  'Next steps': 'ネクストステップ',
+  'Nothing needs you right now.': '今はあなたの対応は不要です。',
+  'Nothing needs you — {agent} continues with: {step}': 'あなたの対応は不要です。次に {agent} が進めること：{step}',
+  'Next, {agent} will: {step}': '次に {agent} がやること：{step}',
+  'the agent': 'エージェント'
 }
 
 const TABLES: Record<Language, Record<string, string>> = { en: {}, ja }
