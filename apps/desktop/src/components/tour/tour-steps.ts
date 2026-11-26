@@ -1,5 +1,6 @@
 import { t } from '@/i18n/i18n'
 import { getAppOverlays } from '@/stores/app-overlay-store'
+import { getSetting } from '@/stores/settings-store'
 import { getWorkflowsPage } from '@/stores/workflows-store'
 
 // The guided tour's stops, in order. Each points at a part of the real window by a selector; a stop
@@ -75,10 +76,17 @@ export const TOUR_STEPS: TourStep[] = [
   {
     chapter: t('Layout'),
     title: t('The tool drawer'),
-    body: t('Point at the handle to open the workspace’s tools. Drag the handle along its edge or pull it toward a different edge to move it.'),
+    body: t('The drawer holds the workspace’s tools. Drag its handle along the edge or pull it toward another edge to move it.'),
     target: '[data-drawer-handle]',
     optional: true,
-    action: { prompt: t('Point at the tab and wait a moment.'), on: 'hover' }
+    action: {
+      get prompt() {
+        return getSetting('drawerOpenAction') === 'click' ? t('Click the drawer handle.') : t('Point at the tab and wait a moment.')
+      },
+      get on() {
+        return getSetting('drawerOpenAction')
+      }
+    }
   },
   {
     chapter: t('Layout'),
@@ -86,7 +94,7 @@ export const TOUR_STEPS: TourStep[] = [
     body: t('The drawer closes when the pointer leaves it. Click the pin tab on its inner edge to keep it open.'),
     target: DRAWER,
     optional: true,
-    action: { prompt: t('Click the pin tab. If the drawer closed, point at its handle again.'), on: 'click', within: '[data-drawer-pin]' }
+    action: { prompt: t('Click the pin tab. If the drawer closed, reopen it with its handle.'), on: 'click', within: '[data-drawer-pin]' }
   },
   {
     chapter: t('Layout'),

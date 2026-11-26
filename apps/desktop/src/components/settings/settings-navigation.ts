@@ -102,6 +102,7 @@ export const SETTINGS_SECTIONS: readonly SettingsNavSection[] = [
     entries: [
       { title: t('Theme'), keywords: ['dark', 'light', 'system', 'color'] },
       { title: t('UI Zoom'), keywords: ['zoom', 'scale', 'size'] },
+      { title: t('Tool drawer'), keywords: ['drawer', 'hover', 'click'] },
       { title: t('IDE Font'), keywords: ['font', 'typeface', 'typography'] },
       { title: t('Show Tasks Button'), keywords: ['tasks', 'sidebar', 'button', 'issues'] },
       { title: t('Show Automations Button'), keywords: ['automations', 'automation', 'schedule', 'sidebar'] },

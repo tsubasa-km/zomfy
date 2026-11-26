@@ -3,6 +3,7 @@ import {
   DEFAULT_SETTINGS,
   setSetting,
   useSetting,
+  type DrawerOpenAction,
   type FloatingWorkspaceTriggerLocation,
   type TerminalCursorStyle,
   type ThemePreference
@@ -150,6 +151,7 @@ function FloatingWorkspaceSection() {
 
 export function AppearancePane() {
   const theme = useSetting('theme')
+  const drawerOpenAction = useSetting('drawerOpenAction')
   const appFont = useSetting('appFontFamily')
   const terminalFont = useSetting('terminalFontFamily')
   const terminalFontSize = useSetting('terminalFontSize')
@@ -185,6 +187,21 @@ export function AppearancePane() {
             keywords={['zoom', 'scale', 'size']}
             description={zoomIn && zoomOut ? t('{zoomIn} / {zoomOut} from anywhere in the app.', { zoomIn, zoomOut }) : undefined}
             control={<UIZoomControl />}
+          />
+          <SettingsRow
+            label={t('Tool drawer')}
+            keywords={['drawer', 'hover', 'click']}
+            control={
+              <SettingsSegmentedControl<DrawerOpenAction>
+                ariaLabel={t('Tool drawer')}
+                value={drawerOpenAction}
+                onChange={(value) => setSetting('drawerOpenAction', value)}
+                options={[
+                  { value: 'hover', label: t('Open on hover (default)') },
+                  { value: 'click', label: t('Open on click') }
+                ]}
+              />
+            }
           />
           <TextField
             label={t('IDE Font')}

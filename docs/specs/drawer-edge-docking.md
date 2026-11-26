@@ -5,7 +5,7 @@ description: Drag the tool drawer's handle along an edge or dock it to any edge 
 status: stable
 x-zomfy-implementation: done
 tags: [ui, tabs, drawer]
-generated: { by: "codex/gpt-6", at: "2026-11-26T00:00:00Z" }
+generated: { by: "codex/gpt-6", at: "2026-11-26T08:17:56Z" }
 ---
 
 # Behavior
@@ -26,11 +26,20 @@ its own pin and selected tool.
 - Each edge remembers its own size, and double-clicking its separator resets that edge alone. An
   existing saved drawer height becomes the top edge's height.
 
-The open drawer overlays the pane and keeps the existing hover, click, pin, tool, and shortcut
-behavior. Docking applies within the drawer's current pane.
+In Settings → Appearance → Interface, **Tool drawer** offers **Open on hover (default)** and
+**Open on click**. The default opens after a short hover. In click mode, hovering the
+closed handle leaves it closed. Clicking the handle or activating it with the keyboard opens it. Dragging the closed handle
+moves it without opening it. The preference is saved with other app settings.
+
+The open drawer overlays the pane and still closes when the pointer leaves it unless pinned.
+Shortcuts and tool commands keep opening the drawer as before. Docking applies within the
+drawer’s current pane.
 
 # Acceptance
 
+- With default settings, hovering the closed handle opens the drawer. Select **Open on click**,
+  hover and drag the closed handle, and verify it stays closed. Click the handle and verify it opens.
+  Reload to verify the preference is restored, then switch back to **Open on hover (default)**.
 - Slide the top handle to either side, detach it, and dock it at the bottom, left, and right.
 - In each position, open and pin the drawer, drag the pin handle, and resize from its inner edge.
 - Cancel a drag and verify the drawer keeps its prior position and pin state.

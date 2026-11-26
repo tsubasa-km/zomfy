@@ -1305,6 +1305,11 @@ export const SHELL: Record<string, string> = {
   Diff: '差分',
   'Pull request': 'プルリクエスト',
 
+  // components/settings/AppearancePane.tsx (tool drawer)
+  'Tool drawer': '引き出し',
+  'Open on hover (default)': 'ホバーで開く（デフォルト）',
+  'Open on click': 'クリックで開く',
+
   // components/tab-layout/ToolDrawer.tsx (resize)
   'Resize the drawer': '引き出しの高さを変更',
   'Drag to change the height · double-click to reset': 'ドラッグで高さを変更 · ダブルクリックで元に戻す',

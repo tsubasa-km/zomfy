@@ -20,6 +20,7 @@ import { setDrawerDepth, setDrawerDock, useDrawerDepth, useDrawerDock } from '@/
 import { drawerAlongEdge, drawerDragTarget, drawerResizeDepth, isDrawerSide, type DrawerDock, type DrawerEdge, type DrawerPoint } from './drawer-docking'
 import './tool-drawer.css'
 import { useTabLayout } from '@/stores/tab-layout-store'
+import { useSetting } from '@/stores/settings-store'
 import { takeDrawerRequest, useDrawerRequest } from '@/stores/drawer-request-store'
 import { cn } from '@/lib/utils'
 import { t } from '@/i18n/i18n'
@@ -72,7 +73,7 @@ const GIT_PANELS = new Set(['panel:source-control', 'panel:checks'])
 
 /**
  * The project's terminals, browsers and panels (explorer, search, source control, checks, ports, side
- * chat, agent). Hovering the handle opens it, and leaving it closes it unless pinned. The drawer
+ * chat, agent). The handle opens it on hover or click, depending on the setting. The drawer
  * remembers its pin and choice for `tabId`. The focused pane also answers requests from elsewhere.
  */
 export function ToolDrawer({
@@ -104,12 +105,13 @@ export function ToolDrawer({
   const dock = useDrawerDock()
   const side = isDrawerSide(dock.edge)
   const depth = useDrawerDepth(dock.edge)
+  const openOnHover = useSetting('drawerOpenAction') === 'hover'
   const drag = useRef<DockDrag | null>(null)
   const ignorePointerClick = useRef(false)
   const [preview, setPreview] = useState<DockPreview | null>(null)
   const resizing = useRef(false)
   const timer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
-  useEffect(() => () => clearTimeout(timer.current), [])
+  useEffect(() => () => clearTimeout(timer.current), [openOnHover])
   // A terminal or browser opened from here comes to the front.
   const known = useRef<Set<string> | null>(null)
   const toolIds = tools.map((t) => t.id).join(',')
@@ -305,7 +307,7 @@ export function ToolDrawer({
         aria-expanded={shown}
         title={`${countTitle} · ${t('Drag to move the drawer')}`}
         {...dragEvents}
-        onPointerEnter={() => later(true, OPEN_DELAY_MS)}
+        onPointerEnter={openOnHover ? () => later(true, OPEN_DELAY_MS) : undefined}
         onPointerLeave={() => {
           if (!drag.current && !shown) clearTimeout(timer.current)
         }}
