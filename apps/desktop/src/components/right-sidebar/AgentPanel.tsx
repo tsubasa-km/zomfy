@@ -13,6 +13,9 @@ import { EnvironmentSection } from './session-panel/EnvironmentSection'
 import { ContextSection } from './session-panel/ContextSection'
 import { UsageLimitsSection } from './session-panel/UsageLimitsSection'
 import { ConnectorsSection } from './session-panel/ConnectorsSection'
+import { AgentStateDot } from '@/components/AgentStateDot'
+import { useCoarseNow } from '@/lib/chat-list'
+import { phaseOf, turnPhaseDot, turnPhaseLabel, useQuietAfterHours, wakeTime } from '@/lib/turn-phase'
 import { t } from '@/i18n/i18n'
 
 // The Session tab, after the Claude app's session sidebar: for the chat in front, where it runs,
@@ -62,6 +65,8 @@ export function AgentPanel({ workspaceId }: { workspaceId: string }) {
   // The panel re-renders on every change to any chat; the count walks this chat's whole transcript.
   const items = session?.items
   const activity = useMemo(() => chatActivity(items ?? []), [items])
+  const now = useCoarseNow()
+  const quietAfter = useQuietAfterHours()
 
   useEffect(() => {
     if (hostId && projectId) void loadWorkflowRuns(hostId, projectId).catch(() => undefined)
@@ -72,6 +77,8 @@ export function AgentPanel({ workspaceId }: { workspaceId: string }) {
   }
 
   const agent = session.agent ?? 'claude'
+  const phase = phaseOf(session, now, quietAfter)
+  const phaseDot = turnPhaseDot(phase, session.status)
   const run = runs.find((r) => r.steps.some((s) => s.sessionIds.includes(session.id)))
   const openRun = (r: HostedWorkflowRun) =>
     openWorkflows({ hostId: r.hostId, projectId: r.projectId, projectName, runId: r.id })
@@ -83,6 +90,10 @@ export function AgentPanel({ workspaceId }: { workspaceId: string }) {
         <TuiAgentIcon agent={agent} size={16} />
         <div className="min-w-0 flex-1">
           <div className="truncate text-sm font-medium">{session.title}</div>
+          <div className="flex items-center gap-1 text-[11px] text-foreground/80" data-agent-panel-phase={phase}>
+            {phaseDot && <AgentStateDot state={phaseDot} size="sm" title={null} />}
+            {turnPhaseLabel(phase, session.status)}
+          </div>
           <div className="truncate text-[11px] text-muted-foreground">
             {chatAgentLabel(agent)}
             {session.options?.model ? ` · ${session.options.model}` : ''}
@@ -90,6 +101,31 @@ export function AgentPanel({ workspaceId }: { workspaceId: string }) {
           </div>
         </div>
       </div>
+
+      {session.background && (session.background.tasks.length > 0 || session.background.wakeUps.length > 0) && (
+        <Section title={t('Background work')}>
+          <ul className="space-y-1" data-agent-background>
+            {session.background.tasks.map((task, i) => (
+              <li key={`task:${i}`} className="flex items-center gap-2">
+                <AgentStateDot state="monitoring" size="sm" title={null} />
+                <span className="min-w-0 flex-1 truncate" title={task}>
+                  {task}
+                </span>
+                <span className="shrink-0 text-muted-foreground">{t('Running')}</span>
+              </li>
+            ))}
+            {session.background.wakeUps.map((wakeUp) => (
+              <li key={`wake:${wakeUp.id}`} className="flex items-center gap-2">
+                <span className="shrink-0 text-muted-foreground tabular-nums">{wakeUp.at === null ? '—' : wakeTime(wakeUp.at, now)}</span>
+                <span className="min-w-0 flex-1 truncate" title={wakeUp.prompt}>
+                  {wakeUp.prompt || t('Scheduled wake-up')}
+                </span>
+                {wakeUp.recurring && <span className="shrink-0 text-muted-foreground">{t('Repeats')}</span>}
+              </li>
+            ))}
+          </ul>
+        </Section>
+      )}
 
       <EnvironmentSection workspaceId={workspaceId} />
 

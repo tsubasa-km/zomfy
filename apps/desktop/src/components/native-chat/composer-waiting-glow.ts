@@ -1,4 +1,4 @@
-import type { ChatWaitingGlow } from '@/stores/settings-store'
+import { useSetting, type ChatWaitingGlow } from '@/stores/settings-store'
 
 // docs/specs/composer-waiting-glow.md: which pattern a composer's border shows. The patterns
 // themselves are composer-waiting-glow.css; Settings previews them with WaitingGlowPreview.
@@ -12,4 +12,9 @@ const PATTERNS: readonly ChatWaitingGlow[] = ['rainbow', 'pulse', 'outline']
 export function waitingGlowAttribute(waiting: boolean, pattern: ChatWaitingGlow): Exclude<ChatWaitingGlow, 'off'> | undefined {
   if (!waiting || pattern === 'off' || !PATTERNS.includes(pattern)) return undefined
   return pattern
+}
+
+/** The `data-waiting-glow` value for an element that glows when `on`, in the pattern Settings picks. */
+export function useWaitingGlow(on: boolean): Exclude<ChatWaitingGlow, 'off'> | undefined {
+  return waitingGlowAttribute(on, useSetting('chatWaitingGlow'))
 }
