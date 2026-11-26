@@ -370,8 +370,6 @@ export const CHAT: Record<string, string> = {
   // components/native-chat/NativeChatNextStepsCard.tsx
   'Please go ahead with this next step: {step}': '次のステップを進めてください：{step}',
   'Next steps': 'ネクストステップ',
-  'Show original': '元の文面を表示',
-  'Show as card': 'カードで表示',
   'Ask to do this': 'これを頼む',
   Asked: '依頼済み',
   'Add to Inbox': '受信箱のやることに追加',
@@ -384,6 +382,12 @@ export const CHAT: Record<string, string> = {
   "Added to your Inbox's To do list": '受信箱の「やること」に追加しました',
   'Open Inbox': '受信箱を開く',
   'Could not add it to your Inbox': '受信箱に追加できませんでした',
+  'For you': 'あなたがやること',
+  'Nothing needs you right now.': '今はあなたの対応は不要です。',
+  'Nothing needs you — {agent} continues with: {step}': 'あなたの対応は不要です。次に {agent} が進めること：{step}',
+  'Next, {agent} will:': '次に {agent} がやること：',
+  'Then, {agent} will:': 'その後 {agent} がやること：',
+  'Earlier summary': '以前の形式の要約',
 
   // components/native-chat/NativeChatTurnDiffRollup.tsx
   'Hide diff': '差分を隠す',
