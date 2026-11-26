@@ -3,7 +3,7 @@
 // updates folded in), the latest plan, and notices. Usage, modes and commands are ignored.
 
 import type * as acp from '@agentclientprotocol/sdk'
-import { CHAT_META } from '@zomfy/protocol'
+import { CHAT_META, normalizeWrapUp, type WrapUpCard } from '@zomfy/protocol'
 
 export type PlanEntry = { content: string; status: string; priority?: string }
 
@@ -144,4 +144,11 @@ export function toolSummary(item: Extract<TranscriptItem, { kind: 'tool' }>): st
   const command = typeof input?.command === 'string' ? input.command : null
   const title = item.title && item.title !== 'Tool' ? item.title : (item.toolName ?? 'Tool')
   return (command && !title.includes(command) ? `${title}: ${command}` : title).split('\n')[0]!
+}
+
+/** A wrap_up call's card (docs/specs/next-steps-card.md), shown instead of a tool line; else null. */
+export function wrapUpCardOf(item: Extract<TranscriptItem, { kind: 'tool' }>): WrapUpCard | null {
+  const name = item.toolName ?? item.title
+  if (!/(^|[_.:/])wrap_up$/.test(name) || item.status === 'failed') return null
+  return normalizeWrapUp(item.input)
 }

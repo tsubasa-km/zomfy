@@ -1,5 +1,15 @@
 import type * as acp from "@agentclientprotocol/sdk";
-import { CHAT_META, MANAGER_MCP_SERVER_NAME, type PromptOrigin, type SessionInfo, type SessionStatus } from "@zomfy/protocol";
+import {
+  CHAT_META,
+  MANAGER_MCP_SERVER_NAME,
+  agentStepsOf,
+  normalizeWrapUp,
+  personActionsOf,
+  type PromptOrigin,
+  type SessionInfo,
+  type SessionStatus,
+  type WrapUpCard,
+} from "@zomfy/protocol";
 import type { SessionRecord } from "./session-registry.ts";
 
 // A chat an agent prompted (send_prompt, create_session, create_workspace) reports to the chat that
@@ -61,6 +71,20 @@ export const REPORT_HEADING = "[Chats you started have stopped]";
 const WITHHELD = "(withheld: it holds local-only data)";
 const WRAP_UP_TOOL = `mcp__${MANAGER_MCP_SERVER_NAME}__wrap_up`;
 const MAX_REPLY = 3000;
+
+/** A wrap_up as one line for the launching chat: what it asks of the person, then what it will do. */
+export function wrapUpLine(card: WrapUpCard): string {
+  const person = personActionsOf(card).map((step) => (step.owner === "person" ? step.text : `${step.owner}: ${step.text}`));
+  const agent = agentStepsOf(card).map((step) => step.text);
+  const parts = [
+    person.length > 0 ? `for the person: ${person.join("; ")}` : card.question ? "" : "nothing for the person",
+    card.question ? `asks: ${card.question.text} (${card.question.options.join(" / ")})` : "",
+    agent.length > 0 ? `it will next: ${agent.join("; ")}` : "",
+    // Older calls carried a summary.
+    card.summary ? `summary: ${card.summary}` : "",
+  ];
+  return parts.filter(Boolean).join(". ");
+}
 const TURN_LIMIT = 10;
 const TURN_LIMIT_WINDOW_MS = 10 * 60_000;
 
@@ -303,7 +327,7 @@ export class ChildReports {
     return lines.join("\n");
   }
 
-  /** What the chat said in its last turn, and the summary of its wrap_up. */
+  /** What the chat said in its last turn, and what its wrap_up asks of the person. */
   private async said(session: SessionRecord): Promise<{ lastReply: string; wrapUp: string }> {
     if (session.localOnly) return { lastReply: WITHHELD, wrapUp: "" };
     const transcript = await this.deps.sessions.transcript(session.id);
@@ -313,8 +337,8 @@ export class ChildReports {
     for (const update of transcript.slice(start)) {
       if (update.sessionUpdate === "agent_message_chunk" && update.content.type === "text") reply += update.content.text;
       if (update.sessionUpdate === "tool_call" && update._meta?.[CHAT_META.toolName] === WRAP_UP_TOOL) {
-        const summary = (update.rawInput as { summary?: unknown } | undefined)?.summary;
-        if (typeof summary === "string") wrapUp = summary.replace(/\s+/g, " ").trim().slice(0, 1000);
+        const card = normalizeWrapUp(update.rawInput);
+        if (card) wrapUp = wrapUpLine(card).replace(/\s+/g, " ").trim().slice(0, 1000);
       }
     }
     reply = reply.trim();

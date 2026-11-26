@@ -1,6 +1,7 @@
 import { memo, useState, type ReactNode } from 'react'
 import { Pressable, StyleSheet, Text, View } from 'react-native'
-import { toolSummary, type TranscriptItem } from '../lib/transcript'
+import { agentStepsOf, personActionsOf, type WrapUpCard } from '@zomfy/protocol'
+import { toolSummary, wrapUpCardOf, type TranscriptItem } from '../lib/transcript'
 import { styles as shared } from './components'
 import { t } from './i18n'
 import { colors, space } from './theme'
@@ -63,6 +64,8 @@ export const TranscriptItemView = memo(function TranscriptItemView({ item }: { i
         </Collapsible>
       )
     case 'tool': {
+      const card = wrapUpCardOf(item)
+      if (card) return <NextSteps card={card} />
       const color = item.status === 'failed' ? colors.danger : item.status === 'completed' ? colors.success : colors.accent
       return (
         <Collapsible line={toolSummary(item)} mark={toolMark(item.status)} markColor={color}>
@@ -107,7 +110,47 @@ export const TranscriptItemView = memo(function TranscriptItemView({ item }: { i
   }
 })
 
+/** A wrap_up call: the person's next actions first, then the question, then the agent's next step, muted. */
+function NextSteps({ card }: { card: WrapUpCard }) {
+  const yours = personActionsOf(card)
+  const agents = agentStepsOf(card)
+  const nothing = yours.length === 0 && !card.question
+  const agent = t('the agent')
+  return (
+    <View style={[shared.card, local.nextSteps]}>
+      <Text style={shared.sectionTitle}>{nothing ? t('Next steps') : t('For you')}</Text>
+      {nothing ? (
+        <Text style={shared.text}>
+          {agents[0] ? t('Nothing needs you — {agent} continues with: {step}', { agent, step: agents[0].text }) : t('Nothing needs you right now.')}
+        </Text>
+      ) : null}
+      {yours.map((step, i) => (
+        <View key={i} style={[shared.row, local.top]}>
+          <Text style={local.stepNumber}>{i + 1}.</Text>
+          <Text style={[shared.text, local.action]} selectable>
+            {step.owner === 'person' ? step.text : `${step.owner}: ${step.text}`}
+          </Text>
+        </View>
+      ))}
+      {card.question ? (
+        <View style={local.question}>
+          <Text style={[shared.text, local.action]} selectable>
+            {card.question.text}
+          </Text>
+          <Text style={shared.muted}>{card.question.options.join(' · ')}</Text>
+        </View>
+      ) : null}
+      {!nothing && agents[0] ? <Text style={shared.muted}>{t('Next, {agent} will: {step}', { agent, step: agents.map((s) => s.text).join('; ') })}</Text> : null}
+    </View>
+  )
+}
+
 const local = StyleSheet.create({
+  nextSteps: { gap: 6 },
+  top: { alignItems: 'flex-start' },
+  stepNumber: { color: colors.muted, fontWeight: '700' },
+  action: { flex: 1, fontWeight: '600' },
+  question: { gap: 2, borderTopWidth: 1, borderTopColor: colors.border, paddingTop: 6 },
   userBubble: {
     alignSelf: 'flex-end',
     maxWidth: '88%',

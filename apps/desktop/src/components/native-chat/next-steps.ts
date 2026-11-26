@@ -5,13 +5,15 @@ import { normalizeWrapUp, wrapUpOwner, type WrapUpCard, type WrapUpStep } from '
 
 export type { WrapUpCard }
 
-/** A recap section folded into the card's summary: "やったこと", "確認状況"… */
+/** A recap section before next steps: "やったこと", "確認状況"… */
 export type RecapSection = { title: string; body: string }
 
 /** A final message whose last section is a next-steps list, split into its parts. */
 export type ParsedRecap = {
-  /** What comes before the recap, shown as the reply. */
+  /** What comes before the recap's sections. */
   lead: string
+  /** Everything before the next-steps heading, done and checked sections included: the reply. */
+  body: string
   /** The recap's other sections, folded. */
   sections: RecapSection[]
   steps: WrapUpStep[]
@@ -87,7 +89,7 @@ export function parseRecap(text: string): ParsedRecap | null {
     sections.unshift({ title: heading.title, body: lines.slice(heading.index + 1, start).join('\n').trim() })
     start = heading.index
   }
-  return { lead: lines.slice(0, start).join('\n').trim(), sections, steps }
+  return { lead: lines.slice(0, start).join('\n').trim(), body: lines.slice(0, last.index).join('\n').trim(), sections, steps }
 }
 
 function stepOf(raw: string): WrapUpStep {
