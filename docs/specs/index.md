@@ -41,3 +41,4 @@
 * [The thinking effort shows in the composer](composer-effort.md) - the model button reads "Opus · High", the default included, and the picker always selects a level
 * [A GitHub or GitLab account per project](project-hosting-accounts.md) - each project picks the account Zomfy, its agents and git use for its remote, through the CLI's env and a repo-local credential helper, never by switching
 * [The Add a project dialog](add-project-dialog.md) - one dialog with Open folder, Clone and New repository tabs, an inline host row only when there are several hosts, and the project's account
+* [The Import dialog](import-dialog.md) - one Import… with a source picker listing what is found on the host: Orca's projects and each agent CLI's recorded conversations
