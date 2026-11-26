@@ -1,7 +1,8 @@
 import { beforeEach, describe, expect, test } from "bun:test";
 import type * as acp from "@agentclientprotocol/sdk";
 import type { PromptOrigin, SessionInfo, SessionStatus } from "@zomfy/protocol";
-import { ChildReports, REPORT_HEADING } from "./child-reports.ts";
+import { ChildReports, REPORT_HEADING, wrapUpLine } from "./child-reports.ts";
+import { normalizeWrapUp } from "@zomfy/protocol";
 import type { SessionRecord } from "./session-registry.ts";
 
 // The launcher hears from the chats it prompted, with chats and turns faked: one batched turn for
@@ -284,5 +285,19 @@ describe("wait_for_session", () => {
       { sessionId: "a", title: "a", status: "needs-you", waitingOn: ["Edit"] },
       { sessionId: "b", status: "gone" },
     ]);
+  });
+});
+
+describe("wrapUpLine", () => {
+  test("leads with what the wrap_up asks of the person", () => {
+    const card = normalizeWrapUp({ personActions: ["Update the app"], agentSteps: ["Run the preview"], question: { text: "Ship?", options: ["Yes", "No"] } })!;
+    expect(wrapUpLine(card)).toBe("for the person: Update the app. asks: Ship? (Yes / No). it will next: Run the preview");
+  });
+
+  test("says when nothing needs the person, and keeps an older call's summary", () => {
+    expect(wrapUpLine(normalizeWrapUp({ personActions: [] })!)).toBe("nothing for the person");
+    expect(wrapUpLine(normalizeWrapUp({ summary: "Did it.", steps: [{ owner: "田中さん", text: "Review" }] })!)).toBe(
+      "for the person: 田中さん: Review. summary: Did it.",
+    );
   });
 });
