@@ -1,5 +1,5 @@
 import { memo, useRef, useState } from 'react'
-import { ChevronRight } from 'lucide-react'
+import { Archive, ChevronRight } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { allProjects, allWorkspaces, getState, previewSession, selectSession, useStore, type Session } from '@/session-store'
 import { AgentStateDot } from '@/components/AgentStateDot'
@@ -271,9 +271,7 @@ export const SessionRow = memo(function SessionRow({
           <TuiAgentIcon agent={sessionAgent(session)} size={11} />
           {title}
           {session.archived && renaming === null && (
-            <span className="shrink-0 text-[10px] text-muted-foreground/80" data-session-archived-tag>
-              {t('Archived')}
-            </span>
+            <Archive className="size-3 shrink-0 text-muted-foreground/70" aria-label={t('Archived')} data-session-archived-tag />
           )}
           {place && (
             <span className="max-w-24 shrink-0 truncate font-mono text-[10px] text-muted-foreground/80" title={place} data-session-place>

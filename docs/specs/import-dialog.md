@@ -48,7 +48,8 @@ error lines
   - an agent: it listed at least one conversation, across all folders.
   Sources still being read show as "Looking for Claude Code, Codex…" after the pills; one that
   fails to read is left out. With nothing found once every source answered: "Nothing to import on
-  <host>." and the list of what Zomfy can import from.
+  <host>.", one muted line. The dialog has no description line under its title
+  ([ui-principles.md](ui-principles.md)).
 - The source shown: the one the request asks for when it is found; else the first found in the order
   Orca, then the chat agents in the app's order, waiting until each source before it has answered so
   the dialog does not jump. A source the person clicks stays chosen.

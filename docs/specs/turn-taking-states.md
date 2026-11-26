@@ -1,7 +1,7 @@
 ---
 type: Spec
 title: Threads say whose turn it is
-description: Every surface that shows a thread's state uses five turn-taking states (Needs your answer, Your turn, Working, Background work running, Quiet) derived from what the daemon reports, instead of the sidebar's "Done" and "Settled".
+description: Every surface that shows a thread's state uses five turn-taking states (Needs your answer, Your turn, Working, Background work running, Quiet) derived from what the daemon reports, shown by marks and place rather than words, instead of the sidebar's "Done" and "Settled".
 status: stable
 x-zomfy-implementation: done
 tags: [chat, sidebar, tabs, mobile, daemon, protocol]
@@ -28,8 +28,22 @@ was still going. "Done" also meant three things (the sidebar, the dashboard, the
 | **Your turn** | あなたの番です | The agent's last turn ended after the person's last prompt and nothing is going on | The person |
 | **Quiet** | 静か | It was the person's turn, they have seen the thread, and it has been untouched for a while (default 24 hours); also a thread that never ran a turn | Nobody |
 
-"Background work running" is a kind of Working: it groups with Working and draws like it, with its
-own icon (the Activity mark) and label.
+"Background work running" is a kind of Working: it groups with Working, with its own icon (the
+Activity mark).
+
+## How each looks
+
+The states are shown, not named ([ui-principles.md](ui-principles.md)): each has a mark that
+differs from the others in hue and shape, and the name is only the mark's tooltip and accessible
+label.
+
+| State | Mark |
+|---|---|
+| Needs your answer | Orange question bubble (`--agent-question`); a failed turn a red alert circle |
+| Your turn | Green dot with a soft halo (emerald), never orange |
+| Working | The spinner, with the turn's elapsed time |
+| Background work running | The yellow Activity mark; with a wake-up, its time (an alarm clock in the thread) |
+| Quiet | No mark; the row shows how long ago it last did something |
 
 ## How each is detected
 
@@ -71,25 +85,34 @@ or 72 hours, or Never (0). It is read by the desktop only; the phone uses the de
 # Where it shows
 
 - **Sidebar**, grouped by state: Pinned, Needs your answer, Your turn, Working (Background work
-  running rows inside it), Quiet, Archived. A Quiet row is the single grey line a Settled row was.
-  The row's corner says the state with its mark ("Your turn", "Background · 12m", "Wakes 14:30").
-  Group by Project keeps its folders and uses the same row corner.
-- **Tab**: the dot beside a chat tab follows the state: question mark (Needs your answer), spinner
-  (Working), Activity mark (Background work running), a small accent dot (Your turn), none (Quiet).
+  running rows inside it), Quiet, Archived. A group has no titled heading: its mark (pin, question
+  bubble, green dot, yellow ring, moon, archive box), a thin rule tinted for the groups that need
+  the person, its count and its fold; the name is the tooltip. Needs your answer's group carries the
+  Inbox as an icon button. A Quiet row is the single grey line a Settled row was. The row's corner
+  is the state's mark with at most a value: the elapsed time while working, the wake time beside
+  the Activity mark. Group by Project keeps its folders and uses the same row corner.
+- **Tab**: the dot beside a chat tab follows the state: question bubble (Needs your answer), spinner
+  (Working), Activity mark (Background work running), the green dot (Your turn), none (Quiet).
   The tooltip names the state.
-- **Thread**: above the composer, a one-line status names background work while it runs
-  ("Background work running: bun test · wakes at 14:30"), the thread's equivalent of a header.
-- **Session panel** (right sidebar, Session tab): the head line under the thread's title says its
-  state, and a "Background work" section lists the running tasks and the pending wake-ups with
-  their times.
-- **Hover card** in the sidebar: the state's label in place of the old Idle/Done.
-- **Phone**: the thread list and the chat screen use the same five labels and translations;
-  "Needs you" becomes "Needs your answer" (回答待ち) there too.
+- **Thread**: above the composer, while background work runs, one quiet line: the Activity mark,
+  what runs ("bun test") and an alarm clock with the wake time. The full sentence is its tooltip.
+- **Session panel** (right sidebar, Session tab): the state's mark beside the thread's title, and a
+  "Background work" section listing the running tasks (Activity mark) and the pending wake-ups
+  (alarm clock and time; a repeat icon for a recurring one).
+- **Hover card** in the sidebar: the state's mark (named in its tooltip), the background summary and
+  the time.
+- **Phone**: the thread list and the chat screen show the same states as marks told apart by shape:
+  a larger orange dot (Needs your answer), a green dot with a halo (Your turn), a ring (Working,
+  dashed for background work), a red square (failed), a small grey dot (Quiet). A row shows only a
+  wake-up time beside its mark; the state's name is the accessibility label.
 - **Agent Dashboard** and its counts in the sidebar: lanes Needs your answer, Working (background
-  work too), Your turn and Quiet, instead of Needs You / Working / Done / Idle. An idle chat's dot
-  elsewhere (workspace cards, Send to agent) is the plain grey dot, no longer Done's check.
+  work too), Your turn and Quiet, instead of Needs You / Working / Done / Idle, each headed by the
+  group's mark and count; Your turn's cards are tinted green. An idle chat's dot elsewhere
+  (workspace cards, Send to agent) is the plain grey dot, no longer Done's check.
+- **Status bar**: the question bubble with the count waiting, and the spinner with the count
+  working (or a grey dot with the count of threads); no words.
 
-"Your turn" reads あなたの番です in Japanese, the translation the workflow run view already used.
+"Your turn" reads あなたの番です in Japanese, in tooltips and accessible names.
 
 The words "Done" and "Settled" are no longer used for chat threads. "Done" remains only where it
 means a finished task (the task list, the workspace board, the dashboard's TUI agents).

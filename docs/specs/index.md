@@ -2,6 +2,7 @@
 
 * [Documentation-driven development](documentation-driven-development.md) - how specs, decisions and research are written and kept true
 * [One right sidebar per split pane](pane-sidebars.md) - each split pane has its own right sidebar, opened from its own tab strip
+* [UI principles - show, don't tell](ui-principles.md) - state and structure are shown with colour, shape, marks, glow and place, not explanatory words; words stay for content, field labels, errors and destructive warnings
 
 # Bots
 

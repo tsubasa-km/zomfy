@@ -7,7 +7,7 @@ import { TuiAgentIcon } from '@/components/terminal/TuiAgentIcon'
 import { ReviewBadge } from '@/components/sidebar/WorkspaceCardBadges'
 import { sessionAgent } from '@/lib/chat-agents'
 import { activityOf, compactAge, elapsed, useCoarseNow } from '@/lib/chat-list'
-import { backgroundShortLabel, backgroundSummary, phaseOf, turnPhaseDot, turnPhaseLabel, type TurnPhase } from '@/lib/turn-phase'
+import { backgroundSummary, backgroundWakeLabel, phaseOf, turnPhaseDot, turnPhaseLabel, type TurnPhase } from '@/lib/turn-phase'
 import { setChatArchived } from '@/chat-rename-archive'
 import { setChatPinned } from '@/stores/sidebar-store'
 import { cn } from '@/lib/utils'
@@ -112,30 +112,33 @@ function useSecondsNow(running: boolean): number {
   return now
 }
 
-/** Whose turn the chat is, in a word with its mark (docs/specs/turn-taking-states.md); a quiet chat shows how long ago it last did something. */
+/**
+ * Whose turn the chat is, as its mark (docs/specs/turn-taking-states.md), with only a value beside
+ * it: how long a turn has run, when background work wakes. A quiet chat shows how long ago it last
+ * did something. The state's name is the mark's tooltip, never a word on the row.
+ */
 function ChatStatus({ session, phase }: { session: Session; phase: TurnPhase }) {
   const coarse = useCoarseNow()
   const running = phase === 'working' && session.status === 'working'
   const now = useSecondsNow(running)
   const dot = turnPhaseDot(phase, session.status)
   if (!dot) return <span className="tabular-nums">{compactAge(activityOf(session), coarse)}</span>
-  // A row's corner is short: background work says "Background" or when it wakes; the hover card says the rest.
-  const label = phase === 'background' ? backgroundShortLabel(session, coarse) : turnPhaseLabel(phase, session.status)
+  const wake = phase === 'background' ? backgroundWakeLabel(session, coarse) : null
+  const label = phase === 'background' ? backgroundSummary(session, coarse) || turnPhaseLabel(phase) : turnPhaseLabel(phase, session.status)
   return (
     <span
       className={cn(
-        'inline-flex items-center gap-1 font-medium',
-        phase === 'needs-answer' && (session.status === 'error' ? 'text-destructive' : 'text-agent-question-text'),
+        'inline-flex items-center gap-1 tabular-nums',
         phase === 'working' && 'text-sky-600 dark:text-sky-400',
-        phase === 'background' && 'text-yellow-700 dark:text-yellow-400',
-        phase === 'your-turn' && 'text-foreground/80'
+        phase === 'background' && 'text-yellow-700 dark:text-yellow-400'
       )}
-      title={phase === 'background' ? backgroundSummary(session, coarse) || turnPhaseLabel(phase) : undefined}
+      title={label}
+      aria-label={label}
       data-chat-status={phase}
     >
-      <AgentStateDot state={dot} size="sm" title={null} />
-      {label}
-      {running && session.turnStartedAt != null && <span className="tabular-nums">{elapsed(session.turnStartedAt, now)}</span>}
+      <AgentStateDot state={dot} size={phase === 'needs-answer' ? 'md' : 'sm'} title={null} />
+      {wake}
+      {running && session.turnStartedAt != null && elapsed(session.turnStartedAt, now)}
     </span>
   )
 }
@@ -263,11 +266,9 @@ export function ChatHoverDetails({ session, card, childCount }: { session: Sessi
     <div className="flex flex-col gap-2" data-chat-hover-card>
       <div className="text-[13px] leading-snug font-medium break-words text-foreground">{session.title}</div>
       <div className="flex items-center gap-2 text-muted-foreground">
-        <AgentStateDot state={state} size="sm" />
+        <AgentStateDot state={state} size="sm" title={turnPhaseLabel(phase, session.status)} />
         <span>
-          {turnPhaseLabel(phase, session.status)}
-          {background && ` · ${background}`}
-          {' · '}
+          {background && `${background} · `}
           {session.status === 'working' && session.turnStartedAt
             ? t('for {age}', { age: compactAge(session.turnStartedAt, now) })
             : t('started {date}', { date: new Date(session.createdAt).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' }) })}

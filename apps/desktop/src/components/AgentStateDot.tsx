@@ -1,5 +1,5 @@
 import React from 'react'
-import { Activity, CircleCheck, CircleDashed } from 'lucide-react'
+import { Activity, CircleAlert, CircleCheck, CircleDashed } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { AgentQuestionIcon } from '@/components/AgentQuestionIcon'
 import { AgentWorkingSpinner } from '@/components/AgentWorkingSpinner'
@@ -46,7 +46,7 @@ export type AgentDotState =
   // --agent-question color as the worktree-level permission indicator.
   | 'permission'
   // Why: a chat thread whose agent handed it back to the person (docs/specs/turn-taking-states.md);
-  // an accent dot, quieter than a question and distinct from a finished task's check.
+  // a green dot with a soft halo: a go light, never the orange of a question waiting for an answer.
   | 'your-turn'
 
 /** Return the accessible label shared by every visual agent-state marker. */
@@ -145,6 +145,17 @@ export const AgentStateDot = React.memo(function AgentStateDot({
         <CircleDashed className={cn('text-amber-500', icon)} aria-hidden="true" />
       </span>
     )
+  } else if (state === 'failed') {
+    // Why: a shape of its own, so a failure never reads as another filled dot (Your turn's green)
+    // once colour is gone.
+    indicator = (
+      <span
+        className={cn('inline-flex shrink-0 items-center justify-center', box, className)}
+        aria-label={agentStateLabel(state)}
+      >
+        <CircleAlert className={cn('text-red-500', icon)} aria-hidden="true" />
+      </span>
+    )
   } else if (state === 'permission' || state === 'waiting') {
     indicator = (
       <span
@@ -164,13 +175,13 @@ export const AgentStateDot = React.memo(function AgentStateDot({
           className={cn(
             'block rounded-full',
             inner,
-            state === 'blocked' || state === 'failed'
+            state === 'blocked'
               ? 'bg-red-500'
               : // Why: a user's Stop is not news; muted, never the fault red or the finished green.
                 state === 'interrupted'
                 ? 'bg-muted-foreground'
                 : state === 'your-turn'
-                  ? 'bg-highlight'
+                  ? 'bg-emerald-500 ring-2 ring-emerald-500/25'
                   : 'bg-neutral-500/40'
           )}
         />

@@ -375,19 +375,10 @@ export const CHAT: Record<string, string> = {
   'Add to Inbox': '受信箱のやることに追加',
   'In Inbox': '受信箱に追加済み',
   You: 'あなた',
-  'Sends {agent} a message in this chat asking it to do this step.': 'このチャットで {agent} にこのステップを頼むメッセージを送ります。',
-  'This step is in the To do list of your Inbox. Click to open it.': 'このステップは受信箱の「やること」にあります。クリックで開きます。',
-  'Adds this step to the To do list in your Inbox (in the status bar), linked to this chat. Nothing is sent to {agent}.':
-    'このステップを受信箱（ステータスバー）の「やること」に、このチャットへのリンク付きで追加します。{agent} には何も送りません。',
-  "Added to your Inbox's To do list": '受信箱の「やること」に追加しました',
   'Open Inbox': '受信箱を開く',
+  'Added to Inbox': '受信箱に追加しました',
   'Could not add it to your Inbox': '受信箱に追加できませんでした',
-  'For you': 'あなたがやること',
-  'Nothing needs you right now.': '今はあなたの対応は不要です。',
-  'Nothing needs you — {agent} continues with: {step}': 'あなたの対応は不要です。次に {agent} が進めること：{step}',
   'Next, {agent} will:': '次に {agent} がやること：',
-  'Then, {agent} will:': 'その後 {agent} がやること：',
-  'Earlier summary': '以前の形式の要約',
 
   // components/native-chat/NativeChatTurnDiffRollup.tsx
   'Hide diff': '差分を隠す',

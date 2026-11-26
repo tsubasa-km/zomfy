@@ -1,7 +1,7 @@
 ---
 type: Spec
 title: The Next steps card
-description: The card a turn ends with, from wrap_up or the reply's recap, holds only what comes next - the person's own next actions as its headline (or one line saying nothing needs them), the agent's question as buttons, and the agent's own next steps as a quieter line below.
+description: The card a turn ends with, from wrap_up or the reply's recap, holds only what comes next - the person's own next actions, numbered and strong, the agent's question as buttons, and the agent's own next steps small and faint behind its icon, with no headings.
 status: stable
 x-zomfy-implementation: done
 tags: [chat, desktop, mobile, next-steps, inbox, todos]
@@ -20,8 +20,11 @@ The person looks at it to learn what **they** should do next. So it holds only w
    app to 0.2.60", "Decide whether to ship on Friday", "Try the export in Settings → Data"), most
    important first.
 2. **The agent's question**, when the person's first action is a decision: its answers as buttons.
-3. **The agent's own next steps**, secondary: one short line ("Next, Claude will: …"), or a compact
-   list when there are several, in smaller, fainter text.
+3. **The agent's own next steps**, secondary: smaller, fainter lines behind the agent's icon, with
+   no label.
+
+The card has no headings ([ui-principles.md](ui-principles.md)): whose step it is shows by weight
+and by the agent's icon.
 
 What was done and what was checked is not on the card: it belongs in the reply body.
 
@@ -42,8 +45,8 @@ the card is not a recap. The hint stays a few sentences: it is in every turn's c
 Older agents and transcripts still send `summary` and `steps` (`{ owner, text }`); they are still
 accepted. Their `person` steps become the person's actions, `agent` steps the agent's, and a step
 owned by someone named ("田中さん") is one of the person's actions with that name as a chip (the
-person is the one to chase it). An old card's summary is not shown in the card's body; it sits
-under a closed "Earlier summary" disclosure at the bottom, so nothing an old card said is lost.
+person is the one to chase it). An old card's summary sits at the card's foot in small faint text,
+below a rule, with no label, so nothing an old card said is lost.
 
 ## When the agent calls wrap_up
 
@@ -57,14 +60,14 @@ under a closed "Earlier summary" disclosure at the bottom, so nothing an old car
 
 ## The headline
 
-- With actions: the header reads "For you", then the numbered actions. Each has "Add to Inbox",
-  which adds it to the To do list in Zomfy's Inbox (opened from the status bar), linked back to this
-  chat; its tooltip says where it goes and that nothing is sent to the agent. A toast confirms
-  "Added to your Inbox's To do list" with "Open Inbox". An action already in the To do list (open or
-  done, matched by text) shows "In Inbox" with a check and opens the Inbox at To do. A failed add
-  shows an error toast.
-- With nothing for the person and no question: one line, "Nothing needs you — {agent} continues
-  with: {first agent step}", or "Nothing needs you right now." when the agent named no step either.
+- With actions: the numbered actions are the card's top, strong. Each has an icon button (a list
+  with a plus, tooltip "Add to Inbox") that shows on hover or focus and adds it to the To do list in
+  Zomfy's Inbox, linked back to this chat. A toast confirms "Added to Inbox" with "Open Inbox". An
+  action already in the To do list (open or done, matched by text) keeps a green checked-list icon
+  in place (tooltip "In Inbox") that opens the Inbox at To do. A failed add shows an error toast.
+- With nothing for the person and no question: the card steps back to a faint box holding only the
+  agent's steps. With nothing at all (no actions, question, steps or old summary) no card is
+  drawn.
 
 ## The question
 
@@ -75,11 +78,12 @@ under a closed "Earlier summary" disclosure at the bottom, so nothing an old car
 
 ## The agent's next steps
 
-- Below a divider, in smaller, fainter text: "Next, {agent} will: {step}" for one step, or the same
-  label over a compact list.
-- "Ask to do this" (sends the chat a prompt asking the agent to go ahead with that step; reads
-  "Asked" once sent) shows only when the person has no actions and no question: that is when the
-  person's next move is to let the agent go on.
+- Below a rule when the person has something above, in smaller, fainter text behind the agent's
+  icon (Claude's, Codex's…), one line per step. The accessible name says "Next, {agent} will:".
+- "Ask to do this" is a play icon button on the step's line, shown on hover (tooltip "Ask to do
+  this"; a green check, "Asked", once sent). It sends the chat a prompt asking the agent to go
+  ahead with that step, and exists only when the person has no actions and no question: that is
+  when the person's next move is to let the agent go on.
 
 ## A recap read from the reply
 
@@ -90,14 +94,14 @@ under a closed "Earlier summary" disclosure at the bottom, so nothing an old car
 # On the phone
 
 The phone app (`apps/mobile`) shows a `wrap_up` call as a small Next steps block instead of a tool
-line: the person's actions first (or "Nothing needs you"), then the question, then the agent's
-next step in muted text. Notifications and the Inbox do not show `wrap_up` content.
+line, without headings: the person's actions first, numbered and strong, then the question, then
+the agent's steps small and muted behind an arrow. A call with nothing in it draws nothing. Notifications and the Inbox do not show `wrap_up` content.
 
 A chat that launched helpers is told, when one stops, what its wrap_up asks of the person and what
 it will do next (`child-reports.ts`), the old summary for older calls.
 
 # Acceptance
 
-- A new-style card with actions and a question, one with nothing for the person, and an old-style
-  card (summary + owner steps) render as above, in light and dark.
+- A new-style card with actions and a question, one with only the agent's steps, and an old-style
+  card (summary + owner steps) render as above, in light and dark, with no headings.
 - `normalizeWrapUp` accepts both shapes; tests cover the mapping.

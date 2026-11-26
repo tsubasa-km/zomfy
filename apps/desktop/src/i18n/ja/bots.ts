@@ -78,8 +78,6 @@ export const BOTS: Record<string, string> = {
   'Setup code': 'セットアップコード',
   Pair: 'ペアリング',
   'Deploy to Cloudflare': 'Cloudflare にデプロイ',
-  'or run': 'または',
-  'in apps/relay;': 'を apps/relay で実行。',
   'the guide': '手順',
   'Interactions endpoint URL': 'Interactions Endpoint URL',
   Webhooks: 'Webhook',
