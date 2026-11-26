@@ -1,6 +1,7 @@
 # Directory Update Log
 
 ## 2026-11-26
+* **Update** [Docking the tool drawer](specs/drawer-edge-docking.md) uses a close arrow in click mode and reserves pinning for hover mode.
 * **Update** [Docking the tool drawer](specs/drawer-edge-docking.md) now allows dragging the handle and pin in click mode and fixes their position in hover mode.
 * **Update**: [Docking the tool drawer](specs/drawer-edge-docking.md) can open on hover or click, and a closed handle can be dragged in click mode.
 * **Update**: [Docking the tool drawer](specs/drawer-edge-docking.md) is implemented with four-edge placement, edge-specific resizing, and saved preferences.

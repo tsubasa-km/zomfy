@@ -20,7 +20,7 @@ import { setDrawerDepth, setDrawerDock, useDrawerDepth, useDrawerDock } from '@/
 import { drawerAlongEdge, drawerDragTarget, drawerResizeDepth, isDrawerSide, type DrawerDock, type DrawerEdge, type DrawerPoint } from './drawer-docking'
 import './tool-drawer.css'
 import { useTabLayout } from '@/stores/tab-layout-store'
-import { useSetting } from '@/stores/settings-store'
+import { getSetting, useSetting } from '@/stores/settings-store'
 import { takeDrawerRequest, useDrawerRequest } from '@/stores/drawer-request-store'
 import { cn } from '@/lib/utils'
 import { t } from '@/i18n/i18n'
@@ -93,9 +93,11 @@ export function ToolDrawer({
     (t.kind === 'terminal' || t.kind === 'browser') && t.id !== exclude ? [t] : []
   )
   const meta = useTabLayout((s) => s.meta)
+  const openOnClick = useSetting('drawerOpenAction') === 'click'
   const kept = tabId ? remembered.get(tabId) : undefined
-  const [pinned, setPinned] = useState(kept?.pinned ?? false)
-  const [open, setOpen] = useState(kept?.pinned ?? false)
+  const [hoverPinned, setPinned] = useState(!openOnClick && (kept?.pinned ?? false))
+  const pinned = !openOnClick && hoverPinned
+  const [open, setOpen] = useState(pinned)
   const [activeId, setActiveId] = useState<string | null>(kept?.activeId ?? null)
   useEffect(() => {
     if (tabId) remembered.set(tabId, { pinned, activeId })
@@ -105,13 +107,15 @@ export function ToolDrawer({
   const dock = useDrawerDock()
   const side = isDrawerSide(dock.edge)
   const depth = useDrawerDepth(dock.edge)
-  const canMoveDrawer = useSetting('drawerOpenAction') === 'click'
   const drag = useRef<DockDrag | null>(null)
   const ignorePointerClick = useRef(false)
   const [preview, setPreview] = useState<DockPreview | null>(null)
   const resizing = useRef(false)
   const timer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
-  useEffect(() => () => clearTimeout(timer.current), [canMoveDrawer])
+  useEffect(() => {
+    if (openOnClick) setPinned(false)
+    return () => clearTimeout(timer.current)
+  }, [openOnClick])
   // A terminal or browser opened from here comes to the front.
   const known = useRef<Set<string> | null>(null)
   const toolIds = tools.map((t) => t.id).join(',')
@@ -159,7 +163,7 @@ export function ToolDrawer({
 
   const later = (next: boolean, ms: number) => {
     clearTimeout(timer.current)
-    if (drag.current || resizing.current) return
+    if (getSetting('drawerOpenAction') === 'click' || drag.current || resizing.current) return
     timer.current = setTimeout(() => setOpen(next), ms)
   }
 
@@ -206,7 +210,7 @@ export function ToolDrawer({
   }
 
   useEffect(() => {
-    if (!canMoveDrawer) {
+    if (!openOnClick) {
       finishDrag()
       return
     }
@@ -218,7 +222,7 @@ export function ToolDrawer({
     }
     window.addEventListener('keydown', onEscape, true)
     return () => window.removeEventListener('keydown', onEscape, true)
-  }, [canMoveDrawer])
+  }, [openOnClick])
 
   const dragEvents = {
     onPointerDown: startDrag,
@@ -231,7 +235,6 @@ export function ToolDrawer({
       if (!active || active.pointerId !== event.pointerId) return
       const next = updateDrag(event)
       finishDrag(next?.dock)
-      if (active.moved && shown && !pinned && !drawerRef.current?.matches(':hover')) later(false, CLOSE_DELAY_MS)
     },
     onPointerCancel: (event: React.PointerEvent<HTMLButtonElement>) => {
       if (drag.current?.pointerId === event.pointerId) finishDrag()
@@ -279,7 +282,7 @@ export function ToolDrawer({
     handle.addEventListener('lostpointercapture', finish)
   }
 
-  // A shortcut, a side chat or a checks badge asks for a panel; it stays open (pinned) until put away.
+  // A shortcut, side chat or checks badge opens a panel and pins it in hover mode.
   const request = useDrawerRequest((r) => r)
   const showing = activePanel ?? activeTool?.id ?? null
   useEffect(() => {
@@ -293,15 +296,16 @@ export function ToolDrawer({
       return
     }
     if (request.panel) setActiveId(request.panel)
-    setPinned(true)
+    setPinned(!openOnClick)
     setOpen(true)
     // Only a new request acts; what the drawer shows when it arrives is read, not watched.
   }, [request, focused, workspaceId])
 
   const positionStyle = { '--drawer-position': `${dock.position * 100}%` } as React.CSSProperties
   const countTitle = `${terminals === 1 ? t('{n} terminal', { n: terminals }) : t('{n} terminals', { n: terminals })} · ${browsers === 1 ? t('{n} browser', { n: browsers }) : t('{n} browsers', { n: browsers })}`
-  const dragHint = canMoveDrawer ? ` · ${t('Drag to move the drawer')}` : ''
-  const handleCursor = canMoveDrawer ? 'cursor-grab' : 'cursor-pointer'
+  const dragHint = openOnClick ? ` · ${t('Drag to move the drawer')}` : ''
+  const handleCursor = openOnClick ? 'cursor-grab' : 'cursor-pointer'
+  const innerHandleLabel = openOnClick ? t('Close the tool drawer') : pinned ? t('Unpin') : t('Keep open')
   return (
     <div ref={rootRef} style={positionStyle} className="tool-drawer pointer-events-none absolute inset-0 z-10 [container-type:size] [--tab-top-inset:0px]">
       <button
@@ -312,13 +316,13 @@ export function ToolDrawer({
         aria-label={t('Open the tool drawer')}
         aria-expanded={shown}
         title={countTitle + dragHint}
-        {...(canMoveDrawer ? dragEvents : undefined)}
-        onPointerEnter={canMoveDrawer ? undefined : () => later(true, OPEN_DELAY_MS)}
+        {...(openOnClick ? dragEvents : undefined)}
+        onPointerEnter={openOnClick ? undefined : () => later(true, OPEN_DELAY_MS)}
         onPointerLeave={() => {
           if (!drag.current && !shown) clearTimeout(timer.current)
         }}
         onClick={(event) => {
-          if (canMoveDrawer && event.detail && ignorePointerClick.current) return
+          if (openOnClick && event.detail && ignorePointerClick.current) return
           setOpen(true)
         }}
       >
@@ -331,8 +335,8 @@ export function ToolDrawer({
         ref={drawerRef}
         data-drawer={shown ? 'open' : 'closed'}
         data-edge={dock.edge}
-        onPointerEnter={() => shown && clearTimeout(timer.current)}
-        onPointerLeave={() => !pinned && later(false, CLOSE_DELAY_MS)}
+        onPointerEnter={openOnClick ? undefined : () => shown && clearTimeout(timer.current)}
+        onPointerLeave={openOnClick || pinned ? undefined : () => later(false, CLOSE_DELAY_MS)}
         className={cn('tool-drawer__shell', !shown && 'invisible')}
         style={depth === undefined ? undefined : { '--drawer-depth': `${depth}px` } as React.CSSProperties}
       >
@@ -470,28 +474,36 @@ export function ToolDrawer({
         </div>
         <button
           type="button"
-          title={(pinned ? t('Unpin') : t('Keep open')) + dragHint}
-          aria-label={pinned ? t('Unpin') : t('Keep open')}
-          aria-pressed={pinned}
-          {...(canMoveDrawer ? dragEvents : undefined)}
+          title={innerHandleLabel + dragHint}
+          aria-label={innerHandleLabel}
+          aria-expanded={openOnClick ? shown : undefined}
+          aria-pressed={openOnClick ? undefined : pinned}
+          {...(openOnClick ? dragEvents : undefined)}
           onClick={(event) => {
-            if (canMoveDrawer && event.detail && ignorePointerClick.current) return
-            setPinned(!pinned)
-            setOpen(true)
+            if (openOnClick) {
+              if (event.detail && ignorePointerClick.current) return
+              setOpen(false)
+            } else {
+              setPinned(!pinned)
+              setOpen(true)
+            }
           }}
           className={cn(
-            'tool-drawer__tab group/pin',
+            'tool-drawer__tab tool-drawer__tab--inner group/inner',
             shown && 'pointer-events-auto',
             handleCursor,
             preview && 'opacity-0',
             pinned ? 'text-white' : 'text-muted-foreground hover:text-foreground'
           )}
           data-edge={OPPOSITE_EDGE[dock.edge]}
-          data-drawer-pin
+          data-drawer-pin={openOnClick ? undefined : true}
+          data-drawer-close={openOnClick ? true : undefined}
         >
           <span className="tool-drawer__tab-art">
-            <TabShape className={pinned ? 'fill-highlight' : cn(HANDLE_FILL, 'group-hover/pin:fill-[color-mix(in_srgb,var(--foreground)_16%,var(--background))]')} />
-            <Pin className={cn('tool-drawer__pin-icon relative size-3.5', pinned && 'fill-current')} />
+            <TabShape className={pinned ? 'fill-highlight' : cn(HANDLE_FILL, 'group-hover/inner:fill-[color-mix(in_srgb,var(--foreground)_16%,var(--background))]')} />
+            {openOnClick
+              ? <ChevronDown className="relative size-4 rotate-180" />
+              : <Pin className={cn('tool-drawer__pin-icon relative size-3.5', pinned && 'fill-current')} />}
           </span>
         </button>
       </div>

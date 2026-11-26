@@ -92,7 +92,9 @@ export const TOUR_STEPS: TourStep[] = [
     chapter: t('Layout'),
     title: t('Keep it open'),
     body: t('The drawer closes when the pointer leaves it. Click the pin tab on its inner edge to keep it open.'),
-    target: DRAWER,
+    get target() {
+      return getSetting('drawerOpenAction') === 'click' ? [] : DRAWER
+    },
     optional: true,
     action: { prompt: t('Click the pin tab. If the drawer closed, reopen it with its handle.'), on: 'click', within: '[data-drawer-pin]' }
   },
@@ -107,10 +109,24 @@ export const TOUR_STEPS: TourStep[] = [
   {
     chapter: t('Layout'),
     title: t('Let it close'),
-    body: t('Unpinned, it slides away as soon as the pointer moves off it.'),
+    get body() {
+      return getSetting('drawerOpenAction') === 'click'
+        ? t('The drawer stays open until you close it.')
+        : t('Unpinned, it slides away as soon as the pointer moves off it.')
+    },
     target: DRAWER,
     optional: true,
-    action: { prompt: t('Click the tab again, then move away.'), on: 'click', within: '[data-drawer-pin]' }
+    action: {
+      get prompt() {
+        return getSetting('drawerOpenAction') === 'click'
+          ? t('Click the drawer’s close arrow.')
+          : t('Click the tab again, then move away.')
+      },
+      on: 'click',
+      get within() {
+        return getSetting('drawerOpenAction') === 'click' ? '[data-drawer-close]' : '[data-drawer-pin]'
+      }
+    }
   },
   {
     chapter: t('Layout'),

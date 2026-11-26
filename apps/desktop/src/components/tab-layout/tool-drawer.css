@@ -50,10 +50,10 @@
   height: var(--drawer-handle-depth);
 }
 
-.tool-drawer__tab[data-drawer-pin][data-edge='top'] { --drawer-rotation: 180deg; }
-.tool-drawer__tab[data-drawer-pin][data-edge='bottom'] { --drawer-rotation: 0deg; }
-.tool-drawer__tab[data-drawer-pin][data-edge='left'] { --drawer-rotation: 90deg; }
-.tool-drawer__tab[data-drawer-pin][data-edge='right'] { --drawer-rotation: -90deg; }
+.tool-drawer__tab--inner[data-edge='top'] { --drawer-rotation: 180deg; }
+.tool-drawer__tab--inner[data-edge='bottom'] { --drawer-rotation: 0deg; }
+.tool-drawer__tab--inner[data-edge='left'] { --drawer-rotation: 90deg; }
+.tool-drawer__tab--inner[data-edge='right'] { --drawer-rotation: -90deg; }
 
 .tool-drawer__pin-icon { rotate: calc(-1 * var(--drawer-rotation, 0deg)); }
 
