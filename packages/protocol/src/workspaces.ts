@@ -348,7 +348,11 @@ export interface WorkspaceRequests {
    * `requireGit` (Orca's NonGitFolderDialog): a folder outside git fails with NOT_A_GIT_REPOSITORY
    * so the client can confirm first. Without it, such a folder is added as a folder project.
    */
-  [WORKSPACE_METHODS.projectAdd]: { params: { path: string; requireGit?: boolean; hostingAccount?: HostingAccountRef }; result: Project }
+  /** `displayName` is set on a project this adds, not on one already added; older daemons ignore it. */
+  [WORKSPACE_METHODS.projectAdd]: {
+    params: { path: string; requireGit?: boolean; hostingAccount?: HostingAccountRef; displayName?: string }
+    result: Project
+  }
   [WORKSPACE_METHODS.projectRemove]: { params: { projectId: string }; result: Record<string, never> }
   [WORKSPACE_METHODS.workspaceCreate]: { params: CreateWorkspaceParams; result: CreateWorkspaceResult }
   [WORKSPACE_METHODS.workspaceRemove]: { params: RemoveWorkspaceParams; result: Record<string, never> }
@@ -367,12 +371,13 @@ export interface WorkspaceRequests {
   [WORKSPACE_METHODS.projectHooks]: { params: { projectId: string }; result: ProjectHookInfo }
   /** Without `parentPath`, the host's ProjectCreationDefaults apply (an older daemon requires it). */
   [WORKSPACE_METHODS.projectClone]: {
-    params: { url: string; parentPath?: string; name?: string; hostingAccount?: HostingAccountRef }
+    /** `name` is the folder the clone makes; `displayName` the project's (older daemons ignore it). */
+    params: { url: string; parentPath?: string; name?: string; hostingAccount?: HostingAccountRef; displayName?: string }
     result: Project
   }
   /** With `publish`, the new repository is also created on GitHub; a failed publish keeps the local project and sets `publishError`. */
   [WORKSPACE_METHODS.projectCreateRepo]: {
-    params: { parentPath?: string; name: string; publish?: PublishRepoParams }
+    params: { parentPath?: string; name: string; publish?: PublishRepoParams; displayName?: string }
     result: Project & { publishError?: string }
   }
   /** Newer daemons only; an older one rejects it as an unknown method. */
