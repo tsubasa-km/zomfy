@@ -7,7 +7,7 @@ import { verifyDiscordRequest } from './discord/verify'
 import { verifyGitHubRequest } from './github/api'
 import { verifyLinearRequest } from './linear/api'
 import { verifySlackRequest } from './slack/verify'
-import { configuredSources, RELAY_VERSION, type Env } from './env'
+import { configuredSources, featureOn, relayFeatures, RELAY_VERSION, type Env } from './env'
 
 export { DiscordGateway } from './discord-gateway'
 export { Hub } from './hub'
@@ -48,13 +48,19 @@ export default {
         discordGateway = await gateway(env).status().catch(() => ({ state: 'failed' }))
       }
       const uptime = (discordGateway as { uptimeSeconds?: number } | undefined)?.uptimeSeconds
-      return Response.json({
-        ok: true,
-        version: RELAY_VERSION,
-        contract: CONTRACT_VERSION,
-        sources,
-        ...(discord ? { discordGatewayUptime: uptime ?? null, discordGateway } : {})
-      })
+      // Public, and free of secrets: the desktop reads it before pairing too (docs/specs/relay-settings.md#health).
+      return Response.json(
+        {
+          ok: true,
+          version: RELAY_VERSION,
+          contract: CONTRACT_VERSION,
+          sources,
+          ...relayFeatures(env),
+          setupCode: typeof env.SETUP_CODE === 'string' && env.SETUP_CODE !== '',
+          ...(discord ? { discordGatewayUptime: uptime ?? null, discordGateway } : {})
+        },
+        { headers: { 'Access-Control-Allow-Origin': '*' } }
+      )
     }
 
     if (pathname === '/discord/interactions' && request.method === 'POST' && discord) {
@@ -88,7 +94,9 @@ export default {
       return hub(env).fetch(request)
     }
 
-    if ((pathname === '/v1/hosts/register' || pathname === '/v1/hosts/invite') && request.method === 'POST') {
+    // Invites pair phones, so they belong to the phone feature; registering a host always works.
+    const hostsRoute = pathname === '/v1/hosts/register' || (pathname === '/v1/hosts/invite' && featureOn(env, 'phone'))
+    if (hostsRoute && request.method === 'POST') {
       const body = await readBody(request)
       if (!body) return Response.json({ error: 'too_large' }, { status: 413 })
       return hub(env).fetch(new Request(request.url, { method: 'POST', body, headers: { 'Content-Type': 'application/json' } }))
@@ -167,7 +175,7 @@ export default {
 
     // Webhooks need no secrets of the deployment: each hook has its own key.
     const hookPath = /^\/hooks\/(wh_[A-Za-z0-9]{16})(?:\/([^/]+))?$/.exec(pathname)
-    if (hookPath && request.method === 'POST') {
+    if (hookPath && request.method === 'POST' && featureOn(env, 'webhooks')) {
       const body = await readBody(request)
       if (!body) return Response.json({ error: 'too_large' }, { status: 413 })
       const headers: Record<string, string> = {}
@@ -182,14 +190,14 @@ export default {
     }
 
     // A phone's socket for one host (docs/specs/mobile/relay.md); the Hub checks its device key.
-    if (/^\/v1\/device\/[^/]+\/ws$/.test(pathname) && request.method === 'GET') {
+    if (/^\/v1\/device\/[^/]+\/ws$/.test(pathname) && request.method === 'GET' && featureOn(env, 'phone')) {
       if (request.headers.get('Upgrade')?.toLowerCase() !== 'websocket') {
         return Response.json({ error: 'bad_request' }, { status: 426 })
       }
       return hub(env).fetch(request)
     }
 
-    // A source without secrets answers 404.
+    // A source without secrets, or a feature FEATURES leaves out, answers 404.
     return notFound()
   }
 } satisfies ExportedHandler<Env>
