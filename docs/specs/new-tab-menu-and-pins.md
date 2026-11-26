@@ -3,7 +3,7 @@ type: Spec
 title: Adding a tab — the "+" menu, pinned items, new chats and terminals that pick their place
 description: The tab strip's "+" menu lists every kind of tab; any item can be pinned as a button beside it (Terminal by default, replacing the old Terminal button); a new chat opens the New thread screen prefilled with the current workspace; a new terminal lets the person pick its host, folder and shell.
 status: stable
-x-zomfy-implementation: in-progress
+x-zomfy-implementation: done
 tags: [desktop, tabs, terminal, chat]
 generated: { by: "claude-code/opus-5.5", at: "2026-11-26T00:00:00Z" }
 ---
@@ -39,9 +39,9 @@ The per-shell "New Terminal (PowerShell)" items move into the New terminal dialo
 ## Pins
 
 - Hovering (or keyboard-highlighting) an item that can be pinned shows a pin button at its right.
-  Pressing it pins the item; on a pinned item the button shows filled and unpins it. The menu stays
-  open. Items that cannot be pinned: the omnibox, `Refresh Agents`, `SSH connections…`, disabled
-  items.
+  Pressing it pins the item; a pinned item always shows a filled pin, which turns into "unpin" on
+  hover and unpins it. The menu stays open. Items that cannot be pinned: the omnibox,
+  `Launch Agent with Prompt…`, `Refresh Agents`, `SSH connections…`, disabled items.
 - Pinned items show as buttons in the tab strip right after `+`, where the Terminal button was, in
   the order they were pinned, followed by the Command button (unchanged). Several are allowed.
 - A pinned button does what its menu item does, for the pane's workspace. Terminal, Browser and

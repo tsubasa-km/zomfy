@@ -52,7 +52,8 @@ function PinButton({ id, pinned, label }: { id: string; pinned: boolean; label: 
       data-new-tab-pin={id}
       data-pinned={pinned ? 'true' : 'false'}
       className={cn(
-        'ml-auto flex size-5 shrink-0 items-center justify-center rounded-sm text-muted-foreground hover:bg-background/60 hover:text-foreground',
+        'group/pin ml-auto flex size-5 shrink-0 items-center justify-center rounded-sm hover:bg-background/60 hover:text-foreground',
+        pinned ? 'text-foreground' : 'text-muted-foreground',
         // Shown on the highlighted row; a pinned row keeps its pin in view.
         !pinned && 'opacity-0 group-hover/new-tab:opacity-100 group-data-[highlighted]/new-tab:opacity-100'
       )}
@@ -63,7 +64,15 @@ function PinButton({ id, pinned, label }: { id: string; pinned: boolean; label: 
         toggleNewTabPin(id)
       }}
     >
-      {pinned ? <PinOff className="size-3.5" /> : <Pin className="size-3.5" />}
+      {/* Pinned shows a filled pin; hovering it shows what pressing does. */}
+      {pinned ? (
+        <>
+          <Pin className="size-3.5 group-hover/pin:hidden" fill="currentColor" />
+          <PinOff className="hidden size-3.5 group-hover/pin:block" />
+        </>
+      ) : (
+        <Pin className="size-3.5" />
+      )}
     </button>
   )
 }
