@@ -34,6 +34,7 @@ import { restoreFreedWorkspace } from "./worktree-cleanup.ts";
 import { HELPER_RESULT_SCHEMA, helperResult, reportIn, splitWorkHint } from "./split-work.ts";
 import { SplitStore } from "./split-store.ts";
 import { SplitCoordinator } from "./split-coordinator.ts";
+import { ChildReports } from "./child-reports.ts";
 import { CliConversations } from "./cli-conversations.ts";
 import { hostPath } from "./tui-agent-detection.ts";
 import { TurnAutoResume } from "./turn-auto-resume.ts";
@@ -122,7 +123,16 @@ export function createHarnessAgent(
   const managerRouting = new ManagerRouting();
   /** Tools the daemon serves itself (a workflow step's spawn_agents); the rest go to a window. */
   const localTools = new Map<ManagerToolName, { route: ManagerRoute; offeredTo: (sessionId: string) => boolean }>();
-  managerMcp.setRoute((caller, tool, args) => (localTools.get(tool)?.route ?? managerRouting.route)(caller, tool, args));
+  managerMcp.setRoute(async (caller, tool, args) => {
+    const at = Date.now();
+    const done = await (localTools.get(tool)?.route ?? managerRouting.route)(caller, tool, args);
+    // The chat this call prompted reports back to the caller when its turn stops (child-threads-report-home.md).
+    if (!done.isError) {
+      const prompted = tool === "send_prompt" ? args.sessionId : (tool === "create_session" || tool === "create_workspace") && typeof args.prompt === "string" && args.prompt ? (done.result as { sessionId?: unknown } | null)?.sessionId : undefined;
+      if (typeof prompted === "string") childReports.launched(caller, prompted, at);
+    }
+    return done;
+  });
   managerMcp.setStepToolOffers((sessionId, tool) => localTools.get(tool)?.offeredTo(sessionId) ?? false);
   /** Chats whose permission asks are answered "allow" for the person (a workflow's steps). */
   const autoApprove = new Set<string>();
@@ -239,6 +249,30 @@ export function createHarnessAgent(
     } catch {
       return true;
     }
+  });
+  const childReports = new ChildReports({
+    sessions,
+    busy: (sessionId) => pendingTurns.has(sessionId),
+    blocked: (sessionId) => cli.has(sessionId),
+    // Never in place of a turn already running: prompt() would stop it.
+    startTurn: async (sessionId, text, origin) => {
+      if (pendingTurns.has(sessionId)) return "not-sent";
+      const reply = await prompt({ sessionId, prompt: [{ type: "text", text }] }, askAnyClient, null, undefined, origin);
+      return promptNotSent(reply._meta) ? "not-sent" : reply.stopReason;
+    },
+    waitingOn: (sessionId) => asks.waiting().filter((r) => r.sessionId === sessionId).map((r) => r.toolCall.title ?? "a tool call"),
+    log,
+  });
+  // On this host's chats it waits here, with no window needed; chats on other hosts go to a window.
+  localTools.set("wait_for_session", {
+    offeredTo: () => true,
+    route: async (caller, tool, args) => {
+      const ids = Array.isArray(args.sessionIds) ? args.sessionIds.filter((id): id is string => typeof id === "string" && !!id) : [];
+      if (ids.length === 0 || !ids.every((id) => sessions.get(id))) return managerRouting.route(caller, tool, args);
+      if (ids.includes(caller)) return { result: "You cannot wait on your own session.", isError: true };
+      const seconds = typeof args.timeoutSeconds === "number" && Number.isFinite(args.timeoutSeconds) ? Math.min(1800, Math.max(1, args.timeoutSeconds)) : 300;
+      return { result: await childReports.wait(caller, ids, { timeoutMs: seconds * 1000, all: args.all === true, active: () => pendingTurns.has(caller) }) };
+    },
   });
   localTools.set("claim_worktree", {
     offeredTo: () => true,
@@ -456,6 +490,7 @@ export function createHarnessAgent(
     pendingTurns.get(session.id)?.abort();
     const abort = new AbortController();
     pendingTurns.set(session.id, abort);
+    childReports.turnStarted(session.id);
     if (client) managerRouting.noteTurn(session.id, client);
 
     const text = params.prompt.flatMap((b) => (b.type === "text" ? [b.text] : [])).join("\n");
@@ -675,6 +710,7 @@ export function createHarnessAgent(
       if (pendingTurns.get(session.id) === abort) {
         pendingTurns.delete(session.id);
         asks.withdraw(session.id);
+        childReports.turnEnded(session.id);
       }
       claims.release(session.id);
       if (finishing.has(session.id)) void finishAfterTurn(session.id);
