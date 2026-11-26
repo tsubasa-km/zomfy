@@ -12,12 +12,13 @@ import { agentEras, agentSwitchNotice, answeredBefore, pendingHandoff, type Agen
 import { emptyAgentState } from "../acp-agent-session.ts";
 import { refuseUnattended, resolveChatAgent } from "../chat-agent-launch-specs.ts";
 import { releaseFinishedTurn } from "../claude-turn.ts";
-import { resolveClaudeExecutable } from "../claude-executable.ts";
+import { CLAUDE_SIGN_IN_ARGS, resolveClaudeExecutable } from "../claude-executable.ts";
 import { chatAgentLaunch } from "../chat-agent-launch-settings.ts";
 import { mentionFiles } from "../mention-files.ts";
 import { noteActivity } from "../session-activity.ts";
 import { consultRequester } from "../requester-consult.ts";
 import { log } from "../log.ts";
+import { connectorPresets } from "../connector-presets.ts";
 
 type UserChunk = Extract<acp.SessionUpdate, { sessionUpdate: "user_message_chunk" }>;
 
@@ -73,7 +74,21 @@ export function registerSessionHandlers(ctx: HandlerContext): void {
       ctx.cli.settle(record.id, terminalId);
     }
   });
-  handle(HARNESS_METHODS.sessionConsultLead, (p) => consultRequester(ctx, p.leadSessionId, p.from, p.question));
+  // docs/specs/claude-sign-in.md: the CLI's own login, under the account the chat's turns use.
+  handle(HARNESS_METHODS.sessionClaudeSignIn, async (p) => {
+    const record = sessions.get(p.sessionId);
+    if (!record?.workspaceId) throw new Error("This thread has no folder to open a terminal in.");
+    const exe = await resolveClaudeExecutable();
+    if (!exe) throw new Error("Claude Code was not found on this host. Install it (npm i -g @anthropic-ai/claude-code), then sign in.");
+    return ctx.terminals.create({
+      workspaceId: record.workspaceId,
+      cwd: record.cwd,
+      cols: 120,
+      rows: 30,
+      program: { argv: [exe, ...CLAUDE_SIGN_IN_ARGS], title: "Sign in to Claude", env: (await chatAgentLaunch("claude")).env },
+    });
+  });
+  handle(HARNESS_METHODS.sessionConsultLead,(p) => consultRequester(ctx, p.leadSessionId, p.from, p.question));
   handle(HARNESS_METHODS.sessionAddContext, async (p) => {
     noteActivity(sessions, p.sessionId, p.text);
     return {};
@@ -84,7 +99,10 @@ export function registerSessionHandlers(ctx: HandlerContext): void {
     // host is kept as given, for the window that lists both.
     const requested = typeof p.parentId === "string" && p.parentId ? p.parentId : undefined;
     const parentId = requested && !p.role ? (sessions.parentFor(requested) ?? requested) : undefined;
+    // MCP servers for this chat alone (docs/specs/relay-settings.md); only Claude chats take them.
+    const connectors = !p.agent || p.agent === "claude" ? connectorPresets(p.connectors) : undefined;
     const record = sessions.create({
+      ...(connectors ? { connectors } : {}),
       workspaceId: p.workspaceId,
       cwd: workspaceRoot(p.workspaceId),
       ...(parentId ? { parentId } : {}),
@@ -117,6 +135,12 @@ export function registerSessionHandlers(ctx: HandlerContext): void {
     const session = requireSession(p.sessionId);
     sessions.update(session.id, { archived: p.archived === true });
     return publicInfo(session);
+  });
+  // A window showed the thread to the person: it can go Quiet once left alone (turn-taking-states.md).
+  handle(HARNESS_METHODS.sessionMarkSeen, async (p) => {
+    const session = requireSession(p.sessionId);
+    sessions.update(session.id, { seenAt: Date.now() });
+    return {};
   });
 
   handle(HARNESS_METHODS.sessionSetOptions, async (p) => {

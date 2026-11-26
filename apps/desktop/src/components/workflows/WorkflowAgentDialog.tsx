@@ -13,6 +13,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { WorkflowStepAgentField } from './WorkflowStepAgentField'
 import { WorkflowToolsEditor } from './WorkflowToolsEditor'
+import { sameFormValue } from '@/lib/use-save-state'
 import { t } from '@/i18n/i18n'
 
 // Defines an agent once for every workflow on the host: which agent runs it, whether its model is
@@ -42,6 +43,8 @@ export function WorkflowAgentDialog({
   const [busy, setBusy] = useState(false)
   const set = (patch: Partial<WorkflowAgentProfile>) => setAgent((a) => ({ ...a, ...patch }))
   const name = agent.name.trim()
+  // An agent already saved is saved again only when something differs.
+  const dirty = isNew || !sameFormValue(initial, agent)
 
   const save = async () => {
     setBusy(true)
@@ -192,8 +195,8 @@ export function WorkflowAgentDialog({
             <Button variant="outline" onClick={onClose}>
               {t('Cancel')}
             </Button>
-            <Button onClick={() => void save()} disabled={!name || busy || (agent.local === true && !agent.model?.trim())} data-workflow-agent-save>
-              {isNew ? t('Create') : t('Save')}
+            <Button onClick={() => void save()} disabled={!name || !dirty || busy || (agent.local === true && !agent.model?.trim())} data-workflow-agent-save>
+              {busy ? t('Saving…') : isNew ? t('Create') : t('Save')}
             </Button>
           </div>
         </DialogFooter>

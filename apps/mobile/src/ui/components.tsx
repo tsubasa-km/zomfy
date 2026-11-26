@@ -1,11 +1,13 @@
 import type { ReactNode } from 'react'
-import { ActivityIndicator, Pressable, StyleSheet, Text, View, type StyleProp, type ViewStyle } from 'react-native'
+import { ActivityIndicator, Image, Pressable, StyleSheet, Text, View, type StyleProp, type ViewStyle } from 'react-native'
 import { router, usePathname } from 'expo-router'
-import type { RemoteRoute, SessionStatus } from '@zomfy/protocol'
+import type { Bot, RemoteRoute, SessionStatus } from '@zomfy/protocol'
+import { botAvatar, botColour } from '../lib/bots'
 import type { ConnectionStatus } from '../lib/host-connection'
 import { useNeedsYouTotal } from './hooks'
 import { t } from './i18n'
-import { colors, space, statusColors } from './theme'
+import { colors, phaseColors, space, statusColors } from './theme'
+import { phaseOf, phaseText } from '../lib/turn-phase'
 
 export function Button(props: {
   label: string
@@ -42,6 +44,37 @@ export function Button(props: {
 export function StatusDot({ status }: { status: SessionStatus }) {
   return <View style={[styles.dot, { backgroundColor: statusColors[status] }]} />
 }
+
+/**
+ * A thread's turn-taking state as a mark (docs/specs/ui-principles.md), told apart by shape as well
+ * as colour: Your turn a filled dot with a halo, Needs your answer a larger filled dot, Working and
+ * background work a ring, a failed turn a red square, Quiet a small grey dot. Its name is the
+ * accessibility label.
+ */
+export function PhaseDot({ info }: { info: Parameters<typeof phaseText>[0] }) {
+  const phase = phaseOf(info)
+  const label = phaseText(info, t) ?? undefined
+  if (info.status === 'error') return <View accessibilityLabel={label} style={[styles.dot, { borderRadius: 2, backgroundColor: statusColors.error }]} />
+  const color = phaseColors[phase]
+  switch (phase) {
+    case 'needs-answer':
+      return <View accessibilityLabel={label} style={[styles.dot, { width: 12, height: 12, borderRadius: 6, backgroundColor: color }]} />
+    case 'your-turn':
+      return (
+        <View accessibilityLabel={label} style={{ width: 14, height: 14, borderRadius: 7, alignItems: 'center', justifyContent: 'center', backgroundColor: `${color}40` }}>
+          <View style={[styles.dot, { backgroundColor: color }]} />
+        </View>
+      )
+    case 'working':
+    case 'background':
+      return <View accessibilityLabel={label} style={[styles.dot, { borderWidth: 2, borderColor: color, borderStyle: phase === 'background' ? 'dashed' : 'solid' }]} />
+    case 'quiet':
+      return <View style={[styles.dot, { width: 6, height: 6, borderRadius: 3, marginHorizontal: 2, backgroundColor: color }]} />
+  }
+}
+
+/** The state's name, for a screen reader; null for a quiet thread. */
+export const phaseLabel = (info: Parameters<typeof phaseText>[0]): string | null => phaseText(info, t)
 
 export const statusLabel = (status: SessionStatus): string =>
   status === 'needs-you' ? t('Needs you') : status === 'working' ? t('Working') : status === 'error' ? t('Error') : t('Idle')
@@ -95,7 +128,7 @@ export function TabBar() {
   const count = useNeedsYouTotal()
   const tabs = [
     { path: '/', label: t('Hosts') },
-    { path: '/needs-you', label: count > 0 ? `${t('Needs you')} (${count})` : t('Needs you') },
+    { path: '/needs-you', label: count > 0 ? `${t('Needs your answer')} (${count})` : t('Needs your answer') },
     { path: '/settings', label: t('Settings') }
   ]
   return (
@@ -158,3 +191,15 @@ export const styles = StyleSheet.create({
   tabText: { color: colors.muted, fontSize: 14, fontWeight: '600' },
   tabTextActive: { color: colors.accent }
 })
+
+/** A bot's round avatar: its picture, or one or two characters on its colour. */
+export function BotAvatar({ bot, size = 28 }: { bot: Pick<Bot, 'name' | 'handle' | 'avatar'>; size?: number }) {
+  const view = botAvatar(bot)
+  const round = { width: size, height: size, borderRadius: size / 2 }
+  if (view.kind === 'image') return <Image source={{ uri: view.uri }} style={round} accessibilityIgnoresInvertColors />
+  return (
+    <View style={[round, { alignItems: 'center', justifyContent: 'center', backgroundColor: bot.avatar ? colors.surfaceRaised : botColour(bot.handle) }]}>
+      <Text style={{ color: '#fff', fontSize: Math.round(size * 0.45), fontWeight: '700' }}>{view.text}</Text>
+    </View>
+  )
+}

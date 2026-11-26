@@ -1,8 +1,9 @@
-import { DEFAULT_SETTINGS, setSetting, useSetting, type ChatAfterSend, type ChatSendKey } from '@/stores/settings-store'
+import { DEFAULT_SETTINGS, setSetting, useSetting, type ChatAfterSend, type ChatSendKey, type ChatThinkingDisplay, type ChatWaitingGlow } from '@/stores/settings-store'
 import { isMac } from '@/lib/terminal-shortcuts'
 import { useStore } from '@/session-store'
 import { sortedHosts } from './HostsPane'
 import { LanguageServerSettings } from './LanguageServerSettings'
+import { WaitingGlowPreview } from '@/components/native-chat/WaitingGlowPreview'
 import {
   NumberField,
   SettingsRow,
@@ -21,6 +22,9 @@ export function InputEditingPane() {
   const sendKey = useSetting('chatSendKey')
   const memos = useSetting('chatMemosEnabled')
   const afterSend = useSetting('chatAfterSend')
+  const thinking = useSetting('chatThinkingDisplay')
+  const waitingGlow = useSetting('chatWaitingGlow')
+  const quietAfter = useSetting('chatQuietAfterHours')
   const hosts = useStore((s) => s.hosts)
 
   return (
@@ -60,6 +64,74 @@ export function InputEditingPane() {
                 options={[
                   { value: 'stay', label: t('Stay in the thread') },
                   { value: 'new-chat', label: t('Go to New Thread') }
+                ]}
+              />
+            }
+          />
+          <SettingsRow
+            label={t('Show thinking')}
+            description={
+              thinking === 'short-reply'
+                ? t("Thinking starts open when the reply after it is short and the thinking is long, since it likely holds the answer.")
+                : thinking === 'expanded'
+                  ? t('Every thinking block starts open.')
+                  : t('Every thinking block starts closed.')
+            }
+            keywords={['chat', 'thinking', 'reasoning', 'thought', 'expand', 'collapse']}
+            control={
+              <SettingsSegmentedControl<ChatThinkingDisplay>
+                ariaLabel={t('Show thinking')}
+                value={thinking}
+                onChange={(value) => setSetting('chatThinkingDisplay', value)}
+                options={[
+                  { value: 'collapsed', label: t('Collapsed') },
+                  { value: 'short-reply', label: t('Expand when the reply is short') },
+                  { value: 'expanded', label: t('Always expanded') }
+                ]}
+              />
+            }
+          />
+          <SettingsRow
+            label={t('Waiting glow')}
+            keywords={['chat', 'composer', 'glow', 'rainbow', 'pulse', 'outline', 'needs you', 'your turn', 'waiting', 'question', 'approval', 'border']}
+            control={
+              <SettingsSegmentedControl<ChatWaitingGlow>
+                ariaLabel={t('Waiting glow')}
+                value={waitingGlow}
+                onChange={(value) => setSetting('chatWaitingGlow', value)}
+                options={(
+                  [
+                    { value: 'rainbow', label: t('Rainbow') },
+                    { value: 'pulse', label: t('Accent pulse') },
+                    { value: 'outline', label: t('Static outline') },
+                    { value: 'off', label: t('Off') }
+                  ] satisfies { value: ChatWaitingGlow; label: string }[]
+                ).map((option) => ({
+                  value: option.value,
+                  label: (
+                    <span className="inline-flex items-center gap-1.5" data-waiting-glow-option={option.value}>
+                      <WaitingGlowPreview pattern={option.value} />
+                      {option.label}
+                    </span>
+                  )
+                }))}
+              />
+            }
+          />
+          <SettingsRow
+            label={t('Quiet after')}
+            keywords={['chat', 'sidebar', 'quiet', 'your turn', 'settled', 'done', 'idle']}
+            control={
+              <SettingsSegmentedControl<number>
+                ariaLabel={t('Quiet after')}
+                value={quietAfter}
+                onChange={(value) => setSetting('chatQuietAfterHours', value)}
+                options={[
+                  { value: 1, label: t('{n}h', { n: 1 }) },
+                  { value: 4, label: t('{n}h', { n: 4 }) },
+                  { value: 24, label: t('{n}h', { n: 24 }) },
+                  { value: 72, label: t('{n}d', { n: 3 }) },
+                  { value: 0, label: t('Never') }
                 ]}
               />
             }

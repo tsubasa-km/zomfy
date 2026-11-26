@@ -1,6 +1,6 @@
 [package]
 name = "zomfy-desktop"
-version = "0.2.53"
+version = "0.2.61"
 description = "Zomfy desktop"
 authors = []
 edition = "2024"

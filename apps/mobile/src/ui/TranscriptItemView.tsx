@@ -1,6 +1,7 @@
 import { memo, useState, type ReactNode } from 'react'
 import { Pressable, StyleSheet, Text, View } from 'react-native'
-import { toolSummary, type TranscriptItem } from '../lib/transcript'
+import { agentStepsOf, personActionsOf, type WrapUpCard } from '@zomfy/protocol'
+import { toolSummary, wrapUpCardOf, type TranscriptItem } from '../lib/transcript'
 import { styles as shared } from './components'
 import { t } from './i18n'
 import { colors, space } from './theme'
@@ -63,6 +64,8 @@ export const TranscriptItemView = memo(function TranscriptItemView({ item }: { i
         </Collapsible>
       )
     case 'tool': {
+      const card = wrapUpCardOf(item)
+      if (card) return <NextSteps card={card} />
       const color = item.status === 'failed' ? colors.danger : item.status === 'completed' ? colors.success : colors.accent
       return (
         <Collapsible line={toolSummary(item)} mark={toolMark(item.status)} markColor={color}>
@@ -107,7 +110,56 @@ export const TranscriptItemView = memo(function TranscriptItemView({ item }: { i
   }
 })
 
+/**
+ * A wrap_up call (docs/specs/next-steps-card.md): the person's next actions, numbered and strong, then
+ * the question, then the agent's own steps small and muted behind an arrow. No headings.
+ */
+function NextSteps({ card }: { card: WrapUpCard }) {
+  const yours = personActionsOf(card)
+  const agents = agentStepsOf(card)
+  const forPerson = yours.length > 0 || Boolean(card.question)
+  if (!forPerson && agents.length === 0) return null
+  return (
+    <View style={[shared.card, local.nextSteps, !forPerson && local.quietCard]} accessibilityLabel={t('Next steps')}>
+      {yours.map((step, i) => (
+        <View key={i} style={[shared.row, local.top]}>
+          <Text style={local.stepNumber}>{i + 1}</Text>
+          <Text style={[shared.text, local.action]} selectable>
+            {step.owner === 'person' ? step.text : `${step.owner}: ${step.text}`}
+          </Text>
+        </View>
+      ))}
+      {card.question ? (
+        <View style={[local.question, yours.length === 0 && local.first]}>
+          <Text style={[shared.text, local.action]} selectable>
+            {card.question.text}
+          </Text>
+          <Text style={shared.muted}>{card.question.options.join(' · ')}</Text>
+        </View>
+      ) : null}
+      {agents.map((step, i) => (
+        <View key={`a${i}`} style={[shared.row, local.top, forPerson && i === 0 && local.agentFirst]}>
+          <Text style={local.agentMark}>↳</Text>
+          <Text style={[shared.muted, local.agentStep]} selectable>
+            {step.text}
+          </Text>
+        </View>
+      ))}
+    </View>
+  )
+}
+
 const local = StyleSheet.create({
+  nextSteps: { gap: 6 },
+  top: { alignItems: 'flex-start' },
+  stepNumber: { color: colors.muted, fontWeight: '700' },
+  action: { flex: 1, fontWeight: '600' },
+  question: { gap: 2, borderTopWidth: 1, borderTopColor: colors.border, paddingTop: 6 },
+  first: { borderTopWidth: 0, paddingTop: 0 },
+  quietCard: { backgroundColor: 'transparent' },
+  agentFirst: { borderTopWidth: 1, borderTopColor: colors.border, paddingTop: 6 },
+  agentMark: { color: colors.muted, fontSize: 12 },
+  agentStep: { flex: 1, fontSize: 12 },
   userBubble: {
     alignSelf: 'flex-end',
     maxWidth: '88%',

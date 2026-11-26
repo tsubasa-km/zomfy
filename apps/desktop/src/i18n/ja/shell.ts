@@ -166,7 +166,6 @@ export const SHELL: Record<string, string> = {
 
   // components/OrcaImportDialog.tsx
   'Import from Orca': 'Orca からインポート',
-  'Projects from Orca\'s active profile. Each is added on the machine it lives on: WSL folders open in that distro\'s daemon, so git and agents run inside WSL. Existing worktrees come along as workspaces.': 'Orca のアクティブなプロファイルにあるプロジェクトです。それぞれ、そのプロジェクトがあるマシンに追加されます。WSL のフォルダーはそのディストリビューションのデーモンで開くため、git とエージェントは WSL 内で動きます。既存のワークツリーはワークスペースとして取り込まれます。',
   'Reading Orca…': 'Orca を読み込み中…',
   'Orca has no projects.': 'Orca にプロジェクトがありません。',
   'Already added': '追加済み',
@@ -191,7 +190,6 @@ export const SHELL: Record<string, string> = {
   // components/QuickStart.tsx
   'Could not start the thread': 'スレッドを開始できませんでした',
   'What should we work on?': '何に取り組みますか？',
-  'Starts right away in a fresh folder. The agent moves the thread into a project when the work needs one.': '新しいフォルダーですぐに始まります。作業にプロジェクトが必要になると、エージェントがスレッドをプロジェクトに移動します。',
   'Ask anything, or describe a task': '質問するか、タスクを説明してください',
   Host: 'ホスト',
   'Start thread ({key})': 'スレッドを開始（{key}）',
@@ -431,8 +429,6 @@ export const SHELL: Record<string, string> = {
   'Create new project': '新しいプロジェクトを作成',
   'Start from an empty folder': '空のフォルダーから始めます',
   'Add a workspace to {project}': '{project} にワークスペースを追加',
-  'A folder or repository on any host; it lists under {project} with its host\'s name.': '任意のホスト上のフォルダーまたはリポジトリです。{project} の下に、ホスト名付きで表示されます。',
-  'Add a project to get started with Zomfy.': 'プロジェクトを追加して Zomfy を始めましょう。',
   'Other ways to add': 'ほかの追加方法',
   'Adding project…': 'プロジェクトを追加中…',
 
@@ -531,8 +527,6 @@ export const SHELL: Record<string, string> = {
   'Folder': 'フォルダー',
   'Project folder': 'プロジェクトのフォルダー',
   'Pick a folder on the same host as the project.': 'プロジェクトと同じホストのフォルダーを選んでください。',
-  'Moved or renamed the folder? Point the project at its new place; its threads, workflows and settings stay. Nothing is moved on disk.': 'フォルダーを移動・名前変更したら、ここで新しい場所を指定します。スレッド、ワークフロー、設定はそのまま残ります。ディスク上のファイルは移動しません。',
-  'New worktrees go in a folder named after the project here.': '新しいワークツリーは、ここにあるプロジェクト名のフォルダーに作られます。',
   'Setup script': 'セットアップ スクリプト',
   'Runs in a terminal after a worktree is created.': 'ワークツリーの作成後にターミナルで実行されます。',
   'Archive script': 'アーカイブ スクリプト',
@@ -543,9 +537,13 @@ export const SHELL: Record<string, string> = {
   'On Windows the script runs with cmd unless it starts with #!, which runs it in Git Bash.': 'Windows では、スクリプトは cmd で実行されます。#! で始まる場合は Git Bash で実行されます。',
   'What agents may do on their own': 'エージェントが自分の判断でできること',
   'Agents can start workflows': 'エージェントがワークフローを開始できる',
-  "An agent in this project may run one of the project's workflows on a task.": 'このプロジェクトのエージェントが、タスクにプロジェクトのワークフローを実行できます。',
   'Agents can split work into parallel worktrees': 'エージェントが作業を並列のワークツリーに分割できる',
-  'An agent may hand separate parts of a large task to helpers, each in a worktree of its own.': '大きなタスクの独立した部分を、それぞれ専用のワークツリーで動くヘルパーに任せられます。',
+
+  // components/sidebar/ProjectSettingsDialog.tsx (Claude in Chrome)
+  'Claude in Chrome': 'Claude in Chrome',
+  'Use the host’s setting (Settings › Agents › Claude)': 'ホストの設定に従う（設定 › エージェント › Claude）',
+  'On for this project': 'このプロジェクトではオン',
+  'Off for this project': 'このプロジェクトではオフ',
 
   // components/sidebar/WorkspaceMenu.tsx
   'Open in': 'アプリで開く',
@@ -1156,8 +1154,6 @@ export const SHELL: Record<string, string> = {
   '{n} waiting on you · click to jump': '{n} 件が対応待ち · クリックで移動',
   '{n} agent session · open dashboard': '{n} 件のエージェント セッション · ダッシュボードを開く',
   '{n} agent sessions · open dashboard': '{n} 件のエージェント セッション · ダッシュボードを開く',
-  '{n} working': '{n} 件作業中',
-  '{n} idle': '{n} 件待機中',
   'UI zoom': 'UI の拡大率',
   'Reset zoom': '拡大率をリセット',
   'Floating workspace, new activity': 'フローティング ワークスペース（新しいアクティビティあり）',
@@ -1283,8 +1279,6 @@ export const SHELL: Record<string, string> = {
   'No threads yet. Start one with New thread.': 'スレッドはまだありません。「新しいスレッド」から始められます。',
 
   // components/QuickStart.tsx, WorkspaceColumns.tsx (window tabs)
-  'Starts in {place}.': '{place} で始めます。',
-  'Starts in a worktree of its own in {project}, so it never edits the same checkout as another thread.': '{project} に専用のワークツリーを作って始めます。ほかのスレッドと同じチェックアウトを編集することはありません。',
   'Start somewhere else': '別の場所で始める',
   'No project': 'プロジェクトなし',
   'Drag out of the window to open this workspace in a window of its own': 'ウィンドウの外へドラッグすると、このワークスペースを別ウィンドウで開きます',
@@ -1390,5 +1384,145 @@ export const SHELL: Record<string, string> = {
   'Remove {n} projects from Zomfy? Their folders and worktrees on disk are kept.':
     '{n} 件のプロジェクトを Zomfy から削除しますか？ディスク上のフォルダーとワークツリーはそのまま残ります。',
   'Hosts that are not connected keep theirs.': '接続していないホストにあるものはそのまま残ります。',
-  'Could not remove {n} of the projects': '{n} 件のプロジェクトを外せませんでした'
+  'Could not remove {n} of the projects': '{n} 件のプロジェクトを外せませんでした',
+  // components/sidebar/CleanupMergedDialog.tsx (Clean up workspaces)
+  'Clean Up Workspaces…': 'ワークスペースを整理…',
+  'Clean up workspaces': 'ワークスペースを整理',
+  'Worktrees of {project}, largest first. Merged means every commit is in {branch} and nothing is uncommitted.':
+    '{project} のワークツリーを大きい順に並べています。「マージ済み」は、すべてのコミットが {branch} に入っていて、コミットされていない変更がないものです。',
+  'Worktrees of {project}, largest first.': '{project} のワークツリーを大きい順に並べています。',
+  'Together they hold {size} of their own.': '合計で {size} を使っています。',
+  "bun's cache ({cache}) is on another drive than the worktrees ({worktrees}), so every worktree gets its own copy of each package instead of a hardlink.":
+    'bun のキャッシュ（{cache}）がワークツリー（{worktrees}）と別のドライブにあるため、ハードリンクにならず、ワークツリーごとにパッケージが丸ごとコピーされます。',
+  'Measuring…': '計測中…',
+  'Delete {name}': '{name} を削除',
+  'Not measured yet': 'まだ計測していません',
+  'Freed {size}': '{size} を空けました',
+  'Delete its dependencies and build output; its files and git state stay.': '依存パッケージとビルド成果物を削除します。ファイルと git の状態はそのまま残ります。',
+  'Freeing…': '空けています…',
+  'Free Up Space': '容量を空ける',
+  'Leftover folder': '残ったフォルダー',
+  'A chat is working here': 'スレッドが作業中',
+  'A terminal is running here': 'ターミナルが動作中',
+  'Has changes': '変更あり',
+  '{n} commits not pushed': '未プッシュのコミット {n} 件',
+  'Not merged yet': '未マージ',
+  'Active today': '今日使用',
+  'Idle for {n} days': '{n} 日使われていません',
+
+  // components/sidebar/workspace-size.ts
+  '{own} (plus {shared} shared)': '{own}（ほかに共有分 {shared}）',
+
+  // components/sidebar/WorkspaceCard.tsx (size)
+  'On disk: {size}': 'ディスク使用量: {size}',
+
+  // components/sidebar/ProjectSettingsDialog.tsx (merge target and cleanup)
+  'Work is merged into': '作業のマージ先',
+  "The main checkout's branch ({branch})": 'メインのチェックアウトのブランチ（{branch}）',
+  "The main checkout's branch": 'メインのチェックアウトのブランチ',
+  'Delete merged worktrees automatically': 'マージ済みのワークツリーを自動で削除',
+  'Kept: unpushed work, running threads and terminals, pins': '残すもの: 未プッシュの作業、実行中のスレッドとターミナル、ピン留め',
+  "As the host's setting (Settings → Hosts)": 'ホストの設定に従う（設定 → ホスト）',
+
+  // components/sidebar/BundledSkillsSettings.tsx
+  "Zomfy's skills": 'Zomfy のスキル',
+  "Work in git worktrees through Zomfy's harness tools instead of raw git or another tool's CLI.":
+    'git のワークツリーでの作業を、git コマンドや他ツールの CLI ではなく Zomfy のハーネス ツールで行うためのスキルです。',
+  '{n} workspaces already have a folder of their own by this name; it is left alone.':
+    '{n} 件のワークスペースには同じ名前の独自フォルダーがすでにあるため、そのままにしています。',
+  'Edited by hand, so updates leave it alone.': '手で編集されているため、更新では上書きしません。',
+  "Replace with Zomfy's version": 'Zomfy の版に置き換える',
+  'Applies right away to every workspace of the project, new ones included.': 'このプロジェクトのすべてのワークスペース（新しく作るものも含む）にすぐ反映されます。',
+  '{path} is outside the workspace, so it cannot be opened here.': '{path} はワークスペースの外にあるため、ここでは開けません。',
+  // components/sidebar/AddRepoDialog.tsx, AddRepoPanels.tsx, AddRepoHostRow.tsx (docs/specs/add-project-dialog.md)
+  Account: 'アカウント',
+  'Created here, but not published to GitHub': 'ここには作成しましたが、GitHub には公開できませんでした',
+  'Create and publish': '作成して公開',
+  'New repository': '新しいリポジトリ',
+  'Looking up the accounts for this host…': 'このホストのアカウントを確認しています…',
+  '{host} is not connected. Pick a connected host, or connect it first.': '{host} は接続されていません。接続済みのホストを選ぶか、先に接続してください。',
+  'On another machine…': '別のマシンに追加…',
+  'Git repository · {remote}': 'Git リポジトリ · {remote}',
+  'Git repository whose remote is not GitHub or GitLab': 'リモートが GitHub でも GitLab でもない Git リポジトリ',
+  'Git repository with no remote': 'リモートのない Git リポジトリ',
+  'Not a Git repository: it opens as a folder, without worktrees': 'Git リポジトリではありません。ワークツリーなしのフォルダーとして開きます',
+  'No folder at this path on {host}': '{host} のこのパスにフォルダーがありません',
+  'A Git repository or any folder': 'Git リポジトリ、または任意のフォルダー',
+  'Path on {host}, e.g. ~/src/project': '{host} 上のパス（例: ~/src/project）',
+  Change: '変更',
+  'Choose a parent folder': '親フォルダーを選んでください',
+  'Repository URL': 'リポジトリの URL',
+  'Clone into': 'クローン先',
+  'Create in': '作成先',
+  'Publish to GitHub': 'GitHub に公開',
+  Visibility: '公開範囲',
+  Private: 'プライベート',
+  Public: 'パブリック',
+  Where: '場所',
+  'Not connected: click to connect': '未接続: クリックで接続',
+  // components/sidebar/HostingAccountField.tsx (docs/specs/project-hosting-accounts.md)
+  'needs signing in again': '再サインインが必要',
+  'Zomfy token': 'Zomfy のトークン',
+  active: 'アクティブ',
+  "This host's Zomfy is too old to pick an account; update it to choose one.": 'このホストの Zomfy は古いため、アカウントを選べません。更新すると選べます。',
+  'As {login} on {host}': '{host} では {login} として操作します',
+  '{tool} is not installed on this host': 'このホストには {tool} がインストールされていません',
+  'No {provider} account signed in on this host': 'このホストでサインインしている {provider} アカウントはありません',
+  'Add account…': 'アカウントを追加…',
+  'Reading accounts…': 'アカウントを読み込んでいます…',
+  "The CLI's active account ({login})": 'CLI のアクティブなアカウント（{login}）',
+  "The CLI's active account": 'CLI のアクティブなアカウント',
+  '{login} (not signed in here)': '{login}（このホストでは未サインイン）',
+  'Finish signing in in the terminal': 'ターミナルでサインインを完了してください',
+  'Sign in with gh': 'gh でサインイン',
+  'Personal access token for {host}': '{host} の個人アクセストークン',
+  'Create a token on {host} (api, read_repository, write_repository)': '{host} でトークンを作成（api、read_repository、write_repository）',
+  'Sign in with glab instead': '代わりに glab でサインイン',
+
+  // components/import/ImportDialog.tsx (docs/specs/import-dialog.md)
+  Import: 'インポート',
+  'Import…': 'インポート…',
+  'Import from': 'インポート元',
+  'Looking for {sources}…': '{sources} を探しています…',
+  'Looking for things to import on {host}…': '{host} でインポートできるものを探しています…',
+  'Nothing to import on {host}.': '{host} にはインポートできるものがありません。',
+
+  // components/sidebar/AddRepoPanels.tsx, AddRepoDialog.tsx (display name, clone folder name)
+  "The folder's name": 'フォルダー名',
+  'Folder name': 'フォルダー名',
+  'From the repository URL': 'リポジトリの URL から',
+  '{path} already exists.': '{path} はすでに存在します。',
+  'Enter a folder name.': 'フォルダー名を入力してください。',
+  'A folder name cannot hold / or \\.': 'フォルダー名に / や \\ は使えません。',
+  'A folder name cannot hold < > : " | ? * or control characters.': 'フォルダー名に < > : " | ? * や制御文字は使えません。',
+  'A folder name cannot end in a dot.': 'フォルダー名の末尾にドットは使えません。',
+  'Pick a name other than . or ..': '. や .. 以外の名前にしてください',
+  'Windows reserves this name; pick another.': 'この名前は Windows で予約されています。別の名前にしてください。',
+  // lib/use-save-state.ts (Save offered only with unsaved changes)
+  'Nothing has changed': '変更はありません',
+  'Saved': '保存しました',
+  // components/tab-layout/NewTabMenu.tsx, PinnedTabButtons.tsx, NewTabDialogs.tsx (docs/specs/new-tab-menu-and-pins.md)
+  '{agent} chat': '{agent} チャット',
+  'New Terminal…': '新しいターミナル…',
+  'Run {name}…': '{name} を実行…',
+  'Unpin {label}': '{label} のピン留めを外す',
+  'Pin {label} to the tab bar': '{label} をタブバーにピン留め',
+  Shell: 'シェル',
+  'No project folder on this host': 'このホストにプロジェクトのフォルダーがありません',
+  'Opening…': '開いています…',
+  // components/QuickStart.tsx (where a new thread starts)
+  'Choose where the thread starts': 'スレッドを始める場所を選ぶ',
+  'New worktree': '新しい worktree',
+  'Another project or host…': '別のプロジェクトやホスト…',
+  // lib/turn-phase.ts, sidebar, tabs, thread and session panel (docs/specs/turn-taking-states.md)
+  'Needs your answer': '回答待ち',
+  'Background work running': 'バックグラウンドで作業中',
+  Quiet: '静か',
+  'wakes at {time}': '{time} に再開',
+  '{first} and {n} more': '{first} ほか {n} 件',
+  'Background work': 'バックグラウンドの作業',
+  Repeats: '繰り返し',
+  'Scheduled wake-up': '予約した再開',
+  'Quiet after': '「静か」に移すまで',
+  Never: '移さない',
 }

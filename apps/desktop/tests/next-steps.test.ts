@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test'
-import { normalizeWrapUp } from '@zomfy/protocol'
+import { agentStepsOf, normalizeWrapUp, personActionsOf } from '@zomfy/protocol'
 import { parseRecap } from '../src/components/native-chat/next-steps.ts'
 import { buildTranscript } from '../src/components/native-chat/native-chat-transcript-model.ts'
 import type { ThreadItem } from '../src/session-store.ts'
@@ -23,6 +23,9 @@ describe('parseRecap', () => {
   test('splits the lead, the folded sections and the tagged steps', () => {
     const parsed = parseRecap(RECAP)
     expect(parsed?.lead).toBe('Fixed the parser.')
+    // The reply keeps what was done and checked; only the steps go to the card.
+    expect(parsed?.body).toContain('### 確認状況')
+    expect(parsed?.body).not.toContain('ネクストステップ')
     expect(parsed?.sections.map((s) => s.title)).toEqual(['やったこと', '確認状況'])
     expect(parsed?.sections[1]?.body).toContain('未確認：the preview')
     expect(parsed?.steps).toEqual([
@@ -75,6 +78,29 @@ describe('normalizeWrapUp', () => {
     expect(normalizeWrapUp({ steps: [] })).toBeNull()
     expect(normalizeWrapUp(null)).toBeNull()
   })
+
+  test("reads the person's actions first, then the agent's steps", () => {
+    const card = normalizeWrapUp({ personActions: ['Update the app', ' '], agentSteps: ['Run the preview'] })
+    expect(card).toEqual({
+      summary: '',
+      steps: [
+        { owner: 'person', text: 'Update the app' },
+        { owner: 'agent', text: 'Run the preview' }
+      ]
+    })
+    expect(personActionsOf(card!)).toEqual([{ owner: 'person', text: 'Update the app' }])
+    expect(agentStepsOf(card!)).toEqual([{ owner: 'agent', text: 'Run the preview' }])
+  })
+
+  test('an empty personActions is a card saying nothing needs the person', () => {
+    expect(normalizeWrapUp({ personActions: [] })).toEqual({ summary: '', steps: [] })
+  })
+
+  test("an older card's named owner is someone the person chases", () => {
+    const card = normalizeWrapUp({ summary: 'Did it.', steps: [{ owner: '田中さん', text: 'Review' }, { owner: 'agent', text: 'Go' }] })!
+    expect(personActionsOf(card)).toEqual([{ owner: '田中さん', text: 'Review' }])
+    expect(agentStepsOf(card).map((s) => s.text)).toEqual(['Go'])
+  })
 })
 
 const user = (text: string): ThreadItem => ({ kind: 'user', text })
@@ -119,6 +145,34 @@ describe('buildTranscript next steps', () => {
     if (row?.kind !== 'next-steps') throw new Error('no card')
     expect(row.card).toEqual(card)
     expect(row.recap?.parsed.sections).toHaveLength(2)
+  })
+
+  test('answer, then wrap_up, then a short line: the card ends the turn under the reply', () => {
+    const { rows } = buildTranscript([user('go'), agent('The full answer.'), wrapUp(card), agent('Done.')], false, '')
+    expect(rows.map((r) => r.kind)).toEqual(['user', 'agent', 'agent', 'next-steps'])
+    expect(rows[1]).toMatchObject({ kind: 'agent', text: 'The full answer.' })
+    expect(rows[3]).toMatchObject({ kind: 'next-steps', card })
+  })
+
+  test('answer, then wrap_up, and no text after it: the card sits under the answer', () => {
+    const { rows } = buildTranscript([user('go'), agent('The full answer.'), wrapUp(card)], false, '')
+    expect(rows.map((r) => r.kind)).toEqual(['user', 'agent', 'next-steps'])
+  })
+
+  test('a recap in the answer before wrap_up still folds into the card, the short line kept after it', () => {
+    const { rows } = buildTranscript([user('go'), agent(RECAP), wrapUp(card), agent('Done.'), user('Next')], false, '')
+    expect(rows.map((r) => r.kind)).toEqual(['user', 'next-steps', 'agent', 'user'])
+    const row = rows[1]
+    if (row?.kind !== 'next-steps') throw new Error('no card')
+    expect(row.card).toEqual(card)
+    expect(row.recap?.text).toBe(RECAP)
+    expect(row.followUp).toBe('Next')
+  })
+
+  test('a recap before the turn’s last tool call is not the turn’s recap', () => {
+    const tool: ThreadItem = { kind: 'tool', id: 't', title: 'Read', toolKind: 'read', status: 'completed', input: {}, output: '', toolName: 'Read' }
+    const { rows } = buildTranscript([user('go'), agent(RECAP), tool, agent('More.')], false, '')
+    expect(rows.map((r) => r.kind)).toEqual(['user', 'agent', 'tools', 'agent'])
   })
 
   test('a reply without a recap stays as it was', () => {

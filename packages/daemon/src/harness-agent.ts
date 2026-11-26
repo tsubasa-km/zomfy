@@ -8,6 +8,7 @@ import {
   QUICK_CHAT_SYSTEM_PROMPT,
   SESSION_REPLAY_META,
   PROMPT_ORIGIN_META,
+  QUESTION_OPTION_IDS,
   PROMPT_NOT_SENT_REPLY_META,
   promptNotSent,
   TURN_RECOVERY_META,
@@ -20,6 +21,7 @@ import {
   type HarnessRequests,
   type TurnEndMeta,
   type PromptOrigin,
+  type SessionWakeUp,
   type TurnResumeKind,
   type ManagerToolName,
 } from "@zomfy/protocol";
@@ -28,22 +30,27 @@ import { releaseFinishedTurn, runClaudeTurn, type StepOptions } from "./claude-t
 import { WorktreeClaims } from "./worktree-claims.ts";
 import { finishWorktree } from "./worktree-finish.ts";
 import { hostingContext } from "./handlers/hosting-handlers.ts";
-import { runArchiveHook, runSetupHook } from "./project-hooks.ts";
+import { effectiveHook, runArchiveHook, runSetupHook } from "./project-hooks.ts";
+import { restoreFreedWorkspace } from "./worktree-cleanup.ts";
 import { HELPER_RESULT_SCHEMA, helperResult, reportIn, splitWorkHint } from "./split-work.ts";
 import { SplitStore } from "./split-store.ts";
 import { SplitCoordinator } from "./split-coordinator.ts";
+import { ChildReports } from "./child-reports.ts";
 import { CliConversations } from "./cli-conversations.ts";
 import { hostPath } from "./tui-agent-detection.ts";
 import { TurnAutoResume } from "./turn-auto-resume.ts";
 import { recoveryPrompt } from "./turn-recovery.ts";
 import { detectUsageLimit } from "./usage-limit.ts";
-import { explainClaudeFailure } from "./claude-executable.ts";
+import { explainClaudeFailure, isClaudeSignedOut, signedOutNotice } from "./claude-executable.ts";
 import { registerTurnRecoveryHandlers } from "./handlers/turn-recovery-handlers.ts";
 import { AcpAgentSessions } from "./acp-agent-sessions.ts";
-import { chatAgentLaunch } from "./chat-agent-launch-settings.ts";
+import { chatAgentLaunch, claudeChromeOn } from "./chat-agent-launch-settings.ts";
+import { hostingAccounts } from "./hosting-account-service.ts";
 import { noteSlashCommands } from "./claude-catalog.ts";
+import { expandMcpMentionsInPrompt } from "./mcp-mentions.ts";
 import { liveClaudeQueries } from "./live-claude-queries.ts";
 import { BackgroundTaskMarks } from "./background-task-marks.ts";
+import { HeldWakeUps } from "./held-wake-ups.ts";
 import { PROCESS_GONE_META, stopsOpenToolCalls, stoppedToolCallUpdates } from "./stopped-tool-calls.ts";
 import type { SessionRegistry } from "./session-registry.ts";
 import { SessionMover } from "./session-move.ts";
@@ -77,6 +84,7 @@ import { TerminalScreens } from "./terminal-screen.ts";
 import { registerPluginHandlers } from "./handlers/plugin-handlers.ts";
 import { registerVoiceHandlers } from "./handlers/voice-handlers.ts";
 import { managerMcp, type ManagerRoute } from "./manager-mcp-server.ts";
+import { presetMcpServers } from "./connector-presets.ts";
 import { projectToolRefusal, projectToolsOffNote } from "./project-agent-tools.ts";
 import { ManagerRouting, autoAllowedManagerTools } from "./manager-routing.ts";
 import { log } from "./log.ts";
@@ -117,7 +125,16 @@ export function createHarnessAgent(
   const managerRouting = new ManagerRouting();
   /** Tools the daemon serves itself (a workflow step's spawn_agents); the rest go to a window. */
   const localTools = new Map<ManagerToolName, { route: ManagerRoute; offeredTo: (sessionId: string) => boolean }>();
-  managerMcp.setRoute((caller, tool, args) => (localTools.get(tool)?.route ?? managerRouting.route)(caller, tool, args));
+  managerMcp.setRoute(async (caller, tool, args) => {
+    const at = Date.now();
+    const done = await (localTools.get(tool)?.route ?? managerRouting.route)(caller, tool, args);
+    // The chat this call prompted reports back to the caller when its turn stops (child-threads-report-home.md).
+    if (!done.isError) {
+      const prompted = tool === "send_prompt" ? args.sessionId : (tool === "create_session" || tool === "create_workspace") && typeof args.prompt === "string" && args.prompt ? (done.result as { sessionId?: unknown } | null)?.sessionId : undefined;
+      if (typeof prompted === "string") childReports.launched(caller, prompted, at);
+    }
+    return done;
+  });
   managerMcp.setStepToolOffers((sessionId, tool) => localTools.get(tool)?.offeredTo(sessionId) ?? false);
   /** Chats whose permission asks are answered "allow" for the person (a workflow's steps). */
   const autoApprove = new Set<string>();
@@ -210,7 +227,7 @@ export function createHarnessAgent(
             requireWorkspace: (id) => workspaces.requireWorkspace(id),
             primaryOf: (projectId) => workspaces.projectWorkspaces().find((w) => w.project.id === projectId && w.workspace.isPrimary)?.workspace,
             hosting: async (cwd) => {
-              const { availability, ctx, provider } = await hostingContext(cwd);
+              const { availability, ctx, provider } = await hostingContext(cwd, projectOfSession(caller));
               if (!ctx || !provider) throw new Error(availability.message ?? "No GitHub or GitLab remote to open a pull request on.");
               return { ctx, provider };
             },
@@ -234,6 +251,30 @@ export function createHarnessAgent(
     } catch {
       return true;
     }
+  });
+  const childReports = new ChildReports({
+    sessions,
+    busy: (sessionId) => pendingTurns.has(sessionId),
+    blocked: (sessionId) => cli.has(sessionId),
+    // Never in place of a turn already running: prompt() would stop it.
+    startTurn: async (sessionId, text, origin) => {
+      if (pendingTurns.has(sessionId)) return "not-sent";
+      const reply = await prompt({ sessionId, prompt: [{ type: "text", text }] }, askAnyClient, null, undefined, origin);
+      return promptNotSent(reply._meta) ? "not-sent" : reply.stopReason;
+    },
+    waitingOn: (sessionId) => asks.waiting().filter((r) => r.sessionId === sessionId).map((r) => r.toolCall.title ?? "a tool call"),
+    log,
+  });
+  // On this host's chats it waits here, with no window needed; chats on other hosts go to a window.
+  localTools.set("wait_for_session", {
+    offeredTo: () => true,
+    route: async (caller, tool, args) => {
+      const ids = Array.isArray(args.sessionIds) ? args.sessionIds.filter((id): id is string => typeof id === "string" && !!id) : [];
+      if (ids.length === 0 || !ids.every((id) => sessions.get(id))) return managerRouting.route(caller, tool, args);
+      if (ids.includes(caller)) return { result: "You cannot wait on your own session.", isError: true };
+      const seconds = typeof args.timeoutSeconds === "number" && Number.isFinite(args.timeoutSeconds) ? Math.min(1800, Math.max(1, args.timeoutSeconds)) : 300;
+      return { result: await childReports.wait(caller, ids, { timeoutMs: seconds * 1000, all: args.all === true, active: () => pendingTurns.has(caller) }) };
+    },
   });
   localTools.set("claim_worktree", {
     offeredTo: () => true,
@@ -294,8 +335,8 @@ export function createHarnessAgent(
     offeredTo: () => true,
     route: async (_caller, _tool, args) =>
       normalizeWrapUp(args)
-        ? { result: "Shown to the person as a Next steps card under your reply. Write your final message now." }
-        : { result: "Nothing to show: give a summary and at least one step ({ owner, text }).", isError: true },
+        ? { result: "Shown to the person as a Next steps card under your reply. End the turn now without repeating your answer (one short line at most)." }
+        : { result: "Nothing to show: give personActions, what the person should do next (an empty list when nothing needs them).", isError: true },
   });
 
   /** Recorded for replay, then sent to every client so a reconnected window sees live turns. */
@@ -309,7 +350,7 @@ export function createHarnessAgent(
     const seq = await sessions.record(sessionId, update);
     broadcast(acp.methods.client.session.update, { sessionId, update, _meta: { [SESSION_REPLAY_META.seq]: seq } });
   }
-  const acpAgents = new AcpAgentSessions(sessions, emit);
+  const acpAgents = new AcpAgentSessions(sessions, emit, (record) => hostingAccounts().projectEnv(projectOfSession(record.id)));
   const mover = new SessionMover({ workspaces, sessions, pendingTurns, emit });
   /** Workflow step turns: their tool policy and result shape, picked up when the turn starts. */
   const stepTurns = new Map<
@@ -358,6 +399,40 @@ export function createHarnessAgent(
     }).catch(() => undefined);
   }
 
+  // What a chat has going after its turn (docs/specs/turn-taking-states.md): its process's live
+  // tasks and wake-ups, and the wake-ups the daemon holds for a process that went.
+  const liveTasks = new Map<string, string[]>();
+  const liveWakeUps = new Map<string, SessionWakeUp[]>();
+  const publishBackground = (sessionId: string): void => {
+    if (!sessions.get(sessionId)) return;
+    const tasks = liveTasks.get(sessionId) ?? [];
+    const byId = new Map([...heldWakeUps.list(sessionId), ...(liveWakeUps.get(sessionId) ?? [])].map((w) => [w.id, w]));
+    const wakeUps = [...byId.values()].sort((a, b) => (a.at ?? Infinity) - (b.at ?? Infinity));
+    const background = tasks.length > 0 || wakeUps.length > 0 ? { tasks, wakeUps } : null;
+    if (JSON.stringify(background) !== JSON.stringify(sessions.get(sessionId)?.background ?? null)) sessions.update(sessionId, { background });
+  };
+  const SCHEDULED_WAKE_UP: PromptOrigin = { kind: "harness-note", title: "Scheduled wake-up" };
+  const heldWakeUps = new HeldWakeUps({
+    fire: async (sessionId, wakeUp) => {
+      const session = sessions.get(sessionId);
+      if (!session) return "gone";
+      if (pendingTurns.has(sessionId) || cli.has(sessionId) || splits.hold(session.workspaceId)) return "busy";
+      void prompt({ sessionId, prompt: [{ type: "text", text: wakeUp.prompt || "Scheduled wake-up" }] }, askAnyClient, null, undefined, SCHEDULED_WAKE_UP).catch(
+        (error) => log(`${sessionId} could not take its scheduled wake-up: ${String(error)}`),
+      );
+      return "started";
+    },
+    notice: (sessionId, title) => void emit(sessionId, { sessionUpdate: "notice", severity: "warning", title }).catch(() => undefined),
+    changed: publishBackground,
+  });
+  // A restart ended every Claude process: the daemon fires the wake-ups they held, and no task runs.
+  for (const record of sessions.all()) {
+    if (!record.background) continue;
+    const wakeUps = record.background.wakeUps;
+    sessions.update(record.id, { background: null });
+    if (wakeUps.length > 0) heldWakeUps.hold(record.id, wakeUps, "Zomfy restarted, which ended the Claude process that ran it");
+  }
+
   type Ask =(request: acp.RequestPermissionRequest) => Promise<acp.RequestPermissionResponse>;
 
   const ASK_WAIT_MS = 5 * 60_000;
@@ -373,7 +448,7 @@ export function createHarnessAgent(
   });
 
   const autoApproved = (request: acp.RequestPermissionRequest): acp.RequestPermissionResponse | null => {
-    if (!autoApprove.has(request.sessionId)) return null;
+    if (!autoApprove.has(request.sessionId) || request.options.some((option) => option.optionId === QUESTION_OPTION_IDS.answer)) return null;
     const allow = request.options.find((o) => o.kind === "allow_once") ?? request.options.find((o) => o.kind === "allow_always");
     return allow ? { outcome: { outcome: "selected", optionId: allow.optionId } } : null;
   };
@@ -451,6 +526,7 @@ export function createHarnessAgent(
     pendingTurns.get(session.id)?.abort();
     const abort = new AbortController();
     pendingTurns.set(session.id, abort);
+    childReports.turnStarted(session.id);
     if (client) managerRouting.noteTurn(session.id, client);
 
     const text = params.prompt.flatMap((b) => (b.type === "text" ? [b.text] : [])).join("\n");
@@ -466,6 +542,8 @@ export function createHarnessAgent(
       status: "working",
       turnStartedAt: Date.now(),
       promptSuggestion: null,
+      // Whatever started it, the turn is the agent's until it ends.
+      yourTurnSince: null,
       // Orca renames a fresh agent tab after its first message.
       ...(firstTurn && text ? { title: text.replace(/\s+/g, " ").slice(0, 40) } : {}),
     });
@@ -504,10 +582,24 @@ export function createHarnessAgent(
       try {
         return await ask({ ...request, sessionId: session.id });
       } finally {
-        if (pendingTurns.get(session.id) === abort) sessions.update(session.id, { status: "working" });
+        // A Stop answered the ask: the turn is ending, and must not read as working again.
+        if (pendingTurns.get(session.id) === abort && !abort.signal.aborted) sessions.update(session.id, { status: "working" });
       }
     };
 
+    // Free space took this worktree's dependencies: its setup script puts them back first, or the agent is told.
+    const freedNote = woken
+      ? null
+      : await restoreFreedWorkspace(
+          workspaces,
+          session.workspaceId,
+          runSetupHook,
+          async (project, path) => !!(await effectiveHook(project, "setup", path)),
+          (title) => emit(session.id, { sessionUpdate: "notice", severity: "info", title }).catch(() => undefined),
+        ).catch((error) => {
+          log(`putting back ${session.workspaceId} failed: ${String(error)}`);
+          return null;
+        });
     // A side chat's seed rides on its first turn only; the transcript shows just what was typed.
     // So does the conversation so far, for an agent that just took the chat over.
     // Read when the prompt goes to the agent: one whose conversation would not reopen is handed it only then.
@@ -516,11 +608,13 @@ export function createHarnessAgent(
       // Not sent: the seed waits for the next prompt the agent reads.
       if (woken) return params.prompt;
       handoff = session.handoffContext;
+      // `@mcp:` chips reach the agent as an instruction; the transcript keeps them as typed.
+      const typed = expandMcpMentionsInPrompt(params.prompt, external ? "other" : "claude");
       // A running split's note goes with every turn while its parts run; it is never stored.
-      const seed = [handoff, session.seedContext, splits.turnNote(session.id)].filter((part) => !!part).join("\n\n");
-      if (!seed) return params.prompt;
+      const seed = [handoff, session.seedContext, splits.turnNote(session.id), freedNote].filter((part) => !!part).join("\n\n");
+      if (!seed) return typed;
       sessions.update(session.id, { seedContext: null, handoffContext: null });
-      return [{ type: "text", text: seed }, ...params.prompt];
+      return [{ type: "text", text: seed }, ...typed];
     };
     /** A turn that ended before the agent answered may never have reached it: the handoff goes with the next one. */
     const keepUnansweredHandoff = async (): Promise<void> => {
@@ -545,12 +639,13 @@ export function createHarnessAgent(
         title: "Stopped",
         _meta: { [TURN_RECOVERY_META.turnEnd]: stopped },
       }).catch(() => undefined);
-      sessions.update(session.id, { status: "idle", turnStartedAt: null, claudeSessionId: session.claudeSessionId });
+      sessions.update(session.id, { status: "idle", turnStartedAt: null, claudeSessionId: session.claudeSessionId, yourTurnSince: Date.now() });
       autoResume.turnEnded(session.id, stopped);
       return { stopReason: "cancelled" };
     };
 
     const quickChat = workspaces.isScratch(session.workspaceId);
+    const managerBot = ctx.services.managerBotChat?.(session.id) === true;
     const worktreePrompt =
       [
         // A helper's own instructions say what it may touch; the sibling-worktree rules are for chats.
@@ -564,6 +659,7 @@ export function createHarnessAgent(
       ]
         .filter((p): p is string => !!p)
         .join("\n\n") || null;
+    const claudeLaunch = await chatAgentLaunch("claude");
     try {
       const stopReason = external
         ? await external.prompt(promptWithSeed, abort, askPermission)
@@ -580,16 +676,23 @@ export function createHarnessAgent(
         },
         onPermissionMode: (permissionMode) =>
           sessions.update(session.id, { options: { ...session.options, permissionMode } }),
-        onSlashCommands: (names) => noteSlashCommands(session.cwd, names),
-        env: (await chatAgentLaunch("claude")).env,
+        onSlashCommands: (names, skills) => noteSlashCommands(session.cwd, names, skills),
+        // The project's GitHub/GitLab account, over the host's agent variables (docs/specs/project-hosting-accounts.md).
+        env: { ...claudeLaunch.env, ...(await hostingAccounts().projectEnv(projectOfSession(session.id))) },
+        chrome: claudeChromeOn(claudeLaunch, projectOfSession(session.id)),
         askPermission,
         // A quick chat sees its harness tools up front, so it can move itself into a project.
         // Workflow steps see them up front too, for ask_requester.
-        mcpServers: managerMcp.claudeServers(
-          session.id,
-          session.role === "manager" || session.role === "lead" || quickChat || stepTurns.has(session.id),
-        ),
-        allowedTools: autoAllowedManagerTools(session.role, MANAGER_MCP_SERVER_NAME),
+        // Then the servers the chat was started with (docs/specs/relay-settings.md).
+        mcpServers: {
+          ...presetMcpServers(session.connectors),
+          ...managerMcp.claudeServers(
+            session.id,
+            session.role === "manager" || session.role === "lead" || quickChat || stepTurns.has(session.id) || managerBot,
+          ),
+        },
+        // A manager bot's chat runs the Manager's own tools without asking, as the Manager chat does.
+        allowedTools: autoAllowedManagerTools(managerBot ? "manager" : session.role, MANAGER_MCP_SERVER_NAME),
         ...(session.role === "manager"
           ? { appendSystemPrompt: MANAGER_SYSTEM_PROMPT }
           : quickChat
@@ -601,8 +704,24 @@ export function createHarnessAgent(
         onTurnEnd: (turnEnd) => (outcome.end = turnEnd),
         onPromptSuggestion: (promptSuggestion) => sessions.update(session.id, { promptSuggestion }),
         attach: woken,
-        onWake: (notification) => wakeChat(session.id, notification),
-        onBackgroundTasks: (tasks) => backgroundMarks.set(session.id, tasks),
+        onWake: (notification, wakeUp) => wakeChat(session.id, notification, wakeUp),
+        onBackgroundTasks: (tasks) => {
+          backgroundMarks.set(session.id, tasks);
+          liveTasks.set(session.id, tasks);
+          publishBackground(session.id);
+        },
+        onWakeUps: (wakeUps) => {
+          liveWakeUps.set(session.id, wakeUps);
+          publishBackground(session.id);
+        },
+        onWakeUpsOrphaned: (wakeUps) => {
+          liveWakeUps.delete(session.id);
+          heldWakeUps.hold(session.id, wakeUps, "its Claude process ended");
+        },
+        onDefaultEffort: (defaultEffort) => {
+          const known = sessions.get(session.id)?.defaultEffort;
+          if (known?.model !== defaultEffort.model || known.effort !== defaultEffort.effort) sessions.update(session.id, { defaultEffort });
+        },
         ...(stepTurns.get(session.id) ?? {}),
       });
       if (stopReason === "cancelled" || abort.signal.aborted) return await interrupted();
@@ -610,6 +729,7 @@ export function createHarnessAgent(
         status: outcome.end ? "error" : "idle",
         turnStartedAt: null,
         claudeSessionId: session.claudeSessionId,
+        yourTurnSince: Date.now(),
       });
       autoResume.turnEnded(session.id, outcome.end);
       if (!outcome.end) void continueAfterMove(session.id, ask, client);
@@ -620,20 +740,29 @@ export function createHarnessAgent(
       await keepUnansweredHandoff();
       // The failure stays in the transcript, not just this reply, and can offer Retry or Resume.
       const raw = error instanceof Error ? error.message : String(error);
-      const title = (external ? null : explainClaudeFailure(raw)) ?? raw;
       const limit = external ? undefined : detectUsageLimit({ text: raw });
-      const failed: TurnEndMeta = limit ? { reason: "usage-limit", resetsAt: limit.resetsAt } : { reason: "error" };
+      const signedOut = !external && !limit && isClaudeSignedOut(raw);
+      const title = signedOut ? signedOutNotice(raw) : ((external ? null : explainClaudeFailure(raw)) ?? raw);
+      const failed: TurnEndMeta = limit
+        ? { reason: "usage-limit", resetsAt: limit.resetsAt }
+        : signedOut
+          ? { reason: "error", signIn: "claude" }
+          : { reason: "error" };
       await emit(session.id, {
         sessionUpdate: "notice",
         severity: "error",
         title,
         _meta: { [TURN_RECOVERY_META.turnEnd]: failed },
       }).catch(() => undefined);
-      sessions.update(session.id, { status: "error", turnStartedAt: null, claudeSessionId: session.claudeSessionId });
+      sessions.update(session.id, { status: "error", turnStartedAt: null, claudeSessionId: session.claudeSessionId, yourTurnSince: Date.now() });
       autoResume.turnEnded(session.id, failed);
       throw error;
     } finally {
-      if (pendingTurns.get(session.id) === abort) pendingTurns.delete(session.id);
+      if (pendingTurns.get(session.id) === abort) {
+        pendingTurns.delete(session.id);
+        asks.withdraw(session.id);
+        childReports.turnEnded(session.id);
+      }
       claims.release(session.id);
       if (finishing.has(session.id)) void finishAfterTurn(session.id);
       void mover.followAfterTurn(session.id).catch((error) => log(`${session.id} could not follow its project: ${String(error)}`));
@@ -641,9 +770,12 @@ export function createHarnessAgent(
   }
 
   /** A background task finished after the chat's turn: the chat takes the turn its process started. */
-  function wakeChat(sessionId: string, notification: string): void {
-    const text: acp.ContentBlock[] = notification ? [{ type: "text", text: notification }] : [];
-    void prompt({ sessionId, prompt: text }, askAnyClient, null, undefined, undefined, true).catch((error) =>
+  function wakeChat(sessionId: string, notification: string, wakeUp?: SessionWakeUp): void {
+    // A scheduled wake-up shows its prompt as a note; a task's notification shows as itself.
+    const shown = notification || wakeUp?.prompt || "";
+    const text: acp.ContentBlock[] = shown ? [{ type: "text", text: shown }] : [];
+    const origin = !notification && wakeUp ? SCHEDULED_WAKE_UP : undefined;
+    void prompt({ sessionId, prompt: text }, askAnyClient, null, undefined, origin, true).catch((error) =>
       log(`${sessionId} could not take its woken turn: ${String(error)}`),
     );
   }

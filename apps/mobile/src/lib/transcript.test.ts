@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'bun:test'
 import { claudeTurn, interleavedTools } from './fixtures/session-updates'
-import { applyUpdate, toolSummary, transcriptFrom, type TranscriptItem } from './transcript'
+import { applyUpdate, toolSummary, transcriptFrom, wrapUpCardOf, type TranscriptItem } from './transcript'
 
 describe('transcript reducer', () => {
   test('a recorded Claude turn becomes merged messages, one tool item, the latest plan and a notice', () => {
@@ -71,5 +71,32 @@ describe('transcript reducer', () => {
       { sessionUpdate: 'tool_call', toolCallId: 't', title: 'Terminal', kind: 'execute', rawInput: { command: 'ls -la\necho hi' } }
     ])
     expect(toolSummary(tool as Extract<TranscriptItem, { kind: 'tool' }>)).toBe('Terminal: ls -la')
+  })
+})
+
+describe('wrapUpCardOf', () => {
+  const tool = (patch: Partial<Extract<TranscriptItem, { kind: 'tool' }>>): Extract<TranscriptItem, { kind: 'tool' }> => ({
+    kind: 'tool',
+    id: 'tool:w',
+    toolCallId: 'w',
+    title: 'wrap_up',
+    toolKind: 'other',
+    status: 'completed',
+    toolName: 'mcp__harness__wrap_up',
+    input: { personActions: ['Update the app'], agentSteps: ['Run the preview'] },
+    output: '',
+    ...patch
+  })
+
+  test("a wrap_up call reads as its card, the person's actions first", () => {
+    expect(wrapUpCardOf(tool({}))?.steps).toEqual([
+      { owner: 'person', text: 'Update the app' },
+      { owner: 'agent', text: 'Run the preview' }
+    ])
+  })
+
+  test('other tools and a failed wrap_up stay tool lines', () => {
+    expect(wrapUpCardOf(tool({ toolName: 'Bash', title: 'Bash' }))).toBeNull()
+    expect(wrapUpCardOf(tool({ status: 'failed' }))).toBeNull()
   })
 })

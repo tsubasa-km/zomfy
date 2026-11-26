@@ -1,6 +1,6 @@
 import { useEffect, useId, useMemo, useRef, useState } from 'react'
 import { toast } from 'sonner'
-import type { ChatCommand } from '@zomfy/protocol'
+import type { ChatCommand, ChatMcpServer } from '@zomfy/protocol'
 import type { MarkdownEditorHandle } from '@/components/markdown-editor/MarkdownEditor'
 import { appendToDraft, loadMentionFiles } from '@/chat-actions'
 import { imageTypeOf, readDroppedImage } from '@/lib/chat-file-drop'
@@ -9,7 +9,18 @@ import { isSubmitShortcut } from '@/lib/terminal-shortcuts'
 import type { ChatImage, HostId } from '@/session-store'
 import { patchChatSession, useChatSession, useChatStore } from '@/stores/chat-store'
 import { useSetting } from '@/stores/settings-store'
-import { composerAutocompleteQuery, matchCommands, matchFiles, type ComposerAutocomplete } from './NativeChatAutocompleteMenus'
+import { mcpMentionText } from '@/lib/chat-mentions'
+import { useComposerConnectors } from '@/stores/composer-connectors-store'
+import type { ComposerAutocomplete } from './NativeChatAutocompleteMenus'
+import {
+  MCP_MENTION_QUERY,
+  commandKindOf,
+  composerAutocompleteQuery,
+  leadingCommandLength,
+  matchCommands,
+  matchMentions,
+  offeredConnectors
+} from './composer-menu-items'
 import { recallStep, type RecalledPrompt } from './native-chat-prompt-recall'
 
 // What every composer does with its text box, whether a chat is behind it or (the "New thread" tab)
@@ -42,6 +53,8 @@ export interface ComposerSource {
   commands: { items: ChatCommand[]; status: 'loading' | 'ready' | 'error' } | null
   /** The workspace whose files the `@` menu lists; null leaves the menu out. */
   filesWorkspaceId: string | null
+  /** The chat whose connected MCP servers the `@` menu lists too; null lists none. */
+  connectorsSessionId?: string | null
   /** A guess at the next prompt, offered while the composer is empty; Tab takes it. */
   suggestion: string | null
   /** The prompts sent here so far, oldest first, read when ArrowUp asks for one. */
@@ -51,7 +64,17 @@ export interface ComposerSource {
 
 export type NativeChatComposerState = ReturnType<typeof useNativeChatComposer>
 
-export function useNativeChatComposer({ draftId, hostId, editorRef, commands, filesWorkspaceId, suggestion: offered, history, onSubmit }: ComposerSource) {
+export function useNativeChatComposer({
+  draftId,
+  hostId,
+  editorRef,
+  commands,
+  filesWorkspaceId,
+  connectorsSessionId = null,
+  suggestion: offered,
+  history,
+  onSubmit
+}: ComposerSource) {
   const { draft, draftImages } = useChatSession(draftId)
   const files = useChatStore((s) => (filesWorkspaceId ? s.mentionFiles[filesWorkspaceId] : undefined))
   const listboxId = useId()
@@ -67,14 +90,25 @@ export function useNativeChatComposer({ draftId, hostId, editorRef, commands, fi
   useEffect(() => {
     if (query?.mode === 'mention' && !files && filesWorkspaceId) void loadMentionFiles(filesWorkspaceId)
   }, [query?.mode, files, filesWorkspaceId])
+  const connectors = useComposerConnectors(connectorsSessionId, hostId, query?.mode === 'mention')
+  const servers = useMemo(() => offeredConnectors(connectors.servers), [connectors.servers])
 
   const autocomplete = useMemo((): ComposerAutocomplete | null => {
     if (!query || dismissedAt === draft) return null
     if (query.mode === 'slash') {
       return { ...query, mode: 'slash', items: matchCommands(commands?.items ?? [], query.query), status: commands?.status ?? 'loading' }
     }
-    return { ...query, mode: 'mention', items: matchFiles(files?.value ?? [], query.query), status: files?.status ?? 'loading' }
-  }, [query?.mode, query?.query, query?.start, query?.end, commands?.items, commands?.status, files, dismissedAt, draft])
+    const onlyServers = query.query.toLowerCase().startsWith(MCP_MENTION_QUERY)
+    return {
+      ...query,
+      mode: 'mention',
+      items: matchMentions(files?.value ?? [], servers, query.query),
+      status: onlyServers ? connectors.status : (files?.status ?? 'loading')
+    }
+  }, [query?.mode, query?.query, query?.start, query?.end, commands?.items, commands?.status, files, servers, connectors.status, dismissedAt, draft])
+  const skills = useMemo(() => commands?.items.filter((c) => commandKindOf(c) === 'skill') ?? [], [commands?.items])
+  // The names a leading `/command` is drawn in color for, once it names one of them.
+  const commandNames = useMemo(() => commands?.items.map((c) => c.name) ?? [], [commands?.items])
   const optionCount = autocomplete?.items.length ?? 0
   const selected = Math.min(activeIndex, Math.max(0, optionCount - 1))
   // Tab takes the guess, as in the Claude apps.
@@ -91,12 +125,26 @@ export function useNativeChatComposer({ draftId, hostId, editorRef, commands, fi
 
   function choose(index: number) {
     if (!autocomplete) return
-    const insert =
-      autocomplete.mode === 'slash'
-        ? `/${autocomplete.items[index]?.name ?? autocomplete.query} `
-        : `@${autocomplete.items[index] ?? autocomplete.query} `
+    let insert: string
+    if (autocomplete.mode === 'slash') insert = `/${autocomplete.items[index]?.name ?? autocomplete.query} `
+    else {
+      const item = autocomplete.items[index]
+      insert = !item ? `@${autocomplete.query} ` : item.kind === 'mcp' ? mcpMentionText(item.server.name) : `@${item.path} `
+    }
     setActiveIndex(0)
     editorRef.current?.replaceRange(autocomplete.start, autocomplete.end, insert)
+  }
+
+  /** `/name ` at the message's start, in place of a leading `/command` (the + menu's Skill). */
+  function insertSkill(name: string) {
+    editorRef.current?.replaceRange(0, leadingCommandLength(draft), `/${name} `)
+  }
+
+  /** An MCP server's chip at the caret (the + menu's Connector). */
+  function insertConnector(server: ChatMcpServer) {
+    const before = draft.slice(0, caret)
+    const text = mcpMentionText(server.name)
+    editorRef.current?.replaceRange(caret, caret, before === '' || /\s$/.test(before) ? text : ` ${text}`)
   }
 
   /** The chosen Enter sends; with Enter chosen, Cmd/Ctrl+Enter sends too. */
@@ -210,9 +258,13 @@ export function useNativeChatComposer({ draftId, hostId, editorRef, commands, fi
     handleKeyDown,
     resetActiveIndex: () => setActiveIndex(0),
     startFileMention,
+    skills,
+    insertSkill,
+    insertConnector,
     pickImages: () => fileInput.current?.click(),
     addImages,
     removeImage,
-    pasteFiles
+    pasteFiles,
+    commandNames
   }
 }

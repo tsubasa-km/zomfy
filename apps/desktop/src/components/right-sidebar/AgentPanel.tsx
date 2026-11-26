@@ -1,5 +1,5 @@
-import { useEffect, useRef } from 'react'
-import { ExternalLink } from 'lucide-react'
+import { useEffect, useMemo, useRef } from 'react'
+import { AlarmClock, ExternalLink, Repeat } from 'lucide-react'
 import { chatAgentLabel, workflowScorecard } from '@zomfy/protocol'
 import { allProjects, allWorkspaces, useStore, type Session } from '@/session-store'
 import { useChatSession } from '@/stores/chat-store'
@@ -13,6 +13,9 @@ import { EnvironmentSection } from './session-panel/EnvironmentSection'
 import { ContextSection } from './session-panel/ContextSection'
 import { UsageLimitsSection } from './session-panel/UsageLimitsSection'
 import { ConnectorsSection } from './session-panel/ConnectorsSection'
+import { AgentStateDot } from '@/components/AgentStateDot'
+import { useCoarseNow } from '@/lib/chat-list'
+import { phaseOf, turnPhaseDot, turnPhaseLabel, useQuietAfterHours, wakeTime } from '@/lib/turn-phase'
 import { t } from '@/i18n/i18n'
 
 // The Session tab, after the Claude app's session sidebar: for the chat in front, where it runs,
@@ -31,12 +34,12 @@ function useFrontChat(workspaceId: string): Session | null {
 }
 
 /** What this chat called: tools by name, and the skills, MCP servers and subagents behind them. */
-function chatActivity(session: Session) {
+function chatActivity(items: Session['items']) {
   const tools = new Map<string, number>()
   const used = { skill: new Map<string, number>(), mcp: new Map<string, number>(), agent: new Map<string, number>() }
   const bump = (map: Map<string, number>, key: string) => map.set(key, (map.get(key) ?? 0) + 1)
   let turns = 0
-  for (const item of session.items) {
+  for (const item of items) {
     if (item.kind === 'user') turns++
     if (item.kind !== 'tool') continue
     const name = item.toolName ?? item.title.split(':')[0] ?? 'tool'
@@ -59,6 +62,11 @@ export function AgentPanel({ workspaceId }: { workspaceId: string }) {
   const projectName = useStore((s) => allProjects(s.hosts).find((p) => p.id === projectId)?.name ?? '')
   const usage = useChatSession(session?.id ?? '').usage
   const runs = useWorkflowRuns(hostId, projectId ?? '')
+  // The panel re-renders on every change to any chat; the count walks this chat's whole transcript.
+  const items = session?.items
+  const activity = useMemo(() => chatActivity(items ?? []), [items])
+  const now = useCoarseNow()
+  const quietAfter = useQuietAfterHours()
 
   useEffect(() => {
     if (hostId && projectId) void loadWorkflowRuns(hostId, projectId).catch(() => undefined)
@@ -69,7 +77,8 @@ export function AgentPanel({ workspaceId }: { workspaceId: string }) {
   }
 
   const agent = session.agent ?? 'claude'
-  const activity = chatActivity(session)
+  const phase = phaseOf(session, now, quietAfter)
+  const phaseDot = turnPhaseDot(phase, session.status)
   const run = runs.find((r) => r.steps.some((s) => s.sessionIds.includes(session.id)))
   const openRun = (r: HostedWorkflowRun) =>
     openWorkflows({ hostId: r.hostId, projectId: r.projectId, projectName, runId: r.id })
@@ -80,7 +89,14 @@ export function AgentPanel({ workspaceId }: { workspaceId: string }) {
       <div className="flex items-center gap-2 border-b border-border px-3 py-2.5">
         <TuiAgentIcon agent={agent} size={16} />
         <div className="min-w-0 flex-1">
-          <div className="truncate text-sm font-medium">{session.title}</div>
+          <div className="flex min-w-0 items-center gap-1.5">
+            <div className="truncate text-sm font-medium">{session.title}</div>
+            {phaseDot && (
+              <span className="flex shrink-0" data-agent-panel-phase={phase}>
+                <AgentStateDot state={phaseDot} size="md" title={turnPhaseLabel(phase, session.status)} />
+              </span>
+            )}
+          </div>
           <div className="truncate text-[11px] text-muted-foreground">
             {chatAgentLabel(agent)}
             {session.options?.model ? ` · ${session.options.model}` : ''}
@@ -88,6 +104,31 @@ export function AgentPanel({ workspaceId }: { workspaceId: string }) {
           </div>
         </div>
       </div>
+
+      {session.background && (session.background.tasks.length > 0 || session.background.wakeUps.length > 0) && (
+        <Section title={t('Background work')}>
+          <ul className="space-y-1" data-agent-background>
+            {session.background.tasks.map((task, i) => (
+              <li key={`task:${i}`} className="flex items-center gap-2">
+                <AgentStateDot state="monitoring" size="sm" title={null} />
+                <span className="min-w-0 flex-1 truncate" title={task}>
+                  {task}
+                </span>
+              </li>
+            ))}
+            {session.background.wakeUps.map((wakeUp) => (
+              <li key={`wake:${wakeUp.id}`} className="flex items-center gap-2">
+                <AlarmClock className="size-3 shrink-0 text-yellow-600 dark:text-yellow-400" aria-hidden="true" />
+                <span className="shrink-0 text-muted-foreground tabular-nums">{wakeUp.at === null ? '—' : wakeTime(wakeUp.at, now)}</span>
+                <span className="min-w-0 flex-1 truncate" title={wakeUp.prompt}>
+                  {wakeUp.prompt || t('Scheduled wake-up')}
+                </span>
+                {wakeUp.recurring && <Repeat className="size-3 shrink-0 text-muted-foreground" aria-label={t('Repeats')} />}
+              </li>
+            ))}
+          </ul>
+        </Section>
+      )}
 
       <EnvironmentSection workspaceId={workspaceId} />
 

@@ -3,6 +3,7 @@ import { createPointerDragChannel, type DragPoint } from '@/lib/pointer-drag'
 import { CHAT_COMPOSER_DROP_SELECTOR, chatComposerDropTarget } from '@/lib/chat-composer-drop'
 import { layoutFor, type LayoutNode, type SplitSide } from '@/stores/tab-layout-store'
 import type { WorkspaceTab } from './workspace-tab-model'
+import { containsPoint, resolvePaneEdgeZone } from './tab-drop-geometry'
 
 // Tab drags (Orca's useTabDragSplit, tab-insertion.ts, tab-drop-zone.ts,
 // tab-group-panel-split-target.ts), on pointer events.
@@ -58,20 +59,6 @@ export function useInsertionMark(tabId: string): InsertionMark['side'] | null {
   )
 }
 
-type Rect = { left: number; top: number; width: number; height: number }
-
-/** Orca's resolvePaneColumnEdgeZone: side bands span the panel, vertical bands only the body. */
-export function resolvePaneEdgeZone(panel: Rect, body: Rect, point: DragPoint): SplitSide | null {
-  const x = point.x - panel.left
-  if (x < panel.width * 0.2) return 'left'
-  if (x > panel.width * 0.8) return 'right'
-  if (body.height <= 0) return null
-  const y = point.y - body.top
-  if (y < body.height * 0.2) return 'up'
-  if (y > body.height * 0.8) return 'down'
-  return null
-}
-
 function directSiblingOnSide(node: Extract<LayoutNode, { type: 'split' }>, groupId: string, side: SplitSide): string | null {
   const { first, second, direction } = node
   if (first.type === 'leaf' && first.groupId === groupId && second.type === 'leaf') {
@@ -108,16 +95,21 @@ function visibleTabs(strip: Element): HTMLElement[] {
   })
 }
 
-/** Where a tab dropped at `point` over `panel` (a TabGroupPane root) would go. */
-export function resolveTabDropTarget(drag: DraggedTab, groupId: string, panel: HTMLElement, point: DragPoint): TabDropTarget {
+/**
+ * Where a tab dropped at `point` over `pane` (a TabGroupPane root: tabs, body and its right sidebar)
+ * would go. A split divides the whole pane, so the zones are measured on it, sidebar included.
+ */
+export function resolveTabDropTarget(drag: DraggedTab, groupId: string, pane: HTMLElement, point: DragPoint): TabDropTarget {
   const layout = layoutFor(drag.workspaceId)
   const order = layout.groups[groupId]?.tabOrder ?? []
-  const strip = panel.querySelector('[data-tab-group-strip-id]')
-  const body = panel.querySelector('[data-tab-group-body-id]')
+  const strip = pane.querySelector('[data-tab-group-strip-id]')
+  const body = pane.querySelector('[data-tab-group-body-id]')
   if (!strip || !body) return { kind: 'none' }
+  const sidebar = pane.querySelector('[data-pane-sidebar]')?.getBoundingClientRect() ?? null
+  const overSidebar = sidebar !== null && containsPoint(sidebar, point)
 
   // The strip is for reordering only; splits open from the body's edges (Orca).
-  if (point.y < strip.getBoundingClientRect().bottom) {
+  if (!overSidebar && point.y < strip.getBoundingClientRect().bottom) {
     const tabs = visibleTabs(strip)
     if (tabs.length === 0) return { kind: 'insert', groupId, index: order.length, mark: null }
     // Orca's closest-centre collision: the tab nearest the pointer along the strip.
@@ -139,7 +131,7 @@ export function resolveTabDropTarget(drag: DraggedTab, groupId: string, panel: H
   }
 
   const sourceCount = layout.groups[drag.groupId]?.tabOrder.length ?? 0
-  const side = resolvePaneEdgeZone(panel.getBoundingClientRect(), body.getBoundingClientRect(), point)
+  const side = resolvePaneEdgeZone(pane.getBoundingClientRect(), body.getBoundingClientRect(), point, sidebar)
   if (side && !isSplitDropNoOp(layout.root, drag.groupId, sourceCount, groupId, side)) return { kind: 'split', groupId, side }
   // A no-op edge falls back to the pane body, as Orca's pane-body droppable does.
   return drag.groupId === groupId ? { kind: 'none' } : { kind: 'move', groupId }

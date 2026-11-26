@@ -33,7 +33,7 @@ expires or drops is what reviews of both researched apps punish most.[^mobile-ap
 
 1. Deploy creates a random 128-bit **setup code** as the Worker secret `SETUP_CODE`
    ([connector](../bots/connector.md#deploy)).
-2. In Settings → Bots → Relay (or Devices) the person pastes the Worker URL and setup code. The
+2. In Settings → Zomfy Relay (or Devices) the person pastes the Worker URL and setup code. The
    daemon generates an **Ed25519 host key** (private part in `~/.zomfy/relay/host-key`, mode 0600)
    and calls `POST /v1/hosts/register {setupCode, publicKey, name}`. The Hub stores the key, returns
    a `hostId`, and marks the setup code used.
@@ -63,7 +63,8 @@ expires or drops is what reviews of both researched apps punish most.[^mobile-ap
 
 ## Scopes
 
-`chats:read`, `chats:operate` (prompt, Stop, approvals, questions), `terminals:operate`,
+`chats:read`, `chats:operate` (prompt, Stop, approvals, questions, and starting a bot chat with
+`_harness/bots/chatCreate` — [bots in the phone app](bots.md)), `terminals:operate`,
 `workspaces:operate`, `bots:read`. Every ACP and `_harness/*` method has one required scope in
 `remote-devices.ts`; a method not in the table is refused for phones. All scopes are on by default
 for the person's own phone; a pairing can drop any.
@@ -101,7 +102,7 @@ Phone pairing on the direct route is built (M1); the relay part is built in M2 (
 M2, the relay:
 
 - The offer lists the relay last, `{kind:'relay', url, relayHostId}`, with `relayUrl`, while this host
-  is paired with a relay (Settings → Bots → Relay); LAN and tailnet come first.
+  is paired with a relay (Settings → Zomfy Relay); LAN and tailnet come first.
 - The daemon registers device keys at the Hub with `device-sync` (the whole list) rather than one
   `device-add` per pairing, so revokes made while the link was down are not lost.
 - A phone may pair **through the relay**: when no direct route answers it presents the grant inside

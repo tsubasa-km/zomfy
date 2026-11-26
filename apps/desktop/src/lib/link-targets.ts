@@ -74,6 +74,25 @@ export function workspaceRelativePath(path: string, root: string | null): string
   return normalized.slice(base.length + 1) || null
 }
 
+/**
+ * The workspace a full path lies in, among one host's workspaces, with the path relative to it:
+ * the deepest root wins, so a worktree nested in its project's folder takes its own files. A chat's
+ * agent often names files of another checkout of the same project (the main one, a sibling worktree).
+ */
+export function containingWorkspace(
+  path: string,
+  workspaces: readonly { id: string; path: string }[]
+): { workspaceId: string; path: string } | null {
+  let best: { workspaceId: string; path: string; depth: number } | null = null
+  for (const workspace of workspaces) {
+    const relative = workspaceRelativePath(path, workspace.path)
+    if (relative === null || !isAbsolutePath(path)) continue
+    const depth = workspace.path.replaceAll('\\', '/').replace(/\/+$/, '').length
+    if (!best || depth > best.depth) best = { workspaceId: workspace.id, path: relative, depth }
+  }
+  return best ? { workspaceId: best.workspaceId, path: best.path } : null
+}
+
 // Extensions a bare file name (no folder) must have to read as a file rather than code (`a.b`);
 // `log` is left out, as `console.log` is code far more often than a file.
 const FILE_EXTENSIONS = new Set(

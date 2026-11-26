@@ -32,10 +32,31 @@ bots ask. The first test path is Zomfy itself, so talking to a bot must work wit
 - A bot chat is an ordinary chat (composer, transcript, approvals, Stop) with a header showing the
   bot and, for chats started elsewhere, where it came from ("from Discord · #eng · asked by
   Alex") with a link that opens the thread in the browser.
+- The phone app starts a bot chat the same way, from its Bots screen
+  ([bots in the phone app](../mobile/bots.md)); the chat then shows in the windows like any other.
 - Typing `@<handle>` at the start of a prompt in any chat sends that prompt to the bot as a new bot
   chat, with a link back to the chat it came from.
 - Bot chats and the workers they start have `origin: 'bot'`; the normal project lists leave them
   out unless "Show bot chats" is on.
+
+## What the app calls
+
+The daemon side is built ([daemon](daemon.md#methods)); the app needs only these:
+
+- The list: `_harness/bots/list`, then `botsChanged {bots}` after every change.
+- **Create bot**: `_harness/bots/create {input}`; `input.homeWorkspaceId` or `input.homePath` picks
+  an existing folder, neither makes `~/zomfy/bots/<handle>`. Then `update {id, patch}`, `pause {id,
+  paused}`, `askers {id, source, askers}`, `delete {id, deleteHome?}`. Errors are readable messages
+  (a bad or used handle, a guarded agent).
+- **Open SOUL.md / MEMORY.md / home folder**: files in the workspace `bot.homeWorkspaceId`.
+- **New chat** and `@handle …`: `_harness/bots/chatCreate {id, text?, fromSessionId?}` →
+  `{sessionId}`; without `text` the window sends the first prompt with `session/prompt` as in any
+  chat. Bot chats are sessions with `origin: 'bot'`, `botId` and `botFrom`; a bot's newest chat is
+  its session with the latest `lastActivityAt`.
+- **Relay**: `connectorStatus`, `connectorPair {relayUrl, setupCode | invite, hostName?}`,
+  `connectorUnpair`, and `connectorStatusChanged` for the live state.
+- **Access requests**: `accessRequests`, `answerAccessRequest {id, allow}`, and
+  `accessRequestsChanged {requests}`.
 
 ## Needs you
 
@@ -45,14 +66,11 @@ bots ask. The first test path is Zomfy itself, so talking to a bot must work wit
 
 ## Settings → Bots
 
-1. **Relay**: Worker URL and setup code fields, **Pair**, status (connected, last hello, host id),
-   **Unpair**, and **Deploy to Cloudflare** / "or run `bun run deploy`" links to the guide. The
-   same relay serves the phone ([pairing](../mobile/pairing.md)).
-2. **Sources**: a card per source (Discord, Slack, GitHub, Linear, Webhooks) showing whether the
-   deployment has it configured (from `hello-ok` features), the URLs to paste into the source
-   (interactions endpoint, events URL, webhook URL) with copy buttons, and a link to the source's
-   setup steps.
-3. **Bots**: list, **Create bot** (name, handle, avatar, purpose, agent, model, permission mode,
+1. **Relay**: a one-line summary (state and sources) with **Relay settings**; pairing, what the
+   relay serves, the sources' URLs and setup moved to Settings → Zomfy Relay
+   ([relay settings](../relay-settings.md)). The same relay serves the phone
+   ([pairing](../mobile/pairing.md)).
+2. **Bots**: list, **Create bot** (name, handle, avatar, purpose, agent, model, permission mode,
    home: a new folder `~/zomfy/bots/<handle>` by default, or an existing repository), and per bot:
    - **Open SOUL.md**, **Open MEMORY.md** (opened in Zomfy's editor), Open home folder.
    - **Who can ask** per source: the owner's own id per source (with "how to find my id" help) and

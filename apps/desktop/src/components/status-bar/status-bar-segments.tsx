@@ -120,7 +120,7 @@ function AgentsSegment() {
         ) : null}
         <span className="inline-flex items-center gap-1">
           {working > 0 ? <AgentWorkingSpinner className="size-2.5" /> : <span className="inline-block size-2 rounded-full bg-muted-foreground/40" />}
-          {working > 0 ? t('{n} working', { n: working }) : t('{n} idle', { n: total })}
+          <span className="tabular-nums">{working > 0 ? working : total}</span>
         </span>
       </span>
     </Segment>

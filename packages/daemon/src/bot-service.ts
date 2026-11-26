@@ -66,6 +66,17 @@ export interface BotServiceOptions {
   channels?: ConnectorClientOptions['channels']
 }
 
+/** The bot every host starts with: the person's manager across their projects. */
+export const MASTER_BOT = {
+  name: 'Zomfy',
+  handle: 'zomfy',
+  agent: 'claude',
+  purpose:
+    "The person's manager across their projects: sees and drives the chats, workspaces and worktrees on every host, and hands code work to worker chats.",
+  permissionMode: 'default',
+  manager: true
+} as const satisfies BotInput
+
 const UNPAIRED: ConnectorStatus = {
   state: 'unpaired',
   relayUrl: null,
@@ -186,6 +197,22 @@ export class BotService {
       this.store.remove(bot.id)
       throw error
     }
+    return bot
+  }
+
+  /**
+   * Registers the master bot once per host (docs/specs/bots/master-bot.md#seeding): on a fresh
+   * install and on one with bots, the default only when no bot is. Never again once done, so a
+   * deleted master stays deleted. Returns the bot it added, or null.
+   */
+  async seedMasterBot(): Promise<Bot | null> {
+    if (this.store.masterSeeded()) return null
+    if (this.store.byHandle(MASTER_BOT.handle)) {
+      this.store.markMasterSeeded()
+      return null
+    }
+    const bot = await this.create({ ...MASTER_BOT, isDefault: !this.store.list().some((b) => b.isDefault) })
+    this.store.markMasterSeeded()
     return bot
   }
 

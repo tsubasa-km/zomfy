@@ -27,7 +27,7 @@ export default function RootLayout() {
           }}
         >
           <Stack.Screen name="index" options={{ title: t('Hosts') }} />
-          <Stack.Screen name="needs-you" options={{ title: t('Needs you') }} />
+          <Stack.Screen name="needs-you" options={{ title: t('Needs your answer') }} />
           <Stack.Screen name="settings" options={{ title: t('Settings') }} />
           <Stack.Screen name="pair" options={{ title: t('Pair a host') }} />
         </Stack>

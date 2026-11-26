@@ -2,7 +2,37 @@
 // `gh` / `glab` on its own host; generic names ("review", "work item") cover both providers, as
 // Orca's hosted-review types do.
 
+import type { TerminalInfo } from './terminals'
+
 export type HostingProviderId = 'github' | 'gitlab'
+
+/** One GitHub or GitLab account on a host, as a project picks it (docs/specs/project-hosting-accounts.md). */
+export interface HostingAccountRef {
+  provider: HostingProviderId
+  /** e.g. `github.com`, `gitlab.example.com`. */
+  host: string
+  login: string
+}
+
+/** An account the daemon's host can act as. */
+export interface HostingAccount extends HostingAccountRef {
+  /** The CLI's active account for its host (glab's only one). */
+  active: boolean
+  /** Who holds its token: the CLI's own login, or a token Zomfy keeps. */
+  source: 'gh' | 'glab' | 'zomfy'
+  /** Where a token Zomfy keeps is stored. */
+  storage?: 'keyring' | 'file'
+  /** The CLI reported this account failing (expired token, say). */
+  problem?: string
+}
+
+/** What a folder's remote or a clone URL points at. */
+export interface HostingRemoteInfo {
+  provider: HostingProviderId
+  host: string
+  /** `owner/repo` or the GitLab project path. */
+  repo: string
+}
 
 /** Why hosting features are (un)available for a repository on this host. */
 export type HostingAvailabilityState =
@@ -142,7 +172,12 @@ export const HOSTING_METHODS = {
   hostingCreateReview: '_harness/hosting/createReview',
   hostingWorkItems: '_harness/hosting/workItems',
   hostingWorkItem: '_harness/hosting/workItem',
-  hostingCheckoutReview: '_harness/hosting/checkoutReview'
+  hostingCheckoutReview: '_harness/hosting/checkoutReview',
+  hostingAccounts: '_harness/hosting/accounts',
+  hostingAccountAddToken: '_harness/hosting/accountAddToken',
+  hostingAccountRemove: '_harness/hosting/accountRemove',
+  hostingAccountLogin: '_harness/hosting/accountLogin',
+  hostingRemoteOf: '_harness/hosting/remoteOf'
 } as const
 
 export interface HostingRequests {
@@ -193,5 +228,27 @@ export interface HostingRequests {
   [HOSTING_METHODS.hostingCheckoutReview]: {
     params: { projectId: string; number: number }
     result: { branch: string }
+  }
+  /** Every account this host's gh and glab hold, and the GitLab tokens Zomfy keeps. Newer daemons only. */
+  [HOSTING_METHODS.hostingAccounts]: {
+    params: { force?: boolean }
+    result: { accounts: HostingAccount[]; cli: { gh: boolean; glab: boolean } }
+  }
+  /** Checks a GitLab personal access token with the host and keeps it; the login comes from the host. */
+  [HOSTING_METHODS.hostingAccountAddToken]: {
+    params: { provider: 'gitlab'; host: string; token: string }
+    result: HostingAccount
+  }
+  /** Forgets a token Zomfy keeps; a CLI's own login is left to the CLI. */
+  [HOSTING_METHODS.hostingAccountRemove]: { params: HostingAccountRef; result: Record<string, never> }
+  /** A terminal running `gh auth login` / `glab auth login` for the host, in the workspace (else the floating one). */
+  [HOSTING_METHODS.hostingAccountLogin]: {
+    params: { provider: HostingProviderId; host: string; workspaceId?: string }
+    result: TerminalInfo
+  }
+  /** What a folder's remote (`origin`, else the first) or a clone URL points at; null when not GitHub or GitLab. */
+  [HOSTING_METHODS.hostingRemoteOf]: {
+    params: { path?: string; url?: string }
+    result: HostingRemoteInfo | null
   }
 }

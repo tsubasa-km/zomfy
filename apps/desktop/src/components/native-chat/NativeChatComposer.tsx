@@ -12,6 +12,7 @@ import {
   resumeQueue,
   steerQueued,
   stopTurn,
+  useStopping,
   submitPrompt
 } from '@/chat-actions'
 import { NativeChatPermissionModePicker } from './NativeChatPermissionModePicker'
@@ -39,6 +40,7 @@ import { mainLocationOf } from '@/stores/project-catalog-store'
 import { upsertWorkflowRun } from '@/stores/workflow-runs-store'
 import { confirmWorkflowStart } from '@/components/workflows/WorkflowStartConfirm'
 import { allWorkspaces, getState, hostLabel, LOCAL_HOST, useStore } from '@/session-store'
+import { useLasting } from '@/hooks/use-lasting'
 import { getBots, startBotChat } from '@/stores/bots-store'
 import { parseBotMention } from '@/lib/bot-mention'
 import { t } from '@/i18n/i18n'
@@ -47,21 +49,29 @@ import { projectLabel } from '@/components/sidebar/workspace-visibility'
 // An open chat's composer: what the chat adds to the shared input (use-native-chat-composer) and
 // box (NativeChatComposerBox). The "New thread" tab's is NewThreadComposer.
 
-type ComposerProps = { session: Session; editorRef: React.RefObject<MarkdownEditorHandle | null> }
+type ComposerProps = {
+  session: Session
+  editorRef: React.RefObject<MarkdownEditorHandle | null>
+  /** It is simply the person's turn: the box glows until they start typing (composer-waiting-glow.md). */
+  glow?: boolean
+}
 
 /**
  * The session fields the composer (and the menus it hands the session to) reads. Its session
  * changes with every streamed chunk; without this, the whole composer would render with each one.
  */
+/** How long a host may take to (re)connect before the composer says it is waiting for it. */
+const OFFLINE_NOTICE_DELAY_MS = 1500
+
 const COMPOSER_SESSION_FIELDS = ['id', 'workspaceId', 'hostId', 'status', 'agent', 'agentState', 'options', 'promptSuggestion', 'sideOf', 'role', 'localOnly'] as const
 
 export const NativeChatComposer = memo(
   Composer,
   (prev: ComposerProps, next: ComposerProps) =>
-    prev.editorRef === next.editorRef && COMPOSER_SESSION_FIELDS.every((key) => prev.session[key] === next.session[key])
+    prev.editorRef === next.editorRef && prev.glow === next.glow && COMPOSER_SESSION_FIELDS.every((key) => prev.session[key] === next.session[key])
 )
 
-function Composer({ session, editorRef }: ComposerProps) {
+function Composer({ session, editorRef, glow = false }: ComposerProps) {
   const { usage, queue } = useChatSession(session.id)
   const catalog = useChatStore((s) => s.catalogs[session.workspaceId])
   // Models are the account's, not the folder's: when this folder's probe failed, another folder's list on the host serves.
@@ -78,8 +88,13 @@ function Composer({ session, editorRef }: ComposerProps) {
       null
   )
   const working = isWorking(session)
+  // Stop was pressed and the agent is still winding down: the button says so instead of seeming dead.
+  const stopping = useStopping(session.id)
   // Sending or stopping needs the host; while it reconnects the person can still write.
   const offline = useStore((s) => s.hosts[session.hostId]?.connection.kind !== 'connected')
+  // Connecting at startup takes a moment; saying so only when it lasts keeps the composer from
+  // growing a line and shrinking again as the window opens.
+  const offlineNotice = useLasting(offline, OFFLINE_NOTICE_DELAY_MS)
   // Other agents bring their own commands and options over ACP; the workspace catalog is Claude's.
   const external = isExternalAgentSession(session)
   const agentState = session.agentState
@@ -112,6 +127,8 @@ function Composer({ session, editorRef }: ComposerProps) {
       ? { items: agentState?.commands ?? [], status: agentState?.phase === 'starting' ? 'loading' : 'ready' }
       : { items: catalog?.value?.commands ?? [], status: catalog?.status ?? 'loading' },
     filesWorkspaceId: session.workspaceId,
+    // The daemon lists a chat's MCP servers for Claude chats; other agents' get none.
+    connectorsSessionId: external ? null : session.id,
     // Claude's guess at the next prompt shows in the empty composer.
     suggestion: working ? null : (session.promptSuggestion ?? null),
     // Read when asked: the composer does not render with each streamed chunk of the transcript.
@@ -211,7 +228,7 @@ function Composer({ session, editorRef }: ComposerProps) {
     : offline
       ? t('Reconnecting to {host}…', { host: hostLabel(session.hostId) })
       : null
-  const claudeLabels = !external && options ? sessionOptionLabels(options, models) : null
+  const claudeLabels = !external && options ? sessionOptionLabels(options, models, session.defaultEffort) : null
   const reconnecting = t('Reconnecting to {host}…', { host: hostLabel(session.hostId) })
   const key = SEND_LABEL[sendKey]
 
@@ -235,8 +252,9 @@ function Composer({ session, editorRef }: ComposerProps) {
             editorRef={editorRef}
             boxRef={composerBox}
             takesTabDrops
+            waiting={glow && !draft.trim() && draftImages.length === 0}
             placeholder={
-              offline
+              offlineNotice
                 ? t('Reconnecting to {host}… sending waits until it is back', { host: hostLabel(session.hostId) })
                 : workflow
                   ? t('The task for "{name}"', { name: workflow.name })
@@ -247,7 +265,7 @@ function Composer({ session, editorRef }: ComposerProps) {
                     : (suggestion ?? t('Message the agent'))
             }
             notice={
-              offline ? (
+              offlineNotice ? (
                 <p className="mb-1.5 px-1 text-xs text-muted-foreground" data-composer-offline>
                   {t('Reconnecting to {host}… You can keep writing; sending waits until it is back.', { host: hostLabel(session.hostId) })}
                 </p>
@@ -255,7 +273,15 @@ function Composer({ session, editorRef }: ComposerProps) {
             }
             left={
               <>
-                <NativeChatAttachMenu session={session} onPickImages={composer.pickImages} onMentionFile={composer.startFileMention} />
+                <NativeChatAttachMenu
+                  session={session}
+                  onPickImages={composer.pickImages}
+                  onMentionFile={composer.startFileMention}
+                  skills={composer.skills}
+                  onPickSkill={composer.insertSkill}
+                  connectors={external ? null : { sessionId: session.id, hostId: session.hostId }}
+                  onPickConnector={composer.insertConnector}
+                />
                 <NativeChatWorkflowPicker home={workflowHome} picked={workflow} onPick={setWorkflow} />
                 {memos ? <NativeChatMemoButton sessionId={session.id} /> : null}
               </>
@@ -310,6 +336,7 @@ function Composer({ session, editorRef }: ComposerProps) {
                           options={options}
                           models={models}
                           loading={catalog?.status === 'loading'}
+                          defaultEffort={session.defaultEffort}
                           onChange={(patch) => void setSessionOptions(session.id, patch)}
                           onDone={close}
                         />
@@ -348,7 +375,11 @@ function Composer({ session, editorRef }: ComposerProps) {
             actions={
               working ? (
                 <>
-                  <NativeChatComposerAction kind="stop" label={t('Stop the agent')} hint={offline ? reconnecting : undefined} disabled={offline} onClick={() => stopTurn(session.id)} />
+                  {stopping ? (
+                    <NativeChatComposerAction kind="busy" label={t('Stopping…')} onClick={() => undefined} />
+                  ) : (
+                    <NativeChatComposerAction kind="stop" label={t('Stop the agent')} hint={offline ? reconnecting : undefined} disabled={offline} onClick={() => stopTurn(session.id)} />
+                  )}
                   {/* With something written the round button is the follow-up's: it queues behind the running turn. */}
                   {canSend && !offline ? (
                     workflow ? (

@@ -1,5 +1,5 @@
-import { useState } from 'react'
-import { Folder, X } from 'lucide-react'
+import { useMemo, useState } from 'react'
+import { ChevronDown, Folder, GitBranchPlus, X } from 'lucide-react'
 import { toast } from 'sonner'
 import { HARNESS_METHODS } from '@zomfy/protocol'
 import { createSession, harnessRequest } from '@/daemon-connection'
@@ -28,6 +28,13 @@ import { defaultHostId } from '@/lib/default-host'
 import { NewThreadComposer } from '@/components/native-chat/NewThreadComposer'
 import { ProjectPicker, projectKey } from '@/components/projects/ProjectPicker'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger
+} from '@/components/ui/dropdown-menu'
 import { t } from '@/i18n/i18n'
 
 // The "New thread" tab, as in the Claude apps: type and go. With no project picked the chat starts in
@@ -54,6 +61,17 @@ export function QuickStart() {
   const workspaceId = useStore((s) => s.startTab.workspaceId)
   const workspace = useStore((s) => (workspaceId ? (allWorkspaces(s).find((w) => w.id === workspaceId) ?? null) : null))
   const workspaceProject = workspace ? allProjects(hosts).find((p) => p.hostId === workspace.hostId && p.id === workspace.projectId) : undefined
+  // The chip offers the project's other workspaces, so a chat can start beside the one it came from.
+  const everyWorkspace = useStore((s) => allWorkspaces(s))
+  const siblings = useMemo(
+    () => (workspace?.projectId ? everyWorkspace.filter((w) => w.hostId === workspace.hostId && w.projectId === workspace.projectId) : []),
+    [everyWorkspace, workspace]
+  )
+  // Leaving the workspace keeps its project picked, so "somewhere else" starts from the same project.
+  const startElsewhere = () => {
+    setStartProject(workspaceProject ? projectKey(workspaceProject) : null)
+    setStartWorkspace(null)
+  }
   // A git project's thread gets a worktree of its own; until it exists, the main checkout stands in for its files and commands.
   const projectFolder = useStore((s) =>
     project ? (allWorkspaces(s).find((w) => w.hostId === project.hostId && w.projectId === project.id && w.isPrimary)?.id ?? null) : null
@@ -110,24 +128,9 @@ export function QuickStart() {
     }
   }
 
-  const where = workspace
-    ? t('Starts in {place}.', {
-        place: workspaceProject ? `${projectLabel(workspaceProject)} · ${workspace.branch ?? workspaceLabel(workspace)}` : workspaceLabel(workspace)
-      })
-    : project?.kind === 'git'
-      ? t('Starts in a worktree of its own in {project}, so it never edits the same checkout as another thread.', { project: projectLabel(project) })
-      : project
-        ? t('Starts in {place}.', { place: projectLabel(project) })
-        : t('Starts right away in a fresh folder. The agent moves the thread into a project when the work needs one.')
-
   return (
     <div className="m-auto flex w-full max-w-(--chat-content-max-width) flex-col gap-4 px-3 py-6 sm:px-4" data-quick-start>
-      <div className="space-y-1 text-center">
-        <h1 className="text-lg font-medium text-foreground">{t('What should we work on?')}</h1>
-        <p className="text-xs text-muted-foreground" data-quick-start-where>
-          {where}
-        </p>
-      </div>
+      <h1 className="text-center text-lg font-medium text-foreground">{t('What should we work on?')}</h1>
       <div className="flex flex-col gap-1.5 select-none">
         <NewThreadComposer
           hostId={workspace?.hostId ?? project?.hostId ?? target}
@@ -143,17 +146,56 @@ export function QuickStart() {
                 className="inline-flex h-7 min-w-0 items-center gap-1 rounded-md bg-accent/60 pr-0.5 pl-2 text-xs text-foreground"
                 data-quick-start-workspace
               >
-                <Folder className="size-3.5 shrink-0 text-muted-foreground" />
-                <span className="min-w-0 truncate">
-                  {workspaceProject ? projectLabel(workspaceProject) : workspaceLabel(workspace)}
-                  {workspaceProject && workspace.branch ? ` · ${workspace.branch}` : ''}
-                </span>
+                <DropdownMenu modal={false}>
+                  <DropdownMenuTrigger asChild>
+                    <button
+                      type="button"
+                      className="flex min-w-0 items-center gap-1 rounded-sm hover:text-foreground"
+                      aria-label={t('Choose where the thread starts')}
+                      title={t('Choose where the thread starts')}
+                      data-quick-start-workspace-menu
+                    >
+                      <Folder className="size-3.5 shrink-0 text-muted-foreground" />
+                      <span className="min-w-0 truncate">
+                        {workspaceProject ? projectLabel(workspaceProject) : workspaceLabel(workspace)}
+                        {workspaceProject && workspace.branch ? ` · ${workspace.branch}` : ''}
+                      </span>
+                      <ChevronDown className="size-3 shrink-0 text-muted-foreground" />
+                    </button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="start" className="max-w-80">
+                    {siblings.map((w) => (
+                      <DropdownMenuItem key={w.id} data-quick-start-sibling={w.id} onSelect={() => setStartWorkspace(w.id)}>
+                        <Folder className="size-4" />
+                        <span className="min-w-0 flex-1 truncate">{w.branch ?? workspaceLabel(w)}</span>
+                        {w.id === workspace.id ? <span className="text-xs text-muted-foreground">{t('Current')}</span> : null}
+                      </DropdownMenuItem>
+                    ))}
+                    {workspaceProject?.kind === 'git' && (
+                      <DropdownMenuItem data-quick-start-new-worktree onSelect={startElsewhere}>
+                        <GitBranchPlus className="size-4" />
+                        {t('New worktree')}
+                      </DropdownMenuItem>
+                    )}
+                    {siblings.length > 0 || workspaceProject?.kind === 'git' ? <DropdownMenuSeparator /> : null}
+                    <DropdownMenuItem
+                      data-quick-start-elsewhere
+                      onSelect={() => {
+                        setStartProject(null)
+                        setStartWorkspace(null)
+                      }}
+                    >
+                      <X className="size-4" />
+                      {t('Another project or host…')}
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
                 <button
                   type="button"
                   aria-label={t('Start somewhere else')}
                   title={t('Start somewhere else')}
                   className="flex size-5 shrink-0 items-center justify-center rounded-sm text-muted-foreground hover:bg-accent hover:text-foreground"
-                  onClick={() => setStartWorkspace(null)}
+                  onClick={startElsewhere}
                 >
                   <X className="size-3" />
                 </button>

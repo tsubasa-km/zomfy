@@ -39,6 +39,10 @@ describe('connectorIcon', () => {
     expect(connectorIcon(server('dev', { scope: 'project', transport: 'http', url: 'http://localhost:3000/mcp' }))).toEqual({ kind: 'remote' })
     expect(connectorIcon(server('lan', { transport: 'sse', url: 'http://192.168.1.4/sse' }))).toEqual({ kind: 'remote' })
   })
+  test('Claude Code’s Claude in Chrome server gets the Chrome mark', () => {
+    expect(connectorIcon(server('claude-in-chrome', { scope: 'dynamic', transport: 'stdio' }))).toEqual({ kind: 'chrome' })
+    expect(connectorIcon(server('claude-in-chrome'))).toEqual({ kind: 'chrome' })
+  })
   test('stdio, plugin and the harness get generic icons', () => {
     expect(connectorIcon(server('discord', { scope: 'user', transport: 'stdio' }))).toEqual({ kind: 'stdio' })
     expect(connectorIcon(server('plugin:deploy-on-aws:awsiac', { scope: 'plugin', transport: 'stdio' }))).toEqual({ kind: 'plugin' })

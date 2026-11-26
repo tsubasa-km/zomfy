@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'bun:test'
 import { BOT_NOTIFICATIONS, type Bot, type ConnectorStatus } from '@zomfy/protocol'
-import { botActivity, botChats, botFromLink, INITIAL_BOTS_STATE, reduceBotsNotification } from '../src/lib/bot-state'
+import { botActivity, botBadges, botChats, botFromLink, INITIAL_BOTS_STATE, reduceBotsNotification } from '../src/lib/bot-state'
 import { parseBotMention } from '../src/lib/bot-mention'
 import { automationInputOf, initialAutomationDraft } from '../src/lib/automation-draft'
 import { automationsForBot, foundMembers, initialBotDraft, mintedHook } from '../src/lib/bot-automation'
@@ -72,6 +72,15 @@ describe('the bots store', () => {
     expect(botActivity(reviewer, [...sessions, chat('ask', { origin: 'bot', botId: reviewer.id, status: 'needs-you' })])).toBe('waiting')
     expect(botActivity({ ...reviewer, paused: true }, [])).toBe('paused')
     expect(botActivity(reviewer, [])).toBe('idle')
+  })
+})
+
+describe('bot badges', () => {
+  test('Master shows for a manager bot only, after Default', () => {
+    expect(botBadges(bot('zomfy', { isDefault: true, manager: true }))).toEqual(['Default', 'Master'])
+    expect(botBadges(bot('ops', { manager: true }))).toEqual(['Master'])
+    expect(botBadges(bot('reviewer', { isDefault: true }))).toEqual(['Default'])
+    expect(botBadges(bot('writer'))).toEqual([])
   })
 })
 

@@ -2,7 +2,7 @@ import React from 'react'
 import Markdown, { type Components } from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import rehypeSanitize from 'rehype-sanitize'
-import { File, MessageSquare, SquareTerminal } from 'lucide-react'
+import { File, MessageSquare, Plug, SquareTerminal } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { MENTION_TITLE, parseChatMentions, type ChatMention } from '@/lib/chat-mentions'
 import { openChatMention } from '@/lib/chat-attachments'
@@ -82,7 +82,7 @@ const DOCUMENT_COMPONENTS: Components = {
 
 /** Prefixes the inline code a mention becomes (JSON after it); private use, so never typed. */
 const MENTION_MARK = '\uE000'
-const MENTION_ICONS = { file: File, terminal: SquareTerminal, chat: MessageSquare } as const
+const MENTION_ICONS = { file: File, terminal: SquareTerminal, chat: MessageSquare, mcp: Plug } as const
 
 function decodeMention(code: string): ChatMention {
   // oxlint-disable-next-line typescript/consistent-type-assertions -- SAFETY: written by remarkChatMentions below.

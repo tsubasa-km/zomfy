@@ -1,5 +1,5 @@
 import React from 'react'
-import { Activity, CircleCheck, CircleDashed } from 'lucide-react'
+import { Activity, CircleAlert, CircleCheck, CircleDashed } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { AgentQuestionIcon } from '@/components/AgentQuestionIcon'
 import { AgentWorkingSpinner } from '@/components/AgentWorkingSpinner'
@@ -45,6 +45,9 @@ export type AgentDotState =
   // vocabulary, while rendering it with the same question glyph and
   // --agent-question color as the worktree-level permission indicator.
   | 'permission'
+  // Why: a chat thread whose agent handed it back to the person (docs/specs/turn-taking-states.md);
+  // a green dot with a soft halo: a go light, never the orange of a question waiting for an answer.
+  | 'your-turn'
 
 /** Return the accessible label shared by every visual agent-state marker. */
 export function agentStateLabel(state: AgentDotState): string {
@@ -71,6 +74,8 @@ export function agentStateLabel(state: AgentDotState): string {
       return t('Couldn’t confirm')
     case 'permission':
       return t('Needs attention')
+    case 'your-turn':
+      return t('Your turn')
   }
 }
 
@@ -140,6 +145,17 @@ export const AgentStateDot = React.memo(function AgentStateDot({
         <CircleDashed className={cn('text-amber-500', icon)} aria-hidden="true" />
       </span>
     )
+  } else if (state === 'failed') {
+    // Why: a shape of its own, so a failure never reads as another filled dot (Your turn's green)
+    // once colour is gone.
+    indicator = (
+      <span
+        className={cn('inline-flex shrink-0 items-center justify-center', box, className)}
+        aria-label={agentStateLabel(state)}
+      >
+        <CircleAlert className={cn('text-red-500', icon)} aria-hidden="true" />
+      </span>
+    )
   } else if (state === 'permission' || state === 'waiting') {
     indicator = (
       <span
@@ -159,12 +175,14 @@ export const AgentStateDot = React.memo(function AgentStateDot({
           className={cn(
             'block rounded-full',
             inner,
-            state === 'blocked' || state === 'failed'
+            state === 'blocked'
               ? 'bg-red-500'
               : // Why: a user's Stop is not news; muted, never the fault red or the finished green.
                 state === 'interrupted'
                 ? 'bg-muted-foreground'
-                : 'bg-neutral-500/40'
+                : state === 'your-turn'
+                  ? 'bg-emerald-500 ring-2 ring-emerald-500/25'
+                  : 'bg-neutral-500/40'
           )}
         />
       </span>

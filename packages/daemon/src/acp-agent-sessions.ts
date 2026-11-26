@@ -5,7 +5,7 @@ import { managerMcp } from './manager-mcp-server.ts'
 import { mcpServersReady } from './mcp-ready.ts'
 import { restartHandoff } from './agent-handoff.ts'
 
-/** The ACP servers running for this daemon's external-agent sessions, one per session. */
+/** The external agent processes running for this daemon, one per session. */
 export class AcpAgentSessions {
   private readonly live = new Map<string, AcpAgentSession>()
   /** MCP servers a workflow step gives its session, on top of the harness's own. */
@@ -13,7 +13,9 @@ export class AcpAgentSessions {
 
   constructor(
     private readonly sessions: SessionRegistry,
-    private readonly emit: (sessionId: string, update: acp.SessionUpdate) => Promise<void>
+    private readonly emit: (sessionId: string, update: acp.SessionUpdate) => Promise<void>,
+    /** Variables the session's project adds when its agent starts (its GitHub/GitLab account). */
+    private readonly envFor: (record: SessionRecord) => Promise<Record<string, string>> = async () => ({})
   ) {
     // However a session goes (closed, its workspace removed), its server goes with it.
     sessions.onChange((list) => {
@@ -60,6 +62,9 @@ export class AcpAgentSessions {
       onAgentSessionId: (agentSessionId) => {
         if (current()) this.sessions.update(record.id, { agentSessionIds: { ...record.agentSessionIds, [agentId]: agentSessionId } })
       },
+      onCodexConnection: (codexThreadConnection) => {
+        if (current()) this.sessions.update(record.id, { codexThreadConnection })
+      },
       onConversationLost: async () => {
         const transcript = await this.sessions.transcript(record.id)
         // A turn waiting on this start has its prompt in the transcript already; it follows the handoff.
@@ -69,8 +74,9 @@ export class AcpAgentSessions {
         if (handoffContext && current()) this.sessions.update(record.id, { handoffContext })
       },
       mcpServers: (capabilities) => [...managerMcp.acpServers(record.id, capabilities), ...(this.stepServers.get(record.id) ?? [])],
-      ready: () => mcpServersReady(this.stepServers.get(record.id) ?? [])
-    })
+      ready: () => mcpServersReady(this.stepServers.get(record.id) ?? []),
+      env: () => this.envFor(record)
+    }, agentId === 'codex' ? record.codexThreadConnection ?? null : null)
     this.live.set(record.id, agent)
     return agent
   }

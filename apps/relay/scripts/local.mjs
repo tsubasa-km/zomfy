@@ -242,7 +242,7 @@ function startTunnel() {
         if (url && url !== publicUrl) {
           publicUrl = url
           emit('tunnel', { kind: options.tunnel, publicUrl })
-          say(`\nNew public URL: ${publicUrl}\nUpdate it in each source and pair Zomfy again (Settings → Bots → Relay).`)
+          say(`\nNew public URL: ${publicUrl}\nUpdate it in each source and pair Zomfy again (Settings → Zomfy Relay).`)
           killTree(wrangler) // starts again with the new PUBLIC_URL
         }
       }, tunnelBackoff)
@@ -335,7 +335,7 @@ function announce(health) {
   }
   if (sources.includes('github')) console.log(`\nGitHub → your app → Webhook URL: ${url}/github/webhook`)
   if (sources.includes('linear')) console.log(`\nLinear → Settings → API → Webhooks: ${url}/linear/webhook (Issues, Comments, Issue labels)`)
-  console.log(`\nIn Zomfy: Settings → Bots → Relay: paste ${url} and the setup code, then Pair.`)
+  console.log(`\nIn Zomfy: Settings → Zomfy Relay: paste ${url} and the setup code, then Pair.`)
   console.log('Keep this running (Ctrl+C stops it). The relay is off whenever this machine is.')
 }
 

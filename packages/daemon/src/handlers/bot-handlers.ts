@@ -176,6 +176,16 @@ export function registerBotHandlers(ctx: HandlerContext): void {
     },
     (sessionId) => sessions.get(sessionId)?.origin === "bot",
   );
+  // A manager bot's chats get the Manager chat's tools, loaded up front and run without asking.
+  ctx.services.managerBotChat = (sessionId) => {
+    const botId = sessions.get(sessionId)?.botId;
+    return !!botId && service.store.get(botId)?.manager === true;
+  };
+  // Every host starts with the master bot, once (docs/specs/bots/master-bot.md#seeding).
+  void service.seedMasterBot().then(
+    (bot) => bot && log(`bots: registered the master bot @${bot.handle}`),
+    (error: unknown) => log(`bots: could not register the master bot: ${error instanceof Error ? error.message : String(error)}`),
+  );
   // Started with the daemon, not a window: a paired host answers while no window is open.
   try {
     service.start();

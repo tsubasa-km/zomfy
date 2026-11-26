@@ -62,7 +62,51 @@ export interface SessionInfo {
   botId?: string
   /** Where a bot chat was asked from; absent for chats opened in Zomfy with no link back. */
   botFrom?: BotChatFrom
+  /**
+   * The effort Claude's default resolved to on the chat's last turn run with no effort picked, and
+   * the chat's model option then (null: the default model). Absent until such a turn, and from older daemons.
+   */
+  defaultEffort?: { model: string | null; effort: ChatEffort } | null
+  /** MCP servers given to this chat alone when it was made (docs/specs/relay-settings.md); Claude only. */
+  connectors?: ChatConnectorPreset[]
+  /**
+   * Work the chat has going after its turn ended, which brings it back on its own: null or absent
+   * when there is none, and from older daemons (docs/specs/turn-taking-states.md).
+   */
+  background?: SessionBackground | null
+  /**
+   * When the agent's latest turn ended and handed the thread to the person; null while a turn
+   * runs and before the first. Absent from older daemons.
+   */
+  yourTurnSince?: number | null
+  /** When a window last showed the thread to the person (sessionMarkSeen). Absent until then and from older daemons. */
+  seenAt?: number | null
 }
+
+/** A chat's background work: its Claude process's live tasks and its pending scheduled wake-ups. */
+export interface SessionBackground {
+  /** The live background tasks' descriptions (Bash, Monitor, subagents). */
+  tasks: string[]
+  /** Scheduled wake-ups still to fire (ScheduleWakeup, CronCreate, /loop), soonest first. */
+  wakeUps: SessionWakeUp[]
+}
+
+/** A wake-up the chat's agent scheduled (docs/specs/scheduled-wake-ups.md). */
+export interface SessionWakeUp {
+  /** Claude's id for the scheduled task. */
+  id: string
+  /** When it next fires (ms since the epoch); null if its schedule has no match within a year. */
+  at: number | null
+  recurring: boolean
+  /** The prompt it fires with, as Claude reports it (clipped at 1000 characters). */
+  prompt: string
+}
+
+/** An MCP server a chat can be started with: `cloudflare` is Cloudflare's API server, CLOUDFLARE_MCP_URL. */
+export type ChatConnectorPreset = 'cloudflare'
+
+/** The Cloudflare MCP server of Cloudflare's own agent plugin; it covers the whole Cloudflare API. */
+export const CLOUDFLARE_MCP_URL = 'https://mcp.cloudflare.com/mcp'
 
 /** Where a bot chat came from, for its header ("from Discord · asked by Alex"). */
 export interface BotChatFrom {
@@ -90,7 +134,14 @@ export interface ChatCommand {
   argumentHint: string
   /** Claude Code's own command, not one from the user, project, a plugin or an MCP server. */
   builtin?: boolean
+  /**
+   * What it is: a command, a skill (a SKILL.md the agent loads) or an MCP server's prompt. Absent
+   * from older daemons and from agents that do not say; read as a command.
+   */
+  kind?: ChatCommandKind
 }
+
+export type ChatCommandKind = 'command' | 'skill' | 'mcp-prompt'
 
 /** Claude's `/` menu and model list for a folder, read without running a turn. */
 export interface ChatCatalog {
@@ -229,7 +280,11 @@ export const SESSION_METHODS = {
   sessionSetArchived: '_harness/sessions/setArchived',
   sessionSetAgent: '_harness/sessions/setAgent',
   /** Absent from older daemons: the request fails as an unknown method. */
-  sessionContinueInTerminal: '_harness/sessions/continueInTerminal'
+  sessionContinueInTerminal: '_harness/sessions/continueInTerminal',
+  /** Absent from older daemons: the request fails as an unknown method. */
+  sessionClaudeSignIn: '_harness/sessions/claudeSignIn',
+  /** Absent from older daemons: the request fails as an unknown method. */
+  sessionMarkSeen: '_harness/sessions/markSeen'
 } as const
 
 /** What a chat made of a question put to it by another session (sessionConsultLead). */
@@ -257,7 +312,8 @@ export interface SessionRequests {
   [SESSION_METHODS.sessionCreate]: {
     /** `permissionMode`: the mode a Claude chat starts in (older daemons start in 'default'). */
     /** `parentId`: the chat that started this one (an agent's create_session); older daemons ignore it. */
-    params: { workspaceId: string; agent?: ChatAgentId; role?: SessionRole; permissionMode?: ChatPermissionMode; parentId?: string }
+    /** `connectors`: MCP servers for this chat alone, Claude only; older daemons ignore it. */
+    params: { workspaceId: string; agent?: ChatAgentId; role?: SessionRole; permissionMode?: ChatPermissionMode; parentId?: string; connectors?: ChatConnectorPreset[] }
     result: SessionInfo
   }
   [SESSION_METHODS.sessionClose]: { params: { sessionId: string }; result: Record<string, never> }
@@ -306,6 +362,11 @@ export interface SessionRequests {
    * SDK the chat runs on; the chat picks the conversation up again, terminal turns included, on its next prompt.
    */
   [SESSION_METHODS.sessionContinueInTerminal]: { params: { sessionId: string }; result: TerminalInfo }
+  /**
+   * Opens a terminal in the chat's folder running `claude auth login` with the env the chat's turns
+   * get, so Claude Code signs in again on the account the chat uses (docs/specs/claude-sign-in.md).
+   */
+  [SESSION_METHODS.sessionClaudeSignIn]: { params: { sessionId: string }; result: TerminalInfo }
   /** Queues a line the session's next turn starts with, unseen in its transcript (a lead's project activity). */
   [SESSION_METHODS.sessionAddContext]: { params: { sessionId: string; text: string }; result: Record<string, never> }
   /** Puts a session's question to another chat (a run's starting chat) as a turn of its own, once it is free: an answer, or the question for the person. */
@@ -326,4 +387,6 @@ export interface SessionRequests {
     params: { sessionId: string; agent: ChatAgentId; permissionMode?: ChatPermissionMode }
     result: SessionInfo
   }
+  /** Records that the person was shown the thread now (`seenAt`), for the Quiet state. */
+  [SESSION_METHODS.sessionMarkSeen]: { params: { sessionId: string }; result: Record<string, never> }
 }

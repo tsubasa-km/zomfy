@@ -1,12 +1,15 @@
 import { useEffect, useState } from 'react'
+import { ShieldCheck } from 'lucide-react'
 import { isTauri } from '@tauri-apps/api/core'
 import { open } from '@tauri-apps/plugin-dialog'
-import { HARNESS_METHODS, type BranchList, type ProjectHookInfo } from '@zomfy/protocol'
+import { HARNESS_METHODS, type BranchList, type HostingAccountRef, type HostingRemoteInfo, type ProjectHookInfo } from '@zomfy/protocol'
 import { harnessRequest, hostForPath } from '@/daemon-connection'
-import type { HostedProject } from '@/session-store'
+import { useStore, type HostedProject } from '@/session-store'
 import { projectLabel } from '@/components/sidebar/workspace-visibility'
 import { catalogEntryOf, renameProject } from '@/stores/project-catalog-store'
 import { BranchCombobox } from '@/components/sidebar/BranchCombobox'
+import { BundledSkillsSettings } from '@/components/sidebar/BundledSkillsSettings'
+import { HostingAccountField } from '@/components/sidebar/HostingAccountField'
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
@@ -14,6 +17,7 @@ import { Label } from '@/components/ui/label'
 import { Switch } from '@/components/ui/switch'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { cn } from '@/lib/utils'
+import { useSaveState } from '@/lib/use-save-state'
 import { t } from '@/i18n/i18n'
 
 // Orca's repository settings pane: display name, default base branch, worktree location and the
@@ -34,24 +38,44 @@ export function ProjectSettingsDialog({ project, onClose }: { project: HostedPro
   const [finishWith, setFinishWith] = useState<'merge' | 'pull-request'>('merge')
   const [agentWorkflows, setAgentWorkflows] = useState(true)
   const [agentSplitWork, setAgentSplitWork] = useState(true)
+  const [mergeTarget, setMergeTarget] = useState('')
+  const [cleanupMode, setCleanupMode] = useState<'host' | 'on' | 'off'>('host')
+  const [claudeChrome, setClaudeChrome] = useState<'host' | 'on' | 'off'>('host')
   const [branches, setBranches] = useState<BranchList | null>(null)
   const [hooks, setHooks] = useState<ProjectHookInfo | null>(null)
+  const [account, setAccount] = useState<HostingAccountRef | null>(null)
+  /** undefined while asking the daemon; null without a GitHub or GitLab remote. */
+  const [remote, setRemote] = useState<HostingRemoteInfo | null | undefined>(undefined)
+  const primaryId = useStore((s) => (project ? s.hosts[project.hostId]?.harness?.workspaces.find((w) => w.projectId === project.id && w.isPrimary)?.id : undefined))
   const [error, setError] = useState<string | null>(null)
 
+  // What the project has saved, as the form holds it: Save is offered only when the form differs.
+  const saved = formOf(project)
+  const form: ProjectForm = { folder, displayName, baseRef, worktreeRoot, setup, archive, finishWith, agentWorkflows, agentSplitWork, mergeTarget, cleanupMode, claudeChrome, account }
+  const { dirty, saving, save: submit } = useSaveState(saved, form, save)
+
   useEffect(() => {
-    setFolder(project?.path ?? '')
-    setDisplayName(project ? projectLabel(project) : '')
-    setBaseRef(project?.defaultBaseRef ?? '')
-    setWorktreeRoot(project?.worktreeRoot ?? '')
-    setSetup(project?.hooks?.setup ?? '')
-    setArchive(project?.hooks?.archive ?? '')
-    setFinishWith(project?.finishWith ?? 'merge')
-    setAgentWorkflows(project?.agentWorkflows !== false)
-    setAgentSplitWork(project?.agentSplitWork !== false)
+    const saved = formOf(project)
+    setFolder(saved.folder)
+    setDisplayName(saved.displayName)
+    setBaseRef(saved.baseRef)
+    setWorktreeRoot(saved.worktreeRoot)
+    setSetup(saved.setup)
+    setArchive(saved.archive)
+    setFinishWith(saved.finishWith)
+    setAgentWorkflows(saved.agentWorkflows)
+    setAgentSplitWork(saved.agentSplitWork)
+    setMergeTarget(saved.mergeTarget)
+    setCleanupMode(saved.cleanupMode)
+    setClaudeChrome(saved.claudeChrome)
     setError(null)
     setBranches(null)
     setHooks(null)
+    setAccount(saved.account)
+    setRemote(undefined)
     if (project?.kind === 'git') {
+      // docs/specs/project-hosting-accounts.md; an older daemon has no accounts, and the field stays away.
+      void harnessRequest(HARNESS_METHODS.hostingRemoteOf, { path: project.path }, project.hostId).then(setRemote, () => setRemote(undefined))
       void harnessRequest(HARNESS_METHODS.branchesList, { projectId: project.id }, project.hostId).then(setBranches, () => undefined)
       void harnessRequest(HARNESS_METHODS.projectHooks, { projectId: project.id }, project.hostId).then(setHooks, () => undefined)
     }
@@ -74,8 +98,9 @@ export function ProjectSettingsDialog({ project, onClose }: { project: HostedPro
     setFolder(where.path)
   }
 
-  async function save() {
-    if (!project) return
+  async function save(): Promise<boolean> {
+    if (!project) return false
+    setError(null)
     try {
       const moved = folder.trim() !== '' && folder.trim() !== project.path
       // Pointed at another folder first, so a bad path changes nothing else.
@@ -95,33 +120,49 @@ export function ProjectSettingsDialog({ project, onClose }: { project: HostedPro
           patch: {
             ...(shared ? {} : { displayName: ownName ? '' : displayName }),
             agentWorkflows,
-            ...(project.kind === 'git' ? { defaultBaseRef: baseRef, worktreeRoot, hooks: { setup, archive }, finishWith, agentSplitWork } : {})
+            claudeChrome: claudeChrome === 'host' ? null : claudeChrome === 'on',
+            ...(project.kind === 'git'
+              ? {
+                  defaultBaseRef: baseRef,
+                  worktreeRoot,
+                  hooks: { setup, archive },
+                  finishWith,
+                  agentSplitWork,
+                  mergeTarget,
+                  ...(remote !== undefined ? { hostingAccount: account } : {}),
+                  // Only the switch this dialog shows is the project's own; the rest follow the host.
+                  cleanup: cleanupMode === 'host' ? { ...project.cleanup, deleteMerged: undefined } : { ...project.cleanup, deleteMerged: cleanupMode === 'on' }
+                }
+              : {})
           }
         },
         project.hostId
       )
       onClose()
+      return true
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e))
+      return false
     }
   }
 
   const isGit = project?.kind === 'git'
   return (
     <Dialog open={project !== null} onOpenChange={(o) => !o && onClose()}>
-      <DialogContent className="flex max-h-[calc(100vh-2rem)] flex-col sm:max-w-lg" data-project-settings-dialog>
+      <DialogContent className="flex max-h-[calc(100vh-2rem)] flex-col sm:max-w-3xl" data-project-settings-dialog>
         <DialogHeader>
           <DialogTitle>{t('Project Settings')}</DialogTitle>
           <DialogDescription className="break-all">{project?.path}</DialogDescription>
         </DialogHeader>
         <form
-          className="min-h-0 space-y-4 overflow-y-auto px-0.5"
+          // Two columns from sm up: related settings side by side; the folder, skills and buttons span both.
+          className="grid min-h-0 grid-cols-1 content-start gap-x-6 gap-y-4 overflow-y-auto px-0.5 sm:grid-cols-2"
           onSubmit={(e) => {
             e.preventDefault()
-            void save()
+            if (dirty) void submit()
           }}
         >
-          <div className="space-y-1.5">
+          <div className="space-y-1.5 sm:col-span-2">
             <Label htmlFor="project-folder" className={fieldLabel}>
               {t('Folder')}
             </Label>
@@ -133,9 +174,6 @@ export function ProjectSettingsDialog({ project, onClose }: { project: HostedPro
                 </Button>
               )}
             </div>
-            <p className="text-[11px] text-muted-foreground">
-              {t('Moved or renamed the folder? Point the project at its new place; its threads, workflows and settings stay. Nothing is moved on disk.')}
-            </p>
           </div>
           <div className="space-y-1.5">
             <Label htmlFor="project-display-name" className={fieldLabel}>
@@ -169,12 +207,28 @@ export function ProjectSettingsDialog({ project, onClose }: { project: HostedPro
                   )}
                 </div>
               </div>
+              {project && remote !== undefined && (
+                <div className="space-y-1.5">
+                  <Label htmlFor="project-account" className={fieldLabel}>
+                    {t('Account')}
+                  </Label>
+                  <HostingAccountField
+                    id="project-account"
+                    hostId={project.hostId}
+                    remote={remote}
+                    value={account}
+                    onChange={setAccount}
+                    workspaceId={primaryId}
+                    onLoginOpened={onClose}
+                  />
+                </div>
+              )}
               <div className="space-y-1.5">
                 <Label htmlFor="project-finish-with" className={fieldLabel}>
                   {t("When a thread's work is done")}
                 </Label>
                 <Select value={finishWith} onValueChange={(v) => setFinishWith(v === 'pull-request' ? 'pull-request' : 'merge')}>
-                  <SelectTrigger id="project-finish-with" data-project-finish-with>
+                  <SelectTrigger id="project-finish-with" className="w-full" data-project-finish-with>
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
@@ -182,6 +236,55 @@ export function ProjectSettingsDialog({ project, onClose }: { project: HostedPro
                     <SelectItem value="pull-request">{t('Push and open a pull request, keep the worktree')}</SelectItem>
                   </SelectContent>
                 </Select>
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="project-merge-target" className={fieldLabel}>
+                  {t('Work is merged into')}
+                </Label>
+                <div className="flex gap-2">
+                  <div className="min-w-0 flex-1">
+                    <BranchCombobox
+                      id="project-merge-target"
+                      value={mergeTarget}
+                      placeholder={
+                        branches?.current
+                          ? t("The main checkout's branch ({branch})", { branch: branches.current })
+                          : t("The main checkout's branch")
+                      }
+                      onChange={setMergeTarget}
+                      groups={[
+                        { heading: t('Local'), options: (branches?.branches ?? []).map((b) => ({ value: b })) },
+                        { heading: t('Remote'), options: (branches?.remoteBranches ?? []).map((b) => ({ value: b })) }
+                      ]}
+                    />
+                  </div>
+                  {mergeTarget && (
+                    <Button type="button" variant="ghost" size="sm" onClick={() => setMergeTarget('')}>
+                      {t('Reset')}
+                    </Button>
+                  )}
+                </div>
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="project-cleanup" className={fieldLabel}>
+                  {t('Delete merged worktrees automatically')}
+                </Label>
+                <Select value={cleanupMode} onValueChange={(v) => setCleanupMode(v === 'on' || v === 'off' ? v : 'host')}>
+                  <SelectTrigger id="project-cleanup" className="w-full" data-project-cleanup>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="host">{t("As the host's setting (Settings → Hosts)")}</SelectItem>
+                    <SelectItem value="on">{t('On for this project')}</SelectItem>
+                    <SelectItem value="off">{t('Off for this project')}</SelectItem>
+                  </SelectContent>
+                </Select>
+                {cleanupMode !== 'off' && (
+                  <p className="flex items-center gap-1 text-[11px] text-muted-foreground" data-project-cleanup-kept>
+                    <ShieldCheck className="size-3 shrink-0 text-emerald-600 dark:text-emerald-400" aria-hidden="true" />
+                    {t('Kept: unpushed work, running threads and terminals, pins')}
+                  </p>
+                )}
               </div>
               <div className="space-y-1.5">
                 <Label htmlFor="project-worktree-root" className={fieldLabel}>
@@ -201,7 +304,6 @@ export function ProjectSettingsDialog({ project, onClose }: { project: HostedPro
                     </Button>
                   )}
                 </div>
-                <p className="text-[11px] text-muted-foreground">{t('New worktrees go in a folder named after the project here.')}</p>
               </div>
               <HookField
                 id="project-setup"
@@ -228,7 +330,6 @@ export function ProjectSettingsDialog({ project, onClose }: { project: HostedPro
             <SettingSwitch
               id="project-agent-workflows"
               label={t('Agents can start workflows')}
-              hint={t("An agent in this project may run one of the project's workflows on a task.")}
               checked={agentWorkflows}
               onChange={setAgentWorkflows}
             />
@@ -236,23 +337,79 @@ export function ProjectSettingsDialog({ project, onClose }: { project: HostedPro
               <SettingSwitch
                 id="project-agent-split-work"
                 label={t('Agents can split work into parallel worktrees')}
-                hint={t('An agent may hand separate parts of a large task to helpers, each in a worktree of its own.')}
                 checked={agentSplitWork}
                 onChange={setAgentSplitWork}
               />
             )}
           </div>
-          {error && <p className="text-sm break-words text-destructive">{error}</p>}
-          <DialogFooter>
+          <div className="space-y-1.5" data-project-claude-chrome={claudeChrome}>
+            <Label htmlFor="project-claude-chrome" className={fieldLabel}>
+              {t('Claude in Chrome')}
+            </Label>
+            <Select value={claudeChrome} onValueChange={(value) => setClaudeChrome(value as 'host' | 'on' | 'off')}>
+              <SelectTrigger id="project-claude-chrome" className="w-full">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="host">{t('Use the host’s setting (Settings › Agents › Claude)')}</SelectItem>
+                <SelectItem value="on">{t('On for this project')}</SelectItem>
+                <SelectItem value="off">{t('Off for this project')}</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          {isGit && project && (
+            <div className="sm:col-span-2">
+              <BundledSkillsSettings project={project} />
+            </div>
+          )}
+          {error && <p className="text-sm break-words text-destructive sm:col-span-2">{error}</p>}
+          <DialogFooter className="sm:col-span-2">
             <Button type="button" variant="outline" onClick={onClose}>
               {t('Cancel')}
             </Button>
-            <Button type="submit">{t('Save')}</Button>
+            <Button type="submit" disabled={!dirty || saving} title={dirty ? undefined : t('Nothing has changed')} data-project-settings-save>
+              {saving ? t('Saving…') : t('Save')}
+            </Button>
           </DialogFooter>
         </form>
       </DialogContent>
     </Dialog>
   )
+}
+
+type ProjectForm = {
+  folder: string
+  displayName: string
+  baseRef: string
+  worktreeRoot: string
+  setup: string
+  archive: string
+  finishWith: 'merge' | 'pull-request'
+  agentWorkflows: boolean
+  agentSplitWork: boolean
+  mergeTarget: string
+  cleanupMode: 'host' | 'on' | 'off'
+  claudeChrome: 'host' | 'on' | 'off'
+  account: HostingAccountRef | null
+}
+
+/** The form's fields as the project has them saved. */
+function formOf(project: HostedProject | null): ProjectForm {
+  return {
+    folder: project?.path ?? '',
+    displayName: project ? projectLabel(project) : '',
+    baseRef: project?.defaultBaseRef ?? '',
+    worktreeRoot: project?.worktreeRoot ?? '',
+    setup: project?.hooks?.setup ?? '',
+    archive: project?.hooks?.archive ?? '',
+    finishWith: project?.finishWith ?? 'merge',
+    agentWorkflows: project?.agentWorkflows !== false,
+    agentSplitWork: project?.agentSplitWork !== false,
+    mergeTarget: project?.mergeTarget ?? '',
+    cleanupMode: project?.cleanup?.deleteMerged === undefined ? 'host' : project.cleanup.deleteMerged ? 'on' : 'off',
+    claudeChrome: project?.claudeChrome === undefined ? 'host' : project.claudeChrome ? 'on' : 'off',
+    account: project?.hostingAccount ?? null
+  }
 }
 
 function SettingSwitch({
@@ -264,7 +421,7 @@ function SettingSwitch({
 }: {
   id: string
   label: string
-  hint: string
+  hint?: string
   checked: boolean
   onChange: (checked: boolean) => void
 }) {
@@ -274,7 +431,7 @@ function SettingSwitch({
         <Label htmlFor={id} className="text-sm font-normal">
           {label}
         </Label>
-        <p className="text-[11px] text-muted-foreground">{hint}</p>
+        {hint && <p className="text-[11px] text-muted-foreground">{hint}</p>}
       </div>
       <Switch id={id} checked={checked} onCheckedChange={onChange} data-setting={id} />
     </div>

@@ -1,4 +1,4 @@
-import type { SessionStatus } from '@zomfy/protocol'
+import type { SessionStatus, TurnPhase } from '@zomfy/protocol'
 
 export const colors = {
   background: '#111214',
@@ -20,6 +20,15 @@ export const statusColors: Record<SessionStatus, string> = {
   working: colors.accent,
   'needs-you': colors.warning,
   error: colors.danger
+}
+
+/** A thread's turn-taking state (docs/specs/turn-taking-states.md); Quiet is the idle grey. */
+export const phaseColors: Record<TurnPhase, string> = {
+  'needs-answer': colors.warning,
+  working: '#38bdf8',
+  background: '#eab308',
+  'your-turn': colors.success,
+  quiet: '#6b6e75'
 }
 
 export const space = { xs: 4, sm: 8, md: 12, lg: 16, xl: 24 } as const

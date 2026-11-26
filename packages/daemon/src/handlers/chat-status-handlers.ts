@@ -7,10 +7,11 @@ import { UsageLimits } from "../usage-limits.ts";
 import { FaviconCache } from "../favicons.ts";
 import { HARNESS_HOME } from "../harness-home.ts";
 import { join } from "node:path";
-import { chatAgentLaunch } from "../chat-agent-launch-settings.ts";
+import { chatAgentLaunch, claudeChromeOn } from "../chat-agent-launch-settings.ts";
 import { liveClaudeQueries } from "../live-claude-queries.ts";
 import { managerMcp } from "../manager-mcp-server.ts";
 import { log } from "../log.ts";
+import { presetMcpServers } from "../connector-presets.ts";
 
 // The session panel's connectors and usage limits. A chat's servers are read from a control process
 // of its own (claude-control.ts) started in the chat's folder with the tools the daemon gives its
@@ -18,9 +19,11 @@ import { log } from "../log.ts";
 
 const USAGE_KEY = "usage";
 const chatKey = (sessionId: string) => `chat:${sessionId}`;
+/** Chats' control processes up at once; the usage reader is not counted. */
+const CHAT_CONTROLS = 4;
 
 export function registerChatStatusHandlers(ctx: HandlerContext): void {
-  const { handle, sessions } = ctx;
+  const { handle, sessions, workspaces } = ctx;
 
   const claudeChat = (sessionId: string) => {
     const session = sessions.get(sessionId);
@@ -29,13 +32,34 @@ export function registerChatStatusHandlers(ctx: HandlerContext): void {
     return session;
   };
 
+  /** Whether a chat's turns start with Claude in Chrome now: its project's choice, else the host's. */
+  const chromeFor = async (sessionId: string) => {
+    const session = sessions.get(sessionId);
+    let project = null;
+    try {
+      project = session?.workspaceId ? workspaces.requireWorkspace(session.workspaceId).project : null;
+    } catch {}
+    return claudeChromeOn(await chatAgentLaunch("claude"), project);
+  };
+  /** The Claude in Chrome setting each chat's control process started with. */
+  const startedChrome = new Map<string, boolean>();
+
   const control = new ClaudeControl(async (key) => {
     const env = (await chatAgentLaunch("claude")).env;
     if (key === USAGE_KEY) return { cwd: homedir(), env, noMcp: true };
     const sessionId = key.slice("chat:".length);
     const session = claudeChat(sessionId);
-    return { cwd: session.cwd, env, mcpServers: managerMcp.claudeServers(sessionId) };
-  });
+    const chrome = await chromeFor(sessionId);
+    startedChrome.set(key, chrome);
+    // The servers the chat was started with too, so Connectors lists them and can sign in to them.
+    return { cwd: session.cwd, env, mcpServers: { ...presetMcpServers(session.connectors), ...managerMcp.claudeServers(sessionId) }, chrome };
+  }, { limit: CHAT_CONTROLS, counts: (key) => key !== USAGE_KEY });
+
+  /** A control process started before the setting changed is replaced, so Connectors shows what a turn gets. */
+  const freshControl = async (sessionId: string) => {
+    const key = chatKey(sessionId);
+    if (control.has(key) && startedChrome.get(key) !== (await chromeFor(sessionId))) control.close(key);
+  };
 
   const limits = new UsageLimits({
     withClaude: <T>(read: (query: Query) => Promise<T>, sessionId?: string) => {
@@ -50,6 +74,7 @@ export function registerChatStatusHandlers(ctx: HandlerContext): void {
 
   const status = async (sessionId: string): Promise<ChatMcpStatusResult> => {
     claudeChat(sessionId);
+    await freshControl(sessionId);
     const servers = await control.with(chatKey(sessionId), (query) => query.mcpServerStatus());
     return { servers: servers.map((s) => chatMcpServer(s, MANAGER_MCP_SERVER_NAME)) };
   };

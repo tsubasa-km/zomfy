@@ -17,6 +17,7 @@ export function ConnectorIcon({ server, className }: { server: ChatMcpServer; cl
   const [broken, setBroken] = useState(false)
   const mark = (() => {
     if (icon.kind === 'harness') return <img src={appIconUrl} alt="" className="size-5" draggable={false} />
+    if (icon.kind === 'chrome') return <ChromeMark />
     if (icon.kind === 'site' && favicon && !broken)
       return <img src={favicon} alt="" className="size-4 object-contain" draggable={false} onError={() => setBroken(true)} />
     if (icon.kind === 'stdio') return <SquareTerminal className="size-3.5 text-muted-foreground" />
@@ -37,7 +38,7 @@ export function ConnectorIcon({ server, className }: { server: ChatMcpServer; cl
       className={cn(
         BOX,
         // Site icons are drawn for a light page; a white tile keeps dark ones readable in the dark theme.
-        site && 'bg-white',
+        (site || icon.kind === 'chrome') && 'bg-white',
         (icon.kind === 'stdio' || icon.kind === 'plugin' || icon.kind === 'remote') && 'bg-muted',
         letter && '[&>span]:flex [&>span]:size-full [&>span]:items-center [&>span]:justify-center',
         className
@@ -47,5 +48,18 @@ export function ConnectorIcon({ server, className }: { server: ChatMcpServer; cl
     >
       {mark}
     </span>
+  )
+}
+
+/** Chrome's mark, drawn here: the Claude in Chrome server has no site of its own to take an icon from. */
+function ChromeMark() {
+  return (
+    <svg viewBox="0 0 48 48" className="size-4" aria-hidden>
+      <path fill="#db4437" d="M24 24 6.68 14A20 20 0 0 1 41.32 14Z" />
+      <path fill="#ffcd40" d="M24 24 41.32 14A20 20 0 0 1 24 44Z" />
+      <path fill="#0f9d58" d="M24 24 24 44A20 20 0 0 1 6.68 14Z" />
+      <circle cx="24" cy="24" r="9" fill="#fff" />
+      <circle cx="24" cy="24" r="7.2" fill="#4285f4" />
+    </svg>
   )
 }

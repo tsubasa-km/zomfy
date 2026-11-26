@@ -12,6 +12,7 @@ import { WORKFLOW_META,
 } from '@zomfy/protocol'
 import { appendText, getState, updateSession, upsertTool, type ChatImage, type ThreadItem } from '@/session-store'
 import { stopOpenTools, updatedToolStatus } from '@/stopped-tools'
+import { turnEndMeta } from '@/turn-end-meta'
 import { patchChatSession } from '@/stores/chat-store'
 import { t } from '@/i18n/i18n'
 
@@ -166,22 +167,6 @@ function agentSwitchText(meta: Record<string, unknown> | null | undefined): stri
     : t("Switched from {from} to {to}. {to} gets a selection of this conversation, not {from}'s full context.", names)
 }
 
-function turnEndMeta(meta: Record<string, unknown> | null | undefined): TurnEndMeta | null {
-  const value = meta?.[TURN_RECOVERY_META.turnEnd]
-  if (typeof value !== 'object' || value === null || !('reason' in value)) return null
-  switch (value.reason) {
-    case 'interrupted':
-      return { reason: 'interrupted' }
-    case 'error':
-      return { reason: 'error' }
-    case 'usage-limit': {
-      const resetsAt = 'resetsAt' in value && typeof value.resetsAt === 'number' ? value.resetsAt : null
-      return { reason: 'usage-limit', resetsAt }
-    }
-    default:
-      return null
-  }
-}
 
 function metaString(meta: Record<string, unknown> | null | undefined, key: string): string | null {
   const value = meta?.[key]

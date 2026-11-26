@@ -1,4 +1,4 @@
-import { useEffect } from 'react'
+import { useEffect, useRef } from 'react'
 import { HARNESS_METHODS, type ProviderUsageLimits } from '@zomfy/protocol'
 import { harnessRequest } from '@/daemon-connection'
 import type { HostId } from '@/session-store'
@@ -17,7 +17,29 @@ export interface HostUsageLimits {
 }
 
 const EMPTY: HostUsageLimits = { providers: [], loading: false, error: null }
-const store = createExternalStore<Record<HostId, HostUsageLimits>>({})
+
+// The last answer per host, shown at startup until the host answers again (reading the limits can
+// take seconds), so the status bar does not gain its meter, and shift, after the window opens.
+const SAVED_KEY = 'zomfy.usage-limits.v1'
+
+function readSaved(): Record<HostId, HostUsageLimits> {
+  try {
+    const saved = JSON.parse(localStorage.getItem(SAVED_KEY) ?? '{}') as Record<HostId, ProviderUsageLimits[]>
+    return Object.fromEntries(Object.entries(saved).map(([hostId, providers]) => [hostId, { ...EMPTY, providers }]))
+  } catch {
+    return {}
+  }
+}
+
+function save(all: Record<HostId, HostUsageLimits>): void {
+  try {
+    localStorage.setItem(SAVED_KEY, JSON.stringify(Object.fromEntries(Object.entries(all).map(([hostId, limits]) => [hostId, limits.providers]))))
+  } catch {
+    // Storage can be unavailable; the meter then appears once the host answers.
+  }
+}
+
+const store = createExternalStore<Record<HostId, HostUsageLimits>>(readSaved())
 const inFlight = new Map<HostId, Promise<void>>()
 
 export function refreshUsageLimits(hostId: HostId, options: { refresh?: boolean; sessionId?: string } = {}): Promise<void> {
@@ -29,7 +51,10 @@ export function refreshUsageLimits(hostId: HostId, options: { refresh?: boolean;
     { ...(options.refresh ? { refresh: true } : {}), ...(options.sessionId ? { sessionId: options.sessionId } : {}) },
     hostId
   )
-    .then((result) => store.update((all) => ({ ...all, [hostId]: { providers: result.providers, loading: false, error: null } })))
+    .then((result) => {
+      store.update((all) => ({ ...all, [hostId]: { providers: result.providers, loading: false, error: null } }))
+      save(store.get())
+    })
     .catch((error: unknown) =>
       store.update((all) => ({
         ...all,
@@ -44,9 +69,13 @@ export function refreshUsageLimits(hostId: HostId, options: { refresh?: boolean;
 /** This host's limits, kept fresh while the calling component is mounted. */
 export function useUsageLimits(hostId: HostId | null, sessionId?: string): HostUsageLimits {
   const limits = store.use((all) => (hostId ? all[hostId] : undefined)) ?? EMPTY
+  // The chat only says which Claude process may answer; another chat in front is no reason to ask.
+  const chat = useRef(sessionId)
+  chat.current = sessionId
   useEffect(() => {
     if (!hostId) return
     const read = () => {
+      const sessionId = chat.current
       if (document.visibilityState === 'visible') void refreshUsageLimits(hostId, sessionId ? { sessionId } : {})
     }
     read()
@@ -56,6 +85,6 @@ export function useUsageLimits(hostId: HostId | null, sessionId?: string): HostU
       clearInterval(timer)
       document.removeEventListener('visibilitychange', read)
     }
-  }, [hostId, sessionId])
+  }, [hostId])
   return limits
 }

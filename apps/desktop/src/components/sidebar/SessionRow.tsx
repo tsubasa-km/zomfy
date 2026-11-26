@@ -1,11 +1,11 @@
 import { memo, useRef, useState } from 'react'
-import { ChevronRight } from 'lucide-react'
+import { Archive, ChevronRight } from 'lucide-react'
 import { cn } from '@/lib/utils'
-import { allWorkspaces, getState, previewSession, selectSession, useStore, type Session } from '@/session-store'
+import { allProjects, allWorkspaces, getState, previewSession, selectSession, useStore, type Session } from '@/session-store'
 import { AgentStateDot } from '@/components/AgentStateDot'
 import { TuiAgentIcon } from '@/components/terminal/TuiAgentIcon'
 import { sessionAgent } from '@/lib/chat-agents'
-import { SESSION_DOT } from '@/components/sidebar/WorkspaceCardBadges'
+import { phaseOf, turnPhaseDot, turnPhaseLabel, type TurnPhase } from '@/lib/turn-phase'
 import { ContextMenu, ContextMenuContent, ContextMenuItem, ContextMenuSeparator, ContextMenuTrigger } from '@/components/ui/context-menu'
 import { Input } from '@/components/ui/input'
 import { closeSession } from '@/daemon-connection'
@@ -16,6 +16,7 @@ import { chatSelection, gestureOf, keepTextUnselected } from '@/stores/list-sele
 import { beginSidebarDrag, type DragItem } from '@/components/sidebar/sidebar-drag'
 import { setChatPinned, toggleChatExpanded } from '@/stores/sidebar-store'
 import { closePagesBesideSidebar } from '@/lib/app-pages'
+import { sidebarActions } from '@/components/sidebar/ProjectActionsMenu'
 import { HoverCard, HoverCardContent, HoverCardTrigger } from '@/components/ui/hover-card'
 import { ChatCardBody, ChatHoverDetails, type ChatCardInfo } from '@/components/sidebar/ChatCard'
 import { t } from '@/i18n/i18n'
@@ -43,6 +44,13 @@ function closeChatTabs(ids: string[]): void {
   hideChats(ids)
 }
 
+/** The project the chat works in; null for a quick (floating) chat, which has none. */
+function chatProject(session: Session) {
+  const workspace = allWorkspaces().find((w) => w.id === session.workspaceId)
+  if (!workspace?.projectId) return null
+  return allProjects().find((p) => p.id === workspace.projectId && p.hostId === workspace.hostId) ?? null
+}
+
 function deleteChats(sessions: Session[]): void {
   const question =
     sessions.length === 1
@@ -65,6 +73,7 @@ export const SessionRow = memo(function SessionRow({
   drag,
   showActive,
   fold,
+  phase,
   child,
   muted,
   card
@@ -77,8 +86,10 @@ export const SessionRow = memo(function SessionRow({
   drag?: DragItem
   /** Mark the chat that is open in the focused workspace (the project chat list has no card to mark). */
   showActive?: boolean
-  /** A parent chat's fold: how many chats sit under it, and the most pressing of their states. */
-  fold?: { count: number; expanded: boolean; status: Session['status'] }
+  /** A parent chat's fold: how many chats sit under it, and what of theirs lifts the row (Quiet: nothing). */
+  fold?: { count: number; expanded: boolean; phase: TurnPhase }
+  /** Whose turn the row is, with the chats under it; worked out from the chat alone when absent. */
+  phase?: TurnPhase
   /** Drawn indented, under its parent chat. */
   child?: boolean
   /** Drawn quieter: a chat a search found under another, not one it found at the top. */
@@ -103,15 +114,18 @@ export const SessionRow = memo(function SessionRow({
   const [hovered, setHovered] = useState(false)
   const [menuOpen, setMenuOpen] = useState(false)
   const renameAfterClose = useRef(false)
+  // Looked up only while the menu is open, so a row does not watch the project list.
+  const project = menuOpen ? chatProject(session) : null
   const commitRename = () => {
     if (renaming === null) return
     setRenaming(null)
     void renameChat(session.id, renaming)
   }
-  // The chat list's row: the most pressing state of the chat and those under it, which decides its look.
-  const shown = fold && fold.status !== 'idle' && session.status === 'idle' ? fold.status : session.status
-  const compact = Boolean(card) && shown === 'idle' && !card?.unread
-  const working = Boolean(card) && shown === 'working' && !child
+  // The chat list's row: whose turn it is, with the chats under it, which decides its look.
+  const shown = phase ?? phaseOf(session)
+  const compact = Boolean(card) && shown === 'quiet'
+  const working = Boolean(card) && (shown === 'working' || shown === 'background') && !child
+  const foldDot = fold ? turnPhaseDot(fold.phase) : null
   const title =
     renaming !== null ? (
       <Input
@@ -161,7 +175,7 @@ export const SessionRow = memo(function SessionRow({
       }}
     >
       {fold.count}
-      {!fold.expanded && fold.status !== 'idle' && <AgentStateDot state={SESSION_DOT[fold.status]} size="sm" />}
+      {!fold.expanded && foldDot && <AgentStateDot state={foldDot} size="sm" />}
       <ChevronRight className={cn('size-3 transition-transform', fold.expanded && 'rotate-90')} />
     </button>
   )
@@ -172,7 +186,7 @@ export const SessionRow = memo(function SessionRow({
       data-chat-children={fold.count}
     >
       {fold.count}
-      {fold.status !== 'idle' && <AgentStateDot state={SESSION_DOT[fold.status]} size="sm" />}
+      {foldDot && <AgentStateDot state={foldDot} size="sm" />}
     </span>
   )
   return (
@@ -186,6 +200,7 @@ export const SessionRow = memo(function SessionRow({
       tabIndex={0}
       data-session-id={session.id}
       data-session-status={session.status}
+      data-session-phase={shown}
       data-tab-closed={tabClosed || undefined}
       data-session-selected={selected || undefined}
       data-session-open={open || undefined}
@@ -244,7 +259,7 @@ export const SessionRow = memo(function SessionRow({
           <ChatCardBody
             session={session}
             card={card}
-            status={shown}
+            phase={shown}
             title={title}
             trailing={cardFold}
             busy={renaming !== null}
@@ -256,9 +271,7 @@ export const SessionRow = memo(function SessionRow({
           <TuiAgentIcon agent={sessionAgent(session)} size={11} />
           {title}
           {session.archived && renaming === null && (
-            <span className="shrink-0 text-[10px] text-muted-foreground/80" data-session-archived-tag>
-              {t('Archived')}
-            </span>
+            <Archive className="size-3 shrink-0 text-muted-foreground/70" aria-label={t('Archived')} data-session-archived-tag />
           )}
           {place && (
             <span className="max-w-24 shrink-0 truncate font-mono text-[10px] text-muted-foreground/80" title={place} data-session-place>
@@ -266,7 +279,7 @@ export const SessionRow = memo(function SessionRow({
             </span>
           )}
           {foldBadge}
-          <AgentStateDot state={SESSION_DOT[session.status]} size="sm" />
+          <AgentStateDot state={turnPhaseDot(shown, session.status) ?? 'idle'} size="sm" title={turnPhaseLabel(shown, session.status)} />
         </>
       )}
     </div>
@@ -332,6 +345,11 @@ export const SessionRow = memo(function SessionRow({
             >
               {session.archived ? t('Unarchive') : t('Archive')}
             </ContextMenuItem>
+            {project && sidebarActions() && (
+              <ContextMenuItem data-chat-action="project-settings" onSelect={() => sidebarActions()?.projectSettings(project)}>
+                {t('Project Settings…')}
+              </ContextMenuItem>
+            )}
             <ContextMenuSeparator />
             <ContextMenuItem variant="destructive" onSelect={() => deleteChats([session])}>
               {t('Delete thread…')}

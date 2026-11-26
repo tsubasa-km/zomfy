@@ -161,6 +161,7 @@ export const REMOTE_METHOD_SCOPES: Readonly<Record<string, MethodScope>> = {
   '_harness/sessions/setOptions': 'chats:operate',
   '_harness/sessions/rename': 'chats:operate',
   '_harness/sessions/setArchived': 'chats:operate',
+  '_harness/sessions/markSeen': 'chats:read',
   '_harness/terminals/list': 'terminals:operate',
   '_harness/terminals/create': 'terminals:operate',
   '_harness/terminals/attach': 'terminals:operate',
@@ -171,7 +172,9 @@ export const REMOTE_METHOD_SCOPES: Readonly<Record<string, MethodScope>> = {
   '_harness/workspaces/summaries': 'workspaces:operate',
   '_harness/git/branches': 'workspaces:operate',
   '_harness/bots/list': 'bots:read',
-  '_harness/bots/connectorStatus': 'bots:read'
+  '_harness/bots/connectorStatus': 'bots:read',
+  // Starting a bot chat is creating a chat and sending its first prompt (docs/specs/mobile/bots.md).
+  '_harness/bots/chatCreate': 'chats:operate'
 }
 
 /** The scope a notification from the daemon needs to reach a phone; unlisted ones are not sent. */

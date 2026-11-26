@@ -6,6 +6,7 @@ import { getState, openEditorTab, selectTab, selectTerminal, type Session, type 
 import { mentionText, type ChatMention } from '@/lib/chat-mentions'
 import { terminalScreenText } from '@/lib/terminal-screen-text'
 import { flashWhenShown } from '@/lib/flash-element'
+import { requestDrawer } from '@/stores/drawer-request-store'
 import { toast } from 'sonner'
 import { t } from '@/i18n/i18n'
 
@@ -62,6 +63,11 @@ function transcriptText(session: Session): string {
 export function openChatMention(mention: Pick<ChatMention, 'kind' | 'path' | 'sourceId'>, workspaceId: string | null): void {
   const state = getState()
   const id = CSS.escape(mention.sourceId ?? '')
+  if (mention.kind === 'mcp') {
+    // The chat's servers and their state are in its Session panel.
+    if (workspaceId) requestDrawer(workspaceId, 'panel:agent', 'show')
+    return
+  }
   if (mention.kind === 'file') {
     if (!workspaceId) return
     openEditorTab({ workspaceId, kind: 'file', path: mention.path, staged: false })

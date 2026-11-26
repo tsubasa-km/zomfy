@@ -4,9 +4,12 @@
 
 import type * as acp from '@agentclientprotocol/sdk'
 import {
+  BOT_METHODS,
+  BOT_NOTIFICATIONS,
   HARNESS_METHODS,
   HARNESS_NOTIFICATIONS,
   PERMISSION_ASK_NOTIFICATIONS,
+  type Bot,
   type DeviceScope,
   type HarnessState,
   type PermissionAskResolved,
@@ -53,6 +56,8 @@ export interface HostConnectionState {
   nextRetryAt: number | null
   harness: HarnessState | null
   sessions: SessionInfo[]
+  /** The host's bots, with `bots:read`; null without the scope or before they load. */
+  bots: Bot[] | null
   /** Counts successful connects, so open chats know to replay after a reconnect. */
   generation: number
 }
@@ -108,6 +113,7 @@ export class HostConnection {
       nextRetryAt: null,
       harness: null,
       sessions: [],
+      bots: null,
       generation: 0
     })
     this.chooser = new RouteChooser({
@@ -306,9 +312,13 @@ export class HostConnection {
           clientCapabilities: {},
           clientInfo: { name: 'zomfy-android', version: this.deps.clientVersion }
         })
-        const [harness, sessions] = await Promise.all([
+        const [harness, sessions, bots] = await Promise.all([
           peer.request<HarnessState>(HARNESS_METHODS.stateGet, {}),
-          peer.request<SessionInfo[]>(HARNESS_METHODS.sessionsList, {})
+          peer.request<SessionInfo[]>(HARNESS_METHODS.sessionsList, {}),
+          // A host without bots (or an older one) is not a failed connect.
+          socket.scopes.includes('bots:read')
+            ? peer.request<{ bots: Bot[] }>(BOT_METHODS.botsList, {}).then((r) => (Array.isArray(r?.bots) ? r.bots : []), () => null)
+            : Promise.resolve(null)
         ])
         if (run !== this.run) return
         this.attempt = 0
@@ -320,6 +330,7 @@ export class HostConnection {
           error: null,
           harness,
           sessions,
+          bots,
           generation: this.state.get().generation + 1
         })
       } catch (error) {
@@ -380,6 +391,11 @@ export class HostConnection {
       case HARNESS_NOTIFICATIONS.stateChanged:
         if (params && typeof params === 'object') this.patch({ harness: params as HarnessState })
         break
+      case BOT_NOTIFICATIONS.botsChanged: {
+        const bots = (params as { bots?: unknown } | null)?.bots
+        if (Array.isArray(bots)) this.patch({ bots: bots as Bot[] })
+        break
+      }
       case PERMISSION_ASK_NOTIFICATIONS.resolved:
         this.deps.asks.resolved(this.host.hostId, params as PermissionAskResolved)
         break

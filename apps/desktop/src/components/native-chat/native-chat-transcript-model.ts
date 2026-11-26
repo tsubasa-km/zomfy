@@ -12,6 +12,7 @@ import {
 import { splitTaskNotifications } from './native-chat-task-notification'
 import { isWrapUpTool, parseRecap, wrapUpCardOf, type ParsedRecap, type WrapUpCard } from './next-steps'
 import { t } from '@/i18n/i18n'
+import type { ChatThinkingDisplay } from '@/stores/settings-store'
 
 export type ToolItem = Extract<ThreadItem, { kind: 'tool' }>
 export type UserItem = Extract<ThreadItem, { kind: 'user' }>
@@ -43,7 +44,7 @@ export type TranscriptRowModel =
   | { kind: 'user'; item: UserItem }
   | { kind: 'background'; status: string | null; summary: string }
   | { kind: 'agent'; text: string }
-  | { kind: 'thought'; text: string }
+  | ThoughtRow
   | { kind: 'tools'; tools: ToolNode[] }
   | { kind: 'tasks'; list: NativeChatTaskList; previous: NativeChatTaskList | null; fromBoard?: boolean }
   | { kind: 'decision'; title: string; outcome: ApprovalOutcome }
@@ -51,6 +52,48 @@ export type TranscriptRowModel =
   | { kind: 'compaction'; status: string }
   | { kind: 'turn-diff'; diff: TurnDiff }
   | NextStepsRow
+
+/**
+ * A thinking row. `prominent` marks a finished turn's last thinking when it holds more than the
+ * reply after it does (likely the real answer), so the chat may show it open.
+ */
+export type ThoughtRow = { kind: 'thought'; text: string; prominent?: true }
+
+/** A reply shorter than this (trimmed) counts as short. */
+export const SHORT_REPLY_CHARS = 280
+/** Thinking at least this long (trimmed) is substantial… */
+export const LONG_THOUGHT_CHARS = 400
+/** …and so is thinking at least this long with a code fence in it. */
+export const FENCED_THOUGHT_CHARS = 120
+
+/** Whether thinking followed by this reply likely holds the answer the reply leaves out. */
+export function thoughtHoldsAnswer(thought: string, reply: string): boolean {
+  if (reply.trim().length >= SHORT_REPLY_CHARS) return false
+  const text = thought.trim()
+  return text.length >= LONG_THOUGHT_CHARS || (text.length >= FENCED_THOUGHT_CHARS && /^\s*(```|~~~)/m.test(text))
+}
+
+/** Whether a thinking row starts open under the person's setting (docs/specs/visible-thinking.md). */
+export function thinkingStartsOpen(display: ChatThinkingDisplay, prominent: boolean): boolean {
+  return display === 'expanded' || (display === 'short-reply' && prominent)
+}
+
+/**
+ * The index of the turn's last thinking row in `rows[from..]` with no tool run after it, when it
+ * holds the answer by `thoughtHoldsAnswer`; else -1. The reply is the agent text after it, or the
+ * recap a Next steps card was read from.
+ */
+export function prominentThoughtIndex(rows: readonly TranscriptRowModel[], from: number): number {
+  let reply = ''
+  for (let i = rows.length - 1; i >= from; i--) {
+    const row = rows[i]!
+    if (row.kind === 'tools') return -1
+    if (row.kind === 'agent') reply = `${row.text}\n${reply}`
+    else if (row.kind === 'next-steps' && row.recap) reply = `${row.recap.text}\n${reply}`
+    else if (row.kind === 'thought') return thoughtHoldsAnswer(row.text, reply) ? i : -1
+  }
+  return -1
+}
 
 /**
  * A turn's Next steps card, under the agent's reply: from its wrap_up call, or read from a final
@@ -188,9 +231,13 @@ class TranscriptBuilder {
     const { rows } = this
     const diff = turnDiff(this.turnEdits, this.cwd)
     if (diff) rows.push({ kind: 'turn-diff', diff })
-    const at = rows.findLastIndex((row, index) => index >= this.turnStart && row.kind === 'agent')
+    const last = rows.findLastIndex((row, index) => index >= this.turnStart && row.kind === 'agent')
+    // The answer, recap and all, comes before wrap_up; a short line may follow it. The recap is
+    // looked for in the turn's final run of replies (no tool in between), newest first.
+    const recapAt = this.recapIndex(last)
+    const at = recapAt >= 0 ? recapAt : last
     const reply = at >= 0 ? rows[at] : undefined
-    const parsed = reply?.kind === 'agent' ? parseRecap(reply.text) : null
+    const parsed = recapAt >= 0 && reply?.kind === 'agent' ? parseRecap(reply.text) : null
     const card = this.wrapUp ?? (parsed ? { summary: '', steps: parsed.steps } : null)
     if (card) {
       const row: NextStepsRow = {
@@ -203,9 +250,22 @@ class TranscriptBuilder {
       if (parsed) rows[at] = row
       else rows.splice(at >= 0 ? at + 1 : rows.length, 0, row)
     }
+    // A new object, not a change to the row: rows before a fork are shared with the builder forked from.
+    const thought = prominentThoughtIndex(rows, this.turnStart)
+    if (thought >= 0) rows[thought] = { kind: 'thought', text: (rows[thought] as ThoughtRow).text, prominent: true }
     this.turnEdits = []
     this.wrapUp = null
     this.turnStart = rows.length
+  }
+
+  /** The newest reply from `last` back to the turn's last tool run that ends with a recap, or -1. */
+  private recapIndex(last: number): number {
+    for (let i = last; i >= this.turnStart; i--) {
+      const row = this.rows[i]!
+      if (row.kind === 'tools') return -1
+      if (row.kind === 'agent' && parseRecap(row.text)) return i
+    }
+    return -1
   }
 
   finish(turnRunning: boolean): TranscriptModel {

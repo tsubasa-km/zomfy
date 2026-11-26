@@ -2,11 +2,12 @@ import { useEffect, useState, type ReactNode } from 'react'
 import { Archive, ArchiveRestore, FolderGit2, GitBranch, MessageSquare, MessagesSquare, Monitor, Pin, PinOff, SquareTerminal } from 'lucide-react'
 import { chatAgentLabel, CHAT_AGENT_OPTION_IDS, type WorkspaceSummary } from '@zomfy/protocol'
 import type { Session } from '@/session-store'
-import { AgentStateDot, agentStateLabel } from '@/components/AgentStateDot'
+import { AgentStateDot } from '@/components/AgentStateDot'
 import { TuiAgentIcon } from '@/components/terminal/TuiAgentIcon'
-import { ReviewBadge, SESSION_DOT } from '@/components/sidebar/WorkspaceCardBadges'
+import { ReviewBadge } from '@/components/sidebar/WorkspaceCardBadges'
 import { sessionAgent } from '@/lib/chat-agents'
 import { activityOf, compactAge, elapsed, useCoarseNow } from '@/lib/chat-list'
+import { backgroundSummary, backgroundWakeLabel, phaseOf, turnPhaseDot, turnPhaseLabel, type TurnPhase } from '@/lib/turn-phase'
 import { setChatArchived } from '@/chat-rename-archive'
 import { setChatPinned } from '@/stores/sidebar-store'
 import { cn } from '@/lib/utils'
@@ -111,29 +112,33 @@ function useSecondsNow(running: boolean): number {
   return now
 }
 
-/** What the chat is doing, in a word with its mark; a chat at rest shows how long ago it last did something. */
-function ChatStatus({ session, status, unread }: { session: Session; status: Session['status']; unread: boolean }) {
+/**
+ * Whose turn the chat is, as its mark (docs/specs/turn-taking-states.md), with only a value beside
+ * it: how long a turn has run, when background work wakes. A quiet chat shows how long ago it last
+ * did something. The state's name is the mark's tooltip, never a word on the row.
+ */
+function ChatStatus({ session, phase }: { session: Session; phase: TurnPhase }) {
   const coarse = useCoarseNow()
-  const now = useSecondsNow(status === 'working')
-  const label =
-    status === 'needs-you' ? t('Needs you') : status === 'error' ? t('Failed') : status === 'working' ? t('Working') : unread ? t('Done') : null
-  if (!label) return <span className="tabular-nums">{compactAge(activityOf(session), coarse)}</span>
+  const running = phase === 'working' && session.status === 'working'
+  const now = useSecondsNow(running)
+  const dot = turnPhaseDot(phase, session.status)
+  if (!dot) return <span className="tabular-nums">{compactAge(activityOf(session), coarse)}</span>
+  const wake = phase === 'background' ? backgroundWakeLabel(session, coarse) : null
+  const label = phase === 'background' ? backgroundSummary(session, coarse) || turnPhaseLabel(phase) : turnPhaseLabel(phase, session.status)
   return (
     <span
       className={cn(
-        'inline-flex items-center gap-1 font-medium',
-        status === 'needs-you' && 'text-agent-question-text',
-        status === 'error' && 'text-destructive',
-        status === 'working' && 'text-sky-600 dark:text-sky-400',
-        status === 'idle' && 'text-foreground/80'
+        'inline-flex items-center gap-1 tabular-nums',
+        phase === 'working' && 'text-sky-600 dark:text-sky-400',
+        phase === 'background' && 'text-yellow-700 dark:text-yellow-400'
       )}
-      data-chat-status={status}
+      title={label}
+      aria-label={label}
+      data-chat-status={phase}
     >
-      <AgentStateDot state={SESSION_DOT[status]} size="sm" />
-      {label}
-      {status === 'working' && session.turnStartedAt != null && (
-        <span className="tabular-nums">{elapsed(session.turnStartedAt, now)}</span>
-      )}
+      <AgentStateDot state={dot} size={phase === 'needs-answer' ? 'md' : 'sm'} title={null} />
+      {wake}
+      {running && session.turnStartedAt != null && elapsed(session.turnStartedAt, now)}
     </span>
   )
 }
@@ -161,7 +166,7 @@ function RowAction({ label, onClick, children, action }: { label: string; onClic
 export function ChatCardBody({
   session,
   card,
-  status,
+  phase,
   title,
   trailing,
   busy,
@@ -169,13 +174,13 @@ export function ChatCardBody({
 }: {
   session: Session
   card: ChatCardInfo
-  /** The most pressing state of the chat and the chats folded under it. */
-  status: Session['status']
+  /** Whose turn the chat is, with the chats folded under it. */
+  phase: TurnPhase
   title: ReactNode
   trailing?: ReactNode
   /** Renaming: the hover actions stay out of the way. */
   busy: boolean
-  /** A settled chat: one line of badge, title and age. */
+  /** A quiet chat: one line of badge, title and age. */
   compact: boolean
 }) {
   const agent = <TuiAgentIcon agent={sessionAgent(session)} size={12} />
@@ -183,7 +188,7 @@ export function ChatCardBody({
   const corner = (
     <>
       <span className={cn('ml-auto flex shrink-0 items-center gap-1.5 text-[11px] leading-none', !busy && 'group-hover/chat:hidden')} data-chat-status-text>
-        <ChatStatus session={session} status={status} unread={card.unread} />
+        <ChatStatus session={session} phase={phase} />
       </span>
       {!busy && (
         <span className="ml-auto hidden shrink-0 items-center gap-0.5 group-hover/chat:flex">
@@ -254,15 +259,16 @@ export function ChatHoverDetails({ session, card, childCount }: { session: Sessi
   const now = useCoarseNow()
   const model = modelOf(session)
   const agent = sessionAgent(session)
-  const state = SESSION_DOT[session.status]
+  const phase = phaseOf(session, now)
+  const state = turnPhaseDot(phase, session.status) ?? 'idle'
+  const background = phase === 'background' ? backgroundSummary(session, now) : ''
   return (
     <div className="flex flex-col gap-2" data-chat-hover-card>
       <div className="text-[13px] leading-snug font-medium break-words text-foreground">{session.title}</div>
       <div className="flex items-center gap-2 text-muted-foreground">
-        <AgentStateDot state={state} size="sm" />
+        <AgentStateDot state={state} size="sm" title={turnPhaseLabel(phase, session.status)} />
         <span>
-          {session.status === 'idle' ? t('Idle') : agentStateLabel(state)}
-          {' · '}
+          {background && `${background} · `}
           {session.status === 'working' && session.turnStartedAt
             ? t('for {age}', { age: compactAge(session.turnStartedAt, now) })
             : t('started {date}', { date: new Date(session.createdAt).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' }) })}

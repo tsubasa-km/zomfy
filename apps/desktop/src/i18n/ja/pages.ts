@@ -687,6 +687,15 @@ export const PAGES: Record<string, string> = {
   'The thread stays open, so you can watch the reply.': 'スレッドを開いたままにして、返答を見られます。',
   'Stay in the thread': 'スレッドのまま',
   'Go to New Thread': '新しいスレッドへ',
+  // components/settings/InputEditingPane.tsx (thinking)
+  'Show thinking': '思考の表示',
+  'Thinking starts open when the reply after it is short and the thinking is long, since it likely holds the answer.':
+    '返答が短く思考が長いときは、答えが思考の中にあることが多いので、思考を開いて表示します。',
+  'Every thinking block starts open.': 'すべての思考を開いて表示します。',
+  'Every thinking block starts closed.': 'すべての思考を閉じて表示します。',
+  Collapsed: '閉じる',
+  'Expand when the reply is short': '返答が短いときは開く',
+  'Always expanded': '常に開く',
   // lib/chat-after-send.ts
   'Message sent. The thread keeps running in the sidebar.': '送信しました。スレッドはサイドバーで動き続けます。',
   'Open a Terminal When Empty': '空のときはターミナルを開く',
@@ -1334,5 +1343,40 @@ export const PAGES: Record<string, string> = {
   'Close projects': 'プロジェクトを閉じる',
   'No projects yet. Add a folder, clone a repository or create one.': 'プロジェクトはまだありません。フォルダーを追加するか、リポジトリをクローンするか、新しく作成してください。',
   '{n} worktrees': 'ワークツリー {n} 件',
-  'Show Projects Button': 'プロジェクトボタンを表示'
+  'Show Projects Button': 'プロジェクトボタンを表示',
+
+  // components/settings/ChatAgentLaunchSettings.tsx (Codex connection)
+  'Codex connection': 'Codex の接続方法',
+  'Applies to the next Codex message on this host.': 'このホストで次に送る Codex のメッセージから適用されます。',
+  'Direct (App Server)': '直接（App Server）',
+  // components/settings/WorktreeCleanupSettings.tsx
+  'Delete merged worktrees': 'マージ済みのワークツリーを削除',
+  'Deletes a worktree, and its branch, once its work has been merged for this long and nothing ran in it. Uncommitted or unpushed work, a running chat or terminal, or a pin keeps it; its chats move to the main checkout.':
+    '作業がマージされてからこの期間がたち、その間なにも動いていないワークツリーを、ブランチごと削除します。コミットされていない・プッシュされていない作業、動いているスレッドやターミナル、ピン留めがあれば残します。中のスレッドはメインのチェックアウトに移ります。',
+  'Free space in idle worktrees': '使われていないワークツリーの容量を空ける',
+  'Deletes node_modules and build output (target, dist) of worktrees nobody used for this long; files and git state stay. The next turn there runs the setup script first.':
+    'この期間だれも使っていないワークツリーの node_modules とビルド成果物（target、dist）を削除します。ファイルと git の状態は残ります。次にそこで作業するときは、先にセットアップ スクリプトが動きます。',
+  'Keep pinned worktrees': 'ピン留めしたワークツリーは残す',
+  '{label}: after': '{label}: 経過日数',
+  'After 1 day': '1 日後',
+  'After {n} days': '{n} 日後',
+  'Last run {when}: deleted {deleted}, freed {freed} ({size}); {n} could not be cleaned up.':
+    '前回の実行 {when}: 削除 {deleted} 件、容量を空けたもの {freed} 件（{size}）。{n} 件は整理できませんでした。',
+  'Last run {when}: deleted {deleted}, freed {freed} ({size}).': '前回の実行 {when}: 削除 {deleted} 件、容量を空けたもの {freed} 件（{size}）。',
+
+  // components/settings/ChatAgentLaunchSettings.tsx (Claude in Chrome)
+  'Starts this host’s Claude chats with Claude in Chrome, so they can use your Chrome. Needs the Claude in Chrome extension installed and Chrome running. A project can override this in its settings.':
+    'このホストの Claude チャットを Claude in Chrome 付きで起動し、あなたの Chrome を使えるようにします。Claude in Chrome 拡張機能のインストールと Chrome の起動が必要です。プロジェクトごとにプロジェクト設定で上書きできます。',
+
+  // components/settings/InputEditingPane.tsx (Waiting glow)
+  'Waiting glow': '入力待ちの光彩',
+  'How the composer’s border shows that the thread waits for your answer.': 'スレッドが回答を待つ間の入力欄の枠の光り方。',
+  Rainbow: 'レインボー',
+  'Accent pulse': 'アクセントの明滅',
+  'Static outline': '静止した枠線',
+
+  // components/settings/NotificationsPane.tsx (threads another thread started)
+  'Helper threads': 'ヘルパーのスレッド',
+  'Notify and mark unread when a thread another thread started finishes. Off, you hear from the thread that started it, and only a helper that needs you notifies.':
+    '別のスレッドが始めたスレッドが完了したときも通知し、未読にします。オフのときは始めたスレッドから知らせが届き、ヘルパーからはあなたの対応が必要なときだけ通知します。'
 }

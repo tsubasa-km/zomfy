@@ -1,4 +1,4 @@
-import { memo, useCallback, useEffect, useState } from 'react'
+import { lazy, memo, Suspense, useCallback, useEffect, useState } from 'react'
 import { filePathDrag, type DraggedPaths } from '@/lib/file-path-drag'
 import { ensureSessionLoaded } from '@/daemon-connection'
 import { getState, sidebarWorkspaceId, usePaneSidebarWorkspaceId, useStore } from '@/session-store'
@@ -7,8 +7,6 @@ import { paneSidebarKey } from '@/stores/pane-sidebar-store'
 import { QuickStart } from '@/components/QuickStart'
 import { ThreadView } from '@/components/ThreadView'
 import { TerminalTabBody } from '@/components/terminal/TerminalPaneTree'
-import { DiffTabView } from '@/components/EditorTabViews'
-import { FileEditorView } from '@/components/FileEditorView'
 import { BrowserTabView } from './BrowserTabView'
 import { ToolDrawer } from './ToolDrawer'
 import { useDrawerEdge } from '@/stores/drawer-dock-store'
@@ -18,19 +16,24 @@ import { ErrorBoundary, ViewError } from '@/components/ErrorBoundary'
 import { WorkspacePanelView } from './workspace-panels'
 import { TabStrip } from './TabStrip'
 import { PaneSidebar, PaneSidebarToggle } from './PaneSidebar'
+import { dropHintRect } from './tab-drop-geometry'
 import { resolveTabDropTarget, setInsertionMark, tabDrag, type DraggedTab, type DropZone } from './tab-drag'
 import { focusGroup, moveTabTo, openChatAt, openFilesAt, splitTabTo } from './tab-group-commands'
 import { sidebarDrag, type DragItem } from '@/components/sidebar/sidebar-drag'
 import './pane-split-commands'
 import { tabWorkspaceId, type WorkspaceTab } from './workspace-tab-model'
+import { cn } from '@/lib/utils'
 import { t } from '@/i18n/i18n'
 
-const OVERLAY_RECT: Record<DropZone, React.CSSProperties> = {
-  up: { top: 0, left: 0, width: '100%', height: '50%' },
-  down: { top: '50%', left: 0, width: '100%', height: '50%' },
-  left: { top: 0, left: 0, width: '50%', height: '100%' },
-  right: { top: 0, left: '50%', width: '50%', height: '100%' },
-  center: { inset: 0 }
+// The editors bring Monaco (megabytes of script); loaded on the first file or diff tab, not at startup.
+const FileEditorView = lazy(() => import('@/components/FileEditorView').then((m) => ({ default: m.FileEditorView })))
+const DiffTabView = lazy(() => import('@/components/EditorTabViews').then((m) => ({ default: m.DiffTabView })))
+
+// The hint covers the place the new split takes: a share of the whole pane, its sidebar included.
+const pct = (share: number) => `${share * 100}%`
+const overlayRect = (zone: DropZone): React.CSSProperties => {
+  const r = dropHintRect(zone)
+  return { left: pct(r.left), top: pct(r.top), width: pct(r.width), height: pct(r.height) }
 }
 
 /** Memoised: the tab objects are kept while unchanged, so another tab's change leaves this view alone. */
@@ -47,10 +50,10 @@ const TabBody = memo(function TabBody({ tab }: { tab: WorkspaceTab }) {
     case 'terminal':
       return <TerminalTabBody key={tab.id} tabId={tab.id} terminal={tab.terminal} />
     case 'editor':
-      return tab.editor.kind === 'file' ? (
-        <FileEditorView key={tab.id} tab={tab.editor} />
-      ) : (
-        <DiffTabView key={tab.id} tab={tab.editor} />
+      return (
+        <Suspense fallback={<div key={tab.id} className="min-h-0 flex-1 bg-editor-surface" />}>
+          {tab.editor.kind === 'file' ? <FileEditorView key={tab.id} tab={tab.editor} /> : <DiffTabView key={tab.id} tab={tab.editor} />}
+        </Suspense>
       )
     case 'browser':
       return <BrowserTabView key={tab.id} tab={tab.browser} />
@@ -63,6 +66,27 @@ const TabBody = memo(function TabBody({ tab }: { tab: WorkspaceTab }) {
       )
   }
 })
+
+/**
+ * A tab's body in its error boundary: one tab that fails to render keeps to its own pane, and
+ * switching tabs remounts the boundary. Hidden, it stays mounted and laid out under the tab in
+ * front, out of sight and out of reach of focus and the pointer.
+ */
+function TabBodyFrame({ tab, hidden }: { tab: WorkspaceTab; hidden?: boolean }) {
+  return (
+    <div
+      data-tab-body={tab.id}
+      data-tab-body-hidden={hidden || undefined}
+      inert={hidden || undefined}
+      aria-hidden={hidden || undefined}
+      className={cn('flex min-h-0 min-w-0 flex-1 flex-col', hidden && 'pointer-events-none invisible absolute inset-0')}
+    >
+      <ErrorBoundary fallback={(error, reset) => <ViewError error={error} onRetry={reset} />}>
+        <TabBody tab={tab} />
+      </ErrorBoundary>
+    </div>
+  )
+}
 
 /** Orca's TabGroupPanel: one split pane with its own tab row, body, and drop targets. Memoised (see WorkspaceTabs). */
 export const TabGroupPane = memo(function TabGroupPane({
@@ -88,6 +112,13 @@ export const TabGroupPane = memo(function TabGroupPane({
   sidebar: boolean
 }) {
   const active = tabs.find((t) => t.id === activeId) ?? null
+  // The chat shown before the "New thread" tab stays mounted under it, hidden: closing the New
+  // thread tab (or going back to the chat) then shows it at once, where mounting a long chat's
+  // transcript again stalls the window for a moment. Only a chat: other kinds are cheap to mount,
+  // and a browser tab's view is not hidden by its page's styles.
+  const [lastShown, setLastShown] = useState<string | null>(null)
+  if (active && active.kind !== 'start' && active.id !== lastShown) setLastShown(active.id)
+  const behind = active?.kind === 'start' ? (tabs.find((t) => t.id === lastShown && t.kind === 'chat') ?? null) : null
   const activeChatId = active?.kind === 'chat' ? active.id : undefined
   // Among the window's tabs, the pane works in the workspace of the tab it shows: that is where its
   // "+" starts a terminal and whose drawer it pulls down. Showing none (or the "New thread" tab), it
@@ -183,13 +214,14 @@ export const TabGroupPane = memo(function TabGroupPane({
 
   return (
     // A press anywhere in the pane, its sidebar too, makes it the one being worked in.
+    // The whole pane, sidebar included, is the drop target: a split divides all of it.
     <div
+      ref={paneRef}
       data-tab-pane={groupId}
       className="relative flex min-h-0 min-w-0 flex-1 overflow-hidden"
       onPointerDown={() => !isFocused && focusGroup(workspaceId, groupId)}
     >
       <div
-        ref={paneRef}
         data-tab-group-id={groupId}
         data-focused={isFocused ? 'true' : 'false'}
         className="relative flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden"
@@ -219,13 +251,12 @@ export const TabGroupPane = memo(function TabGroupPane({
           className="relative flex min-h-0 min-w-0 flex-1 flex-col"
           data-drawer-content-edge={drawer ? drawerEdge : undefined}
         >
+          {behind && <TabBodyFrame key={`body:${behind.id}`} tab={behind} hidden />}
           {active ? (
-            // One tab that fails to render keeps to its own pane; switching tabs remounts the boundary.
             // Its key differs from the drawer's beside it: siblings sharing a key leave a closed tab's
-            // view on screen.
-            <ErrorBoundary key={`body:${active.id}`} fallback={(error, reset) => <ViewError error={error} onRetry={reset} />}>
-              <TabBody tab={active} />
-            </ErrorBoundary>
+            // view on screen. The same key keeps a chat mounted as it moves from behind the New
+            // thread tab to the front.
+            <TabBodyFrame key={`body:${active.id}`} tab={active} />
           ) : home ? (
             <EmptyPane workspaceId={home} groupId={groupId} hint={emptyHint} />
           ) : recent ? (
@@ -239,17 +270,17 @@ export const TabGroupPane = memo(function TabGroupPane({
             <ToolDrawer key={`drawer:${active.id}`} workspaceId={home} tabId={active.id} exclude={active.id} focused={isFocused} />
           )}
         </div>
-        {zone && (
-          <div aria-hidden data-tab-drop-zone={zone} className="tab-drop-overlay" style={OVERLAY_RECT[zone]}>
-            {zone !== 'center' && (
-              <span className="tab-drop-overlay__label pointer-events-none absolute bottom-2 left-2 rounded-sm px-1.5 py-0.5 font-medium">
-                {t('New split')}
-              </span>
-            )}
-          </div>
-        )}
       </div>
       {showSidebar && <PaneSidebar paneKey={sidebarKey} workspaceId={sidebarWorkspace} />}
+      {zone && (
+        <div aria-hidden data-tab-drop-zone={zone} className="tab-drop-overlay" style={overlayRect(zone)}>
+          {zone !== 'center' && (
+            <span className="tab-drop-overlay__label pointer-events-none absolute bottom-2 left-2 rounded-sm px-1.5 py-0.5 font-medium">
+              {t('New split')}
+            </span>
+          )}
+        </div>
+      )}
       {/* Split, the pane being worked in is outlined, so where a keystroke goes is plain to see. */}
       {hasSplit && isFocused && (
         <div aria-hidden data-focused-pane-outline className="pointer-events-none absolute inset-0 z-30 border border-highlight/60" />

@@ -1,5 +1,5 @@
 import { useEffect, useId, useState } from 'react'
-import { CircleAlert, Hourglass, Play, RotateCw } from 'lucide-react'
+import { CircleAlert, Hourglass, LogIn, Play, RotateCw } from 'lucide-react'
 import type { AutoResumeState, TurnResumeKind } from '@zomfy/protocol'
 import { Button } from '@/components/ui/button'
 import { Switch } from '@/components/ui/switch'
@@ -39,6 +39,29 @@ export function NativeChatRetryButton({ onRetry }: { onRetry: () => void }) {
       <RotateCw />
       {t('Retry')}
     </Button>
+  )
+}
+
+/** A turn that failed because Claude is signed out: sign in on the chat's host, then send the turn again. */
+export function NativeChatSignInActions({ onSignIn, onRetry }: { onSignIn: () => void; onRetry: () => void }) {
+  return (
+    <div className="flex flex-wrap items-center gap-1.5">
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <Button type="button" size="xs" data-native-chat-claude-sign-in onClick={onSignIn}>
+            <LogIn />
+            {t('Sign in to Claude')}
+          </Button>
+        </TooltipTrigger>
+        <TooltipContent side="top" sideOffset={4}>
+          {t('Opens a terminal on this host running claude auth login; finish signing in in the browser.')}
+        </TooltipContent>
+      </Tooltip>
+      <Button type="button" size="xs" variant="outline" data-native-chat-retry onClick={onRetry}>
+        <RotateCw />
+        {t('Try again')}
+      </Button>
+    </div>
   )
 }
 

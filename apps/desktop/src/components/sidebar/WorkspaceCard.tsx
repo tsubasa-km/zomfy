@@ -24,6 +24,7 @@ import { openWorkflows } from '@/stores/workflows-store'
 import { cn } from '@/lib/utils'
 import { keepTextUnselected } from '@/stores/list-selection'
 import { t } from '@/i18n/i18n'
+import { sizeLabel } from '@/components/sidebar/workspace-size'
 
 // Markup follows Orca's worktree-card-surface / worktree-card-header / worktree-card-meta-row, with the
 // compact layout folding agent rows into a badge (worktree-card-compact-agents).
@@ -75,6 +76,7 @@ export function WorkspaceCard({
   const compact = useSidebarStore((s) => s.cardLayout === 'compact')
   const props = useSidebarStore((s) => s.cardProperties)
   const summary = useSidebarStore((s) => s.summaries[workspace.id])
+  const size = useSidebarStore((s) => s.sizes[workspace.id])
   const selected = useSidebarStore((s) => s.selection.includes(workspace.id))
   const dropMark = useSidebarStore((s) => (s.dropTarget?.id === workspace.id ? s.dropTarget.position : null))
   const unread = !!workspace.unread || sessionUnread
@@ -127,7 +129,7 @@ export function WorkspaceCard({
         if (!selected) clearSelection()
         setMenuOpen(true)
       }}
-      title={workspace.path}
+      title={size && !workspace.isPrimary ? `${workspace.path}\n${t('On disk: {size}', { size: sizeLabel(size.total) })}` : workspace.path}
     >
       {dropMark === 'before' && <DropLine edge="top" />}
       {dropMark === 'after' && <DropLine edge="bottom" />}

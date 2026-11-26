@@ -1,5 +1,10 @@
-import { useMemo } from 'react'
-import { AtSign, ImagePlus, MessageSquare, Plus, SquareTerminal } from 'lucide-react'
+import { useEffect, useMemo, useRef, useState } from 'react'
+import { AtSign, ImagePlus, MessageSquare, Plug, Plus, Sparkles, SquareTerminal } from 'lucide-react'
+import type { ChatCommand, ChatMcpServer } from '@zomfy/protocol'
+import { Input } from '@/components/ui/input'
+import { ConnectorIcon } from '@/components/right-sidebar/session-panel/ConnectorIcon'
+import { useComposerConnectors } from '@/stores/composer-connectors-store'
+import { matchSkills, offeredConnectors } from './composer-menu-items'
 import { Button } from '@/components/ui/button'
 import {
   DropdownMenu,
@@ -12,29 +17,41 @@ import {
 } from '@/components/ui/dropdown-menu'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { attachChat, attachTerminal } from '@/lib/chat-attachments'
-import { allWorkspaces, useStore, type Session } from '@/session-store'
+import { allWorkspaces, useStore, type HostId, type Session } from '@/session-store'
 import { t } from '@/i18n/i18n'
 
 /** Chats and terminals offered, newest first; the rest stay reachable by dragging their tabs in. */
 const MENU_LIMIT = 30
 
 /**
- * The composer's +: an image, a workspace file (the @ menu), or a snapshot of another chat or a
- * terminal from any workspace or host, inserted as a mention. A snapshot is saved for a chat on its
- * host, so the "New thread" tab (no `session` yet) offers what needs none.
+ * The composer's +: an image, a workspace file (the @ menu), a skill (as a leading `/skill`), one of
+ * the chat's MCP servers (an `@mcp:` chip), or a snapshot of another chat or a terminal from any
+ * workspace or host, inserted as a mention. A snapshot is saved for a chat on its host, so the
+ * "New thread" tab (no `session` yet) offers what needs none.
  */
 export function NativeChatAttachMenu({
   session,
   onPickImages,
-  onMentionFile
+  onMentionFile,
+  skills = [],
+  onPickSkill,
+  connectors = null,
+  onPickConnector
 }: {
   session: Session | null
   onPickImages: () => void
   /** Absent where no workspace's files can be listed. */
   onMentionFile?: () => void
+  /** The composer's skills; the Skill entry shows when there is one. */
+  skills?: ChatCommand[]
+  onPickSkill?: (name: string) => void
+  /** The chat whose connected MCP servers are offered; null offers none. */
+  connectors?: { sessionId: string; hostId: HostId } | null
+  onPickConnector?: (server: ChatMcpServer) => void
 }) {
+  const [open, setOpen] = useState(false)
   return (
-    <DropdownMenu>
+    <DropdownMenu open={open} onOpenChange={setOpen}>
       <Tooltip>
         <TooltipTrigger asChild>
           <DropdownMenuTrigger asChild>
@@ -64,9 +81,112 @@ export function NativeChatAttachMenu({
             {t('File in this workspace…')}
           </DropdownMenuItem>
         ) : null}
+        {onPickSkill && skills.length > 0 ? (
+          <SkillItems
+            skills={skills}
+            onPick={(name) => {
+              setOpen(false)
+              onPickSkill(name)
+            }}
+          />
+        ) : null}
+        {connectors && onPickConnector ? <ConnectorItems chat={connectors} wanted={open} onPick={onPickConnector} /> : null}
         {session ? <SnapshotItems session={session} /> : null}
       </DropdownMenuContent>
     </DropdownMenu>
+  )
+}
+
+/** Skills, searchable by name and description; picking one starts the message with `/name`. */
+function SkillItems({ skills, onPick }: { skills: ChatCommand[]; onPick: (name: string) => void }) {
+  return (
+    <DropdownMenuSub>
+      <DropdownMenuSubTrigger data-attach-skills>
+        <Sparkles />
+        {t('Skill')}
+      </DropdownMenuSubTrigger>
+      <DropdownMenuSubContent className="max-h-80 w-80 overflow-y-auto">
+        <SkillList skills={skills} onPick={onPick} />
+      </DropdownMenuSubContent>
+    </DropdownMenuSub>
+  )
+}
+
+/** Mounted while the submenu is open, so each opening starts with an empty search that has focus. */
+function SkillList({ skills, onPick }: { skills: ChatCommand[]; onPick: (name: string) => void }) {
+  const [query, setQuery] = useState('')
+  const search = useRef<HTMLInputElement>(null)
+  // The menu focuses its first row (keyboard) or keeps the trigger's (pointer) as it opens; typing goes to the search.
+  useEffect(() => {
+    const frame = requestAnimationFrame(() => search.current?.focus())
+    return () => cancelAnimationFrame(frame)
+  }, [])
+  const shown = matchSkills(skills, query)
+  return (
+    <>
+      <div className="p-1">
+        <Input
+          ref={search}
+          value={query}
+          placeholder={t('Search skills')}
+          aria-label={t('Search skills')}
+          className="h-7 text-xs md:text-xs"
+          data-attach-skill-search
+          onChange={(event) => setQuery(event.target.value)}
+          onKeyDown={(event) => {
+            // The menu's own keys move between rows; the rest are typing, not its type-ahead.
+            if (event.key === 'Enter' && shown[0]) {
+              event.preventDefault()
+              onPick(shown[0].name)
+              return
+            }
+            if (!['ArrowDown', 'ArrowUp', 'Escape', 'Tab'].includes(event.key)) event.stopPropagation()
+          }}
+        />
+      </div>
+      {shown.length === 0 ? <DropdownMenuItem disabled>{t('No matching skills')}</DropdownMenuItem> : null}
+      {shown.map((skill) => (
+        <DropdownMenuItem key={skill.name} data-attach-skill={skill.name} onSelect={() => onPick(skill.name)}>
+          <span className="min-w-0 flex-1">
+            <span className="block truncate font-mono text-xs">/{skill.name}</span>
+            {skill.description ? <span className="block truncate text-xs text-muted-foreground">{skill.description}</span> : null}
+          </span>
+        </DropdownMenuItem>
+      ))}
+    </>
+  )
+}
+
+/** The chat's connected MCP servers, read when the menu opens; each goes in as an `@mcp:` chip. */
+function ConnectorItems({
+  chat,
+  wanted,
+  onPick
+}: {
+  chat: { sessionId: string; hostId: HostId }
+  wanted: boolean
+  onPick: (server: ChatMcpServer) => void
+}) {
+  const entry = useComposerConnectors(chat.sessionId, chat.hostId, wanted)
+  const servers = offeredConnectors(entry.servers)
+  // An agent that lists no servers (or none connected) gets no entry.
+  if (entry.status !== 'loading' && servers.length === 0) return null
+  return (
+    <DropdownMenuSub>
+      <DropdownMenuSubTrigger data-attach-connectors>
+        <Plug />
+        {t('Connector')}
+      </DropdownMenuSubTrigger>
+      <DropdownMenuSubContent className="max-h-80 w-72 overflow-y-auto">
+        {servers.length === 0 ? <DropdownMenuItem disabled>{t('Loading connectors…')}</DropdownMenuItem> : null}
+        {servers.map((server) => (
+          <DropdownMenuItem key={server.name} data-attach-connector={server.name} onSelect={() => onPick(server)}>
+            <ConnectorIcon server={server} className="size-4" />
+            <span className="min-w-0 flex-1 truncate">{server.name}</span>
+          </DropdownMenuItem>
+        ))}
+      </DropdownMenuSubContent>
+    </DropdownMenuSub>
   )
 }
 

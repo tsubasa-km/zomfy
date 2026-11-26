@@ -20,3 +20,4 @@ follows the spec, and the spec's `status` says how far it has got.
 
 * [Orca Bots, and a self-hosted equivalent for Zomfy](research/orca-bots.md) - what Orca Bots does, how its cloud connector works, and a Cloudflare design for Zomfy
 * [A phone app for Zomfy](research/mobile-app.md) - Orca's and T3 Code's phone apps compared, their reception, and a plan for Zomfy's
+* [Worktree skills and worktree storage](research/worktree-skills-and-storage.md) - how Orca ships and updates its worktree skills and keeps worktrees off the disk, and what Zomfy has of either

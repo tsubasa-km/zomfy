@@ -370,20 +370,15 @@ export const CHAT: Record<string, string> = {
   // components/native-chat/NativeChatNextStepsCard.tsx
   'Please go ahead with this next step: {step}': '次のステップを進めてください：{step}',
   'Next steps': 'ネクストステップ',
-  'Show original': '元の文面を表示',
-  'Show as card': 'カードで表示',
   'Ask to do this': 'これを頼む',
   Asked: '依頼済み',
   'Add to Inbox': '受信箱のやることに追加',
   'In Inbox': '受信箱に追加済み',
   You: 'あなた',
-  'Sends {agent} a message in this chat asking it to do this step.': 'このチャットで {agent} にこのステップを頼むメッセージを送ります。',
-  'This step is in the To do list of your Inbox. Click to open it.': 'このステップは受信箱の「やること」にあります。クリックで開きます。',
-  'Adds this step to the To do list in your Inbox (in the status bar), linked to this chat. Nothing is sent to {agent}.':
-    'このステップを受信箱（ステータスバー）の「やること」に、このチャットへのリンク付きで追加します。{agent} には何も送りません。',
-  "Added to your Inbox's To do list": '受信箱の「やること」に追加しました',
   'Open Inbox': '受信箱を開く',
+  'Added to Inbox': '受信箱に追加しました',
   'Could not add it to your Inbox': '受信箱に追加できませんでした',
+  'Next, {agent} will:': '次に {agent} がやること：',
 
   // components/native-chat/NativeChatTurnDiffRollup.tsx
   'Hide diff': '差分を隠す',
@@ -701,5 +696,35 @@ export const CHAT: Record<string, string> = {
   'Answer in its thread': 'スレッドで回答',
   // components/native-chat/NativeChatToolGroup.tsx
   Answered: '回答済み',
-  Skipped: 'スキップ'
+  Skipped: 'スキップ',
+  // components/native-chat (skills and connectors in the composer)
+  'MCP prompts': 'MCP プロンプト',
+  'MCP server': 'MCP サーバー',
+  Connector: 'コネクタ',
+  'No matching skills': '一致するスキルはありません',
+  'Loading connectors…': 'コネクタを読み込み中…',
+  'No connected MCP servers': '接続中の MCP サーバーはありません',
+
+  // components/native-chat/session-option-labels.ts, NativeChatSessionOptionPicker.tsx
+  '{effort} (default)': '{effort}（デフォルト）',
+  "Model {model}, Effort {effort}, Claude's default": 'モデル {model}、思考量 {effort}（Claude のデフォルト）',
+  "Model {model}, Effort Claude's default": 'モデル {model}、思考量は Claude のデフォルト',
+  "Claude's default (now {effort})": 'Claude のデフォルト（現在は{effort}）',
+  "Claude's default": 'Claude のデフォルト',
+
+  // components/native-chat/NativeChatTurnRecovery.tsx, chat-actions.ts
+  'Sign in to Claude': 'Claude にサインイン',
+  'Opens a terminal on this host running claude auth login; finish signing in in the browser.':
+    'このホストでターミナルを開いて claude auth login を実行します。サインインはブラウザで完了してください。',
+  "Couldn't open Claude's sign-in: {error}. Run `claude auth login` in a terminal on this host, then try again.":
+    'Claude のサインインを開けませんでした: {error}。このホストのターミナルで `claude auth login` を実行してから、もう一度試してください。',
+
+  // components/native-chat/NativeChatComposer.tsx (Stop pressed, the agent still winding down)
+  'Stopping…': '停止中…',
+
+  // components/ThreadView.tsx (a chat's history still being replayed from its host)
+  'Loading the thread…': 'スレッドを読み込み中…',
+
+  // agent-notifications.ts (a helper's question, named by the thread it works for)
+  '{thread} · from {helper}': '{thread} · {helper} から'
 }

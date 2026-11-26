@@ -20,6 +20,7 @@ import { ContextMenu, ContextMenuTrigger } from '@/components/ui/context-menu'
 import { cn } from '@/lib/utils'
 import { SetupChecklistSidebarEntry } from './SetupChecklistSidebarEntry'
 import { HideSidebarMenu } from './sidebar-nav-controls'
+import { phaseOf } from '@/lib/turn-phase'
 import { t } from '@/i18n/i18n'
 
 // Orca's SidebarNav (sidebar/SidebarNav.tsx, SidebarTaskNavButton, AgentDashboardSidebarEntry): the
@@ -164,25 +165,25 @@ function TasksRow() {
   )
 }
 
-/** Orca's DashboardBucketCounts: needs-you, working and done tallies beside the row label. */
+/** Orca's DashboardBucketCounts: needs-your-answer, working and your-turn tallies beside the row label. */
 function DashboardCounts() {
   const counts = useStore((s) => {
     let attention = 0
     let working = 0
     let done = 0
     for (const session of s.sessions) {
-      // An unseen failure is not done (the dashboard lists it under Needs You).
-      if (session.status === 'needs-you' || (session.status === 'error' && s.unread[session.id])) attention++
-      else if (session.status === 'working') working++
-      else if (s.unread[session.id]) done++
+      const phase = phaseOf(session)
+      if (phase === 'needs-answer') attention++
+      else if (phase === 'working' || phase === 'background') working++
+      else if (phase === 'your-turn') done++
     }
     return `${attention}:${working}:${done}`
   })
   const [attention, working, done] = counts.split(':').map(Number)
   const buckets = [
-    { id: 'attention', label: t('Needs You'), count: attention ?? 0 },
+    { id: 'attention', label: t('Needs your answer'), count: attention ?? 0 },
     { id: 'working', label: t('Working'), count: working ?? 0 },
-    { id: 'done', label: t('Done'), count: done ?? 0 }
+    { id: 'done', label: t('Your turn'), count: done ?? 0 }
   ].filter((b) => b.count > 0)
   if (buckets.length === 0) return null
   return (

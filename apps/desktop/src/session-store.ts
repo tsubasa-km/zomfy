@@ -14,6 +14,7 @@ import type {
 } from '@zomfy/protocol'
 import { LEGACY_NEW_CHAT_TITLE, NEW_CHAT_TITLE } from '@zomfy/protocol'
 import { WINDOW_ROLE, WINDOW_WORKSPACE_ID } from '@/lib/window-role'
+import { SendsInFlight } from '@/lib/sends-in-flight'
 import {
   carriesOverOpenChats,
   carryOverOpenChats,
@@ -36,7 +37,7 @@ import {
 import { openWorkflows } from '@/stores/workflows-store'
 import { getSidebarState, useSidebarStore } from '@/stores/sidebar-store'
 import { hidePaneSidebar, paneSidebarKey, showPaneSidebar, togglePaneSidebar } from '@/stores/pane-sidebar-store'
-import { forgetHostSnapshot, saveHostSnapshot } from '@/lib/host-snapshots'
+import { forgetHostSnapshot, hostSnapshot, saveHostSnapshot, saveSessionsSnapshot, sessionsSnapshot } from '@/lib/host-snapshots'
 import {
   appendPane,
   insertPane,
@@ -56,6 +57,8 @@ import {
 import { hostedProjects, hostedWorkspaces } from '@/lib/host-lists'
 import { sameTerminal } from '@/lib/same-terminal'
 import { t } from '@/i18n/i18n'
+import { marksUnread } from '@/lib/child-threads'
+import { getSetting } from '@/stores/settings-store'
 
 export type { SessionStatus }
 
@@ -247,9 +250,32 @@ const initialTree =
     : saved.paneTree !== undefined
       ? readPaneTree(saved.paneTree)
       : panesFromColumns(saved.columns ?? [], saved.columnWidths)
+/** Chats shown from the last session's snapshot until their host lists them again. */
+const restoredSessions = new Set<string>()
+
+/**
+ * Each host this window shows, as it was when the window last closed, so the first frame already
+ * has the sidebar, tabs and threads in place; connecting replaces it with what the host says now.
+ */
+function restoredHosts(hostIds: HostId[]): Pick<StoreState, 'hosts' | 'sessions'> {
+  const hosts: StoreState['hosts'] = {}
+  const sessions: Session[] = []
+  for (const id of hostIds) {
+    const harness = hostSnapshot(id)
+    if (!harness || hosts[id]) continue
+    const label = harness.host.id === id ? harness.host.label : hostLabel(id)
+    hosts[id] = { id, label, connection: { kind: 'connecting' }, harness, shells: [] }
+    for (const info of sessionsSnapshot(id)) {
+      if (info.workspaceId === null) continue
+      restoredSessions.add(info.id)
+      sessions.push({ ...info, title: shownTitle(info.title), hostId: id, workspaceId: info.workspaceId, items: [], loaded: false })
+    }
+  }
+  return { hosts, sessions: sessions.sort((a, b) => a.createdAt - b.createdAt) }
+}
+
 let state: StoreState = {
-  hosts: {},
-  sessions: [],
+  ...restoredHosts([LOCAL_HOST, ...(saved.rememberedHosts ?? [])]),
   terminals: [],
   activeWorkspaceId: saved.activeWorkspaceId ?? null,
   activeSessionByWorkspace: saved.activeSessionByWorkspace ?? {},
@@ -626,7 +652,12 @@ function shownTitle(title: string): string {
 
 /** Applies one host's session list, keeping transcripts this window already has. */
 export function mergeSessions(hostId: HostId, list: SessionInfo[]): void {
-  const previous = new Map(state.sessions.map((s) => [s.id, s]))
+  saveSessionsSnapshot(hostId, list)
+  // A chat restored from the snapshot changed while the window was closed, not just now: no
+  // notification or unread mark for that.
+  const previous = new Map(state.sessions.filter((s) => !(s.hostId === hostId && restoredSessions.has(s.id))).map((s) => [s.id, s]))
+  const restoredItems = new Map(state.sessions.filter((s) => s.hostId === hostId && restoredSessions.has(s.id)).map((s) => [s.id, s]))
+  for (const id of restoredItems.keys()) restoredSessions.delete(id)
   const sessions: Session[] = state.sessions.filter((s) => s.hostId !== hostId)
   const unread = { ...state.unread }
   const transitions: SessionTransition[] = []
@@ -643,18 +674,24 @@ export function mergeSessions(hostId: HostId, list: SessionInfo[]): void {
         if (activeWorkspaceId === old.workspaceId) activeWorkspaceId = info.workspaceId
       }
     }
-    let items = old?.items ?? []
+    // A prompt this window sent is working before the host says so (lib/sends-in-flight).
+    const turn = sendsInFlight.shown(info.id, { status: info.status, turnStartedAt: info.turnStartedAt })
+    // A restored chat may have had its transcript loaded while it waited for this list.
+    const kept = old ?? restoredItems.get(info.id)
+    let items = kept?.items ?? []
     // The turn just ended: draw Orca's settled status line under it.
-    if (old?.loaded && old.turnStartedAt !== null && info.turnStartedAt === null) {
+    if (old?.loaded && old.turnStartedAt !== null && turn.turnStartedAt === null) {
       const seconds = Math.max(1, Math.round((Date.now() - old.turnStartedAt) / 1000))
       items = [...items, { kind: 'notice', text: t('Worked for {seconds}s', { seconds }) }]
     }
-    const session: Session = { ...info, title: shownTitle(info.title), hostId, workspaceId: info.workspaceId, items, loaded: old?.loaded ?? false }
+    const session: Session = { ...info, ...turn, title: shownTitle(info.title), hostId, workspaceId: info.workspaceId, items, loaded: kept?.loaded ?? false }
     sessions.push(session)
-    if (old && old.status !== info.status) {
-      transitions.push({ session, from: old.status, to: info.status })
-      // Orca marks a workspace unread when its agent finishes or asks, until the user looks.
-      if (info.status === 'needs-you' || (old.status === 'working' && info.status !== 'working')) {
+    if (old && old.status !== session.status) {
+      transitions.push({ session, from: old.status, to: session.status })
+      // Orca marks a workspace unread when its agent finishes or asks, until the user looks. A
+      // thread another thread started reports to that one instead (lib/child-threads).
+      const changed = session.status === 'needs-you' || (old.status === 'working' && session.status !== 'working')
+      if (changed && marksUnread(session, getSetting('notifyHelperThreads'))) {
         unread[info.id] = true
       }
     }
@@ -695,6 +732,29 @@ export function removeSession(sessionId: string): void {
     else delete activeSessionByWorkspace[session.workspaceId]
   }
   set({ ...state, sessions, activeSessionByWorkspace })
+}
+
+const sendsInFlight = new SendsInFlight()
+
+/** The window sent a prompt: the chat reads as working until the host reports its turn (lib/sends-in-flight). */
+export function beginSend(id: string): symbol {
+  const now = Date.now()
+  const token = sendsInFlight.start(id, now)
+  updateSession(id, (s) => ({ ...s, status: 'working', turnStartedAt: now }))
+  return token
+}
+
+/**
+ * The prompt's request settled. With `apply`, what the host last reported while it was in flight
+ * takes effect now, as a status change; without, the caller puts the chat back itself.
+ */
+export function endSend(id: string, token: symbol, apply: boolean): void {
+  const held = sendsInFlight.finish(id, token)
+  const session = state.sessions.find((s) => s.id === id)
+  if (!apply || !held || !session) return
+  const next: Session = { ...session, ...held }
+  set({ ...state, sessions: state.sessions.map((s) => (s.id === id ? next : s)) })
+  if (session.status !== next.status) for (const listener of transitionListeners) listener({ session: next, from: session.status, to: next.status })
 }
 
 export function updateSession(id: string, change: (s: Session) => Session): void {

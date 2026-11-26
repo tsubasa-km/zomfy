@@ -28,6 +28,7 @@ import {
   TURN_RECOVERY_NOTIFICATIONS,
   type ChatAgentId,
   type ChatPermissionMode,
+  type ChatConnectorPreset,
   type CreateTerminalParams,
   type HarnessMethod,
   type HarnessRequests,
@@ -51,6 +52,7 @@ import { applyChatUpdate, latestTurnEnd } from "./chat-transcript";
 import { WINDOW_ROLE } from "./lib/window-role";
 import { EXPIRED_APPROVAL } from "./lib/expired-approval";
 import { spliceReplay } from "./lib/replay-splice";
+import { workspaceHost } from "./lib/host-lists";
 import {
   LOCAL_HOST,
   addSession,
@@ -58,6 +60,8 @@ import {
   findWorkspace,
   batchUpdates,
   batchUntilFrame,
+  beginSend,
+  endSend,
   forgetHost,
   getState,
   whenState,
@@ -401,14 +405,21 @@ async function openConnection(hostId: HostId): Promise<void> {
         ? t("The daemon there had exited (its terminals and agent turns ended); a new one was started.")
         : undefined,
     });
-    setHarnessState(hostId, await opened.agent.request<HarnessState>(HARNESS_METHODS.stateGet, {}));
-    mergeSessions(hostId, await opened.agent.request<SessionInfo[]>(HARNESS_METHODS.sessionsList, {}));
-    resyncTranscripts(hostId);
-    setTerminals(hostId, await opened.agent.request<TerminalInfo[]>(HARNESS_METHODS.terminalsList, {}));
-    upsertHost(hostId, {
-      shells: await opened.agent.request<ShellOption[]>(HARNESS_METHODS.shellsList, {}),
-      connection: { kind: "connected", url: info.url },
+    // Asked together and applied in one render, so the window does not redraw (and re-lay out)
+    // once per answer while it starts.
+    const [harness, sessions, terminals, shells] = await Promise.all([
+      opened.agent.request<HarnessState>(HARNESS_METHODS.stateGet, {}),
+      opened.agent.request<SessionInfo[]>(HARNESS_METHODS.sessionsList, {}),
+      opened.agent.request<TerminalInfo[]>(HARNESS_METHODS.terminalsList, {}),
+      opened.agent.request<ShellOption[]>(HARNESS_METHODS.shellsList, {}),
+    ]);
+    batchUpdates(() => {
+      setHarnessState(hostId, harness);
+      mergeSessions(hostId, sessions);
+      setTerminals(hostId, terminals);
+      upsertHost(hostId, { shells, connection: { kind: "connected", url: info.url } });
     });
+    resyncTranscripts(hostId);
     if (hostId !== LOCAL_HOST) rememberHost(hostId, true);
     // Runs interrupted while no window watched (the app was closed) are offered back.
     void offerInterruptedRuns(hostId);
@@ -451,11 +462,32 @@ function hostOf(params: unknown): HostId {
   return LOCAL_HOST;
 }
 
+/** How long a request for a workspace no host has listed yet waits for the hosts still connecting. */
+const UNLISTED_WORKSPACE_WAIT_MS = 20_000;
+
+/**
+ * The host of a request that names a workspace no host has listed yet. A remote host's workspaces
+ * are known only once it has connected and sent its state; until then such a request (a file tab
+ * restored at startup, a link clicked while a host reconnects) waits for it rather than going to
+ * this computer, which answers "Unknown workspace".
+ */
+async function hostOfUnlisted(workspaceId: string): Promise<HostId> {
+  await whenState((s) => workspaceHost(s.hosts, workspaceId, LOCAL_HOST) !== "pending", UNLISTED_WORKSPACE_WAIT_MS);
+  const host = workspaceHost(getState().hosts, workspaceId, LOCAL_HOST);
+  return host && host !== "pending" ? host : LOCAL_HOST;
+}
+
 export async function harnessRequest<M extends HarnessMethod>(
   method: M,
   params: HarnessRequests[M]["params"],
-  hostId: HostId = hostOf(params),
+  explicitHost?: HostId,
 ): Promise<HarnessRequests[M]["result"]> {
+  const workspaceId = (params as { workspaceId?: unknown } | null)?.workspaceId;
+  const hostId =
+    explicitHost ??
+    (typeof workspaceId === "string" && workspaceHost(getState().hosts, workspaceId, LOCAL_HOST) === "pending"
+      ? await hostOfUnlisted(workspaceId)
+      : hostOf(params));
   const conn = await requireConnection(hostId);
   return conn.agent.request<HarnessRequests[M]["result"]>(method, params);
 }
@@ -489,11 +521,13 @@ export async function createSession(
   workspaceId: string,
   agent?: ChatAgentId,
   /** `parentId`: the chat that started this one, which the sidebar folds it under. */
-  extra: { hostId?: HostId; role?: SessionRole; focus?: boolean; permissionMode?: ChatPermissionMode; parentId?: string } = {},
+  /** `connectors`: MCP servers for this chat alone (docs/specs/relay-settings.md); Claude only. */
+  extra: { hostId?: HostId; role?: SessionRole; focus?: boolean; permissionMode?: ChatPermissionMode; parentId?: string; connectors?: ChatConnectorPreset[] } = {},
 ): Promise<string> {
   const hostId = extra.hostId ?? hostOf({ workspaceId });
   const params = {
     workspaceId,
+    ...(extra.connectors?.length && (!agent || agent === "claude") ? { connectors: extra.connectors } : {}),
     ...(agent && agent !== "claude" ? { agent } : {}),
     ...(extra.role ? { role: extra.role } : {}),
     ...(extra.parentId ? { parentId: extra.parentId } : {}),
@@ -620,6 +654,15 @@ export async function continueChatInTerminal(sessionId: string, hostId: HostId):
   return info.id;
 }
 
+/** A terminal tab in the chat's folder running `claude auth login` on its host (docs/specs/claude-sign-in.md). */
+export async function openClaudeSignIn(sessionId: string, hostId: HostId): Promise<string> {
+  const info = await harnessRequest(HARNESS_METHODS.sessionClaudeSignIn, { sessionId }, hostId);
+  const others = getState().terminals.filter((t) => t.hostId === hostId && t.id !== info.id);
+  setTerminals(hostId, [...others, info]);
+  selectTerminal(info.id);
+  return info.id;
+}
+
 /** Live output for one terminal; returns the unsubscribe function. */
 export function subscribeTerminalOutput(terminalId: string, listener: (data: string) => void): () => void {
   const set = terminalOutputListeners.get(terminalId) ?? new Set();
@@ -664,12 +707,13 @@ export async function sendPrompt(sessionId: string, text: string, images: ChatIm
   const session = getState().sessions.find((s) => s.id === sessionId);
   if (!session) return false;
   const before = session.status;
-  // The daemon echoes the prompt back as a user_message_chunk and owns the status from here.
-  updateSession(sessionId, (s) => ({ ...s, status: "working", turnStartedAt: Date.now() }));
+  // The daemon echoes the prompt back as a user_message_chunk and owns the status once it reports the turn.
+  const send = beginSend(sessionId);
   let conn: acp.ClientConnection;
   try {
     conn = await requireConnection(session.hostId);
   } catch (error) {
+    endSend(sessionId, send, false);
     updateSession(sessionId, (s) => ({
       ...s,
       status: before,
@@ -690,10 +734,13 @@ export async function sendPrompt(sessionId: string, text: string, images: ChatIm
     // No turn ran for it (its conversation is open in a Claude terminal, the chat is a split's helper
     // at work, or it was stopped while waiting on a merge): the message goes back into the box.
     if (promptNotSent(reply._meta)) {
+      endSend(sessionId, send, false);
       updateSession(sessionId, (s) => ({ ...s, status: before, turnStartedAt: null }));
       return false;
     }
+    endSend(sessionId, send, true);
   } catch (error) {
+    endSend(sessionId, send, true);
     // The link dropped, not the turn: it goes on there, and the reconnect replays what it did.
     if (conn.signal.aborted) return true;
     // The daemon records a failed turn's error before replying; only a failure to reach it is new.

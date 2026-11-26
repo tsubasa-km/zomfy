@@ -1,6 +1,8 @@
 // A private copy of the UI in headless Edge, with its own daemon, state and playground repo, so
 // several people (or agents) can test side by side without touching the real app or each other.
-//   bun scripts/preview.ts start <slot 1-9>   prints ports, then keeps running
+//   bun scripts/preview.ts start <slot 1-9> [--prod]   prints ports, then keeps running; --prod
+//                                             serves a production build (as the app ships) instead of
+//                                             the dev server, for timing startup
 //   bun scripts/preview.ts stop <slot>
 // Drive it with `HARNESS_CDP_PORT=<cdp port> bun scripts/cdp.ts ...`. WSL hosts and Tauri-only
 // actions (native dialogs, "Open in") are unavailable in a preview.
@@ -10,10 +12,11 @@ import { cp, mkdir, readFile, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
-const [command, slotArg] = process.argv.slice(2);
+const [command, slotArg, ...flags] = process.argv.slice(2);
+const prod = flags.includes("--prod");
 const slot = Number(slotArg);
 if (!["start", "stop"].includes(command ?? "") || !(slot >= 1 && slot <= 9)) {
-  console.error("usage: bun scripts/preview.ts start|stop <slot 1-9>");
+  console.error("usage: bun scripts/preview.ts start|stop <slot 1-9> [--prod]");
   process.exit(2);
 }
 
@@ -55,6 +58,8 @@ await mkdir(home, { recursive: true });
 const env = {
   ...process.env,
   ZOMFY_HOME: home,
+  // Bot homes (the master bot's included) stay in the preview's state, not the person's ~/zomfy/bots.
+  ZOMFY_BOTS_DIR: join(home, "bots"),
   ZOMFY_ALLOWED_ORIGINS: `http://localhost:${ports.vite}`,
 };
 const pids: number[] = [];
@@ -85,9 +90,23 @@ const connection = await new Promise<string>((resolve, reject) => {
 // Once its daemon is gone (stopped, or killed by a restart of the slot), the runner has nothing to keep.
 daemon.on("exit", () => void stop().then(() => process.exit(0)));
 
-const vite = spawn("bun", ["x", "vite", "--port", String(ports.vite), "--strictPort"], {
+const viteEnv = { ...env, HARNESS_VITE_PORT: String(ports.vite), VITE_HARNESS_DAEMON: connection };
+const dist = join(home, "dist");
+if (prod) {
+  const built = spawnSync("bun", ["x", "vite", "build", "--outDir", dist, "--emptyOutDir"], {
+    cwd: desktopDir,
+    env: viteEnv,
+    stdio: ["ignore", "ignore", "inherit"],
+    windowsHide: true,
+  });
+  if (built.status !== 0) throw new Error("vite build failed");
+}
+const viteArgs = prod
+  ? ["x", "vite", "preview", "--outDir", dist, "--port", String(ports.vite), "--strictPort"]
+  : ["x", "vite", "--port", String(ports.vite), "--strictPort"];
+const vite = spawn("bun", viteArgs, {
   cwd: desktopDir,
-  env: { ...env, HARNESS_VITE_PORT: String(ports.vite), VITE_HARNESS_DAEMON: connection },
+  env: viteEnv,
   stdio: ["ignore", "ignore", "inherit"],
   windowsHide: true,
   detached: process.platform !== "win32",

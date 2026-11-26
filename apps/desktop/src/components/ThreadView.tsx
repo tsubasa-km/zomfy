@@ -1,5 +1,5 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
-import { Copy, CornerDownLeft, FileText, GitFork, MessagesSquare, Quote, Search, TextSelect } from 'lucide-react'
+import { AlarmClock, Copy, CornerDownLeft, FileText, GitFork, MessagesSquare, Quote, Search, TextSelect } from 'lucide-react'
 import { markSeen, openEditorTab, useStore, type Session, type ThreadItem } from '@/session-store'
 import { projectOfSession } from '@/lib/session-project'
 import { mainLocationOf } from '@/stores/project-catalog-store'
@@ -14,10 +14,11 @@ import {
   resumeTurn,
   rewindTo,
   setAutoResume,
+  signInToClaude,
   submitPrompt
 } from '@/chat-actions'
 import { addTodo } from '@/stores/inbox-store'
-import { chatAgentLabel } from '@zomfy/protocol'
+import { chatAgentLabel, nextWakeUpAt } from '@zomfy/protocol'
 import { latestTurnEnd } from '@/chat-transcript'
 import { askInSideChat } from '@/side-chat-actions'
 import { NativeChatUsageLimitBanner } from '@/components/native-chat/NativeChatTurnRecovery'
@@ -60,6 +61,10 @@ import '@/components/native-chat/native-chat-appearance.css'
 import { BotChatHeader } from '@/components/bots/BotChatHeader'
 import { t } from '@/i18n/i18n'
 import { getTabLayoutState } from '@/stores/tab-layout-store'
+import { noteChatSeen } from '@/chat-seen'
+import { backgroundSummary, backgroundTasksLabel, phaseOf, useQuietAfterHours, wakeTime } from '@/lib/turn-phase'
+import { AgentStateDot } from '@/components/AgentStateDot'
+import { NextStepsGlowContext, waitingGlowTarget } from '@/components/native-chat/waiting-glow-target'
 import { projectLabel } from '@/components/sidebar/workspace-visibility'
 
 // Layout and classes follow Orca's native chat (NativeChatMessageList, NativeChatResolvedView,
@@ -82,9 +87,9 @@ function isPendingPermission(item: ThreadItem): item is PendingPermission {
   return item.kind === 'permission' && item.chosen === null
 }
 
-/** The first helper chat working for `parentId` with an unanswered ask, if any. */
+/** The first chat working for `parentId` (a helper, a workflow's step, a chat its agent started) with an unanswered ask, if any. */
 function helperAsking(sessions: Session[], parentId: string): Session | undefined {
-  return sessions.find((child) => child.parentId === parentId && child.origin === 'workflow' && child.items.some(isPendingPermission))
+  return sessions.find((child) => child.parentId === parentId && child.items.some(isPendingPermission))
 }
 
 /** `onSendToMain`: a side chat's hand-off of a message or selection to the main chat's composer. */
@@ -133,6 +138,7 @@ export function ThreadView({ session, onSendToMain }: { session: Session; onSend
       onRevealFile: (path) => openEditorTab({ workspaceId: session.workspaceId, kind: 'file', path, staged: false }),
       nextSteps: {
         agentName,
+        agent: sessionAgent(session),
         onFollowUp: (text) => submitPrompt(session.id, text, []),
         onAddTodo: (text) => addTodo(text, { hostId: session.hostId, workspaceId: session.workspaceId, sessionId: session.id }, sessionTitle)
       }
@@ -140,7 +146,11 @@ export function ThreadView({ session, onSendToMain }: { session: Session; onSend
     [working, claudeOnly, forkReason, session.id, session.cwd, session.workspaceId, session.hostId, sessionTitle, agentName, workflowHome.hostId, workflowHome.projectId, workflowHome.projectName]
   )
   const recoveryActions = useMemo(
-    (): TranscriptRowActions => ({ ...rowActions, onRecover: (kind) => void resumeTurn(session.id, kind) }),
+    (): TranscriptRowActions => ({
+      ...rowActions,
+      onRecover: (kind) => void resumeTurn(session.id, kind),
+      onSignIn: () => void signInToClaude(session.id)
+    }),
     [rowActions, session.id]
   )
   const limitResetsAt = turnEnd?.reason === 'usage-limit' ? turnEnd.resetsAt : null
@@ -163,6 +173,8 @@ export function ThreadView({ session, onSendToMain }: { session: Session; onSend
 
   // Showing a session is reading it: it leaves the dashboard's Done lane.
   useEffect(() => markSeen(session.id), [session.id, session.status])
+  // And its host hears so, for the Quiet state (docs/specs/turn-taking-states.md).
+  useEffect(() => noteChatSeen(session), [session.id, session.yourTurnSince]) // eslint-disable-line react-hooks/exhaustive-deps
   // Shown again, a chat goes back where it was left; shown for the first time, to its latest message.
   useLayoutEffect(() => {
     const scroller = scrollRef.current
@@ -200,6 +212,10 @@ export function ThreadView({ session, onSendToMain }: { session: Session; onSend
   const helper = useStore((s) => (ownPermission ? undefined : helperAsking(s.sessions, session.id)))
   const helperPermission = helper?.items.find(isPendingPermission)
   const pendingPermission = ownPermission ?? helperPermission
+  // Whose turn it is decides the one place that glows (docs/specs/composer-waiting-glow.md).
+  const quietAfter = useQuietAfterHours()
+  const phase = phaseOf(session, Date.now(), quietAfter)
+  const glow = waitingGlowTarget(phase, Boolean(pendingPermission), model.rows)
   const railItems = useMemo(
     (): RailItem[] =>
       model.rows.flatMap((row, index) =>
@@ -273,13 +289,16 @@ export function ThreadView({ session, onSendToMain }: { session: Session; onSend
                 <div className={TRANSCRIPT_OUTER_CLASS}>
                   <BotChatHeader session={session} />
                   <div ref={columnRef} data-native-chat-transcript-column className={TRANSCRIPT_COLUMN_CLASS}>
-                    <NativeChatTranscriptRows
-                      rows={model.rows}
-                      sessionId={session.id}
-                      actions={rowActions}
-                      recoveryRow={recoveryRow}
-                      recoveryActions={recoveryActions}
-                    />
+                    {!session.loaded && session.items.length === 0 ? <TranscriptLoading /> : null}
+                    <NextStepsGlowContext.Provider value={glow?.at === 'next-steps' ? glow.row : null}>
+                      <NativeChatTranscriptRows
+                        rows={model.rows}
+                        sessionId={session.id}
+                        actions={rowActions}
+                        recoveryRow={recoveryRow}
+                        recoveryActions={recoveryActions}
+                      />
+                    </NextStepsGlowContext.Provider>
                     {session.turnStartedAt !== null && <WorkingStatus startedAt={session.turnStartedAt} />}
                   </div>
                 </div>
@@ -346,8 +365,11 @@ export function ThreadView({ session, onSendToMain }: { session: Session; onSend
       </div>
       </NativeChatCommandRunContext.Provider>
       <NativeChatSelectionQuote rootRef={rootRef} onQuote={quote} onAskInSideChat={askSide} />
-      {pendingPermission && <NativeChatApprovalCard permission={pendingPermission} cwd={helper?.cwd ?? session.cwd} from={helper?.title} />}
+      {pendingPermission && (
+        <NativeChatApprovalCard permission={pendingPermission} cwd={helper?.cwd ?? session.cwd} from={helper?.title} glow={glow?.at === 'card'} />
+      )}
       <NativeChatDockedTaskList list={model.taskList} />
+      {phase === 'background' && <BackgroundWorkStatus session={session} />}
       <NativeChatQueuedMessageList sessionId={session.id} working={working} />
       {showLimitBanner ? (
         <NativeChatUsageLimitBanner
@@ -357,7 +379,7 @@ export function ThreadView({ session, onSendToMain }: { session: Session; onSend
           onAutoResumeChange={(enabled) => void setAutoResume(session.id, enabled, limitResetsAt)}
         />
       ) : null}
-      <NativeChatComposer session={session} editorRef={composerRef} />
+      <NativeChatComposer session={session} editorRef={composerRef} glow={glow?.at === 'composer'} />
       <Dialog open={rewindTarget !== null} onOpenChange={(open) => !open && setRewindTarget(null)}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
@@ -389,6 +411,29 @@ export function ThreadView({ session, onSendToMain }: { session: Session; onSend
   )
 }
 
+/**
+ * The thread's state while its turn has ended and background work goes on: the Activity mark, what
+ * runs, and an alarm clock with the time it wakes. No words: the mark is the state.
+ */
+function BackgroundWorkStatus({ session }: { session: Session }) {
+  const tasks = backgroundTasksLabel(session)
+  const at = nextWakeUpAt(session)
+  return (
+    <div className="bg-chat-canvas" data-thread-background-status title={backgroundSummary(session) || t('Background work running')}>
+      <div className="mx-auto flex w-full max-w-(--chat-content-max-width) items-center gap-1.5 px-4 pt-1.5 text-xs text-chat-foreground-faint sm:px-5">
+        <AgentStateDot state="monitoring" size="sm" title={null} />
+        {tasks && <span className="min-w-0 truncate font-mono text-[11px]">{tasks}</span>}
+        {at !== null && (
+          <span className="inline-flex shrink-0 items-center gap-1 text-yellow-700 tabular-nums dark:text-yellow-400">
+            <AlarmClock className="size-3" aria-hidden="true" />
+            {wakeTime(at)}
+          </span>
+        )}
+      </div>
+    </div>
+  )
+}
+
 function WorkingStatus({ startedAt }: { startedAt: number }) {
   const [now, setNow] = useState(Date.now())
   useEffect(() => {
@@ -399,6 +444,23 @@ function WorkingStatus({ startedAt }: { startedAt: number }) {
   return (
     <div className="flex min-h-8 items-center gap-1 border-b border-border text-sm text-chat-foreground-faint tabular-nums select-none">
       <span>{t('Working for {seconds}s', { seconds })}</span>
+    </div>
+  )
+}
+
+/**
+ * Where a chat's history goes while it is replayed from its host: the shape of a question and an
+ * answer, so the pane is not blank and the history takes the place this held.
+ */
+function TranscriptLoading() {
+  return (
+    <div data-native-chat-loading aria-busy="true" aria-label={t('Loading the thread…')} className="flex animate-pulse flex-col gap-3 py-4">
+      <div className="ml-auto h-9 w-2/5 rounded-2xl bg-muted" />
+      <div className="h-3 w-11/12 rounded bg-muted" />
+      <div className="h-3 w-4/5 rounded bg-muted" />
+      <div className="h-3 w-3/5 rounded bg-muted" />
+      <div className="mt-2 h-20 w-full rounded-lg bg-muted/70" />
+      <div className="h-3 w-2/3 rounded bg-muted" />
     </div>
   )
 }

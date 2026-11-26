@@ -6,6 +6,7 @@ import type { ThreadItem } from '@/session-store'
 import { cn } from '@/lib/utils'
 import { t } from '@/i18n/i18n'
 import { answersOf, EMPTY_PICK, togglePick, type AgentQuestion, type QuestionPick } from './agent-questions'
+import { useWaitingGlow } from './composer-waiting-glow'
 
 type Permission = Extract<ThreadItem, { kind: 'permission' }>
 
@@ -80,13 +81,15 @@ function QuestionBlock({ question, pick, onPick }: { question: AgentQuestion; pi
           onPick={() => onPick(togglePick(pick, option.label, question.multiSelect))}
         />
       ))}
-      <Choice
-        data="other"
-        selected={pick.other}
-        multiSelect={question.multiSelect}
-        label={t('Other')}
-        onPick={() => onPick(togglePick(pick, null, question.multiSelect))}
-      />
+      {question.allowOther !== false ? (
+        <Choice
+          data="other"
+          selected={pick.other}
+          multiSelect={question.multiSelect}
+          label={t('Other')}
+          onPick={() => onPick(togglePick(pick, null, question.multiSelect))}
+        />
+      ) : null}
       {pick.other ? (
         <input
           autoFocus
@@ -103,8 +106,20 @@ function QuestionBlock({ question, pick, onPick }: { question: AgentQuestion; pi
   )
 }
 
-export function NativeChatQuestionCard({ permission, questions, from }: { permission: Permission; questions: AgentQuestion[]; from?: string }) {
+export function NativeChatQuestionCard({
+  permission,
+  questions,
+  from,
+  glow = false
+}: {
+  permission: Permission
+  questions: AgentQuestion[]
+  from?: string
+  /** The person answers here next: the card's border glows (composer-waiting-glow.md). */
+  glow?: boolean
+}) {
   const [picks, setPicks] = useState<QuestionPick[]>(() => questions.map(() => EMPTY_PICK))
+  const glowing = useWaitingGlow(glow)
   const answers = answersOf(questions, picks)
   return (
     <div className="min-h-0 shrink overflow-hidden bg-chat-canvas">
@@ -113,6 +128,8 @@ export function NativeChatQuestionCard({ permission, questions, from }: { permis
           role="group"
           aria-label={t('Questions from the agent')}
           data-question-card
+          data-waiting-glow={glowing}
+          style={{ '--composer-glow-surface': 'var(--card)' } as React.CSSProperties}
           className="flex min-h-0 w-full flex-1 flex-col gap-3 overflow-hidden rounded-lg border border-input bg-card px-4 py-3 shadow-xs"
         >
           <div className="flex shrink-0 items-center gap-2">

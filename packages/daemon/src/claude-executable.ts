@@ -33,12 +33,33 @@ export async function resolveClaudeExecutable(): Promise<string | undefined> {
   return (await loadHostSettings()).claudeExecutablePath || (await detected());
 }
 
-const SIGNED_OUT = /not logged in|please run \/login|invalid api key|oauth token (has )?expired|authentication_error|401 unauthorized/i;
+const SIGNED_OUT =
+  /not logged in|please run \/login|invalid api key|oauth token (has )?expired|oauth session expired|failed to authenticate|authentication_error|401 unauthorized/i;
 const NOT_INSTALLED = /ENOENT|executable not found|spawn .*claude/i;
+
+/** The Agent SDK's assistant errors that mean the account's sign-in is missing or expired. */
+const SIGNED_OUT_ERRORS = new Set<string>(["authentication_failed"]);
+
+/** Claude Code's own login (`claude auth login`), which opens the browser and saves the sign-in. */
+export const CLAUDE_SIGN_IN_ARGS: readonly string[] = ["auth", "login"];
+
+/** Said when a turn failed for want of a sign-in (docs/specs/claude-sign-in.md). */
+export const CLAUDE_SIGNED_OUT = "Claude Code is not signed in on this host, or its sign-in expired. Sign in to Claude, then try again.";
+
+/** Whether a Claude failure is a missing or expired sign-in: by the SDK's error kind, or by its text. */
+export function isClaudeSignedOut(text: string, assistantError?: string | null): boolean {
+  return (assistantError != null && SIGNED_OUT_ERRORS.has(assistantError)) || SIGNED_OUT.test(text);
+}
+
+/** A signed-out turn's notice: what to do, then Claude's own words. */
+export function signedOutNotice(text: string): string {
+  const said = text.trim();
+  return said && said !== CLAUDE_SIGNED_OUT ? `${CLAUDE_SIGNED_OUT}\n${said}` : CLAUDE_SIGNED_OUT;
+}
 
 /** A Claude failure the person can fix, said as what to do; null for everything else. */
 export function explainClaudeFailure(text: string): string | null {
-  if (SIGNED_OUT.test(text)) return "Claude Code is not signed in on this host. Run `claude` in a terminal there and sign in, then Retry.";
+  if (SIGNED_OUT.test(text)) return CLAUDE_SIGNED_OUT;
   if (NOT_INSTALLED.test(text)) return "Claude Code was not found on this host. Install it (npm i -g @anthropic-ai/claude-code), run `claude` once to sign in, then Retry.";
   return null;
 }
@@ -82,3 +103,6 @@ export async function updateClaudeCli(): Promise<ClaudeCliUpdateResult> {
   const status = await claudeCliStatus();
   return { status, ok: code === 0 && !status.outdated, output };
 }
+
+/** Claude Code's flag that turns on its built-in Claude in Chrome MCP server (needs the extension and Chrome running). */
+export const CLAUDE_CHROME_ARGS: Record<string, string | null> = { chrome: null };

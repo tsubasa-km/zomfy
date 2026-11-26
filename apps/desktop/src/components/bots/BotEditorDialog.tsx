@@ -15,6 +15,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Switch } from '@/components/ui/switch'
 import { Textarea } from '@/components/ui/textarea'
 import { BotAvatar } from './BotAvatar'
+import { useSaveState } from '@/lib/use-save-state'
 import { t } from '@/i18n/i18n'
 
 // Create bot and Edit bot (docs/specs/bots/desktop.md#settings--bots): name, handle, avatar,
@@ -32,6 +33,7 @@ interface Draft {
   home: 'new' | 'existing'
   homePath: string
   isDefault: boolean
+  manager: boolean
 }
 
 /** A handle from a name: lower-case letters, digits, - and _. */
@@ -55,7 +57,8 @@ function draftOf(bot: Bot | null): Draft {
     permissionMode: bot?.permissionMode ?? 'default',
     home: 'new',
     homePath: '',
-    isDefault: bot?.isDefault === true
+    isDefault: bot?.isDefault === true,
+    manager: bot?.manager === true
   }
 }
 
@@ -91,7 +94,6 @@ export function BotEditorDialog({
 function BotEditorForm({ existing, onDone }: { existing: Bot | null; onDone: (bot: Bot | null) => void }) {
   const [draft, setDraft] = useState(() => draftOf(existing))
   const [handleTouched, setHandleTouched] = useState(existing !== null)
-  const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const { agents } = useChatAgents(LOCAL_HOST)
   // Guarded agents never run unattended (GUARDED_CHAT_AGENTS), so bots cannot use them.
@@ -104,8 +106,7 @@ function BotEditorForm({ existing, onDone }: { existing: Bot | null; onDone: (bo
     if (typeof picked === 'string') patch({ homePath: picked })
   }
 
-  async function save() {
-    setSaving(true)
+  async function save(): Promise<boolean> {
     setError(null)
     const fields = {
       name: draft.name.trim(),
@@ -115,21 +116,25 @@ function BotEditorForm({ existing, onDone }: { existing: Bot | null; onDone: (bo
       agent: draft.agent,
       model: draft.model.trim() || null,
       permissionMode: draft.permissionMode,
-      isDefault: draft.isDefault
+      isDefault: draft.isDefault,
+      manager: draft.manager
     }
     try {
       const bot = existing
         ? await updateBot(existing.id, fields)
         : await createBot({ ...fields, ...(draft.home === 'existing' ? { homePath: draft.homePath.trim() } : {}) })
       onDone(bot)
+      return true
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e))
-    } finally {
-      setSaving(false)
+      return false
     }
   }
 
-  const canSave = draft.name.trim() !== '' && draft.handle.trim() !== '' && (existing || draft.home === 'new' || draft.homePath.trim() !== '')
+  // Editing a bot, Save is offered once something differs from what it has saved.
+  const { dirty, saving, save: submit } = useSaveState(draftOf(existing), draft, save)
+  const canSave =
+    draft.name.trim() !== '' && draft.handle.trim() !== '' && (existing ? dirty : draft.home === 'new' || draft.homePath.trim() !== '')
 
   return (
     <>
@@ -143,7 +148,7 @@ function BotEditorForm({ existing, onDone }: { existing: Bot | null; onDone: (bo
         className="grid gap-3"
         onSubmit={(e) => {
           e.preventDefault()
-          if (canSave && !saving) void save()
+          if (canSave && !saving) void submit()
         }}
       >
         <div className="flex items-end gap-3">
@@ -251,6 +256,15 @@ function BotEditorForm({ existing, onDone }: { existing: Bot | null; onDone: (bo
           </span>
           <Switch checked={draft.isDefault} data-bot-field="default" onCheckedChange={(isDefault) => patch({ isDefault })} />
         </label>
+        <label className="flex items-center justify-between gap-3 text-sm">
+          <span className="grid gap-0.5">
+            {t('Manager across projects')}
+            <span className="text-[11px] text-muted-foreground">
+              {t('Sees and drives the chats, workspaces and worktrees of every project, as the Manager chat does.')}
+            </span>
+          </span>
+          <Switch checked={draft.manager} data-bot-field="manager" onCheckedChange={(manager) => patch({ manager })} />
+        </label>
         {error ? (
           <p className="text-xs text-destructive" data-bot-error>
             {error}
@@ -261,7 +275,7 @@ function BotEditorForm({ existing, onDone }: { existing: Bot | null; onDone: (bo
             {t('Cancel')}
           </Button>
           <Button type="submit" disabled={!canSave || saving} data-bot-save>
-            {existing ? t('Save') : t('Create bot')}
+            {saving ? t('Saving…') : existing ? t('Save') : t('Create bot')}
           </Button>
         </DialogFooter>
       </form>

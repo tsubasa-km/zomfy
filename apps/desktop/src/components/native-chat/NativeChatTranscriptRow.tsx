@@ -1,4 +1,4 @@
-import { memo, useState } from 'react'
+import { memo } from 'react'
 import { ChevronRight, CircleAlert, GitFork, SquareTerminal, Undo2 } from 'lucide-react'
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
@@ -12,13 +12,16 @@ import { NativeChatTurnDiffRollup } from './NativeChatTurnDiffRollup'
 import {
   NativeChatInterruptedContinueButton,
   NativeChatResumedDivider,
-  NativeChatRetryButton
+  NativeChatRetryButton,
+  NativeChatSignInActions
 } from './NativeChatTurnRecovery'
 import { NATIVE_CHAT_QUOTE_SOURCE_PROPS } from './NativeChatSelectionQuote'
 import { NativeChatWorkflowRunCard } from './NativeChatWorkflowRunCard'
 import { NativeChatPromptOrigin } from './NativeChatPromptOrigin'
 import { NativeChatNextStepsCard, type NextStepsActions } from './NativeChatNextStepsCard'
-import { sameTranscriptRow, type TranscriptRowModel } from './native-chat-transcript-model'
+import { sameTranscriptRow, thinkingStartsOpen, type TranscriptRowModel } from './native-chat-transcript-model'
+import { useNativeChatDisclosure } from './native-chat-disclosure-store'
+import { useSetting } from '@/stores/settings-store'
 import { t } from '@/i18n/i18n'
 
 // Rows follow Orca's NativeChatUserMessageRow, NativeChatAssistantMessageRow,
@@ -38,6 +41,8 @@ export type TranscriptRowActions = {
   forkUnavailable?: string
   /** Only on the row of a turn that ended short with nothing after it: Continue or Retry. */
   onRecover?: (kind: 'continue' | 'retry') => void
+  /** Opens Claude Code's login on the chat's host, offered with Try again when a turn failed signed out. */
+  onSignIn?: () => void
   /** The workspace folder, dropped from the paths rows show. */
   cwd: string
   /** Where this chat's workflow runs live: its host and (main) project. */
@@ -124,7 +129,7 @@ function TranscriptRow({ row, rowKey, actions }: TranscriptRowProps) {
         </div>
       )
     case 'thought':
-      return <ReasoningRow markdown={row.text} rowKey={rowKey} />
+      return <ReasoningRow markdown={row.text} prominent={row.prominent === true} rowKey={rowKey} />
     case 'tools':
       return <NativeChatToolGroup tools={row.tools} rowKey={rowKey} cwd={actions.cwd} />
     case 'tasks':
@@ -159,17 +164,19 @@ function TranscriptRow({ row, rowKey, actions }: TranscriptRowProps) {
     }
     case 'notice': {
       if (row.runId) return <NativeChatWorkflowRunCard runId={row.runId} {...actions.workflows} />
-      const { onRecover } = actions
+      const { onRecover, onSignIn } = actions
       // A usage limit's actions live in the banner above the composer.
       const recovery =
         onRecover && row.turnEnd?.reason === 'interrupted' ? (
           <NativeChatInterruptedContinueButton onContinue={() => onRecover('continue')} />
+        ) : onRecover && row.turnEnd?.reason === 'error' && row.turnEnd.signIn === 'claude' && onSignIn ? (
+          <NativeChatSignInActions onSignIn={onSignIn} onRetry={() => onRecover('retry')} />
         ) : onRecover && row.turnEnd?.reason === 'error' ? (
           <NativeChatRetryButton onRetry={() => onRecover('retry')} />
         ) : null
       return row.severity === 'error' ? (
-        <div className="flex min-w-0 max-w-full flex-col items-start gap-1.5">
-          <p className="min-w-0 max-w-full text-sm break-words text-destructive select-text">{row.text}</p>
+        <div className="flex min-w-0 max-w-full flex-col items-start gap-1.5" data-native-chat-sign-in={row.turnEnd?.reason === 'error' && row.turnEnd.signIn ? '' : undefined}>
+          <p className="min-w-0 max-w-full text-sm break-words whitespace-pre-line text-destructive select-text">{row.text}</p>
           {recovery}
         </div>
       ) : (
@@ -226,11 +233,15 @@ function MetaActionButton({
   )
 }
 
-function ReasoningRow({ markdown, rowKey }: { markdown: string; rowKey: string }) {
-  const [open, setOpen] = useState(false)
+function ReasoningRow({ markdown, prominent, rowKey }: { markdown: string; prominent: boolean; rowKey: string }) {
+  const display = useSetting('chatThinkingDisplay')
+  // The start state follows the setting and the turn's end; a click holds until either changes.
+  const { open, setOpen } = useNativeChatDisclosure(`${rowKey}:reasoning`, thinkingStartsOpen(display, prominent))
   if (!markdown.trim()) return null
+  // Thinking that likely holds the answer reads whole; the rest keeps its own scroll box.
+  const shown = prominent && display !== 'collapsed'
   return (
-    <div className="min-w-0 text-sm text-chat-foreground-faint">
+    <div className="min-w-0 text-sm text-chat-foreground-faint" data-native-chat-thought={shown ? 'prominent' : ''}>
       <Collapsible open={open} onOpenChange={setOpen}>
         <CollapsibleTrigger asChild>
           <button
@@ -247,7 +258,12 @@ function ReasoningRow({ markdown, rowKey }: { markdown: string; rowKey: string }
           </button>
         </CollapsibleTrigger>
         <CollapsibleContent>
-          <div className="scrollbar-sleek mt-1 max-h-80 overflow-y-auto pl-5.5 text-chat-foreground-faint">
+          <div
+            className={cn(
+              'mt-1 ml-2 border-l-2 border-border pl-3.5 text-chat-foreground-faint',
+              !shown && 'scrollbar-sleek max-h-80 overflow-y-auto'
+            )}
+          >
             <NativeChatMarkdown rowKey={`${rowKey}:reasoning`} content={markdown} className="text-sm" />
           </div>
         </CollapsibleContent>

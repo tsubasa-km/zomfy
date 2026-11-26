@@ -37,10 +37,15 @@ export interface Bot {
    * one bot is the default; absent from older daemons.
    */
   isDefault?: boolean
+  /**
+   * A manager bot: its chats get the Manager chat's tools across every project, loaded up front
+   * and run without asking (docs/specs/bots/master-bot.md). Absent is false.
+   */
+  manager?: boolean
 }
 
 export type BotInput = Pick<Bot, 'name' | 'handle' | 'agent'> &
-  Partial<Pick<Bot, 'avatar' | 'purpose' | 'model' | 'permissionMode' | 'owner' | 'askers' | 'isDefault'>> & {
+  Partial<Pick<Bot, 'avatar' | 'purpose' | 'model' | 'permissionMode' | 'owner' | 'askers' | 'isDefault' | 'manager'>> & {
     /** An existing workspace as the home; omitted: a new folder `~/zomfy/bots/<handle>`. */
     homeWorkspaceId?: string
     /** An existing folder or repository on this host as the home, when it is not a workspace yet. */
@@ -66,6 +71,17 @@ export interface ConnectorStatus {
   lastConnectedAt: number | null
   retryAt: number | null
   error: string | null
+  /**
+   * The relay's features served now (`phone`, `discord`, … `webhooks`), from its `/health`
+   * (docs/specs/relay-settings.md). Absent on older daemons and relays.
+   */
+  features?: string[]
+  /** For a wanted source, the names of the secrets the relay still lacks; names only. */
+  missing?: Record<string, string[]>
+  /** Whether the relay's features come from its `FEATURES` variable or from which secrets are set. */
+  featuresFrom?: 'FEATURES' | 'secrets'
+  /** The relay's own version, from `/health`. */
+  relayVersion?: string
 }
 
 export interface BotAccessRequest {
