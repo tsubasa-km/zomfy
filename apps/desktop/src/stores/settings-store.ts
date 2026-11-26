@@ -108,6 +108,8 @@ export interface AppSettings {
   relayFeatures: string[]
   /** docs/specs/composer-waiting-glow.md */
   chatWaitingGlow: ChatWaitingGlow
+  /** "+" menu items pinned as tab-strip buttons, in pin order (docs/specs/new-tab-menu-and-pins.md). */
+  newTabPins: string[]
 }
 
 /** Bumped with each move of a saved default; a window saved before it gets the move once. */
@@ -169,7 +171,8 @@ export const DEFAULT_SETTINGS: AppSettings = {
   chatThinkingDisplay: 'expanded',
   settingsRevision: SETTINGS_REVISION,
   relayFeatures: ['phone'],
-  chatWaitingGlow: 'rainbow'
+  chatWaitingGlow: 'rainbow',
+  newTabPins: ['terminal']
 }
 
 export type SettingKey = keyof AppSettings
