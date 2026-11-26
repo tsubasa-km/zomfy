@@ -57,6 +57,8 @@ import {
 import { hostedProjects, hostedWorkspaces } from '@/lib/host-lists'
 import { sameTerminal } from '@/lib/same-terminal'
 import { t } from '@/i18n/i18n'
+import { marksUnread } from '@/lib/child-threads'
+import { getSetting } from '@/stores/settings-store'
 
 export type { SessionStatus }
 
@@ -686,8 +688,10 @@ export function mergeSessions(hostId: HostId, list: SessionInfo[]): void {
     sessions.push(session)
     if (old && old.status !== session.status) {
       transitions.push({ session, from: old.status, to: session.status })
-      // Orca marks a workspace unread when its agent finishes or asks, until the user looks.
-      if (session.status === 'needs-you' || (old.status === 'working' && session.status !== 'working')) {
+      // Orca marks a workspace unread when its agent finishes or asks, until the user looks. A
+      // thread another thread started reports to that one instead (lib/child-threads).
+      const changed = session.status === 'needs-you' || (old.status === 'working' && session.status !== 'working')
+      if (changed && marksUnread(session, getSetting('notifyHelperThreads'))) {
         unread[info.id] = true
       }
     }

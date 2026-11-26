@@ -7,6 +7,7 @@ export function NotificationsPane() {
   const finished = useSetting('notifyAgentFinished')
   const needsYou = useSetting('notifyAgentNeedsYou')
   const suppress = useSetting('notifySuppressWhenFocused')
+  const helpers = useSetting('notifyHelperThreads')
 
   return (
     <div className="divide-y divide-border/40">
@@ -32,6 +33,14 @@ export function NotificationsPane() {
         checked={needsYou}
         disabled={!enabled}
         onChange={(checked) => setSetting('notifyAgentNeedsYou', checked)}
+      />
+      <SettingsSwitchRow
+        label={t('Helper threads')}
+        description={t('Notify and mark unread when a thread another thread started finishes. Off, you hear from the thread that started it, and only a helper that needs you notifies.')}
+        keywords={['helper', 'child', 'worker', 'split']}
+        checked={helpers}
+        disabled={!enabled}
+        onChange={(checked) => setSetting('notifyHelperThreads', checked)}
       />
       <SettingsSwitchRow
         label={t('Suppress while focused')}

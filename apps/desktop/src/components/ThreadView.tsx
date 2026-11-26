@@ -83,9 +83,9 @@ function isPendingPermission(item: ThreadItem): item is PendingPermission {
   return item.kind === 'permission' && item.chosen === null
 }
 
-/** The first helper chat working for `parentId` with an unanswered ask, if any. */
+/** The first chat working for `parentId` (a helper, a workflow's step, a chat its agent started) with an unanswered ask, if any. */
 function helperAsking(sessions: Session[], parentId: string): Session | undefined {
-  return sessions.find((child) => child.parentId === parentId && child.origin === 'workflow' && child.items.some(isPendingPermission))
+  return sessions.find((child) => child.parentId === parentId && child.items.some(isPendingPermission))
 }
 
 /** `onSendToMain`: a side chat's hand-off of a message or selection to the main chat's composer. */

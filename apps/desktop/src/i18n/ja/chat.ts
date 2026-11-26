@@ -728,5 +728,8 @@ export const CHAT: Record<string, string> = {
   'Stopping…': '停止中…',
 
   // components/ThreadView.tsx (a chat's history still being replayed from its host)
-  'Loading the thread…': 'スレッドを読み込み中…'
+  'Loading the thread…': 'スレッドを読み込み中…',
+
+  // agent-notifications.ts (a helper's question, named by the thread it works for)
+  '{thread} · from {helper}': '{thread} · {helper} から'
 }

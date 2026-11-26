@@ -26,7 +26,10 @@ export const BUNDLED_SKILLS: BundledSkillDefinition[] = [
     name: 'zomfy-worktrees',
     description: "Work in git worktrees through Zomfy's harness tools instead of raw git or another tool's CLI.",
     content: zomfyWorktrees,
-    shipped: ['5f8567d991a7df5617c8eecab5ae40262d5ed6e083f46d0c88a0b7db09d6169e']
+    shipped: [
+      '5f8567d991a7df5617c8eecab5ae40262d5ed6e083f46d0c88a0b7db09d6169e',
+      '7002a395eba95d6266b4ea692d8f79f6228aa895c8732bf15075580893fd3efc'
+    ]
   }
 ]
 

@@ -48,6 +48,8 @@ export interface AppSettings {
   notifyAgentFinished: boolean
   notifyAgentNeedsYou: boolean
   notifySuppressWhenFocused: boolean
+  /** Threads another thread started notify and get unread marks of their own; off, only their asks reach the person. */
+  notifyHelperThreads: boolean
   statusBarVisible: boolean
   /** The project sidebar on the left; the title bar's toggle hides it. */
   sidebarVisible: boolean
@@ -137,6 +139,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
   notifyAgentFinished: true,
   notifyAgentNeedsYou: true,
   notifySuppressWhenFocused: true,
+  notifyHelperThreads: false,
   statusBarVisible: true,
   sidebarVisible: true,
   statusBarHiddenItems: [],

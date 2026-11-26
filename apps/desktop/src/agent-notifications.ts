@@ -2,6 +2,7 @@ import { isPermissionGranted, requestPermission, sendNotification } from '@tauri
 import { allWorkspaces, getState, isFloating, onSessionTransition, type Session } from './session-store'
 import { getSettings } from './stores/settings-store'
 import { t } from '@/i18n/i18n'
+import { parentThread, speaksToPerson } from './lib/child-threads'
 
 // Like Orca's agent-hook-completion-notifications: a desktop notification when an agent finishes
 // or asks for approval, unless the user is already looking at that session.
@@ -27,6 +28,9 @@ export function installAgentNotifications(): void {
     const finished = from === 'working' && (to === 'idle' || to === 'error')
     const wanted = (to === 'needs-you' && settings.notifyAgentNeedsYou) || (finished && settings.notifyAgentFinished)
     if (!settings.notificationsEnabled || !wanted) return
+    // A helper is heard through the thread it works for: only its asks reach the person, once, named by that thread.
+    if (!speaksToPerson(session, to, settings.notifyHelperThreads)) return
+    const parent = settings.notifyHelperThreads ? null : parentThread(session, getState().sessions)
     if (settings.notifySuppressWhenFocused && isOnScreen(session)) return
     const workspace = allWorkspaces().find((w) => w.id === session.workspaceId)?.name ?? t('workspace')
     const title =
@@ -36,7 +40,7 @@ export function installAgentNotifications(): void {
           ? t('Claude stopped with an error · {workspace}', { workspace })
           : t('Claude finished · {workspace}', { workspace })
     void ensurePermission().then((granted) => {
-      if (granted) sendNotification({ title, body: session.title })
+      if (granted) sendNotification({ title, body: parent ? t('{thread} · from {helper}', { thread: parent.title, helper: session.title }) : session.title })
     })
   })
 }
