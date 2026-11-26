@@ -77,7 +77,7 @@ function dispatch({ tool, args, callerSessionId }: ManagerCallParams): Promise<u
     case 'relocate_project':
       return relocateProject(reqString(args, 'projectId'), reqString(args, 'path'))
     case 'wait_for_session':
-      return waitForSessions(reqStringArray(args, 'sessionIds'), clamp(args.timeoutSeconds, 300, 1, 1800), callerSessionId)
+      return waitForSessions(reqStringArray(args, 'sessionIds'), clamp(args.timeoutSeconds, 300, 1, 1800), callerSessionId, args.all === true)
     case 'list_approvals':
       return listApprovals(optString(args, 'sessionId'))
     case 'answer_approval':
@@ -511,11 +511,13 @@ function settledStatus(sessionId: string): ManagedSessionStatus | 'gone' | null 
   return status === 'working' ? null : status
 }
 
-async function waitForSessions(sessionIds: string[], timeoutSeconds: number, callerSessionId: string): Promise<unknown> {
+/** Chats on this window's other hosts; the caller's own daemon waits on its own host's chats itself. */
+async function waitForSessions(sessionIds: string[], timeoutSeconds: number, callerSessionId: string, all = false): Promise<unknown> {
   if (sessionIds.includes(callerSessionId)) throw new ToolError('You cannot wait on your own session.')
   for (const id of sessionIds) requireSession(id)
   const deadline = Date.now() + timeoutSeconds * 1000
-  while (Date.now() < deadline && !sessionIds.some((id) => settledStatus(id) !== null)) {
+  const done = () => (all ? sessionIds.every((id) => settledStatus(id) !== null) : sessionIds.some((id) => settledStatus(id) !== null))
+  while (Date.now() < deadline && !done()) {
     await new Promise((resolve) => setTimeout(resolve, 500))
   }
   const report = await Promise.all(
@@ -536,7 +538,7 @@ async function waitForSessions(sessionIds: string[], timeoutSeconds: number, cal
       }
     })
   )
-  const settled = report.some((r) => r.status !== 'working')
+  const settled = all ? report.every((r) => r.status !== 'working') : report.some((r) => r.status !== 'working')
   return { timedOut: !settled, sessions: report, ...(settled ? {} : { next: 'Still working: wait again or read_session.' }) }
 }
 
