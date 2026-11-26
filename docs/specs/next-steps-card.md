@@ -3,7 +3,7 @@ type: Spec
 title: The Next steps card
 description: The card a turn ends with, from wrap_up or the reply's recap, holds only what comes next - the person's own next actions as its headline (or one line saying nothing needs them), the agent's question as buttons, and the agent's own next steps as a quieter line below.
 status: stable
-x-zomfy-implementation: in-progress
+x-zomfy-implementation: done
 tags: [chat, desktop, mobile, next-steps, inbox, todos]
 generated: { by: "claude-code/opus-5.5", at: "2026-11-26T00:00:00Z" }
 ---
