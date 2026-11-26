@@ -184,9 +184,16 @@ function FloatingWorkspaceSegment() {
             aria-label={attention ? t('Floating workspace, new activity') : t('Floating workspace')}
             aria-pressed={open}
             onClick={() => setFloating({ open: !open })}
-            className="relative inline-flex size-5 cursor-pointer items-center justify-center rounded border border-border bg-secondary text-secondary-foreground shadow-xs transition-colors hover:bg-accent hover:text-accent-foreground"
+            // In the accent colour, a size up from its neighbours: tucked into the status bar it must still
+            // be easy to find, or the person forgets the floating workspace is there.
+            className={cn(
+              'relative inline-flex h-5 cursor-pointer items-center justify-center rounded-md border px-1.5 shadow-xs transition-colors',
+              open
+                ? 'border-highlight bg-highlight text-white hover:bg-highlight/90'
+                : 'border-highlight/40 bg-highlight/10 text-highlight hover:bg-highlight/20'
+            )}
           >
-            <PanelsTopLeft className="size-3.5" />
+            <PanelsTopLeft className="size-4" />
             {attention ? <span aria-hidden className="pointer-events-none absolute top-0.5 right-0.5 size-1.5 rounded-full bg-amber-500 ring-1 ring-secondary" /> : null}
           </button>
         </TooltipTrigger>
