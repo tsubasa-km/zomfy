@@ -1,5 +1,9 @@
 # Directory Update Log
 
+## 2026-11-26
+* **Creation**: [Stop ends a turn at once, and the Send and Stop buttons stay true](specs/reliable-stop.md), done: a stopped Claude turn settles on the abort instead of on its process's exit, the next turn waits for that exit, a Stop during a permission ask no longer reads as working, the window keeps a just-sent chat working until its host reports the turn, and Stop shows "Stopping…".
+* **Creation**: [Save is offered only when something changed](specs/save-buttons.md), done: `lib/use-save-state.ts` behind Project Settings, Workspace details, Edit bot, workflow agent, SSH login, automation and the agents' environment values.
+
 ## 2026-11-25
 * **Creation**: [A GitHub or GitLab account per project](specs/project-hosting-accounts.md), implemented: `Project.hostingAccount`, the host's gh/glab accounts and GitLab tokens Zomfy keeps in the OS credential store, the account's token in the environment of Zomfy's gh/glab calls and of the project's agents, a repo-local git credential helper for HTTPS pushes, and an Account field in Project Settings.
 * **Creation**: [The Add a project dialog](specs/add-project-dialog.md), implemented: one dialog with Open folder, Clone and New repository tabs, a host row only when there are several hosts, what the folder is shown as it is typed, the account picked as the project is added, and publishing a new repository to GitHub.
