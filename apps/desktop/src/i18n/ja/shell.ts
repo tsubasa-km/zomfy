@@ -1533,5 +1533,19 @@ export const SHELL: Record<string, string> = {
   'Windows reserves this name; pick another.': 'この名前は Windows で予約されています。別の名前にしてください。',
   // lib/use-save-state.ts (Save offered only with unsaved changes)
   'Nothing has changed': '変更はありません',
-  'Saved': '保存しました'
+  'Saved': '保存しました',
+  // components/tab-layout/NewTabMenu.tsx, PinnedTabButtons.tsx, NewTabDialogs.tsx (docs/specs/new-tab-menu-and-pins.md)
+  '{agent} chat': '{agent} チャット',
+  'New Terminal…': '新しいターミナル…',
+  'Run {name}…': '{name} を実行…',
+  'Unpin {label}': '{label} のピン留めを外す',
+  'Pin {label} to the tab bar': '{label} をタブバーにピン留め',
+  'Choose where the terminal runs.': 'ターミナルを開く場所を選んでください。',
+  Shell: 'シェル',
+  'This host has no project folder yet. Add a project on it first.': 'このホストにはまだプロジェクトのフォルダーがありません。先にプロジェクトを追加してください。',
+  'Opening…': '開いています…',
+  // components/QuickStart.tsx (where a new thread starts)
+  'Choose where the thread starts': 'スレッドを始める場所を選ぶ',
+  'New worktree': '新しい worktree',
+  'Another project or host…': '別のプロジェクトやホスト…'
 }

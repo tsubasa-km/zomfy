@@ -104,6 +104,8 @@ export interface AppSettings {
   settingsRevision: number
   /** The Zomfy Relay features the person wants (docs/specs/relay-settings.md): `phone`, `discord`, … */
   relayFeatures: string[]
+  /** "+" menu items pinned as tab-strip buttons, in pin order (docs/specs/new-tab-menu-and-pins.md). */
+  newTabPins: string[]
 }
 
 /** Bumped with each move of a saved default; a window saved before it gets the move once. */
@@ -164,7 +166,8 @@ export const DEFAULT_SETTINGS: AppSettings = {
   chatMemosEnabled: true,
   chatThinkingDisplay: 'expanded',
   settingsRevision: SETTINGS_REVISION,
-  relayFeatures: ['phone']
+  relayFeatures: ['phone'],
+  newTabPins: ['terminal']
 }
 
 export type SettingKey = keyof AppSettings
