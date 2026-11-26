@@ -16,9 +16,12 @@ export function Section({ title, children, aside }: { title: string; children: R
   )
 }
 
-/** Past `warn` percent a meter turns amber, past `danger` red. */
+/**
+ * A meter is grey while there is room, so colour appears only when it means something: amber past
+ * `warn` percent, red past `danger`. (The accent orange read as a warning at any level.)
+ */
 export function meterTone(percent: number, warn = 80, danger = 95): string {
-  return percent >= danger ? 'bg-destructive' : percent >= warn ? 'bg-status-warning' : 'bg-highlight'
+  return percent >= danger ? 'bg-destructive' : percent >= warn ? 'bg-status-warning' : 'bg-muted-foreground/55'
 }
 
 export function Meter({ percent, className }: { percent: number; className?: string }) {
