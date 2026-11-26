@@ -164,7 +164,7 @@ describe("reports to the launcher", () => {
     status("b", "idle");
     await sleep(60);
     expect(turns).toHaveLength(2);
-    expect(turns[1]!.origin.title).toBe("Helpers reported: 2 chats stopped");
+    expect(turns[1]!.origin).toEqual({ kind: "harness-note", title: "Helpers reported: 2 chats stopped" });
   });
 
   test("an archived lead gets the report as context, and no turn", async () => {

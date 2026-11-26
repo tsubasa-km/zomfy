@@ -59,3 +59,4 @@
 * **Update**: [Thinking that holds the answer shows open](specs/visible-thinking.md): thinking now starts expanded by default; [The Next steps card](specs/next-steps-card.md) no longer answers a wrap_up made before any reply differently.
 * **Creation**: [Zomfy Relay settings, its features, and setting it up with an agent](specs/relay-settings.md), in progress.
 * **Update**: [Zomfy Relay settings, its features, and setting it up with an agent](specs/relay-settings.md) is implemented: Settings → Zomfy Relay, the Worker's `FEATURES` and richer `/health`, and Set up with an agent.
+* **Creation**: [Child threads stay quiet and report to the thread that launched them](specs/child-threads-report-home.md), done: helpers raise no notification, unread mark, Inbox entry or tray dot of their own, the daemon starts one batched turn in the launching chat when the chats it prompted stop, and wait_for_session waits in the daemon.

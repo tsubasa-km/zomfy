@@ -3,7 +3,7 @@ type: Spec
 title: Child threads stay quiet and report to the thread that launched them
 description: Threads another thread started (create_session, create_workspace, split_work, workflow and bot workers) raise no notification, Inbox entry, unread mark or tray dot of their own, and when one an agent prompted stops, the daemon tells the launching thread in one batched turn.
 status: stable
-x-zomfy-implementation: in-progress
+x-zomfy-implementation: done
 tags: [threads, helpers, notifications, inbox, daemon, manager-tools]
 generated: { by: "claude-code/opus-5.5", at: "2026-11-26T00:00:00Z" }
 ---
