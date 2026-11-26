@@ -3,6 +3,8 @@
 * [Documentation-driven development](documentation-driven-development.md) - how specs, decisions and research are written and kept true
 * [One right sidebar per split pane](pane-sidebars.md) - each split pane has its own right sidebar, opened from its own tab strip
 
+* [Docking the tool drawer](drawer-edge-docking.md) - Drag the tool drawer's handle along an edge or dock it to any edge of the pane.
+
 # Bots
 
 * [Zomfy Bots](bots/overview.md) - named agents in a folder on the person's computer, asked from Zomfy, Discord, Slack, GitHub, Linear, webhooks and schedules, copied from Orca Bots

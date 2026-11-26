@@ -5,6 +5,7 @@ import { ensureSessionLoaded } from '@/daemon-connection'
 import { projectLabel, workspaceLabel } from '@/components/sidebar/workspace-visibility'
 import { ThreadView } from '@/components/ThreadView'
 import { ToolDrawer } from '@/components/tab-layout/ToolDrawer'
+import { useDrawerEdge } from '@/stores/drawer-dock-store'
 import { createExternalStore } from '@/stores/external-store'
 import { registerKeybindingDefinitions } from '@/keybindings/keybinding-definitions'
 import { registerCommandHandler } from '@/keybindings/keybinding-registry'
@@ -146,6 +147,7 @@ function WorkspacePane({ index, workspaceId }: { index: number; workspaceId: str
   // Every chat of the workspace, including ones whose tab was closed: the pane is the session list.
   const sessions = useStore((s) => s.sessions)
   const chats = sessions.filter((c) => c.workspaceId === workspaceId && !c.sideOf).sort((a, b) => b.createdAt - a.createdAt)
+  const drawerEdge = useDrawerEdge()
   const [chatId, setChatId] = useState<string | null>(null)
   const chat = chats.find((c) => c.id === chatId) ?? chats[0]
   useEffect(() => {
@@ -171,7 +173,7 @@ function WorkspacePane({ index, workspaceId }: { index: number; workspaceId: str
           ))}
         </div>
       </header>
-      <div className="relative min-h-0 flex-1">
+      <div className="relative min-h-0 flex-1" data-drawer-content-edge={drawerEdge}>
         {chat ? (
           <ThreadView key={chat.id} session={chat} />
         ) : (

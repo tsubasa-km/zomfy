@@ -74,8 +74,8 @@ export const TOUR_STEPS: TourStep[] = [
   },
   {
     chapter: t('Layout'),
-    title: t('The pull-down drawer'),
-    body: t('The open tab has a small tab under the tab strip. It pulls down the workspace’s terminals, browsers and panels: files, search, source control, checks, ports, the side chat and the agent’s details.'),
+    title: t('The tool drawer'),
+    body: t('Point at the handle to open the workspace’s tools. Drag the handle along its edge or pull it toward a different edge to move it.'),
     target: '[data-drawer-handle]',
     optional: true,
     action: { prompt: t('Point at the tab and wait a moment.'), on: 'hover' }
@@ -83,10 +83,10 @@ export const TOUR_STEPS: TourStep[] = [
   {
     chapter: t('Layout'),
     title: t('Keep it open'),
-    body: t('The drawer closes when the pointer leaves it. The same tab, now under the drawer, pins it open.'),
+    body: t('The drawer closes when the pointer leaves it. Click the pin tab on its inner edge to keep it open.'),
     target: DRAWER,
     optional: true,
-    action: { prompt: t('Click the tab under the drawer. (If the drawer closed, point at the tab again.)'), on: 'click', within: '[data-drawer-pin]' }
+    action: { prompt: t('Click the pin tab. If the drawer closed, point at its handle again.'), on: 'click', within: '[data-drawer-pin]' }
   },
   {
     chapter: t('Layout'),

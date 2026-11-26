@@ -10,7 +10,8 @@ import { TerminalTabBody } from '@/components/terminal/TerminalPaneTree'
 import { DiffTabView } from '@/components/EditorTabViews'
 import { FileEditorView } from '@/components/FileEditorView'
 import { BrowserTabView } from './BrowserTabView'
-import { DRAWER_HANDLE_INSET, ToolDrawer } from './ToolDrawer'
+import { ToolDrawer } from './ToolDrawer'
+import { useDrawerEdge } from '@/stores/drawer-dock-store'
 import { EmptyPane } from './EmptyPane'
 import { WindowEmptyPane } from './WindowEmptyPane'
 import { ErrorBoundary, ViewError } from '@/components/ErrorBoundary'
@@ -98,6 +99,7 @@ export const TabGroupPane = memo(function TabGroupPane({
   const recent = useStore((s) => (home ? null : sidebarWorkspaceId(s)))
   const [zone, setZone] = useState<DropZone | null>(null)
   const drawer = Boolean(active && home && active.kind !== 'start')
+  const drawerEdge = useDrawerEdge()
   // The pane's own right sidebar, on the workspace of the tab it shows.
   const scope = tabScope(workspaceId)
   const sidebarKey = paneSidebarKey(scope, groupId)
@@ -212,11 +214,10 @@ export const TabGroupPane = memo(function TabGroupPane({
             )
           }
         />
-        {/* Under a drawer's handle the tab's content starts lower, each kind in its own way (--tab-top-inset). */}
         <div
           data-tab-group-body-id={groupId}
           className="relative flex min-h-0 min-w-0 flex-1 flex-col"
-          style={drawer ? DRAWER_HANDLE_INSET : undefined}
+          data-drawer-content-edge={drawer ? drawerEdge : undefined}
         >
           {active ? (
             // One tab that fails to render keeps to its own pane; switching tabs remounts the boundary.

@@ -16,7 +16,9 @@ import {
 import { WorkspacePanelView, useWorkspacePanels } from './workspace-panels'
 import { SurfaceList, type Surface } from './SurfaceList'
 import { allWorkspaces, useStore } from '@/session-store'
-import { DRAWER_MIN_HEIGHT, setDrawerHeight, useDrawerHeight } from '@/stores/drawer-height-store'
+import { setDrawerDepth, setDrawerDock, useDrawerDepth, useDrawerDock } from '@/stores/drawer-dock-store'
+import { drawerAlongEdge, drawerDragTarget, drawerResizeDepth, isDrawerSide, type DrawerDock, type DrawerEdge, type DrawerPoint } from './drawer-docking'
+import './tool-drawer.css'
 import { useTabLayout } from '@/stores/tab-layout-store'
 import { takeDrawerRequest, useDrawerRequest } from '@/stores/drawer-request-store'
 import { cn } from '@/lib/utils'
@@ -29,17 +31,30 @@ const CLOSE_DELAY_MS = 400
 /** The pull tab: a filled shape, no outline, whose sides slope in to a rounded bottom. */
 function TabShape({ className }: { className?: string }) {
   return (
-    <svg viewBox="0 0 112 20" aria-hidden className="absolute inset-0 size-full">
+    <svg viewBox="0 0 112 20" preserveAspectRatio="none" aria-hidden className="absolute inset-0 size-full">
       <path d="M0 0 L7 15.5 Q8.9 20 13.5 20 H98.5 Q103.1 20 105 15.5 L112 0 Z" className={cn('transition-colors', className)} />
     </svg>
   )
 }
 
-/**
- * The pull tab's height (its h-5): a tab's content starts this far down, so none of it begins under
- * the handle; scrolled, it may pass beneath. Content reads it as `var(--tab-top-inset, 0px)`.
- */
-export const DRAWER_HANDLE_INSET = { '--tab-top-inset': '1.25rem' } as React.CSSProperties
+const OPPOSITE_EDGE: Record<DrawerEdge, DrawerEdge> = { top: 'bottom', bottom: 'top', left: 'right', right: 'left' }
+const HANDLE_FILL = 'fill-[color-mix(in_srgb,var(--foreground)_9%,var(--background))]'
+
+interface DockDrag {
+  handle: HTMLButtonElement
+  pointerId: number
+  start: DrawerPoint
+  edge: DrawerEdge
+  offset: number
+  detached: boolean
+  moved: boolean
+}
+
+interface DockPreview {
+  dock: DrawerDock | null
+  x: number
+  y: number
+}
 
 // What each tab's drawer was left showing, so coming back to a tab finds its drawer as it was.
 const remembered = new Map<string, { pinned: boolean; activeId: string | null }>()
@@ -57,9 +72,8 @@ const GIT_PANELS = new Set(['panel:source-control', 'panel:checks'])
 
 /**
  * The project's terminals, browsers and panels (explorer, search, source control, checks, ports, side
- * chat, agent), pulled down from under a tab strip: hovering the handle opens it, leaving it closes it
- * unless pinned. With nothing open in it, it lists what it can show. `tabId` is the tab it hangs from, whose pin and choice it remembers; `exclude` is the
- * pane's own active tab. The focused pane's drawer also answers what opens a panel from elsewhere.
+ * chat, agent). Hovering the handle opens it, and leaving it closes it unless pinned. The drawer
+ * remembers its pin and choice for `tabId`. The focused pane also answers requests from elsewhere.
  */
 export function ToolDrawer({
   workspaceId,
@@ -87,8 +101,12 @@ export function ToolDrawer({
   }, [tabId, pinned, activeId])
   const rootRef = useRef<HTMLDivElement>(null)
   const drawerRef = useRef<HTMLDivElement>(null)
-  // One height for every drawer; none saved leaves it at its own share of the pane.
-  const height = useDrawerHeight()
+  const dock = useDrawerDock()
+  const side = isDrawerSide(dock.edge)
+  const depth = useDrawerDepth(dock.edge)
+  const drag = useRef<DockDrag | null>(null)
+  const ignorePointerClick = useRef(false)
+  const [preview, setPreview] = useState<DockPreview | null>(null)
   const resizing = useRef(false)
   const timer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
   useEffect(() => () => clearTimeout(timer.current), [])
@@ -103,17 +121,10 @@ export function ToolDrawer({
   }, [toolIds])
 
   const shown = open || pinned
-  // The pull tab slides down out of the tab strip once the tab is on show, and back up under it while the drawer is out.
-  const [entered, setEntered] = useState(false)
-  useEffect(() => {
-    // Two frames, so the tab is first laid out tucked away and the slide has somewhere to start from.
-    let frame = requestAnimationFrame(() => (frame = requestAnimationFrame(() => setEntered(true))))
-    return () => cancelAnimationFrame(frame)
-  }, [])
   // Keys must not keep going to a terminal nobody can see.
   useEffect(() => {
     const focused = document.activeElement
-    if (!shown && focused instanceof HTMLElement && rootRef.current?.contains(focused)) focused.blur()
+    if (!shown && focused instanceof HTMLElement && drawerRef.current?.contains(focused)) focused.blur()
   }, [shown])
 
   // Enabled plugins' panels follow the built-in ones.
@@ -146,35 +157,115 @@ export function ToolDrawer({
 
   const later = (next: boolean, ms: number) => {
     clearTimeout(timer.current)
-    // A drag of the bottom edge can leave the drawer for a moment; it must not close under the hand.
-    timer.current = setTimeout(() => (next || !resizing.current) && setOpen(next), ms)
+    if (drag.current || resizing.current) return
+    timer.current = setTimeout(() => setOpen(next), ms)
   }
 
-  /** Dragging the bottom edge: the drawer follows the pointer, and every drawer takes the height it is left at. */
+  const startDrag = (event: React.PointerEvent<HTMLButtonElement>) => {
+    if (!event.isPrimary || event.button !== 0 || resizing.current || drag.current) return
+    const handle = event.currentTarget
+    const rect = handle.getBoundingClientRect()
+    const center = { clientX: rect.left + rect.width / 2, clientY: rect.top + rect.height / 2 }
+    const start = { clientX: event.clientX, clientY: event.clientY }
+    ignorePointerClick.current = false
+    clearTimeout(timer.current)
+    handle.setPointerCapture(event.pointerId)
+    drag.current = {
+      handle,
+      pointerId: event.pointerId,
+      start,
+      edge: dock.edge,
+      offset: drawerAlongEdge(dock.edge, start) - drawerAlongEdge(dock.edge, center),
+      detached: false,
+      moved: false
+    }
+  }
+
+  const updateDrag = (event: React.PointerEvent<HTMLButtonElement>): DockPreview | null => {
+    const active = drag.current
+    const bounds = rootRef.current?.getBoundingClientRect()
+    if (!active || active.pointerId !== event.pointerId || !bounds) return null
+    const { clientX, clientY } = event
+    if (!active.moved && Math.hypot(clientX - active.start.clientX, clientY - active.start.clientY) < 5) return null
+    active.moved = true
+    const target = drawerDragTarget(bounds, active.edge, active.start, event, active.offset, active.detached)
+    active.detached = target.detached
+    return { dock: target.dock, x: clientX - bounds.left, y: clientY - bounds.top }
+  }
+
+  const finishDrag = (target: DrawerDock | null = null) => {
+    const active = drag.current
+    if (!active) return
+    drag.current = null
+    ignorePointerClick.current = active.moved
+    if (active.handle.hasPointerCapture(active.pointerId)) active.handle.releasePointerCapture(active.pointerId)
+    setPreview(null)
+    if (target) setDrawerDock(target)
+  }
+
+  useEffect(() => {
+    const onEscape = (event: KeyboardEvent) => {
+      if (event.key !== 'Escape' || !drag.current) return
+      event.preventDefault()
+      event.stopPropagation()
+      finishDrag()
+    }
+    window.addEventListener('keydown', onEscape, true)
+    return () => window.removeEventListener('keydown', onEscape, true)
+  }, [])
+
+  const dragEvents = {
+    onPointerDown: startDrag,
+    onPointerMove: (event: React.PointerEvent<HTMLButtonElement>) => {
+      const next = updateDrag(event)
+      if (next) setPreview(next)
+    },
+    onPointerUp: (event: React.PointerEvent<HTMLButtonElement>) => {
+      const active = drag.current
+      if (!active || active.pointerId !== event.pointerId) return
+      const next = updateDrag(event)
+      finishDrag(next?.dock)
+      if (active.moved && shown && !pinned && !drawerRef.current?.matches(':hover')) later(false, CLOSE_DELAY_MS)
+    },
+    onPointerCancel: (event: React.PointerEvent<HTMLButtonElement>) => {
+      if (drag.current?.pointerId === event.pointerId) finishDrag()
+    },
+    onLostPointerCapture: (event: React.PointerEvent<HTMLButtonElement>) => {
+      if (drag.current?.pointerId === event.pointerId) finishDrag()
+    }
+  }
+
   const startResize = (event: React.PointerEvent<HTMLDivElement>) => {
     const drawer = drawerRef.current
+    const root = rootRef.current
     const handle = event.currentTarget
-    if (!drawer || event.button !== 0) return
+    if (!drawer || !root || !event.isPrimary || event.button !== 0 || drag.current || resizing.current) return
     event.preventDefault()
-    handle.setPointerCapture(event.pointerId)
+    const pointerId = event.pointerId
+    handle.setPointerCapture(pointerId)
     resizing.current = true
     clearTimeout(timer.current)
-    const startY = event.clientY
-    const startHeight = drawer.getBoundingClientRect().height
-    const limit = rootRef.current?.getBoundingClientRect().height ?? Number.POSITIVE_INFINITY
-    let next = startHeight
+    const start = { clientX: event.clientX, clientY: event.clientY }
+    const rect = drawer.getBoundingClientRect()
+    const startDepth = side ? rect.width : rect.height
+    let next = startDepth
     const onMove = (move: PointerEvent) => {
-      if (move.pointerId !== event.pointerId) return
-      next = Math.min(limit, Math.max(DRAWER_MIN_HEIGHT, startHeight + move.clientY - startY))
-      drawer.style.height = `${next}px`
+      if (move.pointerId !== pointerId) return
+      const bounds = root.getBoundingClientRect()
+      next = drawerResizeDepth(dock.edge, startDepth, start, move, side ? bounds.width : bounds.height)
+      drawer.style.setProperty('--drawer-live-depth', `${next}px`)
     }
-    const finish = () => {
+    const finish = (end: PointerEvent) => {
+      if (end.pointerId !== pointerId) return
       handle.removeEventListener('pointermove', onMove)
       handle.removeEventListener('pointerup', finish)
       handle.removeEventListener('pointercancel', finish)
       handle.removeEventListener('lostpointercapture', finish)
       resizing.current = false
-      if (next !== startHeight) setDrawerHeight(next)
+      if (end.type === 'pointerup') onMove(end)
+      drawer.style.removeProperty('--drawer-live-depth')
+      if (end.type === 'pointerup' && next !== startDepth) setDrawerDepth(dock.edge, next)
+      if (!pinned && !drawer.matches(':hover')) later(false, CLOSE_DELAY_MS)
     }
     handle.addEventListener('pointermove', onMove)
     handle.addEventListener('pointerup', finish)
@@ -201,203 +292,217 @@ export function ToolDrawer({
     // Only a new request acts; what the drawer shows when it arrives is read, not watched.
   }, [request, focused, workspaceId])
 
+  const positionStyle = { '--drawer-position': `${dock.position * 100}%` } as React.CSSProperties
+  const countTitle = `${terminals === 1 ? t('{n} terminal', { n: terminals }) : t('{n} terminals', { n: terminals })} · ${browsers === 1 ? t('{n} browser', { n: browsers }) : t('{n} browsers', { n: browsers })}`
   return (
-    // What the drawer shows hangs from nothing: the inset its tab's content keeps is not its own.
-    <div ref={rootRef} className="pointer-events-none absolute inset-0 z-10 flex flex-col [--tab-top-inset:0px]">
-      {/* A pull tab hanging off the tab strip; its chevron points the way the drawer comes. */}
-      <div
-        className="group pointer-events-auto mx-auto flex h-5 w-32 shrink-0 justify-center overflow-hidden"
+    <div ref={rootRef} style={positionStyle} className="tool-drawer pointer-events-none absolute inset-0 z-10 [container-type:size] [--tab-top-inset:0px]">
+      <button
+        type="button"
+        className={cn('tool-drawer__tab group text-muted-foreground hover:text-foreground', shown ? 'invisible' : 'pointer-events-auto cursor-grab', preview && 'opacity-0')}
         data-drawer-handle
-        title={`${terminals === 1 ? t('{n} terminal', { n: terminals }) : t('{n} terminals', { n: terminals })} · ${browsers === 1 ? t('{n} browser', { n: browsers }) : t('{n} browsers', { n: browsers })}`}
+        data-edge={dock.edge}
+        aria-label={t('Open the tool drawer')}
+        aria-expanded={shown}
+        title={`${countTitle} · ${t('Drag to move the drawer')}`}
+        {...dragEvents}
         onPointerEnter={() => later(true, OPEN_DELAY_MS)}
-        // Leaving the tab for anywhere but the drawer lets an unpinned drawer close; going onto the drawer keeps it.
-        onPointerLeave={() => (shown ? !pinned && later(false, CLOSE_DELAY_MS) : clearTimeout(timer.current))}
+        onPointerLeave={() => {
+          if (!drag.current && !shown) clearTimeout(timer.current)
+        }}
+        onClick={(event) => {
+          if (event.detail && ignorePointerClick.current) return
+          setOpen(true)
+        }}
       >
-        <span
-          className={cn(
-            'relative flex h-5 w-28 justify-center text-muted-foreground transition-[color,translate] duration-200 ease-out group-hover:text-foreground',
-            (!entered || shown) && '-translate-y-full'
-          )}
-        >
-          {/* A solid grey a step off the canvas, so the tab reads without an outline in either theme. */}
-          <TabShape className="fill-[color-mix(in_srgb,var(--foreground)_9%,var(--background))] group-hover:fill-[color-mix(in_srgb,var(--foreground)_16%,var(--background))]" />
-          <ChevronDown className="relative mt-0.5 size-4" />
+        <span className="tool-drawer__tab-art">
+          <TabShape className={cn(HANDLE_FILL, 'group-hover:fill-[color-mix(in_srgb,var(--foreground)_16%,var(--background))]')} />
+          <ChevronDown className="relative size-4" />
         </span>
-      </div>
+      </button>
       <div
         ref={drawerRef}
         data-drawer={shown ? 'open' : 'closed'}
+        data-edge={dock.edge}
         onPointerEnter={() => shown && clearTimeout(timer.current)}
         onPointerLeave={() => !pinned && later(false, CLOSE_DELAY_MS)}
-        // The band at the bottom holds the pin tab, so the drawer and its tab are one thing to light and leave.
-        className={cn(
-          'absolute inset-x-1.5 top-0 flex max-h-full min-h-48 flex-col pb-5 transition-[clip-path,visibility] duration-200 ease-out',
-          height === null && 'h-3/5',
-          !shown && 'invisible'
-        )}
-        // Unrolls from the tab strip down, and rolls back up; the sides and bottom leave room for the shadow.
-        style={{ clipPath: shown ? 'inset(0 -24px -24px -24px)' : 'inset(0 -24px 100% -24px)', ...(height === null ? {} : { height }) }}
+        className={cn('tool-drawer__shell', !shown && 'invisible')}
+        style={depth === undefined ? undefined : { '--drawer-depth': `${depth}px` } as React.CSSProperties}
       >
-        <div className={cn('flex min-h-0 flex-1 flex-col overflow-hidden rounded-b-lg border border-t-0 border-border bg-background shadow-lg', shown && 'pointer-events-auto')}>
-        <div className="flex h-8 shrink-0 items-center gap-0.5 border-b border-border bg-muted/40 px-1">
-          <div className="flex min-w-0 items-center gap-0.5 overflow-hidden">
-            {tools.map((tool) => (
-              <div
-                key={tool.id}
-                data-drawer-tool-tab={tool.id}
-                className={cn(
-                  'group/tool flex max-w-40 shrink-0 items-center rounded-md text-xs',
-                  tool.id === activeTool?.id ? 'bg-background text-foreground shadow-sm' : 'text-muted-foreground hover:bg-accent/50'
-                )}
-              >
+        <div className={cn('tool-drawer__surface flex min-h-0 flex-1 flex-col overflow-hidden border border-border bg-background shadow-lg', shown && 'pointer-events-auto')}>
+          <div className="tool-drawer__toolbar shrink-0 gap-0.5 border-b border-border bg-muted/40 px-1">
+            <div className="tool-drawer__tools">
+              <div className="scrollbar-sleek flex min-w-0 items-center gap-0.5 overflow-x-auto">
+                {tools.map((tool) => (
+                  <div
+                    key={tool.id}
+                    data-drawer-tool-tab={tool.id}
+                    className={cn(
+                      'group/tool flex max-w-40 shrink-0 items-center rounded-md text-xs',
+                      tool.id === activeTool?.id ? 'bg-background text-foreground shadow-sm' : 'text-muted-foreground hover:bg-accent/50'
+                    )}
+                  >
+                    <button
+                      type="button"
+                      className="flex min-w-0 items-center gap-1 py-1 pl-2"
+                      onClick={() => {
+                        setActiveId(tool.id)
+                        // A clicked terminal takes the keys; one shown by hovering leaves them where they were.
+                        if (tool.kind === 'terminal')
+                          requestAnimationFrame(() => rootRef.current?.querySelector<HTMLElement>(`[data-drawer-tool="${tool.id}"] .xterm-helper-textarea`)?.focus())
+                      }}
+                    >
+                      {tool.kind === 'terminal' ? <SquareTerminal className="size-3" /> : <Globe className="size-3" />}
+                      <span className="truncate">{tabTitle(tool, meta[tool.id])}</span>
+                    </button>
+                    <button
+                      type="button"
+                      aria-label={tool.kind === 'terminal' ? t('Close terminal') : t('Close browser')}
+                      title={tool.kind === 'terminal' ? t('Close terminal') : t('Close browser')}
+                      className="mr-0.5 ml-0.5 flex size-4 items-center justify-center rounded-sm opacity-0 group-hover/tool:opacity-100 hover:bg-accent"
+                      onClick={() => closeWorkspaceTabs(workspaceId, [tool])}
+                    >
+                      <X className="size-3" />
+                    </button>
+                  </div>
+                ))}
+              </div>
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <button
+                    type="button"
+                    title={t('New terminal or browser')}
+                    data-drawer-new
+                    className="flex size-6 shrink-0 items-center justify-center rounded-md text-muted-foreground hover:bg-accent/50 hover:text-foreground"
+                  >
+                    <Plus className="size-3.5" />
+                  </button>
+                </DropdownMenuTrigger>
+                {/* Opened here, they belong to the drawer, not the tab strip, and come to its front. */}
+                <DropdownMenuContent align="start">
+                  <DropdownMenuItem onSelect={() => void newTerminalTab(workspaceId, undefined, { select: false, drawer: true })}>
+                    <SquareTerminal className="size-3.5" />
+                    {t('Terminal')}
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onSelect={() => newDrawerBrowser(workspaceId)}>
+                    <Globe className="size-3.5" />
+                    {t('Browser')}
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            </div>
+            <div className="tool-drawer__panels gap-0.5 border-l border-border pl-1">
+              {panels.map(({ id, label, icon: Icon }) => (
+                <button
+                  key={id}
+                  type="button"
+                  title={label}
+                  aria-label={label}
+                  data-drawer-panel={id}
+                  // A second click puts the panel away, back to the terminals or the list of surfaces.
+                  onClick={() => setActiveId(id === activePanel ? null : id)}
+                  className={cn(
+                    'flex size-6 items-center justify-center rounded-md',
+                    id === activePanel ? 'bg-background text-foreground shadow-sm' : 'text-muted-foreground hover:bg-accent/50 hover:text-foreground'
+                  )}
+                >
+                  <Icon className="size-3.5" />
+                </button>
+              ))}
+              {(activePanel || activeTool) && (
+                // What is shown here moves into the tab strip (a panel as a tab of its own), and the drawer closes.
                 <button
                   type="button"
-                  className="flex min-w-0 items-center gap-1 py-1 pl-2"
+                  title={t('Open as tab')}
+                  aria-label={t('Open as tab')}
+                  data-drawer-open-tab
                   onClick={() => {
-                    setActiveId(tool.id)
-                    // A clicked terminal takes the keys; one shown by hovering leaves them where they were.
-                    if (tool.kind === 'terminal')
-                      requestAnimationFrame(() => rootRef.current?.querySelector<HTMLElement>(`[data-drawer-tool="${tool.id}"] .xterm-helper-textarea`)?.focus())
+                    if (activePanel) openPanelTab(workspaceId, activePanel)
+                    else if (activeTool) moveToTabStrip(workspaceId, activeTool.id)
+                    setPinned(false)
+                    setOpen(false)
                   }}
+                  className="ml-0.5 flex size-6 items-center justify-center rounded-md border-l border-border text-muted-foreground hover:bg-accent/50 hover:text-foreground"
                 >
-                  {tool.kind === 'terminal' ? <SquareTerminal className="size-3" /> : <Globe className="size-3" />}
-                  <span className="truncate">{tabTitle(tool, meta[tool.id])}</span>
+                  <SquareArrowOutUpRight className="size-3.5" />
                 </button>
-                <button
-                  type="button"
-                  aria-label={tool.kind === 'terminal' ? t('Close terminal') : t('Close browser')}
-                  title={tool.kind === 'terminal' ? t('Close terminal') : t('Close browser')}
-                  className="mr-0.5 ml-0.5 flex size-4 items-center justify-center rounded-sm opacity-0 group-hover/tool:opacity-100 hover:bg-accent"
-                  onClick={() => closeWorkspaceTabs(workspaceId, [tool])}
-                >
-                  <X className="size-3" />
-                </button>
+              )}
+            </div>
+          </div>
+          <div className="relative min-h-0 flex-1">
+            {tools.map((t) => (
+              <div key={t.id} data-drawer-tool={t.id} className={cn('absolute inset-0 flex flex-col', t.id !== activeTool?.id && 'invisible')}>
+                {t.kind === 'terminal' ? <TerminalTabBody tabId={t.id} terminal={t.terminal} /> : <BrowserTabView tab={t.browser} />}
               </div>
             ))}
-  <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <button
-                  type="button"
-                  title={t('New terminal or browser')}
-                  data-drawer-new
-                  className="flex size-6 shrink-0 items-center justify-center rounded-md text-muted-foreground hover:bg-accent/50 hover:text-foreground"
-                >
-                  <Plus className="size-3.5" />
-                </button>
-              </DropdownMenuTrigger>
-              {/* Opened here, they belong to the drawer, not the tab strip, and come to its front. */}
-              <DropdownMenuContent align="start">
-                <DropdownMenuItem onSelect={() => void newTerminalTab(workspaceId, undefined, { select: false, drawer: true })}>
-                  <SquareTerminal className="size-3.5" />
-                  {t('Terminal')}
-                </DropdownMenuItem>
-                <DropdownMenuItem onSelect={() => newDrawerBrowser(workspaceId)}>
-                  <Globe className="size-3.5" />
-                  {t('Browser')}
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
-          </div>
-          <div className="ml-auto flex shrink-0 items-center gap-0.5 border-l border-border pl-1">
-            {panels.map(({ id, label, icon: Icon }) => (
-              <button
-                key={id}
-                type="button"
-                title={label}
-                aria-label={label}
-                data-drawer-panel={id}
-                // A second click puts the panel away, back to the terminals or the list of surfaces.
-                onClick={() => setActiveId(id === activePanel ? null : id)}
-                className={cn(
-                  'flex size-6 items-center justify-center rounded-md',
-                  id === activePanel ? 'bg-background text-foreground shadow-sm' : 'text-muted-foreground hover:bg-accent/50 hover:text-foreground'
-                )}
-              >
-                <Icon className="size-3.5" />
-              </button>
-            ))}
-            {(activePanel || activeTool) && (
-              // What is shown here moves into the tab strip (a panel as a tab of its own), and the drawer goes back up.
-              <button
-                type="button"
-                title={t('Open as tab')}
-                aria-label={t('Open as tab')}
-                data-drawer-open-tab
-                onClick={() => {
-                  if (activePanel) openPanelTab(workspaceId, activePanel)
-                  else if (activeTool) moveToTabStrip(workspaceId, activeTool.id)
-                  setPinned(false)
-                  setOpen(false)
-                }}
-                className="ml-0.5 flex size-6 items-center justify-center rounded-md border-l border-border text-muted-foreground hover:bg-accent/50 hover:text-foreground"
-              >
-                <SquareArrowOutUpRight className="size-3.5" />
-              </button>
+            {activePanel && (
+              <div className="absolute inset-0 flex flex-col overflow-hidden bg-sidebar text-sidebar-foreground">
+                <WorkspacePanelView key={activePanel} id={activePanel} workspaceId={workspaceId} />
+              </div>
+            )}
+            {!activePanel && !activeTool && shown && (
+              // It shows under the pointer while the person may be typing elsewhere, so it takes the keys only when clicked.
+              <div className="absolute inset-0 flex flex-col" data-drawer-surfaces>
+                <SurfaceList surfaces={surfaces} focus="never" />
+              </div>
             )}
           </div>
         </div>
-        <div className="relative min-h-0 flex-1">
-          {tools.map((t) => (
-            <div key={t.id} data-drawer-tool={t.id} className={cn('absolute inset-0 flex flex-col', t.id !== activeTool?.id && 'invisible')}>
-              {t.kind === 'terminal' ? <TerminalTabBody tabId={t.id} terminal={t.terminal} /> : <BrowserTabView tab={t.browser} />}
-            </div>
-          ))}
-          {activePanel && (
-            <div className="absolute inset-0 flex flex-col overflow-hidden bg-sidebar text-sidebar-foreground">
-              <WorkspacePanelView key={activePanel} id={activePanel} workspaceId={workspaceId} />
-            </div>
-          )}
-          {!activePanel && !activeTool && shown && (
-            // It shows under the pointer while the person may be typing elsewhere, so it takes the keys only when clicked.
-            <div className="absolute inset-0 flex flex-col" data-drawer-surfaces>
-              <SurfaceList surfaces={surfaces} focus="never" />
-            </div>
-          )}
-        </div>
-        </div>
-        {/* The bottom edge takes a drag to make every drawer taller or shorter; a double click gives the height back. */}
         <div
           role="separator"
-          aria-orientation="horizontal"
-          aria-label={t('Resize the drawer')}
-          title={t('Drag to change the height · double-click to reset')}
+          aria-orientation={side ? 'vertical' : 'horizontal'}
+          aria-label={t('Resize tool drawer')}
+          title={t('Drag to resize · double-click to reset')}
           data-drawer-resize
-          className={cn('group/resize absolute inset-x-0 bottom-[17px] z-10 flex h-2 cursor-row-resize touch-none items-center', shown && 'pointer-events-auto')}
+          data-edge={dock.edge}
+          className={cn('tool-drawer__resize group/resize', shown && 'pointer-events-auto')}
           onPointerDown={startResize}
-          onDoubleClick={() => {
-            if (drawerRef.current) drawerRef.current.style.height = ''
-            setDrawerHeight()
-          }}
+          onDoubleClick={() => setDrawerDepth(dock.edge)}
         >
-          <span className="h-0.5 w-full rounded-full bg-transparent transition-colors group-hover/resize:bg-highlight/60 group-active/resize:bg-highlight" />
+          <span className="rounded-full bg-transparent transition-colors group-hover/resize:bg-highlight/60 group-active/resize:bg-highlight" />
         </div>
-        {/* The tab that pulled the drawer down now hangs under it and pins it open. */}
         <button
           type="button"
-          title={pinned ? t('Unpin') : t('Keep open')}
+          title={`${pinned ? t('Unpin') : t('Keep open')} · ${t('Drag to move the drawer')}`}
           aria-label={pinned ? t('Unpin') : t('Keep open')}
           aria-pressed={pinned}
-          onClick={() => {
+          {...dragEvents}
+          onClick={(event) => {
+            if (event.detail && ignorePointerClick.current) return
             setPinned(!pinned)
             setOpen(true)
           }}
           className={cn(
-            'group/pin absolute bottom-0 left-1/2 flex h-5 w-28 -translate-x-1/2 justify-center',
-            shown && 'pointer-events-auto',
+            'tool-drawer__tab group/pin',
+            shown && 'pointer-events-auto cursor-grab',
+            preview && 'opacity-0',
             pinned ? 'text-white' : 'text-muted-foreground hover:text-foreground'
           )}
+          data-edge={OPPOSITE_EDGE[dock.edge]}
           data-drawer-pin
         >
-          <TabShape
-            className={
-              pinned
-                ? 'fill-highlight'
-                : 'fill-[color-mix(in_srgb,var(--foreground)_9%,var(--background))] group-hover/pin:fill-[color-mix(in_srgb,var(--foreground)_16%,var(--background))]'
-            }
-          />
-          <Pin className={cn('relative mt-[3px] size-3.5', pinned && 'fill-current')} />
+          <span className="tool-drawer__tab-art">
+            <TabShape className={pinned ? 'fill-highlight' : cn(HANDLE_FILL, 'group-hover/pin:fill-[color-mix(in_srgb,var(--foreground)_16%,var(--background))]')} />
+            <Pin className={cn('tool-drawer__pin-icon relative size-3.5', pinned && 'fill-current')} />
+          </span>
         </button>
       </div>
+      {preview && (
+        <div aria-hidden className="absolute inset-0 z-20" data-drawer-drag-preview>
+          {preview.dock && <div className="tool-drawer__target" data-edge={preview.dock.edge} />}
+          <div
+            className={cn('tool-drawer__tab text-white', !preview.dock && 'tool-drawer__tab--floating')}
+            data-edge={preview.dock?.edge}
+            style={preview.dock
+              ? { '--drawer-position': `${preview.dock.position * 100}%` } as React.CSSProperties
+              : { left: preview.x, top: preview.y }}
+          >
+            <span className="tool-drawer__tab-art">
+              <TabShape className="fill-highlight" />
+              <ChevronDown className="relative size-4" />
+            </span>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
