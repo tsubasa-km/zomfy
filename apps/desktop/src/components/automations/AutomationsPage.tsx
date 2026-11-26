@@ -127,7 +127,6 @@ export function AutomationsPage() {
         <PageCloseButton label={t('Close automations')} onClick={() => setAutomationsPageOpen(false)} />
         <CalendarClock className="size-4 text-muted-foreground" />
         <h1 className="text-[13px] font-semibold">{t('Automations')}</h1>
-        <span className="text-[11px] text-muted-foreground">{t("Run on each host's daemon, even with this window closed")}</span>
         <Button
           size="sm"
           className="ml-auto"
@@ -138,13 +137,18 @@ export function AutomationsPage() {
           {t('New automation')}
         </Button>
       </div>
+      {automations.length === 0 ? (
+        // Nothing to list or show yet: one line in the middle of the page, where the eye lands, not
+        // squeezed into the list column beside an empty detail pane.
+        <div className="flex min-h-0 flex-1 flex-col items-center justify-center gap-3 p-6 text-center" data-automations-empty>
+          <CalendarClock className="size-6 text-muted-foreground/60" aria-hidden />
+          <p className="max-w-sm text-sm text-muted-foreground">
+            {t('No automations yet. Create one to run a prompt on a schedule or when something happens.')}
+          </p>
+        </div>
+      ) : (
       <div className="flex min-h-0 flex-1">
         <div className="scrollbar-sleek flex w-[320px] shrink-0 flex-col gap-1 overflow-y-auto border-r border-border p-2">
-          {automations.length === 0 ? (
-            <p className="px-2 py-6 text-center text-xs text-muted-foreground">
-              {t('No automations yet. Create one to run a prompt on a schedule or when something happens.')}
-            </p>
-          ) : null}
           {automations.map((automation) => (
             <AutomationRow
               key={automation.id}
@@ -165,6 +169,7 @@ export function AutomationsPage() {
           ) : null}
         </div>
       </div>
+      )}
       <AutomationEditorDialog
         open={editor.open}
         existing={editor.existing}

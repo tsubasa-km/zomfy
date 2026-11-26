@@ -17,7 +17,7 @@ function DefaultHostSelect() {
   const hosts = sortedHosts(useStore((s) => s.hosts))
   return (
     <Select value={value} onValueChange={(v) => setSetting('defaultHost', v)}>
-      <SelectTrigger className="h-8 w-56" aria-label={t('Default host')}>
+      <SelectTrigger className="h-8 w-auto max-w-80 min-w-56" aria-label={t('Default host')}>
         <SelectValue />
       </SelectTrigger>
       <SelectContent>

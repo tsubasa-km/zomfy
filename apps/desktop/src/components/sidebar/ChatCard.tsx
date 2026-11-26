@@ -239,7 +239,11 @@ export function ChatCardBody({
         {title}
         {pin}
         {trailing}
-        <span className="flex shrink-0 opacity-80">{agent}</span>
+        {/* Which agent runs the chat is a quiet fact, not a signal: grey until the row is pointed at,
+            so the agent's brand colour never competes with the state colours beside it. */}
+        <span className="flex shrink-0 opacity-50 grayscale transition-[filter,opacity] group-hover/chat:opacity-100 group-hover/chat:grayscale-0">
+          {agent}
+        </span>
       </div>
     </div>
   )

@@ -1,4 +1,4 @@
-import { afterAll, expect, mock, test } from 'bun:test'
+import { afterAll, expect, mock, setDefaultTimeout, test } from 'bun:test'
 import { existsSync, mkdirSync, mkdtempSync, realpathSync, rmSync, utimesSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
@@ -8,6 +8,10 @@ import * as launchSettings from './chat-agent-launch-settings.ts'
 import * as launchSpecs from './chat-agent-launch-specs.ts'
 import { DEFAULT_SESSION_OPTIONS, type SessionRecord } from './session-registry.ts'
 import type { HandlerContext } from './handlers/handler-context.ts'
+
+// Imports start real processes and git; a loaded Windows runner needs more than bun's 5 s, and
+// bun 1.4 resets the preload's default for each file.
+setDefaultTimeout(30_000)
 
 // Listing and importing agents' own conversations (`_harness/sessions/history` and `/resume`)
 // against synthetic records in a temp folder: Claude's projects, Codex's rollouts, and a scripted

@@ -68,6 +68,7 @@ export function ProjectsPage() {
   }, [projects, names, query])
 
   const connected = (hostId: HostId) => hosts[hostId]?.connection.kind === 'connected'
+  const manyHosts = Object.keys(hosts).length > 1
   const selected = liveSelection(projects, selection.ids)
   const allState = selectAllState(shown, selected)
   const reachableCount = selectedLocations(projects, selected, connected).reachable.length
@@ -218,7 +219,10 @@ export function ProjectsPage() {
                       const count = workspaces.filter((w) => w.hostId === l.hostId && w.projectId === l.id).length
                       return (
                         <li key={projectKey(l)} className="flex items-center gap-3" data-project-location={projectKey(l)}>
-                          <span className="w-16 shrink-0 truncate text-[11px] font-medium text-muted-foreground">{names[l.hostId] ?? l.hostId}</span>
+                          {/* With one host every line would name the same one: the host shows only when there is a choice. */}
+                          {manyHosts && (
+                            <span className="w-16 shrink-0 truncate text-[11px] font-medium text-muted-foreground">{names[l.hostId] ?? l.hostId}</span>
+                          )}
                           <button
                             type="button"
                             className="min-w-0 flex-1 truncate text-left font-mono text-[11px] text-muted-foreground enabled:hover:text-foreground"
@@ -231,7 +235,7 @@ export function ProjectsPage() {
                           <span className="shrink-0 text-xs text-muted-foreground">
                             {!online ? t('Not connected') : l.kind === 'git' ? t('{n} worktrees', { n: count }) : t('Folder')}
                           </span>
-                          <Button type="button" size="xs" variant="outline" onClick={() => newThread(l)} disabled={!online} data-project-new-thread>
+                          <Button type="button" size="xs" variant="ghost" onClick={() => newThread(l)} disabled={!online} data-project-new-thread>
                             <SquarePen className="size-3" />
                             {t('New thread')}
                           </Button>

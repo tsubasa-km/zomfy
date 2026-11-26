@@ -130,7 +130,6 @@ export function BotsPage() {
         <PageCloseButton label={t('Close bots')} onClick={() => setBotsPageOpen(false)} />
         <BotIcon className="size-4 text-muted-foreground" />
         <h1 className="text-[13px] font-semibold">{t('Bots')}</h1>
-        <span className="text-[11px] text-muted-foreground">{t('Named agents with a home folder, asked from Zomfy, Discord and more')}</span>
         <Button size="sm" variant="ghost" className="ml-auto" onClick={() => openSettings('bots')}>
           <Settings2 />
           {t('Settings')}
