@@ -240,6 +240,7 @@ function Composer({ session, editorRef }: ComposerProps) {
             editorRef={editorRef}
             boxRef={composerBox}
             takesTabDrops
+            waiting={session.status === 'needs-you'}
             placeholder={
               offline
                 ? t('Reconnecting to {host}… sending waits until it is back', { host: hostLabel(session.hostId) })
