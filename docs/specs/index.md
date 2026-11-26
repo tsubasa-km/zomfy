@@ -38,7 +38,7 @@
 * [Claude in Chrome from Zomfy](claude-in-chrome.md) - a per-host switch with a per-project override that starts Claude chats with `--chrome`, listed in Connectors with Chrome's icon
 * [Skills and connectors in the composer](composer-skills-and-connectors.md) - the `/` menu splits commands from skills, the `+` menu lists skills and connected MCP servers, and an `@mcp:` chip asks the agent to use a server
 * [Signing in to Claude from a chat](claude-sign-in.md) - a signed-out or expired Claude sign-in ends the turn with "Sign in to Claude" (a terminal running `claude auth login`) and "Try again"; the usage limits show it too
-* [The composer glows while the chat waits for the person](composer-waiting-glow.md) - a needs-you chat's composer border shows Rainbow (default), Accent pulse or Static outline, picked in Settings with live previews, or Off
+* [The place the person acts next glows](composer-waiting-glow.md) - a waiting question or approval card, the Next steps question, or the composer on Your turn glows in Rainbow (default), Accent pulse or Static outline, picked in Settings, or Off
 * [The thinking effort shows in the composer](composer-effort.md) - the model button reads "Opus · High", the default included, and the picker always selects a level
 * [A GitHub or GitLab account per project](project-hosting-accounts.md) - each project picks the account Zomfy, its agents and git use for its remote, through the CLI's env and a repo-local credential helper, never by switching
 * [The Add a project dialog](add-project-dialog.md) - one dialog with Open folder, Clone and New repository tabs, an inline host row only when there are several hosts, and the project's account
@@ -48,3 +48,5 @@
 * [Zomfy Relay settings, its features, and setting it up with an agent](relay-settings.md) - a top-level Settings page for the one relay: pairing, health, the features the person picks and what each needs, and a chat that deploys it with an agent
 * [Adding a tab: the "+" menu, pins, new chats and terminals that pick their place](new-tab-menu-and-pins.md) - any "+" menu item can be pinned beside it (Terminal by default), a new chat opens the New thread screen prefilled with the current workspace, a new terminal picks its host, folder and shell
 * [The window opens in one step](calm-startup.md) - the shell starts from a local snapshot of the hosts' projects and threads, Monaco loads with the first editor tab, and `record-startup.ts` records a startup filmstrip
+* [Threads say whose turn it is](turn-taking-states.md) - Needs your answer, Your turn, Working, Background work running and Quiet replace "Done" and "Settled" in the sidebar, tabs, thread, session panel and phone
+* [Scheduled wake-ups fire in a Zomfy chat](scheduled-wake-ups.md) - a chat that ends its turn with ScheduleWakeup, CronCreate or /loop keeps its Claude process until the wake-up fires, and the daemon fires one-shot wake-ups itself if the process goes
