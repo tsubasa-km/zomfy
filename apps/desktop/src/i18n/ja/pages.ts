@@ -855,7 +855,6 @@ export const PAGES: Record<string, string> = {
   'any workspace': 'いずれかのワークスペース',
   Back: '戻る',
   Automations: '自動化',
-  "Run on each host's daemon, even with this window closed": '各ホストのデーモンで実行され、このウィンドウを閉じていても動きます',
   'New automation': '新しい自動化',
   'No automations yet. Create one to run a prompt on a schedule or when something happens.': 'まだ自動化はありません。作成すると、スケジュールや何かが起きたときにプロンプトを実行できます。',
   ' · next {time}': ' · 次回 {time}',

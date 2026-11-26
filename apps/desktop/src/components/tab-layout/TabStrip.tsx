@@ -191,8 +191,9 @@ export function TabStrip({
         </button>
       ) : (
         // In a narrow pane these give way, so the pane's own buttons at the end (its actions, its
-        // sidebar's toggle) stay in reach.
-        <div className="flex min-w-0 shrink items-stretch overflow-hidden">
+        // sidebar's toggle) stay in reach; but only after the tabs have scrolled down to their
+        // minimum, so a long row of tabs never clips a button in half.
+        <div className="flex min-w-0 shrink-[0.001] items-stretch overflow-hidden">
           <NewTabMenu workspaceId={workspaceId} groupId={groupId} />
           <PinnedTabButtons workspaceId={workspaceId} groupId={groupId} />
           <QuickCommandsButton workspaceId={workspaceId} />

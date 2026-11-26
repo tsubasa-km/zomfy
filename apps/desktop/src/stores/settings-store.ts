@@ -156,7 +156,9 @@ export const DEFAULT_SETTINGS: AppSettings = {
   showWorkflowsButton: true,
   setupGuideSidebarDismissed: false,
   floatingWorkspaceEnabled: true,
-  floatingWorkspaceTriggerLocation: 'floating-button',
+  // In the status bar, at the window's edge: a button floating over the page covered composers'
+  // send buttons and panel rows wherever it was left.
+  floatingWorkspaceTriggerLocation: 'status-bar',
   floatingWorkspaceOpenTerminal: true,
   defaultChatAgent: 'claude',
   defaultPermissionMode: 'auto',

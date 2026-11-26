@@ -53,7 +53,8 @@ export function PaneSidebarToggle({ paneKey }: { paneKey: string }) {
 function PanelButtons({ paneKey }: { paneKey: string }) {
   const { panels, shown } = useShownPanel(paneKey)
   return (
-    <div role="tablist" className="flex shrink-0 flex-wrap items-center gap-0.5 border-b border-sidebar-border px-1.5 py-1" data-pane-sidebar-buttons>
+    // One row whatever the width: the icons narrow a little rather than wrap one onto a row of its own.
+    <div role="tablist" className="flex shrink-0 items-center gap-0.5 overflow-hidden border-b border-sidebar-border px-1.5 py-1" data-pane-sidebar-buttons>
       {panels.map(({ id, label, icon: Icon }) => {
         const active = id === shown
         return (
@@ -67,7 +68,7 @@ function PanelButtons({ paneKey }: { paneKey: string }) {
                 data-pane-sidebar-panel={id}
                 onClick={() => showPaneSidebar(paneKey, id)}
                 className={cn(
-                  'flex size-7 shrink-0 items-center justify-center rounded-md transition-colors',
+                  'flex h-7 w-7 min-w-5 shrink items-center justify-center rounded-md transition-colors',
                   active ? 'bg-accent text-foreground' : 'text-muted-foreground hover:bg-accent/60 hover:text-foreground'
                 )}
               >

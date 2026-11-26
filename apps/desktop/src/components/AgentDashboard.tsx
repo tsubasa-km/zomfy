@@ -14,6 +14,7 @@ import { cn } from '@/lib/utils'
 import { canPopOutDashboard, popOutDashboard } from '@/lib/dashboard-window'
 import { WINDOW_ROLE } from '@/lib/window-role'
 import { agentQuestionsOf } from '@/components/native-chat/agent-questions'
+import { markdownExcerpt } from '@/lib/markdown-excerpt'
 import { t } from '@/i18n/i18n'
 
 // Follows Orca's agent dashboard (dashboard-popout/AgentKanbanBoard.tsx, AgentKanbanCard.tsx), its
@@ -135,12 +136,9 @@ function AgentCard({
     <div
       data-dashboard-card={session.id}
       className={cn(
-        'group flex w-full flex-col gap-1.5 rounded-lg border p-2.5 text-left transition-colors',
-        bucket === 'attention'
-          ? 'border-agent-question/40 bg-agent-question/[0.06] hover:border-agent-question/60 hover:bg-agent-question/10'
-          : bucket === 'done'
-            ? 'border-emerald-500/35 bg-emerald-500/[0.05] hover:border-emerald-500/55 hover:bg-emerald-500/10'
-            : 'border-border/60 bg-card hover:border-border hover:bg-accent/40'
+        // Every card looks alike: its lane already says whose turn it is and its dot what state it is
+        // in, so the one coloured thing on a card is the ask that waits for the person.
+        'group flex w-full flex-col gap-1.5 rounded-lg border border-border/60 bg-card p-2.5 text-left transition-colors hover:border-border hover:bg-accent/40'
       )}
     >
       <button
@@ -149,7 +147,7 @@ function AgentCard({
         className="flex w-full flex-col gap-1.5 text-left focus-visible:rounded-md focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
       >
         <div className="flex w-full items-center gap-1.5">
-          <span className="inline-flex shrink-0">
+          <span className="inline-flex shrink-0 opacity-50 grayscale transition-[filter,opacity] group-hover:opacity-100 group-hover:grayscale-0">
             <TuiAgentIcon agent={sessionAgent(session)} size={13} />
           </span>
           <span className="min-w-0 truncate text-[13px] font-medium">{session.title}</span>
@@ -160,7 +158,7 @@ function AgentCard({
           {workspace}
         </div>
         {lastAgent?.kind === 'agent' && (
-          <div className="line-clamp-2 w-full text-xs leading-snug text-foreground/90">{lastAgent.text.trim()}</div>
+          <div className="line-clamp-2 w-full text-xs leading-snug text-foreground/90">{markdownExcerpt(lastAgent.text)}</div>
         )}
         {pendingAsk?.kind === 'permission' && (
           <div className="flex w-full items-start gap-1 rounded-md bg-agent-question/15 px-1.5 py-1 text-[11px] text-agent-question-text ring-1 ring-agent-question/25 ring-inset">

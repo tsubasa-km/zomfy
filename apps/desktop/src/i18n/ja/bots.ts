@@ -48,8 +48,6 @@ export const BOTS: Record<string, string> = {
   'No purpose given; SOUL.md says who it is.': '用途は未設定です。人物像は SOUL.md にあります。',
   'Bot settings': 'ボットの設定',
   'Close bots': 'ボットを閉じる',
-  'Named agents with a home folder, asked from Zomfy, Discord and more':
-    'ホームフォルダーを持つ名前付きエージェント。Zomfy や Discord などから依頼できます',
   'This computer’s daemon has no bots yet; update Zomfy to use them.':
     'このコンピューターのデーモンはまだボットに対応していません。Zomfy を更新してください。',
   'No bots yet. A bot lives in a folder with its SOUL.md and MEMORY.md, and you can talk to it here with no cloud set up.':

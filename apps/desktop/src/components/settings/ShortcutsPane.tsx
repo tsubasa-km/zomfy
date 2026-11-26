@@ -97,8 +97,11 @@ function RecorderButton({
             recording ? 'border-ring bg-accent text-accent-foreground ring-[3px] ring-ring/30' : 'border-transparent hover:border-border/70 hover:bg-background'
           )}
         >
-          {recording || !binding ? (
+          {recording ? (
             <span className="px-1 text-muted-foreground">{t('Press keys…')}</span>
+          ) : !binding ? (
+            // Unassigned: an empty slot, not the recording prompt, so only the row being recorded asks for keys.
+            <Plus aria-label={t('Add shortcut')} className="size-3.5 text-muted-foreground/60" />
           ) : (
             <ShortcutKeyCombo keys={definition.digitIndex ? digitRange(keys) : keys} />
           )}

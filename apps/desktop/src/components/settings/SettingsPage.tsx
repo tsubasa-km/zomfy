@@ -106,7 +106,7 @@ export function SettingsPage() {
             </div>
           ) : (
             <SettingsSearchProvider value={{ query, showAll: showAll || isShortcuts }}>
-              <SettingsSection id={active.id} title={active.title} description={active.description}>
+              <SettingsSection id={active.id} title={active.title}>
                 {renderPane(active.id, showAll ? '' : query)}
               </SettingsSection>
             </SettingsSearchProvider>
