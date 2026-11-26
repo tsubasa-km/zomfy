@@ -23,6 +23,7 @@ import { focusGroup, moveTabTo, openChatAt, openFilesAt, splitTabTo } from './ta
 import { sidebarDrag, type DragItem } from '@/components/sidebar/sidebar-drag'
 import './pane-split-commands'
 import { tabWorkspaceId, type WorkspaceTab } from './workspace-tab-model'
+import { cn } from '@/lib/utils'
 import { t } from '@/i18n/i18n'
 
 // The hint covers the place the new split takes: a share of the whole pane, its sidebar included.
@@ -63,6 +64,27 @@ const TabBody = memo(function TabBody({ tab }: { tab: WorkspaceTab }) {
   }
 })
 
+/**
+ * A tab's body in its error boundary: one tab that fails to render keeps to its own pane, and
+ * switching tabs remounts the boundary. Hidden, it stays mounted and laid out under the tab in
+ * front, out of sight and out of reach of focus and the pointer.
+ */
+function TabBodyFrame({ tab, hidden }: { tab: WorkspaceTab; hidden?: boolean }) {
+  return (
+    <div
+      data-tab-body={tab.id}
+      data-tab-body-hidden={hidden || undefined}
+      inert={hidden || undefined}
+      aria-hidden={hidden || undefined}
+      className={cn('flex min-h-0 min-w-0 flex-1 flex-col', hidden && 'pointer-events-none invisible absolute inset-0')}
+    >
+      <ErrorBoundary fallback={(error, reset) => <ViewError error={error} onRetry={reset} />}>
+        <TabBody tab={tab} />
+      </ErrorBoundary>
+    </div>
+  )
+}
+
 /** Orca's TabGroupPanel: one split pane with its own tab row, body, and drop targets. Memoised (see WorkspaceTabs). */
 export const TabGroupPane = memo(function TabGroupPane({
   workspaceId,
@@ -87,6 +109,13 @@ export const TabGroupPane = memo(function TabGroupPane({
   sidebar: boolean
 }) {
   const active = tabs.find((t) => t.id === activeId) ?? null
+  // The chat shown before the "New thread" tab stays mounted under it, hidden: closing the New
+  // thread tab (or going back to the chat) then shows it at once, where mounting a long chat's
+  // transcript again stalls the window for a moment. Only a chat: other kinds are cheap to mount,
+  // and a browser tab's view is not hidden by its page's styles.
+  const [lastShown, setLastShown] = useState<string | null>(null)
+  if (active && active.kind !== 'start' && active.id !== lastShown) setLastShown(active.id)
+  const behind = active?.kind === 'start' ? (tabs.find((t) => t.id === lastShown && t.kind === 'chat') ?? null) : null
   const activeChatId = active?.kind === 'chat' ? active.id : undefined
   // Among the window's tabs, the pane works in the workspace of the tab it shows: that is where its
   // "+" starts a terminal and whose drawer it pulls down. Showing none (or the "New thread" tab), it
@@ -219,13 +248,12 @@ export const TabGroupPane = memo(function TabGroupPane({
           className="relative flex min-h-0 min-w-0 flex-1 flex-col"
           style={drawer ? DRAWER_HANDLE_INSET : undefined}
         >
+          {behind && <TabBodyFrame key={`body:${behind.id}`} tab={behind} hidden />}
           {active ? (
-            // One tab that fails to render keeps to its own pane; switching tabs remounts the boundary.
             // Its key differs from the drawer's beside it: siblings sharing a key leave a closed tab's
-            // view on screen.
-            <ErrorBoundary key={`body:${active.id}`} fallback={(error, reset) => <ViewError error={error} onRetry={reset} />}>
-              <TabBody tab={active} />
-            </ErrorBoundary>
+            // view on screen. The same key keeps a chat mounted as it moves from behind the New
+            // thread tab to the front.
+            <TabBodyFrame key={`body:${active.id}`} tab={active} />
           ) : home ? (
             <EmptyPane workspaceId={home} groupId={groupId} hint={emptyHint} />
           ) : recent ? (

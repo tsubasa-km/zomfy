@@ -1,7 +1,7 @@
 import { memo, useRef, useState } from 'react'
 import { ChevronRight } from 'lucide-react'
 import { cn } from '@/lib/utils'
-import { allWorkspaces, getState, previewSession, selectSession, useStore, type Session } from '@/session-store'
+import { allProjects, allWorkspaces, getState, previewSession, selectSession, useStore, type Session } from '@/session-store'
 import { AgentStateDot } from '@/components/AgentStateDot'
 import { TuiAgentIcon } from '@/components/terminal/TuiAgentIcon'
 import { sessionAgent } from '@/lib/chat-agents'
@@ -16,6 +16,7 @@ import { chatSelection, gestureOf, keepTextUnselected } from '@/stores/list-sele
 import { beginSidebarDrag, type DragItem } from '@/components/sidebar/sidebar-drag'
 import { setChatPinned, toggleChatExpanded } from '@/stores/sidebar-store'
 import { closePagesBesideSidebar } from '@/lib/app-pages'
+import { sidebarActions } from '@/components/sidebar/ProjectActionsMenu'
 import { HoverCard, HoverCardContent, HoverCardTrigger } from '@/components/ui/hover-card'
 import { ChatCardBody, ChatHoverDetails, type ChatCardInfo } from '@/components/sidebar/ChatCard'
 import { t } from '@/i18n/i18n'
@@ -41,6 +42,13 @@ function closeChatTabs(ids: string[]): void {
     removeTabsFromLayout(workspaceId, sessions.filter((s) => s.workspaceId === workspaceId).map((s) => s.id))
   }
   hideChats(ids)
+}
+
+/** The project the chat works in; null for a quick (floating) chat, which has none. */
+function chatProject(session: Session) {
+  const workspace = allWorkspaces().find((w) => w.id === session.workspaceId)
+  if (!workspace?.projectId) return null
+  return allProjects().find((p) => p.id === workspace.projectId && p.hostId === workspace.hostId) ?? null
 }
 
 function deleteChats(sessions: Session[]): void {
@@ -103,6 +111,8 @@ export const SessionRow = memo(function SessionRow({
   const [hovered, setHovered] = useState(false)
   const [menuOpen, setMenuOpen] = useState(false)
   const renameAfterClose = useRef(false)
+  // Looked up only while the menu is open, so a row does not watch the project list.
+  const project = menuOpen ? chatProject(session) : null
   const commitRename = () => {
     if (renaming === null) return
     setRenaming(null)
@@ -332,6 +342,11 @@ export const SessionRow = memo(function SessionRow({
             >
               {session.archived ? t('Unarchive') : t('Archive')}
             </ContextMenuItem>
+            {project && sidebarActions() && (
+              <ContextMenuItem data-chat-action="project-settings" onSelect={() => sidebarActions()?.projectSettings(project)}>
+                {t('Project Settings…')}
+              </ContextMenuItem>
+            )}
             <ContextMenuSeparator />
             <ContextMenuItem variant="destructive" onSelect={() => deleteChats([session])}>
               {t('Delete thread…')}
