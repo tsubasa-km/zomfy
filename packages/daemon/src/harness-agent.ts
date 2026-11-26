@@ -21,6 +21,7 @@ import {
   type HarnessRequests,
   type TurnEndMeta,
   type PromptOrigin,
+  type SessionWakeUp,
   type TurnResumeKind,
   type ManagerToolName,
 } from "@zomfy/protocol";
@@ -49,6 +50,7 @@ import { noteSlashCommands } from "./claude-catalog.ts";
 import { expandMcpMentionsInPrompt } from "./mcp-mentions.ts";
 import { liveClaudeQueries } from "./live-claude-queries.ts";
 import { BackgroundTaskMarks } from "./background-task-marks.ts";
+import { HeldWakeUps } from "./held-wake-ups.ts";
 import { PROCESS_GONE_META, stopsOpenToolCalls, stoppedToolCallUpdates } from "./stopped-tool-calls.ts";
 import type { SessionRegistry } from "./session-registry.ts";
 import { SessionMover } from "./session-move.ts";
@@ -397,6 +399,40 @@ export function createHarnessAgent(
     }).catch(() => undefined);
   }
 
+  // What a chat has going after its turn (docs/specs/turn-taking-states.md): its process's live
+  // tasks and wake-ups, and the wake-ups the daemon holds for a process that went.
+  const liveTasks = new Map<string, string[]>();
+  const liveWakeUps = new Map<string, SessionWakeUp[]>();
+  const publishBackground = (sessionId: string): void => {
+    if (!sessions.get(sessionId)) return;
+    const tasks = liveTasks.get(sessionId) ?? [];
+    const byId = new Map([...heldWakeUps.list(sessionId), ...(liveWakeUps.get(sessionId) ?? [])].map((w) => [w.id, w]));
+    const wakeUps = [...byId.values()].sort((a, b) => (a.at ?? Infinity) - (b.at ?? Infinity));
+    const background = tasks.length > 0 || wakeUps.length > 0 ? { tasks, wakeUps } : null;
+    if (JSON.stringify(background) !== JSON.stringify(sessions.get(sessionId)?.background ?? null)) sessions.update(sessionId, { background });
+  };
+  const SCHEDULED_WAKE_UP: PromptOrigin = { kind: "harness-note", title: "Scheduled wake-up" };
+  const heldWakeUps = new HeldWakeUps({
+    fire: async (sessionId, wakeUp) => {
+      const session = sessions.get(sessionId);
+      if (!session) return "gone";
+      if (pendingTurns.has(sessionId) || cli.has(sessionId) || splits.hold(session.workspaceId)) return "busy";
+      void prompt({ sessionId, prompt: [{ type: "text", text: wakeUp.prompt || "Scheduled wake-up" }] }, askAnyClient, null, undefined, SCHEDULED_WAKE_UP).catch(
+        (error) => log(`${sessionId} could not take its scheduled wake-up: ${String(error)}`),
+      );
+      return "started";
+    },
+    notice: (sessionId, title) => void emit(sessionId, { sessionUpdate: "notice", severity: "warning", title }).catch(() => undefined),
+    changed: publishBackground,
+  });
+  // A restart ended every Claude process: the daemon fires the wake-ups they held, and no task runs.
+  for (const record of sessions.all()) {
+    if (!record.background) continue;
+    const wakeUps = record.background.wakeUps;
+    sessions.update(record.id, { background: null });
+    if (wakeUps.length > 0) heldWakeUps.hold(record.id, wakeUps, "Zomfy restarted, which ended the Claude process that ran it");
+  }
+
   type Ask =(request: acp.RequestPermissionRequest) => Promise<acp.RequestPermissionResponse>;
 
   const ASK_WAIT_MS = 5 * 60_000;
@@ -506,6 +542,8 @@ export function createHarnessAgent(
       status: "working",
       turnStartedAt: Date.now(),
       promptSuggestion: null,
+      // Whatever started it, the turn is the agent's until it ends.
+      yourTurnSince: null,
       // Orca renames a fresh agent tab after its first message.
       ...(firstTurn && text ? { title: text.replace(/\s+/g, " ").slice(0, 40) } : {}),
     });
@@ -601,7 +639,7 @@ export function createHarnessAgent(
         title: "Stopped",
         _meta: { [TURN_RECOVERY_META.turnEnd]: stopped },
       }).catch(() => undefined);
-      sessions.update(session.id, { status: "idle", turnStartedAt: null, claudeSessionId: session.claudeSessionId });
+      sessions.update(session.id, { status: "idle", turnStartedAt: null, claudeSessionId: session.claudeSessionId, yourTurnSince: Date.now() });
       autoResume.turnEnded(session.id, stopped);
       return { stopReason: "cancelled" };
     };
@@ -666,8 +704,20 @@ export function createHarnessAgent(
         onTurnEnd: (turnEnd) => (outcome.end = turnEnd),
         onPromptSuggestion: (promptSuggestion) => sessions.update(session.id, { promptSuggestion }),
         attach: woken,
-        onWake: (notification) => wakeChat(session.id, notification),
-        onBackgroundTasks: (tasks) => backgroundMarks.set(session.id, tasks),
+        onWake: (notification, wakeUp) => wakeChat(session.id, notification, wakeUp),
+        onBackgroundTasks: (tasks) => {
+          backgroundMarks.set(session.id, tasks);
+          liveTasks.set(session.id, tasks);
+          publishBackground(session.id);
+        },
+        onWakeUps: (wakeUps) => {
+          liveWakeUps.set(session.id, wakeUps);
+          publishBackground(session.id);
+        },
+        onWakeUpsOrphaned: (wakeUps) => {
+          liveWakeUps.delete(session.id);
+          heldWakeUps.hold(session.id, wakeUps, "its Claude process ended");
+        },
         onDefaultEffort: (defaultEffort) => {
           const known = sessions.get(session.id)?.defaultEffort;
           if (known?.model !== defaultEffort.model || known.effort !== defaultEffort.effort) sessions.update(session.id, { defaultEffort });
@@ -679,6 +729,7 @@ export function createHarnessAgent(
         status: outcome.end ? "error" : "idle",
         turnStartedAt: null,
         claudeSessionId: session.claudeSessionId,
+        yourTurnSince: Date.now(),
       });
       autoResume.turnEnded(session.id, outcome.end);
       if (!outcome.end) void continueAfterMove(session.id, ask, client);
@@ -703,7 +754,7 @@ export function createHarnessAgent(
         title,
         _meta: { [TURN_RECOVERY_META.turnEnd]: failed },
       }).catch(() => undefined);
-      sessions.update(session.id, { status: "error", turnStartedAt: null, claudeSessionId: session.claudeSessionId });
+      sessions.update(session.id, { status: "error", turnStartedAt: null, claudeSessionId: session.claudeSessionId, yourTurnSince: Date.now() });
       autoResume.turnEnded(session.id, failed);
       throw error;
     } finally {
@@ -719,9 +770,12 @@ export function createHarnessAgent(
   }
 
   /** A background task finished after the chat's turn: the chat takes the turn its process started. */
-  function wakeChat(sessionId: string, notification: string): void {
-    const text: acp.ContentBlock[] = notification ? [{ type: "text", text: notification }] : [];
-    void prompt({ sessionId, prompt: text }, askAnyClient, null, undefined, undefined, true).catch((error) =>
+  function wakeChat(sessionId: string, notification: string, wakeUp?: SessionWakeUp): void {
+    // A scheduled wake-up shows its prompt as a note; a task's notification shows as itself.
+    const shown = notification || wakeUp?.prompt || "";
+    const text: acp.ContentBlock[] = shown ? [{ type: "text", text: shown }] : [];
+    const origin = !notification && wakeUp ? SCHEDULED_WAKE_UP : undefined;
+    void prompt({ sessionId, prompt: text }, askAnyClient, null, undefined, origin, true).catch((error) =>
       log(`${sessionId} could not take its woken turn: ${String(error)}`),
     );
   }

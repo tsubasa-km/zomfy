@@ -49,7 +49,12 @@ import { projectLabel } from '@/components/sidebar/workspace-visibility'
 // An open chat's composer: what the chat adds to the shared input (use-native-chat-composer) and
 // box (NativeChatComposerBox). The "New thread" tab's is NewThreadComposer.
 
-type ComposerProps = { session: Session; editorRef: React.RefObject<MarkdownEditorHandle | null> }
+type ComposerProps = {
+  session: Session
+  editorRef: React.RefObject<MarkdownEditorHandle | null>
+  /** It is simply the person's turn: the box glows until they start typing (composer-waiting-glow.md). */
+  glow?: boolean
+}
 
 /**
  * The session fields the composer (and the menus it hands the session to) reads. Its session
@@ -63,10 +68,10 @@ const COMPOSER_SESSION_FIELDS = ['id', 'workspaceId', 'hostId', 'status', 'agent
 export const NativeChatComposer = memo(
   Composer,
   (prev: ComposerProps, next: ComposerProps) =>
-    prev.editorRef === next.editorRef && COMPOSER_SESSION_FIELDS.every((key) => prev.session[key] === next.session[key])
+    prev.editorRef === next.editorRef && prev.glow === next.glow && COMPOSER_SESSION_FIELDS.every((key) => prev.session[key] === next.session[key])
 )
 
-function Composer({ session, editorRef }: ComposerProps) {
+function Composer({ session, editorRef, glow = false }: ComposerProps) {
   const { usage, queue } = useChatSession(session.id)
   const catalog = useChatStore((s) => s.catalogs[session.workspaceId])
   // Models are the account's, not the folder's: when this folder's probe failed, another folder's list on the host serves.
@@ -247,7 +252,7 @@ function Composer({ session, editorRef }: ComposerProps) {
             editorRef={editorRef}
             boxRef={composerBox}
             takesTabDrops
-            waiting={session.status === 'needs-you'}
+            waiting={glow && !draft.trim() && draftImages.length === 0}
             placeholder={
               offlineNotice
                 ? t('Reconnecting to {host}… sending waits until it is back', { host: hostLabel(session.hostId) })

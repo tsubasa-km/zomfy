@@ -18,11 +18,12 @@ import { t } from '@/i18n/i18n'
 
 // Small right-aligned card badges, in the source-control panel's +/- colours.
 
+// A stopped chat is not "done" (docs/specs/turn-taking-states.md): an idle one draws the plain grey dot.
 export const SESSION_DOT: Record<Session['status'], AgentDotState> = {
   'needs-you': 'waiting',
   working: 'working',
   error: 'failed',
-  idle: 'done'
+  idle: 'idle'
 }
 
 export function DiffStatsBadge({ summary }: { summary: WorkspaceSummary | undefined }) {

@@ -18,6 +18,7 @@ import {
   type ChatPermissionMode,
   type ContextUsageMeta,
   type SessionOptions,
+  type SessionWakeUp,
   type TurnEndMeta,
   type WorkflowStepContext,
   type WorkflowStepUsage,
@@ -30,6 +31,7 @@ import { log } from "./log.ts";
 import { PROCESS_GONE_META } from "./stopped-tool-calls.ts";
 import { QUESTION_OPTIONS, QUESTION_TOOL, questionResult } from "./ask-user-question.ts";
 import { pathGuardHooks, type PathGuard } from "./step-path-guard.ts";
+import { nextCronTime } from "./cron-next.ts";
 
 export interface ClaudeSessionState {
   cwd: string;
@@ -81,8 +83,15 @@ interface TurnInput {
    * is not sent, it only says what woke the chat.
    */
   attach?: boolean;
-  /** The process started a turn between the chat's turns; `notification` is what the CLI got (may be empty). */
-  onWake?: (notification: string) => void;
+  /**
+   * The process started a turn between the chat's turns; `notification` is what the CLI got (may be
+   * empty), `wakeUp` the scheduled wake-up that was due when it started with none.
+   */
+  onWake?: (notification: string, wakeUp?: SessionWakeUp) => void;
+  /** The chat's scheduled wake-ups changed, as the Stop hook reports them (scheduled-wake-ups.md). */
+  onWakeUps?: (wakeUps: SessionWakeUp[]) => void;
+  /** The process ended with wake-ups it would still have fired: the daemon keeps them from here. */
+  onWakeUpsOrphaned?: (wakeUps: SessionWakeUp[]) => void;
   /** The chat's live background tasks changed (their descriptions; empty when none run any more). */
   onBackgroundTasks?: (tasks: string[]) => void;
   /** A turn run with no effort picked ended at this level: Claude's default for `model` (null: the default model). */
@@ -90,6 +99,19 @@ interface TurnInput {
 }
 
 const EFFORT_LEVELS: readonly ChatEffort[] = ["low", "medium", "high", "xhigh", "max"];
+
+/** What a Stop hook's input says is scheduled to wake the chat, soonest first; null when it does not say. */
+export function wakeUpsOf(hookInput: unknown, now = Date.now()): SessionWakeUp[] | null {
+  const crons = (hookInput as { session_crons?: unknown } | null)?.session_crons;
+  if (!Array.isArray(crons)) return null;
+  return crons
+    .flatMap((c: { id?: unknown; schedule?: unknown; recurring?: unknown; prompt?: unknown }) =>
+      typeof c?.id === "string" && typeof c.schedule === "string"
+        ? [{ id: c.id, at: nextCronTime(c.schedule, now), recurring: c.recurring === true, prompt: typeof c.prompt === "string" ? c.prompt : "" }]
+        : [],
+    )
+    .sort((a, b) => (a.at ?? Infinity) - (b.at ?? Infinity));
+}
 
 /** The effort a hook's input says the turn ran at, when it is one Zomfy knows. */
 export function turnEffort(hookInput: unknown): ChatEffort | null {
@@ -114,6 +136,10 @@ export interface StepOptions {
 const SUGGESTION_WAIT_MS = 15_000;
 /** How long a process idle with background tasks is kept after its last turn. */
 export const BACKGROUND_IDLE_MS = 60 * 60_000;
+/** How long past a scheduled wake-up's time its process is kept, for the CLI to fire it. */
+const WAKE_UP_GRACE_MS = 2 * 60_000;
+/** A process is kept for a wake-up at most this far ahead; one further away is left to the daemon. */
+export const WAKE_UP_KEEP_MS = 24 * 60 * 60_000;
 /** How long a turn the CLI started on its own waits for the chat to take it. */
 const WAKE_ATTACH_MS = 60_000;
 /** How long a new turn waits for a stopped process to exit, so two never write one conversation. */
@@ -194,6 +220,10 @@ interface ClaudeProcess {
   last: TurnInput;
   /** Live background tasks that are activity (not ambient), id → description. */
   tasks: Map<string, string>;
+  /** The wake-ups the CLI holds for the chat, as its last Stop hook said. */
+  wakeUps: SessionWakeUp[];
+  /** Ended on purpose (the chat archived, deleted or moved): its wake-ups go with it. */
+  dropWakeUps: boolean;
   /** A turn the CLI started that the chat has not taken yet: its messages, held in order. */
   waking: { messages: SDKMessage[]; timer: ReturnType<typeof setTimeout> } | null;
   idleTimer: ReturnType<typeof setTimeout> | null;
@@ -209,6 +239,7 @@ const STOPPED_TASKS = "The background tasks this chat was running were stopped";
 export async function releaseFinishedTurn(acpSessionId: string): Promise<void> {
   const proc = processes.get(acpSessionId);
   if (!proc) return;
+  proc.dropWakeUps = true;
   await letGo(proc, STOPPED_TASKS);
   await proc.exited;
 }
@@ -246,9 +277,25 @@ function armRelease(proc: ClaudeProcess, ms: number, why: string): void {
   }, ms);
 }
 
+/** How long to keep the process for its next wake-up; null when it has none the CLI should fire. */
+function wakeUpKeepMs(proc: ClaudeProcess, now = Date.now()): number | null {
+  const next = proc.wakeUps.find((w) => w.at !== null)?.at;
+  if (next == null) return null;
+  const ms = next - now + WAKE_UP_GRACE_MS;
+  return ms > 0 && ms <= wakeUpKeepCapMs ? ms : null;
+}
+
 function armIdle(proc: ClaudeProcess): void {
-  if (proc.tasks.size > 0) armRelease(proc, idleCapMs, "Stopped waiting for background tasks after an hour");
+  const wakeUp = wakeUpKeepMs(proc);
+  if (proc.tasks.size > 0) armRelease(proc, Math.max(idleCapMs, wakeUp ?? 0), "Stopped waiting for background tasks after an hour");
+  else if (wakeUp !== null) armRelease(proc, wakeUp, STOPPED_TASKS);
   else armRelease(proc, SUGGESTION_WAIT_MS, STOPPED_TASKS);
+}
+
+let wakeUpKeepCapMs = WAKE_UP_KEEP_MS;
+/** Tests shorten how far ahead a wake-up keeps its process. */
+export function setWakeUpKeepCapForTests(ms: number | null): void {
+  wakeUpKeepCapMs = ms ?? WAKE_UP_KEEP_MS;
 }
 
 let idleCapMs = BACKGROUND_IDLE_MS;
@@ -391,7 +438,7 @@ export async function runClaudeTurn(input: TurnInput): Promise<acp.StopReason> {
     !existing.closed &&
     !existing.turn &&
     !existing.waking &&
-    existing.tasks.size > 0 &&
+    (existing.tasks.size > 0 || wakeUpKeepMs(existing) !== null) &&
     !input.step &&
     existing.key === spawnKey(input) &&
     existing.claudeSessionId === state.claudeSessionId
@@ -473,6 +520,12 @@ async function spawn(input: TurnInput, userMessage: SDKUserMessage): Promise<acp
               async (hookInput) => {
                 const level = turnEffort(hookInput);
                 if (level && !effort) proc.last.onDefaultEffort?.({ model: model ?? null, effort: level });
+                // What the CLI will wake the chat for later (scheduled-wake-ups.md).
+                const wakeUps = wakeUpsOf(hookInput);
+                if (wakeUps && (wakeUps.length > 0 || proc.wakeUps.length > 0)) {
+                  proc.wakeUps = wakeUps;
+                  proc.last.onWakeUps?.(wakeUps);
+                }
                 return {};
               },
             ],
@@ -503,6 +556,8 @@ async function spawn(input: TurnInput, userMessage: SDKUserMessage): Promise<acp
     turn: null,
     last: input,
     tasks: new Map(),
+    wakeUps: [],
+    dropWakeUps: false,
     waking: null,
     idleTimer: null,
     chain: Promise.resolve(),
@@ -526,6 +581,13 @@ async function spawn(input: TurnInput, userMessage: SDKUserMessage): Promise<acp
       proc.waking = null;
       if (proc.tasks.size > 0) proc.last.onBackgroundTasks?.([]);
       proc.tasks.clear();
+      // Its wake-ups die with it: the daemon fires the one-shot ones itself (scheduled-wake-ups.md).
+      if (proc.wakeUps.length > 0) {
+        const pending = proc.wakeUps;
+        proc.wakeUps = [];
+        if (proc.dropWakeUps || !proc.last.onWakeUpsOrphaned) proc.last.onWakeUps?.([]);
+        else proc.last.onWakeUpsOrphaned(pending);
+      }
       endTurn(proc, { reason: proc.turn?.input.abort.signal.aborted ? "cancelled" : "end_turn" });
       prompt.close();
       if (processes.get(acpSessionId) === proc) processes.delete(acpSessionId);
@@ -554,7 +616,7 @@ async function route(proc: ClaudeProcess, message: SDKMessage): Promise<void> {
   if (!turn) {
     if (message.type === "prompt_suggestion") {
       if (message.suggestion.trim()) proc.last.onPromptSuggestion?.(message.suggestion.trim());
-      if (proc.tasks.size === 0) void letGo(proc, STOPPED_TASKS);
+      if (proc.tasks.size === 0 && wakeUpKeepMs(proc) === null) void letGo(proc, STOPPED_TASKS);
       return;
     }
     if (startsTurn(message) && !proc.closed) wake(proc, message);
@@ -629,13 +691,16 @@ function wake(proc: ClaudeProcess, first: SDKMessage): void {
     return;
   }
   const notification = shownNotification(first) ? taskNotificationText(first) : "";
+  // With no task notification, a wake-up that is due is what woke it.
+  const now = Date.now();
+  const wakeUp = notification ? undefined : proc.wakeUps.find((w) => w.at !== null && w.at <= now + 60_000);
   const timer = setTimeout(() => {
     // Nobody took it (the chat went away): its messages are dropped.
     proc.waking = null;
     armIdle(proc);
   }, WAKE_ATTACH_MS);
   proc.waking = { messages: shownNotification(first) ? [] : [first], timer };
-  onWake(notification);
+  onWake(notification, wakeUp);
 }
 
 async function forwardMessage(

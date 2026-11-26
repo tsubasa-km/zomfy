@@ -161,6 +161,7 @@ export const REMOTE_METHOD_SCOPES: Readonly<Record<string, MethodScope>> = {
   '_harness/sessions/setOptions': 'chats:operate',
   '_harness/sessions/rename': 'chats:operate',
   '_harness/sessions/setArchived': 'chats:operate',
+  '_harness/sessions/markSeen': 'chats:read',
   '_harness/terminals/list': 'terminals:operate',
   '_harness/terminals/create': 'terminals:operate',
   '_harness/terminals/attach': 'terminals:operate',

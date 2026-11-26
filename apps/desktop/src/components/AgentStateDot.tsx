@@ -45,6 +45,9 @@ export type AgentDotState =
   // vocabulary, while rendering it with the same question glyph and
   // --agent-question color as the worktree-level permission indicator.
   | 'permission'
+  // Why: a chat thread whose agent handed it back to the person (docs/specs/turn-taking-states.md);
+  // an accent dot, quieter than a question and distinct from a finished task's check.
+  | 'your-turn'
 
 /** Return the accessible label shared by every visual agent-state marker. */
 export function agentStateLabel(state: AgentDotState): string {
@@ -71,6 +74,8 @@ export function agentStateLabel(state: AgentDotState): string {
       return t('Couldn’t confirm')
     case 'permission':
       return t('Needs attention')
+    case 'your-turn':
+      return t('Your turn')
   }
 }
 
@@ -164,7 +169,9 @@ export const AgentStateDot = React.memo(function AgentStateDot({
               : // Why: a user's Stop is not news; muted, never the fault red or the finished green.
                 state === 'interrupted'
                 ? 'bg-muted-foreground'
-                : 'bg-neutral-500/40'
+                : state === 'your-turn'
+                  ? 'bg-highlight'
+                  : 'bg-neutral-500/40'
           )}
         />
       </span>

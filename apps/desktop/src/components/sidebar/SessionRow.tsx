@@ -5,7 +5,7 @@ import { allProjects, allWorkspaces, getState, previewSession, selectSession, us
 import { AgentStateDot } from '@/components/AgentStateDot'
 import { TuiAgentIcon } from '@/components/terminal/TuiAgentIcon'
 import { sessionAgent } from '@/lib/chat-agents'
-import { SESSION_DOT } from '@/components/sidebar/WorkspaceCardBadges'
+import { phaseOf, turnPhaseDot, turnPhaseLabel, type TurnPhase } from '@/lib/turn-phase'
 import { ContextMenu, ContextMenuContent, ContextMenuItem, ContextMenuSeparator, ContextMenuTrigger } from '@/components/ui/context-menu'
 import { Input } from '@/components/ui/input'
 import { closeSession } from '@/daemon-connection'
@@ -73,6 +73,7 @@ export const SessionRow = memo(function SessionRow({
   drag,
   showActive,
   fold,
+  phase,
   child,
   muted,
   card
@@ -85,8 +86,10 @@ export const SessionRow = memo(function SessionRow({
   drag?: DragItem
   /** Mark the chat that is open in the focused workspace (the project chat list has no card to mark). */
   showActive?: boolean
-  /** A parent chat's fold: how many chats sit under it, and the most pressing of their states. */
-  fold?: { count: number; expanded: boolean; status: Session['status'] }
+  /** A parent chat's fold: how many chats sit under it, and what of theirs lifts the row (Quiet: nothing). */
+  fold?: { count: number; expanded: boolean; phase: TurnPhase }
+  /** Whose turn the row is, with the chats under it; worked out from the chat alone when absent. */
+  phase?: TurnPhase
   /** Drawn indented, under its parent chat. */
   child?: boolean
   /** Drawn quieter: a chat a search found under another, not one it found at the top. */
@@ -118,10 +121,11 @@ export const SessionRow = memo(function SessionRow({
     setRenaming(null)
     void renameChat(session.id, renaming)
   }
-  // The chat list's row: the most pressing state of the chat and those under it, which decides its look.
-  const shown = fold && fold.status !== 'idle' && session.status === 'idle' ? fold.status : session.status
-  const compact = Boolean(card) && shown === 'idle' && !card?.unread
-  const working = Boolean(card) && shown === 'working' && !child
+  // The chat list's row: whose turn it is, with the chats under it, which decides its look.
+  const shown = phase ?? phaseOf(session)
+  const compact = Boolean(card) && shown === 'quiet'
+  const working = Boolean(card) && (shown === 'working' || shown === 'background') && !child
+  const foldDot = fold ? turnPhaseDot(fold.phase) : null
   const title =
     renaming !== null ? (
       <Input
@@ -171,7 +175,7 @@ export const SessionRow = memo(function SessionRow({
       }}
     >
       {fold.count}
-      {!fold.expanded && fold.status !== 'idle' && <AgentStateDot state={SESSION_DOT[fold.status]} size="sm" />}
+      {!fold.expanded && foldDot && <AgentStateDot state={foldDot} size="sm" />}
       <ChevronRight className={cn('size-3 transition-transform', fold.expanded && 'rotate-90')} />
     </button>
   )
@@ -182,7 +186,7 @@ export const SessionRow = memo(function SessionRow({
       data-chat-children={fold.count}
     >
       {fold.count}
-      {fold.status !== 'idle' && <AgentStateDot state={SESSION_DOT[fold.status]} size="sm" />}
+      {foldDot && <AgentStateDot state={foldDot} size="sm" />}
     </span>
   )
   return (
@@ -196,6 +200,7 @@ export const SessionRow = memo(function SessionRow({
       tabIndex={0}
       data-session-id={session.id}
       data-session-status={session.status}
+      data-session-phase={shown}
       data-tab-closed={tabClosed || undefined}
       data-session-selected={selected || undefined}
       data-session-open={open || undefined}
@@ -254,7 +259,7 @@ export const SessionRow = memo(function SessionRow({
           <ChatCardBody
             session={session}
             card={card}
-            status={shown}
+            phase={shown}
             title={title}
             trailing={cardFold}
             busy={renaming !== null}
@@ -276,7 +281,7 @@ export const SessionRow = memo(function SessionRow({
             </span>
           )}
           {foldBadge}
-          <AgentStateDot state={SESSION_DOT[session.status]} size="sm" />
+          <AgentStateDot state={turnPhaseDot(shown, session.status) ?? 'idle'} size="sm" title={turnPhaseLabel(shown, session.status)} />
         </>
       )}
     </div>

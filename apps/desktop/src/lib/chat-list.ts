@@ -1,18 +1,22 @@
 import { useSyncExternalStore } from 'react'
+import { foldedTurnPhase, TURN_PHASE_RANK, type TurnPhase } from '@zomfy/protocol'
 import type { Session } from '@/session-store'
+import { phaseOf } from '@/lib/turn-phase'
 import { t } from '@/i18n/i18n'
 
-// The sidebar's chat list: every chat of every project in one list, ordered by what needs the
-// person rather than by where it lives. A workflow's step chats and a side chat stay folded under
-// the chat they work for.
+// The sidebar's chat list: every chat of every project in one list, ordered by whose turn it is
+// rather than by where it lives (docs/specs/turn-taking-states.md). A workflow's step chats and a
+// side chat stay folded under the chat they work for.
 
-export type ChatSectionId = 'pinned' | 'needs-you' | 'unread' | 'working' | 'recent' | 'archived'
+export type ChatSectionId = 'pinned' | 'needs-answer' | 'your-turn' | 'working' | 'quiet' | 'archived'
 
 export interface ChatNode {
   chat: Session
   children: Session[]
-  /** The most pressing state of the chat and the chats under it. */
+  /** The most pressing status of the chat and the chats under it. */
   status: Session['status']
+  /** Whose turn the chat is, lifted by a child that needs an answer, works or has background work. */
+  phase: TurnPhase
 }
 
 const RANK: Record<Session['status'], number> = { 'needs-you': 0, error: 1, working: 2, idle: 3 }
@@ -30,7 +34,7 @@ export function activityOf(session: Session): number {
  * Top-level chats, each with the chats under it; a chat whose parent is not listed stands on its
  * own, as does a live chat whose parent was archived, so it is not shelved with it.
  */
-export function chatTree(sessions: Session[]): ChatNode[] {
+export function chatTree(sessions: Session[], phase: (s: Session) => TurnPhase = (s) => phaseOf(s)): ChatNode[] {
   const byId = new Map(sessions.map((s) => [s.id, s]))
   const above = (s: Session): Session | undefined => {
     const up = byId.get(parentOf(s) ?? '')
@@ -53,7 +57,7 @@ export function chatTree(sessions: Session[]): ChatNode[] {
       // Children read in the order they were started: a workflow's steps, then its helpers.
       const children = sessions.filter((s) => s !== chat && roots.get(s.id) === chat).sort((a, b) => a.createdAt - b.createdAt)
       const status = [chat, ...children].reduce<Session['status']>((top, s) => (RANK[s.status] < RANK[top] ? s.status : top), 'idle')
-      return { chat, children, status }
+      return { chat, children, status, phase: foldedTurnPhase(phase(chat), children.map(phase)) }
     })
 }
 
@@ -70,30 +74,26 @@ export function searchTree(nodes: ChatNode[], matches: (s: Session) => boolean):
 
 /** Most pressing first, then the most recently active. */
 export function byUrgency(a: ChatNode, b: ChatNode): number {
-  return RANK[a.status] - RANK[b.status] || activityOf(b.chat) - activityOf(a.chat)
+  return TURN_PHASE_RANK[a.phase] - TURN_PHASE_RANK[b.phase] || activityOf(b.chat) - activityOf(a.chat)
 }
 
 /**
- * The list cut by state, as T3 Code's: what needs the person, then what finished since they last
- * looked, then what is working, then the rest, settled. Pinned chats keep the order they were
- * pinned in; archived ones sit in their own shelf.
+ * The list cut by whose turn it is: what waits for the person's answer, what is their turn, what
+ * is working (background work with it), then what has gone quiet. Pinned chats keep the order they
+ * were pinned in; archived ones sit in their own shelf.
  */
-export function chatSections(
-  nodes: ChatNode[],
-  pinned: string[],
-  unread: (sessionId: string) => boolean = () => false
-): { id: ChatSectionId; nodes: ChatNode[] }[] {
+export function chatSections(nodes: ChatNode[], pinned: string[]): { id: ChatSectionId; nodes: ChatNode[] }[] {
   const pinOrder = new Map(pinned.map((id, i) => [id, i]))
   const live = nodes.filter((n) => !n.chat.archived)
   const rest = live.filter((n) => !pinOrder.has(n.chat.id))
   const recent = (list: ChatNode[]) => [...list].sort((a, b) => activityOf(b.chat) - activityOf(a.chat))
-  const idle = rest.filter((n) => n.status === 'idle')
   return [
     { id: 'pinned' as const, nodes: live.filter((n) => pinOrder.has(n.chat.id)).sort((a, b) => pinOrder.get(a.chat.id)! - pinOrder.get(b.chat.id)!) },
-    { id: 'needs-you' as const, nodes: recent(rest.filter((n) => n.status === 'needs-you' || n.status === 'error')) },
-    { id: 'unread' as const, nodes: recent(idle.filter((n) => unread(n.chat.id))) },
-    { id: 'working' as const, nodes: recent(rest.filter((n) => n.status === 'working')) },
-    { id: 'recent' as const, nodes: recent(idle.filter((n) => !unread(n.chat.id))) },
+    { id: 'needs-answer' as const, nodes: recent(rest.filter((n) => n.phase === 'needs-answer')) },
+    { id: 'your-turn' as const, nodes: recent(rest.filter((n) => n.phase === 'your-turn')) },
+    // A turn running sits above background work, which goes on by itself.
+    { id: 'working' as const, nodes: [...recent(rest.filter((n) => n.phase === 'working')), ...recent(rest.filter((n) => n.phase === 'background'))] },
+    { id: 'quiet' as const, nodes: recent(rest.filter((n) => n.phase === 'quiet')) },
     { id: 'archived' as const, nodes: recent(nodes.filter((n) => n.chat.archived)) }
   ].filter((section) => section.nodes.length > 0)
 }
@@ -102,14 +102,14 @@ export function chatSectionLabel(id: ChatSectionId): string {
   switch (id) {
     case 'pinned':
       return t('Pinned')
-    case 'needs-you':
-      return t('Needs you')
-    case 'unread':
-      return t('Done')
+    case 'needs-answer':
+      return t('Needs your answer')
+    case 'your-turn':
+      return t('Your turn')
     case 'working':
       return t('Working')
-    case 'recent':
-      return t('Settled')
+    case 'quiet':
+      return t('Quiet')
     case 'archived':
       return t('Archived')
   }

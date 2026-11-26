@@ -8,7 +8,7 @@ import type { SessionInfo } from '@zomfy/protocol'
 import { visibleChat } from '../src/lib/host-tree'
 import { AskCard } from '../src/ui/AskCard'
 import { app } from '../src/ui/app-model'
-import { Button, Empty, StatusDot, styles, TabBar } from '../src/ui/components'
+import { Button, Empty, PhaseDot, styles, TabBar } from '../src/ui/components'
 import { useAllConnectionStates, useAsks, useObservable } from '../src/ui/hooks'
 import { t } from '../src/ui/i18n'
 
@@ -49,7 +49,7 @@ export default function NeedsYouScreen() {
         {waiting.map(({ hostId, session }) => (
           <Pressable key={`${hostId}/${session.id}`} style={styles.card} onPress={() => openChat(hostId, session.id)}>
             <View style={styles.row}>
-              <StatusDot status={session.status} />
+              <PhaseDot info={session} />
               <Text style={[styles.text, { flex: 1 }]} numberOfLines={1}>
                 {session.title || t('Untitled chat')}
               </Text>

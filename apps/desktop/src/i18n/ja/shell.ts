@@ -1547,5 +1547,22 @@ export const SHELL: Record<string, string> = {
   // components/QuickStart.tsx (where a new thread starts)
   'Choose where the thread starts': 'スレッドを始める場所を選ぶ',
   'New worktree': '新しい worktree',
-  'Another project or host…': '別のプロジェクトやホスト…'
+  'Another project or host…': '別のプロジェクトやホスト…',
+  // lib/turn-phase.ts, sidebar, tabs, thread and session panel (docs/specs/turn-taking-states.md)
+  'Needs your answer': '回答待ち',
+  'Background work running': 'バックグラウンドで作業中',
+  Quiet: '静か',
+  Background: 'バックグラウンド',
+  'Wakes {time}': '{time} に再開',
+  'wakes at {time}': '{time} に再開',
+  '{first} and {n} more': '{first} ほか {n} 件',
+  'The thread goes on by itself': '終わると自動で続きます',
+  'Background work': 'バックグラウンドの作業',
+  Repeats: '繰り返し',
+  'Scheduled wake-up': '予約した再開',
+  'Quiet after': '「静か」に移すまで',
+  'How long a thread you have seen stays under Your turn before it goes Quiet.': '見たスレッドが「あなたの番です」から「静か」に移るまでの時間。',
+  Never: '移さない',
+  'How the place you act next shows it is your turn: a question or approval card, or the composer.':
+    '次に操作する場所（質問・承認のカード、または入力欄）が、あなたの番であることをどう示すか。'
 }

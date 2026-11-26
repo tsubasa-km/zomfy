@@ -112,6 +112,8 @@ export interface AppSettings {
   chatWaitingGlow: ChatWaitingGlow
   /** "+" menu items pinned as tab-strip buttons, in pin order (docs/specs/new-tab-menu-and-pins.md). */
   newTabPins: string[]
+  /** Hours a seen thread stays Your turn after its last activity before it goes Quiet; 0 never (docs/specs/turn-taking-states.md). */
+  chatQuietAfterHours: number
 }
 
 /** Bumped with each move of a saved default; a window saved before it gets the move once. */
@@ -175,7 +177,8 @@ export const DEFAULT_SETTINGS: AppSettings = {
   settingsRevision: SETTINGS_REVISION,
   relayFeatures: ['phone'],
   chatWaitingGlow: 'rainbow',
-  newTabPins: ['terminal']
+  newTabPins: ['terminal'],
+  chatQuietAfterHours: 24
 }
 
 export type SettingKey = keyof AppSettings
