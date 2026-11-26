@@ -1,5 +1,8 @@
 # Directory Update Log
 
+## 2026-11-26
+* **Creation**: [The Import dialog](specs/import-dialog.md), implemented: one Import… with a source picker listing what the host has (Orca's projects on this computer, each chat agent's recorded conversations), replacing Import from Orca and Import threads. [The Add a project dialog](specs/add-project-dialog.md) now edits and checks a clone's folder name and sets the project's display name in every tab.
+
 ## 2026-11-25
 * **Creation**: [A GitHub or GitLab account per project](specs/project-hosting-accounts.md), implemented: `Project.hostingAccount`, the host's gh/glab accounts and GitLab tokens Zomfy keeps in the OS credential store, the account's token in the environment of Zomfy's gh/glab calls and of the project's agents, a repo-local git credential helper for HTTPS pushes, and an Account field in Project Settings.
 * **Creation**: [The Add a project dialog](specs/add-project-dialog.md), implemented: one dialog with Open folder, Clone and New repository tabs, a host row only when there are several hosts, what the folder is shown as it is typed, the account picked as the project is added, and publishing a new repository to GitHub.

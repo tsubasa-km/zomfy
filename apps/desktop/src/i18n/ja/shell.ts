@@ -1503,5 +1503,32 @@ export const SHELL: Record<string, string> = {
   'Sign in with glab, or give Zomfy a token to keep in the system credential store.': 'glab でサインインするか、トークンを Zomfy に渡してシステムの資格情報ストアに保管します。',
   'Personal access token for {host}': '{host} の個人アクセストークン',
   'Create a token on {host} (api, read_repository, write_repository)': '{host} でトークンを作成（api、read_repository、write_repository）',
-  'Sign in with glab instead': '代わりに glab でサインイン'
+  'Sign in with glab instead': '代わりに glab でサインイン',
+
+  // components/import/ImportDialog.tsx (docs/specs/import-dialog.md)
+  Import: 'インポート',
+  'Import…': 'インポート…',
+  'Import from': 'インポート元',
+  'Looking for {sources}…': '{sources} を探しています…',
+  'Conversations {agent} recorded on {host}. An imported thread keeps its transcript, and your next message continues the conversation.':
+    '{host} で {agent} が記録した会話です。インポートしたスレッドには会話の内容が残り、次のメッセージでその会話を続けられます。',
+  'Projects and past conversations from other apps on {host}.': '{host} にある他のアプリのプロジェクトや過去の会話です。',
+  'Looking for things to import on {host}…': '{host} でインポートできるものを探しています…',
+  'Nothing to import on {host}.': '{host} にはインポートできるものがありません。',
+  "Zomfy imports Orca's projects (on this computer) and the conversations Claude Code, Codex and the other chat agents recorded on a host.":
+    'Zomfy がインポートできるのは、Orca のプロジェクト（このコンピューター上）と、Claude Code、Codex などのチャットエージェントがホストに記録した会話です。',
+
+  // components/sidebar/AddRepoPanels.tsx, AddRepoDialog.tsx (display name, clone folder name)
+  "The folder's name": 'フォルダー名',
+  'Shown in the sidebar; editable later.': 'サイドバーに表示。あとで変更できます。',
+  'Folder name': 'フォルダー名',
+  'From the repository URL': 'リポジトリの URL から',
+  "The repository's name unless you change it.": '変更しなければリポジトリ名になります。',
+  '{path} already exists.': '{path} はすでに存在します。',
+  'Enter a folder name.': 'フォルダー名を入力してください。',
+  'A folder name cannot hold / or \\.': 'フォルダー名に / や \\ は使えません。',
+  'A folder name cannot hold < > : " | ? * or control characters.': 'フォルダー名に < > : " | ? * や制御文字は使えません。',
+  'A folder name cannot end in a dot.': 'フォルダー名の末尾にドットは使えません。',
+  'Pick a name other than . or ..': '. や .. 以外の名前にしてください',
+  'Windows reserves this name; pick another.': 'この名前は Windows で予約されています。別の名前にしてください。'
 }

@@ -13,18 +13,20 @@ import {
 import { harnessRequest, hostForPath } from '@/daemon-connection'
 import { findWorkspace, getState, useStore, type HostId } from '@/session-store'
 import { defaultHostId } from '@/lib/default-host'
-import { closeAddProjectDialog, setOrcaImportOpen, useAddProjectRequest } from '@/lib/project-dialogs'
+import { closeAddProjectDialog, useAddProjectRequest } from '@/lib/project-dialogs'
+import { openImport } from '@/stores/import-store'
 import { addFolderProject, addPickedProject, completeProjectAdd } from '@/lib/project-add-completion'
 import { folderStatus, hostPills, publishAccounts as githubAccounts, showHostRow, tabForStep, type AddTab } from '@/lib/add-project-form'
 import { guessProvider } from '@/lib/hosting-account-choice'
 import { useHostAccounts } from '@/lib/hosting-accounts'
-import { joinHostPath, projectFolderName, repoFolderName } from '@/lib/project-target-path'
+import { displayNameToSend, folderNameProblem, joinHostPath, projectFolderName, repoFolderName, type FolderNameProblem } from '@/lib/project-target-path'
+import { folderName as lastSegment } from '@/lib/thread-import'
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Label } from '@/components/ui/label'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { AddRepoHostRow } from '@/components/sidebar/AddRepoHostRow'
-import { ClonePanel, CreatePanel, OpenFolderPanel, fieldLabel, type PublishDraft } from '@/components/sidebar/AddRepoPanels'
+import { ClonePanel, CreatePanel, DisplayNameField, OpenFolderPanel, fieldLabel, submitOnEnter, type PublishDraft } from '@/components/sidebar/AddRepoPanels'
 import { HostingAccountField } from '@/components/sidebar/HostingAccountField'
 import { SshConnectDialog } from '@/components/sidebar/SshConnectDialog'
 import { t } from '@/i18n/i18n'
@@ -50,6 +52,23 @@ const canPickOn = (hostId: HostId) => isTauri() && (hostId === 'local' || hostId
 function pickerStart(hostId: HostId, near: string): string | undefined {
   if (!hostId.startsWith('wsl:') || !near.startsWith('/')) return undefined
   return `\\\\wsl.localhost\\${hostId.slice(4)}${near.replaceAll('/', '\\')}`
+}
+
+function folderNameText(problem: FolderNameProblem): string {
+  switch (problem) {
+    case 'empty':
+      return t('Enter a folder name.')
+    case 'separator':
+      return t('A folder name cannot hold / or \\.')
+    case 'character':
+      return t('A folder name cannot hold < > : " | ? * or control characters.')
+    case 'trailing':
+      return t('A folder name cannot end in a dot.')
+    case 'dots':
+      return t('Pick a name other than . or ..')
+    case 'reserved':
+      return t('Windows reserves this name; pick another.')
+  }
 }
 
 function message(error: unknown): string {
@@ -92,6 +111,9 @@ export function AddRepoDialog() {
   const [path, setPath] = useState('')
   const [url, setUrl] = useState('')
   const [name, setName] = useState('')
+  // null: the clone's folder follows the URL's repository name.
+  const [cloneName, setCloneName] = useState<string | null>(null)
+  const [displayName, setDisplayName] = useState('')
   const [account, setAccount] = useState<HostingAccountRef | null>(null)
   const [publish, setPublish] = useState<PublishDraft>({ on: false, account: null, owner: '', visibility: 'private' })
   const [error, setError] = useState<string | null>(null)
@@ -107,6 +129,8 @@ export function AddRepoDialog() {
     setPath('')
     setUrl('')
     setName('')
+    setCloneName(null)
+    setDisplayName('')
     setAccount(null)
     setPublish({ on: false, account: null, owner: '', visibility: 'private' })
     setError(null)
@@ -138,6 +162,15 @@ export function AddRepoDialog() {
   const urlRemote = useDebounced<HostingRemoteInfo | null>(open && tab === 'clone' && url.trim() ? `${hostId}\n${url.trim()}` : null, () =>
     harnessRequest(HARNESS_METHODS.hostingRemoteOf, { url: url.trim() }, hostId)
   )
+  // The clone's folder: the repository's name until edited, checked here and then on the host.
+  const cloneNameInput = cloneName ?? (url.trim() ? repoFolderName(url) : '')
+  const cloneNameIssue = url.trim() ? folderNameProblem(cloneNameInput) : null
+  const cloneFolder = cloneNameIssue ? '' : projectFolderName(cloneNameInput)
+  const cloneTarget = cloneFolder && cloneParent.trim() ? joinHostPath(cloneParent, cloneFolder) : cloneParent.trim()
+  const cloneTargetCheck = useDebounced<FolderInspection>(open && tab === 'clone' && cloneFolder && cloneParent.trim() ? `${hostId}\n${cloneTarget}` : null, () =>
+    harnessRequest(HARNESS_METHODS.projectInspectFolder, { path: cloneTarget }, hostId)
+  )
+  const cloneTargetExists = cloneTargetCheck?.exists === true
   const remote: HostingRemoteInfo | null = tab === 'open' ? (inspection?.remote ?? null) : tab === 'clone' ? (urlRemote ?? null) : null
   const remoteKey = remote ? `${remote.provider}|${remote.host}` : ''
   // Another host or provider has other accounts: the choice starts over at the active one.
@@ -211,17 +244,40 @@ export function AddRepoDialog() {
 
   const status = folderStatus(path, tab === 'open' && path.trim() ? inspection : null)
   const canOpen = !!path.trim() && !busy && connected && inspection?.exists !== false
-  const canClone = !!url.trim() && !!cloneParent.trim() && !busy && connected && !gitMissing
+  const canClone = !!url.trim() && !!cloneFolder && !cloneTargetExists && !!cloneParent.trim() && !busy && connected && !gitMissing
   const canCreate = !!name.trim() && !!createParent.trim() && !busy && connected && !gitMissing && hostDefaults !== undefined
+
+  // The display name each tab sends: what was typed, else the tab's default, unless that is the folder's own name.
+  const openFolderName = lastSegment(inspection?.path ?? path.trim())
+  const openDisplayName = displayNameToSend(displayName, '', openFolderName)
+  const cloneDisplayName = displayNameToSend(displayName, '', cloneFolder)
+  const createDisplayName = displayNameToSend(displayName, name.trim(), projectFolderName(name.trim()))
+  const displayNameField = (placeholder: string, canSubmitTab: boolean, submitTab: () => unknown) => (
+    <DisplayNameField
+      value={displayName}
+      placeholder={placeholder}
+      busy={busy}
+      onChange={(v) => {
+        setDisplayName(v)
+        changed()
+      }}
+      onEnter={submitOnEnter(canSubmitTab, () => void submitTab())}
+    />
+  )
 
   const addFolder = () =>
     run(async () => {
       const where = path.trim()
+      const named = openDisplayName ? { displayName: openDisplayName } : {}
       // A daemon without inspectFolder, or Enter before it answered: the flow that asks before adding a non-Git folder.
-      if (inspection == null) return addPickedProject(hostId, where)
-      if (inspection?.kind === 'folder') return addFolderProject(hostId, where)
+      if (inspection == null) return addPickedProject(hostId, where, named)
+      if (inspection?.kind === 'folder') return addFolderProject(hostId, where, named)
       return completeProjectAdd(hostId, () =>
-        harnessRequest(HARNESS_METHODS.projectAdd, { path: where, requireGit: true, ...(chosenAccount ? { hostingAccount: chosenAccount } : {}) }, hostId)
+        harnessRequest(
+          HARNESS_METHODS.projectAdd,
+          { path: where, requireGit: true, ...named, ...(chosenAccount ? { hostingAccount: chosenAccount } : {}) },
+          hostId
+        )
       )
     })
   const clone = () =>
@@ -229,7 +285,13 @@ export function AddRepoDialog() {
       completeProjectAdd(hostId, () =>
         harnessRequest(
           HARNESS_METHODS.projectClone,
-          { url: url.trim(), parentPath: cloneParent.trim(), ...(chosenAccount ? { hostingAccount: chosenAccount } : {}) },
+          {
+            url: url.trim(),
+            parentPath: cloneParent.trim(),
+            ...(cloneName !== null ? { name: cloneFolder } : {}),
+            ...(cloneDisplayName ? { displayName: cloneDisplayName } : {}),
+            ...(chosenAccount ? { hostingAccount: chosenAccount } : {})
+          },
           hostId
         )
       )
@@ -244,6 +306,7 @@ export function AddRepoDialog() {
           {
             parentPath: createParent.trim(),
             name: name.trim(),
+            ...(createDisplayName ? { displayName: createDisplayName } : {}),
             ...(publishAs ? { publish: { account: publishAs, owner: publish.owner.trim() || undefined, visibility: publish.visibility } } : {})
           },
           hostId
@@ -272,7 +335,6 @@ export function AddRepoDialog() {
           ? t('Create and publish')
           : t('Create project')
 
-  const cloneTarget = url.trim() && cloneParent.trim() ? joinHostPath(cloneParent, repoFolderName(url)) : cloneParent.trim()
   const folderName = projectFolderName(name.trim() || 'project-name')
   const createTarget = createParent.trim() ? joinHostPath(createParent, folderName) : ''
   const linkTo = request?.linkTo?.name
@@ -352,12 +414,22 @@ export function AddRepoDialog() {
                 }}
                 onPick={picker ? () => void browse() : undefined}
                 onSubmit={() => void addFolder()}
+                displayName={displayNameField(openFolderName, canOpen, addFolder)}
                 account={accountField}
               />
             </TabsContent>
             <TabsContent value="clone">
               <ClonePanel
                 url={url}
+                folderName={cloneNameInput}
+                folderProblem={cloneNameIssue ? folderNameText(cloneNameIssue) : null}
+                folderNote={cloneFolder && cloneFolder !== cloneNameInput.trim() ? t('The folder is named {name}.', { name: cloneFolder }) : null}
+                targetProblem={cloneTargetExists ? t('{path} already exists.', { path: cloneTarget }) : null}
+                displayName={displayNameField(cloneFolder, canClone, clone)}
+                onFolderNameChange={(v) => {
+                  setCloneName(v)
+                  changed()
+                }}
                 parent={cloneParent}
                 target={cloneTarget}
                 busy={busy}
@@ -397,6 +469,7 @@ export function AddRepoDialog() {
                 typedParent={!picker}
                 publishAccounts={publishable}
                 publish={publish}
+                displayName={displayNameField(name.trim(), canCreate, create)}
                 onNameChange={(v) => {
                   setName(v)
                   changed()
@@ -428,13 +501,13 @@ export function AddRepoDialog() {
               <button
                 type="button"
                 className="text-xs text-muted-foreground transition-colors hover:text-foreground"
-                data-add-repo-orca-import
+                data-add-repo-import
                 onClick={() => {
                   closeAddProjectDialog()
-                  setOrcaImportOpen(true)
+                  openImport({ source: 'orca', hostId })
                 }}
               >
-                {t('Import from Orca…')}
+                {t('Import…')}
               </button>
               {!showHostRow(pills) && (
                 <button type="button" className="text-xs text-muted-foreground transition-colors hover:text-foreground" onClick={() => setSshOpen(true)} data-add-repo-other-machine>

@@ -41,7 +41,7 @@ export function registerWorkspaceHandlers(ctx: HandlerContext): void {
 
   handle(HARNESS_METHODS.stateGet, () => workspaces.snapshot());
   handle(HARNESS_METHODS.projectAdd, async (p) => {
-    const project = await workspaces.addProject(expandHome(p.path), { requireGit: p.requireGit === true });
+    const project = await workspaces.addProject(expandHome(p.path), { requireGit: p.requireGit === true, displayName: p.displayName });
     return giveAccount(workspaces, hostingAccounts(), project, p.hostingAccount);
   });
   handle(HARNESS_METHODS.projectInspectFolder, (p) => inspectFolder(expandHome(p.path)));
@@ -130,10 +130,10 @@ export function registerWorkspaceHandlers(ctx: HandlerContext): void {
   handle(HARNESS_METHODS.projectClone, async (p) => {
     const accounts = hostingAccounts();
     const path = await cloneRepository(p.url, p.parentPath, p.name, await cloneAuth(accounts, p.url, p.hostingAccount));
-    return giveAccount(workspaces, accounts, await workspaces.addProject(path), p.hostingAccount);
+    return giveAccount(workspaces, accounts, await workspaces.addProject(path, { displayName: p.displayName }), p.hostingAccount);
   });
   handle(HARNESS_METHODS.projectCreateRepo, async (p) => {
-    const project = await workspaces.addProject(await createRepository(p.parentPath, p.name));
+    const project = await workspaces.addProject(await createRepository(p.parentPath, p.name), { displayName: p.displayName });
     if (!p.publish) return project;
     // The account first, so the push gh makes goes through its credential helper.
     const accounts = hostingAccounts();

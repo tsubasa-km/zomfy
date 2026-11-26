@@ -61,16 +61,16 @@ export async function completeProjectAdd(hostId: HostId, add: () => Promise<Proj
  * Adds a folder the user picked. A folder outside git is not added until the user confirms it
  * (Orca's NonGitFolderDialog); returns null then. An older daemon ignores `requireGit` and adds it.
  */
-export async function addPickedProject(hostId: HostId, path: string): Promise<Project | null> {
+export async function addPickedProject(hostId: HostId, path: string, extra: { displayName?: string } = {}): Promise<Project | null> {
   try {
-    return await completeProjectAdd(hostId, () => harnessRequest(HARNESS_METHODS.projectAdd, { path, requireGit: true }, hostId))
+    return await completeProjectAdd(hostId, () => harnessRequest(HARNESS_METHODS.projectAdd, { path, requireGit: true, ...extra }, hostId))
   } catch (error) {
     if (!(error instanceof Error) || !error.message.includes(NOT_A_GIT_REPOSITORY)) throw error
-    confirmNonGitFolder({ hostId, path })
+    confirmNonGitFolder({ hostId, path, ...extra })
     return null
   }
 }
 
-export function addFolderProject(hostId: HostId, path: string): Promise<Project> {
-  return completeProjectAdd(hostId, () => harnessRequest(HARNESS_METHODS.projectAdd, { path }, hostId))
+export function addFolderProject(hostId: HostId, path: string, extra: { displayName?: string } = {}): Promise<Project> {
+  return completeProjectAdd(hostId, () => harnessRequest(HARNESS_METHODS.projectAdd, { path, ...extra }, hostId))
 }

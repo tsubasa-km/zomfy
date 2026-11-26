@@ -2,7 +2,7 @@ import { describe, expect, test } from 'bun:test'
 import type { FolderInspection, HostingAccount } from '@zomfy/protocol'
 import { folderStatus, hostPills, publishAccounts, showHostRow, tabForStep } from '../src/lib/add-project-form.ts'
 import { accountChoiceNeeded, accountFromValue, accountsForRemote, accountValue, activeLogin, guessProvider } from '../src/lib/hosting-account-choice.ts'
-import { joinHostPath, repoFolderName } from '../src/lib/project-target-path.ts'
+import { displayNameToSend, folderNameProblem, joinHostPath, projectFolderName, repoFolderName } from '../src/lib/project-target-path.ts'
 import type { HostEntry } from '../src/session-store.ts'
 
 // docs/specs/add-project-dialog.md and docs/specs/project-hosting-accounts.md.
@@ -122,5 +122,51 @@ describe('where it lands', () => {
   test('clone target from the URL and the host’s own separators', () => {
     expect(joinHostPath('C:\\Users\\me\\zomfy', repoFolderName('https://github.com/o/repo.git'))).toBe('C:\\Users\\me\\zomfy\\repo')
     expect(joinHostPath('/home/me/zomfy', repoFolderName('git@github.com:o/repo'))).toBe('/home/me/zomfy/repo')
+  })
+})
+
+describe('the clone folder name', () => {
+  test('a usable name passes, spaces around it trimmed', () => {
+    expect(folderNameProblem('repo')).toBeNull()
+    expect(folderNameProblem('  my repo ')).toBeNull()
+    expect(folderNameProblem('.config')).toBeNull()
+  })
+
+  test('says why a name cannot be a folder', () => {
+    expect(folderNameProblem('')).toBe('empty')
+    expect(folderNameProblem('   ')).toBe('empty')
+    expect(folderNameProblem('a/b')).toBe('separator')
+    expect(folderNameProblem('a\\b')).toBe('separator')
+    expect(folderNameProblem('what?')).toBe('character')
+    expect(folderNameProblem('a:b')).toBe('character')
+    expect(folderNameProblem('tab\there')).toBe('character')
+    expect(folderNameProblem('repo.')).toBe('trailing')
+    expect(folderNameProblem('.')).toBe('dots')
+    expect(folderNameProblem('..')).toBe('dots')
+    expect(folderNameProblem('CON')).toBe('reserved')
+    expect(folderNameProblem('nul.txt')).toBe('reserved')
+    expect(folderNameProblem('com1')).toBe('reserved')
+    expect(folderNameProblem('console')).toBeNull()
+  })
+
+  test('the folder really made, as the daemon names it', () => {
+    expect(projectFolderName('my repo')).toBe('my-repo')
+    expect(joinHostPath('/home/me/zomfy', projectFolderName('fork-of-repo'))).toBe('/home/me/zomfy/fork-of-repo')
+  })
+})
+
+describe('the display name sent', () => {
+  test('nothing for an untouched field or the folder’s own name', () => {
+    expect(displayNameToSend('', '', 'repo')).toBeUndefined()
+    expect(displayNameToSend('  repo ', '', 'repo')).toBeUndefined()
+  })
+
+  test('what was typed, trimmed', () => {
+    expect(displayNameToSend(' Storefront ', '', 'repo')).toBe('Storefront')
+  })
+
+  test('New repository: the name as typed when its folder differs', () => {
+    expect(displayNameToSend('', 'My Project', projectFolderName('My Project'))).toBe('My Project')
+    expect(displayNameToSend('', 'my-project', projectFolderName('my-project'))).toBeUndefined()
   })
 })
