@@ -10,6 +10,7 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/component
 import { TuiAgentIcon } from '@/components/terminal/TuiAgentIcon'
 import { loadChatAgents, setChatAgents, useChatAgents } from '@/lib/chat-agents'
 import { cn } from '@/lib/utils'
+import { useSaveState } from '@/lib/use-save-state'
 import { SettingsRow, SettingsSwitchRow, TextField } from './settings-form-controls'
 import { SearchableSetting, useSettingsSearchQuery } from './SettingsSection'
 import { t } from '@/i18n/i18n'
@@ -98,8 +99,14 @@ function ChatAgentRow({ host, agent }: { host: HostEntry; agent: ChatAgentInfo }
   const [savingChrome, setSavingChrome] = useState(false)
   const run = (patch: ChatAgentLaunchPatch) =>
     setLaunch(host, agent.id, patch).then(
-      () => setError(null),
-      (e: unknown) => setError(e instanceof Error ? e.message : String(e))
+      () => {
+        setError(null)
+        return true
+      },
+      (e: unknown) => {
+        setError(e instanceof Error ? e.message : String(e))
+        return false
+      }
     )
   return (
     <Collapsible open={searching || open} onOpenChange={setOpen} className="not-has-[[data-setting-row]]:hidden" data-chat-agent={agent.id}>
@@ -126,7 +133,7 @@ function ChatAgentRow({ host, agent }: { host: HostEntry; agent: ChatAgentInfo }
       </SearchableSetting>
       <CollapsibleContent animation="height">
         <div className="space-y-2 pb-3 pl-6">
-          {agent.consent !== undefined ? <ConsentSection agent={agent} onChange={(consent) => run({ consent })} /> : null}
+          {agent.consent !== undefined ? <ConsentSection agent={agent} onChange={async (consent) => void (await run({ consent }))} /> : null}
           {agent.codexConnection !== undefined ? (
             <SettingsRow
               label={t('Codex connection')}
@@ -280,7 +287,7 @@ function EnvironmentEditor({
   onChange
 }: {
   agent: ChatAgentInfo
-  onChange: (env: { name: string; value: string | null }) => Promise<void>
+  onChange: (env: { name: string; value: string | null }) => Promise<boolean>
 }) {
   const [newName, setNewName] = useState('')
   return (
@@ -312,8 +319,9 @@ function EnvironmentEditor({
               name={newName.trim()}
               saved={false}
               onSave={async (value) => {
-                await onChange({ name: newName.trim(), value })
+                if (!(await onChange({ name: newName.trim(), value }))) return false
                 setNewName('')
+                return true
               }}
             />
           ) : null}
@@ -330,14 +338,21 @@ function EnvironmentValueRow({
 }: {
   name: string
   saved: boolean
-  onSave: (value: string | null) => Promise<void>
+  onSave: (value: string | null) => Promise<boolean>
 }) {
   const [value, setValue] = useState('')
-  const [pending, setPending] = useState(false)
-  const write = (next: string | null) => {
-    setPending(true)
-    void onSave(next).finally(() => {
-      setPending(false)
+  const [removing, setRemoving] = useState(false)
+  // The value is secret and never read back: anything typed is unsaved, and only then is Save offered.
+  const { dirty, saving, justSaved, save } = useSaveState('', value, async () => {
+    // A failed save keeps what was typed; the row's error says why.
+    if (!(await onSave(value))) return false
+    setValue('')
+  })
+  const pending = saving || removing
+  const remove = () => {
+    setRemoving(true)
+    void onSave(null).finally(() => {
+      setRemoving(false)
       setValue('')
     })
   }
@@ -351,16 +366,25 @@ function EnvironmentValueRow({
           value={value}
           readOnly={pending}
           onChange={(event) => setValue(event.target.value)}
+          onKeyDown={(event) => {
+            if (event.key === 'Enter' && dirty && !pending) void save()
+          }}
           aria-label={t('Value for {name}', { name })}
           placeholder={saved ? t('Saved value · enter to replace') : t('Value')}
           spellCheck={false}
           className="h-7 text-xs"
         />
-        <Button type="button" size="xs" disabled={!value || pending} onClick={() => write(value)}>
-          {t('Save')}
-        </Button>
+        {dirty || saving ? (
+          <Button type="button" size="xs" disabled={pending} onClick={() => void save()} data-env-save>
+            {saving ? t('Saving…') : t('Save')}
+          </Button>
+        ) : justSaved ? (
+          <span className="text-xs text-muted-foreground" data-env-saved>
+            {t('Saved')}
+          </span>
+        ) : null}
         {saved ? (
-          <Button type="button" variant="ghost" size="xs" disabled={pending} onClick={() => write(null)}>
+          <Button type="button" variant="ghost" size="xs" disabled={pending} onClick={remove}>
             {t('Remove')}
           </Button>
         ) : null}

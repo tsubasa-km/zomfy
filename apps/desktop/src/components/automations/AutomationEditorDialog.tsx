@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react'
+import { sameFormValue } from '@/lib/use-save-state'
 import {
   HARNESS_METHODS,
   isChatAgentId,
@@ -115,7 +116,10 @@ function EditorBody({
   onDone: () => void
 }) {
   const preset = useBotPreset(existing, botPreset)
-  const [draft, setDraft] = useState<AutomationDraft>(() => initialAutomationDraft(existing, defaultWorkspace, LOCAL_HOST, preset))
+  const [initialDraft] = useState<AutomationDraft>(() => initialAutomationDraft(existing, defaultWorkspace, LOCAL_HOST, preset))
+  const [draft, setDraft] = useState<AutomationDraft>(initialDraft)
+  // An automation already saved is saved again only when something differs.
+  const dirty = !existing || !sameFormValue(initialDraft, draft)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const hosts = useStore((s) => s.hosts)
@@ -437,7 +441,7 @@ function EditorBody({
         <Button variant="outline" onClick={onDone}>
           {t('Cancel')}
         </Button>
-        <Button disabled={saving || botProblem !== null} data-automation-save onClick={() => void save()}>
+        <Button disabled={saving || !dirty || botProblem !== null} data-automation-save onClick={() => void save()}>
           {saving ? t('Saving…') : existing ? t('Save') : t('Create')}
         </Button>
       </DialogFooter>

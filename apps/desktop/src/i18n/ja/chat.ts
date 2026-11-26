@@ -722,5 +722,8 @@ export const CHAT: Record<string, string> = {
   'Opens a terminal on this host running claude auth login; finish signing in in the browser.':
     'このホストでターミナルを開いて claude auth login を実行します。サインインはブラウザで完了してください。',
   "Couldn't open Claude's sign-in: {error}. Run `claude auth login` in a terminal on this host, then try again.":
-    'Claude のサインインを開けませんでした: {error}。このホストのターミナルで `claude auth login` を実行してから、もう一度試してください。'
+    'Claude のサインインを開けませんでした: {error}。このホストのターミナルで `claude auth login` を実行してから、もう一度試してください。',
+
+  // components/native-chat/NativeChatComposer.tsx (Stop pressed, the agent still winding down)
+  'Stopping…': '停止中…'
 }

@@ -42,3 +42,5 @@
 * [A GitHub or GitLab account per project](project-hosting-accounts.md) - each project picks the account Zomfy, its agents and git use for its remote, through the CLI's env and a repo-local credential helper, never by switching
 * [The Add a project dialog](add-project-dialog.md) - one dialog with Open folder, Clone and New repository tabs, an inline host row only when there are several hosts, and the project's account
 * [The Import dialog](import-dialog.md) - one Import… with a source picker listing what is found on the host: Orca's projects and each agent CLI's recorded conversations
+* [Stop ends a turn at once, and the Send and Stop buttons stay true](reliable-stop.md) - Stop ends a Claude turn when pressed whatever its process does, says "Stopping…" while an agent winds down, and a prompt just sent keeps its chat working until the host reports the turn
+* [Save is offered only when something changed](save-buttons.md) - settings with a Save step compare the form with what is saved: Save is disabled or hidden until something differs, reads "Saving…" while it runs, and closes or says "Saved" when done

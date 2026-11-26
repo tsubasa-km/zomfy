@@ -19,6 +19,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { SshTagBadge } from './SshTagBadge'
+import { useSaveState } from '@/lib/use-save-state'
 import { t } from '@/i18n/i18n'
 
 // RLogin's server list: saved logins, in folders, each tagged with how careful to be there. A login
@@ -189,7 +190,8 @@ function ConnectionForm({
   onSave: (draft: SshConnectionInput) => Promise<void>
 }) {
   const [draft, setDraft] = useState(initial)
-  const [saving, setSaving] = useState(false)
+  // A saved login is saved again only when something differs.
+  const { dirty, saving, save } = useSaveState(initial, draft, () => onSave(draft))
   const set = (patch: Partial<SshConnectionInput>) => setDraft((d) => ({ ...d, ...patch }))
   const hostError = draft.host.trim() ? sshConnectionHostError(draft.host) : null
   const portText = draft.port === null ? '' : String(draft.port)
@@ -214,8 +216,8 @@ function ConnectionForm({
       data-ssh-form
       onSubmit={(e) => {
         e.preventDefault()
-        setSaving(true)
-        void onSave(draft).finally(() => setSaving(false))
+        if (existing && !dirty) return
+        void save()
       }}
     >
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
@@ -263,8 +265,8 @@ function ConnectionForm({
         <Button type="button" variant="ghost" size="sm" onClick={onCancel}>
           {t('Cancel')}
         </Button>
-        <Button type="submit" size="sm" disabled={saving || !draft.host.trim() || !!hostError} data-ssh-save>
-          {existing ? t('Save') : t('Add')}
+        <Button type="submit" size="sm" disabled={saving || (existing && !dirty) || !draft.host.trim() || !!hostError} data-ssh-save>
+          {saving ? t('Saving…') : existing ? t('Save') : t('Add')}
         </Button>
       </div>
     </form>

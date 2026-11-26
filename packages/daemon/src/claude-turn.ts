@@ -116,6 +116,24 @@ const SUGGESTION_WAIT_MS = 15_000;
 export const BACKGROUND_IDLE_MS = 60 * 60_000;
 /** How long a turn the CLI started on its own waits for the chat to take it. */
 const WAKE_ATTACH_MS = 60_000;
+/** How long a new turn waits for a stopped process to exit, so two never write one conversation. */
+const STOPPED_EXIT_WAIT_MS = 5_000;
+/** How long a turn joining a kept process waits for it to take a control request. */
+const CONTROL_WAIT_MS = 5_000;
+
+/** Resolves when `signal` aborts (at once if it already has), or after `ms`. */
+function abortedOrAfter(signal: AbortSignal, ms: number): Promise<void> {
+  return new Promise<void>((resolve) => {
+    if (signal.aborted) return resolve();
+    const timer = setTimeout(done, ms);
+    function done(): void {
+      clearTimeout(timer);
+      signal.removeEventListener("abort", done);
+      resolve();
+    }
+    signal.addEventListener("abort", done, { once: true });
+  });
+}
 
 let startQuery: typeof query = query;
 /** Tests run turns against a fake SDK stream. */
@@ -313,8 +331,13 @@ function attach(proc: ClaudeProcess, input: TurnInput): Promise<acp.StopReason> 
   if (proc.idleTimer) clearTimeout(proc.idleTimer);
   proc.idleTimer = null;
   proc.last = input;
-  const kill = (): void => proc.kill();
-  input.abort.signal.addEventListener("abort", kill);
+  // Stop ends the turn at once: the process is killed, but its exit (and the end of its message
+  // stream) can lag well behind, and the chat must not keep saying it works until then.
+  const stop = (): void => {
+    proc.kill();
+    if (proc.turn?.input === input) endTurn(proc, { reason: "cancelled" });
+  };
+  input.abort.signal.addEventListener("abort", stop);
   const done = new Promise<acp.StopReason>((settle, fail) => {
     proc.turn = {
       input,
@@ -322,11 +345,11 @@ function attach(proc: ClaudeProcess, input: TurnInput): Promise<acp.StopReason> 
       progress: newProgress(),
       settle,
       fail,
-      unlink: () => input.abort.signal.removeEventListener("abort", kill),
+      unlink: () => input.abort.signal.removeEventListener("abort", stop),
     };
   });
   input.onQuery?.(proc.query);
-  if (input.abort.signal.aborted) kill();
+  if (input.abort.signal.aborted) stop();
   return done;
 }
 
@@ -373,12 +396,23 @@ export async function runClaudeTurn(input: TurnInput): Promise<acp.StopReason> {
     existing.key === spawnKey(input) &&
     existing.claudeSessionId === state.claudeSessionId
   ) {
-    await existing.query.setPermissionMode(state.options.permissionMode).catch(() => undefined);
+    // A process busy with its tasks may be slow to answer; a Stop meanwhile must still end the turn.
+    await Promise.race([
+      existing.query.setPermissionMode(state.options.permissionMode).catch(() => undefined),
+      abortedOrAfter(input.abort.signal, CONTROL_WAIT_MS),
+    ]);
+    // Stopped before the prompt reached the process: its background tasks go on.
+    if (input.abort.signal.aborted) return "cancelled";
     const done = attach(existing, input);
     existing.push(userMessage);
     return done;
   }
-  if (existing) void letGo(existing, STOPPED_TASKS);
+  if (existing) {
+    void letGo(existing, STOPPED_TASKS);
+    // A stopped turn's process may still be ending its tools and writing the conversation.
+    if (existing.closed) await Promise.race([existing.exited, abortedOrAfter(input.abort.signal, STOPPED_EXIT_WAIT_MS)]);
+  }
+  if (input.abort.signal.aborted) return "cancelled";
   return spawn(input, userMessage);
 }
 
@@ -390,6 +424,9 @@ async function spawn(input: TurnInput, userMessage: SDKUserMessage): Promise<acp
   const processAbort = new AbortController();
 
   await mkdir(CHAT_ATTACHMENT_DIR, { recursive: true }).catch(() => undefined);
+  const executable = await resolveClaudeExecutable();
+  // Stopped while the process was being set up: none is started.
+  if (input.abort.signal.aborted) return "cancelled";
   const mcpServers = { ...input.mcpServers, ...input.step?.mcpServers };
   const allowedTools = [...(input.allowedTools ?? []), ...(input.step?.allowedTools ?? [])];
   // Claude Code's own Workflow tool runs workflows from its settings folders, not the project's: in a
@@ -404,7 +441,7 @@ async function spawn(input: TurnInput, userMessage: SDKUserMessage): Promise<acp
       // Snapshots messages point at (terminal screens, other chats); reading them needs no approval.
       additionalDirectories: [CHAT_ATTACHMENT_DIR, ...(input.step?.additionalDirectories ?? [])],
       resume: state.claudeSessionId ?? undefined,
-      pathToClaudeCodeExecutable: await resolveClaudeExecutable(),
+      pathToClaudeCodeExecutable: executable,
       settingSources: ["user", "project", "local"],
       includePartialMessages: true,
       abortController: processAbort,
@@ -500,6 +537,8 @@ async function spawn(input: TurnInput, userMessage: SDKUserMessage): Promise<acp
 
 /** Delivers one message: to the running turn, to a turn being woken, or to the process between turns. */
 async function route(proc: ClaudeProcess, message: SDKMessage): Promise<void> {
+  // Killed (a Stop): what it still says until it exits belongs to no turn, nor starts one.
+  if (proc.closed && !proc.turn) return;
   if (message.type === "system" && message.subtype === "background_tasks_changed") {
     const had = proc.tasks.size;
     proc.tasks = new Map(message.tasks.filter((t) => !t.ambient).map((t) => [t.task_id, t.description]));

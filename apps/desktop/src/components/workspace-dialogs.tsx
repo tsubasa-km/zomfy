@@ -15,6 +15,7 @@ import {
 } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { useSaveState } from '@/lib/use-save-state'
 import { t } from '@/i18n/i18n'
 
 // Shaped after Orca's DeleteWorktreeDialog (with its dirty-change hint) and WorktreeMetaDialog.
@@ -158,8 +159,11 @@ export function UpdateWorkspaceDialog({
     setError(null)
   }, [workspace])
 
-  async function save() {
-    if (!workspace) return
+  const saved = { displayName: workspace?.displayName ?? workspace?.name ?? '', comment: workspace?.comment ?? '' }
+  const { dirty, saving, save: submit } = useSaveState(saved, { displayName, comment }, save)
+
+  async function save(): Promise<boolean> {
+    if (!workspace) return false
     try {
       await harnessRequest(HARNESS_METHODS.workspaceUpdate, {
         workspaceId: workspace.id,
@@ -170,8 +174,10 @@ export function UpdateWorkspaceDialog({
         }
       })
       onClose()
+      return true
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e))
+      return false
     }
   }
 
@@ -186,7 +192,7 @@ export function UpdateWorkspaceDialog({
           className="space-y-4"
           onSubmit={(e) => {
             e.preventDefault()
-            void save()
+            if (dirty) void submit()
           }}
         >
           <div className="space-y-1.5">
@@ -217,7 +223,9 @@ export function UpdateWorkspaceDialog({
             <Button type="button" variant="outline" onClick={onClose}>
               {t('Cancel')}
             </Button>
-            <Button type="submit">{t('Save')}</Button>
+            <Button type="submit" disabled={!dirty || saving} data-workspace-details-save>
+              {saving ? t('Saving…') : t('Save')}
+            </Button>
           </DialogFooter>
         </form>
       </DialogContent>

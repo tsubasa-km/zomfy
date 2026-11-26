@@ -508,7 +508,8 @@ export function createHarnessAgent(
       try {
         return await ask({ ...request, sessionId: session.id });
       } finally {
-        if (pendingTurns.get(session.id) === abort) sessions.update(session.id, { status: "working" });
+        // A Stop answered the ask: the turn is ending, and must not read as working again.
+        if (pendingTurns.get(session.id) === abort && !abort.signal.aborted) sessions.update(session.id, { status: "working" });
       }
     };
 

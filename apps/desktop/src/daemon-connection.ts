@@ -59,6 +59,8 @@ import {
   findWorkspace,
   batchUpdates,
   batchUntilFrame,
+  beginSend,
+  endSend,
   forgetHost,
   getState,
   whenState,
@@ -695,12 +697,13 @@ export async function sendPrompt(sessionId: string, text: string, images: ChatIm
   const session = getState().sessions.find((s) => s.id === sessionId);
   if (!session) return false;
   const before = session.status;
-  // The daemon echoes the prompt back as a user_message_chunk and owns the status from here.
-  updateSession(sessionId, (s) => ({ ...s, status: "working", turnStartedAt: Date.now() }));
+  // The daemon echoes the prompt back as a user_message_chunk and owns the status once it reports the turn.
+  const send = beginSend(sessionId);
   let conn: acp.ClientConnection;
   try {
     conn = await requireConnection(session.hostId);
   } catch (error) {
+    endSend(sessionId, send, false);
     updateSession(sessionId, (s) => ({
       ...s,
       status: before,
@@ -721,10 +724,13 @@ export async function sendPrompt(sessionId: string, text: string, images: ChatIm
     // No turn ran for it (its conversation is open in a Claude terminal, the chat is a split's helper
     // at work, or it was stopped while waiting on a merge): the message goes back into the box.
     if (promptNotSent(reply._meta)) {
+      endSend(sessionId, send, false);
       updateSession(sessionId, (s) => ({ ...s, status: before, turnStartedAt: null }));
       return false;
     }
+    endSend(sessionId, send, true);
   } catch (error) {
+    endSend(sessionId, send, true);
     // The link dropped, not the turn: it goes on there, and the reconnect replays what it did.
     if (conn.signal.aborted) return true;
     // The daemon records a failed turn's error before replying; only a failure to reach it is new.

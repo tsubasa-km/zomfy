@@ -1531,4 +1531,7 @@ export const SHELL: Record<string, string> = {
   'A folder name cannot end in a dot.': 'フォルダー名の末尾にドットは使えません。',
   'Pick a name other than . or ..': '. や .. 以外の名前にしてください',
   'Windows reserves this name; pick another.': 'この名前は Windows で予約されています。別の名前にしてください。'
+  // lib/use-save-state.ts (Save offered only with unsaved changes)
+  'Nothing has changed': '変更はありません',
+  'Saved': '保存しました'
 }

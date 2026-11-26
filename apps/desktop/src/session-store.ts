@@ -14,6 +14,7 @@ import type {
 } from '@zomfy/protocol'
 import { LEGACY_NEW_CHAT_TITLE, NEW_CHAT_TITLE } from '@zomfy/protocol'
 import { WINDOW_ROLE, WINDOW_WORKSPACE_ID } from '@/lib/window-role'
+import { SendsInFlight } from '@/lib/sends-in-flight'
 import {
   carriesOverOpenChats,
   carryOverOpenChats,
@@ -643,18 +644,20 @@ export function mergeSessions(hostId: HostId, list: SessionInfo[]): void {
         if (activeWorkspaceId === old.workspaceId) activeWorkspaceId = info.workspaceId
       }
     }
+    // A prompt this window sent is working before the host says so (lib/sends-in-flight).
+    const turn = sendsInFlight.shown(info.id, { status: info.status, turnStartedAt: info.turnStartedAt })
     let items = old?.items ?? []
     // The turn just ended: draw Orca's settled status line under it.
-    if (old?.loaded && old.turnStartedAt !== null && info.turnStartedAt === null) {
+    if (old?.loaded && old.turnStartedAt !== null && turn.turnStartedAt === null) {
       const seconds = Math.max(1, Math.round((Date.now() - old.turnStartedAt) / 1000))
       items = [...items, { kind: 'notice', text: t('Worked for {seconds}s', { seconds }) }]
     }
-    const session: Session = { ...info, title: shownTitle(info.title), hostId, workspaceId: info.workspaceId, items, loaded: old?.loaded ?? false }
+    const session: Session = { ...info, ...turn, title: shownTitle(info.title), hostId, workspaceId: info.workspaceId, items, loaded: old?.loaded ?? false }
     sessions.push(session)
-    if (old && old.status !== info.status) {
-      transitions.push({ session, from: old.status, to: info.status })
+    if (old && old.status !== session.status) {
+      transitions.push({ session, from: old.status, to: session.status })
       // Orca marks a workspace unread when its agent finishes or asks, until the user looks.
-      if (info.status === 'needs-you' || (old.status === 'working' && info.status !== 'working')) {
+      if (session.status === 'needs-you' || (old.status === 'working' && session.status !== 'working')) {
         unread[info.id] = true
       }
     }
@@ -695,6 +698,29 @@ export function removeSession(sessionId: string): void {
     else delete activeSessionByWorkspace[session.workspaceId]
   }
   set({ ...state, sessions, activeSessionByWorkspace })
+}
+
+const sendsInFlight = new SendsInFlight()
+
+/** The window sent a prompt: the chat reads as working until the host reports its turn (lib/sends-in-flight). */
+export function beginSend(id: string): symbol {
+  const now = Date.now()
+  const token = sendsInFlight.start(id, now)
+  updateSession(id, (s) => ({ ...s, status: 'working', turnStartedAt: now }))
+  return token
+}
+
+/**
+ * The prompt's request settled. With `apply`, what the host last reported while it was in flight
+ * takes effect now, as a status change; without, the caller puts the chat back itself.
+ */
+export function endSend(id: string, token: symbol, apply: boolean): void {
+  const held = sendsInFlight.finish(id, token)
+  const session = state.sessions.find((s) => s.id === id)
+  if (!apply || !held || !session) return
+  const next: Session = { ...session, ...held }
+  set({ ...state, sessions: state.sessions.map((s) => (s.id === id ? next : s)) })
+  if (session.status !== next.status) for (const listener of transitionListeners) listener({ session: next, from: session.status, to: next.status })
 }
 
 export function updateSession(id: string, change: (s: Session) => Session): void {
