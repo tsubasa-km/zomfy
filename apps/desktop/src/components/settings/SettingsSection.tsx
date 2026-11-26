@@ -23,24 +23,23 @@ export function useSettingsSearchQuery(): string {
 export function SettingsSection({
   id,
   title,
-  description,
   headerAction,
   bodyClassName,
   children
 }: {
   id: string
   title: string
-  description: string
   headerAction?: ReactNode
   bodyClassName?: string
   children: ReactNode
 }) {
   return (
     <section id={id} data-settings-section={id} className="scroll-mt-8 space-y-6">
+      {/* The title alone: the section's one-line summary (settings-navigation) only restated the rows
+          below it, which name and explain themselves; it still feeds the settings search. */}
       <div className="flex flex-wrap items-start justify-between gap-4 border-b border-border/60 pb-5">
-        <div className="min-w-0 space-y-2">
+        <div className="min-w-0">
           <h2 className="text-2xl leading-tight font-semibold text-foreground">{title}</h2>
-          <p className="max-w-3xl text-sm leading-6 text-muted-foreground">{description}</p>
         </div>
         {headerAction ? <div className="shrink-0">{headerAction}</div> : null}
       </div>

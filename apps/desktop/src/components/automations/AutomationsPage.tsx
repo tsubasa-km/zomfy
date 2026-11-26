@@ -127,7 +127,6 @@ export function AutomationsPage() {
         <PageCloseButton label={t('Close automations')} onClick={() => setAutomationsPageOpen(false)} />
         <CalendarClock className="size-4 text-muted-foreground" />
         <h1 className="text-[13px] font-semibold">{t('Automations')}</h1>
-        <span className="text-[11px] text-muted-foreground">{t("Run on each host's daemon, even with this window closed")}</span>
         <Button
           size="sm"
           className="ml-auto"
