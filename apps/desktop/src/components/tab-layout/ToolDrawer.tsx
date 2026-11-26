@@ -105,13 +105,13 @@ export function ToolDrawer({
   const dock = useDrawerDock()
   const side = isDrawerSide(dock.edge)
   const depth = useDrawerDepth(dock.edge)
-  const openOnHover = useSetting('drawerOpenAction') === 'hover'
+  const canMoveDrawer = useSetting('drawerOpenAction') === 'click'
   const drag = useRef<DockDrag | null>(null)
   const ignorePointerClick = useRef(false)
   const [preview, setPreview] = useState<DockPreview | null>(null)
   const resizing = useRef(false)
   const timer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
-  useEffect(() => () => clearTimeout(timer.current), [openOnHover])
+  useEffect(() => () => clearTimeout(timer.current), [canMoveDrawer])
   // A terminal or browser opened from here comes to the front.
   const known = useRef<Set<string> | null>(null)
   const toolIds = tools.map((t) => t.id).join(',')
@@ -206,6 +206,10 @@ export function ToolDrawer({
   }
 
   useEffect(() => {
+    if (!canMoveDrawer) {
+      finishDrag()
+      return
+    }
     const onEscape = (event: KeyboardEvent) => {
       if (event.key !== 'Escape' || !drag.current) return
       event.preventDefault()
@@ -214,7 +218,7 @@ export function ToolDrawer({
     }
     window.addEventListener('keydown', onEscape, true)
     return () => window.removeEventListener('keydown', onEscape, true)
-  }, [])
+  }, [canMoveDrawer])
 
   const dragEvents = {
     onPointerDown: startDrag,
@@ -296,23 +300,25 @@ export function ToolDrawer({
 
   const positionStyle = { '--drawer-position': `${dock.position * 100}%` } as React.CSSProperties
   const countTitle = `${terminals === 1 ? t('{n} terminal', { n: terminals }) : t('{n} terminals', { n: terminals })} · ${browsers === 1 ? t('{n} browser', { n: browsers }) : t('{n} browsers', { n: browsers })}`
+  const dragHint = canMoveDrawer ? ` · ${t('Drag to move the drawer')}` : ''
+  const handleCursor = canMoveDrawer ? 'cursor-grab' : 'cursor-pointer'
   return (
     <div ref={rootRef} style={positionStyle} className="tool-drawer pointer-events-none absolute inset-0 z-10 [container-type:size] [--tab-top-inset:0px]">
       <button
         type="button"
-        className={cn('tool-drawer__tab group text-muted-foreground hover:text-foreground', shown ? 'invisible' : 'pointer-events-auto cursor-grab', preview && 'opacity-0')}
+        className={cn('tool-drawer__tab group text-muted-foreground hover:text-foreground', shown ? 'invisible' : 'pointer-events-auto', handleCursor, preview && 'opacity-0')}
         data-drawer-handle
         data-edge={dock.edge}
         aria-label={t('Open the tool drawer')}
         aria-expanded={shown}
-        title={`${countTitle} · ${t('Drag to move the drawer')}`}
-        {...dragEvents}
-        onPointerEnter={openOnHover ? () => later(true, OPEN_DELAY_MS) : undefined}
+        title={countTitle + dragHint}
+        {...(canMoveDrawer ? dragEvents : undefined)}
+        onPointerEnter={canMoveDrawer ? undefined : () => later(true, OPEN_DELAY_MS)}
         onPointerLeave={() => {
           if (!drag.current && !shown) clearTimeout(timer.current)
         }}
         onClick={(event) => {
-          if (event.detail && ignorePointerClick.current) return
+          if (canMoveDrawer && event.detail && ignorePointerClick.current) return
           setOpen(true)
         }}
       >
@@ -464,18 +470,19 @@ export function ToolDrawer({
         </div>
         <button
           type="button"
-          title={`${pinned ? t('Unpin') : t('Keep open')} · ${t('Drag to move the drawer')}`}
+          title={(pinned ? t('Unpin') : t('Keep open')) + dragHint}
           aria-label={pinned ? t('Unpin') : t('Keep open')}
           aria-pressed={pinned}
-          {...dragEvents}
+          {...(canMoveDrawer ? dragEvents : undefined)}
           onClick={(event) => {
-            if (event.detail && ignorePointerClick.current) return
+            if (canMoveDrawer && event.detail && ignorePointerClick.current) return
             setPinned(!pinned)
             setOpen(true)
           }}
           className={cn(
             'tool-drawer__tab group/pin',
-            shown && 'pointer-events-auto cursor-grab',
+            shown && 'pointer-events-auto',
+            handleCursor,
             preview && 'opacity-0',
             pinned ? 'text-white' : 'text-muted-foreground hover:text-foreground'
           )}

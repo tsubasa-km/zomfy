@@ -76,7 +76,7 @@ export const TOUR_STEPS: TourStep[] = [
   {
     chapter: t('Layout'),
     title: t('The tool drawer'),
-    body: t('The drawer holds the workspace’s tools. Drag its handle along the edge or pull it toward another edge to move it.'),
+    body: t('The drawer holds the workspace’s tools. Choose Open on click in Settings to move its handle by dragging.'),
     target: '[data-drawer-handle]',
     optional: true,
     action: {
