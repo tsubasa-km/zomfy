@@ -16,6 +16,8 @@ export type ChatSendKey = 'mod-enter' | 'enter'
 export type ChatAfterSend = 'stay' | 'new-chat'
 /** How an agent's thinking rows start: closed, open when the reply after them is short, or open. */
 export type ChatThinkingDisplay = 'collapsed' | 'short-reply' | 'expanded'
+/** How the composer's border shows that the chat waits for the person (docs/specs/composer-waiting-glow.md). */
+export type ChatWaitingGlow = 'rainbow' | 'pulse' | 'outline' | 'off'
 
 /** Orca's floatingTerminalTriggerLocation: where the floating workspace toggle lives. */
 export type FloatingWorkspaceTriggerLocation = 'floating-button' | 'status-bar'
@@ -102,6 +104,12 @@ export interface AppSettings {
   chatThinkingDisplay: ChatThinkingDisplay
   /** Which one-time moves of saved values (SETTINGS_REVISION) these settings have had. */
   settingsRevision: number
+  /** The Zomfy Relay features the person wants (docs/specs/relay-settings.md): `phone`, `discord`, … */
+  relayFeatures: string[]
+  /** docs/specs/composer-waiting-glow.md */
+  chatWaitingGlow: ChatWaitingGlow
+  /** "+" menu items pinned as tab-strip buttons, in pin order (docs/specs/new-tab-menu-and-pins.md). */
+  newTabPins: string[]
 }
 
 /** Bumped with each move of a saved default; a window saved before it gets the move once. */
@@ -161,7 +169,10 @@ export const DEFAULT_SETTINGS: AppSettings = {
   chatAfterSend: 'stay',
   chatMemosEnabled: true,
   chatThinkingDisplay: 'expanded',
-  settingsRevision: SETTINGS_REVISION
+  settingsRevision: SETTINGS_REVISION,
+  relayFeatures: ['phone'],
+  chatWaitingGlow: 'rainbow',
+  newTabPins: ['terminal']
 }
 
 export type SettingKey = keyof AppSettings

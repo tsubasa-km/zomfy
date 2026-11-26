@@ -13,7 +13,7 @@ export function NonGitFolderDialog() {
 
   function confirm() {
     if (!request) return
-    void addFolderProject(request.hostId, request.path).catch((e: unknown) =>
+    void addFolderProject(request.hostId, request.path, request.displayName ? { displayName: request.displayName } : {}).catch((e: unknown) =>
       toast.error(t('Failed to add folder'), { description: e instanceof Error ? e.message : String(e) })
     )
     confirmNonGitFolder(null)

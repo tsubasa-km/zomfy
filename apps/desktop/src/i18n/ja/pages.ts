@@ -1366,5 +1366,12 @@ export const PAGES: Record<string, string> = {
 
   // components/settings/ChatAgentLaunchSettings.tsx (Claude in Chrome)
   'Starts this host’s Claude chats with Claude in Chrome, so they can use your Chrome. Needs the Claude in Chrome extension installed and Chrome running. A project can override this in its settings.':
-    'このホストの Claude チャットを Claude in Chrome 付きで起動し、あなたの Chrome を使えるようにします。Claude in Chrome 拡張機能のインストールと Chrome の起動が必要です。プロジェクトごとにプロジェクト設定で上書きできます。'
+    'このホストの Claude チャットを Claude in Chrome 付きで起動し、あなたの Chrome を使えるようにします。Claude in Chrome 拡張機能のインストールと Chrome の起動が必要です。プロジェクトごとにプロジェクト設定で上書きできます。',
+
+  // components/settings/InputEditingPane.tsx (Waiting glow)
+  'Waiting glow': '入力待ちの光彩',
+  'How the composer’s border shows that the thread waits for your answer.': 'スレッドが回答を待つ間の入力欄の枠の光り方。',
+  Rainbow: 'レインボー',
+  'Accent pulse': 'アクセントの明滅',
+  'Static outline': '静止した枠線'
 }

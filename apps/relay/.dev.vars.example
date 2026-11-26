@@ -4,6 +4,10 @@
 # Required: lets the first host register (128-bit random, e.g. `openssl rand -hex 16`).
 SETUP_CODE=
 
+# Optional: the features to serve, from phone, discord, slack, github, linear, webhooks
+# (e.g. `phone,discord`). Empty serves the phone, webhooks and every source with its secrets.
+FEATURES=
+
 # Discord: General Information → Application ID and Public Key; Bot → Reset Token (README, "Discord")
 DISCORD_APPLICATION_ID=
 DISCORD_PUBLIC_KEY=

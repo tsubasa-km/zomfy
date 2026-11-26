@@ -66,14 +66,11 @@ The daemon side is built ([daemon](daemon.md#methods)); the app needs only these
 
 ## Settings → Bots
 
-1. **Relay**: Worker URL and setup code fields, **Pair**, status (connected, last hello, host id),
-   **Unpair**, and **Deploy to Cloudflare** / "or run `bun run deploy`" links to the guide. The
-   same relay serves the phone ([pairing](../mobile/pairing.md)).
-2. **Sources**: a card per source (Discord, Slack, GitHub, Linear, Webhooks) showing whether the
-   deployment has it configured (from `hello-ok` features), the URLs to paste into the source
-   (interactions endpoint, events URL, webhook URL) with copy buttons, and a link to the source's
-   setup steps.
-3. **Bots**: list, **Create bot** (name, handle, avatar, purpose, agent, model, permission mode,
+1. **Relay**: a one-line summary (state and sources) with **Relay settings**; pairing, what the
+   relay serves, the sources' URLs and setup moved to Settings → Zomfy Relay
+   ([relay settings](../relay-settings.md)). The same relay serves the phone
+   ([pairing](../mobile/pairing.md)).
+2. **Bots**: list, **Create bot** (name, handle, avatar, purpose, agent, model, permission mode,
    home: a new folder `~/zomfy/bots/<handle>` by default, or an existing repository), and per bot:
    - **Open SOUL.md**, **Open MEMORY.md** (opened in Zomfy's editor), Open home folder.
    - **Who can ask** per source: the owner's own id per source (with "how to find my id" help) and

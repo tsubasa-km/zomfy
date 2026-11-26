@@ -71,6 +71,17 @@ export interface ConnectorStatus {
   lastConnectedAt: number | null
   retryAt: number | null
   error: string | null
+  /**
+   * The relay's features served now (`phone`, `discord`, … `webhooks`), from its `/health`
+   * (docs/specs/relay-settings.md). Absent on older daemons and relays.
+   */
+  features?: string[]
+  /** For a wanted source, the names of the secrets the relay still lacks; names only. */
+  missing?: Record<string, string[]>
+  /** Whether the relay's features come from its `FEATURES` variable or from which secrets are set. */
+  featuresFrom?: 'FEATURES' | 'secrets'
+  /** The relay's own version, from `/health`. */
+  relayVersion?: string
 }
 
 export interface BotAccessRequest {

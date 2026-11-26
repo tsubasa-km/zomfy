@@ -1,5 +1,11 @@
 # Directory Update Log
 
+## 2026-11-26
+* **Creation**: [Adding a tab: the "+" menu, pins, new chats and terminals that pick their place](specs/new-tab-menu-and-pins.md), done: any `+` menu item (chats, terminal, agents, quick commands, workflows, SSH logins, browser, panels) can be pinned as a tab-strip button (`newTabPins`, Terminal by default, replacing the Terminal button); a new chat opens the New thread screen on the current workspace, whose chip picks another workspace, a new worktree or another project; `New Terminal…` picks host, folder and shell.
+* **Creation**: [The Import dialog](specs/import-dialog.md), implemented: one Import… with a source picker listing what the host has (Orca's projects on this computer, each chat agent's recorded conversations), replacing Import from Orca and Import threads. [The Add a project dialog](specs/add-project-dialog.md) now edits and checks a clone's folder name and sets the project's display name in every tab.
+* **Creation**: [Stop ends a turn at once, and the Send and Stop buttons stay true](specs/reliable-stop.md), done: a stopped Claude turn settles on the abort instead of on its process's exit, the next turn waits for that exit, a Stop during a permission ask no longer reads as working, the window keeps a just-sent chat working until its host reports the turn, and Stop shows "Stopping…".
+* **Creation**: [Save is offered only when something changed](specs/save-buttons.md), done: `lib/use-save-state.ts` behind Project Settings, Workspace details, Edit bot, workflow agent, SSH login, automation and the agents' environment values.
+
 ## 2026-11-25
 * **Creation**: [A GitHub or GitLab account per project](specs/project-hosting-accounts.md), implemented: `Project.hostingAccount`, the host's gh/glab accounts and GitLab tokens Zomfy keeps in the OS credential store, the account's token in the environment of Zomfy's gh/glab calls and of the project's agents, a repo-local git credential helper for HTTPS pushes, and an Account field in Project Settings.
 * **Creation**: [The Add a project dialog](specs/add-project-dialog.md), implemented: one dialog with Open folder, Clone and New repository tabs, a host row only when there are several hosts, what the folder is shown as it is typed, the account picked as the project is added, and publishing a new repository to GitHub.
@@ -50,3 +56,5 @@
 * **Creation**: [Signing in to Claude from a chat](specs/claude-sign-in.md), done: a signed-out turn offers "Sign in to Claude" and "Try again".
 * **Creation**: [The thinking effort shows in the composer](specs/composer-effort.md), done.
 * **Update**: [Thinking that holds the answer shows open](specs/visible-thinking.md): thinking now starts expanded by default; [The Next steps card](specs/next-steps-card.md) no longer answers a wrap_up made before any reply differently.
+* **Creation**: [Zomfy Relay settings, its features, and setting it up with an agent](specs/relay-settings.md), in progress.
+* **Update**: [Zomfy Relay settings, its features, and setting it up with an agent](specs/relay-settings.md) is implemented: Settings → Zomfy Relay, the Worker's `FEATURES` and richer `/health`, and Set up with an agent.

@@ -19,16 +19,16 @@ export interface AddProjectRequest {
 export interface NonGitFolderRequest {
   hostId: HostId
   path: string
+  /** The display name the Add a project dialog was given. */
+  displayName?: string
 }
 
 const addProjectRequests = createExternalStore<AddProjectRequest | null>(null)
 const nonGitFolderRequests = createExternalStore<NonGitFolderRequest | null>(null)
-const orcaImportOpen = createExternalStore(false)
 let nonce = 0
 
 export const useAddProjectRequest = () => addProjectRequests.use((r) => r)
 export const useNonGitFolderRequest = () => nonGitFolderRequests.use((r) => r)
-export const useOrcaImportOpen = () => orcaImportOpen.use((open) => open)
 
 export function openAddProjectDialog(
   opts: { hostId?: HostId; step?: AddProjectStep; linkTo?: AddProjectRequest['linkTo'] } = {}
@@ -52,10 +52,6 @@ export function closeAddProjectDialog(): void {
 
 export function confirmNonGitFolder(request: NonGitFolderRequest | null): void {
   nonGitFolderRequests.set(request)
-}
-
-export function setOrcaImportOpen(open: boolean): void {
-  orcaImportOpen.set(open)
 }
 
 /**

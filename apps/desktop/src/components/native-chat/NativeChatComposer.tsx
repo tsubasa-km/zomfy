@@ -12,6 +12,7 @@ import {
   resumeQueue,
   steerQueued,
   stopTurn,
+  useStopping,
   submitPrompt
 } from '@/chat-actions'
 import { NativeChatPermissionModePicker } from './NativeChatPermissionModePicker'
@@ -78,6 +79,8 @@ function Composer({ session, editorRef }: ComposerProps) {
       null
   )
   const working = isWorking(session)
+  // Stop was pressed and the agent is still winding down: the button says so instead of seeming dead.
+  const stopping = useStopping(session.id)
   // Sending or stopping needs the host; while it reconnects the person can still write.
   const offline = useStore((s) => s.hosts[session.hostId]?.connection.kind !== 'connected')
   // Other agents bring their own commands and options over ACP; the workspace catalog is Claude's.
@@ -237,6 +240,7 @@ function Composer({ session, editorRef }: ComposerProps) {
             editorRef={editorRef}
             boxRef={composerBox}
             takesTabDrops
+            waiting={session.status === 'needs-you'}
             placeholder={
               offline
                 ? t('Reconnecting to {host}… sending waits until it is back', { host: hostLabel(session.hostId) })
@@ -359,7 +363,11 @@ function Composer({ session, editorRef }: ComposerProps) {
             actions={
               working ? (
                 <>
-                  <NativeChatComposerAction kind="stop" label={t('Stop the agent')} hint={offline ? reconnecting : undefined} disabled={offline} onClick={() => stopTurn(session.id)} />
+                  {stopping ? (
+                    <NativeChatComposerAction kind="busy" label={t('Stopping…')} onClick={() => undefined} />
+                  ) : (
+                    <NativeChatComposerAction kind="stop" label={t('Stop the agent')} hint={offline ? reconnecting : undefined} disabled={offline} onClick={() => stopTurn(session.id)} />
+                  )}
                   {/* With something written the round button is the follow-up's: it queues behind the running turn. */}
                   {canSend && !offline ? (
                     workflow ? (

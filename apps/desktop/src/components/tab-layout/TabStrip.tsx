@@ -11,7 +11,7 @@ import { cn } from '@/lib/utils'
 import { showQuickStart } from '@/session-store'
 import { WINDOW_TABS } from '@/stores/tab-layout-store'
 import { NewTabMenu } from './NewTabMenu'
-import { NewTerminalButton } from './terminal-commands'
+import { PinnedTabButtons } from './PinnedTabButtons'
 import { QuickCommandsButton } from '@/components/terminal/QuickCommandsButton'
 import { TabItem } from './TabItem'
 import { closeGroup } from './tab-group-commands'
@@ -194,7 +194,7 @@ export function TabStrip({
         // sidebar's toggle) stay in reach.
         <div className="flex min-w-0 shrink items-stretch overflow-hidden">
           <NewTabMenu workspaceId={workspaceId} groupId={groupId} />
-          <NewTerminalButton workspaceId={workspaceId} groupId={groupId} />
+          <PinnedTabButtons workspaceId={workspaceId} groupId={groupId} />
           <QuickCommandsButton workspaceId={workspaceId} />
         </div>
       )}

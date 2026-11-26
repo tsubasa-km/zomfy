@@ -16,6 +16,7 @@ import { Label } from '@/components/ui/label'
 import { Switch } from '@/components/ui/switch'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { cn } from '@/lib/utils'
+import { useSaveState } from '@/lib/use-save-state'
 import { t } from '@/i18n/i18n'
 
 // Orca's repository settings pane: display name, default base branch, worktree location and the
@@ -47,23 +48,29 @@ export function ProjectSettingsDialog({ project, onClose }: { project: HostedPro
   const primaryId = useStore((s) => (project ? s.hosts[project.hostId]?.harness?.workspaces.find((w) => w.projectId === project.id && w.isPrimary)?.id : undefined))
   const [error, setError] = useState<string | null>(null)
 
+  // What the project has saved, as the form holds it: Save is offered only when the form differs.
+  const saved = formOf(project)
+  const form: ProjectForm = { folder, displayName, baseRef, worktreeRoot, setup, archive, finishWith, agentWorkflows, agentSplitWork, mergeTarget, cleanupMode, claudeChrome, account }
+  const { dirty, saving, save: submit } = useSaveState(saved, form, save)
+
   useEffect(() => {
-    setFolder(project?.path ?? '')
-    setDisplayName(project ? projectLabel(project) : '')
-    setBaseRef(project?.defaultBaseRef ?? '')
-    setWorktreeRoot(project?.worktreeRoot ?? '')
-    setSetup(project?.hooks?.setup ?? '')
-    setArchive(project?.hooks?.archive ?? '')
-    setFinishWith(project?.finishWith ?? 'merge')
-    setAgentWorkflows(project?.agentWorkflows !== false)
-    setAgentSplitWork(project?.agentSplitWork !== false)
-    setMergeTarget(project?.mergeTarget ?? '')
-    setCleanupMode(project?.cleanup?.deleteMerged === undefined ? 'host' : project.cleanup.deleteMerged ? 'on' : 'off')
-    setClaudeChrome(project?.claudeChrome === undefined ? 'host' : project.claudeChrome ? 'on' : 'off')
+    const saved = formOf(project)
+    setFolder(saved.folder)
+    setDisplayName(saved.displayName)
+    setBaseRef(saved.baseRef)
+    setWorktreeRoot(saved.worktreeRoot)
+    setSetup(saved.setup)
+    setArchive(saved.archive)
+    setFinishWith(saved.finishWith)
+    setAgentWorkflows(saved.agentWorkflows)
+    setAgentSplitWork(saved.agentSplitWork)
+    setMergeTarget(saved.mergeTarget)
+    setCleanupMode(saved.cleanupMode)
+    setClaudeChrome(saved.claudeChrome)
     setError(null)
     setBranches(null)
     setHooks(null)
-    setAccount(project?.hostingAccount ?? null)
+    setAccount(saved.account)
     setRemote(undefined)
     if (project?.kind === 'git') {
       // docs/specs/project-hosting-accounts.md; an older daemon has no accounts, and the field stays away.
@@ -90,8 +97,9 @@ export function ProjectSettingsDialog({ project, onClose }: { project: HostedPro
     setFolder(where.path)
   }
 
-  async function save() {
-    if (!project) return
+  async function save(): Promise<boolean> {
+    if (!project) return false
+    setError(null)
     try {
       const moved = folder.trim() !== '' && folder.trim() !== project.path
       // Pointed at another folder first, so a bad path changes nothing else.
@@ -130,8 +138,10 @@ export function ProjectSettingsDialog({ project, onClose }: { project: HostedPro
         project.hostId
       )
       onClose()
+      return true
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e))
+      return false
     }
   }
 
@@ -148,7 +158,7 @@ export function ProjectSettingsDialog({ project, onClose }: { project: HostedPro
           className="grid min-h-0 grid-cols-1 content-start gap-x-6 gap-y-4 overflow-y-auto px-0.5 sm:grid-cols-2"
           onSubmit={(e) => {
             e.preventDefault()
-            void save()
+            if (dirty) void submit()
           }}
         >
           <div className="space-y-1.5 sm:col-span-2">
@@ -363,12 +373,49 @@ export function ProjectSettingsDialog({ project, onClose }: { project: HostedPro
             <Button type="button" variant="outline" onClick={onClose}>
               {t('Cancel')}
             </Button>
-            <Button type="submit">{t('Save')}</Button>
+            <Button type="submit" disabled={!dirty || saving} title={dirty ? undefined : t('Nothing has changed')} data-project-settings-save>
+              {saving ? t('Saving…') : t('Save')}
+            </Button>
           </DialogFooter>
         </form>
       </DialogContent>
     </Dialog>
   )
+}
+
+type ProjectForm = {
+  folder: string
+  displayName: string
+  baseRef: string
+  worktreeRoot: string
+  setup: string
+  archive: string
+  finishWith: 'merge' | 'pull-request'
+  agentWorkflows: boolean
+  agentSplitWork: boolean
+  mergeTarget: string
+  cleanupMode: 'host' | 'on' | 'off'
+  claudeChrome: 'host' | 'on' | 'off'
+  account: HostingAccountRef | null
+}
+
+/** The form's fields as the project has them saved. */
+function formOf(project: HostedProject | null): ProjectForm {
+  return {
+    folder: project?.path ?? '',
+    displayName: project ? projectLabel(project) : '',
+    baseRef: project?.defaultBaseRef ?? '',
+    worktreeRoot: project?.worktreeRoot ?? '',
+    setup: project?.hooks?.setup ?? '',
+    archive: project?.hooks?.archive ?? '',
+    finishWith: project?.finishWith ?? 'merge',
+    agentWorkflows: project?.agentWorkflows !== false,
+    agentSplitWork: project?.agentSplitWork !== false,
+    mergeTarget: project?.mergeTarget ?? '',
+    cleanupMode: project?.cleanup?.deleteMerged === undefined ? 'host' : project.cleanup.deleteMerged ? 'on' : 'off',
+    claudeChrome: project?.claudeChrome === undefined ? 'host' : project.claudeChrome ? 'on' : 'off',
+    account: project?.hostingAccount ?? null
+  }
 }
 
 function SettingSwitch({

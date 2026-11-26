@@ -1,8 +1,9 @@
-import { DEFAULT_SETTINGS, setSetting, useSetting, type ChatAfterSend, type ChatSendKey, type ChatThinkingDisplay } from '@/stores/settings-store'
+import { DEFAULT_SETTINGS, setSetting, useSetting, type ChatAfterSend, type ChatSendKey, type ChatThinkingDisplay, type ChatWaitingGlow } from '@/stores/settings-store'
 import { isMac } from '@/lib/terminal-shortcuts'
 import { useStore } from '@/session-store'
 import { sortedHosts } from './HostsPane'
 import { LanguageServerSettings } from './LanguageServerSettings'
+import { WaitingGlowPreview } from '@/components/native-chat/WaitingGlowPreview'
 import {
   NumberField,
   SettingsRow,
@@ -22,6 +23,7 @@ export function InputEditingPane() {
   const memos = useSetting('chatMemosEnabled')
   const afterSend = useSetting('chatAfterSend')
   const thinking = useSetting('chatThinkingDisplay')
+  const waitingGlow = useSetting('chatWaitingGlow')
   const hosts = useStore((s) => s.hosts)
 
   return (
@@ -85,6 +87,34 @@ export function InputEditingPane() {
                   { value: 'short-reply', label: t('Expand when the reply is short') },
                   { value: 'expanded', label: t('Always expanded') }
                 ]}
+              />
+            }
+          />
+          <SettingsRow
+            label={t('Waiting glow')}
+            description={t('How the composer’s border shows that the thread waits for your answer.')}
+            keywords={['chat', 'composer', 'glow', 'rainbow', 'pulse', 'outline', 'needs you', 'waiting', 'question', 'approval', 'border']}
+            control={
+              <SettingsSegmentedControl<ChatWaitingGlow>
+                ariaLabel={t('Waiting glow')}
+                value={waitingGlow}
+                onChange={(value) => setSetting('chatWaitingGlow', value)}
+                options={(
+                  [
+                    { value: 'rainbow', label: t('Rainbow') },
+                    { value: 'pulse', label: t('Accent pulse') },
+                    { value: 'outline', label: t('Static outline') },
+                    { value: 'off', label: t('Off') }
+                  ] satisfies { value: ChatWaitingGlow; label: string }[]
+                ).map((option) => ({
+                  value: option.value,
+                  label: (
+                    <span className="inline-flex items-center gap-1.5" data-waiting-glow-option={option.value}>
+                      <WaitingGlowPreview pattern={option.value} />
+                      {option.label}
+                    </span>
+                  )
+                }))}
               />
             }
           />

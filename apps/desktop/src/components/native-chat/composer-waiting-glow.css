@@ -1,0 +1,80 @@
+/* docs/specs/composer-waiting-glow.md: the composer's border while its chat waits for the person.
+   Every rule hangs on [data-waiting-glow], set only while waiting, so an idle composer animates
+   nothing. The glow recolors the 1px border and adds at most a box-shadow: nothing moves. A tab
+   or file dragged over the box (data-tab-drop-hover) shows the drop ring instead. */
+
+@property --composer-glow-angle {
+  syntax: '<angle>';
+  inherits: false;
+  initial-value: 0deg;
+}
+
+[data-waiting-glow] {
+  --composer-glow-surface: var(--chat-composer-surface);
+  /* The box's own resting shadow, kept under the glow's. */
+  --composer-glow-base-shadow: 0 2px 10px rgb(0 0 0 / 0.04);
+}
+
+/* Softened toward the resting border so the ring reads as a hint, not a banner. */
+[data-waiting-glow='rainbow']:not([data-tab-drop-hover]) {
+  --composer-glow-mix: 78%;
+  border-color: transparent;
+  background:
+    linear-gradient(var(--composer-glow-surface), var(--composer-glow-surface)) padding-box,
+    conic-gradient(
+        from var(--composer-glow-angle),
+        color-mix(in oklab, #f87171 var(--composer-glow-mix), var(--chat-composer-border)),
+        color-mix(in oklab, #fbbf24 var(--composer-glow-mix), var(--chat-composer-border)),
+        color-mix(in oklab, #4ade80 var(--composer-glow-mix), var(--chat-composer-border)),
+        color-mix(in oklab, #38bdf8 var(--composer-glow-mix), var(--chat-composer-border)),
+        color-mix(in oklab, #a78bfa var(--composer-glow-mix), var(--chat-composer-border)),
+        color-mix(in oklab, #f472b6 var(--composer-glow-mix), var(--chat-composer-border)),
+        color-mix(in oklab, #f87171 var(--composer-glow-mix), var(--chat-composer-border))
+      )
+      border-box;
+  animation: composer-glow-turn 6s linear infinite;
+}
+
+[data-waiting-glow='pulse']:not([data-tab-drop-hover]) {
+  border-color: color-mix(in oklab, var(--highlight) 60%, var(--chat-composer-border));
+  box-shadow:
+    0 0 0 2px color-mix(in oklab, var(--highlight) 12%, transparent),
+    var(--composer-glow-base-shadow);
+  animation: composer-glow-pulse 2.4s ease-in-out infinite;
+}
+
+[data-waiting-glow='outline']:not([data-tab-drop-hover]) {
+  border-color: var(--agent-question);
+  box-shadow:
+    0 0 0 1px var(--agent-question),
+    var(--composer-glow-base-shadow);
+}
+
+@keyframes composer-glow-turn {
+  to {
+    --composer-glow-angle: 360deg;
+  }
+}
+
+@keyframes composer-glow-pulse {
+  0%,
+  100% {
+    border-color: color-mix(in oklab, var(--highlight) 30%, var(--chat-composer-border));
+    box-shadow:
+      0 0 0 0 color-mix(in oklab, var(--highlight) 0%, transparent),
+      var(--composer-glow-base-shadow);
+  }
+  50% {
+    border-color: var(--highlight);
+    box-shadow:
+      0 0 0 3px color-mix(in oklab, var(--highlight) 22%, transparent),
+      var(--composer-glow-base-shadow);
+  }
+}
+
+/* Rainbow stands still and the pulse holds its middle. */
+@media (prefers-reduced-motion: reduce) {
+  [data-waiting-glow] {
+    animation: none;
+  }
+}

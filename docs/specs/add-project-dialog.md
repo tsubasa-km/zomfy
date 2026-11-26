@@ -1,7 +1,7 @@
 ---
 type: Spec
 title: The Add a project dialog
-description: One compact dialog with three tabs (Open folder, Clone, New repository), the host as a light inline choice shown only when there is more than one, and the project's GitHub or GitLab account picked as it is added.
+description: One compact dialog with three tabs (Open folder, Clone, New repository), the host as a light inline choice shown only when there is more than one, the project's display name and GitHub or GitLab account picked as it is added, and a clone's folder name.
 status: stable
 x-zomfy-implementation: done
 tags: [projects, desktop, onboarding, hosting]
@@ -26,9 +26,10 @@ Add a project                                              [x]
 Where  (●This computer) (●WSL) (○devbox) (+)
 [ Open folder | Clone | New repository ]
   …the tab's fields…
+  Display name  [ placeholder: the folder's name ]
   Account  [ tsubasa-km ▾ ]          (when there is a GitHub/GitLab remote)
 error line
-Import from Orca…                               [Cancel] [Add project]
+Import…                                         [Cancel] [Add project]
 ```
 
 ## Where: the host row
@@ -58,6 +59,7 @@ keys move between tabs (Radix), the first field of a tab takes focus, Enter in a
   "Git repository · github.com/owner/repo", "Git repository with no GitHub or GitLab remote",
   "Not a Git repository: it opens as a folder, without worktrees" (amber), or
   "No folder at this path on <host>" (red).
+- **Display name** (below).
 - Submit: **Add project**, or **Open as folder** for a folder outside git (no second confirmation:
   the line above already said what it lacks). A folder already added says "Project already added"
   and selects it, as today.
@@ -67,13 +69,22 @@ keys move between tabs (Radix), the first field of a tab takes focus, Enter in a
 - **Repository URL** (https or ssh), focused.
 - **Account** once the URL's host is GitHub or GitLab (below); the clone runs with it, so a private
   repository of a non-active account clones without switching.
-- **Clone into**: a one-line summary of the target (`<parent>/<repo>`) with **Change**, which
-  reveals the parent folder field (and Browse where possible). Defaults to `~/zomfy` on the host.
+- **Folder name** and **Display name**, side by side. The folder name follows the URL's repository
+  name until it is edited (after that it stays as typed). It must not be empty, must
+  not hold a path separator or a character Windows refuses in names (`<>:"/\|?*`, control
+  characters), must not end in a dot or space, and must not be `.`, `..` or a reserved device name
+  (`CON`, `NUL`, `COM1`…); the reason shows under the field and Clone stays disabled. Spaces and
+  other characters the daemon's name rule replaces show as the folder it really makes.
+- **Clone into**: a one-line summary of the full target (`<parent>/<folder name>`) with **Change**,
+  which reveals the parent folder field (and Browse where possible). Defaults to `~/zomfy` on the
+  host. The daemon is asked (300 ms after typing stops) whether the target exists; when it does the
+  line says "<path> already exists" in red and Clone stays disabled.
 - Submit: **Clone**; while cloning the button reads "Cloning…" and the dialog cannot be closed.
 
 ### New repository
 
-- **Name**, focused; the folder name it makes is shown under it.
+- **Name**, focused; the folder name it makes is shown under it. **Display name** beside it,
+  defaulting to the name as typed (so "My Project" shows as that while its folder is `My-Project`).
 - **Create in**: summary and **Change**, as Clone's; defaults to `~/zomfy/projects`.
 - **Publish to GitHub** (a switch, off; shown when the host has a GitHub account): reveals
   **Account**, **Owner** (defaults to the account's login; an organisation can be typed) and
@@ -82,6 +93,17 @@ keys move between tabs (Radix), the first field of a tab takes focus, Enter in a
   --private|--public` as that account. A failed publish keeps the local project and says why.
 - Publishing to GitLab is left for later: create the project on GitLab and add its remote then.
 - Submit: **Create project**, or **Create and publish**.
+
+## The display name
+
+The same field as Project Settings' Display name (`Project.displayName`), set as the project is
+added: `projectAdd`, `projectClone` and `projectCreateRepo` take an optional `displayName`.
+
+- Empty means the default, shown as the placeholder: the folder's name (Open folder), the folder
+  name (Clone), the name as typed (New repository).
+- Sent only when it differs from the folder's name, so an untouched field leaves `displayName`
+  unset as before. A folder already added keeps its own display name.
+- An older daemon ignores the parameter; the project is added under its folder's name.
 
 ## The account field
 
@@ -105,7 +127,8 @@ summary.
 ## Kept from before
 
 "Add a workspace to <project>" (Add Workspace on Another Host) opens the same dialog with that title
-and files the result under the project. Import from Orca stays in the footer. Worktree location,
+and files the result under the project. The footer's **Import…** opens the
+[Import dialog](import-dialog.md) on the chosen host, Orca first when it is there. Worktree location,
 setup scripts and the rest stay in Project Settings, reached from the project's menu after adding.
 
 # Out of scope
@@ -116,6 +139,9 @@ setup scripts and the rest stay in Project Settings, reached from the project's 
 # Acceptance
 
 - `bun test` in `apps/desktop` covers the tab a request opens, when the host row and the account
-  field show, the target path previews and the account defaults.
+  field show, the target path previews, the account defaults, the clone folder name's checks and
+  default, and which display name is sent.
+- `bun test` in `packages/daemon` covers a display name given to a new project and not to one
+  already added.
 - `bun test` in `packages/daemon` covers the publish command line.
 - Preview screenshots of each tab, with one and with several hosts, in light and dark.

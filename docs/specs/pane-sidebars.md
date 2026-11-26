@@ -37,6 +37,14 @@ which one changed with every click between panes.
   sidebar focuses that pane.
 - **Width.** Dragging a sidebar's edge sets that pane's width; a double-click resets it. A sidebar
   is never wider than half its pane.
+- **Dropping a tab on a pane.** A split divides the whole pane, its sidebar included, so the drop
+  zones and the hint drawn while dragging are measured on that same rectangle: the left and right
+  bands are a fifth of the pane's full width, the top and bottom ones a fifth of its tab body, and
+  the hint covers the half of the pane the new split takes. The sidebar counts as the pane's right
+  edge: a tab, file or thread dropped anywhere over it opens in a new split on the right (or, where
+  that split would change nothing, moves into the pane as a drop on its body does). A target inside
+  the sidebar that takes the drop itself, such as the side chat's composer or the file tree, still
+  wins over the pane.
 
 # What it does not do
 
@@ -57,4 +65,6 @@ sidebar; the memoised panes stay as they were.
   resize independently, and each shows its own front tab's workspace.
 - The shortcut toggles the focused pane's sidebar only.
 - A pop-out workspace window has the button in its strip and its sidebar works.
+- With a pane's sidebar open, dragging a tab to each zone of one pane and of two panes side by
+  side shows a hint that covers exactly where the new split appears after the drop.
 - `bun run typecheck` and `bun test` in `apps/desktop` pass.

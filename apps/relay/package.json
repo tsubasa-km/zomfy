@@ -22,7 +22,10 @@
   "cloudflare": {
     "bindings": {
       "SETUP_CODE": {
-        "description": "Required. A one-time code Zomfy pairs with: make one with `openssl rand -hex 16` and keep it for Settings → Bots → Relay."
+        "description": "Required. A one-time code Zomfy pairs with: make one with `openssl rand -hex 16` and keep it for Settings → Zomfy Relay."
+      },
+      "FEATURES": {
+        "description": "Optional: the features to serve, from `phone`, `discord`, `slack`, `github`, `linear`, `webhooks` (e.g. `phone,discord`; Settings → Zomfy Relay shows yours). Leave empty to serve the phone, webhooks and every source whose secrets you fill in."
       },
       "DISCORD_APPLICATION_ID": {
         "description": "Discord (optional): **General Information → Application ID** of your app at [discord.com/developers](https://discord.com/developers/applications). Leave empty to turn Discord off."

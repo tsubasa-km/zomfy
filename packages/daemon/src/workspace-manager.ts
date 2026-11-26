@@ -124,7 +124,8 @@ export class WorkspaceManager {
     return this.state.workspaces.find((w) => w.id === workspaceId)?.path ?? null
   }
 
-  async addProject(path: string, options: { requireGit?: boolean } = {}): Promise<Project> {
+  /** `displayName` names a project this adds; one already added keeps its own. */
+  async addProject(path: string, options: { requireGit?: boolean; displayName?: string } = {}): Promise<Project> {
     // realpath expands Windows 8.3 short names (SUZUKI~1), which would otherwise add the folder twice.
     const absolute = await realpath(resolve(path)).catch(() => resolve(path))
     const isDirectory = await stat(absolute).then((s) => s.isDirectory(), () => false)
@@ -145,6 +146,8 @@ export class WorkspaceManager {
       kind: isGit ? 'git' : 'folder',
       sortOrder: Math.max(-1, ...this.state.projects.map((p) => p.sortOrder ?? 0)) + 1
     }
+    const displayName = options.displayName?.trim()
+    if (displayName && displayName !== project.name) project.displayName = displayName
     this.state.projects.push(project)
     // The project's own checkout is always a workspace, like Orca's main worktree.
     this.state.workspaces.push({

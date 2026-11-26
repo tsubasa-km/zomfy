@@ -1503,5 +1503,49 @@ export const SHELL: Record<string, string> = {
   'Sign in with glab, or give Zomfy a token to keep in the system credential store.': 'glab でサインインするか、トークンを Zomfy に渡してシステムの資格情報ストアに保管します。',
   'Personal access token for {host}': '{host} の個人アクセストークン',
   'Create a token on {host} (api, read_repository, write_repository)': '{host} でトークンを作成（api、read_repository、write_repository）',
-  'Sign in with glab instead': '代わりに glab でサインイン'
+  'Sign in with glab instead': '代わりに glab でサインイン',
+
+  // components/import/ImportDialog.tsx (docs/specs/import-dialog.md)
+  Import: 'インポート',
+  'Import…': 'インポート…',
+  'Import from': 'インポート元',
+  'Looking for {sources}…': '{sources} を探しています…',
+  'Conversations {agent} recorded on {host}. An imported thread keeps its transcript, and your next message continues the conversation.':
+    '{host} で {agent} が記録した会話です。インポートしたスレッドには会話の内容が残り、次のメッセージでその会話を続けられます。',
+  'Projects and past conversations from other apps on {host}.': '{host} にある他のアプリのプロジェクトや過去の会話です。',
+  'Looking for things to import on {host}…': '{host} でインポートできるものを探しています…',
+  'Nothing to import on {host}.': '{host} にはインポートできるものがありません。',
+  "Zomfy imports Orca's projects (on this computer) and the conversations Claude Code, Codex and the other chat agents recorded on a host.":
+    'Zomfy がインポートできるのは、Orca のプロジェクト（このコンピューター上）と、Claude Code、Codex などのチャットエージェントがホストに記録した会話です。',
+
+  // components/sidebar/AddRepoPanels.tsx, AddRepoDialog.tsx (display name, clone folder name)
+  "The folder's name": 'フォルダー名',
+  'Shown in the sidebar; editable later.': 'サイドバーに表示。あとで変更できます。',
+  'Folder name': 'フォルダー名',
+  'From the repository URL': 'リポジトリの URL から',
+  "The repository's name unless you change it.": '変更しなければリポジトリ名になります。',
+  '{path} already exists.': '{path} はすでに存在します。',
+  'Enter a folder name.': 'フォルダー名を入力してください。',
+  'A folder name cannot hold / or \\.': 'フォルダー名に / や \\ は使えません。',
+  'A folder name cannot hold < > : " | ? * or control characters.': 'フォルダー名に < > : " | ? * や制御文字は使えません。',
+  'A folder name cannot end in a dot.': 'フォルダー名の末尾にドットは使えません。',
+  'Pick a name other than . or ..': '. や .. 以外の名前にしてください',
+  'Windows reserves this name; pick another.': 'この名前は Windows で予約されています。別の名前にしてください。',
+  // lib/use-save-state.ts (Save offered only with unsaved changes)
+  'Nothing has changed': '変更はありません',
+  'Saved': '保存しました',
+  // components/tab-layout/NewTabMenu.tsx, PinnedTabButtons.tsx, NewTabDialogs.tsx (docs/specs/new-tab-menu-and-pins.md)
+  '{agent} chat': '{agent} チャット',
+  'New Terminal…': '新しいターミナル…',
+  'Run {name}…': '{name} を実行…',
+  'Unpin {label}': '{label} のピン留めを外す',
+  'Pin {label} to the tab bar': '{label} をタブバーにピン留め',
+  'Choose where the terminal runs.': 'ターミナルを開く場所を選んでください。',
+  Shell: 'シェル',
+  'This host has no project folder yet. Add a project on it first.': 'このホストにはまだプロジェクトのフォルダーがありません。先にプロジェクトを追加してください。',
+  'Opening…': '開いています…',
+  // components/QuickStart.tsx (where a new thread starts)
+  'Choose where the thread starts': 'スレッドを始める場所を選ぶ',
+  'New worktree': '新しい worktree',
+  'Another project or host…': '別のプロジェクトやホスト…'
 }

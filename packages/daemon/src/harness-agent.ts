@@ -81,6 +81,7 @@ import { TerminalScreens } from "./terminal-screen.ts";
 import { registerPluginHandlers } from "./handlers/plugin-handlers.ts";
 import { registerVoiceHandlers } from "./handlers/voice-handlers.ts";
 import { managerMcp, type ManagerRoute } from "./manager-mcp-server.ts";
+import { presetMcpServers } from "./connector-presets.ts";
 import { projectToolRefusal, projectToolsOffNote } from "./project-agent-tools.ts";
 import { ManagerRouting, autoAllowedManagerTools } from "./manager-routing.ts";
 import { log } from "./log.ts";
@@ -508,7 +509,8 @@ export function createHarnessAgent(
       try {
         return await ask({ ...request, sessionId: session.id });
       } finally {
-        if (pendingTurns.get(session.id) === abort) sessions.update(session.id, { status: "working" });
+        // A Stop answered the ask: the turn is ending, and must not read as working again.
+        if (pendingTurns.get(session.id) === abort && !abort.signal.aborted) sessions.update(session.id, { status: "working" });
       }
     };
 
@@ -608,10 +610,14 @@ export function createHarnessAgent(
         askPermission,
         // A quick chat sees its harness tools up front, so it can move itself into a project.
         // Workflow steps see them up front too, for ask_requester.
-        mcpServers: managerMcp.claudeServers(
-          session.id,
-          session.role === "manager" || session.role === "lead" || quickChat || stepTurns.has(session.id) || managerBot,
-        ),
+        // Then the servers the chat was started with (docs/specs/relay-settings.md).
+        mcpServers: {
+          ...presetMcpServers(session.connectors),
+          ...managerMcp.claudeServers(
+            session.id,
+            session.role === "manager" || session.role === "lead" || quickChat || stepTurns.has(session.id) || managerBot,
+          ),
+        },
         // A manager bot's chat runs the Manager's own tools without asking, as the Manager chat does.
         allowedTools: autoAllowedManagerTools(managerBot ? "manager" : session.role, MANAGER_MCP_SERVER_NAME),
         ...(session.role === "manager"

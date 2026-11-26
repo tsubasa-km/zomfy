@@ -1,17 +1,15 @@
 import { useEffect, useMemo, useState } from 'react'
 import { FolderGit2, FolderPlus, GitBranch, Search } from 'lucide-react'
-import { CHAT_AGENT_IDS, HARNESS_METHODS, chatAgentLabel, type ChatAgentId } from '@zomfy/protocol'
+import { HARNESS_METHODS, chatAgentLabel, type ChatAgentId } from '@zomfy/protocol'
 import { importThread, showThread } from '@/chat-actions'
 import { harnessRequest } from '@/daemon-connection'
-import { LOCAL_HOST, allProjects, allWorkspaces, hostLabel, useStore, type HostId, type HostedWorkspace } from '@/session-store'
-import { closeImportThreads, useImportThreadsRequest, type ImportThreadsRequest } from '@/stores/thread-import-store'
+import { allProjects, allWorkspaces, useStore, type HostId, type HostedWorkspace } from '@/session-store'
+import { closeImport } from '@/stores/import-store'
 import { folderName, listedThreads, threadGroups, type ImportableThread } from '@/lib/thread-import'
-import { TuiAgentIcon } from '@/components/terminal/TuiAgentIcon'
 import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
+import { DialogFooter } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { cn } from '@/lib/utils'
 import { t } from '@/i18n/i18n'
 import { projectLabel } from '@/components/sidebar/workspace-visibility'
@@ -31,66 +29,54 @@ function relativeTime(ms: number): string {
   return t('{n}d ago', { n: Math.round(hours / 24) })
 }
 
-/** The dialog stores/thread-import-store opens: conversations of each agent's own CLI, to import as threads. */
-export function ImportThreadsDialog() {
-  const request = useImportThreadsRequest()
-  return (
-    <Dialog open={request !== null} onOpenChange={(open) => !open && closeImportThreads()}>
-      <DialogContent className="flex max-h-[calc(100vh-2rem)] flex-col sm:max-w-2xl" data-import-threads>
-        {request && <ImportThreads key={request.nonce} request={request} />}
-      </DialogContent>
-    </Dialog>
-  )
-}
-
-function ImportThreads({ request }: { request: ImportThreadsRequest }) {
+/**
+ * The Import dialog's source for one chat agent: the conversations its own CLI recorded on the host,
+ * to import as threads. `allFolders` is the dialog's listing across every folder.
+ */
+export function AgentThreadsPanel({
+  hostId,
+  agent,
+  allFolders,
+  startWorkspaceId
+}: {
+  hostId: HostId
+  agent: ChatAgentId
+  allFolders: ImportableThread[]
+  /** The workspace whose folder to start on, if any. */
+  startWorkspaceId: string | null
+}) {
   const hosts = useStore((s) => s.hosts)
-  const activeWorkspaceId = useStore((s) => s.activeWorkspaceId)
   const workspaces = useMemo(() => allWorkspaces({ hosts }), [hosts])
   const projects = useMemo(() => allProjects(hosts), [hosts])
-  // The folder the dialog starts on: the workspace it was opened for, else the one in front.
-  const [start] = useState(() => {
-    const workspace = workspaces.find((w) => w.id === (request.workspaceId ?? activeWorkspaceId) && (!request.hostId || w.hostId === request.hostId))
-    return { hostId: request.hostId ?? workspace?.hostId ?? LOCAL_HOST, workspaceId: workspace?.id ?? null }
-  })
-  const [hostId, setHostId] = useState<HostId>(start.hostId)
-  const here = workspaces.find((w) => w.id === start.workspaceId && w.hostId === hostId && w.id !== hosts[hostId]?.harness?.floatingWorkspaceId) ?? null
+  const here =
+    workspaces.find((w) => w.id === startWorkspaceId && w.hostId === hostId && w.id !== hosts[hostId]?.harness?.floatingWorkspaceId) ?? null
   const [wanted, setWanted] = useState<Scope>('workspace')
   const scope: Scope = here ? wanted : 'all'
-  const [listings, setListings] = useState<Partial<Record<ChatAgentId, Listing>>>({})
+  const [folderListing, setFolderListing] = useState<Listing>({ status: 'loading' })
   const [query, setQuery] = useState('')
   const [chosen, setChosen] = useState<Set<string>>(new Set())
   const [rows, setRows] = useState<Record<string, RowState>>({})
   const [busy, setBusy] = useState(false)
   const folderId = scope === 'workspace' ? (here?.id ?? null) : null
 
+  // The dialog already holds every folder's conversations; one workspace's are asked for on their own.
   useEffect(() => {
+    if (!folderId) return
     let live = true
-    setListings(Object.fromEntries(CHAT_AGENT_IDS.map((agent) => [agent, { status: 'loading' }])))
-    setChosen(new Set())
-    setRows({})
-    // One ask per agent: Claude's and Codex's are read from disk at once, others answer as their servers start.
-    for (const agent of CHAT_AGENT_IDS) {
-      harnessRequest(HARNESS_METHODS.sessionHistory, { ...(folderId ? { workspaceId: folderId } : {}), agents: [agent] }, hostId).then(
-        (list) => live && setListings((l) => ({ ...l, [agent]: { status: 'ready', threads: listedThreads(agent, list) } })),
-        (error: unknown) => live && setListings((l) => ({ ...l, [agent]: { status: 'failed', error: message(error) } }))
-      )
-    }
+    setFolderListing({ status: 'loading' })
+    harnessRequest(HARNESS_METHODS.sessionHistory, { workspaceId: folderId, agents: [agent] }, hostId).then(
+      (list) => live && setFolderListing({ status: 'ready', threads: listedThreads(agent, list) }),
+      (error: unknown) => live && setFolderListing({ status: 'failed', error: message(error) })
+    )
     return () => {
       live = false
     }
-  }, [hostId, folderId])
+  }, [hostId, agent, folderId])
 
-  const threads = CHAT_AGENT_IDS.flatMap((agent) => {
-    const listing = listings[agent]
-    return listing?.status === 'ready' ? listing.threads : []
-  })
+  const listing: Listing = folderId ? folderListing : { status: 'ready', threads: allFolders }
+  const threads = listing.status === 'ready' ? listing.threads : []
   const groups = threadGroups(threads, query)
-  const reading = CHAT_AGENT_IDS.filter((agent) => (listings[agent]?.status ?? 'loading') === 'loading')
-  const failures = CHAT_AGENT_IDS.flatMap((agent) => {
-    const listing = listings[agent]
-    return listing?.status === 'failed' ? [{ agent, error: listing.error }] : []
-  })
+  const reading = listing.status === 'loading'
   /** The thread that shows a conversation: one imported just now, else the one the daemon named. */
   const shownBy = (thread: ImportableThread): string | null => {
     const row = rows[thread.key]
@@ -100,7 +86,6 @@ function ImportThreads({ request }: { request: ImportThreadsRequest }) {
   const picked = threadGroups(threads, '')
     .flatMap((g) => g.threads)
     .filter((thread) => chosen.has(thread.key) && !shownBy(thread))
-  const connected = Object.values(hosts).filter((h) => h.connection.kind === 'connected' || h.id === hostId)
 
   const place = (workspace: HostedWorkspace): string => {
     const project = projects.find((p) => p.id === workspace.projectId && p.hostId === workspace.hostId)
@@ -137,19 +122,11 @@ function ImportThreads({ request }: { request: ImportThreadsRequest }) {
     setBusy(false)
     if (first) showThread(first)
     // What failed stays on screen with its reason.
-    if (!failed) closeImportThreads()
+    if (!failed) closeImport()
   }
 
   return (
     <>
-      <DialogHeader>
-        <DialogTitle>{t('Import threads')}</DialogTitle>
-        <DialogDescription>
-          {t(
-            "Conversations you had in an agent's own app or CLI on this host. An imported thread keeps its transcript, and your next message continues the conversation."
-          )}
-        </DialogDescription>
-      </DialogHeader>
       <div className="flex flex-wrap items-center gap-2">
         <div className="relative min-w-40 flex-1">
           <Search className="pointer-events-none absolute top-1/2 left-2.5 size-3.5 -translate-y-1/2 text-muted-foreground" aria-hidden />
@@ -183,20 +160,6 @@ function ImportThreads({ request }: { request: ImportThreadsRequest }) {
             ))}
           </div>
         )}
-        {connected.length > 1 && (
-          <Select value={hostId} onValueChange={setHostId} disabled={busy}>
-            <SelectTrigger size="sm" className="shrink-0" aria-label={t('Host')}>
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {connected.map((host) => (
-                <SelectItem key={host.id} value={host.id}>
-                  {hostLabel(host.id)}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        )}
       </div>
       <div className="scrollbar-sleek -mx-2 min-h-40 flex-1 overflow-y-auto px-2" data-import-threads-list>
         {groups.map((group) => {
@@ -213,8 +176,7 @@ function ImportThreads({ request }: { request: ImportThreadsRequest }) {
                   disabled={busy || importable.length === 0}
                   onCheckedChange={(v) => toggle(importable.map((thread) => thread.key), v === true)}
                 />
-                <TuiAgentIcon agent={group.agent} size={13} />
-                <span>{label}</span>
+                <span>{t('Select all')}</span>
                 <span className="font-normal tabular-nums">{group.threads.length}</span>
               </div>
               <ul>
@@ -269,7 +231,7 @@ function ImportThreads({ request }: { request: ImportThreadsRequest }) {
                             onClick={(e) => {
                               e.preventDefault()
                               showThread(open)
-                              closeImportThreads()
+                              closeImport()
                             }}
                           >
                             {t('Open')}
@@ -296,24 +258,24 @@ function ImportThreads({ request }: { request: ImportThreadsRequest }) {
             </section>
           )
         })}
-        {groups.length === 0 && reading.length === 0 && (
+        {groups.length === 0 && !reading && (
           <p className="px-2 py-6 text-center text-sm text-muted-foreground" data-import-threads-empty>
             {threads.length > 0 ? t('No conversations match the search.') : t('No conversations found here.')}
           </p>
         )}
-        {reading.length > 0 && (
+        {reading && (
           <p className="px-2 py-1.5 text-xs text-muted-foreground" data-import-threads-reading>
-            {t('Reading {agents}…', { agents: reading.map(chatAgentLabel).join(', ') })}
+            {t('Reading {agents}…', { agents: chatAgentLabel(agent) })}
           </p>
         )}
-        {failures.map(({ agent, error }) => (
-          <p key={agent} className="px-2 py-1 text-xs break-words text-destructive">
-            {t("Couldn't read {label}'s conversations: {error}", { label: chatAgentLabel(agent), error })}
+        {listing.status === 'failed' && (
+          <p className="px-2 py-1 text-xs break-words text-destructive">
+            {t("Couldn't read {label}'s conversations: {error}", { label: chatAgentLabel(agent), error: listing.error })}
           </p>
-        ))}
+        )}
       </div>
       <DialogFooter>
-        <Button variant="outline" onClick={closeImportThreads}>
+        <Button variant="outline" onClick={closeImport}>
           {t('Cancel')}
         </Button>
         <Button disabled={busy || picked.length === 0} onClick={() => void runImport(picked)} data-import-threads-run>

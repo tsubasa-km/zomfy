@@ -8,15 +8,14 @@ import {
   Plus,
   Server,
   SquarePlus,
-  MessagesSquare,
   TerminalSquare
 } from 'lucide-react'
 import { connectHost } from '@/daemon-connection'
 import { setDashboardOpen, useStore } from '@/session-store'
 import { setBoardOpen, useSidebarStore } from '@/stores/sidebar-store'
 import { ChatListOptionsMenu } from '@/components/sidebar/ChatListOptionsMenu'
-import { openAddProjectDialog, setOrcaImportOpen } from '@/lib/project-dialogs'
-import { openImportThreads } from '@/stores/thread-import-store'
+import { openAddProjectDialog } from '@/lib/project-dialogs'
+import { openImport } from '@/stores/import-store'
 import { SshConnectDialog } from '@/components/sidebar/SshConnectDialog'
 import { Button } from '@/components/ui/button'
 import {
@@ -104,13 +103,9 @@ function AddMenu() {
           <SquarePlus className="size-4" />
           {t('Create new project…')}
         </DropdownMenuItem>
-        <DropdownMenuItem data-add="orca-import" onSelect={() => setOrcaImportOpen(true)}>
+        <DropdownMenuItem data-add="import" onSelect={() => openImport()}>
           <Download className="size-4" />
-          {t('Import from Orca…')}
-        </DropdownMenuItem>
-        <DropdownMenuItem data-add="import-threads" onSelect={() => openImportThreads()}>
-          <MessagesSquare className="size-4" />
-          {t('Import threads…')}
+          {t('Import…')}
         </DropdownMenuItem>
         <DropdownMenuSeparator />
         <DropdownMenuItem data-add="ssh" onSelect={() => setSshOpen(true)}>
