@@ -17,6 +17,7 @@ import { ErrorBoundary, ViewError } from '@/components/ErrorBoundary'
 import { WorkspacePanelView } from './workspace-panels'
 import { TabStrip } from './TabStrip'
 import { PaneSidebar, PaneSidebarToggle } from './PaneSidebar'
+import { dropHintRect } from './tab-drop-geometry'
 import { resolveTabDropTarget, setInsertionMark, tabDrag, type DraggedTab, type DropZone } from './tab-drag'
 import { focusGroup, moveTabTo, openChatAt, openFilesAt, splitTabTo } from './tab-group-commands'
 import { sidebarDrag, type DragItem } from '@/components/sidebar/sidebar-drag'
@@ -24,12 +25,11 @@ import './pane-split-commands'
 import { tabWorkspaceId, type WorkspaceTab } from './workspace-tab-model'
 import { t } from '@/i18n/i18n'
 
-const OVERLAY_RECT: Record<DropZone, React.CSSProperties> = {
-  up: { top: 0, left: 0, width: '100%', height: '50%' },
-  down: { top: '50%', left: 0, width: '100%', height: '50%' },
-  left: { top: 0, left: 0, width: '50%', height: '100%' },
-  right: { top: 0, left: '50%', width: '50%', height: '100%' },
-  center: { inset: 0 }
+// The hint covers the place the new split takes: a share of the whole pane, its sidebar included.
+const pct = (share: number) => `${share * 100}%`
+const overlayRect = (zone: DropZone): React.CSSProperties => {
+  const r = dropHintRect(zone)
+  return { left: pct(r.left), top: pct(r.top), width: pct(r.width), height: pct(r.height) }
 }
 
 /** Memoised: the tab objects are kept while unchanged, so another tab's change leaves this view alone. */
@@ -181,13 +181,14 @@ export const TabGroupPane = memo(function TabGroupPane({
 
   return (
     // A press anywhere in the pane, its sidebar too, makes it the one being worked in.
+    // The whole pane, sidebar included, is the drop target: a split divides all of it.
     <div
+      ref={paneRef}
       data-tab-pane={groupId}
       className="relative flex min-h-0 min-w-0 flex-1 overflow-hidden"
       onPointerDown={() => !isFocused && focusGroup(workspaceId, groupId)}
     >
       <div
-        ref={paneRef}
         data-tab-group-id={groupId}
         data-focused={isFocused ? 'true' : 'false'}
         className="relative flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden"
@@ -238,17 +239,17 @@ export const TabGroupPane = memo(function TabGroupPane({
             <ToolDrawer key={`drawer:${active.id}`} workspaceId={home} tabId={active.id} exclude={active.id} focused={isFocused} />
           )}
         </div>
-        {zone && (
-          <div aria-hidden data-tab-drop-zone={zone} className="tab-drop-overlay" style={OVERLAY_RECT[zone]}>
-            {zone !== 'center' && (
-              <span className="tab-drop-overlay__label pointer-events-none absolute bottom-2 left-2 rounded-sm px-1.5 py-0.5 font-medium">
-                {t('New split')}
-              </span>
-            )}
-          </div>
-        )}
       </div>
       {showSidebar && <PaneSidebar paneKey={sidebarKey} workspaceId={sidebarWorkspace} />}
+      {zone && (
+        <div aria-hidden data-tab-drop-zone={zone} className="tab-drop-overlay" style={overlayRect(zone)}>
+          {zone !== 'center' && (
+            <span className="tab-drop-overlay__label pointer-events-none absolute bottom-2 left-2 rounded-sm px-1.5 py-0.5 font-medium">
+              {t('New split')}
+            </span>
+          )}
+        </div>
+      )}
       {/* Split, the pane being worked in is outlined, so where a keystroke goes is plain to see. */}
       {hasSplit && isFocused && (
         <div aria-hidden data-focused-pane-outline className="pointer-events-none absolute inset-0 z-30 border border-highlight/60" />
