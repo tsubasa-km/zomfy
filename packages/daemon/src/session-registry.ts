@@ -136,6 +136,7 @@ export class SessionRegistry {
           | 'agentState'
           | 'importedFrom'
           | 'lastActivityAt'
+          | 'connectors'
         >
       >
   ): SessionRecord {

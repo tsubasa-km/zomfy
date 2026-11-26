@@ -78,6 +78,8 @@ export class ConnectorClient {
   private readonly link: RelayLink
   private helloRev = 0
   private sources: string[] = []
+  /** The rest of the relay's `/health` for the status view (docs/specs/relay-settings.md). */
+  private health: Pick<ConnectorStatus, 'features' | 'missing' | 'featuresFrom' | 'relayVersion'> = {}
   /** The next events batch's `seq`; 0 after each `hello-ok`. */
   private seq = 0
   private flushTimer: ReturnType<typeof setTimeout> | null = null
@@ -252,16 +254,18 @@ export class ConnectorClient {
       sources: this.sources,
       lastConnectedAt: link.lastConnectedAt,
       retryAt: link.retryAt,
-      error: link.error
+      error: link.error,
+      ...this.health
     }
   }
 
   private async refreshSources() {
     try {
       const res = await (this.options.fetch ?? fetch)(`${this.options.config.relayUrl}/health`)
-      const body = (await res.json()) as { sources?: unknown }
+      const body = (await res.json()) as Record<string, unknown>
       if (Array.isArray(body.sources)) {
         this.sources = body.sources.filter((s): s is string => typeof s === 'string')
+        this.health = relayHealthFields(body)
         this.options.onStatus?.(this.status())
       }
     } catch {
@@ -393,4 +397,23 @@ export class ConnectorClient {
 
 async function defaultHandle(): Promise<DeliveryResult> {
   return { outcome: 'unknown' }
+}
+
+/** The features part of a relay's `/health`, kept only where it has the expected shape; an older relay has none. */
+export function relayHealthFields(body: Record<string, unknown>): Pick<ConnectorStatus, 'features' | 'missing' | 'featuresFrom' | 'relayVersion'> {
+  const strings = (value: unknown) => (Array.isArray(value) ? value.filter((s): s is string => typeof s === 'string') : null)
+  const fields: Pick<ConnectorStatus, 'features' | 'missing' | 'featuresFrom' | 'relayVersion'> = {}
+  const features = strings(body.features)
+  if (features) fields.features = features
+  if (body.missing && typeof body.missing === 'object' && !Array.isArray(body.missing)) {
+    const missing: Record<string, string[]> = {}
+    for (const [source, names] of Object.entries(body.missing)) {
+      const list = strings(names)
+      if (list) missing[source] = list
+    }
+    fields.missing = missing
+  }
+  if (body.featuresFrom === 'FEATURES' || body.featuresFrom === 'secrets') fields.featuresFrom = body.featuresFrom
+  if (typeof body.version === 'string') fields.relayVersion = body.version
+  return fields
 }

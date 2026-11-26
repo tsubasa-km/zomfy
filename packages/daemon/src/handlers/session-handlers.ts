@@ -18,6 +18,7 @@ import { mentionFiles } from "../mention-files.ts";
 import { noteActivity } from "../session-activity.ts";
 import { consultRequester } from "../requester-consult.ts";
 import { log } from "../log.ts";
+import { connectorPresets } from "../connector-presets.ts";
 
 type UserChunk = Extract<acp.SessionUpdate, { sessionUpdate: "user_message_chunk" }>;
 
@@ -98,7 +99,10 @@ export function registerSessionHandlers(ctx: HandlerContext): void {
     // host is kept as given, for the window that lists both.
     const requested = typeof p.parentId === "string" && p.parentId ? p.parentId : undefined;
     const parentId = requested && !p.role ? (sessions.parentFor(requested) ?? requested) : undefined;
+    // MCP servers for this chat alone (docs/specs/relay-settings.md); only Claude chats take them.
+    const connectors = !p.agent || p.agent === "claude" ? connectorPresets(p.connectors) : undefined;
     const record = sessions.create({
+      ...(connectors ? { connectors } : {}),
       workspaceId: p.workspaceId,
       cwd: workspaceRoot(p.workspaceId),
       ...(parentId ? { parentId } : {}),
