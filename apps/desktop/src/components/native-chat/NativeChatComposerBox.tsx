@@ -8,6 +8,9 @@ import { MarkdownEditor, type MarkdownEditorHandle } from '@/components/markdown
 import { chatImageSrc, openChatLightbox } from './ChatLightbox'
 import { NativeChatAutocompleteMenu } from './NativeChatAutocompleteMenus'
 import type { NativeChatComposerState } from './use-native-chat-composer'
+import { useSetting } from '@/stores/settings-store'
+import { waitingGlowAttribute } from './composer-waiting-glow'
+import './composer-waiting-glow.css'
 import { t } from '@/i18n/i18n'
 
 // The composer as it is drawn, for an open chat and for the "New thread" tab alike. The box follows
@@ -81,6 +84,7 @@ export function NativeChatComposerBox({
   editorRef,
   boxRef,
   takesTabDrops,
+  waiting = false,
   placeholder,
   notice,
   left,
@@ -92,6 +96,8 @@ export function NativeChatComposerBox({
   boxRef?: React.Ref<HTMLDivElement>
   /** Tabs and explorer files dragged over the box are the caller's to take (lib/chat-composer-drop.ts). */
   takesTabDrops?: boolean
+  /** The chat waits for the person (status `needs-you`): the border glows (composer-waiting-glow.ts). */
+  waiting?: boolean
   placeholder: string
   /** A line above the box: why sending waits. */
   notice?: React.ReactNode
@@ -103,6 +109,9 @@ export function NativeChatComposerBox({
   actions: React.ReactNode
 }) {
   const [dragging, setDragging] = useState(false)
+  const glowPattern = useSetting('chatWaitingGlow')
+  // A drag over the box shows its drop ring instead.
+  const glow = waitingGlowAttribute(waiting && !dragging, glowPattern)
   const { draft, draftImages, autocomplete, selected, optionCount, listboxId, suggestion } = composer
   const images = draftImages.map((image, index) => ({ src: chatImageSrc(image), title: t('Image {n}', { n: index + 1 }) }))
 
@@ -117,6 +126,7 @@ export function NativeChatComposerBox({
         data-native-chat-composer
         data-chat-composer-drop={takesTabDrops ? '' : undefined}
         data-composer-session={composer.draftId}
+        data-waiting-glow={glow}
         className={cn(
           'cursor-text rounded-2xl border border-chat-composer-border bg-chat-composer-surface p-2 shadow-[0_2px_10px_rgb(0_0_0/0.04)] [contain:paint] data-[tab-drop-hover]:border-ring data-[tab-drop-hover]:ring-2 data-[tab-drop-hover]:ring-ring/30',
           dragging && 'border-ring'
