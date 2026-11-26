@@ -486,26 +486,24 @@ export const MANAGER_TOOLS = [
   {
     name: 'wrap_up',
     description:
-      "Call once, as the very last step of a turn in which you worked, after you have written your complete answer as reply text, not in your thinking. It shows the person a Next steps card under your reply: a 2-3 sentence summary of what you did and what is still unchecked, the next steps (most important first, at most five) with who owns each, and a button per step to hand it back to you or put it in their todos. Add a question with 2-4 short answers only when the first step waits on the person's decision; pressing an answer sends it to you as their next prompt. It returns at once; then end the turn without repeating your answer (one short line at most).",
+      "Call once, as the very last step of a turn in which you worked, after you have written your complete answer as reply text, not in your thinking. It shows the person a Next steps card under your reply that holds only what comes next, not a recap (what you did and checked belongs in your answer). Lead with personActions: what the person should do next, each a short instruction to them (\"Update the app to 0.2.60\", \"Decide whether to ship on Friday\", \"Try the export in Settings → Data\"), most important first; leave it empty when nothing needs them, and the card says so. agentSteps, optional, is what you will do next, shown quieter. Add a question with 2-4 short answers only when the person's first action is a decision; pressing an answer sends it to you as their next prompt. It returns at once; then end the turn without repeating your answer (one short line at most).",
     inputSchema: {
       type: 'object',
       properties: {
-        summary: str('Two or three sentences: what was done, and what is still unchecked.'),
-        steps: {
+        personActions: {
           type: 'array',
-          description: 'Next steps, most important first, at most five.',
-          items: {
-            type: 'object',
-            properties: {
-              owner: str("'agent' for what you can do next, 'person' for what the person must do or decide, or the name of someone else."),
-              text: str('The step, in one line.')
-            },
-            required: ['owner', 'text']
-          }
+          items: { type: 'string' },
+          description:
+            "What the person should do next, most important first, at most five: each one line, an instruction to them (\"Review the PR\", \"Ask 田中さん to approve the budget\"). Empty when nothing needs them."
+        },
+        agentSteps: {
+          type: 'array',
+          items: { type: 'string' },
+          description: 'Optional: what you will do next, at most three, one short line each.'
         },
         question: {
           type: 'object',
-          description: 'Only when the first step waits on the person: the decision, with its answers as buttons.',
+          description: "Only when the person's first action is a decision: the decision, with its answers as buttons.",
           properties: {
             text: str('The question.'),
             options: { type: 'array', items: { type: 'string' }, description: 'Two to four short answer labels.' }
@@ -513,7 +511,7 @@ export const MANAGER_TOOLS = [
           required: ['text', 'options']
         }
       },
-      required: ['summary', 'steps']
+      required: ['personActions']
     },
     readOnly: false,
     selfOnly: true
