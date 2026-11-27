@@ -3,7 +3,7 @@ type: Spec
 title: A split pane shows one workspace's tabs at a time, and its "+" is a quick pick
 description: Each split pane of the window's tabs works in the workspace of the tab it has in front and shows only that workspace's tabs (and tabs of no workspace), keeping every other workspace's tabs to bring back; its "+", pins and right sidebar act on it, and the "+" opens a filterable quick pick shaped as a tree of Terminal, Agent and Panel.
 status: stable
-x-zomfy-implementation: done
+x-zomfy-implementation: in-progress
 tags: [desktop, tabs, panes, sidebar]
 generated: { by: "claude-code/opus-5.5", at: "2026-11-27T12:00:00Z" }
 ---
@@ -115,9 +115,13 @@ With an empty field, from the top:
 
 | Branch | Inside |
 | --- | --- |
-| **Terminal** | `New Terminal…`, the quick commands (project's, then global), each saved SSH login, `SSH connections…` |
+| **Terminal** | One branch per connected host (none when there is only one host: its shells sit right under Terminal), holding that host's shells, its **default shell first** (the host's `defaultShellId`, else the first detected); then the quick commands (project's, then global), each saved SSH login, `SSH connections…`, and last `Other folder…` (the New terminal dialog, to pick another host, folder or shell). |
 | **Agent** | One branch per agent the host has (Claude, Codex, OpenCode, GitHub Copilot…), its icon and name; inside, what that agent can start: `New thread` (a chat with it), `In a terminal` (its CLI, when found on the host), `With a prompt…` (the launch dialog, the agent picked). After the agents: the project's workflows (`Run {name}…`) and `Refresh Agents`. |
 | **Panel** | `New Browser Tab`, then the workspace panels as tabs |
+
+A shell opens a terminal tab on its host in the pane's workspace folder when the pane's workspace
+is on that host, else in that host's default folder (its first project's main checkout, as the
+dialog picks), at once, with no dialog.
 
 A branch row shows a chevron, its icon and its name; an agent branch its agent's icon. Which
 branches are open is remembered (local storage) for the next `+`.
@@ -153,6 +157,12 @@ Google`).
 Unchanged from [new-tab-menu-and-pins](new-tab-menu-and-pins.md): every leaf that could be pinned
 there shows the pin button on hover or highlight, a pinned one a filled pin; pins show as buttons
 beside `+`, and at the tree's top under `New thread`.
+
+The pinned **Terminal** button opens the Terminal branch as a small menu under it (the same tree,
+`Terminal` itself left out), its first row the default shell on the pane's host, highlighted, so a
+click then `Enter` opens it. `` Ctrl+Shift+` `` still opens the default terminal at once, with no
+menu. With a query in the `+` quick pick, a shell lists with its path (`Terminal › WSL › Ubuntu` on
+a host branch, `Terminal › PowerShell` on one host).
 
 # What it does not do
 
