@@ -1,6 +1,8 @@
 /* Theme copied from Orca (stablyai/orca, MIT): src/renderer/src/assets/main.css. */
 @import 'tailwindcss';
 @import 'tw-animate-css';
+/* The dev feedback overlay styles itself (src/dev/feedback/feedback.css); nothing of it in the app's CSS. */
+@source not '../dev';
 
 @font-face {
   font-family: 'Geist';
