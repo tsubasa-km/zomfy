@@ -1,5 +1,8 @@
 # Directory Update Log
 
+## 2026-11-27
+* **Update** [Docking the tool drawer](specs/drawer-edge-docking.md): moving and docking work in both opening modes, an undetached slide clamps to its edge, content keeps clear of the handle on every edge like the top, entering click mode unpins only the active drawer, and keyboard opening moves focus into the drawer.
+
 ## 2026-11-26
 * **Update** [Docking the tool drawer](specs/drawer-edge-docking.md) uses a close arrow in click mode and reserves pinning for hover mode.
 * **Update** [Docking the tool drawer](specs/drawer-edge-docking.md) now allows dragging the handle and pin in click mode and fixes their position in hover mode.
