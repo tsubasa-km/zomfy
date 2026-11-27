@@ -11,8 +11,15 @@ import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip
 import { cn } from '@/lib/utils'
 import { t } from '@/i18n/i18n'
 
-/** On Windows the main window drops the OS title bar (title_bar.rs) so the update button can sit beside ＿ □ ✕, as in Orca. */
-export const OWN_TITLE_BAR = isTauri() && WINDOW_ROLE === 'main' && navigator.userAgent.includes('Windows')
+/**
+ * On Windows the main window drops the OS title bar (title_bar.rs) so the update button can sit beside
+ * ＿ □ ✕, as in Orca. A browser preview (apps/desktop/VERIFYING.md) draws the same bar, its window
+ * controls inert, so it looks like the app.
+ */
+export const OWN_TITLE_BAR = WINDOW_ROLE === 'main' && (!isTauri() || navigator.userAgent.includes('Windows'))
+
+/** The Tauri window the controls act on; none in a browser preview, where they do nothing. */
+const appWindow = isTauri() ? getCurrentWindow() : null
 
 const CONTROL = 'flex h-full w-[46px] items-center justify-center text-foreground transition-colors'
 
@@ -58,7 +65,8 @@ function BarButton({ icon: Icon, label, command, pressed, onClick }: { icon: Luc
 export function TitleBar() {
   const [maximized, setMaximized] = useState(false)
   useEffect(() => {
-    const win = getCurrentWindow()
+    const win = appWindow
+    if (!win) return
     const sync = () => void win.isMaximized().then(setMaximized)
     sync()
     const unlisten = win.onResized(sync)
@@ -66,7 +74,7 @@ export function TitleBar() {
   }, [])
 
   const sidebarVisible = useSetting('sidebarVisible')
-  const win = getCurrentWindow()
+  const win = appWindow
   return (
     <div data-tauri-drag-region data-title-bar className="flex h-8 shrink-0 items-center border-b border-border bg-worktree-sidebar select-none">
       <span data-tauri-drag-region className="pr-1.5 pl-3 text-xs text-muted-foreground">
@@ -85,7 +93,7 @@ export function TitleBar() {
         <BarButton icon={Settings} label={t('Settings')} command="app.settings" onClick={() => openSettings()} />
       </div>
       <div className="flex h-full">
-        <button type="button" aria-label={t('Minimize')} className={cn(CONTROL, 'hover:bg-foreground/10')} onClick={() => void win.minimize()}>
+        <button type="button" aria-label={t('Minimize')} className={cn(CONTROL, 'hover:bg-foreground/10')} onClick={() => void win?.minimize()}>
           <svg width="10" height="10" viewBox="0 0 10 10" aria-hidden>
             <path d="M0 5h10v1H0z" fill="currentColor" />
           </svg>
@@ -94,7 +102,7 @@ export function TitleBar() {
           type="button"
           aria-label={maximized ? t('Restore') : t('Maximize')}
           className={cn(CONTROL, 'hover:bg-foreground/10')}
-          onClick={() => void win.toggleMaximize()}
+          onClick={() => void win?.toggleMaximize()}
         >
           {maximized ? (
             <svg width="10" height="10" viewBox="0 0 10 10" aria-hidden>
@@ -107,7 +115,7 @@ export function TitleBar() {
           )}
         </button>
         {/* close() goes through CloseRequested, so minimize-to-tray still applies. */}
-        <button type="button" aria-label={t('Close')} className={cn(CONTROL, 'hover:bg-[#c42b1c] hover:text-white')} onClick={() => void win.close()}>
+        <button type="button" aria-label={t('Close')} className={cn(CONTROL, 'hover:bg-[#c42b1c] hover:text-white')} onClick={() => void win?.close()}>
           <svg width="10" height="10" viewBox="0 0 10 10" aria-hidden>
             <path d="M1 0L0 1l4 4-4 4 1 1 4-4 4 4 1-1-4-4 4-4-1-1-4 4-4-4z" fill="currentColor" />
           </svg>
