@@ -11,6 +11,23 @@ describe('tool drawer docking', () => {
       .toEqual({ dock: { edge: 'top', position: 0.25 }, detached: false })
   })
 
+  test('clamps along the source edge when a slide overshoots the pane', () => {
+    const start = { clientX: 405, clientY: 110 }
+    expect(drawerDragTarget(bounds, 'top', start, { clientX: 20, clientY: 112 }, 5, false))
+      .toEqual({ dock: { edge: 'top', position: 0 }, detached: false })
+    expect(drawerDragTarget(bounds, 'top', start, { clientX: 900, clientY: 60 }, 5, false))
+      .toEqual({ dock: { edge: 'top', position: 1 }, detached: false })
+    const side = { clientX: 690, clientY: 300 }
+    expect(drawerDragTarget(bounds, 'right', side, { clientX: 760, clientY: 650 }, 0, false))
+      .toEqual({ dock: { edge: 'right', position: 1 }, detached: false })
+  })
+
+  test('detaches only when pulled into the pane', () => {
+    const start = { clientX: 400, clientY: 490 }
+    expect(drawerDragTarget(bounds, 'bottom', start, { clientX: 400, clientY: 560 }, 0, false).detached).toBe(false)
+    expect(drawerDragTarget(bounds, 'bottom', start, { clientX: 400, clientY: 440 }, 0, false).detached).toBe(true)
+  })
+
   test('detaches in the middle and snaps to another edge as the pointer approaches', () => {
     const start = { clientX: 400, clientY: 110 }
     const middle = drawerDragTarget(bounds, 'top', start, { clientX: 400, clientY: 300 }, 0, false)

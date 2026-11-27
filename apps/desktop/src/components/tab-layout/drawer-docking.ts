@@ -42,14 +42,15 @@ export function drawerDragTarget(
   detached: boolean
 ): { dock: DrawerDock | null; detached: boolean } {
   const { clientX: x, clientY: y } = point
-  const perpendicular = isDrawerSide(source) ? x - start.clientX : y - start.clientY
-  detached ||= Math.abs(perpendicular) >= DETACH_DISTANCE
-
-  if (x < bounds.left - SNAP_DISTANCE || x > bounds.right + SNAP_DISTANCE ||
-      y < bounds.top - SNAP_DISTANCE || y > bounds.bottom + SNAP_DISTANCE) return { dock: null, detached }
+  // Only a pull into the pane detaches; past the edge or beyond its ends the handle keeps sliding along it.
+  const inward = source === 'top' || source === 'left' ? 1 : -1
+  const perpendicular = (isDrawerSide(source) ? x - start.clientX : y - start.clientY) * inward
+  detached ||= perpendicular >= DETACH_DISTANCE
 
   let edge = source
   if (detached) {
+    if (x < bounds.left - SNAP_DISTANCE || x > bounds.right + SNAP_DISTANCE ||
+        y < bounds.top - SNAP_DISTANCE || y > bounds.bottom + SNAP_DISTANCE) return { dock: null, detached }
     const distances: Record<DrawerEdge, number> = {
       top: Math.abs(y - bounds.top),
       bottom: Math.abs(y - bounds.bottom),
