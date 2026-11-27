@@ -308,7 +308,6 @@ export function ToolDrawer({
 
   const positionStyle = { '--drawer-position': `${dock.position * 100}%`, '--drawer-min-depth': `${drawerMinDepth(dock.edge)}px` } as React.CSSProperties
   const countTitle = `${terminals === 1 ? t('{n} terminal', { n: terminals }) : t('{n} terminals', { n: terminals })} · ${browsers === 1 ? t('{n} browser', { n: browsers }) : t('{n} browsers', { n: browsers })}`
-  const dragHint = openOnClick ? ` · ${t('Drag to move the drawer')}` : ''
   const handleCursor = openOnClick ? 'cursor-grab' : 'cursor-pointer'
   const innerHandleLabel = openOnClick ? t('Close the tool drawer') : pinned ? t('Unpin') : t('Keep open')
   return (
@@ -320,7 +319,7 @@ export function ToolDrawer({
         data-edge={dock.edge}
         aria-label={t('Open the tool drawer')}
         aria-expanded={shown}
-        title={countTitle + dragHint}
+        title={countTitle}
         {...(openOnClick ? dragEvents : undefined)}
         onPointerEnter={openOnClick ? undefined : () => later(true, OPEN_DELAY_MS)}
         onPointerLeave={() => {
@@ -479,7 +478,7 @@ export function ToolDrawer({
         </div>
         <button
           type="button"
-          title={innerHandleLabel + dragHint}
+          title={innerHandleLabel}
           aria-label={innerHandleLabel}
           aria-expanded={openOnClick ? shown : undefined}
           aria-pressed={openOnClick ? undefined : pinned}
