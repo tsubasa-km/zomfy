@@ -3,7 +3,7 @@ type: Spec
 title: New terminals and agents get the current user environment
 description: The daemon re-reads the person's environment (Windows registry, or a login-shell snapshot on macOS and Linux) for each new terminal and agent process, so `setx` or a profile edit applies without restarting Zomfy; Reload environment forces it.
 status: stable
-x-zomfy-implementation: in-progress
+x-zomfy-implementation: done
 tags: [environment, daemon, terminals, agents, windows, desktop, settings]
 generated: { by: "claude-code/opus-5.5", at: "2026-11-27T00:00:00Z" }
 ---

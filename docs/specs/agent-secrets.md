@@ -3,7 +3,7 @@ type: Spec
 title: Secrets agents can use but not see
 description: Settings keeps API keys in the OS credential store; an agent's processes get a placeholder and a base URL into a local tunnel in the daemon that puts the real key on requests to the bound host, and the value is redacted from everything Zomfy records or shows.
 status: stable
-x-zomfy-implementation: in-progress
+x-zomfy-implementation: done
 tags: [secrets, security, agents, environment, daemon, desktop, settings]
 generated: { by: "claude-code/opus-5.5", at: "2026-11-27T00:00:00Z" }
 ---
@@ -120,7 +120,7 @@ A page of its own under AI Capabilities, one block per connected host:
 - The host's name and a **Reload environment** button
   ([live environment](live-environment.md)).
 - One row per secret: a key mark, the name in monospace, the exposure as a mark (tunnel: a link
-  mark in the accent colour; environment: a variable mark in the warning colour), the upstream's
+  mark in the success green; environment: a variable mark in the warning colour), the upstream's
   host, the agents it is limited to as their icons, the projects as chips, and `••••••••`. Replace
   opens a password field in place; Delete asks once.
 - **Add a secret** opens the same row as a form: name, value, a Tunnel/Environment switch, the

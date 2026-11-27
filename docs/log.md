@@ -1,5 +1,9 @@
 # Directory Update Log
 
+## 2026-11-27
+* **Creation**: [Secrets agents can use but not see](specs/agent-secrets.md), done: Settings › Secrets & environment keeps API keys in the OS credential store (`zomfy-secrets`); a tunnel secret gives the agent a `zomfy-secret://NAME` placeholder and a base URL into a loopback tunnel that puts the value on requests to the bound upstream and redacts it on the way back; an environment secret is passed in plain, marked as weaker; values are redacted from session updates, `terminal_read` and the daemon log.
+* **Creation**: [New terminals and agents get the current user environment](specs/live-environment.md), done: the daemon re-reads HKLM/HKCU Environment (Windows) or a login-shell snapshot (macOS, Linux) for each new terminal, agent, hook and language server, and Reload environment forces it and looks for agent CLIs again.
+
 ## 2026-11-26
 * **Creation**: [The window opens in one step](specs/calm-startup.md), done: hosts' state and chat lists restored from `localStorage` at startup, connect requests in parallel, Monaco loaded with the first editor tab, a delayed reconnecting notice, a transcript outline while it loads, saved usage limits, a boot screen in the shell's frame, and `apps/desktop/scripts/record-startup.ts` with `preview.ts --prod`.
 * **Creation**: [Adding a tab: the "+" menu, pins, new chats and terminals that pick their place](specs/new-tab-menu-and-pins.md), done: any `+` menu item (chats, terminal, agents, quick commands, workflows, SSH logins, browser, panels) can be pinned as a tab-strip button (`newTabPins`, Terminal by default, replacing the Terminal button); a new chat opens the New thread screen on the current workspace, whose chip picks another workspace, a new worktree or another project; `New Terminal…` picks host, folder and shell.
