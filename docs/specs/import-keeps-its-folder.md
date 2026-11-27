@@ -3,7 +3,7 @@ type: Spec
 title: An imported conversation keeps its own folder
 description: Importing a conversation an agent's CLI recorded puts the thread in the workspace that owns the recorded folder and runs it in that folder, a subfolder included; only an explicit "Import into" places it elsewhere.
 status: stable
-x-zomfy-implementation: in-progress
+x-zomfy-implementation: done
 tags: [threads, import, daemon, desktop]
 generated: { by: "claude-code/opus-5.5", at: "2026-11-27T00:00:00Z" }
 ---
