@@ -1,8 +1,10 @@
 // A private copy of the UI in headless Edge, with its own daemon, state and playground repo, so
 // several people (or agents) can test side by side without touching the real app or each other.
-//   bun scripts/preview.ts start <slot 1-9> [--prod]   prints ports, then keeps running; --prod
-//                                             serves a production build (as the app ships) instead of
-//                                             the dev server, for timing startup
+//   bun scripts/preview.ts start <slot 1-9> [--prod] [--seed]   prints ports, then keeps running;
+//                                             --prod serves a production build (as the app ships)
+//                                             instead of the dev server, for timing startup; --seed
+//                                             first fills its home with projects and threads
+//                                             (scripts/seed-preview.ts)
 //   bun scripts/preview.ts stop <slot>
 // Drive it with `HARNESS_CDP_PORT=<cdp port> bun scripts/cdp.ts ...`. WSL hosts and Tauri-only
 // actions (native dialogs, "Open in") are unavailable in a preview.
@@ -14,9 +16,10 @@ import { join } from "node:path";
 
 const [command, slotArg, ...flags] = process.argv.slice(2);
 const prod = flags.includes("--prod");
+const seeded = flags.includes("--seed");
 const slot = Number(slotArg);
 if (!["start", "stop"].includes(command ?? "") || !(slot >= 1 && slot <= 9)) {
-  console.error("usage: bun scripts/preview.ts start|stop <slot 1-9> [--prod]");
+  console.error("usage: bun scripts/preview.ts start|stop <slot 1-9> [--prod] [--seed]");
   process.exit(2);
 }
 
@@ -55,6 +58,10 @@ await stop();
 const legacyHome = join(tmpdir(), `acp-harness-preview-${slot}`); // legacy
 if (!existsSync(home) && existsSync(legacyHome)) await cp(legacyHome, home, { recursive: true, verbatimSymlinks: true });
 await mkdir(home, { recursive: true });
+if (seeded) {
+  const seeding = spawnSync("bun", ["scripts/seed-preview.ts", String(slot)], { cwd: desktopDir, stdio: ["ignore", "ignore", "inherit"], windowsHide: true });
+  if (seeding.status !== 0) throw new Error("seeding failed");
+}
 const env = {
   ...process.env,
   ZOMFY_HOME: home,

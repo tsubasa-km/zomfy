@@ -16,6 +16,9 @@ or the OS temp dir) and a playground repository, so it never reads or writes the
 `~/.zomfy`, `~/zomfy` or another preview. Ports: daemon `7900+slot`, Vite `1430+slot`, DevTools
 (CDP) `9300+slot`. Pick a slot nobody else is using; several agents can run side by side.
 
+To try things by hand with realistic data, `bun scripts/preview.ts start <slot> --seed` first fills the preview's own home with four projects and a quick-thread group in mixed turn-taking states;
+then `bun scripts/seed-preview.ts <slot> --live` shows the seeded "needs your answer" and "working" threads (only a live agent can be those) until the page reloads.
+
 Not in a preview: WSL hosts and what only the Tauri shell does (native file dialogs, "Open in",
 the window frame). Never use `tauri dev` to check a change; it shares the real app's state.
 
