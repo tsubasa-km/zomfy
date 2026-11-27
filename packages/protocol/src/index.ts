@@ -31,6 +31,7 @@ import { WORKSPACE_METHODS, type WorkspaceRequests } from './workspaces'
 import { CHAT_STATUS_METHODS, type ChatStatusRequests } from './chat-status'
 import { BOT_METHODS, type BotRequests } from './bots'
 import { REMOTE_DEVICE_METHODS, type RemoteDeviceRequests } from './remote-devices'
+import { SECRET_METHODS, type SecretRequests } from './secrets'
 
 export * from './automation-schedules'
 export * from './automations'
@@ -69,6 +70,7 @@ export * from './permission-asks'
 export * from './remote-devices'
 export * from './phone-e2ee'
 export * from './turn-taking'
+export * from './secrets'
 
 export const HARNESS_METHODS = {
   ...WORKSPACE_METHODS,
@@ -99,7 +101,8 @@ export const HARNESS_METHODS = {
   ...SSH_CONNECTION_METHODS,
   ...CHAT_STATUS_METHODS,
   ...BOT_METHODS,
-  ...REMOTE_DEVICE_METHODS
+  ...REMOTE_DEVICE_METHODS,
+  ...SECRET_METHODS
 } as const
 
 export const HARNESS_NOTIFICATIONS = {
@@ -138,6 +141,7 @@ export interface HarnessRequests
     SshConnectionRequests,
     ChatStatusRequests,
     BotRequests,
-    RemoteDeviceRequests {}
+    RemoteDeviceRequests,
+    SecretRequests {}
 
 export type HarnessMethod = keyof HarnessRequests
