@@ -468,7 +468,7 @@ export function ToolDrawer({
           role="separator"
           aria-orientation={side ? 'vertical' : 'horizontal'}
           aria-label={t('Resize tool drawer')}
-          title={t('Drag to resize · double-click to reset')}
+          title={side ? t('Drag to change the width · double-click to reset') : t('Drag to change the height · double-click to reset')}
           data-drawer-resize
           data-edge={dock.edge}
           className={cn('tool-drawer__resize group/resize', shown && 'pointer-events-auto')}

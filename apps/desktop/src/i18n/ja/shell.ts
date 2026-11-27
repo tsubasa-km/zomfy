@@ -1305,8 +1305,9 @@ export const SHELL: Record<string, string> = {
   'Open on click': 'クリックで開く',
 
   // components/tab-layout/ToolDrawer.tsx (resize)
-  'Resize the drawer': '引き出しの高さを変更',
+  'Resize tool drawer': '引き出しのサイズを変更',
   'Drag to change the height · double-click to reset': 'ドラッグで高さを変更 · ダブルクリックで元に戻す',
+  'Drag to change the width · double-click to reset': 'ドラッグで幅を変更 · ダブルクリックで元に戻す',
 
   // components/editor/EditorStatus.tsx, EditorStatusSegments.tsx
   'Ln {line}, Col {column}': '行 {line}、列 {column}',
