@@ -23,6 +23,8 @@ export interface SessionRecord extends SessionInfo {
   claudeSessionId: string | null
   /** A name chosen by the person takes precedence over automatic naming. */
   manuallyNamed?: true
+  /** The starting agent and the source of the name, even when two sources gave the same text. */
+  automaticTitle?: { agent: ChatAgentId; source: 'first-message' | 'agent' | 'summary' }
   /**
    * External agents' own ids for the conversation (their ACP session ids), by agent: a chat whose
    * agent was changed keeps each one's, so changing back reopens that agent's conversation.
@@ -166,6 +168,14 @@ export class SessionRegistry {
     this.changed()
   }
 
+  setAgentTitle(id: string, agent: ChatAgentId, name: string): void {
+    const session = this.get(id)
+    const title = name.replace(/\s+/g, ' ').trim()
+    if (!title || !session || session.manuallyNamed || session.automaticTitle?.agent !== agent || (session.agent ?? 'claude') !== agent) return
+    if (session.automaticTitle.source === 'agent' && session.title === title) return
+    this.update(id, { title, automaticTitle: { agent, source: 'agent' } })
+  }
+
   async remove(id: string): Promise<void> {
     this.records.delete(id)
     this.seqs.delete(id)
@@ -304,6 +314,7 @@ export function publicInfo(record: SessionRecord): SessionInfo {
   const {
     claudeSessionId: _hidden,
     manuallyNamed: _manualTitleHidden,
+    automaticTitle: _automaticTitleHidden,
     agentSessionIds: _agentHidden,
     seedContext: _seedHidden,
     handoffContext: _handoffHidden,
