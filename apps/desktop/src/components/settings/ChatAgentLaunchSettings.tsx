@@ -1,24 +1,23 @@
 import { useState, type ReactNode } from 'react'
-import { ChevronRight, ExternalLink, RefreshCw, ShieldAlert } from 'lucide-react'
+import { ExternalLink, RefreshCw, ShieldAlert } from 'lucide-react'
 import { HARNESS_METHODS, type ChatAgentId, type ChatAgentInfo, type ChatAgentLaunchPatch } from '@zomfy/protocol'
 import { harnessRequest } from '@/daemon-connection'
 import type { HostEntry } from '@/session-store'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible'
 import { TuiAgentIcon } from '@/components/terminal/TuiAgentIcon'
 import { loadChatAgents, setChatAgents, useChatAgents } from '@/lib/chat-agents'
 import { cn } from '@/lib/utils'
 import { useSaveState } from '@/lib/use-save-state'
 import { SettingsRow, SettingsSwitchRow, TextField } from './settings-form-controls'
-import { SearchableSetting, useSettingsSearchQuery } from './SettingsSection'
+import { SearchableSetting } from './SettingsSection'
 import { t } from '@/i18n/i18n'
 
-// Orca's HostAgentLaunchSettings and HostAgentEnvironmentEditor: per host, each chat agent's
-// launch command and environment. Values are write-only: the daemon reports names, never values.
-// An account is the agent's account-folder variable (CODEX_HOME, CLAUDE_CONFIG_DIR…) set here.
-// Each agent folds to one line, and agents the host lacks gather in a folded group of their own.
+// Orca's HostAgentLaunchSettings and HostAgentEnvironmentEditor: a chat agent's launch command and
+// environment on a host, for the host and agent picked at the top of the page. Values are
+// write-only: the daemon reports names, never values. An account is the agent's account-folder
+// variable (CODEX_HOME, CLAUDE_CONFIG_DIR…) set here.
 
 const STATUS_LABEL: Record<ChatAgentInfo['status'], string> = {
   ready: t('Ready'),
@@ -32,68 +31,12 @@ async function setLaunch(host: HostEntry, agent: ChatAgentId, patch: ChatAgentLa
   setChatAgents(host.id, await harnessRequest(HARNESS_METHODS.chatAgentSetLaunch, { agent, ...patch }, host.id))
 }
 
-export function ChatAgentLaunchSettings({ host }: { host: HostEntry }) {
+/**
+ * One agent's launch settings on one host (docs/specs/settings-host-agent-scope.md): its state and
+ * install link, then what it starts with. The host and agent are picked at the top of the page.
+ */
+export function ChatAgentLaunchSettings({ host, agent }: { host: HostEntry; agent: ChatAgentInfo }) {
   const state = useChatAgents(host.id)
-  const searching = useSettingsSearchQuery().trim() !== ''
-  const installed = state.agents.filter((a) => a.status !== 'missing')
-  const missing = state.agents.filter((a) => a.status === 'missing')
-  const [missingOpen, setMissingOpen] = useState(false)
-  return (
-    <div className="space-y-1" data-chat-agent-settings={host.id}>
-      <div className="flex items-center justify-between gap-2 pt-2">
-        <span className="text-xs font-medium text-muted-foreground">{host.label}</span>
-        <Button
-          type="button"
-          variant="ghost"
-          size="xs"
-          disabled={state.kind === 'loading'}
-          onClick={() => void loadChatAgents(host.id, true)}
-        >
-          <RefreshCw className={cn('size-3', state.kind === 'loading' && 'animate-spin')} />
-          {t('Reload')}
-        </Button>
-      </div>
-      {state.kind === 'failed' && state.agents.length === 0 ? (
-        <p className="py-2 text-xs text-muted-foreground">{t('Can’t reach this host to list its agents: {reason}', { reason: state.reason })}</p>
-      ) : null}
-      <div className="divide-y divide-border/40">
-        {installed.map((agent) => (
-          <ChatAgentRow key={agent.id} host={host} agent={agent} />
-        ))}
-      </div>
-      {missing.length > 0 ? (
-        <Collapsible
-          open={searching || missingOpen}
-          onOpenChange={setMissingOpen}
-          className={searching ? 'not-has-[[data-setting-row]]:hidden' : undefined}
-          data-chat-agents-missing
-        >
-          <CollapsibleTrigger className="group flex w-full items-center gap-2 rounded-md py-2 text-left text-xs text-muted-foreground outline-none hover:text-foreground focus-visible:ring-[3px] focus-visible:ring-ring/50">
-            <ChevronRight className="size-3.5 shrink-0 transition-transform group-data-[state=open]:rotate-90" />
-            {t('Not installed on this host ({count})', { count: missing.length })}
-            <span className="flex min-w-0 items-center gap-1">
-              {missing.map((agent) => (
-                <TuiAgentIcon key={agent.id} agent={agent.id} size={12} />
-              ))}
-            </span>
-          </CollapsibleTrigger>
-          <CollapsibleContent animation="height">
-            <div className="divide-y divide-border/40">
-              {missing.map((agent) => (
-                <ChatAgentRow key={agent.id} host={host} agent={agent} />
-              ))}
-            </div>
-          </CollapsibleContent>
-        </Collapsible>
-      ) : null}
-    </div>
-  )
-}
-
-/** One agent, folded to its name and state; open, its launch command and environment. */
-function ChatAgentRow({ host, agent }: { host: HostEntry; agent: ChatAgentInfo }) {
-  const searching = useSettingsSearchQuery().trim() !== ''
-  const [open, setOpen] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [savingConnection, setSavingConnection] = useState(false)
   const [savingChrome, setSavingChrome] = useState(false)
@@ -109,100 +52,108 @@ function ChatAgentRow({ host, agent }: { host: HostEntry; agent: ChatAgentInfo }
       }
     )
   return (
-    <Collapsible open={searching || open} onOpenChange={setOpen} className="not-has-[[data-setting-row]]:hidden" data-chat-agent={agent.id}>
+    <div className="space-y-1" data-chat-agent-settings={host.id} data-chat-agent={agent.id}>
       <SearchableSetting entry={{ title: agent.label, keywords: [agent.id, 'agent', 'install'] }}>
         <div className="flex items-center gap-2 py-1.5">
-          <CollapsibleTrigger className="group flex min-w-0 flex-1 items-center gap-2 rounded-md py-1 text-left outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50">
-            <ChevronRight className="size-3.5 shrink-0 text-muted-foreground transition-transform group-data-[state=open]:rotate-90" />
-            <TuiAgentIcon agent={agent.id} size={16} />
-            <span className="text-sm font-medium">{agent.label}</span>
-            <span
-              className={cn('text-xs', agent.status === 'ready' ? 'text-muted-foreground' : 'text-status-warning')}
-              data-chat-agent-status={agent.status}
-            >
-              {STATUS_LABEL[agent.status]}
+          <TuiAgentIcon agent={agent.id} size={16} />
+          <span className="text-sm font-medium">{agent.label}</span>
+          <span
+            className={cn('text-xs', agent.status === 'ready' ? 'text-muted-foreground' : 'text-status-warning')}
+            data-chat-agent-status={agent.status}
+          >
+            {STATUS_LABEL[agent.status]}
+          </span>
+          {agent.update ? (
+            <span className="text-xs text-primary" data-chat-agent-update={agent.update.latest}>
+              {t('Update available: {version}', { version: agent.update.latest })}
             </span>
-            {agent.update ? (
-              <span className="text-xs text-primary" data-chat-agent-update={agent.update.latest}>
-                {t('Update available: {version}', { version: agent.update.latest })}
-              </span>
-            ) : null}
-          </CollapsibleTrigger>
+          ) : null}
+          <span className="flex-1" />
           <InstallLink agent={agent} />
+          <Button
+            type="button"
+            variant="ghost"
+            size="xs"
+            disabled={state.kind === 'loading'}
+            onClick={() => void loadChatAgents(host.id, true)}
+          >
+            <RefreshCw className={cn('size-3', state.kind === 'loading' && 'animate-spin')} />
+            {t('Reload')}
+          </Button>
         </div>
       </SearchableSetting>
-      <CollapsibleContent animation="height">
-        <div className="space-y-2 pb-3 pl-6">
-          {agent.consent !== undefined ? <ConsentSection agent={agent} onChange={async (consent) => void (await run({ consent }))} /> : null}
-          {agent.codexConnection !== undefined ? (
-            <SettingsRow
-              label={t('Codex connection')}
-              description={t('Applies to the next Codex message on this host.')}
-              keywords={['Codex', 'ACP', 'App Server', 'connection']}
-              control={(
-                <Select
-                  value={agent.codexConnection}
-                  disabled={savingConnection}
-                  onValueChange={(value) => {
-                    if (value !== 'acp' && value !== 'app-server') return
-                    setSavingConnection(true)
-                    void run({ codexConnection: value }).finally(() => setSavingConnection(false))
-                  }}
-                >
-                  <SelectTrigger className="h-8 w-48" aria-label={t('Codex connection')}>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="acp">ACP</SelectItem>
-                    <SelectItem value="app-server">{t('Direct (App Server)')}</SelectItem>
-                  </SelectContent>
-                </Select>
-              )}
-            />
-          ) : null}
-          {agent.claudeChrome !== undefined ? (
-            <SettingsSwitchRow
-              label={t('Claude in Chrome')}
-              description={t(
-                'Starts this host’s Claude chats with Claude in Chrome, so they can use your Chrome. Needs the Claude in Chrome extension installed and Chrome running. A project can override this in its settings.'
-              )}
-              keywords={['Chrome', 'browser', 'Claude in Chrome', 'extension', '--chrome']}
-              checked={agent.claudeChrome}
-              disabled={savingChrome}
-              onChange={(claudeChrome) => {
-                setSavingChrome(true)
-                void run({ claudeChrome }).finally(() => setSavingChrome(false))
+      {state.kind === 'failed' && state.agents.length === 0 ? (
+        <p className="py-2 text-xs text-muted-foreground">{t('Can’t reach this host to list its agents: {reason}', { reason: state.reason })}</p>
+      ) : null}
+    <div className="space-y-2 pb-3">
+      {agent.consent !== undefined ? <ConsentSection agent={agent} onChange={async (consent) => void (await run({ consent }))} /> : null}
+      {agent.codexConnection !== undefined ? (
+        <SettingsRow
+          label={t('Codex connection')}
+          description={t('Applies to the next Codex message on this host.')}
+          keywords={['Codex', 'ACP', 'App Server', 'connection']}
+          control={(
+            <Select
+              value={agent.codexConnection}
+              disabled={savingConnection}
+              onValueChange={(value) => {
+                if (value !== 'acp' && value !== 'app-server') return
+                setSavingConnection(true)
+                void run({ codexConnection: value }).finally(() => setSavingConnection(false))
               }}
-            />
-          ) : null}
-          {agent.detail && agent.status !== 'needs-consent' ? <p className="font-mono text-xs break-all text-muted-foreground">{agent.detail}</p> : null}
-          {agent.update ? (
-            <InstallHint>
-              {t('{package} {installed} is installed; {latest} is out. Update it the way you installed it.', {
-                package: agent.update.packageName,
-                installed: agent.update.installed,
-                latest: agent.update.latest
-              })}
-            </InstallHint>
-          ) : agent.status !== 'ready' && agent.status !== 'needs-consent' ? (
-            <InstallHint>{t('Install it on {host} from the official page, then press Reload.', { host: host.label })}</InstallHint>
-          ) : null}
-          {agent.id !== 'claude' && agent.codexConnection !== 'app-server' ? (
-            <TextField
-              label={t('{agent} command', { agent: agent.label })}
-              description={t('Starts this agent’s ACP server. Empty uses the catalog command.')}
-              keywords={[agent.id, 'command', 'acp']}
-              value={agent.command ?? ''}
-              placeholder={t('Catalog command')}
-              className="w-72 font-mono text-xs"
-              onChange={(value) => void run({ command: value || null })}
-            />
-          ) : null}
-          <EnvironmentEditor agent={agent} onChange={(env) => run({ env })} />
-          {error ? <p className="text-xs text-destructive">{error}</p> : null}
-        </div>
-      </CollapsibleContent>
-    </Collapsible>
+            >
+              <SelectTrigger className="h-8 w-48" aria-label={t('Codex connection')}>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="acp">ACP</SelectItem>
+                <SelectItem value="app-server">{t('Direct (App Server)')}</SelectItem>
+              </SelectContent>
+            </Select>
+          )}
+        />
+      ) : null}
+      {agent.claudeChrome !== undefined ? (
+        <SettingsSwitchRow
+          label={t('Claude in Chrome')}
+          description={t(
+            'Starts this host’s Claude chats with Claude in Chrome, so they can use your Chrome. Needs the Claude in Chrome extension installed and Chrome running. A project can override this in its settings.'
+          )}
+          keywords={['Chrome', 'browser', 'Claude in Chrome', 'extension', '--chrome']}
+          checked={agent.claudeChrome}
+          disabled={savingChrome}
+          onChange={(claudeChrome) => {
+            setSavingChrome(true)
+            void run({ claudeChrome }).finally(() => setSavingChrome(false))
+          }}
+        />
+      ) : null}
+      {agent.detail && agent.status !== 'needs-consent' ? <p className="font-mono text-xs break-all text-muted-foreground">{agent.detail}</p> : null}
+      {agent.update ? (
+        <InstallHint>
+          {t('{package} {installed} is installed; {latest} is out. Update it the way you installed it.', {
+            package: agent.update.packageName,
+            installed: agent.update.installed,
+            latest: agent.update.latest
+          })}
+        </InstallHint>
+      ) : agent.status !== 'ready' && agent.status !== 'needs-consent' ? (
+        <InstallHint>{t('Install it on {host} from the official page, then press Reload.', { host: host.label })}</InstallHint>
+      ) : null}
+      {agent.id !== 'claude' && agent.codexConnection !== 'app-server' ? (
+        <TextField
+          label={t('{agent} command', { agent: agent.label })}
+          description={t('Starts this agent’s ACP server. Empty uses the catalog command.')}
+          keywords={[agent.id, 'command', 'acp']}
+          value={agent.command ?? ''}
+          placeholder={t('Catalog command')}
+          className="w-72 font-mono text-xs"
+          onChange={(value) => void run({ command: value || null })}
+        />
+      ) : null}
+      <EnvironmentEditor agent={agent} onChange={(env) => run({ env })} />
+      {error ? <p className="text-xs text-destructive">{error}</p> : null}
+    </div>    </div>
   )
 }
 

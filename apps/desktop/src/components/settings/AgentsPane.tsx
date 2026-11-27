@@ -8,6 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { SettingsRow, SettingsSubsectionHeader, TextField } from './settings-form-controls'
 import { sortedHosts } from './HostsPane'
 import { ChatAgentLaunchSettings } from './ChatAgentLaunchSettings'
+import { HostAgentPicker, useHostAgentPick } from './HostAgentPicker'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 import { MODES as PERMISSION_MODES, permissionModeLabel } from '@/components/native-chat/NativeChatPermissionModePicker'
@@ -121,6 +122,17 @@ function DefaultPermissionSelect() {
   )
 }
 
+/** The picked agent's launch settings on the picked host (docs/specs/settings-host-agent-scope.md). */
+function ChatAgentsForPick() {
+  const pick = useHostAgentPick()
+  return (
+    <div className="space-y-2">
+      <HostAgentPicker pick={pick} />
+      {pick.host && pick.agent ? <ChatAgentLaunchSettings key={`${pick.host.id}:${pick.agent.id}`} host={pick.host} agent={pick.agent} /> : null}
+    </div>
+  )
+}
+
 export function AgentsPane() {
   const hosts = useStore((s) => s.hosts)
   return (
@@ -148,11 +160,7 @@ export function AgentsPane() {
           title={t('Chat agents')}
           description={t('Agents each host can run as threads. Other agents run their own ACP server on the host, with that host’s login, command and variables.')}
         />
-        {sortedHosts(hosts)
-          .filter((host) => host.connection.kind === 'connected')
-          .map((host) => (
-            <ChatAgentLaunchSettings key={host.id} host={host} />
-          ))}
+        <ChatAgentsForPick />
       </div>
     </div>
   )
