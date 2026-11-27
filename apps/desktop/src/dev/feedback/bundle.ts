@@ -74,6 +74,14 @@ export interface FeedbackResponse {
 
 export const FEEDBACK_ENDPOINT = "/__zomfy-feedback";
 
+/**
+ * Ctrl+Shift+. (Cmd+Shift+. on macOS) toggles feedback mode, also while a dialog or menu is open.
+ * Matched by `code`, so a layout where Shift+. types another character still works.
+ */
+export function isFeedbackShortcut(event: { code: string; ctrlKey: boolean; metaKey: boolean; shiftKey: boolean; altKey: boolean }): boolean {
+  return event.code === "Period" && (event.ctrlKey || event.metaKey) && event.shiftKey && !event.altKey;
+}
+
 /** A folder name that sorts by time and is valid on every OS: `2026-11-27T09-30-12-345Z`. */
 export function bundleFolderName(at: Date): string {
   return at.toISOString().replace(/[:.]/g, "-");

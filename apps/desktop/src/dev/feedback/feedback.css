@@ -4,6 +4,8 @@
 
 #zomfy-feedback {
   --zf-ink: #ec4899;
+  /* An open Radix modal sets pointer-events: none on the body; the overlay stays usable. */
+  pointer-events: auto;
   font-family: var(--font-sans, system-ui, sans-serif);
 }
 

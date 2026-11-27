@@ -43,6 +43,28 @@ The toolbar holds icon buttons, each with a tooltip and an accessible name:
 The active tool's button is filled. While a tool is active, the page under the overlay does not
 receive clicks; the wheel still scrolls the scrollable area under the pointer.
 
+**Ctrl+Shift+.** (Cmd+Shift+. on macOS, matched by key position) toggles the mode from anywhere,
+also while a dialog or menu has the focus; no app keybinding uses it.
+
+## Over dialogs, menus and popovers
+
+The person often wants to point at an open dialog, dropdown menu, context menu, popover or the "+"
+quick pick, so the overlay works on top of them and leaves them open:
+
+- Its layers sit above every app layer (z-index near the maximum, in a root of its own at the end
+  of `body`) with `pointer-events: auto`, since a Radix modal sets `pointer-events: none` on the
+  body; it takes back `inert` or `aria-hidden` if a modal sets them on it.
+- Pointer and focus events from the overlay stop at its root, so Radix's document listeners never
+  see a click or focus "outside" the layer: the dialog or menu stays open and its focus trap does
+  not pull the focus back, and typing in a comment box works while a dialog is open. Focus leaving
+  a dialog for the overlay is kept from Radix by a capture listener on the window.
+- Selecting hit-tests with `elementsFromPoint`, skipping the overlay's own nodes and lifting the
+  body's `pointer-events: none` for the moment of the test, so elements inside the open layer (and
+  around it) can be picked.
+- Escape in feedback mode is taken on the window's capture phase, before Radix's listener on the
+  document: it closes the comment or leaves the mode, never the dialog underneath.
+- The screenshot is the page as it is on screen, the open layer included.
+
 ## Pins and drawings
 
 - Each click in Select adds a numbered pin at the element's top-left corner and an outline around
