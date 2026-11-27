@@ -1,11 +1,11 @@
 ---
 type: Spec
-title: A split pane is a workspace, and its "+" is a quick pick
-description: Each split pane of the window's tabs has a workspace of its own (or none) that its "+", pins and right sidebar act on, shown as a coloured mark at the start of its tab strip; the "+" opens a filterable quick pick with Terminal, Agent and Panel scopes.
+title: A split pane works in its front tab's workspace, and its "+" is a quick pick
+description: Each split pane of the window's tabs works in the workspace of the tab it has in front, keeping the last one while that tab has none, and its "+", pins and right sidebar act on it; the "+" opens a filterable quick pick with Terminal, Agent and Panel scopes.
 status: stable
-x-zomfy-implementation: done
+x-zomfy-implementation: in-progress
 tags: [desktop, tabs, panes, sidebar]
-generated: { by: "claude-code/opus-5.5", at: "2026-11-27T00:00:00Z" }
+generated: { by: "claude-code/opus-5.5", at: "2026-11-27T12:00:00Z" }
 ---
 
 # Problem
@@ -23,43 +23,37 @@ The `+` menu itself had grown into a long list of nine sections, read top to bot
 # The model
 
 Zomfy is used in one thread at a time: the person stays in one chat, and the window follows them
-from thread to thread. Panes are optional side contexts beside it, as Orca's workspaces are: a
-second pane is "another place I keep open", with its own project.
+from thread to thread. The person does not manage a pane's workspace: **a pane's context follows
+the tab it has in front.** Open a thread of project A in a pane and the pane works in A; open a
+thread of project B there and it works in B.
+
+This supersedes the first version of this spec, where each pane kept an explicit, saved context
+(`TabGroup.context`), set by its first tab, by a picker at the start of its tab strip, or by going
+to a thread from outside the strip, and kept whatever tab was clicked. That context and its picker
+are gone.
 
 ## A pane's workspace (its context)
 
-- Every pane (leaf group) of the main window's tabs has a **context**: a workspace (which brings
-  its project and host), or **none** ("no project", a floating pane). It is kept with the pane in
-  the tab layout (`TabGroup.context` in stores/tab-layout-store.ts: a workspace id, `null` for
-  none, absent while not yet set), so it survives restarts.
+- Every pane (leaf group) of the main window's tabs has a **context**: a project's workspace (which
+  brings its project and host), or **none**. It is worked out from the pane's tabs each time
+  (`resolvePaneContext` in lib/pane-context.ts), not saved.
 - The floating panel's and a pop-out window's panes always have that panel's or window's
-  workspace; they have no context of their own.
+  workspace.
 
-What sets it:
+How it is worked out:
 
-1. **First tab.** A pane whose context is not yet set takes the workspace of the tab it shows,
-   else of its first tab that has one, as soon as there is one, and keeps it. A pane made by a
-   split therefore starts in the workspace of the tab that made it. A pane showing only the New
-   thread tab takes that tab's workspace when it has one. A pane with nothing to take stays
-   unset and acts as **none** until it gets one.
-2. **Explicitly.** The pane's mark (below) opens a picker of every workspace in the window, and
-   `No project`.
-3. **Going somewhere.** Bringing a thread or workspace to the front from outside the tab strip:
-   the left sidebar, the Inbox, search, a notification, Jump to agent (`selectSession`,
-   `previewSession`, `selectWorkspace`) re-points the pane it comes to the front in. So the one
-   pane of a window used one thread at a time always follows the thread the person is in.
-   Starting a chat from the New thread tab re-points the pane the chat takes the tab's place in.
+1. **The front tab's workspace**, when the tab carries one: a chat, a terminal, a file or a panel
+   of a project's workspace (a worktree included); the New thread tab when a place is picked on it.
+2. When the front tab carries none (the New thread tab with no place, a browser tab, a chat or
+   terminal of no project: a quick thread, the floating workspace), the pane **keeps the last
+   context it had**, so its `+` and sidebar still work there. The last context is kept in memory
+   for the pane while the window is open.
+3. With no last context (a pane just restored or made by a split onto such a tab): the workspace of
+   the pane's most recently shown tab that carries one, then of its other tabs.
+4. Else none.
 
-What does not change it:
-
-- Moving or dragging a tab into a pane, dropping a thread or a file on it, splitting a tab out of
-  it: the tab keeps its own content and workspace, and the pane keeps its context.
-- Clicking a tab in the strip, closing tabs, opening tabs from `+` (also a terminal in another
-  folder picked in the New terminal dialog).
-
-When the context workspace is not in the window (its host not back yet, popped out, deleted), the
-pane keeps it saved and acts meanwhile on the workspace rule 1 would pick, without saving that;
-picking another from the mark replaces it.
+A workspace not in the window now (its host not back yet, popped out, deleted) carries no
+context.
 
 ## What the context does
 
@@ -67,27 +61,14 @@ picking another from the mark replaces it.
   context, as a tab of that pane. With context none, only what needs no workspace is offered: new
   chats (the New thread screen without a place) and `New Terminal…` (the dialog on the first
   connected host); the pins needing a workspace hide in that pane.
-- **New chat.** `New {agent} Thread` opens the New thread tab in this pane (moving it here if
-  another pane had it) with the pane's context as where it starts.
-- **Right sidebar.** The pane's sidebar shows its context's workspace, not the front tab's
-  (replacing that rule in [pane-sidebars](pane-sidebars.md)). With context none, the pane has no
-  sidebar and no toggle, as the New thread tab of a quick thread had.
+- **New chat.** `New {agent} Thread` and `New thread` open the New thread tab in this pane (moving
+  it here if another pane had it) prefilled with the pane's context as where it starts.
+- **Right sidebar.** The pane's sidebar shows its context's workspace (replacing that rule in
+  [pane-sidebars](pane-sidebars.md)). With context none, the pane has no sidebar and no toggle.
 - **The drawer** stays the front tab's: it holds that tab's terminals.
 
-## The mark
-
-At the start of each pane's tab strip, before the tabs, a small square in the project's colour
-with the project's first letter (the same colour for a name every time, as connector avatars
-have). It is the pane's context at a glance; panes in different projects differ in colour.
-
-- With the window split, the mark is followed by the project's name (and the branch for a
-  worktree), muted and truncated, so side-by-side panes can be told apart by name too.
-- With one pane, only the mark shows; its tooltip names the workspace.
-- Context none shows a hollow dashed square, no letter.
-- Pressing the mark opens the picker: a filter field, `No project`, then the window's workspaces
-  as `project · branch`, the current one checked. Picking one sets the context.
-
-No other words are added to the strip.
+Nothing at the start of the tab strip marks the context: the tab in front, and its sidebar, are the
+mark.
 
 # The "+" quick pick
 
@@ -150,17 +131,18 @@ beside `+`. A pinned item also comes first in the quick pick.
 - No host-only context (a host without a folder); none means the local host's defaults.
 - The New thread tab stays one for the window; it moves to the pane whose `+` asked for it.
 - No sorting of tabs by context and no warning when a pane holds tabs of other workspaces.
+- No way to set a pane's context by hand: it is the front tab's.
 
 # Acceptance
 
-- Two panes side by side in two projects: each strip starts with a mark in its project's colour
-  and its name; `+` → `New Terminal…` in each defaults to its own project; a new browser tab or
-  panel opens in that pane, for that project; each pane's sidebar shows its own project.
-- Dragging a tab of project B into the project A pane leaves the A mark and sidebar as they were.
-- Picking a thread of project C in the left sidebar while the A pane is focused shows it there and
-  the pane's mark turns to C.
-- With the New thread tab in front, `+` opens the quick pick; `New Claude Thread` and
-  `New Terminal…` work from it.
+- A pane showing a thread of project A: `+` → `New Terminal…` defaults to A, the sidebar shows A.
+  Clicking a tab of project B in the same pane turns both to B.
+- Two panes side by side, each showing a project's thread: each pane's `+` and sidebar act on its
+  own front tab's project.
+- With the New thread tab (no place), a browser tab or a quick thread in front, the pane keeps the
+  context it had: `+` opens the quick pick and `New Claude Thread` opens the New thread screen
+  prefilled with that project.
+- The tab strip has no mark or picker before the tabs.
 - The quick pick: typing filters; each chip narrows to its scope; `Tab` cycles the scopes; `$`,
   `@`, `#` pick them; `↑`/`↓`/`Enter` run an item; pinned items come first; pins still work.
 - `bun run typecheck` and the tests pass; the context resolution, the scope cycling and the

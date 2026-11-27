@@ -84,13 +84,12 @@ or 72 hours, or Never (0). It is read by the desktop only; the phone uses the de
 
 # Where it shows
 
-- **Sidebar**, grouped by state: Pinned, Needs your answer, Your turn, Working (Background work
-  running rows inside it), Quiet, Archived. A group has no titled heading: its mark (pin, question
-  bubble, green dot, yellow ring, moon, archive box), a thin rule tinted for the groups that need
-  the person, its count and its fold; the name is the tooltip. Needs your answer's group carries the
-  Inbox as an icon button. A Quiet row is the single grey line a Settled row was. The row's corner
-  is the state's mark with at most a value: the elapsed time while working, the wake time beside
-  the Activity mark. Group by Project keeps its folders and uses the same row corner.
+- **Sidebar**: grouped by project since [threads-under-projects](threads-under-projects.md), which
+  replaced the groups by state described here. Each row keeps the state's mark in its corner, with
+  at most a value: the elapsed time while working, the wake time beside the Activity mark; a Quiet
+  row is the single grey line a Settled row was. The groups by state were: Pinned, Needs your
+  answer, Your turn, Working (Background work running rows inside it), Quiet, Archived, each known
+  by its mark, a thin rule, its count and its fold.
 - **Tab**: the dot beside a chat tab follows the state: question bubble (Needs your answer), spinner
   (Working), Activity mark (Background work running), the green dot (Your turn), none (Quiet).
   The tooltip names the state.
