@@ -1,5 +1,6 @@
 import { describe, expect, test } from 'bun:test'
 import { drawerDragTarget, drawerMinDepth, drawerResizeDepth } from '../src/components/tab-layout/drawer-docking'
+import { DrawerMemory, modeChangeUnpins } from '../src/components/tab-layout/drawer-memory'
 import { isAllowedSettingValue } from '../src/stores/settings-store'
 
 const bounds = { left: 100, top: 100, right: 700, bottom: 500, width: 600, height: 400 }
@@ -74,5 +75,24 @@ describe('string-union settings', () => {
   test('leave keys without a list of values alone', () => {
     expect(isAllowedSettingValue('theme', 'anything')).toBe(true)
     expect(isAllowedSettingValue('toString', 'x')).toBe(true)
+  })
+})
+
+describe('drawer pin memory', () => {
+  test('keeps each tab its own pin and choice', () => {
+    const memory = new DrawerMemory()
+    memory.remember('a', { pinned: true, activeId: 'panel:explorer' })
+    memory.remember('b', { pinned: false, activeId: null })
+    memory.remember(undefined, { pinned: true, activeId: null })
+    expect(memory.recall('a')).toEqual({ pinned: true, activeId: 'panel:explorer' })
+    expect(memory.recall('b')).toEqual({ pinned: false, activeId: null })
+    expect(memory.recall(undefined)).toBeUndefined()
+  })
+
+  test('entering click mode unpins only the active drawer', () => {
+    expect(modeChangeUnpins('hover', 'click', true)).toBe(true)
+    expect(modeChangeUnpins('hover', 'click', false)).toBe(false)
+    expect(modeChangeUnpins('click', 'click', true)).toBe(false)
+    expect(modeChangeUnpins('click', 'hover', true)).toBe(false)
   })
 })

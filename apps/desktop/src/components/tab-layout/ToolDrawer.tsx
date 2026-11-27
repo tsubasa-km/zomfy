@@ -18,6 +18,7 @@ import { SurfaceList, type Surface } from './SurfaceList'
 import { allWorkspaces, useStore } from '@/session-store'
 import { setDrawerDepth, setDrawerDock, useDrawerDepth, useDrawerDock } from '@/stores/drawer-dock-store'
 import { drawerAlongEdge, drawerDragTarget, drawerMinDepth, drawerResizeDepth, isDrawerSide, type DrawerDock, type DrawerEdge, type DrawerPoint } from './drawer-docking'
+import { DrawerMemory, modeChangeUnpins } from './drawer-memory'
 import './tool-drawer.css'
 import { useTabLayout } from '@/stores/tab-layout-store'
 import { getSetting, useSetting } from '@/stores/settings-store'
@@ -57,8 +58,7 @@ interface DockPreview {
   y: number
 }
 
-// What each tab's drawer was left showing, so coming back to a tab finds its drawer as it was.
-const remembered = new Map<string, { pinned: boolean; activeId: string | null }>()
+const remembered = new DrawerMemory()
 
 /** The keys of the drawer's list of surfaces, by panel id: T3 Code's where it has the same surface. */
 const PANEL_KEYS: Record<string, string> = {
@@ -93,15 +93,17 @@ export function ToolDrawer({
     (t.kind === 'terminal' || t.kind === 'browser') && t.id !== exclude ? [t] : []
   )
   const meta = useTabLayout((s) => s.meta)
-  const openOnClick = useSetting('drawerOpenAction') === 'click'
-  const kept = tabId ? remembered.get(tabId) : undefined
-  const [hoverPinned, setPinned] = useState(!openOnClick && (kept?.pinned ?? false))
+  const openAction = useSetting('drawerOpenAction')
+  const openOnClick = openAction === 'click'
+  const kept = remembered.recall(tabId)
+  // The tab's hover-mode pin: kept through click mode, which shows no pin.
+  const [hoverPinned, setPinned] = useState(kept?.pinned ?? false)
   const pinned = !openOnClick && hoverPinned
   const [open, setOpen] = useState(pinned)
   const [activeId, setActiveId] = useState<string | null>(kept?.activeId ?? null)
   useEffect(() => {
-    if (tabId) remembered.set(tabId, { pinned, activeId })
-  }, [tabId, pinned, activeId])
+    remembered.remember(tabId, { pinned: hoverPinned, activeId })
+  }, [tabId, hoverPinned, activeId])
   const rootRef = useRef<HTMLDivElement>(null)
   const drawerRef = useRef<HTMLDivElement>(null)
   const dock = useDrawerDock()
@@ -112,10 +114,13 @@ export function ToolDrawer({
   const [preview, setPreview] = useState<DockPreview | null>(null)
   const resizing = useRef(false)
   const timer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
+  // Entering click mode unpins the active drawer only; other tabs keep their pins for hover mode.
+  const lastAction = useRef(openAction)
   useEffect(() => {
-    if (openOnClick) setPinned(false)
+    if (modeChangeUnpins(lastAction.current, openAction, focused)) setPinned(false)
+    lastAction.current = openAction
     return () => clearTimeout(timer.current)
-  }, [openOnClick])
+  }, [openAction])
   // A terminal or browser opened from here comes to the front.
   const known = useRef<Set<string> | null>(null)
   const toolIds = tools.map((t) => t.id).join(',')
@@ -291,12 +296,12 @@ export function ToolDrawer({
     clearTimeout(timer.current)
     const hide = request.action === 'hide' || (request.action === 'toggle' && shown && (!request.panel || request.panel === showing))
     if (hide) {
-      setPinned(false)
+      if (!openOnClick) setPinned(false)
       setOpen(false)
       return
     }
     if (request.panel) setActiveId(request.panel)
-    setPinned(!openOnClick)
+    if (!openOnClick) setPinned(true)
     setOpen(true)
     // Only a new request acts; what the drawer shows when it arrives is read, not watched.
   }, [request, focused, workspaceId])
@@ -430,7 +435,7 @@ export function ToolDrawer({
                   onClick={() => {
                     if (activePanel) openPanelTab(workspaceId, activePanel)
                     else if (activeTool) moveToTabStrip(workspaceId, activeTool.id)
-                    setPinned(false)
+                    if (!openOnClick) setPinned(false)
                     setOpen(false)
                   }}
                   className="ml-0.5 flex size-6 items-center justify-center rounded-md border-l border-border text-muted-foreground hover:bg-accent/50 hover:text-foreground"
