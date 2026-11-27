@@ -59,6 +59,9 @@ import type { StepToolUse, HandlerContext } from "./handlers/handler-context.ts"
 import { registerAutomationHandlers } from "./handlers/automation-handlers.ts";
 import { registerBotHandlers } from "./handlers/bot-handlers.ts";
 import { registerChatAgentHandlers } from "./handlers/chat-agent-handlers.ts";
+import { registerSecretHandlers } from "./handlers/secret-handlers.ts";
+import { secrets } from "./secret-service.ts";
+import { secretRedactor } from "./secret-redaction.ts";
 import { registerFileHandlers } from "./handlers/file-handlers.ts";
 import { registerLspHandlers } from "./handlers/lsp-handlers.ts";
 import { registerGitHandlers } from "./handlers/git-handlers.ts";
@@ -341,7 +344,9 @@ export function createHarnessAgent(
 
   /** Recorded for replay, then sent to every client so a reconnected window sees live turns. */
   const updateListeners = new Set<(sessionId: string, update: acp.SessionUpdate) => void>();
-  async function emit(sessionId: string, update: acp.SessionUpdate): Promise<void> {
+  async function emit(sessionId: string, raw: acp.SessionUpdate): Promise<void> {
+    // Saved secrets' values never reach a transcript or a client (docs/specs/agent-secrets.md).
+    const update = secretRedactor.deep(raw);
     // A turn or process that stopped leaves its open calls stopped, not running (stopped-tool-calls.md).
     if (stopsOpenToolCalls(update)) {
       for (const stopped of stoppedToolCallUpdates(await sessions.transcript(sessionId))) await emit(sessionId, stopped);
@@ -350,7 +355,10 @@ export function createHarnessAgent(
     const seq = await sessions.record(sessionId, update);
     broadcast(acp.methods.client.session.update, { sessionId, update, _meta: { [SESSION_REPLAY_META.seq]: seq } });
   }
-  const acpAgents = new AcpAgentSessions(sessions, emit, (record) => hostingAccounts().projectEnv(projectOfSession(record.id)));
+  const acpAgents = new AcpAgentSessions(sessions, emit, async (record) => ({
+    ...(await hostingAccounts().projectEnv(projectOfSession(record.id))),
+    ...(record.agent ? await secrets().envFor(record.agent, projectOfSession(record.id)?.id ?? null) : {}),
+  }));
   const mover = new SessionMover({ workspaces, sessions, pendingTurns, emit });
   /** Workflow step turns: their tool policy and result shape, picked up when the turn starts. */
   const stepTurns = new Map<
@@ -678,7 +686,12 @@ export function createHarnessAgent(
           sessions.update(session.id, { options: { ...session.options, permissionMode } }),
         onSlashCommands: (names, skills) => noteSlashCommands(session.cwd, names, skills),
         // The project's GitHub/GitLab account, over the host's agent variables (docs/specs/project-hosting-accounts.md).
-        env: { ...claudeLaunch.env, ...(await hostingAccounts().projectEnv(projectOfSession(session.id))) },
+        env: {
+          ...claudeLaunch.env,
+          ...(await hostingAccounts().projectEnv(projectOfSession(session.id))),
+          // Placeholders and the tunnel's address, or a value set to go in plain (docs/specs/agent-secrets.md).
+          ...(await secrets().envFor("claude", projectOfSession(session.id)?.id ?? null)),
+        },
         chrome: claudeChromeOn(claudeLaunch, projectOfSession(session.id)),
         askPermission,
         // A quick chat sees its harness tools up front, so it can move itself into a project.
@@ -991,6 +1004,7 @@ export function createHarnessAgent(
     registerSettingsHandlers,
     registerQuickOpenHandlers,
     registerChatAgentHandlers,
+    registerSecretHandlers,
     registerTodoHandlers,
     registerSideChatHandlers,
     registerAutomationHandlers,
