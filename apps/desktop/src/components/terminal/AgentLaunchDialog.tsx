@@ -14,10 +14,13 @@ import { t } from '@/i18n/i18n'
 
 // The menu that opens this unmounts on select, so the request goes through a tiny store.
 let requested: string | null = null
+/** The agent to start with picked, when the request came from that agent's branch of the "+". */
+let requestedAgent: TuiAgentId | null = null
 const listeners = new Set<() => void>()
 
-export function requestAgentLaunchDialog(workspaceId: string | null): void {
+export function requestAgentLaunchDialog(workspaceId: string | null, agent: TuiAgentId | null = null): void {
   requested = workspaceId
+  requestedAgent = agent
   for (const listener of listeners) listener()
 }
 
@@ -38,7 +41,9 @@ export function AgentLaunchDialog({ workspaceId }: { workspaceId: string }) {
   const [prompt, setPrompt] = useState('')
 
   useEffect(() => {
-    if (open) setPrompt('')
+    if (!open) return
+    setPrompt('')
+    setAgent(requestedAgent ?? '')
   }, [open])
   const selected: TuiAgentId | '' = agent && agents.includes(agent) ? agent : (agents.at(0) ?? '')
   const canLaunch = selected !== '' && prompt.trim().length > 0

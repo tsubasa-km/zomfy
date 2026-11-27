@@ -1,10 +1,10 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { Bot, Globe, MessageSquarePlus, PanelsTopLeft, Pin, PinOff, Plus, RefreshCw, Search, Server, SquareTerminal } from 'lucide-react'
+import { Bot, ChevronRight, Globe, MessageSquarePlus, PanelsTopLeft, Pin, PinOff, Plus, RefreshCw, Search, Server, SquareTerminal } from 'lucide-react'
 import { LOCAL_HOST, allWorkspaces, openEditorTab, useStore } from '@/session-store'
 import { openSshConnectionsDialog } from '@/lib/ssh-connections'
 import { loadDetectedAgents } from '@/lib/detected-agents'
 import { isImeOwnedKeyboardEvent } from '@/lib/ime-composition-keyboard-event'
-import { nextScope, orderEntries, PICK_SCOPES, pushRecent, takeScopePrefix, type PickScope } from '@/lib/new-tab-pick'
+import { pushRecent, searchRows, treeKey, treeRows, type PickNode, type PickRow, type PickScope } from '@/lib/new-tab-pick'
 import { cn } from '@/lib/utils'
 import { createExternalStore } from '@/stores/external-store'
 import { looksLikeSearchQuery, normalizeAddress } from '@/stores/browser-tab-store'
@@ -12,6 +12,7 @@ import { groupOfTab, layoutFor, useTabLayout } from '@/stores/tab-layout-store'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { FileIcon } from '@/components/FileIcon'
 import { requestAgentLaunchDialog } from '@/components/terminal/AgentLaunchDialog'
+import { TuiAgentIcon } from '@/components/terminal/TuiAgentIcon'
 import { TabKindIcon } from './TabKindIcon'
 import { focusGroup } from './tab-group-commands'
 import { matchFiles, workspaceFiles } from './workspace-file-index'
@@ -32,12 +33,35 @@ import {
 } from './new-tab-items'
 import { t } from '@/i18n/i18n'
 
-// The tab strip's "+": a quick pick, as VS Code's (docs/specs/panes-as-workspaces.md). One field,
-// three scopes to narrow by, pinned and recent items first; every item opens in the pane's
-// workspace. Pins are as in docs/specs/new-tab-menu-and-pins.md.
+// The tab strip's "+": a quick pick shaped as a tree (docs/specs/panes-as-workspaces.md). New thread
+// and the pins first, then Terminal, Agent (a branch per agent) and Panel; typing lists the
+// matching leaves with their path. Every item opens in the pane's workspace. Pins are as in
+// docs/specs/new-tab-menu-and-pins.md.
 
 const SCOPE_ICON: Record<PickScope, typeof SquareTerminal> = { terminal: SquareTerminal, agent: Bot, panel: PanelsTopLeft }
 const scopeName = (scope: PickScope) => (scope === 'terminal' ? t('Terminal') : scope === 'agent' ? t('Agent') : t('Panel'))
+
+// ── Open branches ────────────────────────────────────────────────────────
+
+const OPEN_KEY = 'zomfy.new-tab-open.v1'
+
+function readOpen(): string[] {
+  try {
+    const raw = JSON.parse(localStorage.getItem(OPEN_KEY) ?? '[]')
+    return Array.isArray(raw) ? raw.filter((id): id is string => typeof id === 'string') : []
+  } catch {
+    return []
+  }
+}
+
+/** The branches open in the tree, kept for the next "+". */
+const openBranches = createExternalStore<string[]>(readOpen(), (list) => {
+  try {
+    localStorage.setItem(OPEN_KEY, JSON.stringify(list))
+  } catch {
+    // Storage can be unavailable; every branch then starts folded.
+  }
+})
 
 // ── Recently run ─────────────────────────────────────────────────────────
 
@@ -62,88 +86,112 @@ const recentItems = createExternalStore<string[]>(readRecent(), (list) => {
 
 // ── Items ────────────────────────────────────────────────────────────────
 
-/** A row: an item, or what the field's text itself can open (an open tab, a file, an address). */
-interface Row {
-  item: NewTabItem
-  /** Matched characters of the label, drawn in full contrast. */
-  marks?: number[]
-  /** Remembered among the recent ones when run. */
-  remembered: boolean
-  /** Keeps the quick pick open when run. */
-  keepOpen?: boolean
-}
+/** A node of the tree: an item to run, or a branch with an icon of its own. */
+type Node = PickNode<NewTabItem> & { icon?: React.ReactNode }
 
-/** Every item the pane's "+" offers, each with its scope. */
-function useAllItems(workspaceId: string | null): NewTabItem[] {
+const leaf = (item: NewTabItem, id = item.id, label = item.label): Node => ({ id, label, entry: item })
+
+/** The tree the pane's "+" offers: New thread, the pins, then Terminal, Agent and Panel. */
+function useTree(workspaceId: string | null, pins: string[]): Node[] {
   const hostId = useStore((s) => allWorkspaces(s).find((w) => w.id === workspaceId)?.hostId ?? LOCAL_HOST)
   const newThread = useNewThreadItem(workspaceId)
   const chats = useChatItems(workspaceId)
   const terminal = useTerminalItems(workspaceId)
-  const { detected, items: tuiAgents } = useTuiAgentItems(workspaceId)
+  const { items: tuiAgents } = useTuiAgentItems(workspaceId)
   const commands = useCommandItems(workspaceId)
   const workflows = useWorkflowItems(workspaceId, true)
   const ssh = useSshItems(workspaceId)
   const browser = useBrowserItems(workspaceId)
   const panels = usePanelItems(workspaceId)
   return useMemo(() => {
-    const agentActions: NewTabItem[] = []
+    const terminalChildren: Node[] = [...terminal, ...commands, ...ssh].map((item) => leaf(item))
     if (workspaceId) {
-      if (tuiAgents.length === 0) {
-        agentActions.push({
+      terminalChildren.push(
+        leaf({
           pin: null,
-          id: 'agents-status',
-          scope: 'agent',
-          disabled: true,
-          icon: <Bot className="size-4" />,
-          label:
-            detected.kind === 'loading'
-              ? t('Looking for agents…')
-              : detected.kind === 'failed'
-                ? t('Can’t reach this workspace’s host to list its agents')
-                : t('No agents detected'),
-          run: () => undefined
+          id: 'ssh-connections',
+          scope: 'terminal',
+          keywords: 'ssh connections remote',
+          icon: <Server className="size-4" />,
+          label: t('SSH connections…'),
+          run: () => openSshConnectionsDialog(workspaceId)
         })
-      } else {
-        agentActions.push({
-          pin: null,
-          id: 'launch-agent-prompt',
-          scope: 'agent',
-          keywords: 'launch agent with prompt',
-          icon: <MessageSquarePlus className="size-4" />,
-          label: t('Launch Agent with Prompt…'),
-          run: () => requestAgentLaunchDialog(workspaceId)
-        })
-      }
-      agentActions.push({
-        pin: null,
-        id: 'refresh-agents',
-        scope: 'agent',
-        keywords: 'refresh agents detect',
-        icon: <RefreshCw className="size-4" />,
-        label: t('Refresh Agents'),
-        run: () => void loadDetectedAgents(hostId, true)
-      })
+      )
     }
-    const sshList: NewTabItem[] = workspaceId
-      ? [
-          ...ssh,
+    // One branch per agent: its chat, its CLI in a terminal, the CLI with a first prompt.
+    const providers = new Map<string, { label: string; children: Node[] }>()
+    const under = (provider: { id: string; label: string }) => {
+      const found = providers.get(provider.id) ?? { label: provider.label, children: [] }
+      providers.set(provider.id, found)
+      return found.children
+    }
+    for (const item of chats) if (item.provider) under(item.provider).push(leaf(item, item.id, item.treeLabel ?? item.label))
+    for (const item of tuiAgents) {
+      if (!item.provider || !workspaceId) continue
+      const children = under(item.provider)
+      children.push(leaf(item, item.id, item.treeLabel ?? item.label))
+      const agent = item.provider.id
+      children.push(
+        leaf(
           {
             pin: null,
-            id: 'ssh-connections',
-            scope: 'terminal',
-            keywords: 'ssh connections remote',
-            icon: <Server className="size-4" />,
-            label: t('SSH connections…'),
-            run: () => openSshConnectionsDialog(workspaceId)
-          }
-        ]
-      : []
-    return [newThread, ...terminal, ...commands, ...sshList, ...chats, ...tuiAgents, ...workflows, ...agentActions, ...browser, ...panels]
-  }, [workspaceId, hostId, newThread, chats, terminal, detected, tuiAgents, commands, workflows, ssh, browser, panels])
+            id: `prompt:${agent}`,
+            scope: 'agent',
+            keywords: `${agent} launch agent with prompt`,
+            icon: <MessageSquarePlus className="size-4" />,
+            label: t('Launch {agent} with a prompt…', { agent: item.provider.label }),
+            run: () => requestAgentLaunchDialog(workspaceId, agent as Parameters<typeof requestAgentLaunchDialog>[1])
+          },
+          `prompt:${agent}`,
+          t('With a prompt…')
+        )
+      )
+    }
+    const agentChildren: Node[] = [...providers].map(([id, provider]) => ({
+      id: `provider:${id}`,
+      label: provider.label,
+      icon: <TuiAgentIcon agent={id as Parameters<typeof TuiAgentIcon>[0]['agent']} size={14} />,
+      children: provider.children
+    }))
+    agentChildren.push(...workflows.map((item) => leaf(item)))
+    if (workspaceId) {
+      agentChildren.push(
+        leaf({
+          pin: null,
+          id: 'refresh-agents',
+          scope: 'agent',
+          keywords: 'refresh agents detect',
+          icon: <RefreshCw className="size-4" />,
+          label: t('Refresh Agents'),
+          run: () => void loadDetectedAgents(hostId, true)
+        })
+      )
+    }
+    const panelChildren: Node[] = [...browser, ...panels].map((item) => leaf(item))
+    const branch = (scope: PickScope, children: Node[]): Node[] => {
+      const Icon = SCOPE_ICON[scope]
+      return children.length > 0 ? [{ id: `scope:${scope}`, label: scopeName(scope), icon: <Icon className="size-4" />, children }] : []
+    }
+    const everything = [...terminal, ...commands, ...ssh, ...chats, ...tuiAgents, ...workflows, ...browser, ...panels]
+    const pinned = pins.flatMap((pin) => {
+      const item = everything.find((i) => i.pin === pin)
+      return item && !item.disabled ? [leaf(item, `pin:${pin}`)] : []
+    })
+    return [leaf(newThread), ...pinned, ...branch('terminal', terminalChildren), ...branch('agent', agentChildren), ...branch('panel', panelChildren)]
+  }, [workspaceId, hostId, pins, newThread, chats, terminal, tuiAgents, commands, workflows, ssh, browser, panels])
+}
+
+/** What the field's text itself can open (an open tab, a file, an address), as rows of their own. */
+interface Row {
+  item: NewTabItem
+  /** Matched characters of the label, drawn in full contrast. */
+  marks?: number[]
+  /** Remembered among the recent ones when run. */
+  remembered: boolean
 }
 
 /** With a query: matching open tabs (all only), files and the text as an address (Panel and all). */
-function useQueryRows(layoutKey: string, workspaceId: string | null, query: string, scope: PickScope | null): { before: Row[]; after: Row[] } {
+function useQueryRows(layoutKey: string, workspaceId: string | null, query: string): { before: Row[]; after: Row[] } {
   const tabs = useWorkspaceTabs(layoutKey)
   const meta = useTabLayout((s) => s.meta)
   const [files, setFiles] = useState<string[]>([])
@@ -160,7 +208,7 @@ function useQueryRows(layoutKey: string, workspaceId: string | null, query: stri
     if (!q) return { before: [], after: [] }
     const lower = q.toLowerCase()
     const before: Row[] = []
-    if (scope === null) {
+    {
       for (const tab of tabs) {
         const title = tabTitle(tab, meta[tab.id])
         if (!title.toLowerCase().includes(lower) || before.length >= 3) continue
@@ -182,7 +230,7 @@ function useQueryRows(layoutKey: string, workspaceId: string | null, query: stri
       }
     }
     const after: Row[] = []
-    if (workspaceId && (scope === null || scope === 'panel')) {
+    if (workspaceId) {
       for (const path of matchFiles(files, q, 5)) {
         after.push({
           remembered: false,
@@ -213,7 +261,7 @@ function useQueryRows(layoutKey: string, workspaceId: string | null, query: stri
       })
     }
     return { before, after }
-  }, [query, scope, tabs, meta, files, workspaceId, layoutKey])
+  }, [query, tabs, meta, files, workspaceId, layoutKey])
 }
 
 // ── Rows ─────────────────────────────────────────────────────────────────
@@ -272,21 +320,35 @@ function Marked({ text, marks }: { text: string; marks?: number[] }) {
   )
 }
 
-function PickRow({
-  row,
+/** A row of the list: a branch, a leaf of the tree, or (with a query) a match with its path. */
+function TreeRow({
+  node,
+  icon,
+  depth,
+  path,
+  marks,
+  open,
   highlighted,
   pins,
   onHover,
   onRun
 }: {
-  row: Row
+  node: { id: string; label: string; entry?: NewTabItem; children?: unknown[] }
+  icon?: React.ReactNode
+  depth: number
+  /** The branches above a search result, shown before its name. */
+  path?: string[]
+  marks?: number[]
+  open?: boolean
   highlighted: boolean
   pins: string[]
   onHover: () => void
   onRun: () => void
 }) {
-  const { item } = row
-  const pinned = item.pin !== null && pins.includes(item.pin)
+  const item = node.entry
+  const branch = Boolean(node.children)
+  const disabled = item ? item.disabled === true : (node as Node).children?.every((c) => c.entry?.disabled) === true
+  const pinned = item?.pin != null && pins.includes(item.pin)
   const ref = useRef<HTMLDivElement>(null)
   useEffect(() => {
     if (highlighted) ref.current?.scrollIntoView({ block: 'nearest' })
@@ -294,29 +356,37 @@ function PickRow({
   return (
     <div
       ref={ref}
-      role="option"
+      role="treeitem"
       aria-selected={highlighted}
-      aria-disabled={item.disabled || undefined}
-      data-new-tab={item.pin ?? item.id}
+      aria-expanded={branch ? open : undefined}
+      aria-disabled={disabled || undefined}
+      aria-level={depth + 1}
+      data-new-tab={item ? (item.pin ?? item.id) : node.id}
+      data-new-tab-branch={branch ? node.id : undefined}
       data-highlighted={highlighted || undefined}
-      title={item.detail}
+      // Why an entry is off is its tooltip, never a line on the row.
+      title={disabled && item?.detail ? item.detail : undefined}
       className={cn(
-        'group/new-tab flex min-h-7 cursor-default items-center gap-2 rounded-[7px] px-2 py-1 text-xs outline-none select-none [&_svg]:shrink-0',
+        'group/new-tab flex h-7 cursor-default items-center gap-2 rounded-[7px] pr-2 text-xs outline-none select-none [&_svg]:shrink-0',
         highlighted && 'bg-black/8 text-accent-foreground dark:bg-white/14',
-        item.disabled ? 'text-muted-foreground' : 'text-foreground'
+        disabled ? 'text-muted-foreground/60' : 'text-foreground'
       )}
+      style={{ paddingLeft: 8 + depth * 14 }}
       onMouseMove={() => !highlighted && onHover()}
-      onClick={() => !item.disabled && onRun()}
+      onClick={() => !disabled && onRun()}
     >
-      <span className="flex w-4 shrink-0 items-center justify-center text-muted-foreground [&_svg]:size-4">{item.icon}</span>
-      <span className="flex min-w-0 flex-1 flex-col">
-        <span className="truncate">
-          <Marked text={item.label} marks={row.marks} />
-        </span>
-        {item.detail ? <span className="truncate text-[11px] text-muted-foreground">{item.detail}</span> : null}
+      {branch ? (
+        <ChevronRight className={cn('size-3 text-muted-foreground transition-transform', open && 'rotate-90')} />
+      ) : depth > 0 ? (
+        <span className="w-3" aria-hidden />
+      ) : null}
+      <span className={cn('flex w-4 shrink-0 items-center justify-center text-muted-foreground [&_svg]:size-4', disabled && 'opacity-60')}>{icon ?? item?.icon}</span>
+      <span className="min-w-0 flex-1 truncate">
+        {path && path.length > 0 ? <span className="text-muted-foreground">{path.join(' › ')} › </span> : null}
+        {marks ? <Marked text={item?.label ?? node.label} marks={marks} /> : node.label}
       </span>
-      {item.shortcut && !highlighted ? <span className="shrink-0 text-[11px] text-muted-foreground group-hover/new-tab:hidden">{item.shortcut}</span> : null}
-      {item.pin !== null && !item.disabled ? <PinButton id={item.pin} pinned={pinned} label={item.short ?? item.label} shown={highlighted} /> : null}
+      {item?.shortcut && !highlighted ? <span className="shrink-0 text-[11px] text-muted-foreground group-hover/new-tab:hidden">{item.shortcut}</span> : null}
+      {item && item.pin !== null && !item.disabled ? <PinButton id={item.pin} pinned={pinned} label={item.short ?? item.label} shown={highlighted} /> : null}
     </div>
   )
 }
@@ -325,20 +395,30 @@ function PickRow({
 
 function QuickPick({ layoutKey, workspaceId, onClose }: { layoutKey: string; workspaceId: string | null; onClose: () => void }) {
   const [query, setQuery] = useState('')
-  const [scope, setScope] = useState<PickScope | null>(null)
   const [highlight, setHighlight] = useState(0)
   const input = useRef<HTMLInputElement>(null)
   const pins = useNewTabPins()
   const recent = recentItems.use((list) => list)
-  const items = useAllItems(workspaceId)
-  const extra = useQueryRows(layoutKey, workspaceId, query, scope)
+  const openList = openBranches.use((list) => list)
+  const open = useMemo(() => new Set(openList), [openList])
+  const tree = useTree(workspaceId, pins)
+  const extra = useQueryRows(layoutKey, workspaceId, query)
+  const searching = query.trim() !== ''
 
-  const groups = useMemo((): Row[][] => {
-    const { groups, matches } = orderEntries(items, { query, scope, pins, recent })
-    const listed = groups.map((group) => group.map((item): Row => ({ item, marks: matches.get(item.id), remembered: true })))
-    return [extra.before, ...listed, extra.after].filter((g) => g.length > 0)
-  }, [items, query, scope, pins, recent, extra])
-  const rows = useMemo(() => groups.flat(), [groups])
+  /** The rows on show: the tree, or with a query the open tabs, the matching leaves, then files and the address. */
+  const rows = useMemo((): (PickRow<NewTabItem> & { extra?: Row })[] => {
+    if (!searching) return treeRows(tree, open)
+    const asRow = (row: Row): PickRow<NewTabItem> & { extra: Row } => ({
+      node: { id: row.item.id, label: row.item.label, entry: row.item },
+      depth: 0,
+      path: [],
+      parentId: null,
+      marks: row.marks,
+      extra: row
+    })
+    const matches = searchRows(tree, query, { pins, recent, pinOf: (item) => item.pin })
+    return [...extra.before.map(asRow), ...matches, ...extra.after.map(asRow)]
+  }, [searching, tree, open, query, pins, recent, extra])
   const active = Math.min(highlight, Math.max(0, rows.length - 1))
 
   useEffect(() => {
@@ -346,21 +426,27 @@ function QuickPick({ layoutKey, workspaceId, onClose }: { layoutKey: string; wor
     return () => clearTimeout(timer)
   }, [])
 
-  const pickScope = (next: PickScope | null) => {
-    setScope(next)
-    setHighlight(0)
-    input.current?.focus()
+  const setOpen = (next: ReadonlySet<string>) => openBranches.update(() => [...next])
+  const toggleBranch = (id: string) => {
+    const next = new Set(open)
+    if (next.has(id)) next.delete(id)
+    else next.add(id)
+    setOpen(next)
   }
 
-  const run = (row: Row | undefined) => {
-    if (!row || row.item.disabled) return
-    if (row.remembered && !row.item.lead && row.item.id !== 'refresh-agents') recentItems.update((list) => pushRecent(list, row.item.id))
-    if (row.item.id === 'refresh-agents') {
-      row.item.run()
+  const run = (row: (typeof rows)[number] | undefined) => {
+    if (!row) return
+    if (row.node.children) return toggleBranch(row.node.id)
+    const item = row.node.entry
+    if (!item || item.disabled) return
+    const remembered = row.extra ? row.extra.remembered : true
+    if (remembered && !item.lead && item.id !== 'refresh-agents') recentItems.update((list) => pushRecent(list, item.id))
+    if (item.id === 'refresh-agents') {
+      item.run()
       return
     }
     onClose()
-    row.item.run()
+    item.run()
   }
 
   const onKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
@@ -368,24 +454,22 @@ function QuickPick({ layoutKey, workspaceId, onClose }: { layoutKey: string; wor
     if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
       e.preventDefault()
       if (rows.length > 0) setHighlight((active + (e.key === 'ArrowDown' ? 1 : -1) + rows.length) % rows.length)
+    } else if ((e.key === 'ArrowRight' || e.key === 'ArrowLeft') && !searching) {
+      e.preventDefault()
+      const next = treeKey(rows, active, e.key, open)
+      if (next.open !== open) setOpen(next.open)
+      setHighlight(next.active)
     } else if (e.key === 'Enter') {
       e.preventDefault()
       run(rows[active])
-    } else if (e.key === 'Tab') {
-      e.preventDefault()
-      pickScope(nextScope(scope, e.shiftKey ? -1 : 1))
-    } else if (e.key === 'Backspace' && query === '' && scope !== null) {
-      e.preventDefault()
-      pickScope(null)
     } else if (e.altKey && e.code === 'KeyP') {
       e.preventDefault()
-      const pin = rows[active]?.item.pin
-      if (pin && !rows[active]!.item.disabled) toggleNewTabPin(pin)
+      const item = rows[active]?.node.entry
+      if (item?.pin && !item.disabled) toggleNewTabPin(item.pin)
     }
   }
 
-  const placeholder = scope ? scopeName(scope) : t('Search open tabs, files, URLs, agents…')
-  let index = -1
+  const placeholder = t('Search open tabs, files, URLs, agents…')
   return (
     <div data-new-tab-pick onKeyDown={(e) => e.key !== 'Escape' && e.stopPropagation()}>
       <div className="flex items-center gap-1 border-b border-border/70 px-2">
@@ -400,62 +484,27 @@ function QuickPick({ layoutKey, workspaceId, onClose }: { layoutKey: string; wor
           placeholder={placeholder}
           className="h-9 min-w-0 flex-1 bg-transparent text-xs text-foreground outline-none placeholder:text-muted-foreground"
           onChange={(e) => {
-            const value = e.target.value
-            const prefixed = query === '' ? takeScopePrefix(value) : null
-            if (prefixed) {
-              setScope(prefixed.scope)
-              setQuery(prefixed.query)
-            } else setQuery(value)
+            setQuery(e.target.value)
             setHighlight(0)
           }}
           onKeyDown={onKeyDown}
         />
-        <div role="radiogroup" aria-label={t('Scope')} className="flex shrink-0 items-center gap-0.5">
-          {PICK_SCOPES.map((s) => {
-            const Icon = SCOPE_ICON[s]
-            const on = scope === s
-            return (
-              <button
-                key={s}
-                type="button"
-                role="radio"
-                tabIndex={-1}
-                aria-checked={on}
-                aria-label={scopeName(s)}
-                title={scopeName(s)}
-                data-new-tab-scope={s}
-                data-on={on || undefined}
-                className={cn(
-                  'flex size-6 items-center justify-center rounded-md transition-colors',
-                  on ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:bg-accent/60 hover:text-foreground'
-                )}
-                onPointerDown={(e) => e.preventDefault()}
-                onClick={() => pickScope(on ? null : s)}
-              >
-                <Icon className="size-3.5" />
-              </button>
-            )
-          })}
-        </div>
       </div>
-      <div id="new-tab-pick-list" role="listbox" className="max-h-[min(380px,60vh)] overflow-y-auto p-1">
-        {groups.map((group, g) => (
-          <div key={g} role="group" className={cn(g > 0 && 'mt-1 border-t border-border/60 pt-1')}>
-            {group.map((row) => {
-              index += 1
-              const at = index
-              return (
-                <PickRow
-                  key={row.item.id}
-                  row={row}
-                  highlighted={at === active}
-                  pins={pins}
-                  onHover={() => setHighlight(at)}
-                  onRun={() => run(row)}
-                />
-              )
-            })}
-          </div>
+      <div id="new-tab-pick-list" role="tree" className="max-h-[min(380px,60vh)] overflow-y-auto p-1">
+        {rows.map((row, at) => (
+          <TreeRow
+            key={`${row.parentId ?? ''}/${row.node.id}`}
+            node={row.node}
+            icon={(row.node as Node).icon}
+            depth={searching ? 0 : row.depth}
+            path={searching ? row.path : undefined}
+            marks={searching ? row.marks : undefined}
+            open={open.has(row.node.id)}
+            highlighted={at === active}
+            pins={pins}
+            onHover={() => setHighlight(at)}
+            onRun={() => run(row)}
+          />
         ))}
       </div>
     </div>

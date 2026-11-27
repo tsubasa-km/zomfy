@@ -1,25 +1,11 @@
-// The "+" quick pick's scopes, matching and order (docs/specs/panes-as-workspaces.md). Pure, so
-// tests can run it.
+// The "+" quick pick as a tree, its matching and its keys (docs/specs/panes-as-workspaces.md). Pure,
+// so tests can run it.
 
+/** The tree's top-level branches an item sits under. */
 export type PickScope = 'terminal' | 'agent' | 'panel'
 
-/** The chips in order; null is all. */
+/** The branches in order. */
 export const PICK_SCOPES: readonly PickScope[] = ['terminal', 'agent', 'panel']
-
-const PREFIXES: Record<string, PickScope> = { $: 'terminal', '@': 'agent', '#': 'panel' }
-
-/** The scope Tab (or Shift+Tab) moves to: all → Terminal → Agent → Panel → all. */
-export function nextScope(scope: PickScope | null, direction: 1 | -1 = 1): PickScope | null {
-  const ring: (PickScope | null)[] = [null, ...PICK_SCOPES]
-  const at = ring.indexOf(scope)
-  return ring[(at + direction + ring.length) % ring.length]!
-}
-
-/** A scope prefix typed first (`$`, `@`, `#`) picks that scope and leaves the field. */
-export function takeScopePrefix(query: string): { scope: PickScope; query: string } | null {
-  const scope = PREFIXES[query.charAt(0)]
-  return scope ? { scope, query: query.slice(1).trimStart() } : null
-}
 
 export interface PickMatch {
   /** Lower is better: 0 starts with the query, 1 a word starts with it, 2 contains it, 3 scattered. */
@@ -59,11 +45,8 @@ export function matchLabel(label: string, query: string): PickMatch | null {
 export interface PickEntry {
   id: string
   label: string
-  scope: PickScope
   /** Other words it is found by (its English name in a translated window), matched after the label. */
   keywords?: string
-  /** Listed first, above pinned and recent, while there is no query (New thread). */
-  lead?: boolean
 }
 
 /** The entry's match: on its label, else on its keywords (with nothing in the label to mark). */
@@ -82,40 +65,106 @@ export function pushRecent(recent: readonly string[], id: string): string[] {
   return [id, ...recent.filter((r) => r !== id)].slice(0, MAX_RECENT)
 }
 
+// ── The tree ─────────────────────────────────────────────────────────────
+
+/** A row of the tree: a leaf runs its entry; a branch holds children. Ids are unique in the tree. */
+export interface PickNode<T extends PickEntry> {
+  id: string
+  /** The name shown in the tree (a leaf's may be shorter than its entry's, under its branch). */
+  label: string
+  entry?: T
+  children?: PickNode<T>[]
+}
+
+export interface PickRow<T extends PickEntry> {
+  node: PickNode<T>
+  depth: number
+  /** The branches above it, by name, for a search result's path. */
+  path: string[]
+  parentId: string | null
+  /** Matched characters of the entry's label, with a query. */
+  marks?: number[]
+}
+
+/** The rows on show with no query: every top-level node, and the children of open branches. */
+export function treeRows<T extends PickEntry>(
+  nodes: readonly PickNode<T>[],
+  open: ReadonlySet<string>,
+  depth = 0,
+  path: string[] = [],
+  parentId: string | null = null
+): PickRow<T>[] {
+  return nodes.flatMap((node) => {
+    const row: PickRow<T> = { node, depth, path, parentId }
+    if (!node.children || !open.has(node.id)) return [row]
+    return [row, ...treeRows(node.children, open, depth + 1, [...path, node.label], node.id)]
+  })
+}
+
 /**
- * The entries to list, in order, in up to three groups (lead and pinned, recent, the rest), each a
- * list. With no query: the lead entries, pinned in pin order, recent most recent first, the rest in scope order. With a query:
- * one group of the matches, best first, pinned then recent among equals.
+ * With a query: the leaves that match, flat, each with its path, best first (a name starting with
+ * the query, a word that does, one containing it, a scattered match), pinned then recent among
+ * equals, then in tree order. A leaf listed twice (a pin at the top and in its branch) shows once,
+ * with the deeper path.
  */
-export function orderEntries<T extends PickEntry>(
-  entries: readonly T[],
-  options: { query: string; scope: PickScope | null; pins: readonly string[]; recent: readonly string[] }
-): { groups: T[][]; matches: Map<string, number[]> } {
-  const inScope = entries.filter((e) => options.scope === null || e.scope === options.scope)
-  const matches = new Map<string, number[]>()
-  const pinAt = (e: T) => options.pins.indexOf(e.id)
-  const recentAt = (e: T) => options.recent.indexOf(e.id)
-  if (options.query.trim()) {
-    const scored = inScope.flatMap((entry, order) => {
-      const match = matchEntry(entry, options.query)
-      if (!match) return []
-      matches.set(entry.id, match.indices)
-      const boost = entry.lead ? 0 : pinAt(entry) !== -1 ? 1 : recentAt(entry) !== -1 ? 2 : 3
-      return [{ entry, key: [match.rank, boost, order] }]
-    })
-    scored.sort((a, b) => a.key[0]! - b.key[0]! || a.key[1]! - b.key[1]! || a.key[2]! - b.key[2]!)
-    const list = scored.map((s) => s.entry)
-    return { groups: list.length > 0 ? [list] : [], matches }
+export function searchRows<T extends PickEntry>(
+  nodes: readonly PickNode<T>[],
+  query: string,
+  options: { pins: readonly string[]; recent: readonly string[]; pinOf?: (entry: T) => string | null }
+): PickRow<T>[] {
+  const leaves: PickRow<T>[] = []
+  const walk = (list: readonly PickNode<T>[], depth: number, path: string[], parentId: string | null) => {
+    for (const node of list) {
+      if (node.children) walk(node.children, depth + 1, [...path, node.label], node.id)
+      else if (node.entry) leaves.push({ node, depth: 0, path, parentId })
+    }
   }
-  const lead = inScope.filter((e) => e.lead)
-  const others = inScope.filter((e) => !e.lead)
-  const pinned = others.filter((e) => pinAt(e) !== -1).sort((a, b) => pinAt(a) - pinAt(b))
-  const recent = others.filter((e) => pinAt(e) === -1 && recentAt(e) !== -1).sort((a, b) => recentAt(a) - recentAt(b))
-  const scopeAt = (e: T) => PICK_SCOPES.indexOf(e.scope)
-  const rest = others
-    .map((entry, order) => ({ entry, order }))
-    .filter(({ entry }) => pinAt(entry) === -1 && recentAt(entry) === -1)
-    .sort((a, b) => scopeAt(a.entry) - scopeAt(b.entry) || a.order - b.order)
-    .map((x) => x.entry)
-  return { groups: [[...lead, ...pinned], recent, rest].filter((g) => g.length > 0), matches }
+  walk(nodes, 0, [], null)
+  const byEntry = new Map<string, PickRow<T>>()
+  for (const leaf of leaves) {
+    const id = leaf.node.entry!.id
+    const seen = byEntry.get(id)
+    if (!seen || leaf.path.length > seen.path.length) byEntry.set(id, leaf)
+  }
+  const pinOf = options.pinOf ?? ((entry: T) => entry.id)
+  const scored = [...byEntry.values()].flatMap((row, order) => {
+    const entry = row.node.entry!
+    const match = matchEntry(entry, query)
+    if (!match) return []
+    const pin = pinOf(entry)
+    const boost = pin !== null && options.pins.includes(pin) ? 0 : options.recent.includes(entry.id) ? 1 : 2
+    return [{ row: { ...row, marks: match.indices }, key: [match.rank, boost, order] }]
+  })
+  scored.sort((a, b) => a.key[0]! - b.key[0]! || a.key[1]! - b.key[1]! || a.key[2]! - b.key[2]!)
+  return scored.map((s) => s.row)
+}
+
+/**
+ * `→` and `←` on the highlighted row: `→` opens a branch, or on an open one moves to its first
+ * child; `←` folds an open branch, or on a child moves to its branch. Returns the new highlight and
+ * open set (the same set when nothing opened or folded).
+ */
+export function treeKey<T extends PickEntry>(
+  rows: readonly PickRow<T>[],
+  active: number,
+  key: 'ArrowRight' | 'ArrowLeft',
+  open: ReadonlySet<string>
+): { active: number; open: ReadonlySet<string> } {
+  const row = rows[active]
+  if (!row) return { active, open }
+  const branch = Boolean(row.node.children)
+  const isOpen = branch && open.has(row.node.id)
+  if (key === 'ArrowRight') {
+    if (!branch) return { active, open }
+    if (!isOpen) return { active, open: new Set([...open, row.node.id]) }
+    return { active: row.node.children!.length > 0 ? active + 1 : active, open }
+  }
+  if (isOpen) {
+    const next = new Set(open)
+    next.delete(row.node.id)
+    return { active, open: next }
+  }
+  if (row.parentId === null) return { active, open }
+  const parent = rows.findIndex((r) => r.node.id === row.parentId)
+  return { active: parent === -1 ? active : parent, open }
 }

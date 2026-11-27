@@ -1,6 +1,6 @@
 import { expect, test } from 'bun:test'
 import { nextFrontTab, paneTabSet, resolvePaneContext } from '../src/lib/pane-context.ts'
-import { matchLabel, nextScope, orderEntries, pushRecent, takeScopePrefix, type PickEntry } from '../src/lib/new-tab-pick.ts'
+import { matchEntry, matchLabel, pushRecent, searchRows, treeKey, treeRows, type PickEntry, type PickNode } from '../src/lib/new-tab-pick.ts'
 
 const carries = (ids: string[]) => (id: string) => ids.includes(id)
 
@@ -25,57 +25,12 @@ test('a pane with nothing to take has no context', () => {
   expect(resolvePaneContext({ front: 'gone', last: undefined, others: [null] }, carries(['a']))).toBeNull()
 })
 
-test('Tab cycles all → Terminal → Agent → Panel → all, Shift+Tab back', () => {
-  expect(nextScope(null)).toBe('terminal')
-  expect(nextScope('terminal')).toBe('agent')
-  expect(nextScope('agent')).toBe('panel')
-  expect(nextScope('panel')).toBe(null)
-  expect(nextScope(null, -1)).toBe('panel')
-  expect(nextScope('terminal', -1)).toBe(null)
-})
-
-test('a prefix typed first picks a scope', () => {
-  expect(takeScopePrefix('$ npm')).toEqual({ scope: 'terminal', query: 'npm' })
-  expect(takeScopePrefix('@')).toEqual({ scope: 'agent', query: '' })
-  expect(takeScopePrefix('#brow')).toEqual({ scope: 'panel', query: 'brow' })
-  expect(takeScopePrefix('claude')).toBeNull()
-})
-
 test('matching ranks a start before a word start, a substring and a scattered match', () => {
   expect(matchLabel('New Terminal…', 'new')).toEqual({ rank: 0, indices: [0, 1, 2] })
   expect(matchLabel('New Terminal…', 'term')?.rank).toBe(1)
   expect(matchLabel('Explorer', 'plo')?.rank).toBe(2)
   expect(matchLabel('New Claude Thread', 'nct')).toEqual({ rank: 3, indices: [0, 4, 11] })
   expect(matchLabel('Browser', 'xyz')).toBeNull()
-})
-
-const entries: PickEntry[] = [
-  { id: 'terminal', label: 'New Terminal…', scope: 'terminal' },
-  { id: 'command:build', label: 'Build', scope: 'terminal' },
-  { id: 'chat:claude', label: 'New Claude Thread', scope: 'agent' },
-  { id: 'agent:codex', label: 'Codex', scope: 'agent' },
-  { id: 'browser', label: 'New Browser Tab', scope: 'panel' },
-  { id: 'panel:explorer', label: 'Explorer', scope: 'panel' }
-]
-
-test('with no query: pinned in pin order, then recent, then the rest in scope order', () => {
-  const { groups } = orderEntries(entries, { query: '', scope: null, pins: ['browser', 'terminal'], recent: ['agent:codex', 'browser'] })
-  expect(groups.map((g) => g.map((e) => e.id))).toEqual([
-    ['browser', 'terminal'],
-    ['agent:codex'],
-    ['command:build', 'chat:claude', 'panel:explorer']
-  ])
-})
-
-test('a scope keeps only its items', () => {
-  const { groups } = orderEntries(entries, { query: '', scope: 'agent', pins: ['terminal'], recent: [] })
-  expect(groups.flat().map((e) => e.id)).toEqual(['chat:claude', 'agent:codex'])
-})
-
-test('with a query: matches best first, pinned and recent first among equals', () => {
-  const { groups, matches } = orderEntries(entries, { query: 'new', scope: null, pins: ['browser'], recent: ['chat:claude'] })
-  expect(groups.flat().map((e) => e.id)).toEqual(['browser', 'chat:claude', 'terminal'])
-  expect(matches.get('terminal')).toEqual([0, 1, 2])
 })
 
 test('recent keeps the last five, most recent first, without repeats', () => {
@@ -85,19 +40,72 @@ test('recent keeps the last five, most recent first, without repeats', () => {
 })
 
 test('a translated item is also found by its English keywords, with nothing marked', () => {
-  const translated: PickEntry[] = [{ id: 'terminal', label: '新しいターミナル…', scope: 'terminal', keywords: 'new terminal shell' }]
-  const { groups, matches } = orderEntries(translated, { query: 'term', scope: null, pins: [], recent: [] })
-  expect(groups.flat().map((e) => e.id)).toEqual(['terminal'])
-  expect(matches.get('terminal')).toEqual([])
+  const translated: PickEntry = { id: 'terminal', label: '新しいターミナル…', keywords: 'new terminal shell' }
+  expect(matchEntry(translated, 'term')).toEqual({ rank: 1, indices: [] })
 })
 
-test('New thread leads in all and Agent with no query, above pins and recent; with a query it is matched as any item', () => {
-  const withLead: PickEntry[] = [...entries, { id: 'new-thread', label: 'New thread', scope: 'agent', lead: true }]
-  const all = orderEntries(withLead, { query: '', scope: null, pins: ['browser'], recent: ['agent:codex'] })
-  expect(all.groups[0]!.map((e) => e.id)).toEqual(['new-thread', 'browser'])
-  expect(orderEntries(withLead, { query: '', scope: 'agent', pins: [], recent: [] }).groups.flat()[0]!.id).toBe('new-thread')
-  expect(orderEntries(withLead, { query: '', scope: 'terminal', pins: [], recent: [] }).groups.flat().some((e) => e.id === 'new-thread')).toBe(false)
-  expect(orderEntries(withLead, { query: 'thread', scope: null, pins: [], recent: [] }).groups.flat().map((e) => e.id)).toEqual(['new-thread', 'chat:claude'])
+// The quick pick's tree (docs/specs/panes-as-workspaces.md).
+const e = (id: string, label: string, keywords?: string): PickEntry => ({ id, label, ...(keywords ? { keywords } : {}) })
+const tree: PickNode<PickEntry>[] = [
+  { id: 'new-thread', label: 'New thread', entry: e('new-thread', 'New thread') },
+  { id: 'pin:terminal', label: 'New Terminal…', entry: e('terminal', 'New Terminal…') },
+  { id: 'scope:terminal', label: 'Terminal', children: [{ id: 'terminal', label: 'New Terminal…', entry: e('terminal', 'New Terminal…') }] },
+  {
+    id: 'scope:agent',
+    label: 'Agent',
+    children: [
+      {
+        id: 'provider:codex',
+        label: 'Codex',
+        children: [
+          { id: 'chat:codex', label: 'New thread', entry: e('chat:codex', 'New Codex Thread') },
+          { id: 'agent:codex', label: 'In a terminal', entry: e('agent:codex', 'Codex', 'codex agent cli terminal') }
+        ]
+      },
+      { id: 'refresh-agents', label: 'Refresh Agents', entry: e('refresh-agents', 'Refresh Agents') }
+    ]
+  },
+  { id: 'scope:panel', label: 'Panel', children: [{ id: 'browser', label: 'New Browser Tab', entry: e('browser', 'New Browser Tab') }] }
+]
+const ids = (rows: { node: { id: string } }[]) => rows.map((r) => r.node.id)
+
+test('the tree shows New thread and the pins first, branches folded until opened', () => {
+  expect(ids(treeRows(tree, new Set()))).toEqual(['new-thread', 'pin:terminal', 'scope:terminal', 'scope:agent', 'scope:panel'])
+  const open = treeRows(tree, new Set(['scope:agent', 'provider:codex']))
+  expect(ids(open)).toEqual(['new-thread', 'pin:terminal', 'scope:terminal', 'scope:agent', 'provider:codex', 'chat:codex', 'agent:codex', 'refresh-agents', 'scope:panel'])
+  expect(open.find((r) => r.node.id === 'agent:codex')).toMatchObject({ depth: 2, path: ['Agent', 'Codex'], parentId: 'provider:codex' })
+})
+
+test('→ opens a branch then enters it; ← folds it, or from a child goes to its branch', () => {
+  let open: ReadonlySet<string> = new Set()
+  let rows = treeRows(tree, open)
+  let step = treeKey(rows, 3, 'ArrowRight', open)
+  expect(step.active).toBe(3)
+  open = step.open
+  expect([...open]).toEqual(['scope:agent'])
+  rows = treeRows(tree, open)
+  step = treeKey(rows, 3, 'ArrowRight', open)
+  expect(rows[step.active]!.node.id).toBe('provider:codex')
+  // ← on a closed child goes to its branch; ← on an open branch folds it.
+  step = treeKey(rows, 4, 'ArrowLeft', open)
+  expect(rows[step.active]!.node.id).toBe('scope:agent')
+  step = treeKey(rows, 3, 'ArrowLeft', open)
+  expect([...step.open]).toEqual([])
+  // → on a leaf does nothing.
+  expect(treeKey(rows, 0, 'ArrowRight', open)).toEqual({ active: 0, open })
+})
+
+test('a query lists the matching leaves flat with their path, once each, pinned first among equals', () => {
+  const rows = searchRows(tree, 'codex', { pins: [], recent: [] })
+  expect(ids(rows)).toEqual(['agent:codex', 'chat:codex'])
+  expect(rows[0]!.path).toEqual(['Agent', 'Codex'])
+  // The pinned terminal is listed once, under its branch.
+  const term = searchRows(tree, 'new t', { pins: ['terminal'], recent: [] })
+  expect(ids(term).filter((id) => id === 'terminal' || id === 'pin:terminal')).toEqual(['terminal'])
+  expect(term.find((r) => r.node.id === 'terminal')!.path).toEqual(['Terminal'])
+  expect(ids(term)[0]).toBe('terminal')
+  // Branches do not match on their own.
+  expect(ids(searchRows(tree, 'panel', { pins: [], recent: [] }))).toEqual([])
 })
 
 test('a pane shows its context set and the tabs of no workspace, keeping the others hidden', () => {

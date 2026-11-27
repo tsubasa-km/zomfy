@@ -33,8 +33,12 @@ export interface NewTabItem {
   pin: string | null
   /** Its id in the quick pick's recent list: the pin id, or a name of its own. */
   id: string
-  /** The quick pick's scope it is listed under (docs/specs/panes-as-workspaces.md). */
+  /** The quick pick's top-level branch it is listed under (docs/specs/panes-as-workspaces.md). */
   scope: PickScope
+  /** The agent it starts, for its branch under Agent; its name there is `treeLabel`. */
+  provider?: { id: string; label: string }
+  /** Its name under its agent's branch, where the agent's name is the branch's (`New thread`). */
+  treeLabel?: string
   /** English words the quick pick also finds it by, whatever the window's language. */
   keywords?: string
   /** The quick pick lists it first while its field is empty (New thread). */
@@ -122,6 +126,8 @@ export function useChatItems(workspaceId: string | null): NewTabItem[] {
       scope: 'agent',
       keywords: 'new claude thread chat',
       label: t('New Claude Thread'),
+      provider: { id: 'claude', label: 'Claude' },
+      treeLabel: t('New thread'),
       short: t('{agent} chat', { agent: 'Claude' }),
       icon: <TuiAgentIcon agent="claude" size={14} />,
       run: () => startNewChat(workspaceId, 'claude')
@@ -132,6 +138,8 @@ export function useChatItems(workspaceId: string | null): NewTabItem[] {
       scope: 'agent' as const,
       keywords: `new ${agent.label} thread chat`,
       label: t('New {agent} Thread', { agent: agent.label }),
+      provider: { id: agent.id, label: agent.label },
+      treeLabel: t('New thread'),
       short: t('{agent} chat', { agent: agent.label }),
       icon: <TuiAgentIcon agent={agent.id} size={14} />,
       run: () => startNewChat(workspaceId, agent.id),
@@ -166,8 +174,10 @@ export function useTuiAgentItems(workspaceId: string | null) {
       pin: `agent:${agent}`,
       id: `agent:${agent}`,
       scope: 'agent',
-      keywords: `${agent} agent cli`,
+      keywords: `${agent} agent cli terminal`,
       label,
+      provider: { id: agent, label },
+      treeLabel: t('In a terminal'),
       short: label,
       icon: <TuiAgentIcon agent={agent} size={14} />,
       run: () => void launchAgentTerminal(workspaceId!, agent).catch(failed(t("Couldn't open a terminal")))
