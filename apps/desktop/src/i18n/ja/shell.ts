@@ -390,7 +390,6 @@ export const SHELL: Record<string, string> = {
   'Workspace options': 'ワークスペースのオプション',
   Show: '表示',
   'Archived threads': 'アーカイブ済みのスレッド',
-  'Group by': 'グループ化',
   Project: 'プロジェクト',
   Status: 'ステータス',
   'Sort by': '並べ替え',
@@ -582,7 +581,6 @@ export const SHELL: Record<string, string> = {
 
   // components/sidebar/ProjectList.tsx
   offline: 'オフライン',
-  'Quick threads': 'クイックスレッド',
   'No projects yet. Use + to add one, or start a thread with New thread.': 'まだプロジェクトがありません。+ で追加するか、「新しいスレッド」でスレッドを始めましょう。',
 
   // components/sidebar/NewWorkspaceDialog.tsx
@@ -1270,7 +1268,6 @@ export const SHELL: Record<string, string> = {
   'Search threads': 'スレッドを検索',
   'View options': '表示オプション',
   List: '一覧',
-  State: '状態',
   'Every thread in one list, the ones that need you first.': 'すべてのスレッドを 1 つの一覧に並べ、対応が必要なものを先頭に出します。',
   'Projects with their workspaces as cards.': 'プロジェクトごとに、ワークスペースをカードで表示します。',
   'Projects and workspaces': 'プロジェクトとワークスペース',

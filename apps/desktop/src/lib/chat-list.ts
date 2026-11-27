@@ -1,12 +1,12 @@
 import { useSyncExternalStore } from 'react'
-import { foldedTurnPhase, TURN_PHASE_RANK, type TurnPhase } from '@zomfy/protocol'
+import { foldedTurnPhase, type TurnPhase } from '@zomfy/protocol'
 import type { Session } from '@/session-store'
 import { phaseOf } from '@/lib/turn-phase'
 import { t } from '@/i18n/i18n'
 
-// The sidebar's chat list: every chat of every project in one list, ordered by whose turn it is
-// rather than by where it lives (docs/specs/turn-taking-states.md). A workflow's step chats and a
-// side chat stay folded under the chat they work for.
+// The sidebar's chat list: every chat of every project, under its project, with whose turn it is
+// on each row (docs/specs/threads-under-projects.md, docs/specs/turn-taking-states.md). A workflow's
+// step chats and a side chat stay folded under the chat they work for.
 
 export type ChatSectionId = 'pinned' | 'needs-answer' | 'your-turn' | 'working' | 'quiet' | 'archived'
 
@@ -72,11 +72,6 @@ export function searchTree(nodes: ChatNode[], matches: (s: Session) => boolean):
   })
 }
 
-/** Most pressing first, then the most recently active. */
-export function byUrgency(a: ChatNode, b: ChatNode): number {
-  return TURN_PHASE_RANK[a.phase] - TURN_PHASE_RANK[b.phase] || activityOf(b.chat) - activityOf(a.chat)
-}
-
 /**
  * The list cut by whose turn it is: what waits for the person's answer, what is their turn, what
  * is working (background work with it), then what has gone quiet. Pinned chats keep the order they
@@ -96,6 +91,60 @@ export function chatSections(nodes: ChatNode[], pinned: string[]): { id: ChatSec
     { id: 'quiet' as const, nodes: recent(rest.filter((n) => n.phase === 'quiet')) },
     { id: 'archived' as const, nodes: recent(nodes.filter((n) => n.chat.archived)) }
   ].filter((section) => section.nodes.length > 0)
+}
+
+/** The most recently active first (when a turn last started or ended). */
+export function byRecency(a: ChatNode, b: ChatNode): number {
+  return activityOf(b.chat) - activityOf(a.chat)
+}
+
+/** How pressing a thread is to the person, for a folded project's mark: their move first. */
+const PROJECT_MARK_RANK: Readonly<Record<TurnPhase, number>> = {
+  'needs-answer': 0,
+  'your-turn': 1,
+  working: 2,
+  background: 3,
+  quiet: 4
+}
+
+/**
+ * The thread a folded project shows the mark of (docs/specs/threads-under-projects.md): one that
+ * needs an answer, else the person's turn, else one working, else one with background work; none
+ * when every thread is quiet.
+ */
+export function mostPressing(nodes: readonly ChatNode[]): ChatNode | null {
+  let top: ChatNode | null = null
+  for (const node of nodes) {
+    if (node.phase === 'quiet') continue
+    if (!top || PROJECT_MARK_RANK[node.phase] < PROJECT_MARK_RANK[top.phase]) top = node
+  }
+  return top
+}
+
+/**
+ * The live, unpinned threads cut by project (docs/specs/threads-under-projects.md), in `order`, each
+ * project's threads most recent first; the threads of no project (`keyOf` null) after them. A
+ * project with no thread is kept, so it still shows.
+ */
+export function projectGroups(
+  nodes: readonly ChatNode[],
+  pinned: readonly string[],
+  keyOf: (chat: Session) => string | null,
+  order: readonly string[]
+): { projects: { key: string; nodes: ChatNode[] }[]; loose: ChatNode[] } {
+  const live = nodes.filter((n) => !n.chat.archived && !pinned.includes(n.chat.id))
+  const byKey = new Map<string, ChatNode[]>(order.map((key) => [key, []]))
+  const loose: ChatNode[] = []
+  for (const node of live) {
+    const key = keyOf(node.chat)
+    const list = key === null ? undefined : byKey.get(key)
+    if (list) list.push(node)
+    else loose.push(node)
+  }
+  return {
+    projects: order.map((key) => ({ key, nodes: byKey.get(key)!.sort(byRecency) })),
+    loose: loose.sort(byRecency)
+  }
 }
 
 export function chatSectionLabel(id: ChatSectionId): string {

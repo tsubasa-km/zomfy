@@ -157,8 +157,6 @@ export interface EditorTab {
 
 /** How the sidebar's chat list looks. */
 export interface SidebarView {
-  /** How the chat list is cut: by state (the default), or a folder per project. */
-  chatGroupBy?: 'state' | 'project'
   /** List the chats workflow runs made for their steps even when no chat started the run. */
   workflowChats?: boolean
   /** List bots' chats too (docs/specs/bots/desktop.md); the Bots page has them either way. */

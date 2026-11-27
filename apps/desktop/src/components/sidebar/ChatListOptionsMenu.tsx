@@ -6,8 +6,6 @@ import {
   DropdownMenuCheckboxItem,
   DropdownMenuContent,
   DropdownMenuLabel,
-  DropdownMenuRadioGroup,
-  DropdownMenuRadioItem,
   DropdownMenuSeparator,
   DropdownMenuTrigger
 } from '@/components/ui/dropdown-menu'
@@ -34,19 +32,6 @@ export function ChatListOptionsMenu() {
       </Tooltip>
       <DropdownMenuContent side="right" align="start" sideOffset={8} className="w-60 pb-2">
         <DropdownMenuLabel className="pb-0 text-sm text-foreground">{t('View options')}</DropdownMenuLabel>
-        <DropdownMenuSeparator />
-        <DropdownMenuLabel className="text-xs text-muted-foreground">{t('Group by')}</DropdownMenuLabel>
-        <DropdownMenuRadioGroup
-          value={view.chatGroupBy ?? 'state'}
-          onValueChange={(v) => setSidebarView({ chatGroupBy: v === 'project' ? 'project' : 'state' })}
-        >
-          <DropdownMenuRadioItem value="state" data-chat-group="state" onSelect={(e) => e.preventDefault()}>
-            {t('State')}
-          </DropdownMenuRadioItem>
-          <DropdownMenuRadioItem value="project" data-chat-group="project" onSelect={(e) => e.preventDefault()}>
-            {t('Project')}
-          </DropdownMenuRadioItem>
-        </DropdownMenuRadioGroup>
         <DropdownMenuSeparator />
         <DropdownMenuLabel className="text-xs text-muted-foreground">{t('Show')}</DropdownMenuLabel>
         <DropdownMenuCheckboxItem

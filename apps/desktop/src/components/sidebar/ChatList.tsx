@@ -1,9 +1,9 @@
 import { Fragment, useMemo, type ReactNode } from 'react'
-import { ChevronRight, FolderGit2, FolderOpen, Inbox, MessageSquare, MoreHorizontal, Plus } from 'lucide-react'
+import { ChevronRight, FolderGit2, FolderOpen, MessageSquare, MoreHorizontal, Plus } from 'lucide-react'
 import type { Workspace } from '@zomfy/protocol'
 import { floatingWorkspaceId, selectWorkspace, useStore, type HostedProject, type HostId, type Session } from '@/session-store'
 import { toggleProjectCollapsed, toggleSectionCollapsed, useSidebarStore } from '@/stores/sidebar-store'
-import { setInboxOpen } from '@/stores/inbox-store'
+import { AgentStateDot } from '@/components/AgentStateDot'
 import { useProjectCatalog } from '@/stores/project-catalog-store'
 import { useSetting } from '@/stores/settings-store'
 import { SessionRow } from '@/components/sidebar/SessionRow'
@@ -18,23 +18,20 @@ import { Button } from '@/components/ui/button'
 import { DropdownMenu, DropdownMenuContent, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { foldedTurnPhase } from '@zomfy/protocol'
-import { byUrgency, chatSectionLabel, chatSections, chatTree, searchTree, useCoarseNow, type ChatNode, type ChatSectionId } from '@/lib/chat-list'
-import { phaseOf, useQuietAfterHours } from '@/lib/turn-phase'
+import { chatSectionLabel, chatSections, chatTree, mostPressing, projectGroups, searchTree, useCoarseNow, type ChatNode, type ChatSectionId } from '@/lib/chat-list'
+import { phaseOf, turnPhaseDot, turnPhaseLabel, useQuietAfterHours } from '@/lib/turn-phase'
 import { startChat } from '@/lib/chat-worktree'
 import { defaultHostId } from '@/lib/default-host'
 import { cn } from '@/lib/utils'
 import { t } from '@/i18n/i18n'
 
-// The sidebar as a list of chats, as T3 Code's thread list: every chat of every project, ordered by
-// what needs the person. Where a chat works is a line on its row, not a level to open first; a
-// folder per project is a grouping the person can turn on.
+// The sidebar as a list of projects, each with its chats inside, most recent first; each row keeps
+// whose turn it is, and a folded project shows its most pressing chat's mark
+// (docs/specs/threads-under-projects.md). Pinned chats sit above the projects, archived ones below.
 
 type HostedWorkspace = Workspace & { hostId: HostId }
 
 const NO_PROJECT = 'none'
-
-/** The sections held at the list's top; the rest sit at its bottom. */
-const TOP_SECTIONS: ChatSectionId[] = ['pinned', 'needs-answer', 'your-turn']
 
 /** How many chats the list holds and how many the search keeps, for the search field's counter. */
 export function useChatListCounts(): { total: number; matched: number } {
@@ -131,7 +128,6 @@ export function ChatList({ actions }: { actions: SidebarActions }) {
   const allSessions = useStore((s) => s.sessions)
   const unread = useStore((s) => s.unread)
   const floating = useStore((s) => floatingWorkspaceId(s))
-  const groupBy = useStore((s) => s.sidebarView.chatGroupBy ?? 'state')
   const showWorkflow = useStore((s) => s.sidebarView.workflowChats === true)
   const showBots = useStore((s) => s.sidebarView.botChats === true)
   // Only how many tab terminals each workspace has: a string, so a terminal's new title redraws nothing here.
@@ -170,7 +166,7 @@ export function ChatList({ actions }: { actions: SidebarActions }) {
       project: project ? projectLabel(project) : w?.scratch ? t('Quick thread') : w ? workspaceLabel(w) : '',
       quick: !project && Boolean(w?.scratch),
       // Under its project's folder a row need not repeat the project.
-      foldered: groupBy === 'project' && project !== undefined && !pinned.includes(session.id) && !session.archived,
+      foldered: !pinned.includes(session.id) && !session.archived,
       workspaceId: session.workspaceId,
       branch: w?.branch,
       worktree: Boolean(w && project && !w.isPrimary),
@@ -238,18 +234,6 @@ export function ChatList({ actions }: { actions: SidebarActions }) {
     )
   }
 
-  const inbox = (
-    <button
-      type="button"
-      aria-label={t('Inbox')}
-      title={t('Inbox')}
-      className="flex size-5 items-center justify-center rounded-sm text-muted-foreground hover:bg-worktree-sidebar-accent hover:text-foreground"
-      onClick={() => setInboxOpen(true)}
-    >
-      <Inbox className="size-3.5" />
-    </button>
-  )
-
   const sections = chatSections(nodes, pinned)
   const empty = (
     <div className="flex flex-col items-center gap-2 px-4 pt-8 text-center text-xs text-muted-foreground" data-chat-list-empty>
@@ -258,28 +242,6 @@ export function ChatList({ actions }: { actions: SidebarActions }) {
     </div>
   )
 
-  if (groupBy === 'state') {
-    // As T3 Code's: what wants the person sits at the top, what is working and what has settled at
-    // the bottom, so each stays where the eye expects it however long the other gets.
-    const draw = (s: (typeof sections)[number]) => section(s.id, s.nodes, s.id === 'needs-answer' ? inbox : undefined)
-    const top = sections.filter((s) => TOP_SECTIONS.includes(s.id))
-    const bottom = sections.filter((s) => !TOP_SECTIONS.includes(s.id))
-    return (
-      <div data-chat-list="state" className="flex flex-1 flex-col">
-        {sections.length === 0 ? (
-          empty
-        ) : (
-          <>
-            <div data-chat-list-top>{top.map(draw)}</div>
-            <div data-chat-list-bottom className="mt-auto pt-3">
-              {bottom.map(draw)}
-            </div>
-          </>
-        )}
-      </div>
-    )
-  }
-
   // By project: pinned chats stay on top and archived ones at the bottom, as in the state view.
   const entryKey = (e: ProjectEntry) => `${e.primary.hostId}:${e.primary.id}`
   const unordered = projectEntries(projects, catalog)
@@ -287,35 +249,29 @@ export function ChatList({ actions }: { actions: SidebarActions }) {
   const entries = [...unordered].sort((a, b) => rank.get(entryKey(a))! - rank.get(entryKey(b))!)
   const pinnedSection = sections.find((s) => s.id === 'pinned')
   const archivedSection = sections.find((s) => s.id === 'archived')
-  const foldered = nodes.filter((n) => !n.chat.archived && !pinned.includes(n.chat.id))
-  const inProject = (members: HostedProject[]) =>
-    foldered
-      .filter((n) => {
-        const w = workspaceById.get(n.chat.workspaceId)
-        return members.some((m) => m.hostId === w?.hostId && m.id === w?.projectId)
-      })
-      .sort(byUrgency)
-  const loose = foldered.filter((n) => !projectOf(workspaceById.get(n.chat.workspaceId))).sort(byUrgency)
+  // A chat's project entry: copies of one project on other hosts share their primary's group.
+  const entryOfProject = new Map(entries.flatMap((e) => [e.primary, ...e.copies].map((m) => [`${m.hostId}:${m.id}`, entryKey(e)] as const)))
+  const grouped = projectGroups(
+    nodes,
+    pinned,
+    (chat) => {
+      const w = workspaceById.get(chat.workspaceId)
+      return w?.projectId ? (entryOfProject.get(`${w.hostId}:${w.projectId}`) ?? null) : null
+    },
+    entries.map(entryKey)
+  )
+  const inProject = new Map(grouped.projects.map((g) => [g.key, g.nodes]))
+  const loose = grouped.loose
+  const looseCollapsed = collapsedProjects.includes(NO_PROJECT) && !needle
   // Workspaces some chat works in, shown or not.
   const busy = new Set(allSessions.filter((s) => !s.archived).map((s) => s.workspaceId))
 
   return (
     <div data-chat-list="project">
       {pinnedSection && section('pinned', pinnedSection.nodes)}
-      {loose.length > 0 && (
-        <section className="mb-1.5" data-chat-project={NO_PROJECT}>
-          <SectionHeader
-            id={`project:${NO_PROJECT}`}
-            label={t('Quick threads')}
-            count={loose.length}
-            collapsed={collapsedSections.includes(`project:${NO_PROJECT}`) && !needle}
-          />
-          {(!collapsedSections.includes(`project:${NO_PROJECT}`) || needle) && <div className="space-y-px pr-1">{loose.map(row)}</div>}
-        </section>
-      )}
       {entries.map(({ primary: project, copies }) => {
         const members = [project, ...copies]
-        const list = inProject(members)
+        const list = inProject.get(entryKey({ primary: project, copies })) ?? []
         // A search leaves out the projects it found nothing in.
         if (needle && list.length === 0) return null
         const collapsed = collapsedProjects.includes(project.id) && !needle
@@ -340,11 +296,13 @@ export function ChatList({ actions }: { actions: SidebarActions }) {
               }}
             >
               <ChevronRight className={cn('size-3 shrink-0 text-muted-foreground transition-transform', !collapsed && 'rotate-90')} />
-              {project.kind === 'git' ? (
-                <FolderGit2 className="size-3.5 shrink-0 text-muted-foreground" />
-              ) : (
-                <FolderOpen className="size-3.5 shrink-0 text-muted-foreground" />
-              )}
+              <ProjectMark nodes={collapsed ? list : []}>
+                {project.kind === 'git' ? (
+                  <FolderGit2 className="size-3.5 shrink-0 text-muted-foreground" />
+                ) : (
+                  <FolderOpen className="size-3.5 shrink-0 text-muted-foreground" />
+                )}
+              </ProjectMark>
               <div className="min-w-0 truncate pl-0.5 text-[13px] leading-none font-semibold">{label}</div>
               <span className="text-[11px] text-muted-foreground tabular-nums">{list.length}</span>
               {hostBadge && (
@@ -409,8 +367,48 @@ export function ChatList({ actions }: { actions: SidebarActions }) {
           </section>
         )
       })}
+      {loose.length > 0 && (
+        <section className="mb-1.5" data-chat-project={NO_PROJECT}>
+          <div
+            role="button"
+            tabIndex={0}
+            aria-expanded={!looseCollapsed}
+            className="flex h-7 min-w-0 cursor-pointer items-center gap-1 pt-1 pr-1 pl-1 select-none"
+            data-project-header
+            onClick={() => toggleProjectCollapsed(NO_PROJECT)}
+            onKeyDown={(e) => {
+              if (e.key !== 'Enter' && e.key !== ' ') return
+              e.preventDefault()
+              toggleProjectCollapsed(NO_PROJECT)
+            }}
+          >
+            <ChevronRight className={cn('size-3 shrink-0 text-muted-foreground transition-transform', !looseCollapsed && 'rotate-90')} />
+            <ProjectMark nodes={looseCollapsed ? loose : []}>
+              <span aria-hidden className="mx-px block size-3 shrink-0 rounded-[3px] border border-dashed border-muted-foreground/70" />
+            </ProjectMark>
+            <div className="min-w-0 truncate pl-0.5 text-[13px] leading-none font-semibold">{t('No project')}</div>
+            <span className="text-[11px] text-muted-foreground tabular-nums">{loose.length}</span>
+          </div>
+          {!looseCollapsed && <div className="space-y-px pr-1">{loose.map(row)}</div>}
+        </section>
+      )}
       {archivedSection && section('archived', archivedSection.nodes)}
       {nodes.length === 0 && projects.length === 0 && empty}
     </div>
+  )
+}
+
+/**
+ * Where a project's folder icon sits: a folded project shows there the mark of its most pressing
+ * chat (docs/specs/threads-under-projects.md), the icon otherwise.
+ */
+function ProjectMark({ nodes, children }: { nodes: ChatNode[]; children: ReactNode }) {
+  const top = mostPressing(nodes)
+  const dot = top ? turnPhaseDot(top.phase, top.status) : null
+  if (!top || !dot) return <>{children}</>
+  return (
+    <span className="flex size-3.5 shrink-0 items-center justify-center" data-project-phase={top.phase}>
+      <AgentStateDot state={dot} size="md" title={turnPhaseLabel(top.phase, top.status)} />
+    </span>
   )
 }
