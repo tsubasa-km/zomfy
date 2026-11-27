@@ -1,5 +1,6 @@
 import { describe, expect, test } from 'bun:test'
 import { drawerDragTarget, drawerResizeDepth } from '../src/components/tab-layout/drawer-docking'
+import { isAllowedSettingValue } from '../src/stores/settings-store'
 
 const bounds = { left: 100, top: 100, right: 700, bottom: 500, width: 600, height: 400 }
 
@@ -34,5 +35,19 @@ describe('tool drawer docking', () => {
     expect(drawerResizeDepth('right', 320, start, end, 700)).toBe(300)
     expect(drawerResizeDepth('left', 320, start, end, 200)).toBe(200)
     expect(drawerResizeDepth('top', 200, end, start, 700)).toBe(192)
+  })
+})
+
+describe('string-union settings', () => {
+  test('keep only the values their key allows', () => {
+    expect(isAllowedSettingValue('drawerOpenAction', 'hover')).toBe(true)
+    expect(isAllowedSettingValue('drawerOpenAction', 'click')).toBe(true)
+    expect(isAllowedSettingValue('drawerOpenAction', 'double-click')).toBe(false)
+    expect(isAllowedSettingValue('drawerOpenAction', 1)).toBe(false)
+  })
+
+  test('leave keys without a list of values alone', () => {
+    expect(isAllowedSettingValue('theme', 'anything')).toBe(true)
+    expect(isAllowedSettingValue('toString', 'x')).toBe(true)
   })
 })
