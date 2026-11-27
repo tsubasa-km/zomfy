@@ -3,7 +3,7 @@ type: Spec
 title: Point at the UI instead of describing it - the dev feedback overlay
 description: In the Vite dev server only, a floating toggle enters feedback mode, where the person pins elements and draws over the page with a comment each, and Send saves a screenshot with the marks, feedback.md and feedback.json to %TEMP%/zomfy-feedback/<timestamp>/ and copies a short summary with the folder path.
 status: stable
-x-zomfy-implementation: in-progress
+x-zomfy-implementation: done
 tags: [desktop, dev, agents, feedback]
 generated: { by: "claude-code/opus-5.5", at: "2026-11-27T00:00:00Z" }
 ---
@@ -24,9 +24,9 @@ loads the dev server, or a preview (`scripts/preview.ts`). Never a production bu
 
 ## The toggle
 
-A small round button floats at the bottom-left corner of the window. Clicking it enters **feedback
+A small round button floats at the middle of the window's right edge, where no control of the app sits. Clicking it enters **feedback
 mode**: a thin accent frame lines the viewport (the mode is on) and a toolbar opens from the
-button. Clicking it again, or Escape with no comment open, leaves the mode; pins and drawings stay
+button, downwards. Clicking it again, or Escape with no comment open, leaves the mode; pins and drawings stay
 until they are sent or cleared, so the person can use the app in between.
 
 The toolbar holds icon buttons, each with a tooltip and an accessible name:
@@ -47,7 +47,8 @@ receive clicks; the wheel still scrolls the scrollable area under the pointer.
 
 - Each click in Select adds a numbered pin at the element's top-left corner and an outline around
   it; pins follow their element while the layout moves. Several elements can be pinned.
-- Each finished stroke, arrow or rectangle gets the next number at its end point.
+- Each finished stroke, arrow or rectangle gets the next number at its start (a rectangle: its
+  top-left corner), so the arrow head stays visible.
 - Pins and drawings share one numbering (1, 2, 3 ...) so the person can refer to them in chat.
 - A new mark opens its comment box (a small text area beside the mark, focused). One box is open
   at a time; clicking a mark's number opens its box again. Enter (without Shift) or a click
@@ -79,9 +80,10 @@ A failed send keeps the marks, turns the button red and shows the error message 
 ## Production
 
 None of it reaches a production build: the overlay is a dynamic import behind
-`import.meta.env.DEV` in `main.tsx`, and the endpoint is a Vite plugin with `apply: "serve"`. The
-check is that `bun run build` output contains none of the overlay's identifiers (`zomfy-feedback`,
-`react-grab`, `modern-screenshot`, `perfect-freehand`).
+`import.meta.env.DEV` in `main.tsx`, the endpoint is a Vite plugin with `apply: "serve"`, and the
+overlay is styled by its own plain CSS file imported with it (`src/dev/` is excluded from Tailwind's
+sources, so no utility class of it reaches the app's CSS). The check is that `bun run build` output contains none of the overlay's identifiers (`zomfy-feedback`,
+`react-grab`, `modern-screenshot`, `perfect-freehand`, its `zf-` classes).
 
 # Libraries
 
@@ -89,7 +91,10 @@ Researched: agentation, react-grab, stagewise toolbar, code-inspector-plugin / r
 click-to-component, html-to-image and modern-screenshot, perfect-freehand.
 
 - **react-grab (`react-grab/primitives`)** for hit testing, the selector, the component name, the
-  owner stack with source file:line and the computed styles. React 19 dropped `_debugSource`;
+  owner stack with source file:line and the computed styles. Vite's dev source maps name a source
+  by its file name alone, so react-grab's frames say `ChatList.tsx`; the overlay takes the module's
+  path from the same frame in React's `_debugStack` and the dev server writes it relative to the
+  repository. React 19 dropped `_debugSource`;
   react-grab reads `_debugStack` through bippy and maps it back through Vite's source maps, so it
   needs no compile-time transform. code-inspector-plugin / react-dev-inspector would add a
   `data-*` attribute to every DOM element through a JSX transform; with `@vitejs/plugin-react` 6
