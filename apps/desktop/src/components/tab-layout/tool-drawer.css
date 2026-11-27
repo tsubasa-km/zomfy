@@ -122,6 +122,8 @@
 
 .tool-drawer__shell[data-drawer='open'] {
   --drawer-reveal: var(--drawer-shadow);
+  /* Visible at once on opening, so focus can move in; closing stays visible while it slides away. */
+  transition: clip-path 200ms ease-out, visibility 0s;
 }
 
 .tool-drawer__surface {
