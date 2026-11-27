@@ -3,7 +3,7 @@ type: Spec
 title: Codex and ACP agents follow the thread's permission mode, instructions, moves and titles
 description: Zomfy's permission modes, its own instructions, chat moves and thread titles reach Codex (ACP and Direct) and other ACP agents as they reach Claude.
 status: stable
-x-zomfy-implementation: in-progress
+x-zomfy-implementation: done
 tags: [chat, codex, acp, daemon, desktop, permissions]
 sources:
   - id: review
