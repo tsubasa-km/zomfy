@@ -39,6 +39,13 @@ function TabShape({ className }: { className?: string }) {
   )
 }
 
+const FOCUSABLE = 'button:not([disabled]), input:not([disabled]), textarea, [tabindex]:not([tabindex="-1"])'
+
+/** The first control in the drawer's surface, or its inner handle when the surface has none. */
+function firstFocusable(drawer: HTMLElement): HTMLElement | null {
+  return drawer.querySelector<HTMLElement>(`.tool-drawer__surface :is(${FOCUSABLE})`) ?? drawer.querySelector<HTMLElement>('.tool-drawer__tab--inner')
+}
+
 const OPPOSITE_EDGE: Record<DrawerEdge, DrawerEdge> = { top: 'bottom', bottom: 'top', left: 'right', right: 'left' }
 const HANDLE_FILL = 'fill-[color-mix(in_srgb,var(--foreground)_9%,var(--background))]'
 
@@ -132,10 +139,23 @@ export function ToolDrawer({
   }, [toolIds])
 
   const shown = open || pinned
-  // Keys must not keep going to a terminal nobody can see.
+  const handleRef = useRef<HTMLButtonElement>(null)
+  // Opened from the keyboard, the drawer takes the focus its now hidden handle had.
+  const focusOnOpen = useRef(false)
   useEffect(() => {
+    const drawer = drawerRef.current
+    if (shown) {
+      if (!focusOnOpen.current || !drawer) return
+      focusOnOpen.current = false
+      const frame = requestAnimationFrame(() => firstFocusable(drawer)?.focus({ preventScroll: true }))
+      return () => cancelAnimationFrame(frame)
+    }
+    // Keys must not keep going to a terminal nobody can see: they go back to the handle.
     const focused = document.activeElement
-    if (!shown && focused instanceof HTMLElement && drawerRef.current?.contains(focused)) focused.blur()
+    if (focused instanceof HTMLElement && drawer?.contains(focused)) {
+      focused.blur()
+      handleRef.current?.focus({ preventScroll: true })
+    }
   }, [shown])
 
   // Enabled plugins' panels follow the built-in ones.
@@ -317,6 +337,7 @@ export function ToolDrawer({
         className={cn('tool-drawer__tab group text-muted-foreground hover:text-foreground', shown ? 'invisible' : 'pointer-events-auto', handleCursor, preview && 'opacity-0')}
         data-drawer-handle
         data-edge={dock.edge}
+        ref={handleRef}
         aria-label={t('Open the tool drawer')}
         aria-expanded={shown}
         title={countTitle}
@@ -326,7 +347,8 @@ export function ToolDrawer({
           if (!drag.current && !shown) clearTimeout(timer.current)
         }}
         onClick={(event) => {
-          if (openOnClick && event.detail && ignorePointerClick.current) return
+          if (event.detail && ignorePointerClick.current) return
+          focusOnOpen.current = event.detail === 0
           setOpen(true)
         }}
       >
