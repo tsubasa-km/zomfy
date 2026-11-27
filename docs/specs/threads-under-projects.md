@@ -3,7 +3,7 @@ type: Spec
 title: The thread list is grouped by project
 description: The left sidebar lists projects in their own order, each with its threads inside (most recent activity first) that keep their turn-taking marks; a folded project shows its most pressing thread's mark, and threads of no project have their own group.
 status: stable
-x-zomfy-implementation: in-progress
+x-zomfy-implementation: done
 tags: [desktop, sidebar, chat]
 generated: { by: "claude-code/opus-5.5", at: "2026-11-27T12:00:00Z" }
 ---

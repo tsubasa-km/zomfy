@@ -3,7 +3,7 @@ type: Spec
 title: A split pane works in its front tab's workspace, and its "+" is a quick pick
 description: Each split pane of the window's tabs works in the workspace of the tab it has in front, keeping the last one while that tab has none, and its "+", pins and right sidebar act on it; the "+" opens a filterable quick pick with Terminal, Agent and Panel scopes.
 status: stable
-x-zomfy-implementation: in-progress
+x-zomfy-implementation: done
 tags: [desktop, tabs, panes, sidebar]
 generated: { by: "claude-code/opus-5.5", at: "2026-11-27T12:00:00Z" }
 ---
