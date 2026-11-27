@@ -106,6 +106,7 @@ function useAllItems(workspaceId: string | null): NewTabItem[] {
           pin: null,
           id: 'launch-agent-prompt',
           scope: 'agent',
+          keywords: 'launch agent with prompt',
           icon: <MessageSquarePlus className="size-4" />,
           label: t('Launch Agent with Prompt…'),
           run: () => requestAgentLaunchDialog(workspaceId)
@@ -115,6 +116,7 @@ function useAllItems(workspaceId: string | null): NewTabItem[] {
         pin: null,
         id: 'refresh-agents',
         scope: 'agent',
+        keywords: 'refresh agents detect',
         icon: <RefreshCw className="size-4" />,
         label: t('Refresh Agents'),
         run: () => void loadDetectedAgents(hostId, true)
@@ -127,6 +129,7 @@ function useAllItems(workspaceId: string | null): NewTabItem[] {
             pin: null,
             id: 'ssh-connections',
             scope: 'terminal',
+            keywords: 'ssh connections remote',
             icon: <Server className="size-4" />,
             label: t('SSH connections…'),
             run: () => openSshConnectionsDialog(workspaceId)
@@ -483,7 +486,7 @@ export function NewTabMenu({ layoutKey, workspaceId, groupId }: { layoutKey: str
       <PopoverContent
         align="start"
         sideOffset={6}
-        className="w-80 max-w-[calc(100vw-1rem)] gap-0 overflow-hidden rounded-[11px] border-border/80 p-0 shadow-[0_16px_36px_rgba(0,0,0,0.24)]"
+        className="w-96 max-w-[calc(100vw-1rem)] gap-0 overflow-hidden rounded-[11px] border-border/80 p-0 shadow-[0_16px_36px_rgba(0,0,0,0.24)]"
         onOpenAutoFocus={(e) => e.preventDefault()}
       >
         <QuickPick layoutKey={layoutKey} workspaceId={workspaceId} onClose={() => setOpen(false)} />

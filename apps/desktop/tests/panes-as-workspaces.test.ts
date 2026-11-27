@@ -82,3 +82,10 @@ test('recent keeps the last five, most recent first, without repeats', () => {
   for (const id of ['a', 'b', 'c', 'd', 'e', 'f', 'b']) recent = pushRecent(recent, id)
   expect(recent).toEqual(['b', 'f', 'e', 'd', 'c'])
 })
+
+test('a translated item is also found by its English keywords, with nothing marked', () => {
+  const translated: PickEntry[] = [{ id: 'terminal', label: '新しいターミナル…', scope: 'terminal', keywords: 'new terminal shell' }]
+  const { groups, matches } = orderEntries(translated, { query: 'term', scope: null, pins: [], recent: [] })
+  expect(groups.flat().map((e) => e.id)).toEqual(['terminal'])
+  expect(matches.get('terminal')).toEqual([])
+})

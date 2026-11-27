@@ -60,6 +60,16 @@ export interface PickEntry {
   id: string
   label: string
   scope: PickScope
+  /** Other words it is found by (its English name in a translated window), matched after the label. */
+  keywords?: string
+}
+
+/** The entry's match: on its label, else on its keywords (with nothing in the label to mark). */
+export function matchEntry(entry: PickEntry, query: string): PickMatch | null {
+  const byLabel = matchLabel(entry.label, query)
+  if (byLabel) return byLabel
+  const byKeywords = entry.keywords ? matchLabel(entry.keywords, query) : null
+  return byKeywords ? { rank: byKeywords.rank, indices: [] } : null
 }
 
 /** How many recently run items the quick pick remembers. */
@@ -85,7 +95,7 @@ export function orderEntries<T extends PickEntry>(
   const recentAt = (e: T) => options.recent.indexOf(e.id)
   if (options.query.trim()) {
     const scored = inScope.flatMap((entry, order) => {
-      const match = matchLabel(entry.label, options.query)
+      const match = matchEntry(entry, options.query)
       if (!match) return []
       matches.set(entry.id, match.indices)
       const boost = pinAt(entry) !== -1 ? 0 : recentAt(entry) !== -1 ? 1 : 2

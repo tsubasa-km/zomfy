@@ -35,6 +35,8 @@ export interface NewTabItem {
   id: string
   /** The quick pick's scope it is listed under (docs/specs/panes-as-workspaces.md). */
   scope: PickScope
+  /** English words the quick pick also finds it by, whatever the window's language. */
+  keywords?: string
   /** Its name in the menu and the pinned button's tooltip. */
   label: string
   /** The pinned button's text; none shows the icon only. */
@@ -102,6 +104,7 @@ export function useChatItems(workspaceId: string | null): NewTabItem[] {
       pin: 'chat:claude',
       id: 'chat:claude',
       scope: 'agent',
+      keywords: 'new claude thread chat',
       label: t('New Claude Thread'),
       short: t('{agent} chat', { agent: 'Claude' }),
       icon: <TuiAgentIcon agent="claude" size={14} />,
@@ -111,6 +114,7 @@ export function useChatItems(workspaceId: string | null): NewTabItem[] {
       pin: `chat:${agent.id}`,
       id: `chat:${agent.id}`,
       scope: 'agent' as const,
+      keywords: `new ${agent.label} thread chat`,
       label: t('New {agent} Thread', { agent: agent.label }),
       short: t('{agent} chat', { agent: agent.label }),
       icon: <TuiAgentIcon agent={agent.id} size={14} />,
@@ -129,6 +133,7 @@ export function useTerminalItems(workspaceId: string | null): NewTabItem[] {
       pin: 'terminal',
       id: 'terminal',
       scope: 'terminal',
+      keywords: 'new terminal shell console',
       label: t('New Terminal…'),
       icon: <SquareTerminal className="size-4" />,
       run: () => requestNewTerminal(workspaceId)
@@ -145,6 +150,7 @@ export function useTuiAgentItems(workspaceId: string | null) {
       pin: `agent:${agent}`,
       id: `agent:${agent}`,
       scope: 'agent',
+      keywords: `${agent} agent cli`,
       label,
       short: label,
       icon: <TuiAgentIcon agent={agent} size={14} />,
@@ -163,6 +169,7 @@ export function useCommandItems(workspaceId: string | null): NewTabItem[] {
     pin: `command:${command.id}`,
     id: `command:${command.id}`,
     scope: 'terminal' as const,
+    keywords: 'command',
     label: command.label,
     short: command.label,
     icon: <QuickCommandIcon command={command} />,
@@ -202,6 +209,7 @@ export function useWorkflowItems(workspaceId: string | null, refresh = false): N
     pin: `workflow:${workflow.id}`,
     id: `workflow:${workflow.id}`,
     scope: 'agent' as const,
+    keywords: `run workflow ${workflow.name}`,
     label: t('Run {name}…', { name: workflow.name }),
     short: workflow.name,
     icon: <WorkflowIcon className="size-4" />,
@@ -220,6 +228,7 @@ export function useSshItems(workspaceId: string | null): NewTabItem[] {
       pin: `ssh:${connection.id}`,
       id: `ssh:${connection.id}`,
       scope: 'terminal' as const,
+      keywords: 'ssh remote',
       label: connection.name,
       short: connection.name,
       icon: <Server className="size-4" />,
@@ -234,6 +243,7 @@ export function useBrowserItems(workspaceId: string | null): NewTabItem[] {
       pin: 'browser',
       id: 'browser',
       scope: 'panel',
+      keywords: 'new browser tab web',
       label: t('New Browser Tab'),
       icon: <Globe className="size-4" />,
       run: () => openBrowserTab(workspaceId),
@@ -249,6 +259,7 @@ export function usePanelItems(workspaceId: string | null): NewTabItem[] {
     pin: id,
     id,
     scope: 'panel' as const,
+    keywords: `panel ${id.replace(/^(panel|plugin):/, '')}`,
     label,
     icon: <Icon className="size-4" />,
     run: () => openPanelTab(workspaceId, id)
