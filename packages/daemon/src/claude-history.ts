@@ -42,6 +42,35 @@ export async function findConversation(claudeSessionId: string, cwd?: string): P
   return found ? conversationOf(found) : null;
 }
 
+/** Reads an actual Claude name. The display summary can also be a preview of the prompt. */
+export async function readClaudeThreadTitle(id: string, cwd: string, transcriptPath?: string): Promise<string | undefined> {
+  const info = await getSessionInfo(id, { dir: cwd });
+  if (info?.customTitle?.trim()) return info.customTitle;
+  if (!transcriptPath) return undefined;
+
+  // The hook supplies the exact file when the turn uses another CLAUDE_CONFIG_DIR.
+  // Like the SDK's metadata reader, check the head and tail without loading a large transcript.
+  const file = Bun.file(transcriptPath);
+  if (!(await file.exists())) return undefined;
+  const window = 64 * 1024;
+  const head = await file.slice(0, window).text();
+  const tail = file.size > window ? await file.slice(Math.max(window, file.size - window)).text() : "";
+  let generated: string | undefined;
+  let custom: string | undefined;
+  for (const line of (head + "\n" + tail).split("\n")) {
+    if (!line.includes('"aiTitle"') && !line.includes('"customTitle"')) continue;
+    try {
+      const metadata = JSON.parse(line);
+      if (metadata?.sessionId !== id) continue;
+      if (metadata.type === "ai-title" && typeof metadata.aiTitle === "string" && metadata.aiTitle.trim()) generated = metadata.aiTitle;
+      if (metadata.type === "custom-title" && typeof metadata.customTitle === "string" && metadata.customTitle.trim()) custom = metadata.customTitle;
+    } catch {
+      // A partial line may straddle the window or still be written.
+    }
+  }
+  return custom ?? generated;
+}
+
 export async function forkConversation(
   claudeSessionId: string,
   cwd: string,

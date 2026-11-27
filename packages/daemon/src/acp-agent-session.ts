@@ -11,6 +11,8 @@ import {
 } from '@zomfy/protocol'
 import { codexConnection, resolveChatAgent } from './chat-agent-launch-specs.ts'
 import { CODEX_APP_SERVER_CAPABILITIES, CodexAppServer } from './codex-app-server.ts'
+import { readCodexThreadTitle } from './codex-history.ts'
+import type { ThreadTitleModel } from './thread-title.ts'
 import { hostPath } from './tui-agent-detection.ts'
 import { log } from './log.ts'
 
@@ -33,6 +35,7 @@ export interface AcpAgentSessionHooks {
   onState(state: ChatAgentSessionState): void
   /** The agent's own id for the conversation, kept so a restarted server reopens it. */
   onAgentSessionId(id: string): void
+  onAgentTitle?(title: string): void
   /** The connection that made the Codex thread now in use, kept so a restarted daemon still knows. */
   onCodexConnection?(connection: CodexConnection): void
   /**
@@ -71,6 +74,7 @@ export class AcpAgentSession {
   private turn: Promise<void> | null = null
   private idleTimer: ReturnType<typeof setTimeout> | null = null
   private disposed = false
+  private agentTitle: string | undefined
 
   constructor(
     readonly agent: Exclude<ChatAgentId, 'claude'>,
@@ -103,14 +107,14 @@ export class AcpAgentSession {
     blocks: PromptBlocks,
     abort: AbortController,
     ask: AskPermission,
-    onModel?: (model: string, env: NodeJS.ProcessEnv) => void
+    onTitleModel?: (model: ThreadTitleModel) => void
   ): Promise<acp.StopReason> {
     while (this.turn) await this.turn
     let release!: () => void
     const turn = new Promise<void>((resolve) => (release = resolve))
     this.turn = turn
     try {
-      return await this.runTurn(blocks, abort.signal, ask, onModel)
+      return await this.runTurn(blocks, abort.signal, ask, onTitleModel)
     } finally {
       if (this.turn === turn) this.turn = null
       release()
@@ -121,7 +125,7 @@ export class AcpAgentSession {
     blocks: PromptBlocks,
     signal: AbortSignal,
     ask: AskPermission,
-    onModel?: (model: string, env: NodeJS.ProcessEnv) => void
+    onTitleModel?: (model: ThreadTitleModel) => void
   ): Promise<acp.StopReason> {
     const aborted = whenAborted(signal)
     try {
@@ -134,14 +138,22 @@ export class AcpAgentSession {
       this.ask = ask
       this.turnSignal = signal
       const conn = running.conn
+      if (this.agentTitle) this.hooks.onAgentTitle?.(this.agentTitle)
       const request = conn instanceof CodexAppServer
         ? conn.prompt(prompt)
         : conn.agent.request(acp.methods.agent.session.prompt, { sessionId: running.agentSessionId, prompt })
-      if (onModel && this.agent === 'codex') {
+      if (onTitleModel && this.agent === 'codex') {
         const model = conn instanceof CodexAppServer
           ? conn.effectiveModel
           : this.state.options.find((option) => option.category === 'model')?.currentValue
-        if (model) onModel(model, running.env)
+        if (model) onTitleModel({
+          model,
+          env: running.env,
+          cwd: this.cwd,
+          readTitle: () => this.agentTitle ? Promise.resolve(this.agentTitle) : conn instanceof CodexAppServer
+            ? conn.readTitle()
+            : readCodexThreadTitle(running.agentSessionId, running.env)
+        })
       }
       const answeredAtAll = request.then(
         () => true,
@@ -235,6 +247,7 @@ export class AcpAgentSession {
   private async start(): Promise<Running> {
     await this.stopping
     if (this.disposed) throw new Error('The chat closed while its agent started')
+    this.agentTitle = undefined
     this.setState({ phase: 'starting', error: null })
     const resolved = await resolveChatAgent(this.agent)
     if (resolved.status !== 'ready') return this.fail(resolved.detail)
@@ -255,7 +268,10 @@ export class AcpAgentSession {
     const connection = resolved.codexConnection ?? 'acp'
     const input = stdinWriter(proc.stdin)
     const conn = connection === 'app-server'
-      ? new CodexAppServer(input, proc.stdout, (update) => this.hooks.emit(update), (request) => this.permission(request))
+      ? new CodexAppServer(
+        input, proc.stdout, (update) => this.hooks.emit(update), (request) => this.permission(request),
+        (title) => this.noteAgentTitle(title)
+      )
       : acp.client({ name: 'zomfy' })
         .onRequest('session/request_permission', (ctx) => this.permission(ctx.params))
         .onNotification('session/update', (ctx) => this.onUpdate(ctx.params))
@@ -385,7 +401,13 @@ export class AcpAgentSession {
     }
   }
 
-  private async onUpdate({ update }: acp.SessionNotification): Promise<void> {
+  private noteAgentTitle(title: string): void {
+    if (this.disposed || !title.trim()) return
+    this.agentTitle = title
+    this.hooks.onAgentTitle?.(title)
+  }
+
+  private async onUpdate({ sessionId, update }: acp.SessionNotification): Promise<void> {
     if (this.replaying) return
     switch (update.sessionUpdate) {
       case 'config_option_update':
@@ -404,8 +426,10 @@ export class AcpAgentSession {
         })
         return
       case 'user_message_chunk':
+        // The daemon echoes the prompt itself.
+        return
       case 'session_info_update':
-        // The daemon echoes the prompt itself, and the tab keeps the title it was given.
+        if (sessionId === this.agentSessionId && update.title) this.noteAgentTitle(update.title)
         return
       case 'tool_call_update':
         await this.hooks.emit(withOutputText(update))

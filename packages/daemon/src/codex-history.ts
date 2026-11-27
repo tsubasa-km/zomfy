@@ -149,6 +149,11 @@ async function readSummary(file: RolloutFile): Promise<RolloutSummary | null> {
   }
 }
 
+/** The stored name of a Codex thread, when its backend assigned one. */
+export async function readCodexThreadTitle(id: string, env: NodeJS.ProcessEnv): Promise<string | undefined> {
+  return (await threadNames(env.CODEX_HOME || join(homedir(), '.codex'))).get(id)
+}
+
 /** The names threads were given (`session_index.jsonl` gets a line per rename; the newest counts). */
 async function threadNames(home: string): Promise<Map<string, string>> {
   const names = new Map<string, string>()

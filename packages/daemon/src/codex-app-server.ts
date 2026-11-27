@@ -40,7 +40,8 @@ export class CodexAppServer {
     input: WritableStream<Uint8Array>,
     output: ReadableStream<Uint8Array>,
     private readonly emit: (update: acp.SessionUpdate) => Promise<void>,
-    private readonly ask: Ask
+    private readonly ask: Ask,
+    private readonly onTitle?: (title: string) => void
   ) {
     this.rpc = new CodexAppServerRpc(
       input,
@@ -81,8 +82,10 @@ export class CodexAppServer {
       if (!previous) throw error
       throw new Error(`Codex could not resume its thread: ${error instanceof Error ? error.message : String(error)}`)
     })
-    this.threadId = string(fields(opened.thread).id)
+    const thread = fields(opened.thread)
+    this.threadId = string(thread.id)
     if (!this.threadId || (previous && this.threadId !== previous)) throw new Error('Codex App Server returned an invalid thread ID')
+    if (string(thread.name).trim()) this.onTitle?.(string(thread.name))
     this.model = string(opened.model)
     this.effort = string(opened.reasoningEffort)
     const catalog = await this.rpc.request('model/list', { limit: 100 }).catch((error: unknown): CodexFields => {
@@ -91,6 +94,13 @@ export class CodexAppServer {
     })
     this.models = list(catalog.data).map(fields).filter((model) => !model.hidden && modelId(model))
     return this.threadId
+  }
+
+  async readTitle(): Promise<string | undefined> {
+    const response = await this.rpc.request('thread/read', { threadId: this.threadId, includeTurns: false })
+    const thread = fields(response.thread)
+    if (string(thread.id) !== this.threadId) throw new Error('Codex App Server returned a different thread')
+    return string(thread.name).trim() || undefined
   }
 
   get effectiveModel(): string {
@@ -201,8 +211,14 @@ export class CodexAppServer {
   }
 
   private async notification(method: string, params: CodexFields): Promise<void> {
+    if (params.threadId !== this.threadId) return
+    if (method === 'thread/name/updated') {
+      const title = string(params.threadName).trim()
+      if (title) this.onTitle?.(title)
+      return
+    }
     const turn = this.active
-    if (!turn || params.threadId !== this.threadId) return
+    if (!turn) return
     const nativeTurn = fields(params.turn)
     const turnId = string(params.turnId) || string(nativeTurn.id)
     // Until turn/started (or the turn/start response) names this turn, an event is a previous turn's.

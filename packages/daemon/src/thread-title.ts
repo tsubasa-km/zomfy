@@ -1,39 +1,71 @@
-import { query } from '@anthropic-ai/claude-agent-sdk'
 import { readFile } from 'node:fs/promises'
 import { homedir, tmpdir } from 'node:os'
 import { dirname, join } from 'node:path'
+import { setTimeout as delay } from 'node:timers/promises'
 import { chatAgentLaunch } from './chat-agent-launch-settings.ts'
 import { codexCommand } from './chat-agent-launch-specs.ts'
-import { resolveClaudeExecutable } from './claude-executable.ts'
+import { readClaudeThreadTitle } from './claude-history.ts'
 import { loadHostSettings } from './host-settings.ts'
 import { log } from './log.ts'
 import { trackChild } from './process-tree.ts'
 import type { SessionRegistry } from './session-registry.ts'
 
 export interface ThreadTitleModel {
-  agent: 'claude' | 'codex'
   model: string
   env: NodeJS.ProcessEnv
   cwd: string
+  readTitle(): Promise<string | undefined>
 }
 
 const TIMEOUT_MS = 45_000
+const CLAUDE_TITLE_RETRY_MS = [500, 1500, 4000, 12000, 30000]
+
+function firstMessageTitle(sessions: SessionRegistry, sessionId: string, agent: 'claude' | 'codex') {
+  const session = sessions.get(sessionId)
+  return session && !session.manuallyNamed && (session.agent ?? 'claude') === agent
+    && session.automaticTitle?.agent === agent && session.automaticTitle.source === 'first-message' ? session : undefined
+}
+
+export async function refreshClaudeThreadTitle(
+  sessions: SessionRegistry,
+  sessionId: string,
+  backend: { id: string; cwd: string; transcriptPath?: string; firstTurn: boolean }
+): Promise<void> {
+  try {
+    const retries = backend.firstTurn ? CLAUDE_TITLE_RETRY_MS : []
+    for (const wait of [0, ...retries]) {
+      if (wait) await delay(wait, undefined, { ref: false })
+      if (firstMessageTitle(sessions, sessionId, 'claude')?.claudeSessionId !== backend.id) return
+      const name = await readClaudeThreadTitle(backend.id, backend.cwd, backend.transcriptPath)
+      if (!name) continue
+      if (firstMessageTitle(sessions, sessionId, 'claude')?.claudeSessionId === backend.id) {
+        sessions.setAgentTitle(sessionId, 'claude', name)
+      }
+      return
+    }
+  } catch {
+    log('Could not read the Claude thread title')
+  }
+}
 
 export async function summarizeThreadTitle(
   sessions: SessionRegistry,
   sessionId: string,
-  initialTitle: string,
   text: string,
-  model: ThreadTitleModel
+  model: ThreadTitleModel,
+  allowSummary: boolean,
+  generate = summarizeWithCodex,
+  enabled = async () => (await loadHostSettings()).summarizeThreadTitles === true
 ): Promise<void> {
-  const stillInitial = () => {
-    const session = sessions.get(sessionId)
-    return session?.title === initialTitle && !session.manuallyNamed
-  }
+  const stillInitial = () => Boolean(firstMessageTitle(sessions, sessionId, 'codex'))
   if (!stillInitial()) return
   const abort = new AbortController()
   const timer = setTimeout(() => abort.abort(), TIMEOUT_MS)
+  const unsubscribe = sessions.onChange(() => { if (!stillInitial()) abort.abort() })
   try {
+    const backendTitle = await model.readTitle()
+    if (backendTitle && stillInitial()) sessions.setAgentTitle(sessionId, 'codex', backendTitle)
+    if (!allowSummary || !(await enabled()) || abort.signal.aborted || !stillInitial()) return
     const prompt = [
       'Write a short thread title that describes the goal in the first user message below.',
       'Use the language of the message. Return only the title on one line, with no quotes or Markdown.',
@@ -41,46 +73,16 @@ export async function summarizeThreadTitle(
       '',
       text
     ].join('\n')
-    const result = model.agent === 'claude'
-      ? await summarizeWithClaude(model, prompt, abort)
-      : await summarizeWithCodex(model, prompt, abort.signal)
-    const title = cleanThreadTitle(result)
-    if (title && !abort.signal.aborted && (await loadHostSettings()).summarizeThreadTitles === true && stillInitial()) {
-      sessions.update(sessionId, { title })
+    const title = cleanThreadTitle(await generate(model, prompt, abort.signal))
+    if (title && await enabled() && !abort.signal.aborted && stillInitial()) {
+      sessions.update(sessionId, { title, automaticTitle: { agent: 'codex', source: 'summary' } })
     }
   } catch {
-    if (!abort.signal.aborted) log(`Could not summarize a thread title with ${model.agent}`)
+    if (!abort.signal.aborted) log('Could not summarize a Codex thread title')
   } finally {
     clearTimeout(timer)
+    unsubscribe()
   }
-}
-
-async function summarizeWithClaude(
-  { model, env }: ThreadTitleModel,
-  prompt: string,
-  abort: AbortController
-): Promise<string> {
-  const executable = await resolveClaudeExecutable()
-  abort.signal.throwIfAborted()
-  const stream = query({
-    prompt,
-    options: {
-      cwd: tmpdir(),
-      pathToClaudeCodeExecutable: executable,
-      env: { ...process.env, ...env },
-      model,
-      tools: [],
-      maxTurns: 1,
-      persistSession: false,
-      settingSources: [],
-      strictMcpConfig: true,
-      abortController: abort
-    }
-  })
-  for await (const message of stream) {
-    if (message.type === 'result' && message.subtype === 'success') return message.result
-  }
-  return ''
 }
 
 async function summarizeWithCodex({ model, env, cwd }: ThreadTitleModel, prompt: string, signal: AbortSignal): Promise<string> {

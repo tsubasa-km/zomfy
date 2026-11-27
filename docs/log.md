@@ -1,6 +1,7 @@
 # Directory Update Log
 
 ## 2026-11-27
+* **Update**: [Summarize the first message into a thread title](specs/thread-title-summaries.md), done. Agent-provided titles take priority, Claude uses its session metadata, and Codex checks its own title after the first turn before requesting a summary.
 * **Update**: [Summarize the first message into a thread title](specs/thread-title-summaries.md), done. Agents settings control the first-message title request for each host. The title uses the starting model and preserves manual names.
 * **Creation**: [Summarize the first message into a thread title](specs/thread-title-summaries.md), draft.
 

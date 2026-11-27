@@ -62,6 +62,9 @@ export class AcpAgentSessions {
       onAgentSessionId: (agentSessionId) => {
         if (current()) this.sessions.update(record.id, { agentSessionIds: { ...record.agentSessionIds, [agentId]: agentSessionId } })
       },
+      onAgentTitle: (title) => {
+        if (current()) this.sessions.setAgentTitle(record.id, agentId, title)
+      },
       onCodexConnection: (codexThreadConnection) => {
         if (current()) this.sessions.update(record.id, { codexThreadConnection })
       },

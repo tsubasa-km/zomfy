@@ -94,8 +94,8 @@ test('a server request that waits for the person does not hold back later notifi
   rpc.close()
 })
 
-async function opened(server: ReturnType<typeof wire>, updates: acp.SessionUpdate[] = [], mcpServers: acp.McpServer[] = []) {
-  const codex = new CodexAppServer(server.input, server.output, async (update) => { updates.push(update) }, async () => ({ outcome: { outcome: 'cancelled' } }))
+async function opened(server: ReturnType<typeof wire>, updates: acp.SessionUpdate[] = [], mcpServers: acp.McpServer[] = [], onTitle?: (title: string) => void) {
+  const codex = new CodexAppServer(server.input, server.output, async (update) => { updates.push(update) }, async () => ({ outcome: { outcome: 'cancelled' } }), onTitle)
   const opening = codex.open('/work', null, mcpServers)
   await server.send({ id: (await server.next(method('initialize'))).id, result: {} })
   const start = await server.next(method('thread/start'))
@@ -104,6 +104,22 @@ async function opened(server: ReturnType<typeof wire>, updates: acp.SessionUpdat
   await opening
   return { codex, start }
 }
+
+test('reads the native title and receives title updates outside an active turn', async () => {
+  const server = wire()
+  const titles: string[] = []
+  const { codex } = await opened(server, [], [], (title) => titles.push(title))
+  const read = codex.readTitle()
+  const request = await server.next(method('thread/read'))
+  expect(request.params).toEqual({ threadId: 'thread', includeTurns: false })
+  await server.send({ id: request.id, result: { thread: { id: 'thread', name: 'Initial name' } } })
+  expect(await read).toBe('Initial name')
+  await server.send({ method: 'thread/name/updated', params: { threadId: 'other', threadName: 'Other thread' } })
+  await server.send({ method: 'thread/name/updated', params: { threadId: 'thread', threadName: 'Later name' } })
+  await server.end()
+  await codex.drained
+  expect(titles).toEqual(['Later name'])
+})
 
 test('a turn/start the server rejects fails the turn but keeps the connection', async () => {
   const server = wire()

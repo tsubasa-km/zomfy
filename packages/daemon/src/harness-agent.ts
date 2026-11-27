@@ -46,7 +46,7 @@ import { registerTurnRecoveryHandlers } from "./handlers/turn-recovery-handlers.
 import { AcpAgentSessions } from "./acp-agent-sessions.ts";
 import { chatAgentLaunch, claudeChromeOn } from "./chat-agent-launch-settings.ts";
 import { loadHostSettings } from "./host-settings.ts";
-import { summarizeThreadTitle, type ThreadTitleModel } from "./thread-title.ts";
+import { refreshClaudeThreadTitle, summarizeThreadTitle, type ThreadTitleModel } from "./thread-title.ts";
 import { hostingAccounts } from "./hosting-account-service.ts";
 import { noteSlashCommands } from "./claude-catalog.ts";
 import { expandMcpMentionsInPrompt } from "./mcp-mentions.ts";
@@ -541,17 +541,13 @@ export function createHarnessAgent(
         !(await sessions.transcript(session.id)).some((u) => u.sessionUpdate === "user_message_chunk")
       : session.claudeSessionId === null && isUntitledChat(session.title);
     const initialTitle = firstTurn && !session.manuallyNamed && text ? text.replace(/\s+/g, " ").slice(0, 40) : null;
-    const titleEnabled = initialTitle && text.trim() && client && !origin && !resumed && !woken
-      && !session.parentId && !session.sideOf && !session.botId && !session.importedFrom
-      && (session.agent === "codex" || !external)
-      && (await loadHostSettings()).summarizeThreadTitles === true
+    const canTrackTitle = initialTitle && text.trim() && client && !origin && !resumed && !woken
+      && !session.parentId && !session.sideOf && !session.origin && !session.botId && !session.importedFrom
       && (external || !(await sessions.transcript(session.id)).some((u) => u.sessionUpdate === "user_message_chunk"));
-    let titleStarted = false;
-    const onTitleModel = titleEnabled && initialTitle ? (model: ThreadTitleModel) => {
-      if (titleStarted || abort.signal.aborted) return;
-      titleStarted = true;
-      void summarizeThreadTitle(sessions, session.id, initialTitle, text, model);
-    } : undefined;
+    const trackCodexTitle = Boolean(canTrackTitle && session.agent === "codex");
+    const summarize = trackCodexTitle && (await loadHostSettings()).summarizeThreadTitles === true;
+    let titleModel: ThreadTitleModel | undefined;
+    let claudeTranscript: string | undefined;
     sessions.update(session.id, {
       status: "working",
       turnStartedAt: Date.now(),
@@ -559,7 +555,12 @@ export function createHarnessAgent(
       // Whatever started it, the turn is the agent's until it ends.
       yourTurnSince: null,
       // Orca renames a fresh agent tab after its first message.
-      ...(initialTitle && !session.manuallyNamed && isUntitledChat(session.title) ? { title: initialTitle } : {}),
+      ...(initialTitle && !session.manuallyNamed && isUntitledChat(session.title) && !session.automaticTitle ? {
+        title: initialTitle,
+        ...(canTrackTitle && !abort.signal.aborted
+          ? { automaticTitle: { agent: session.agent ?? "claude", source: "first-message" } }
+          : {}),
+      } : {}),
     });
     // A split's report this turn takes from the saved context (the person spoke first) is shown too.
     const report = origin?.kind === "harness-note" || woken ? null : reportIn(session.seedContext);
@@ -677,9 +678,7 @@ export function createHarnessAgent(
     try {
       const claudeEnv = external ? {} : { ...claudeLaunch.env, ...(await hostingAccounts().projectEnv(projectOfSession(session.id))) };
       const stopReason = external
-        ? await external.prompt(promptWithSeed, abort, askPermission, onTitleModel && ((model, env) => {
-          onTitleModel({ agent: "codex", model, env, cwd: session.cwd });
-        }))
+        ? await external.prompt(promptWithSeed, abort, askPermission, trackCodexTitle ? (model) => { titleModel = model; } : undefined)
         : await runClaudeTurn({
         acpSessionId: session.id,
         state: session,
@@ -696,7 +695,7 @@ export function createHarnessAgent(
         onSlashCommands: (names, skills) => noteSlashCommands(session.cwd, names, skills),
         // The project's GitHub/GitLab account, over the host's agent variables (docs/specs/project-hosting-accounts.md).
         env: claudeEnv,
-        onModel: onTitleModel && ((model) => onTitleModel({ agent: "claude", model, env: claudeEnv, cwd: session.cwd })),
+        onTranscript: (path) => { claudeTranscript = path; },
         chrome: claudeChromeOn(claudeLaunch, projectOfSession(session.id)),
         askPermission,
         // A quick chat sees its harness tools up front, so it can move itself into a project.
@@ -750,6 +749,14 @@ export function createHarnessAgent(
         yourTurnSince: Date.now(),
       });
       autoResume.turnEnded(session.id, outcome.end);
+      if (!outcome.end && stopReason === "end_turn") {
+        if (titleModel) void summarizeThreadTitle(sessions, session.id, text, titleModel, summarize);
+        if (!external && session.claudeSessionId && session.automaticTitle?.source === "first-message") {
+          void refreshClaudeThreadTitle(sessions, session.id, {
+            id: session.claudeSessionId, cwd: session.cwd, transcriptPath: claudeTranscript, firstTurn: Boolean(canTrackTitle),
+          });
+        }
+      }
       if (!outcome.end) void continueAfterMove(session.id, ask, client);
       return { stopReason };
     } catch (error) {

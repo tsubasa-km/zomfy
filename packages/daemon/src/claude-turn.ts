@@ -58,7 +58,8 @@ interface TurnInput {
   onPermissionMode?: (mode: ChatPermissionMode) => void;
   /** The `/` menu Claude reported at the start of the turn. */
   onSlashCommands?: (names: string[], skills?: string[]) => void;
-  onModel?: (model: string) => void;
+  /** The CLI's transcript path also covers non-default Claude profiles. */
+  onTranscript?: (path: string) => void;
   /** This host's Claude variables from the Agents settings (an account's CLAUDE_CONFIG_DIR…). */
   env?: Record<string, string>;
   /** MCP servers the daemon provides (the manager tools). */
@@ -519,6 +520,9 @@ async function spawn(input: TurnInput, userMessage: SDKUserMessage): Promise<acp
           {
             hooks: [
               async (hookInput) => {
+                if (hookInput.hook_event_name === "Stop" && hookInput.transcript_path) {
+                  proc.turn?.input.onTranscript?.(hookInput.transcript_path);
+                }
                 const level = turnEffort(hookInput);
                 if (level && !effort) proc.last.onDefaultEffort?.({ model: model ?? null, effort: level });
                 // What the CLI will wake the chat for later (scheduled-wake-ups.md).
@@ -661,10 +665,7 @@ async function route(proc: ClaudeProcess, message: SDKMessage): Promise<void> {
     });
     return;
   }
-  if (message.type === "system" && message.subtype === "init") {
-    proc.claudeSessionId = message.session_id;
-    if (message.model) input.onModel?.(message.model);
-  }
+  if (message.type === "system" && message.subtype === "init") proc.claudeSessionId = message.session_id;
   if (message.type === "assistant" || message.type === "stream_event" || message.type === "user") progress.output = true;
   await forwardMessage(message, input, progress);
 }
