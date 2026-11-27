@@ -34,6 +34,12 @@ export interface FeedbackPin {
   text: string;
   box: FeedbackBox;
   styles: string;
+  /** The view whose shot shows this mark (`screenshot-<view>.png`), or null when none was taken. */
+  view: number | null;
+  /** Whether the mark is drawn on the overview, `screenshot.png`: its element was still on screen. */
+  onOverview: boolean;
+  /** Whether `element-<n>.png`, a crop around the element as it was when pinned, was saved. */
+  crop: boolean;
 }
 
 export interface FeedbackDrawing {
@@ -42,6 +48,15 @@ export interface FeedbackDrawing {
   comment: string;
   /** A stroke's points; an arrow's start and end; a rectangle's two opposite corners. */
   points: Point[];
+  view: number | null;
+  /** Drawn on the overview only when the screen at send time is the view it was drawn on. */
+  onOverview: boolean;
+}
+
+/** One screen the person marked: its shot holds every mark made while the screen looked like this. */
+export interface FeedbackView {
+  n: number;
+  marks: number[];
 }
 
 export interface FeedbackContext {
@@ -59,12 +74,17 @@ export interface FeedbackPayload {
   context: FeedbackContext;
   pins: FeedbackPin[];
   drawings: FeedbackDrawing[];
+  views: FeedbackView[];
 }
 
 export interface FeedbackRequest {
   payload: FeedbackPayload;
-  /** `data:image/png;base64,...` */
+  /** The overview at send time, `data:image/png;base64,...` */
   screenshot: string;
+  /** One shot per view, taken when its latest mark was made. */
+  viewShots: Array<{ n: number; image: string }>;
+  /** A crop around each pinned element, by mark number. */
+  crops: Array<{ n: number; image: string }>;
 }
 
 export interface FeedbackResponse {
@@ -81,6 +101,9 @@ export const FEEDBACK_ENDPOINT = "/__zomfy-feedback";
 export function isFeedbackShortcut(event: { code: string; ctrlKey: boolean; metaKey: boolean; shiftKey: boolean; altKey: boolean }): boolean {
   return event.code === "Period" && (event.ctrlKey || event.metaKey) && event.shiftKey && !event.altKey;
 }
+
+export const viewShotName = (view: number) => `screenshot-${view}.png`;
+export const cropName = (mark: number) => `element-${mark}.png`;
 
 /** A folder name that sorts by time and is valid on every OS: `2026-11-27T09-30-12-345Z`. */
 export function bundleFolderName(at: Date): string {
@@ -149,14 +172,28 @@ function marksInOrder(payload: FeedbackPayload): Array<FeedbackPin | FeedbackDra
   return [...payload.pins, ...payload.drawings].sort((a, b) => a.n - b.n);
 }
 
+function shotLines(mark: FeedbackPin | FeedbackDrawing): string[] {
+  const lines = [`- Shot: ${mark.view !== null ? `\`${viewShotName(mark.view)}\`` : "(none)"}${mark.onOverview ? ", also on `screenshot.png`" : ""}`];
+  if (mark.kind === "element" && mark.crop) lines.push(`- Crop: \`${cropName(mark.n)}\``);
+  return lines;
+}
+
 export function buildFeedbackMarkdown(payload: FeedbackPayload, dir: string): string {
   const { context } = payload;
+  const folder = posix(dir);
+  const overview = marksInOrder(payload).filter((mark) => mark.onOverview).map((mark) => mark.n);
   const lines: string[] = [
     `# UI feedback ${context.at}`,
     "",
-    `Screenshot: \`${posix(dir)}/screenshot.png\` (viewport ${context.viewport.width}×${context.viewport.height} CSS px at ${context.viewport.dpr}× scale; the numbered marks below are drawn on it, coordinates are CSS px from the viewport's top-left).`,
+    `Folder: \`${folder}\`. Viewport ${context.viewport.width}×${context.viewport.height} CSS px at ${context.viewport.dpr}× scale; coordinates are CSS px from the viewport's top-left.`,
     "",
-    "## Page",
+    "## Screenshots",
+    "",
+    ...payload.views.map((view) => `- \`${viewShotName(view.n)}\`: the screen when mark${view.marks.length > 1 ? "s" : ""} ${view.marks.join(", ")} ${view.marks.length > 1 ? "were" : "was"} made, with ${view.marks.length > 1 ? "them" : "it"} drawn`),
+    `- \`screenshot.png\`: the screen at send time${overview.length ? `, with mark${overview.length > 1 ? "s" : ""} ${overview.join(", ")} (those still on it)` : ", no marks on it"}`,
+    "- `element-<n>.png`: a crop around each pinned element as it was when pinned",
+    "",
+    "## Page at send time",
     "",
     `- URL: ${context.url}`,
     `- Title: ${context.title || "(none)"}`,
@@ -168,6 +205,7 @@ export function buildFeedbackMarkdown(payload: FeedbackPayload, dir: string): st
     lines.push("");
     if (mark.kind === "element") {
       lines.push(`## ${mark.n}. Element: ${mark.comment || "(no comment)"}`, "");
+      lines.push(...shotLines(mark));
       lines.push(`- Component: ${mark.component ? `\`${mark.component}\`` : "(unknown)"}${mark.source ? ` at \`${formatSource(mark.source)}\`` : ""}`);
       const owners = mark.stack.filter((frame) => frame.name || frame.source).slice(0, 8);
       if (owners.length) lines.push(`- Owners: ${owners.map((frame) => `${frame.name ?? "?"}${frame.source ? ` (\`${formatSource(frame.source)}\`)` : ""}`).join(" < ")}`);
@@ -177,6 +215,7 @@ export function buildFeedbackMarkdown(payload: FeedbackPayload, dir: string): st
       if (mark.styles.trim()) lines.push("- Styles:", "", "```css", mark.styles.trim().slice(0, 2000), "```");
     } else {
       lines.push(`## ${mark.n}. Drawing: ${mark.comment || "(no comment)"}`, "");
+      lines.push(...shotLines(mark));
       lines.push(`- Shape: ${drawingShape(mark)}`);
     }
   }
@@ -185,13 +224,14 @@ export function buildFeedbackMarkdown(payload: FeedbackPayload, dir: string): st
 
 /** The short Markdown the overlay puts on the clipboard, to paste into the chat with the lead agent. */
 export function buildFeedbackSummary(payload: FeedbackPayload, dir: string): string {
-  const lines = [`UI feedback: \`${posix(dir)}\` (read \`feedback.md\` and look at \`screenshot.png\`)`];
+  const lines = [`UI feedback: \`${posix(dir)}\` (read \`feedback.md\` and look at the screenshots it names)`];
   for (const mark of marksInOrder(payload)) {
     const where =
       mark.kind === "element"
         ? [mark.component ? `\`${mark.component}\`` : `\`<${mark.tag}>\``, formatSource(mark.source) ? `\`${formatSource(mark.source)}\`` : null].filter(Boolean).join(" ")
         : drawingShape(mark);
-    lines.push(`${mark.n}. ${where}: ${mark.comment || "(no comment)"}`);
+    const shot = mark.view !== null ? ` [${viewShotName(mark.view)}]` : "";
+    lines.push(`${mark.n}. ${where}${shot}: ${mark.comment || "(no comment)"}`);
   }
   return lines.join("\n");
 }

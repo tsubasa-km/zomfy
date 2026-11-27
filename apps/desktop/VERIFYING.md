@@ -50,9 +50,11 @@ works with a dialog or menu open; the overlay leaves those open), then click ele
 bundle and copies a short summary with its path, to paste into the chat with the agent.
 
 Bundles go to `%TEMP%/zomfy-feedback/<timestamp>/` (the OS temp dir elsewhere, or
-`ZOMFY_FEEDBACK_DIR`): `screenshot.png` with the numbered marks drawn on it, `feedback.md` (each
-mark's comment, selector, component and `apps/desktop/src/...:line`, the page's state) and
-`feedback.json`. An agent given the path reads `feedback.md` and looks at `screenshot.png`. The spec
+`ZOMFY_FEEDBACK_DIR`): `screenshot-<n>.png` for each screen that was marked (taken as its marks
+were made, with them drawn), `screenshot.png` as it was at send time, `element-<n>.png` cropped
+around each pinned element, `feedback.md` (each mark's comment, shot, selector, component and
+`apps/desktop/src/...:line`, the page's state) and `feedback.json`. An agent given the path reads
+`feedback.md` and looks at the screenshots it names. The spec
 is [docs/specs/dev-feedback-overlay.md](../../docs/specs/dev-feedback-overlay.md).
 
 ## What to check
