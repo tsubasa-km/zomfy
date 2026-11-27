@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test'
-import { classifyLinkHref, containingWorkspace, looksLikeFilePath, workspaceRelativePath } from '../src/lib/link-targets.ts'
+import { chatFolderBelow, classifyLinkHref, containingWorkspace, fromChatFolder, looksLikeFilePath, toChatFolder, workspaceRelativePath } from '../src/lib/link-targets.ts'
 
 describe('containingWorkspace', () => {
   const workspaces = [
@@ -81,5 +81,30 @@ describe('looksLikeFilePath', () => {
     for (const text of ['console.log', 'a.b', 'npm run build', 'https://example.com/a.png', 'foo()', 'v1.2', '', 'x // y.ts', '/compact', 'and/or', '@types/node', '//cdn.example.com/a.js', 'C:\\', 'C:\\x  y\\z', 'cd C:\\dev']) {
       expect(looksLikeFilePath(text)).toBe(false)
     }
+  })
+})
+
+describe('a chat whose folder is a subfolder of its workspace', () => {
+  test('its folder below the root', () => {
+    expect(chatFolderBelow(String.raw`C:\repo\packages\app`, String.raw`c:\Repo`)).toBe('packages/app')
+    expect(chatFolderBelow('/repo', '/repo')).toBeNull()
+    expect(chatFolderBelow('/elsewhere', '/repo')).toBeNull()
+  })
+  test('relative paths it writes start from its folder', () => {
+    expect(fromChatFolder('src/a.ts', 'packages/app')).toBe('packages/app/src/a.ts')
+    expect(fromChatFolder('./a.ts', 'packages/app')).toBe('packages/app/a.ts')
+    expect(fromChatFolder('../../README.md', 'packages/app')).toBe('README.md')
+    expect(fromChatFolder('../../../x', 'packages/app')).toBe('../x')
+    expect(fromChatFolder('/abs/a.ts', 'packages/app')).toBe('/abs/a.ts')
+    expect(fromChatFolder('src/a.ts', null)).toBe('src/a.ts')
+  })
+  test('files picked from the @ menu are written as it reads them', () => {
+    expect(toChatFolder('packages/app/src/a.ts', 'packages/app')).toBe('src/a.ts')
+    expect(toChatFolder('Packages/App/a.ts', 'packages/app')).toBe('a.ts')
+    expect(toChatFolder('packages/lib/b.ts', 'packages/app')).toBe('../lib/b.ts')
+    expect(toChatFolder('README.md', 'packages/app')).toBe('../../README.md')
+    expect(toChatFolder('README.md', null)).toBe('README.md')
+    // Round trip.
+    expect(fromChatFolder(toChatFolder('packages/lib/b.ts', 'packages/app'), 'packages/app')).toBe('packages/lib/b.ts')
   })
 })

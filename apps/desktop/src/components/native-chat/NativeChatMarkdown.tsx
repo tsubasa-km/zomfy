@@ -9,6 +9,7 @@ import { openChatMention } from '@/lib/chat-attachments'
 import { NativeChatCodeBlock } from './NativeChatCodeBlock'
 import { NativeChatPathCode, NativeChatPathImages, imagePathsIn } from './NativeChatPathCode'
 import { looksLikeFilePath } from '@/lib/link-targets'
+import { linkScope } from '@/lib/link-targets'
 import { NativeChatMarkdownRowKeyContext } from './native-chat-disclosure-store'
 import { t } from '@/i18n/i18n'
 import './native-chat-markdown.css'
@@ -98,8 +99,8 @@ function MentionChip({ mention }: { mention: ChatMention }) {
       className="chat-mention-chip"
       title={t('{kind}: click to open', { kind: MENTION_TITLE[mention.kind] })}
       onClick={(event) => {
-        const workspaceId = event.currentTarget.closest<HTMLElement>('[data-link-workspace-id]')?.dataset.linkWorkspaceId ?? null
-        openChatMention(mention, workspaceId)
+        const { workspaceId, folder } = linkScope(event.currentTarget)
+        openChatMention(mention, workspaceId, folder)
       }}
       onKeyDown={(event) => {
         if (event.key !== 'Enter' && event.key !== ' ') return
