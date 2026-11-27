@@ -212,8 +212,11 @@ function host(
         records.push(record)
         return record
       },
-      replaceTranscript: async (id: string, updates: acp.SessionUpdate[]) => void transcripts.set(id, updates)
+      replaceTranscript: async (id: string, updates: acp.SessionUpdate[]) => void transcripts.set(id, updates),
+      transcript: async (id: string) => transcripts.get(id) ?? [],
+      update: (id: string, patch: Partial<SessionRecord>) => Object.assign(records.find((r) => r.id === id) ?? {}, patch)
     },
+    pendingTurns: new Map(),
     workspaces: {
       snapshot: async () => ({ workspaces }),
       workspaceForFolder: async (path: string) => {
@@ -238,7 +241,9 @@ function host(
     transcripts,
     workspaces,
     history: (params: object = {}) => call<PastConversation[]>(HARNESS_METHODS.sessionHistory, params),
-    resume: (params: object) => call<SessionInfo>(HARNESS_METHODS.sessionResume, params)
+    resume: (params: object) => call<SessionInfo>(HARNESS_METHODS.sessionResume, params),
+    fork: (params: object) => call<SessionInfo>(HARNESS_METHODS.sessionFork, params),
+    rewind: (params: object) => call<{ text: string }>(HARNESS_METHODS.sessionRewind, params)
   }
 }
 
@@ -554,4 +559,46 @@ test.if(WINDOWS)('a folder written with another case, slashes or a long-path pre
   expect(await h.resume({ conversationId: FOLDER.slashes })).toMatchObject({ workspaceId: 'w-repo', cwd: sub })
   expect(await h.resume({ conversationId: FOLDER.longPrefix })).toMatchObject({ workspaceId: 'w-repo', cwd: repo })
   expect(h.workspaces).toHaveLength(3)
+})
+
+test('a thread imported where Claude cannot reopen it forks and rewinds with the thread still to hand over', async () => {
+  const h = host()
+  const info = await h.resume({ conversationId: CLAUDE_ID, workspaceId: 'w-other' })
+  expect(h.records[0]).toMatchObject({ claudeSessionId: null })
+  const imported = h.transcripts.get(info.id) ?? []
+  // A copy, not an empty thread: Claude has no conversation of it to fork.
+  const fork = await h.fork({ sessionId: info.id })
+  expect(h.transcripts.get(fork.id)).toEqual(imported)
+  expect(h.records[1]).toMatchObject({ claudeSessionId: null, cwd: other, importedFrom: { agent: 'claude', conversationId: CLAUDE_ID } })
+  expect(h.records[1]?.handoffContext).toContain('Rename the settings page')
+  // Rewound to its only prompt: nothing is left to hand over.
+  const prompt = imported.find((u) => u.sessionUpdate === 'user_message_chunk')
+  const messageId = prompt?.sessionUpdate === 'user_message_chunk' ? prompt.messageId : undefined
+  expect((await h.rewind({ sessionId: info.id, messageId })).text).toBe('Rename the settings page')
+  expect(h.transcripts.get(info.id)).toEqual([])
+  expect(h.records[0]?.handoffContext ?? null).toBeNull()
+})
+
+test('rewound, a thread imported where Claude cannot reopen it still hands Claude what is left', async () => {
+  const id = '44444444-4444-4444-8444-444444444401'
+  const dir = join(root, 'claude', 'projects', project.replace(/[^a-zA-Z0-9]/g, '-'))
+  const base = { sessionId: id, cwd: project, isSidechain: false, userType: 'external', version: '2.0.0', gitBranch: 'main' }
+  const said = (n: number, role: 'user' | 'assistant', text: string) => ({
+    ...base,
+    type: role,
+    uuid: `44444444-0000-4000-8000-00000000000${n}`,
+    parentUuid: n === 1 ? null : `44444444-0000-4000-8000-00000000000${n - 1}`,
+    message: role === 'user' ? { role, content: text } : { role, model: 'claude-test', content: [{ type: 'text', text }] }
+  })
+  const lines = [said(1, 'user', 'First ask'), said(2, 'assistant', 'First answer'), said(3, 'user', 'Second ask'), said(4, 'assistant', 'Second answer')]
+  writeFileSync(join(dir, `${id}.jsonl`), lines.map((l) => `${JSON.stringify(l)}\n`).join(''))
+  const h = host()
+  const info = await h.resume({ conversationId: id, workspaceId: 'w-other' })
+  expect(h.records[0]?.handoffContext).toContain('Second ask')
+  await h.rewind({ sessionId: info.id, messageId: '44444444-0000-4000-8000-000000000003' })
+  expect(shape(h.transcripts.get(info.id))).toEqual(['user: First ask', 'agent: First answer'])
+  expect(h.records[0]?.handoffContext).toContain('User:\nFirst ask\n\nAssistant (Claude):\nFirst answer')
+  expect(h.records[0]?.handoffContext).not.toContain('Second ask')
+  // The same conversation asked for again, from anywhere, is the thread already showing it.
+  expect((await h.resume({ conversationId: id, workspaceId: 'w-project' })).id).toBe(info.id)
 })

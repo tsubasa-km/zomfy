@@ -85,6 +85,16 @@ In "this workspace" scope a row shows where it would run when that is not the wo
 No sentence explains these; the full path is the icon's tooltip. "Import into {name}" also stays on
 a row whose import failed.
 
+## Fork and rewind before the first message
+
+A Claude thread imported where Claude cannot reopen the conversation has no Claude conversation of
+its own until its first message, which hands Claude the thread. Until then:
+
+- **Fork** copies the thread (through the chosen exchange) and the fork hands Claude that copy with
+  its first message. It used to come out empty.
+- **Rewind** keeps what is left to hand over. It used to drop the handoff, so Claude would have
+  started knowing nothing of the thread.
+
 ## Recent conversations (an empty thread)
 
 Lists the conversations this workspace owns (its folder and below) that no thread shows yet, and
