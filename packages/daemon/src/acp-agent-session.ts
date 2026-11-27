@@ -53,6 +53,7 @@ interface Running {
   conn: acp.ClientConnection | CodexAppServer
   agentSessionId: string
   capabilities: acp.AgentCapabilities
+  env: NodeJS.ProcessEnv
 }
 
 type SessionSetup = Pick<acp.NewSessionResponse, 'modes' | 'configOptions'> & { models?: unknown }
@@ -98,20 +99,30 @@ export class AcpAgentSession {
   }
 
   /** `blocks` as a function is read once the agent's session is open, just before the prompt goes to it. */
-  async prompt(blocks: PromptBlocks, abort: AbortController, ask: AskPermission): Promise<acp.StopReason> {
+  async prompt(
+    blocks: PromptBlocks,
+    abort: AbortController,
+    ask: AskPermission,
+    onModel?: (model: string, env: NodeJS.ProcessEnv) => void
+  ): Promise<acp.StopReason> {
     while (this.turn) await this.turn
     let release!: () => void
     const turn = new Promise<void>((resolve) => (release = resolve))
     this.turn = turn
     try {
-      return await this.runTurn(blocks, abort.signal, ask)
+      return await this.runTurn(blocks, abort.signal, ask, onModel)
     } finally {
       if (this.turn === turn) this.turn = null
       release()
     }
   }
 
-  private async runTurn(blocks: PromptBlocks, signal: AbortSignal, ask: AskPermission): Promise<acp.StopReason> {
+  private async runTurn(
+    blocks: PromptBlocks,
+    signal: AbortSignal,
+    ask: AskPermission,
+    onModel?: (model: string, env: NodeJS.ProcessEnv) => void
+  ): Promise<acp.StopReason> {
     const aborted = whenAborted(signal)
     try {
       // A Stop while the server starts ends the turn now; the start goes on for the next one.
@@ -126,6 +137,12 @@ export class AcpAgentSession {
       const request = conn instanceof CodexAppServer
         ? conn.prompt(prompt)
         : conn.agent.request(acp.methods.agent.session.prompt, { sessionId: running.agentSessionId, prompt })
+      if (onModel && this.agent === 'codex') {
+        const model = conn instanceof CodexAppServer
+          ? conn.effectiveModel
+          : this.state.options.find((option) => option.category === 'model')?.currentValue
+        if (model) onModel(model, running.env)
+      }
       const answeredAtAll = request.then(
         () => true,
         () => true
@@ -222,12 +239,13 @@ export class AcpAgentSession {
     const resolved = await resolveChatAgent(this.agent)
     if (resolved.status !== 'ready') return this.fail(resolved.detail)
     const label = chatAgentLabel(this.agent)
+    const env = { ...process.env, PATH: await hostPath(), ...resolved.env, ...(await this.hooks.env?.().catch(() => ({}))) }
     const proc = Bun.spawn(resolved.argv, {
       cwd: this.cwd,
       stdin: 'pipe',
       stdout: 'pipe',
       stderr: 'pipe',
-      env: { ...process.env, PATH: await hostPath(), ...resolved.env, ...(await this.hooks.env?.().catch(() => ({}))) },
+      env,
       windowsHide: true,
       // Its own process group, so stopping it reaches the CLI and MCP servers it starts.
       detached: process.platform !== 'win32'
@@ -263,7 +281,7 @@ export class AcpAgentSession {
         : await this.openSession(conn, capabilities).then(({ agentSessionId, setup }) => ({ agentSessionId, options: optionsFrom(setup) }))
       const { agentSessionId, options } = opened
       await this.hooks.ready?.()
-      const running: Running = { proc, conn, agentSessionId, capabilities }
+      const running: Running = { proc, conn, agentSessionId, capabilities, env }
       if (this.disposed) {
         this.running = running
         this.stopProcess()

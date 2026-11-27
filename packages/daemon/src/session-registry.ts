@@ -21,6 +21,8 @@ const INDEX_PATH = join(SESSIONS_DIR, 'index.json')
 export interface SessionRecord extends SessionInfo {
   /** Claude's own session id, so a later turn (or a restarted daemon) resumes the conversation. */
   claudeSessionId: string | null
+  /** A name chosen by the person takes precedence over automatic naming. */
+  manuallyNamed?: true
   /**
    * External agents' own ids for the conversation (their ACP session ids), by agent: a chat whose
    * agent was changed keeps each one's, so changing back reopens that agent's conversation.
@@ -301,6 +303,7 @@ function notePath(id: string): string {
 export function publicInfo(record: SessionRecord): SessionInfo {
   const {
     claudeSessionId: _hidden,
+    manuallyNamed: _manualTitleHidden,
     agentSessionIds: _agentHidden,
     seedContext: _seedHidden,
     handoffContext: _handoffHidden,

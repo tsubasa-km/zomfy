@@ -128,7 +128,7 @@ export function registerSessionHandlers(ctx: HandlerContext): void {
     const session = requireSession(p.sessionId);
     const title = typeof p.title === "string" ? p.title.replace(/\s+/g, " ").trim().slice(0, 100) : "";
     if (!title) throw new Error("A chat needs a name");
-    sessions.update(session.id, { title });
+    sessions.update(session.id, { title, manuallyNamed: true });
     return publicInfo(session);
   });
   handle(HARNESS_METHODS.sessionSetArchived, async (p) => {

@@ -93,6 +93,10 @@ export class CodexAppServer {
     return this.threadId
   }
 
+  get effectiveModel(): string {
+    return this.model
+  }
+
   options(): ChatAgentOption[] {
     const modelOptions = this.models.map((model) => ({
       value: modelId(model),

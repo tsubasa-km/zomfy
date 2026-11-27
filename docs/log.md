@@ -1,5 +1,9 @@
 # Directory Update Log
 
+## 2026-11-27
+* **Update**: [Summarize the first message into a thread title](specs/thread-title-summaries.md), done. Agents settings control the first-message title request for each host. The title uses the starting model and preserves manual names.
+* **Creation**: [Summarize the first message into a thread title](specs/thread-title-summaries.md), draft.
+
 ## 2026-11-26
 * **Creation**: [The window opens in one step](specs/calm-startup.md), done: hosts' state and chat lists restored from `localStorage` at startup, connect requests in parallel, Monaco loaded with the first editor tab, a delayed reconnecting notice, a transcript outline while it loads, saved usage limits, a boot screen in the shell's frame, and `apps/desktop/scripts/record-startup.ts` with `preview.ts --prod`.
 * **Creation**: [Adding a tab: the "+" menu, pins, new chats and terminals that pick their place](specs/new-tab-menu-and-pins.md), done: any `+` menu item (chats, terminal, agents, quick commands, workflows, SSH logins, browser, panels) can be pinned as a tab-strip button (`newTabPins`, Terminal by default, replacing the Terminal button); a new chat opens the New thread screen on the current workspace, whose chip picks another workspace, a new worktree or another project; `New Terminal…` picks host, folder and shell.

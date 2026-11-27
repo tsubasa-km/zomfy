@@ -3,6 +3,7 @@
 * [Documentation-driven development](documentation-driven-development.md) - how specs, decisions and research are written and kept true
 * [One right sidebar per split pane](pane-sidebars.md) - each split pane has its own right sidebar, opened from its own tab strip
 * [UI principles - show, don't tell](ui-principles.md) - state and structure are shown with colour, shape, marks, glow and place, not explanatory words; words stay for content, field labels, errors and destructive warnings
+* [Summarize the first message into a thread title](thread-title-summaries.md) - A host setting lets the starting model write a short title for a new thread from its first message.
 
 # Bots
 

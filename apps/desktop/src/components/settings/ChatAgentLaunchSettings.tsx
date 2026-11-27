@@ -1,4 +1,5 @@
 import { useState, type ReactNode } from 'react'
+import { toast } from 'sonner'
 import { ChevronRight, ExternalLink, RefreshCw, ShieldAlert } from 'lucide-react'
 import { HARNESS_METHODS, type ChatAgentId, type ChatAgentInfo, type ChatAgentLaunchPatch } from '@zomfy/protocol'
 import { harnessRequest } from '@/daemon-connection'
@@ -12,6 +13,7 @@ import { loadChatAgents, setChatAgents, useChatAgents } from '@/lib/chat-agents'
 import { cn } from '@/lib/utils'
 import { useSaveState } from '@/lib/use-save-state'
 import { SettingsRow, SettingsSwitchRow, TextField } from './settings-form-controls'
+import { updateHostSettings, useHostSettings } from '@/stores/host-settings-store'
 import { SearchableSetting, useSettingsSearchQuery } from './SettingsSection'
 import { t } from '@/i18n/i18n'
 
@@ -34,6 +36,7 @@ async function setLaunch(host: HostEntry, agent: ChatAgentId, patch: ChatAgentLa
 
 export function ChatAgentLaunchSettings({ host }: { host: HostEntry }) {
   const state = useChatAgents(host.id)
+  const settings = useHostSettings(host.id)
   const searching = useSettingsSearchQuery().trim() !== ''
   const installed = state.agents.filter((a) => a.status !== 'missing')
   const missing = state.agents.filter((a) => a.status === 'missing')
@@ -57,6 +60,15 @@ export function ChatAgentLaunchSettings({ host }: { host: HostEntry }) {
         <p className="py-2 text-xs text-muted-foreground">{t('Can’t reach this host to list its agents: {reason}', { reason: state.reason })}</p>
       ) : null}
       <div className="divide-y divide-border/40">
+        <SettingsSwitchRow
+          label={t('Summarize thread titles')}
+          keywords={['title', 'summary', 'thread', 'first message']}
+          checked={settings?.summarizeThreadTitles === true}
+          disabled={!settings}
+          onChange={(summarizeThreadTitles) => {
+            void updateHostSettings(host.id, { summarizeThreadTitles }).catch(() => toast.error(t("Couldn't save the setting")))
+          }}
+        />
         {installed.map((agent) => (
           <ChatAgentRow key={agent.id} host={host} agent={agent} />
         ))}

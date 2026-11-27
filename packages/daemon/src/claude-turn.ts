@@ -58,6 +58,7 @@ interface TurnInput {
   onPermissionMode?: (mode: ChatPermissionMode) => void;
   /** The `/` menu Claude reported at the start of the turn. */
   onSlashCommands?: (names: string[], skills?: string[]) => void;
+  onModel?: (model: string) => void;
   /** This host's Claude variables from the Agents settings (an account's CLAUDE_CONFIG_DIR…). */
   env?: Record<string, string>;
   /** MCP servers the daemon provides (the manager tools). */
@@ -660,7 +661,10 @@ async function route(proc: ClaudeProcess, message: SDKMessage): Promise<void> {
     });
     return;
   }
-  if (message.type === "system" && message.subtype === "init") proc.claudeSessionId = message.session_id;
+  if (message.type === "system" && message.subtype === "init") {
+    proc.claudeSessionId = message.session_id;
+    if (message.model) input.onModel?.(message.model);
+  }
   if (message.type === "assistant" || message.type === "stream_event" || message.type === "user") progress.output = true;
   await forwardMessage(message, input, progress);
 }

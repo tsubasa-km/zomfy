@@ -138,9 +138,8 @@ async function resolveInstalledChatAgent(agent: ChatAgentId, launch: ChatAgentLa
   const PATH = await hostPath()
   const env = { ...spec.env, ...launch.env }
   if (agent === 'codex' && launch.codexConnection === 'app-server') {
-    const found = Bun.which('codex', { PATH: env.PATH ?? PATH })
-    if (!found) return { status: 'missing', detail: '`codex` is not on this host’s PATH' }
-    const base = await resolveShim(found)
+    const base = await codexCommand(env.PATH ?? PATH)
+    if (!base) return { status: 'missing', detail: '`codex` is not on this host’s PATH' }
     if (!/^\s+app-server\b/m.test(await helpText(base, ['--help']))) {
       return { status: 'unsupported', detail: 'This Codex release does not advertise app-server in `codex --help`' }
     }
@@ -244,6 +243,11 @@ function helpText(base: string[], args: string[]): Promise<string> {
  * npm's Windows `.cmd` shims run their target through cmd.exe, which a kill leaves running; start
  * the target itself (Orca's process-host resolves the same shims).
  */
+export async function codexCommand(path: string | undefined): Promise<string[] | null> {
+  const found = Bun.which('codex', { PATH: path })
+  return found ? resolveShim(found) : null
+}
+
 async function resolveShim(path: string): Promise<string[]> {
   if (process.platform !== 'win32' || !/\.cmd$/i.test(path)) return [path]
   try {

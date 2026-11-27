@@ -45,6 +45,8 @@ import { explainClaudeFailure, isClaudeSignedOut, signedOutNotice } from "./clau
 import { registerTurnRecoveryHandlers } from "./handlers/turn-recovery-handlers.ts";
 import { AcpAgentSessions } from "./acp-agent-sessions.ts";
 import { chatAgentLaunch, claudeChromeOn } from "./chat-agent-launch-settings.ts";
+import { loadHostSettings } from "./host-settings.ts";
+import { summarizeThreadTitle, type ThreadTitleModel } from "./thread-title.ts";
 import { hostingAccounts } from "./hosting-account-service.ts";
 import { noteSlashCommands } from "./claude-catalog.ts";
 import { expandMcpMentionsInPrompt } from "./mcp-mentions.ts";
@@ -538,6 +540,18 @@ export function createHarnessAgent(
       ? isUntitledChat(session.title) &&
         !(await sessions.transcript(session.id)).some((u) => u.sessionUpdate === "user_message_chunk")
       : session.claudeSessionId === null && isUntitledChat(session.title);
+    const initialTitle = firstTurn && !session.manuallyNamed && text ? text.replace(/\s+/g, " ").slice(0, 40) : null;
+    const titleEnabled = initialTitle && text.trim() && client && !origin && !resumed && !woken
+      && !session.parentId && !session.sideOf && !session.botId && !session.importedFrom
+      && (session.agent === "codex" || !external)
+      && (await loadHostSettings()).summarizeThreadTitles === true
+      && (external || !(await sessions.transcript(session.id)).some((u) => u.sessionUpdate === "user_message_chunk"));
+    let titleStarted = false;
+    const onTitleModel = titleEnabled && initialTitle ? (model: ThreadTitleModel) => {
+      if (titleStarted || abort.signal.aborted) return;
+      titleStarted = true;
+      void summarizeThreadTitle(sessions, session.id, initialTitle, text, model);
+    } : undefined;
     sessions.update(session.id, {
       status: "working",
       turnStartedAt: Date.now(),
@@ -545,7 +559,7 @@ export function createHarnessAgent(
       // Whatever started it, the turn is the agent's until it ends.
       yourTurnSince: null,
       // Orca renames a fresh agent tab after its first message.
-      ...(firstTurn && text ? { title: text.replace(/\s+/g, " ").slice(0, 40) } : {}),
+      ...(initialTitle && !session.manuallyNamed && isUntitledChat(session.title) ? { title: initialTitle } : {}),
     });
     // A split's report this turn takes from the saved context (the person spoke first) is shown too.
     const report = origin?.kind === "harness-note" || woken ? null : reportIn(session.seedContext);
@@ -661,8 +675,11 @@ export function createHarnessAgent(
         .join("\n\n") || null;
     const claudeLaunch = await chatAgentLaunch("claude");
     try {
+      const claudeEnv = external ? {} : { ...claudeLaunch.env, ...(await hostingAccounts().projectEnv(projectOfSession(session.id))) };
       const stopReason = external
-        ? await external.prompt(promptWithSeed, abort, askPermission)
+        ? await external.prompt(promptWithSeed, abort, askPermission, onTitleModel && ((model, env) => {
+          onTitleModel({ agent: "codex", model, env, cwd: session.cwd });
+        }))
         : await runClaudeTurn({
         acpSessionId: session.id,
         state: session,
@@ -678,7 +695,8 @@ export function createHarnessAgent(
           sessions.update(session.id, { options: { ...session.options, permissionMode } }),
         onSlashCommands: (names, skills) => noteSlashCommands(session.cwd, names, skills),
         // The project's GitHub/GitLab account, over the host's agent variables (docs/specs/project-hosting-accounts.md).
-        env: { ...claudeLaunch.env, ...(await hostingAccounts().projectEnv(projectOfSession(session.id))) },
+        env: claudeEnv,
+        onModel: onTitleModel && ((model) => onTitleModel({ agent: "claude", model, env: claudeEnv, cwd: session.cwd })),
         chrome: claudeChromeOn(claudeLaunch, projectOfSession(session.id)),
         askPermission,
         // A quick chat sees its harness tools up front, so it can move itself into a project.

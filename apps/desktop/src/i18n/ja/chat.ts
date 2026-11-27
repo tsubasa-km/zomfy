@@ -16,6 +16,9 @@ export const CHAT: Record<string, string> = {
   "Couldn't pick this chat back up": 'このチャットを再開できませんでした',
   "Couldn't change automatic resume": '自動再開の設定を変更できませんでした',
 
+  'Summarize thread titles': 'スレッド名を要約で付ける',
+  "Couldn't save the setting": '設定を保存できませんでした',
+
   // chat-rename-archive.ts
   "This chat's host runs an older daemon; update Zomfy there first.": 'このチャットのホストでは古いデーモンが動いています。先にそのホストの Zomfy を更新してください。',
   "Couldn't rename the chat": 'チャットの名前を変更できませんでした',
