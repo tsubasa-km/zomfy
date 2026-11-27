@@ -44,8 +44,8 @@ shell `bun run` was started from) stays:
 
 ## When it is read
 
-- **Windows**: on each spawn when the last read is older than 2 s (two `reg.exe` calls, a few
-  tens of milliseconds); spawns close together share one read.
+- **Windows**: on each spawn when the last read is older than 2 s (two `reg export` calls, about
+  0.1 s); spawns close together share one read.
 - **macOS and Linux**: a login shell can take seconds, so the snapshot is cached. A spawn uses the
   cache and, when it is older than 5 minutes, starts a fresh snapshot in the background for the
   next one. The first spawn after the daemon starts waits for the first snapshot.
