@@ -311,7 +311,7 @@ export function ToolDrawer({
   const handleCursor = openOnClick ? 'cursor-grab' : 'cursor-pointer'
   const innerHandleLabel = openOnClick ? t('Close the tool drawer') : pinned ? t('Unpin') : t('Keep open')
   return (
-    <div ref={rootRef} style={positionStyle} className="tool-drawer pointer-events-none absolute inset-0 z-10 [container-type:size] [--tab-top-inset:0px]">
+    <div ref={rootRef} style={positionStyle} className="tool-drawer pointer-events-none absolute inset-0 z-10 [container-type:size] [--tab-bottom-inset:0px] [--tab-left-inset:0px] [--tab-right-inset:0px] [--tab-top-inset:0px]">
       <button
         type="button"
         className={cn('tool-drawer__tab group text-muted-foreground hover:text-foreground', shown ? 'invisible' : 'pointer-events-auto', handleCursor, preview && 'opacity-0')}

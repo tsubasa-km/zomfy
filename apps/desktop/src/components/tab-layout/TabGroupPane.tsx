@@ -60,7 +60,10 @@ const TabBody = memo(function TabBody({ tab }: { tab: WorkspaceTab }) {
     case 'panel':
       return (
         // The panel keeps clear of the drawer's handle itself; what it holds (a side chat) keeps no inset of its own.
-        <div key={tab.id} className="flex min-h-0 flex-1 flex-col overflow-hidden bg-sidebar pt-(--tab-top-inset) text-sidebar-foreground *:[--tab-top-inset:0px]">
+        <div
+          key={tab.id}
+          className="flex min-h-0 flex-1 flex-col overflow-hidden bg-sidebar pt-(--tab-top-inset) pr-(--tab-right-inset) pb-(--tab-bottom-inset) pl-(--tab-left-inset) text-sidebar-foreground *:[--tab-bottom-inset:0px] *:[--tab-left-inset:0px] *:[--tab-right-inset:0px] *:[--tab-top-inset:0px]"
+        >
           <WorkspacePanelView id={tab.panel.panel} workspaceId={tab.panel.workspaceId} />
         </div>
       )
@@ -246,6 +249,7 @@ export const TabGroupPane = memo(function TabGroupPane({
             )
           }
         />
+        {/* Under a drawer's handle the tab's content keeps clear of that edge, each kind in its own way (--tab-*-inset). */}
         <div
           data-tab-group-body-id={groupId}
           className="relative flex min-h-0 min-w-0 flex-1 flex-col"

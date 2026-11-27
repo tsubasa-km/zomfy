@@ -1,12 +1,14 @@
-.tool-drawer {
+.tool-drawer,
+[data-drawer-content-edge] {
   --drawer-handle-length: 7rem;
   --drawer-handle-depth: 1.25rem;
 }
 
-[data-drawer-content-edge='top'] { --tab-top-inset: 1.25rem; }
-[data-drawer-content-edge='bottom'] { padding-bottom: 1.25rem; }
-[data-drawer-content-edge='left'] { padding-left: 1.25rem; }
-[data-drawer-content-edge='right'] { padding-right: 1.25rem; }
+/* Under the handle's edge each kind of tab keeps clear in its own way, so content still runs under the handle. */
+[data-drawer-content-edge='top'] { --tab-top-inset: var(--drawer-handle-depth); }
+[data-drawer-content-edge='bottom'] { --tab-bottom-inset: var(--drawer-handle-depth); }
+[data-drawer-content-edge='left'] { --tab-left-inset: var(--drawer-handle-depth); }
+[data-drawer-content-edge='right'] { --tab-right-inset: var(--drawer-handle-depth); }
 
 .tool-drawer__tab {
   --drawer-center: clamp(min(3.5rem, 50%), var(--drawer-position), max(50%, calc(100% - 3.5rem)));
