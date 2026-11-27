@@ -122,7 +122,8 @@ export default function App() {
           <Sidebar />
           {/* Projects and Automations cover the main area only, so the sidebar stays beside them. */}
           <div className="relative flex min-w-0 flex-1">
-            <main className="flex min-w-0 flex-1">
+            {/* isolate: the panes' own layers (a split's focus outline, drop hints) stay under the pages laid over the main area. */}
+            <main className="isolate flex min-w-0 flex-1">
               {gridPreview ? (
                 <ProjectGridPreview />
               ) : workflowsPage ? (

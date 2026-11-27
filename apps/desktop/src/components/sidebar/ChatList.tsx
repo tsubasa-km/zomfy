@@ -280,105 +280,111 @@ export function ChatList({ actions }: { actions: SidebarActions }) {
   const busy = new Set(allSessions.filter((s) => !s.archived).map((s) => s.workspaceId))
 
   return (
-    <div data-chat-list="project" className="flex flex-1 flex-col">
-      {entries.map(({ primary: project, copies }) => {
-        const members = [project, ...copies]
-        const list = inProject.get(entryKey({ primary: project, copies })) ?? []
-        // A search leaves out the projects it found nothing in.
-        if (needle && list.length === 0) return null
-        const collapsed = collapsedProjects.includes(project.id) && !needle
-        const label = projectLabel(project)
-        const hostBadge = [project.hostId !== defaultHost ? names[project.hostId] : null, ...copies.map((c) => `+${names[c.hostId] ?? c.hostId}`)]
-          .filter(Boolean)
-          .join(' ')
-        return (
-          <ProjectCard
-            key={entryKey({ primary: project, copies })}
-            id={project.id}
-            label={label}
-            title={project.path}
-            badge={<ProjectBadge name={label} />}
-            nodes={list}
-            glows={list.some((n) => rowGlows(phase(n.chat), n.status))}
-            collapsed={collapsed}
-            extra={
-              hostBadge && (
-                <span className="shrink-0 rounded border border-worktree-sidebar-border px-1 text-[10px] leading-4 text-muted-foreground">
-                  {hostBadge}
-                </span>
-              )
-            }
-            actions={
-              <>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <Button
-                      size="icon-xs"
-                      variant="ghost"
-                      aria-label={t('New thread in {project}', { project: label })}
-                      data-project-new-chat
-                      onClick={() => void startChat(project)}
-                    >
-                      <Plus className="size-3.5" />
-                    </Button>
-                  </TooltipTrigger>
-                  <TooltipContent side="right">{project.kind === 'git' ? t('New thread in its own worktree') : t('New thread')}</TooltipContent>
-                </Tooltip>
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <Button size="icon-xs" variant="ghost" aria-label={t('Project actions for {project}', { project: label })}>
-                      <MoreHorizontal className="size-3.5" />
-                    </Button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align="start" className="w-60">
-                    <ProjectActionsMenuItems project={project} actions={actions} copies={copies} badgeFor={(hostId) => names[hostId] ?? hostId} />
-                  </DropdownMenuContent>
-                </DropdownMenu>
-              </>
-            }
-          >
-            {!collapsed && (
-              <div className="space-y-px">
-                {list.map(row)}
-                {/* A worktree no chat works in still needs a way in, and a way to be seen and cleaned up. */}
-                {!needle &&
-                  workspaces
-                    .filter((w) => members.some((m) => m.hostId === w.hostId && m.id === w.projectId) && !w.isPrimary && !busy.has(w.id))
-                    .map((w) => (
-                      <button
-                        key={w.id}
-                        type="button"
-                        data-empty-workspace={w.id}
-                        onClick={() => selectWorkspace(w.id)}
-                        className="flex w-full min-w-0 items-center gap-1.5 rounded-md py-1 pr-1.5 pl-5 text-left text-[12px] text-muted-foreground/70 hover:bg-worktree-sidebar-accent/60 hover:text-foreground"
+    <div data-chat-list="project" className="flex min-h-0 flex-1 flex-col">
+      {/* Only the cards scroll; the Archived shelf stays at the sidebar's foot (docs/specs/threads-under-projects.md). */}
+      <div className="worktree-sidebar-scrollbar flex min-h-0 flex-1 flex-col overflow-x-hidden overflow-y-auto px-1 pb-3" data-chat-list-scroll>
+        {entries.map(({ primary: project, copies }) => {
+          const members = [project, ...copies]
+          const list = inProject.get(entryKey({ primary: project, copies })) ?? []
+          // A search leaves out the projects it found nothing in.
+          if (needle && list.length === 0) return null
+          const collapsed = collapsedProjects.includes(project.id) && !needle
+          const label = projectLabel(project)
+          const hostBadge = [project.hostId !== defaultHost ? names[project.hostId] : null, ...copies.map((c) => `+${names[c.hostId] ?? c.hostId}`)]
+            .filter(Boolean)
+            .join(' ')
+          return (
+            <ProjectCard
+              key={entryKey({ primary: project, copies })}
+              id={project.id}
+              label={label}
+              title={project.path}
+              badge={<ProjectBadge name={label} />}
+              nodes={list}
+              glows={list.some((n) => rowGlows(phase(n.chat), n.status))}
+              collapsed={collapsed}
+              extra={
+                hostBadge && (
+                  <span className="shrink-0 rounded border border-worktree-sidebar-border px-1 text-[10px] leading-4 text-muted-foreground">
+                    {hostBadge}
+                  </span>
+                )
+              }
+              actions={
+                <>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button
+                        size="icon-xs"
+                        variant="ghost"
+                        aria-label={t('New thread in {project}', { project: label })}
+                        data-project-new-chat
+                        onClick={() => void startChat(project)}
                       >
-                        <span className="min-w-0 flex-1 truncate italic">{t('No threads yet')}</span>
-                        <span className="max-w-32 shrink-0 truncate font-mono text-[10px]">{w.branch ?? workspaceLabel(w)}</span>
-                      </button>
-                    ))}
-                {list.length === 0 && !workspaces.some((w) => members.some((m) => m.hostId === w.hostId && m.id === w.projectId) && !w.isPrimary && !busy.has(w.id)) && (
-                  <p className="py-0.5 pl-5 text-[12px] text-muted-foreground/70 italic">{t('No threads yet')}</p>
-                )}
-              </div>
-            )}
+                        <Plus className="size-3.5" />
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent side="right">{project.kind === 'git' ? t('New thread in its own worktree') : t('New thread')}</TooltipContent>
+                  </Tooltip>
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button size="icon-xs" variant="ghost" aria-label={t('Project actions for {project}', { project: label })}>
+                        <MoreHorizontal className="size-3.5" />
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="start" className="w-60">
+                      <ProjectActionsMenuItems project={project} actions={actions} copies={copies} badgeFor={(hostId) => names[hostId] ?? hostId} />
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                </>
+              }
+            >
+              {!collapsed && (
+                <div className="space-y-px">
+                  {list.map(row)}
+                  {/* A worktree no chat works in still needs a way in, and a way to be seen and cleaned up. */}
+                  {!needle &&
+                    workspaces
+                      .filter((w) => members.some((m) => m.hostId === w.hostId && m.id === w.projectId) && !w.isPrimary && !busy.has(w.id))
+                      .map((w) => (
+                        <button
+                          key={w.id}
+                          type="button"
+                          data-empty-workspace={w.id}
+                          onClick={() => selectWorkspace(w.id)}
+                          className="flex w-full min-w-0 items-center gap-1.5 rounded-md py-1 pr-1.5 pl-5 text-left text-[12px] text-muted-foreground/70 hover:bg-worktree-sidebar-accent/60 hover:text-foreground"
+                        >
+                          <span className="min-w-0 flex-1 truncate italic">{t('No threads yet')}</span>
+                          <span className="max-w-32 shrink-0 truncate font-mono text-[10px]">{w.branch ?? workspaceLabel(w)}</span>
+                        </button>
+                      ))}
+                  {list.length === 0 && !workspaces.some((w) => members.some((m) => m.hostId === w.hostId && m.id === w.projectId) && !w.isPrimary && !busy.has(w.id)) && (
+                    <p className="py-0.5 pl-5 text-[12px] text-muted-foreground/70 italic">{t('No threads yet')}</p>
+                  )}
+                </div>
+              )}
+            </ProjectCard>
+          )
+        })}
+        {loose.length > 0 && (
+          <ProjectCard
+            id={NO_PROJECT}
+            label={t('No project')}
+            badge={<span aria-hidden className="block h-4 w-[18px] shrink-0 rounded-[4px] border border-dashed border-muted-foreground/60" />}
+            nodes={loose}
+            glows={loose.some((n) => rowGlows(phase(n.chat), n.status))}
+            collapsed={looseCollapsed}
+          >
+            {!looseCollapsed && <div className="space-y-px">{loose.map(row)}</div>}
           </ProjectCard>
-        )
-      })}
-      {loose.length > 0 && (
-        <ProjectCard
-          id={NO_PROJECT}
-          label={t('No project')}
-          badge={<span aria-hidden className="block h-4 w-[18px] shrink-0 rounded-[4px] border border-dashed border-muted-foreground/60" />}
-          nodes={loose}
-          glows={loose.some((n) => rowGlows(phase(n.chat), n.status))}
-          collapsed={looseCollapsed}
-        >
-          {!looseCollapsed && <div className="space-y-px">{loose.map(row)}</div>}
-        </ProjectCard>
+        )}
+        {nodes.length === 0 && projects.length === 0 && empty}
+      </div>
+      {archivedSection && (
+        <div data-chat-list-bottom className="worktree-sidebar-scrollbar max-h-[40%] shrink-0 overflow-y-auto px-1 pb-2">
+          {section('archived', archivedSection.nodes)}
+        </div>
       )}
-      {/* The shelf keeps to the sidebar's foot however short the list is (docs/specs/threads-under-projects.md). */}
-      {archivedSection && <div data-chat-list-bottom className="mt-auto pt-3">{section('archived', archivedSection.nodes)}</div>}
-      {nodes.length === 0 && projects.length === 0 && empty}
     </div>
   )
 }
