@@ -89,3 +89,12 @@ test('a translated item is also found by its English keywords, with nothing mark
   expect(groups.flat().map((e) => e.id)).toEqual(['terminal'])
   expect(matches.get('terminal')).toEqual([])
 })
+
+test('New thread leads in all and Agent with no query, above pins and recent; with a query it is matched as any item', () => {
+  const withLead: PickEntry[] = [...entries, { id: 'new-thread', label: 'New thread', scope: 'agent', lead: true }]
+  const all = orderEntries(withLead, { query: '', scope: null, pins: ['browser'], recent: ['agent:codex'] })
+  expect(all.groups[0]!.map((e) => e.id)).toEqual(['new-thread', 'browser'])
+  expect(orderEntries(withLead, { query: '', scope: 'agent', pins: [], recent: [] }).groups.flat()[0]!.id).toBe('new-thread')
+  expect(orderEntries(withLead, { query: '', scope: 'terminal', pins: [], recent: [] }).groups.flat().some((e) => e.id === 'new-thread')).toBe(false)
+  expect(orderEntries(withLead, { query: 'thread', scope: null, pins: [], recent: [] }).groups.flat().map((e) => e.id)).toEqual(['new-thread', 'chat:claude'])
+})

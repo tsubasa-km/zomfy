@@ -21,6 +21,7 @@ import {
   useBrowserItems,
   useChatItems,
   useCommandItems,
+  useNewThreadItem,
   useNewTabPins,
   usePanelItems,
   useSshItems,
@@ -75,6 +76,7 @@ interface Row {
 /** Every item the pane's "+" offers, each with its scope. */
 function useAllItems(workspaceId: string | null): NewTabItem[] {
   const hostId = useStore((s) => allWorkspaces(s).find((w) => w.id === workspaceId)?.hostId ?? LOCAL_HOST)
+  const newThread = useNewThreadItem(workspaceId)
   const chats = useChatItems(workspaceId)
   const terminal = useTerminalItems(workspaceId)
   const { detected, items: tuiAgents } = useTuiAgentItems(workspaceId)
@@ -136,8 +138,8 @@ function useAllItems(workspaceId: string | null): NewTabItem[] {
           }
         ]
       : []
-    return [...terminal, ...commands, ...sshList, ...chats, ...tuiAgents, ...workflows, ...agentActions, ...browser, ...panels]
-  }, [workspaceId, hostId, chats, terminal, detected, tuiAgents, commands, workflows, ssh, browser, panels])
+    return [newThread, ...terminal, ...commands, ...sshList, ...chats, ...tuiAgents, ...workflows, ...agentActions, ...browser, ...panels]
+  }, [workspaceId, hostId, newThread, chats, terminal, detected, tuiAgents, commands, workflows, ssh, browser, panels])
 }
 
 /** With a query: matching open tabs (all only), files and the text as an address (Panel and all). */
@@ -352,7 +354,7 @@ function QuickPick({ layoutKey, workspaceId, onClose }: { layoutKey: string; wor
 
   const run = (row: Row | undefined) => {
     if (!row || row.item.disabled) return
-    if (row.remembered && row.item.id !== 'refresh-agents') recentItems.update((list) => pushRecent(list, row.item.id))
+    if (row.remembered && !row.item.lead && row.item.id !== 'refresh-agents') recentItems.update((list) => pushRecent(list, row.item.id))
     if (row.item.id === 'refresh-agents') {
       row.item.run()
       return

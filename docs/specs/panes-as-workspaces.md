@@ -108,9 +108,19 @@ narrows the list to its scope; pressing it again returns to all.
 
 Unavailable chat agents stay listed, disabled, with the reason under their name.
 
+## New thread first
+
+**`New thread`** (a pen-on-page icon, as the left sidebar's) is the first row of the quick pick in
+all and in the Agent scope, above pins and recent items, and is highlighted when the field is
+empty, so `+` then `Enter` starts a thread. It opens the New thread screen in this pane with the
+pane's context as where the thread starts, as `New {agent} Thread` does, keeping the agent last
+picked there. It is not listed in the Terminal and Panel scopes, which start no thread, and it
+cannot be pinned (the strip's own `+` is one press away). With a query it is matched like any
+other item (`new`, `thread`), first among equals.
+
 ## Order
 
-- With no query: pinned items in pin order, then recently used ones (the last five run from the
+- With no query: `New thread`, then pinned items in pin order, then recently used ones (the last five run from the
   quick pick, most recent first, `zomfy.new-tab-recent.v1` in local storage), then the rest in
   scope order (Terminal, Agent, Panel). Space separates the three groups; there are no headings.
 - With a query: the items whose name matches (every character in order, case-insensitive), or

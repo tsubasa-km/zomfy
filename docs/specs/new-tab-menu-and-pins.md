@@ -20,7 +20,7 @@ the strip's one-click buttons should be the ones the person uses.
 
 ## The "+" menu
 
-> Since [panes-as-workspaces](panes-as-workspaces.md) the menu is a quick pick with scopes, and "the workspace of the pane's tab" is the pane's context. Pins and the dialogs below are unchanged.
+> Since [panes-as-workspaces](panes-as-workspaces.md) the menu is a quick pick with scopes, and "the workspace of the pane's tab" is the pane's context. Pins and the dialogs below are unchanged. Its first row is `New thread` ([New thread first](panes-as-workspaces.md#new-thread-first)).
 
 The menu belongs to the workspace of the pane's tab, as before (its "home"). From the top:
 

@@ -62,6 +62,8 @@ export interface PickEntry {
   scope: PickScope
   /** Other words it is found by (its English name in a translated window), matched after the label. */
   keywords?: string
+  /** Listed first, above pinned and recent, while there is no query (New thread). */
+  lead?: boolean
 }
 
 /** The entry's match: on its label, else on its keywords (with nothing in the label to mark). */
@@ -81,8 +83,8 @@ export function pushRecent(recent: readonly string[], id: string): string[] {
 }
 
 /**
- * The entries to list, in order, in up to three groups (pinned, recent, the rest), each a list. With
- * no query: pinned in pin order, recent most recent first, the rest in scope order. With a query:
+ * The entries to list, in order, in up to three groups (lead and pinned, recent, the rest), each a
+ * list. With no query: the lead entries, pinned in pin order, recent most recent first, the rest in scope order. With a query:
  * one group of the matches, best first, pinned then recent among equals.
  */
 export function orderEntries<T extends PickEntry>(
@@ -98,20 +100,22 @@ export function orderEntries<T extends PickEntry>(
       const match = matchEntry(entry, options.query)
       if (!match) return []
       matches.set(entry.id, match.indices)
-      const boost = pinAt(entry) !== -1 ? 0 : recentAt(entry) !== -1 ? 1 : 2
+      const boost = entry.lead ? 0 : pinAt(entry) !== -1 ? 1 : recentAt(entry) !== -1 ? 2 : 3
       return [{ entry, key: [match.rank, boost, order] }]
     })
     scored.sort((a, b) => a.key[0]! - b.key[0]! || a.key[1]! - b.key[1]! || a.key[2]! - b.key[2]!)
     const list = scored.map((s) => s.entry)
     return { groups: list.length > 0 ? [list] : [], matches }
   }
-  const pinned = inScope.filter((e) => pinAt(e) !== -1).sort((a, b) => pinAt(a) - pinAt(b))
-  const recent = inScope.filter((e) => pinAt(e) === -1 && recentAt(e) !== -1).sort((a, b) => recentAt(a) - recentAt(b))
+  const lead = inScope.filter((e) => e.lead)
+  const others = inScope.filter((e) => !e.lead)
+  const pinned = others.filter((e) => pinAt(e) !== -1).sort((a, b) => pinAt(a) - pinAt(b))
+  const recent = others.filter((e) => pinAt(e) === -1 && recentAt(e) !== -1).sort((a, b) => recentAt(a) - recentAt(b))
   const scopeAt = (e: T) => PICK_SCOPES.indexOf(e.scope)
-  const rest = inScope
+  const rest = others
     .map((entry, order) => ({ entry, order }))
     .filter(({ entry }) => pinAt(entry) === -1 && recentAt(entry) === -1)
     .sort((a, b) => scopeAt(a.entry) - scopeAt(b.entry) || a.order - b.order)
     .map((x) => x.entry)
-  return { groups: [pinned, recent, rest].filter((g) => g.length > 0), matches }
+  return { groups: [[...lead, ...pinned], recent, rest].filter((g) => g.length > 0), matches }
 }

@@ -1,5 +1,5 @@
-import { useEffect } from 'react'
-import { Globe, Server, SquareTerminal, Workflow as WorkflowIcon } from 'lucide-react'
+import { useEffect, useMemo } from 'react'
+import { Globe, Server, SquarePen, SquareTerminal, Workflow as WorkflowIcon } from 'lucide-react'
 import { toast } from 'sonner'
 import { HARNESS_METHODS, tuiAgentSpec, type ChatAgentId, type Workflow } from '@zomfy/protocol'
 import { createSession, harnessRequest } from '@/daemon-connection'
@@ -16,7 +16,7 @@ import { openSshConnection, useSshConnections } from '@/lib/ssh-connections'
 import { togglePin, unpin } from '@/lib/new-tab-pins'
 import { getSetting, setSetting, useSetting } from '@/stores/settings-store'
 import { setStartProject } from '@/stores/sidebar-store'
-import { setNewThreadAgent } from '@/stores/new-thread-store'
+import { newThreadStart, setNewThreadAgent } from '@/stores/new-thread-store'
 import { createExternalStore } from '@/stores/external-store'
 import { projectLabel } from '@/components/sidebar/workspace-visibility'
 import { shortcutLabel } from './tab-shortcuts'
@@ -37,6 +37,8 @@ export interface NewTabItem {
   scope: PickScope
   /** English words the quick pick also finds it by, whatever the window's language. */
   keywords?: string
+  /** The quick pick lists it first while its field is empty (New thread). */
+  lead?: boolean
   /** Its name in the menu and the pinned button's tooltip. */
   label: string
   /** The pinned button's text; none shows the icon only. */
@@ -81,12 +83,12 @@ export function unpinNewTabItem(id: string): void {
  * person free to pick another place. A pop-out or floating workspace has no such screen, so the
  * chat starts there at once, as it always did.
  */
-export function startNewChat(workspaceId: string | null, agent: ChatAgentId): void {
+export function startNewChat(workspaceId: string | null, agent?: ChatAgentId): void {
   if (workspaceId && !inWindowTabs(workspaceId)) {
-    void createSession(workspaceId, agent).catch(failed(t('Could not start the thread')))
+    void createSession(workspaceId, agent ?? newThreadStart().agent).catch(failed(t('Could not start the thread')))
     return
   }
-  setNewThreadAgent(agent)
+  if (agent) setNewThreadAgent(agent)
   setStartProject(null)
   // The window has one New thread tab: it comes to the pane whose "+" asked for it (the focused one).
   const layout = layoutFor(WINDOW_TABS)
@@ -94,6 +96,20 @@ export function startNewChat(workspaceId: string | null, agent: ChatAgentId): vo
   const focused = layout.groups[layout.focusedGroupId]
   if (owner && focused && owner.id !== focused.id) moveTab(WINDOW_TABS, START_TAB, focused.id, focused.tabOrder.length)
   openStartTab(workspaceId)
+}
+
+/** The quick pick's first row: the New thread screen in the pane's place, with the agent last picked there. */
+export function useNewThreadItem(workspaceId: string | null): NewTabItem {
+  return useMemo(() => ({
+    pin: null,
+    id: 'new-thread',
+    scope: 'agent',
+    lead: true,
+    keywords: 'new thread chat',
+    label: t('New thread'),
+    icon: <SquarePen className="size-4" />,
+    run: () => startNewChat(workspaceId)
+  }), [workspaceId])
 }
 
 export function useChatItems(workspaceId: string | null): NewTabItem[] {
