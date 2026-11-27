@@ -1,10 +1,11 @@
-import { resolve } from 'node:path'
+import { stat } from 'node:fs/promises'
 import type * as acp from '@agentclientprotocol/sdk'
 import { chatAgentLabel, isChatAgentId, type ChatAgentId, type HarnessMethod, type HarnessRequests, type PastConversation } from '@zomfy/protocol'
 import { acpConversationUpdates, listAcpConversations } from './acp-agent-history.ts'
 import { importHandoff } from './agent-handoff.ts'
 import { conversationUpdates, findConversation, listConversations } from './claude-history.ts'
 import { codexConversationUpdates, findCodexConversation, listCodexConversations } from './codex-history.ts'
+import { folderBelow, folderUnder, owningWorkspace, sameFolder } from './folder-paths.ts'
 import type { HandlerContext } from './handlers/handler-context.ts'
 import { log } from './log.ts'
 import type { SessionRecord } from './session-registry.ts'
@@ -98,33 +99,68 @@ function shownBy(sessions: SessionRecord[], agent: ChatAgentId, conversationId: 
   )
 }
 
+/** Whether a folder is there to work in; each folder is looked at once per listing. */
+function folderCheck(): (path: string) => Promise<boolean> {
+  const seen = new Map<string, Promise<boolean>>()
+  return (path) => {
+    let found = seen.get(path)
+    if (!found) {
+      found = stat(path).then((s) => s.isDirectory(), () => false)
+      seen.set(path, found)
+    }
+    return found
+  }
+}
+
+/** Newest first, each conversation once. */
+function merged(...lists: AgentConversation[][]): AgentConversation[] {
+  const seen = new Set<string>()
+  return lists
+    .flat()
+    .sort((a, b) => b.lastModified - a.lastModified)
+    .filter((c) => !seen.has(c.conversationId) && !!seen.add(c.conversationId))
+}
+
 /** `_harness/sessions/history`. */
 export async function pastConversations(deps: Deps, p: Params<'_harness/sessions/history'>): Promise<PastConversation[]> {
   const agents = (p.agents ?? ['claude']).filter(isChatAgentId)
   const cwd = p.workspaceId ? deps.workspaceRoot(p.workspaceId) : null
   const workspaces = (await deps.workspaces.snapshot()).workspaces.filter((w) => w.id !== FLOATING_WORKSPACE_ID)
   const sessions = deps.sessions.all()
+  const isFolder = folderCheck()
   const lists = await Promise.all(
     agents.map(async (agent) => {
-      const listed = await sourceOf(agent)
-        .list(cwd)
-        .catch((error: unknown) => {
-          // One agent that cannot be read does not hide the others; asked for alone, it says why.
-          if (agents.length === 1) throw error
-          log(`listing ${agent}'s conversations failed: ${String(error)}`)
-          return []
-        })
-      return listed.map(
-        (c): PastConversation => ({
-          agent,
-          conversationId: c.conversationId,
-          claudeSessionId: c.conversationId,
-          title: c.title,
-          lastModified: c.lastModified,
-          gitBranch: c.gitBranch,
-          cwd: c.cwd,
-          workspaceId: p.workspaceId ?? (c.cwd ? (workspaces.find((w) => sameFolder(w.path, c.cwd ?? '')) ?? null)?.id : null) ?? null,
-          openSessionId: shownBy(sessions, agent, c.conversationId)?.id ?? null
+      const source = sourceOf(agent)
+      const read = async (): Promise<AgentConversation[]> => {
+        if (!cwd) return source.list(null)
+        // What the agent finds for the folder, and what it recorded below it (a subfolder).
+        const [own, everywhere] = await Promise.all([source.list(cwd), source.list(null)])
+        const below = everywhere.filter((c) => c.cwd && folderBelow(c.cwd, cwd) !== null)
+        return merged(own, below).slice(0, FOLDER_LIMIT)
+      }
+      const listed = await read().catch((error: unknown) => {
+        // One agent that cannot be read does not hide the others; asked for alone, it says why.
+        if (agents.length === 1) throw error
+        log(`listing ${agent}'s conversations failed: ${String(error)}`)
+        return []
+      })
+      return Promise.all(
+        listed.map(async (c): Promise<PastConversation> => {
+          // Each conversation names the workspace of its own folder, whichever folder it was found from.
+          const present = c.cwd ? await isFolder(c.cwd) : false
+          const owner = c.cwd && present ? owningWorkspace(c.cwd, workspaces) : null
+          return {
+            agent,
+            conversationId: c.conversationId,
+            claudeSessionId: c.conversationId,
+            title: c.title,
+            lastModified: c.lastModified,
+            gitBranch: c.gitBranch,
+            cwd: c.cwd,
+            workspaceId: owner?.id ?? null,
+            ...(c.cwd && !present ? { folderMissing: true } : {}),
+            openSessionId: shownBy(sessions, agent, c.conversationId)?.id ?? null
+          }
         })
       )
     })
@@ -152,24 +188,40 @@ async function importNow(deps: Deps, p: Params<'_harness/sessions/resume'>): Pro
   if (existing) return existing
   const label = chatAgentLabel(agent)
   const source = sourceOf(agent)
-  const asked = p.workspaceId ? { id: p.workspaceId, path: workspaceRoot(p.workspaceId) } : null
-  const conversation = await source.find(conversationId, asked?.path ?? null)
+  const named = p.workspaceId ? { id: p.workspaceId, path: workspaceRoot(p.workspaceId) } : null
+  const conversation = await source.find(conversationId, named?.path ?? null)
   if (!conversation) throw new Error(`${label} has no conversation ${conversationId} on this host`)
   const updates = await source.updates(conversation)
-  let target = asked
-  if (!target) {
-    if (!conversation.cwd) throw new Error(`${label} did not record this conversation's folder: choose the workspace to import it into`)
-    target = await workspaces.workspaceForFolder(conversation.cwd).catch((error: unknown) => {
-      // No folder to work in any more (a removed worktree); anything else is the project's own trouble.
-      if (!/^No folder at /.test(error instanceof Error ? error.message : '')) throw error
-      throw new Error(`This conversation's folder is gone (${conversation.cwd}): choose the workspace to import it into`)
-    })
+  const recorded = conversation.cwd
+  const present = recorded ? await folderCheck()(recorded) : false
+  const known = (await workspaces.snapshot()).workspaces.filter((w) => w.id !== FLOATING_WORKSPACE_ID)
+  let target: { id: string; path: string }
+  /** Where the thread runs: the recorded folder whenever it lies in the thread's workspace. */
+  let cwd: string
+  if (named) {
+    // Asked for: the thread goes there, and keeps its folder only when that is the workspace's own.
+    target = named
+    const below = recorded && present ? folderBelow(recorded, named.path) : null
+    const owner = recorded && below !== null ? owningWorkspace(recorded, known) : null
+    cwd = below !== null && (!owner || owner.id === named.id) ? folderUnder(named.path, below) : named.path
+  } else {
+    if (!recorded) throw new Error(`${label} did not record this conversation's folder: choose the workspace to import it into`)
+    const gone = (): Error => new Error(`This conversation's folder is gone (${recorded}): choose the workspace to import it into`)
+    if (!present) throw gone()
+    target =
+      owningWorkspace(recorded, known) ??
+      (await workspaces.workspaceForFolder(recorded).catch((error: unknown) => {
+        // No folder to work in any more (a removed worktree); anything else is the project's own trouble.
+        if (!/^No folder at /.test(error instanceof Error ? error.message : '')) throw error
+        throw gone()
+      }))
+    cwd = folderUnder(target.path, folderBelow(recorded, target.path) ?? '')
   }
-  const resumes = await source.resumesIn(conversation, target.path)
-  const elsewhere = conversation.cwd && !sameFolder(conversation.cwd, target.path) ? conversation.cwd : null
+  const resumes = await source.resumesIn(conversation, cwd)
+  const elsewhere = recorded && !sameFolder(recorded, cwd) ? recorded : null
   const record = sessions.create({
     workspaceId: target.id,
-    cwd: target.path,
+    cwd,
     title: conversation.title.slice(0, TITLE_CHARS),
     lastActivityAt: conversation.lastModified || Date.now(),
     importedFrom: { agent, conversationId },
@@ -181,7 +233,7 @@ async function importNow(deps: Deps, p: Params<'_harness/sessions/resume'>): Pro
           agentState: { phase: 'ready', error: null, options: [], commands: [] },
           ...(resumes ? { agentSessionIds: { [agent]: conversationId } } : {})
         }),
-    ...(resumes ? {} : { handoffContext: importHandoff(updates, { agent, cwd: target.path, origin: elsewhere }) })
+    ...(resumes ? {} : { handoffContext: importHandoff(updates, { agent, cwd, origin: elsewhere }) })
   })
   await sessions.replaceTranscript(record.id, [
     ...updates,
@@ -196,11 +248,4 @@ async function importNow(deps: Deps, p: Params<'_harness/sessions/resume'>): Pro
   return record
 }
 
-/** Whether two paths name one folder, however each agent wrote it down. */
-export function sameFolder(a: string, b: string): boolean {
-  const plain = (path: string): string => {
-    const resolved = resolve(path.replace(/^\\\\\?\\/, ''))
-    return process.platform === 'win32' ? resolved.toLowerCase() : resolved
-  }
-  return plain(a) === plain(b)
-}
+export { sameFolder }

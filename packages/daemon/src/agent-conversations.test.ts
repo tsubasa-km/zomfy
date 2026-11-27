@@ -183,15 +183,16 @@ afterAll(() => {
 })
 
 /** A daemon's sessions and workspaces, stood in for: nothing of the person's own state is read or written. */
-function host() {
-  const handlers = new Map<string, (params: unknown) => Promise<unknown>>()
-  const records: SessionRecord[] = []
-  const transcripts = new Map<string, acp.SessionUpdate[]>()
-  const workspaces = [
+function host(
+  workspaces: { id: string; path: string }[] = [
     { id: 'floating', path: root },
     { id: 'w-project', path: project },
     { id: 'w-other', path: other }
   ]
+) {
+  const handlers = new Map<string, (params: unknown) => Promise<unknown>>()
+  const records: SessionRecord[] = []
+  const transcripts = new Map<string, acp.SessionUpdate[]>()
   const ctx = {
     handle: (method: string, run: (params: unknown) => Promise<unknown>) => handlers.set(method, run),
     sessions: {
@@ -384,7 +385,8 @@ test('a conversation a thread already shows is marked, and importing it again re
   expect((await h.resume({ agent: 'codex', conversationId: CODEX.modern })).id).toBe(native.id)
   expect((await h.resume({ agent: 'codex', conversationId: CODEX.legacy })).id).toBe(handedOver.id)
   expect(h.records).toHaveLength(3)
-  const listed = await h.history({ agents: ['codex', 'claude'] })
+  const known = new Set<string>([CLAUDE_ID, ...Object.values(CODEX)])
+  const listed = (await h.history({ agents: ['codex', 'claude'] })).filter((c) => known.has(c.claudeSessionId))
   expect(listed.map((c) => [c.conversationId, c.openSessionId])).toEqual([
     [CLAUDE_ID, null],
     [CODEX.modern, native.id],
@@ -437,3 +439,119 @@ test('an agent that lists and replays its sessions over ACP imports through its 
   expect(await h.history({ agents: ['goose'] })).toEqual([])
   await expect(h.resume({ agent: 'gemini', conversationId: 'x' })).rejects.toThrow('Gemini has no conversation x')
 }, 30_000)
+
+// --- Folders a conversation can be recorded in, against one repository's workspaces: its own
+// folder, a subfolder, a sibling worktree whose name Claude files under the same key (`my.repo` and
+// `my-repo` both become `my-repo`), a folder since removed, and the same folder written differently.
+const repo = join(root, 'work2', 'my-repo')
+const sub = join(repo, 'packages', 'app')
+const sibling = join(root, 'work2', 'my.repo')
+const removed = join(repo, 'old')
+for (const dir of [sub, sibling]) mkdirSync(dir, { recursive: true })
+const WINDOWS = process.platform === 'win32'
+const FOLDER = {
+  exact: '33333333-3333-4333-8333-333333333301',
+  sub: '33333333-3333-4333-8333-333333333302',
+  sibling: '33333333-3333-4333-8333-333333333303',
+  removed: '33333333-3333-4333-8333-333333333304',
+  longPrefix: '33333333-3333-4333-8333-333333333305',
+  slashes: '33333333-3333-4333-8333-333333333306'
+}
+
+/** A Claude conversation recorded in `cwd`, filed where Claude files it. */
+function claudeConversation(id: string, cwd: string, prompt: string, at: Date): void {
+  const dir = join(root, 'claude', 'projects', cwd.replace(/[^a-zA-Z0-9]/g, '-'))
+  mkdirSync(dir, { recursive: true })
+  const base = { sessionId: id, cwd, isSidechain: false, userType: 'external', version: '2.0.0', gitBranch: 'main' }
+  const uuid = (n: number) => `${id.slice(0, 8)}-0000-4000-8000-00000000000${n}`
+  const lines = [
+    { ...base, type: 'user', uuid: uuid(1), parentUuid: null, message: { role: 'user', content: prompt } },
+    {
+      ...base,
+      type: 'assistant',
+      uuid: uuid(2),
+      parentUuid: uuid(1),
+      message: { role: 'assistant', model: 'claude-test', content: [{ type: 'text', text: `Done: ${prompt}` }] }
+    }
+  ]
+  const file = join(dir, `${id}.jsonl`)
+  writeFileSync(file, lines.map((l) => `${JSON.stringify(l)}\n`).join(''))
+  utimesSync(file, at, at)
+}
+claudeConversation(FOLDER.exact, repo, 'Work at the root', day(20))
+claudeConversation(FOLDER.sub, sub, 'Work in the app package', day(21))
+claudeConversation(FOLDER.sibling, sibling, 'Work in the sibling worktree', day(22))
+claudeConversation(FOLDER.removed, removed, 'Work in a folder since removed', day(23))
+if (WINDOWS) {
+  claudeConversation(FOLDER.longPrefix, `\\\\?\\${repo.toUpperCase()}`, 'Recorded with a long-path prefix', day(24))
+  claudeConversation(FOLDER.slashes, sub.toLowerCase().replaceAll('\\', '/'), 'Recorded with forward slashes', day(25))
+}
+
+const repoHost = () =>
+  host([
+    { id: 'floating', path: root },
+    { id: 'w-repo', path: repo },
+    { id: 'w-sibling', path: sibling }
+  ])
+const ours = (listed: PastConversation[]) => {
+  const ids = new Set<string>(Object.values(FOLDER))
+  return listed.filter((c) => ids.has(c.claudeSessionId)).map((c) => [c.title, c.workspaceId, c.folderMissing ?? false])
+}
+
+test('each listed conversation names the workspace of its own folder, whichever folder it was found from', async () => {
+  const h = repoHost()
+  const all = [
+    ...(WINDOWS
+      ? [
+          ['Recorded with forward slashes', 'w-repo', false],
+          ['Recorded with a long-path prefix', 'w-repo', false]
+        ]
+      : []),
+    ['Work in a folder since removed', null, true],
+    // Found from the repository's folder (its key is the same), recorded in the sibling worktree.
+    ['Work in the sibling worktree', 'w-sibling', false],
+    ['Work in the app package', 'w-repo', false],
+    ['Work at the root', 'w-repo', false]
+  ]
+  expect(ours(await h.history({}))).toEqual(all)
+  // One folder's: its own and those below it, not the sibling's, though Claude files both under one key.
+  expect(ours(await h.history({ workspaceId: 'w-repo' }))).toEqual(all.filter(([title]) => title !== 'Work in the sibling worktree'))
+  expect(ours(await h.history({ workspaceId: 'w-sibling' }))).toEqual([['Work in the sibling worktree', 'w-sibling', false]])
+})
+
+test('imported without a workspace named, a conversation runs in its own folder, a subfolder included', async () => {
+  const h = repoHost()
+  expect(await h.resume({ conversationId: FOLDER.sub })).toMatchObject({ workspaceId: 'w-repo', cwd: sub })
+  // Claude finds it in the folder it ran in, so the next message continues it.
+  expect(h.records[0]).toMatchObject({ claudeSessionId: FOLDER.sub })
+  expect(h.records[0]?.handoffContext ?? null).toBeNull()
+  expect(await h.resume({ conversationId: FOLDER.sibling })).toMatchObject({ workspaceId: 'w-sibling', cwd: sibling })
+  expect(h.records[1]).toMatchObject({ claudeSessionId: FOLDER.sibling })
+  expect(await h.resume({ conversationId: FOLDER.exact })).toMatchObject({ workspaceId: 'w-repo', cwd: repo })
+  // No project was added for the subfolder.
+  expect(h.workspaces.map((w) => w.id)).toEqual(['floating', 'w-repo', 'w-sibling'])
+  await expect(h.resume({ conversationId: FOLDER.removed })).rejects.toThrow(`This conversation's folder is gone (${removed})`)
+})
+
+test('imported into a workspace named, it keeps its folder only when that is the workspace’s own', async () => {
+  const h = repoHost()
+  // Its folder lies in the workspace: it keeps it.
+  expect(await h.resume({ conversationId: FOLDER.sub, workspaceId: 'w-repo' })).toMatchObject({ workspaceId: 'w-repo', cwd: sub })
+  expect(h.records[0]).toMatchObject({ claudeSessionId: FOLDER.sub })
+  // Another workspace's folder: it runs at the root of the one named and is handed over.
+  expect(await h.resume({ conversationId: FOLDER.sibling, workspaceId: 'w-repo' })).toMatchObject({ workspaceId: 'w-repo', cwd: repo })
+  expect(h.records[1]).toMatchObject({ claudeSessionId: null })
+  expect(h.records[1]?.handoffContext).toContain(`in ${sibling},`)
+  expect(shape(h.transcripts.get(h.records[1]!.id)).at(-1)).toContain(`Imported from Claude (${sibling}).`)
+  // A folder since removed: at the workspace's root, handed over.
+  expect(await h.resume({ conversationId: FOLDER.removed, workspaceId: 'w-repo' })).toMatchObject({ workspaceId: 'w-repo', cwd: repo })
+  expect(h.records[2]?.handoffContext).toContain('Work in a folder since removed')
+})
+
+test.if(WINDOWS)('a folder written with another case, slashes or a long-path prefix is the same folder', async () => {
+  const h = repoHost()
+  // Under the workspace's own spelling of its folder.
+  expect(await h.resume({ conversationId: FOLDER.slashes })).toMatchObject({ workspaceId: 'w-repo', cwd: sub })
+  expect(await h.resume({ conversationId: FOLDER.longPrefix })).toMatchObject({ workspaceId: 'w-repo', cwd: repo })
+  expect(h.workspaces).toHaveLength(3)
+})
