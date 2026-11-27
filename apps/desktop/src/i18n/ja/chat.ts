@@ -506,10 +506,9 @@ export const CHAT: Record<string, string> = {
   'Unsaved changes': '未保存の変更',
   'Close {title}': '{title} を閉じる',
 
-  // components/tab-layout/TabOmnibox.tsx
+  // components/tab-layout/NewTabMenu.tsx (the quick pick's field)
   'Search open tabs, files, URLs, agents…': '開いているタブ、ファイル、URL、エージェントを検索…',
   'Switch to tab': 'タブに切り替え',
-  'Launch agent': 'エージェントを起動',
   'Open file': 'ファイルを開く',
   'Open URL': 'URL を開く',
   'Search Google': 'Google で検索',

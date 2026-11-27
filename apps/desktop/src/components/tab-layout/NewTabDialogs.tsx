@@ -8,7 +8,7 @@ import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { allProjects, allWorkspaces, useStore, type HostId } from '@/session-store'
 import { createExternalStore } from '@/stores/external-store'
-import { tabScope } from '@/stores/tab-layout-store'
+import { tabScope, WINDOW_TABS } from '@/stores/tab-layout-store'
 import { openWorkflows } from '@/stores/workflows-store'
 import { upsertWorkflowRun } from '@/stores/workflow-runs-store'
 import { sortedHosts } from '@/components/settings/HostsPane'
@@ -36,9 +36,12 @@ type Request =
 
 const requests = createExternalStore<Request | null>(null)
 
-/** The New terminal dialog, starting from `workspaceId`'s host and folder. */
-export function requestNewTerminal(workspaceId: string): void {
-  requests.set({ kind: 'terminal', workspaceId })
+/**
+ * The New terminal dialog, starting from `workspaceId`'s host and folder; with none (a pane in no
+ * project), from the first connected host's first project, shown by the window's tabs.
+ */
+export function requestNewTerminal(workspaceId: string | null): void {
+  requests.set({ kind: 'terminal', workspaceId: workspaceId ?? WINDOW_TABS })
 }
 
 export function requestWorkflowRun(run: WorkflowRunRequest & { workspaceId: string }): void {

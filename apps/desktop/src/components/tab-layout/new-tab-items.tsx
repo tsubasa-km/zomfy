@@ -3,7 +3,9 @@ import { Globe, Server, SquareTerminal, Workflow as WorkflowIcon } from 'lucide-
 import { toast } from 'sonner'
 import { HARNESS_METHODS, tuiAgentSpec, type ChatAgentId, type Workflow } from '@zomfy/protocol'
 import { createSession, harnessRequest } from '@/daemon-connection'
-import { LOCAL_HOST, allProjects, allWorkspaces, inWindowTabs, openStartTab, useStore, type HostId } from '@/session-store'
+import { LOCAL_HOST, START_TAB, allProjects, allWorkspaces, inWindowTabs, openStartTab, useStore, type HostId } from '@/session-store'
+import { groupOfTab, layoutFor, moveTab, WINDOW_TABS } from '@/stores/tab-layout-store'
+import type { PickScope } from '@/lib/new-tab-pick'
 import { TuiAgentIcon } from '@/components/terminal/TuiAgentIcon'
 import { QuickCommandIcon } from '@/components/terminal/QuickCommandsButton'
 import { useChatAgents } from '@/lib/chat-agents'
@@ -29,6 +31,10 @@ import { t } from '@/i18n/i18n'
 export interface NewTabItem {
   /** The id it is pinned by; null when it cannot be pinned. */
   pin: string | null
+  /** Its id in the quick pick's recent list: the pin id, or a name of its own. */
+  id: string
+  /** The quick pick's scope it is listed under (docs/specs/panes-as-workspaces.md). */
+  scope: PickScope
   /** Its name in the menu and the pinned button's tooltip. */
   label: string
   /** The pinned button's text; none shows the icon only. */
@@ -41,7 +47,10 @@ export interface NewTabItem {
   shortcut?: string
 }
 
-function useWorkspaceHost(workspaceId: string): HostId {
+// Each takes the pane's workspace, or null for a pane in no project: then only what needs no
+// workspace is offered (a new chat, a new terminal whose dialog picks the folder).
+
+function useWorkspaceHost(workspaceId: string | null): HostId {
   return useStore((s) => allWorkspaces(s).find((w) => w.id === workspaceId)?.hostId ?? LOCAL_HOST)
 }
 
@@ -70,22 +79,29 @@ export function unpinNewTabItem(id: string): void {
  * person free to pick another place. A pop-out or floating workspace has no such screen, so the
  * chat starts there at once, as it always did.
  */
-export function startNewChat(workspaceId: string, agent: ChatAgentId): void {
-  if (!inWindowTabs(workspaceId)) {
+export function startNewChat(workspaceId: string | null, agent: ChatAgentId): void {
+  if (workspaceId && !inWindowTabs(workspaceId)) {
     void createSession(workspaceId, agent).catch(failed(t('Could not start the thread')))
     return
   }
   setNewThreadAgent(agent)
   setStartProject(null)
+  // The window has one New thread tab: it comes to the pane whose "+" asked for it (the focused one).
+  const layout = layoutFor(WINDOW_TABS)
+  const owner = groupOfTab(layout, START_TAB)
+  const focused = layout.groups[layout.focusedGroupId]
+  if (owner && focused && owner.id !== focused.id) moveTab(WINDOW_TABS, START_TAB, focused.id, focused.tabOrder.length)
   openStartTab(workspaceId)
 }
 
-export function useChatItems(workspaceId: string): NewTabItem[] {
+export function useChatItems(workspaceId: string | null): NewTabItem[] {
   const { agents } = useChatAgents(useWorkspaceHost(workspaceId))
   const others = agents.filter((a) => a.id !== 'claude' && a.status !== 'missing')
   return [
     {
       pin: 'chat:claude',
+      id: 'chat:claude',
+      scope: 'agent',
       label: t('New Claude Thread'),
       short: t('{agent} chat', { agent: 'Claude' }),
       icon: <TuiAgentIcon agent="claude" size={14} />,
@@ -93,6 +109,8 @@ export function useChatItems(workspaceId: string): NewTabItem[] {
     },
     ...others.map((agent) => ({
       pin: `chat:${agent.id}`,
+      id: `chat:${agent.id}`,
+      scope: 'agent' as const,
       label: t('New {agent} Thread', { agent: agent.label }),
       short: t('{agent} chat', { agent: agent.label }),
       icon: <TuiAgentIcon agent={agent.id} size={14} />,
@@ -105,10 +123,12 @@ export function useChatItems(workspaceId: string): NewTabItem[] {
 
 // ── Terminal, agents, commands ───────────────────────────────────────────
 
-export function useTerminalItems(workspaceId: string): NewTabItem[] {
+export function useTerminalItems(workspaceId: string | null): NewTabItem[] {
   return [
     {
       pin: 'terminal',
+      id: 'terminal',
+      scope: 'terminal',
       label: t('New Terminal…'),
       icon: <SquareTerminal className="size-4" />,
       run: () => requestNewTerminal(workspaceId)
@@ -116,28 +136,33 @@ export function useTerminalItems(workspaceId: string): NewTabItem[] {
   ]
 }
 
-export function useTuiAgentItems(workspaceId: string) {
+export function useTuiAgentItems(workspaceId: string | null) {
   const detected = useDetectedAgents(useWorkspaceHost(workspaceId))
-  const agents = detected.kind === 'ready' ? detected.agents : []
+  const agents = detected.kind === 'ready' && workspaceId ? detected.agents : []
   const items: NewTabItem[] = agents.map((agent) => {
     const label = tuiAgentSpec(agent)?.label ?? agent
     return {
       pin: `agent:${agent}`,
+      id: `agent:${agent}`,
+      scope: 'agent',
       label,
       short: label,
       icon: <TuiAgentIcon agent={agent} size={14} />,
-      run: () => void launchAgentTerminal(workspaceId, agent).catch(failed(t("Couldn't open a terminal")))
+      run: () => void launchAgentTerminal(workspaceId!, agent).catch(failed(t("Couldn't open a terminal")))
     }
   })
   return { detected, items }
 }
 
-export function useCommandItems(workspaceId: string): NewTabItem[] {
+export function useCommandItems(workspaceId: string | null): NewTabItem[] {
   const hostId = useWorkspaceHost(workspaceId)
   const projectId = useStore((s) => allWorkspaces(s).find((w) => w.id === workspaceId)?.projectId ?? null)
   const { project, global } = commandsForProject(useQuickCommands(hostId), projectId)
+  if (!workspaceId) return []
   return [...project, ...global].map((command) => ({
     pin: `command:${command.id}`,
+    id: `command:${command.id}`,
+    scope: 'terminal' as const,
     label: command.label,
     short: command.label,
     icon: <QuickCommandIcon command={command} />,
@@ -161,7 +186,7 @@ function loadWorkflows(hostId: HostId, projectId: string): void {
     .finally(() => loading.delete(key))
 }
 
-export function useWorkflowItems(workspaceId: string, refresh = false): NewTabItem[] {
+export function useWorkflowItems(workspaceId: string | null, refresh = false): NewTabItem[] {
   const workspace = useStore((s) => allWorkspaces(s).find((w) => w.id === workspaceId) ?? null)
   const hostId = workspace?.hostId ?? LOCAL_HOST
   const projectId = workspace?.projectId ?? null
@@ -171,10 +196,12 @@ export function useWorkflowItems(workspaceId: string, refresh = false): NewTabIt
   useEffect(() => {
     if (projectId && (refresh || !workflowLists.get()[key])) loadWorkflows(hostId, projectId)
   }, [hostId, projectId, key, refresh])
-  if (!projectId || !list) return []
+  if (!workspaceId || !projectId || !list) return []
   const projectName = project ? projectLabel(project) : ''
   return list.map((workflow) => ({
     pin: `workflow:${workflow.id}`,
+    id: `workflow:${workflow.id}`,
+    scope: 'agent' as const,
     label: t('Run {name}…', { name: workflow.name }),
     short: workflow.name,
     icon: <WorkflowIcon className="size-4" />,
@@ -184,12 +211,15 @@ export function useWorkflowItems(workspaceId: string, refresh = false): NewTabIt
 
 // ── SSH, browser, panels ─────────────────────────────────────────────────
 
-export function useSshItems(workspaceId: string): NewTabItem[] {
+export function useSshItems(workspaceId: string | null): NewTabItem[] {
   const connections = useSshConnections(useWorkspaceHost(workspaceId)) ?? []
+  if (!workspaceId) return []
   return [...connections]
     .sort((a, b) => a.name.localeCompare(b.name))
     .map((connection) => ({
       pin: `ssh:${connection.id}`,
+      id: `ssh:${connection.id}`,
+      scope: 'terminal' as const,
       label: connection.name,
       short: connection.name,
       icon: <Server className="size-4" />,
@@ -197,10 +227,13 @@ export function useSshItems(workspaceId: string): NewTabItem[] {
     }))
 }
 
-export function useBrowserItems(workspaceId: string): NewTabItem[] {
+export function useBrowserItems(workspaceId: string | null): NewTabItem[] {
+  if (!workspaceId) return []
   return [
     {
       pin: 'browser',
+      id: 'browser',
+      scope: 'panel',
       label: t('New Browser Tab'),
       icon: <Globe className="size-4" />,
       run: () => openBrowserTab(workspaceId),
@@ -209,9 +242,13 @@ export function useBrowserItems(workspaceId: string): NewTabItem[] {
   ]
 }
 
-export function usePanelItems(workspaceId: string): NewTabItem[] {
-  return useWorkspacePanels().map(({ id, label, icon: Icon }) => ({
+export function usePanelItems(workspaceId: string | null): NewTabItem[] {
+  const panels = useWorkspacePanels()
+  if (!workspaceId) return []
+  return panels.map(({ id, label, icon: Icon }) => ({
     pin: id,
+    id,
+    scope: 'panel' as const,
     label,
     icon: <Icon className="size-4" />,
     run: () => openPanelTab(workspaceId, id)
