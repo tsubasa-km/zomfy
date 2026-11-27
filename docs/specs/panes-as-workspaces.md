@@ -3,7 +3,7 @@ type: Spec
 title: A split pane shows one workspace's tabs at a time, and its "+" is a quick pick
 description: Each split pane of the window's tabs works in the workspace of the tab it has in front and shows only that workspace's tabs (and tabs of no workspace), keeping every other workspace's tabs to bring back; its "+", pins and right sidebar act on it, and the "+" opens a filterable quick pick shaped as a tree of Terminal, Agent and Panel.
 status: stable
-x-zomfy-implementation: done
+x-zomfy-implementation: in-progress
 tags: [desktop, tabs, panes, sidebar]
 generated: { by: "claude-code/opus-5.5", at: "2026-11-27T12:00:00Z" }
 ---
@@ -103,19 +103,27 @@ The `+` opens a quick pick: one search field at the top and, below it, a **tree*
 can open. This replaces the flat list with Terminal, Agent and Panel scope chips of the first
 version: the tree's top level is those three, so there is nothing to narrow by.
 
-## The tree
+## The tree, as cascading menus
 
-With an empty field, from the top:
+With an empty field the list holds the top level only, as a desktop menu does:
 
 1. **`New thread`** (a pen-on-page icon, as the left sidebar's), highlighted, so `+` then `Enter`
    starts a thread. It opens the New thread screen in this pane with the pane's context as where
    the thread starts, keeping the agent last picked there. It cannot be pinned.
-2. The **pinned** items, in pin order, as leaves at the top level.
-3. Three branches, folded by default:
+2. The **pinned** items, in pin order.
+3. **Terminal**, **Agent** and **Panel**, each a row with a chevron at its end.
+
+Hovering a branch row (or `→` on it) opens its children in a **submenu to its side**, to the right,
+or to the left when there is no room on the right. A branch inside a submenu (a host, an agent)
+opens the next one beside it the same way. Moving the pointer diagonally from a branch row into its
+submenu, across other rows, does not close it: the submenu stays while the pointer heads for it
+(a short grace before another row's hover takes over). Hovering a leaf of the same menu closes
+deeper submenus after that grace. `←` or `Escape` closes the deepest open submenu; `Escape` with
+none open closes the quick pick. A click or `Enter` on a leaf runs it.
 
 | Branch | Inside |
 | --- | --- |
-| **Terminal** | One branch per connected host (none when there is only one host: its shells sit right under Terminal), holding that host's shells, its **default shell first** (the host's `defaultShellId`, else the first detected); then the quick commands (project's, then global), each saved SSH login, `SSH connections…`, and last `Other folder…` (the New terminal dialog, to pick another host, folder or shell). |
+| **Terminal** | One branch per connected host (none when there is only one host: its shells sit right under Terminal), holding that host's shells, its **default shell first** (the host's `defaultShellId`, else the first detected); then the quick commands (project's, then global), each saved SSH login, `SSH connections…`, and last `Other folder…` (the New terminal dialog, to pick another host, folder or shell). A WSL distro is a host of its own. |
 | **Agent** | One branch per agent the host has (Claude, Codex, OpenCode, GitHub Copilot…), its icon and name; inside, what that agent can start: `New thread` (a chat with it), `In a terminal` (its CLI, when found on the host), `With a prompt…` (the launch dialog, the agent picked). After the agents: the project's workflows (`Run {name}…`) and `Refresh Agents`. |
 | **Panel** | `New Browser Tab`, then the workspace panels as tabs |
 
@@ -123,8 +131,12 @@ A shell opens a terminal tab on its host in the pane's workspace folder when the
 is on that host, else in that host's default folder (its first project's main checkout, as the
 dialog picks), at once, with no dialog.
 
-A branch row shows a chevron, its icon and its name; an agent branch its agent's icon. Which
-branches are open is remembered (local storage) for the next `+`.
+**Each row has its own icon**, so rows are told apart before they are read: each shell its own
+mark (PowerShell 7 and Windows PowerShell as the PowerShell chevron in their two blues, Command
+Prompt a black `C:\`, Git Bash Git's orange diamond, a login shell `$`), a host its machine (a
+monitor for this computer, a penguin mark for a WSL or Linux host, a server for others), SSH logins
+a server, each agent and its entries the agent's own icon as elsewhere in the app. The marks are
+small inline drawings, not a new dependency.
 
 An entry that cannot run now (a chat agent whose CLI has no ACP mode, an agent not installed) stays
 in its place, greyed and inert; why is its tooltip, never a sentence on the row. An agent with
@@ -146,10 +158,10 @@ Google`).
 ## Keyboard
 
 - The field has focus when the quick pick opens; typing filters.
-- `↑` / `↓` move the highlight over the visible rows (wrapping); `Enter` runs a leaf, or opens or
-  folds a branch; `Escape` closes.
-- `→` opens the highlighted branch, or on an open one moves to its first child; `←` folds an open
-  branch, or on a child moves to its branch.
+- `↑` / `↓` move the highlight within the menu or submenu the keyboard is in (wrapping); `Enter`
+  runs a leaf, or opens a branch's submenu and moves into it.
+- `→` opens the highlighted branch's submenu and moves into it; `←` closes the submenu the keyboard
+  is in and returns to its branch row; `Escape` does the same, or closes the quick pick at the top.
 - The highlighted leaf shows its pin button; `Alt+P` pins or unpins it.
 
 ## Pins
@@ -158,9 +170,10 @@ Unchanged from [new-tab-menu-and-pins](new-tab-menu-and-pins.md): every leaf tha
 there shows the pin button on hover or highlight, a pinned one a filled pin; pins show as buttons
 beside `+`, and at the tree's top under `New thread`.
 
-The pinned **Terminal** button opens the Terminal branch as a small menu under it (the same tree,
-`Terminal` itself left out), its first row the default shell on the pane's host, highlighted, so a
-click then `Enter` opens it. `` Ctrl+Shift+` `` still opens the default terminal at once, with no
+The pinned **Terminal** button opens the Terminal branch as a small menu under it (the same
+cascading menus, `Terminal` itself left out), its first row the default shell on the pane's host,
+highlighted, so a click then `Enter` opens it. Its field filters shells (placeholder `Filter
+shells…`); it does not offer tabs, files or addresses. `` Ctrl+Shift+` `` still opens the default terminal at once, with no
 menu. With a query in the `+` quick pick, a shell lists with its path (`Terminal › WSL › Ubuntu` on
 a host branch, `Terminal › PowerShell` on one host).
 
@@ -186,8 +199,10 @@ a host branch, `Terminal › PowerShell` on one host).
   billing-api's tabs (and tabs of no workspace) in that pane; opening a storefront thread again
   shows storefront's tabs as they were. Two storefront threads sit side by side as tabs.
 - Dragging a billing-api tab into a pane showing storefront switches that pane to billing-api.
-- The quick pick is a tree: `New thread` and the pins first, then Terminal, Agent (one branch per
-  agent) and Panel; `→`/`←` open and fold, `↑`/`↓`/`Enter` move and run; typing lists the matching
-  leaves with their path; a disabled entry has no sentence under it.
+- The quick pick is a cascading menu: `New thread` and the pins first, then Terminal, Agent and
+  Panel, whose submenus open to the side on hover or `→` and stay open while the pointer moves
+  diagonally into them; `←`/`Escape` close them; typing lists the matching leaves with their path
+  in the main list; each shell, host and agent has its own icon; a disabled entry has no sentence
+  under it.
 - `bun run typecheck` and the tests pass; the context resolution, the scope cycling and the
   matching have unit tests.

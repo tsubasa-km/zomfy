@@ -3,7 +3,7 @@ type: Spec
 title: The thread list is a stack of project cards
 description: The left sidebar is a stack of cards, one per project in its own order and one for threads of no project, each holding its threads (pinned first, then most recent activity); rows keep their turn-taking marks, a thread that needs the person glows under the same rule as its composer, and a folded card glows when one of its threads does.
 status: stable
-x-zomfy-implementation: done
+x-zomfy-implementation: in-progress
 tags: [desktop, sidebar, chat]
 generated: { by: "claude-code/opus-5.5", at: "2026-11-27T15:00:00Z" }
 ---
@@ -29,10 +29,19 @@ From top to bottom:
    project stays where the person last saw it.
 2. A **No project** card for quick threads and other threads of no project, after the projects,
    shown only when it has threads.
-3. **Archived**, its own shelf (not a card), held to the **foot of the sidebar** however short
-   the list above is, as the list's bottom groups were; with a long list it follows the last card.
+3. **Archived**, its own shelf (not a card), **fixed at the foot of the sidebar**, outside the
+   scrolling list: only the cards scroll, and the shelf stays in place however long or short the
+   list above is. Unfolded, the shelf scrolls on its own within at most 40% of the sidebar.
 
 ## A card
+
+### Open in a pane
+
+A card whose project has a workspace showing in a pane of the window (its set is the pane's, see
+[panes-as-workspaces](panes-as-workspaces.md)) carries a bar along its left edge in the highlight
+colour: solid for the focused pane's project, faint for a project another pane shows. Cards of
+projects no pane shows have none. No words; the bar's tooltip is not needed, the panes show the
+project's tabs.
 
 - A contained region: a subtle surface (`--card`), a 1px border, rounded corners; cards stacked
   with a small gap, compact padding.
