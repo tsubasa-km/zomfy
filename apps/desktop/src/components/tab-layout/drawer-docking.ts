@@ -8,6 +8,13 @@ export interface DrawerDock {
 }
 
 const SNAP_DISTANCE = 28
+
+/** The least height (top, bottom) or width (left, right) of an open drawer, in pixels, unless the pane is smaller. */
+const MIN_DEPTH = { across: 192, along: 280 }
+
+export function drawerMinDepth(edge: DrawerEdge): number {
+  return isDrawerSide(edge) ? MIN_DEPTH.along : MIN_DEPTH.across
+}
 const DETACH_DISTANCE = 40
 
 export function isDrawerSide(edge: DrawerEdge): boolean {
@@ -23,8 +30,7 @@ export function drawerAlongEdge(edge: DrawerEdge, point: DrawerPoint): number {
 export function drawerResizeDepth(edge: DrawerEdge, depth: number, start: DrawerPoint, end: DrawerPoint, limit: number): number {
   const delta = isDrawerSide(edge) ? end.clientX - start.clientX : end.clientY - start.clientY
   const direction = edge === 'right' || edge === 'bottom' ? -1 : 1
-  const minimum = isDrawerSide(edge) ? 280 : 192
-  return Math.min(limit, Math.max(minimum, Math.round(depth + delta * direction)))
+  return Math.min(limit, Math.max(drawerMinDepth(edge), Math.round(depth + delta * direction)))
 }
 
 export function drawerDragTarget(

@@ -85,13 +85,13 @@
 .tool-drawer__shell[data-edge='top'],
 .tool-drawer__shell[data-edge='bottom'] {
   inset-inline: 6px;
-  height: clamp(min(100%, 192px), var(--drawer-live-depth, var(--drawer-depth, 60%)), 100%);
+  height: clamp(min(100%, var(--drawer-min-depth)), var(--drawer-live-depth, var(--drawer-depth, 60%)), 100%);
 }
 
 .tool-drawer__shell[data-edge='left'],
 .tool-drawer__shell[data-edge='right'] {
   inset-block: 6px;
-  width: clamp(min(100%, 280px), var(--drawer-live-depth, var(--drawer-depth, 40%)), 100%);
+  width: clamp(min(100%, var(--drawer-min-depth)), var(--drawer-live-depth, var(--drawer-depth, 40%)), 100%);
 }
 
 .tool-drawer__shell[data-edge='top'] {

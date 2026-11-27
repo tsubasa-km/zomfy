@@ -17,7 +17,7 @@ import { WorkspacePanelView, useWorkspacePanels } from './workspace-panels'
 import { SurfaceList, type Surface } from './SurfaceList'
 import { allWorkspaces, useStore } from '@/session-store'
 import { setDrawerDepth, setDrawerDock, useDrawerDepth, useDrawerDock } from '@/stores/drawer-dock-store'
-import { drawerAlongEdge, drawerDragTarget, drawerResizeDepth, isDrawerSide, type DrawerDock, type DrawerEdge, type DrawerPoint } from './drawer-docking'
+import { drawerAlongEdge, drawerDragTarget, drawerMinDepth, drawerResizeDepth, isDrawerSide, type DrawerDock, type DrawerEdge, type DrawerPoint } from './drawer-docking'
 import './tool-drawer.css'
 import { useTabLayout } from '@/stores/tab-layout-store'
 import { getSetting, useSetting } from '@/stores/settings-store'
@@ -301,7 +301,7 @@ export function ToolDrawer({
     // Only a new request acts; what the drawer shows when it arrives is read, not watched.
   }, [request, focused, workspaceId])
 
-  const positionStyle = { '--drawer-position': `${dock.position * 100}%` } as React.CSSProperties
+  const positionStyle = { '--drawer-position': `${dock.position * 100}%`, '--drawer-min-depth': `${drawerMinDepth(dock.edge)}px` } as React.CSSProperties
   const countTitle = `${terminals === 1 ? t('{n} terminal', { n: terminals }) : t('{n} terminals', { n: terminals })} · ${browsers === 1 ? t('{n} browser', { n: browsers }) : t('{n} browsers', { n: browsers })}`
   const dragHint = openOnClick ? ` · ${t('Drag to move the drawer')}` : ''
   const handleCursor = openOnClick ? 'cursor-grab' : 'cursor-pointer'

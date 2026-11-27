@@ -1,4 +1,4 @@
-import { DRAWER_EDGES, type DrawerDock, type DrawerEdge } from '@/components/tab-layout/drawer-docking'
+import { DRAWER_EDGES, drawerMinDepth, type DrawerDock, type DrawerEdge } from '@/components/tab-layout/drawer-docking'
 import { createExternalStore } from './external-store'
 
 const STORAGE_KEY = 'zomfy.drawer-dock.v1'
@@ -28,7 +28,7 @@ function readPreferences(): DrawerPreferences {
   }
   const oldHeight = readSaved(LEGACY_HEIGHT_KEY)
   if (saved === null && typeof oldHeight === 'number' && Number.isFinite(oldHeight)) {
-    depths.top = Math.max(192, oldHeight)
+    depths.top = Math.max(drawerMinDepth('top'), oldHeight)
   }
   return {
     dock: {
