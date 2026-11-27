@@ -56,7 +56,9 @@ error lines
 - **Orca**: the existing list (checkbox per project, host it lands on, Already added), Import n.
 - **An agent**: the existing thread list narrowed to that agent: search, the "this workspace / All
   folders" scope when opened from a workspace, Import n, Open for one already imported, "Import
-  into <workspace>" after a failure.
+  into <workspace>" after a failure and on a row recorded in another folder. Each thread is imported
+  into the workspace that owns its recorded folder and runs in that folder
+  ([import-keeps-its-folder.md](import-keeps-its-folder.md)).
 - Changing host starts the probes again; changing source clears what was ticked.
 
 # Where it opens
