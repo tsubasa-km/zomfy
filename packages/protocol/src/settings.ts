@@ -11,6 +11,8 @@ export interface HostSettings {
   claudeExecutablePath: string | null
   /** Automatic worktree cleanup; absent is DEFAULT_WORKTREE_CLEANUP_POLICY. Newer daemons only. */
   worktreeCleanup?: WorktreeCleanupPolicy
+  /** Whether the first user message can receive a model-generated thread title. Absent is off. */
+  summarizeThreadTitles?: boolean
 }
 
 export const DEFAULT_HOST_SETTINGS: HostSettings = {
