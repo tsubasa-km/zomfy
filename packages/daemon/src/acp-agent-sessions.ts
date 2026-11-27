@@ -1,9 +1,22 @@
 import type * as acp from '@agentclientprotocol/sdk'
+import { isUntitledChat } from '@zomfy/protocol'
 import { AcpAgentSession, emptyAgentState } from './acp-agent-session.ts'
 import type { SessionRecord, SessionRegistry } from './session-registry.ts'
 import { managerMcp } from './manager-mcp-server.ts'
 import { mcpServersReady } from './mcp-ready.ts'
 import { restartHandoff } from './agent-handoff.ts'
+
+/**
+ * A title the agent gave its conversation names the thread while the thread still has the name
+ * Zomfy gave it (New thread, or its first prompt); a name the person gave stays.
+ */
+export function adoptAgentTitle(sessions: SessionRegistry, sessionId: string, raw: string): void {
+  const session = sessions.get(sessionId)
+  const title = raw.replace(/\s+/g, ' ').trim().slice(0, 100)
+  if (!session || !title || title === session.title) return
+  if (!isUntitledChat(session.title) && session.title !== session.autoTitle) return
+  sessions.update(sessionId, { title, autoTitle: title })
+}
 
 /** The external agent processes running for this daemon, one per session. */
 export class AcpAgentSessions {
@@ -15,7 +28,9 @@ export class AcpAgentSessions {
     private readonly sessions: SessionRegistry,
     private readonly emit: (sessionId: string, update: acp.SessionUpdate) => Promise<void>,
     /** Variables the session's project adds when its agent starts (its GitHub/GitLab account). */
-    private readonly envFor: (record: SessionRecord) => Promise<Record<string, string>> = async () => ({})
+    private readonly envFor: (record: SessionRecord) => Promise<Record<string, string>> = async () => ({}),
+    /** Zomfy's instructions for the chat, as Claude's system prompt has them (codex-and-acp-parity.md). */
+    private readonly instructionsFor: (record: SessionRecord) => string | null = () => null
   ) {
     // However a session goes (closed, its workspace removed), its server goes with it.
     sessions.onChange((list) => {
@@ -75,7 +90,23 @@ export class AcpAgentSessions {
       },
       mcpServers: (capabilities) => [...managerMcp.acpServers(record.id, capabilities), ...(this.stepServers.get(record.id) ?? [])],
       ready: () => mcpServersReady(this.stepServers.get(record.id) ?? []),
-      env: () => this.envFor(record)
+      env: () => this.envFor(record),
+      permissionMode: () => {
+        const mode = this.sessions.get(record.id)?.options.permissionMode ?? 'default'
+        // A bot's chat is held to what it was given: a scheduled run read-only, or not at all.
+        return { mode, strict: mode === 'plan' && this.sessions.get(record.id)?.origin === 'bot' }
+      },
+      onPermissionMode: (permissionMode) => {
+        const now = this.sessions.get(record.id)
+        if (current() && now) this.sessions.update(record.id, { options: { ...now.options, permissionMode } })
+      },
+      instructions: () => {
+        const now = this.sessions.get(record.id)
+        return now ? this.instructionsFor(now) : null
+      },
+      onTitle: (title) => {
+        if (current()) adoptAgentTitle(this.sessions, record.id, title)
+      }
     }, agentId === 'codex' ? record.codexThreadConnection ?? null : null)
     this.live.set(record.id, agent)
     return agent

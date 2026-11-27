@@ -15,6 +15,8 @@ interface Deps {
   sessions: SessionRegistry;
   pendingTurns: Map<string, AbortController>;
   emit(sessionId: string, update: acp.SessionUpdate): Promise<void>;
+  /** Stops a Codex or ACP chat's agent process, so its next turn starts it in the chat's new folder. */
+  releaseAgent?(sessionId: string): void;
 }
 
 export class SessionMover {
@@ -29,7 +31,6 @@ export class SessionMover {
     const { sessions, workspaces, pendingTurns } = this.deps;
     const session = sessions.get(params.sessionId);
     if (!session) throw new Error(`Unknown session ${params.sessionId}`);
-    if (session.agent && session.agent !== "claude") throw new Error("Only Claude chats can move to another workspace");
     const target = params.workspaceId
       ? await this.workspace(params.workspaceId)
       : params.folder
@@ -96,6 +97,7 @@ export class SessionMover {
       await releaseFinishedTurn(sessionId);
       await moveClaudeConversation(session.claudeSessionId, session.cwd, cwd, (await chatAgentLaunch("claude")).env);
     }
+    this.deps.releaseAgent?.(sessionId);
     sessions.update(sessionId, { cwd });
     await emit(sessionId, { sessionUpdate: "notice", severity: "info", title: `The project moved; this chat now runs in ${cwd}` });
   }
@@ -115,13 +117,18 @@ export class SessionMover {
       await releaseFinishedTurn(sessionId);
       await moveClaudeConversation(session.claudeSessionId, session.cwd, target.path, (await chatAgentLaunch("claude")).env);
     }
+    // The chat's own agent stops here and reopens its conversation in the new folder on the next
+    // turn (Codex resumes a thread anywhere); one that cannot starts anew, handed the chat so far.
+    const agent = session.agent && session.agent !== "claude" ? session.agent : null;
+    const kept = agent ? session.agentSessionIds?.[agent] : undefined;
+    this.deps.releaseAgent?.(sessionId);
     sessions.update(sessionId, {
       workspaceId: target.id,
       cwd: target.path,
       promptSuggestion: null,
       // Other agents that ran this chat keep their conversations by folder, and ACP cannot move them:
       // one the chat returns to starts anew, told the whole conversation.
-      agentSessionIds: {},
+      agentSessionIds: agent && kept ? { [agent]: kept } : {},
       // What Claude is still to be told on taking the chat back names the folder to work in.
       ...(session.handoffContext
         ? {

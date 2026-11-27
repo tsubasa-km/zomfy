@@ -1,5 +1,12 @@
 import type * as acp from '@agentclientprotocol/sdk'
-import { CHAT_AGENT_OPTION_IDS, type ChatAgentOption } from '@zomfy/protocol'
+import {
+  CHAT_AGENT_OPTION_IDS,
+  CODEX_COLLABORATION_OPTION,
+  CODEX_MODE_OPTION,
+  CODEX_MODE_POLICIES,
+  type ChatAgentOption,
+  type CodexSandboxMode
+} from '@zomfy/protocol'
 import { CodexTurnEvents, codexServerRequest } from './codex-app-server-events.ts'
 import { CodexAppServerRpc, CodexRpcError, fields, list, string, type CodexFields } from './codex-app-server-rpc.ts'
 
@@ -10,6 +17,25 @@ export const CODEX_APP_SERVER_CAPABILITIES: acp.AgentCapabilities = {
 
 const EFFORT_OPTION = 'reasoning_effort'
 type Ask = (request: acp.RequestPermissionRequest) => Promise<acp.RequestPermissionResponse>
+
+/** codex-acp's modes, which Direct offers as the same option so one mapping serves both (codex-and-acp-parity.md). */
+const MODE_CHOICES: ChatAgentOption['choices'] = [
+  { value: 'read-only', name: 'Read-only', description: 'Requires approval to edit files and access the internet.' },
+  { value: 'workspace-write', name: 'Workspace access', description: 'Edit workspace files; ask before writing outside the workspace or accessing the network.' },
+  { value: 'agent', name: 'Auto review', description: 'Only ask for actions detected as potentially unsafe' },
+  { value: 'agent-full-access', name: 'Full access', description: 'Unrestricted access to the internet and any file on your computer' }
+]
+const COLLABORATION_CHOICES: ChatAgentOption['choices'] = [
+  { value: 'default', name: 'Default', description: null },
+  { value: 'plan', name: 'Plan', description: 'Plan before making changes' }
+]
+
+/** How the thread opens: its mode, collaboration mode and Zomfy's instructions. */
+export interface CodexOpenSettings {
+  mode?: string
+  collaboration?: string
+  developerInstructions?: string | null
+}
 
 interface TurnResult {
   stopReason: acp.StopReason
@@ -35,12 +61,20 @@ export class CodexAppServer {
   private overrideModel = false
   private overrideEffort = false
   private models: CodexFields[] = []
+  /** codex-acp's mode Codex runs in, sent as App Server's approval and sandbox fields. */
+  private mode = 'agent'
+  private collaboration = 'default'
+  /** Server → the MCP tool call it is running, to name the tool an approval is for. */
+  private readonly mcpCalls = new Map<string, { id: string; tool: string }>()
+  private elicitations = 0
 
   constructor(
     input: WritableStream<Uint8Array>,
     output: ReadableStream<Uint8Array>,
     private readonly emit: (update: acp.SessionUpdate) => Promise<void>,
-    private readonly ask: Ask
+    private readonly ask: Ask,
+    /** A title Codex gave the thread (`thread/name/updated`). */
+    private readonly onTitle: (title: string) => void = () => undefined
   ) {
     this.rpc = new CodexAppServerRpc(
       input,
@@ -63,7 +97,9 @@ export class CodexAppServer {
     this.rpc.close()
   }
 
-  async open(cwd: string, previous: string | null, mcpServers: acp.McpServer[]): Promise<string> {
+  async open(cwd: string, previous: string | null, mcpServers: acp.McpServer[], settings: CodexOpenSettings = {}): Promise<string> {
+    if (settings.mode && CODEX_MODE_POLICIES[settings.mode]) this.mode = settings.mode
+    if (settings.collaboration && COLLABORATION_CHOICES.some((c) => c.value === settings.collaboration)) this.collaboration = settings.collaboration
     await this.rpc.request('initialize', {
       clientInfo: { name: 'zomfy', title: 'Zomfy', version: '0.1.0' },
       capabilities: { experimentalApi: true }
@@ -73,7 +109,16 @@ export class CodexAppServer {
     for (const name of skipped) {
       await this.emit({ sessionUpdate: 'notice', severity: 'warning', title: `Codex App Server cannot connect to the MCP server ${name}; it runs without it` })
     }
-    const params = { cwd, ...(Object.keys(config).length ? { config } : {}) }
+    const policy = CODEX_MODE_POLICIES[this.mode]!
+    const params = {
+      cwd,
+      approvalPolicy: policy.approvalPolicy,
+      approvalsReviewer: policy.approvalsReviewer,
+      sandbox: policy.sandbox,
+      // Zomfy's instructions, as Claude's system prompt has them; a resumed thread gets the current ones.
+      ...(settings.developerInstructions ? { developerInstructions: settings.developerInstructions } : {}),
+      ...(Object.keys(config).length ? { config } : {})
+    }
     const opened = await this.rpc.request(
       previous ? 'thread/resume' : 'thread/start',
       previous ? { ...params, threadId: previous, excludeTurns: true } : params
@@ -117,7 +162,9 @@ export class CodexAppServer {
         category: 'thought_level',
         currentValue: this.effort || string(this.selectedModel()?.defaultReasoningEffort) || effortOptions[0]!.value,
         choices: effortOptions
-      }] : [])
+      }] : []),
+      { id: CODEX_MODE_OPTION, name: 'Mode', category: 'mode', currentValue: this.mode, choices: MODE_CHOICES },
+      { id: CODEX_COLLABORATION_OPTION, name: 'Collaboration mode', category: 'collaboration_mode', currentValue: this.collaboration, choices: COLLABORATION_CHOICES }
     ]
   }
 
@@ -125,7 +172,11 @@ export class CodexAppServer {
     if (!this.options().some((option) => option.id === id && option.choices.some((choice) => choice.value === value))) {
       throw new Error('Codex App Server does not offer this option')
     }
-    if (id === CHAT_AGENT_OPTION_IDS.model) {
+    if (id === CODEX_MODE_OPTION) {
+      this.mode = value
+    } else if (id === CODEX_COLLABORATION_OPTION) {
+      this.collaboration = value
+    } else if (id === CHAT_AGENT_OPTION_IDS.model) {
       this.model = value
       this.overrideModel = true
       if (!this.effortOptions().some((choice) => choice.value === this.effort)) {
@@ -160,10 +211,18 @@ export class CodexAppServer {
         await this.emit({ sessionUpdate: 'notice', severity: 'warning', title: 'The selected Codex model does not advertise audio input' })
       }
       if (turn.interrupt) return { stopReason: 'cancelled' }
+      const policy = CODEX_MODE_POLICIES[this.mode]!
       const result = await this.rpc.request('turn/start', {
         threadId: this.threadId, input,
         ...(this.overrideModel ? { model: this.model } : {}),
-        ...(this.overrideEffort ? { effort: this.effort } : {})
+        ...(this.overrideEffort ? { effort: this.effort } : {}),
+        // Every turn says the mode, so a change made between turns applies from this one.
+        approvalPolicy: policy.approvalPolicy,
+        approvalsReviewer: policy.approvalsReviewer,
+        sandboxPolicy: sandboxPolicy(policy.sandbox),
+        ...(this.model ? {
+          collaborationMode: { mode: this.collaboration, settings: { model: this.model, reasoning_effort: this.effort || null, developer_instructions: null } }
+        } : {})
       }).catch((error: unknown) => {
         // The server refusing the turn leaves the connection usable; a timeout or a broken pipe does not.
         if (!(error instanceof CodexRpcError)) this.close()
@@ -197,6 +256,12 @@ export class CodexAppServer {
   }
 
   private async notification(method: string, params: CodexFields): Promise<void> {
+    // Codex names a thread when it likes, between turns too.
+    if (method === 'thread/name/updated') {
+      const name = string(params.threadName).trim()
+      if (params.threadId === this.threadId && name) this.onTitle(name)
+      return
+    }
     const turn = this.active
     if (!turn || params.threadId !== this.threadId) return
     const nativeTurn = fields(params.turn)
@@ -205,6 +270,12 @@ export class CodexAppServer {
     if (!turnId || (turn.id ? turn.id !== turnId : method !== 'turn/started')) return
     turn.id = turnId
     this.interrupt(turn)
+    const item = fields(params.item)
+    const server = string(item.server)
+    if (item.type === 'mcpToolCall' && server) {
+      if (method === 'item/started') this.mcpCalls.set(server, { id: string(item.id), tool: string(item.tool) })
+      else if (method === 'item/completed' && this.mcpCalls.get(server)?.id === string(item.id)) this.mcpCalls.delete(server)
+    }
     if (method === 'turn/completed') {
       if (nativeTurn.status === 'interrupted') turn.finished.resolve({ stopReason: 'cancelled', usage: turn.usage })
       else if (nativeTurn.status === 'completed') turn.finished.resolve({ stopReason: 'end_turn', usage: turn.usage })
@@ -231,10 +302,15 @@ export class CodexAppServer {
     }
     return codexServerRequest(method, params, (request) => {
       const turn = this.active
-      if (!turn || params.threadId !== this.threadId || (turn.id && params.turnId !== turn.id)) {
+      // MCP elicits apart from the turn, so an elicitation may name none.
+      const untracked = method === 'mcpServer/elicitation/request' && (params.turnId === null || params.turnId === undefined)
+      if (!turn || params.threadId !== this.threadId || (turn.id && !untracked && params.turnId !== turn.id)) {
         return Promise.resolve({ outcome: { outcome: 'cancelled' } })
       }
       return this.ask(request)
+    }, {
+      mcpCall: (server) => this.mcpCalls.get(server) ?? null,
+      nextElicitationId: () => `elicitation-${++this.elicitations}`
     })
   }
 
@@ -248,6 +324,13 @@ export class CodexAppServer {
       return value ? [{ value, name: value, description: string(entry.description) || null }] : []
     })
   }
+}
+
+/** App Server's turn-level sandbox for a thread's sandbox mode, as codex-acp sends it. */
+function sandboxPolicy(mode: CodexSandboxMode): CodexFields {
+  if (mode === 'danger-full-access') return { type: 'dangerFullAccess' }
+  if (mode === 'read-only') return { type: 'readOnly', networkAccess: false }
+  return { type: 'workspaceWrite', writableRoots: [], networkAccess: false, excludeTmpdirEnvVar: false, excludeSlashTmp: false }
 }
 
 function modelId(model: CodexFields): string {

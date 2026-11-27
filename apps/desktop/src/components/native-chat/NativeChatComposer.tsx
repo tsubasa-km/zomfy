@@ -33,7 +33,7 @@ import { NativeChatAttachMenu } from './NativeChatAttachMenu'
 import { attachChat, attachTerminal, mentionFile } from '@/lib/chat-attachments'
 import { NativeChatWorkflowPicker, type WorkflowHome } from './NativeChatWorkflowPicker'
 import { toast } from 'sonner'
-import { HARNESS_METHODS } from '@zomfy/protocol'
+import { HARNESS_METHODS, agentPermissionModes, permissionOptionIds } from '@zomfy/protocol'
 import { harnessRequest } from '@/daemon-connection'
 import { projectOfSession } from '@/lib/session-project'
 import { mainLocationOf } from '@/stores/project-catalog-store'
@@ -219,6 +219,9 @@ function Composer({ session, editorRef, glow = false }: ComposerProps) {
   const currentModel = models.find((m) => m.value === (options?.model ?? 'default'))
   const canSend = draft.trim().length > 0 || draftImages.length > 0
   const slots = agentOptionSlots(agentState?.options ?? [])
+  // Zomfy's permission picker drives a Codex or ACP agent's own mode options (codex-and-acp-parity.md).
+  const permissionModes = external ? agentPermissionModes(sessionAgent(session), agentState?.options ?? []) : []
+  const heldOptions = external ? permissionOptionIds(sessionAgent(session), agentState?.options ?? []) : []
   const changeAgentOption = (optionId: string, value: string) => void setAgentOption(session.id, optionId, value)
   // The Manager and Lead chats are Claude with the harness's own instructions, and a workflow step's
   // local-only data stays with the agent it was given to: their agent does not change.
@@ -350,10 +353,21 @@ function Composer({ session, editorRef, glow = false }: ComposerProps) {
                 ) : null}
                 {external ? (
                   <>
-                    {slots.mode ? <NativeChatAgentModePicker option={slots.mode} onChange={changeAgentOption} /> : null}
-                    {slots.others.map((option) => (
-                      <NativeChatAgentModePicker key={option.id} option={option} onChange={changeAgentOption} />
-                    ))}
+                    {options && permissionModes.length > 0 ? (
+                      <NativeChatPermissionModePicker
+                        current={options.permissionMode}
+                        autoAvailable
+                        offered={permissionModes}
+                        agent={sessionAgent(session)}
+                        onSelect={(permissionMode) => void setSessionOptions(session.id, { permissionMode })}
+                      />
+                    ) : null}
+                    {slots.mode && !heldOptions.includes(slots.mode.id) ? <NativeChatAgentModePicker option={slots.mode} onChange={changeAgentOption} /> : null}
+                    {slots.others
+                      .filter((option) => !heldOptions.includes(option.id))
+                      .map((option) => (
+                        <NativeChatAgentModePicker key={option.id} option={option} onChange={changeAgentOption} />
+                      ))}
                   </>
                 ) : options ? (
                   <NativeChatPermissionModePicker

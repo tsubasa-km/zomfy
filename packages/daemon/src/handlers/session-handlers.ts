@@ -109,7 +109,8 @@ export function registerSessionHandlers(ctx: HandlerContext): void {
       ...(p.agent && p.agent !== "claude" ? { agent: p.agent } : {}),
       ...(p.role === "manager" ? { role: p.role, title: "Manager" } : {}),
       ...(p.role === "lead" ? { role: p.role, title: "Lead" } : {}),
-      ...((!p.agent || p.agent === "claude") && p.permissionMode && PERMISSION_MODES.has(p.permissionMode)
+      // Every agent is held to the mode the chat starts in (codex-and-acp-parity.md).
+      ...(p.permissionMode && PERMISSION_MODES.has(p.permissionMode)
         ? { options: { ...DEFAULT_SESSION_OPTIONS, permissionMode: p.permissionMode } }
         : {}),
     });
@@ -153,6 +154,8 @@ export function registerSessionHandlers(ctx: HandlerContext): void {
     }
     if (live && options.model !== session.options.model) await live.setModel(options.model ?? undefined);
     sessions.update(session.id, { options });
+    // A Codex or ACP agent that is running takes the new mode now; one that is not, when it starts.
+    if (options.permissionMode !== session.options.permissionMode) await acpAgents.for(session)?.refreshPermissionMode();
     return publicInfo(session);
   });
 
@@ -217,7 +220,9 @@ export function registerSessionHandlers(ctx: HandlerContext): void {
               ...(p.permissionMode && PERMISSION_MODES.has(p.permissionMode) ? { permissionMode: p.permissionMode } : {}),
             },
           }
-        : {}),
+        : to !== "claude" && p.permissionMode && PERMISSION_MODES.has(p.permissionMode)
+          ? { options: { ...session.options, permissionMode: p.permissionMode } }
+          : {}),
     });
     await emit(session.id, notice);
     acpAgents.for(session)?.ensureStarted().catch((error) => log(`starting ${to} failed: ${String(error)}`));

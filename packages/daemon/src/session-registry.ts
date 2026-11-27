@@ -41,6 +41,16 @@ export interface SessionRecord extends SessionInfo {
   handoffContext?: string | null
   /** The conversation of an agent's own CLI this thread was imported from, so it is not offered again. */
   importedFrom?: { agent: ChatAgentId; conversationId: string }
+  /**
+   * The title Zomfy gave the chat (its first prompt, or the agent's own title): while the title is
+   * still this, a title the agent sends replaces it. A name the person gives differs, and stays.
+   */
+  autoTitle?: string | null
+  /**
+   * Set on records made by daemons that hold every agent to the stored permission mode
+   * (codex-and-acp-parity.md). Older Codex and ACP chats ran in the agent's own default.
+   */
+  modeForEveryAgent?: boolean
 }
 
 /** Records saved before a chat could change agents kept one `agentSessionId`, its only agent's. */
@@ -82,9 +92,12 @@ export class SessionRegistry {
             _meta: { [TURN_RECOVERY_META.turnEnd]: end }
           }).catch(() => undefined)
         }
+        // An older external chat ran in its agent's own default, which for Codex is Auto review.
+        const legacyMode = !r.modeForEveryAgent && !!r.agent && r.agent !== 'claude'
         this.records.set(r.id, {
           ...r,
-          options: { ...DEFAULT_SESSION_OPTIONS, ...r.options },
+          options: { ...DEFAULT_SESSION_OPTIONS, ...r.options, ...(legacyMode ? { permissionMode: 'auto' as const } : {}) },
+          modeForEveryAgent: true,
           agentSessionIds: savedAgentSessionIds({ ...r, agentSessionId }),
           status: r.status === 'error' ? 'error' : 'idle',
           turnStartedAt: null,
@@ -148,6 +161,7 @@ export class SessionRegistry {
       turnStartedAt: null,
       claudeSessionId: null,
       options: { ...DEFAULT_SESSION_OPTIONS },
+      modeForEveryAgent: true,
       ...fields
     }
     this.records.set(record.id, record)
@@ -306,6 +320,8 @@ export function publicInfo(record: SessionRecord): SessionInfo {
     handoffContext: _handoffHidden,
     importedFrom: _importHidden,
     codexThreadConnection: _codexHidden,
+    autoTitle: _autoTitleHidden,
+    modeForEveryAgent: _modeHidden,
     ...info
   } = record
   return info

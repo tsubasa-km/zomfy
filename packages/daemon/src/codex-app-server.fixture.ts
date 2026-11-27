@@ -7,12 +7,15 @@ let resume = false
 let turnId = ''
 let pendingStart: number | null = null
 let sequence = 0
+/** What the client sent to open the thread and start the last turn, for the `params` prompt. */
+let opened: Record<string, unknown> = {}
+let started: Record<string, unknown> = {}
 
 type Message = {
   id?: number | string
   method?: string
-  params?: { threadId?: string; turnId?: string; input?: { text?: string }[]; effort?: string }
-  result?: { decision?: string; answers?: Record<string, { answers: string[] }> }
+  params?: { threadId?: string; turnId?: string; input?: { text?: string }[]; effort?: string; [key: string]: unknown }
+  result?: { decision?: string; answers?: Record<string, { answers: string[] }>; action?: string; _meta?: unknown }
 }
 const send = (message: Record<string, unknown>) => process.stdout.write(JSON.stringify(message) + '\n')
 const reply = (id: Message['id'], result: Record<string, unknown> = {}) => send({ id, result })
@@ -36,6 +39,8 @@ createInterface({ input: process.stdin }).on('line', (line) => {
         threadId, turnId, itemId: 'choice',
         questions: [{ id: 'color', header: 'Color', question: 'Which color?', options: [{ label: 'Blue', description: 'A color' }] }]
       } })
+    } else if (id === 'elicit') {
+      finish('completed', `elicitation ${result?.action}${result?._meta ? ` ${JSON.stringify(result._meta)}` : ''}`)
     } else if (id === 'question') {
       event('item/completed', { item: { id: 'cmd', type: 'commandExecution', command: 'echo preview', status: 'completed', aggregatedOutput: 'preview' } })
       finish('completed', `choice ${result?.answers?.color?.answers?.[0] ?? 'skipped'}`)
@@ -57,10 +62,12 @@ createInterface({ input: process.stdin }).on('line', (line) => {
       resume = true
       if (!params.threadId) throw new Error('Missing thread ID')
       threadId = params.threadId
+      opened = params
       reply(id, { thread: { id: threadId }, model: 'test-model', reasoningEffort: 'low' })
       break
     case 'thread/start':
       threadId = 'direct-thread'
+      opened = params
       reply(id, { thread: { id: threadId }, model: 'test-model', reasoningEffort: 'low' })
       break
     case 'model/list':
@@ -72,7 +79,32 @@ createInterface({ input: process.stdin }).on('line', (line) => {
       if (params.threadId !== threadId) throw new Error('Wrong thread')
       turnId = `turn-${++sequence}`
       const text = params.input?.[0]?.text
+      started = params
       event('turn/started', { turn: { id: turnId, status: 'inProgress' } })
+      if (text === 'params') {
+        const { input: _input, ...turn } = started
+        finish('completed', JSON.stringify({ opened, turn }))
+        reply(id, { turn: { id: turnId } })
+        break
+      }
+      if (text?.startsWith('title:')) {
+        send({ method: 'thread/name/updated', params: { threadId, threadName: text.slice('title:'.length) } })
+        finish('completed', 'titled')
+        reply(id, { turn: { id: turnId } })
+        break
+      }
+      if (text?.startsWith('mcp:')) {
+        const [server, tool] = text.slice(4).split('.')
+        reply(id, { turn: { id: turnId } })
+        event('item/started', { item: { id: 'mcp-call', type: 'mcpToolCall', server, tool, status: 'inProgress' } })
+        // As Codex does: the approval has no fields and no turn id.
+        send({ id: 'elicit', method: 'mcpServer/elicitation/request', params: {
+          threadId, turnId: null, serverName: server, mode: 'form', message: `Allow ${tool}?`,
+          requestedSchema: { type: 'object', properties: {} },
+          _meta: { codex_approval_kind: 'mcp_tool_call', persist: ['session', 'always'] }
+        } })
+        break
+      }
       if (text === 'exit') process.exit(9)
       if (text === 'wait') {
         if (typeof id !== 'number') throw new Error('Wrong start ID')
