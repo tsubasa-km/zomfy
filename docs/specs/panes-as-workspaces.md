@@ -2,8 +2,8 @@
 type: Spec
 title: A split pane is a workspace, and its "+" is a quick pick
 description: Each split pane of the window's tabs has a workspace of its own (or none) that its "+", pins and right sidebar act on, shown as a coloured mark at the start of its tab strip; the "+" opens a filterable quick pick with Terminal, Agent and Panel scopes.
-status: draft
-x-zomfy-implementation: in-progress
+status: stable
+x-zomfy-implementation: done
 tags: [desktop, tabs, panes, sidebar]
 generated: { by: "claude-code/opus-5.5", at: "2026-11-27T00:00:00Z" }
 ---
@@ -57,8 +57,9 @@ What does not change it:
 - Clicking a tab in the strip, closing tabs, opening tabs from `+` (also a terminal in another
   folder picked in the New terminal dialog).
 
-When the context workspace goes away (deleted, popped out, or its host forgotten), the pane is
-unset again and rule 1 picks its new one.
+When the context workspace is not in the window (its host not back yet, popped out, deleted), the
+pane keeps it saved and acts meanwhile on the workspace rule 1 would pick, without saving that;
+picking another from the mark replaces it.
 
 ## What the context does
 
@@ -112,7 +113,8 @@ Unavailable chat agents stay listed, disabled, with the reason under their name.
 - With no query: pinned items in pin order, then recently used ones (the last five run from the
   quick pick, most recent first, `zomfy.new-tab-recent.v1` in local storage), then the rest in
   scope order (Terminal, Agent, Panel). Space separates the three groups; there are no headings.
-- With a query: the items whose name matches (every character in order, case-insensitive), best
+- With a query: the items whose name matches (every character in order, case-insensitive), or
+  whose English name does in a translated window (`term` finds `新しいターミナル…`), best
   first: a name that starts with the query, then one with a word that does, then one that
   contains it, then a scattered match; pinned and recent items first among equals. The matched
   characters are drawn in full contrast.
