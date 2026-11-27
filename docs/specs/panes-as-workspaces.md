@@ -3,7 +3,7 @@ type: Spec
 title: A split pane shows one workspace's tabs at a time, and its "+" is a quick pick
 description: Each split pane of the window's tabs works in the workspace of the tab it has in front and shows only that workspace's tabs (and tabs of no workspace), keeping every other workspace's tabs to bring back; its "+", pins and right sidebar act on it, and the "+" opens a filterable quick pick with Terminal, Agent and Panel scopes.
 status: stable
-x-zomfy-implementation: in-progress
+x-zomfy-implementation: done
 tags: [desktop, tabs, panes, sidebar]
 generated: { by: "claude-code/opus-5.5", at: "2026-11-27T12:00:00Z" }
 ---
