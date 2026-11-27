@@ -41,6 +41,11 @@ export interface TabGroup {
   activeTabId: string | null
   /** Oldest → most recent; closing the active tab returns to the previous one. */
   recentTabIds: string[]
+  /**
+   * The workspace the pane works in (docs/specs/panes-as-workspaces.md): what its "+", pins and
+   * sidebar act on. null is no project; absent, it is not set yet and follows its tabs.
+   */
+  context?: string | null
 }
 
 export interface WorkspaceLayout {
@@ -335,6 +340,14 @@ export function activateInGroup(workspaceId: string, groupId: string, tabId: str
   const group = layout.groups[groupId]
   if (!group) return
   setLayout(workspaceId, { ...layout, focusedGroupId: groupId, groups: { ...layout.groups, [groupId]: touch(group, tabId) } })
+}
+
+/** Sets the workspace a pane works in (docs/specs/panes-as-workspaces.md); null for no project. */
+export function setGroupContext(workspaceId: string, groupId: string, context: string | null): void {
+  const layout = layoutFor(workspaceId)
+  const group = layout.groups[groupId]
+  if (!group || group.context === context) return
+  setLayout(workspaceId, { ...layout, groups: { ...layout.groups, [groupId]: { ...group, context } } })
 }
 
 export function focusGroup(workspaceId: string, groupId: string): void {
