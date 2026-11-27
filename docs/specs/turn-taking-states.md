@@ -84,8 +84,9 @@ or 72 hours, or Never (0). It is read by the desktop only; the phone uses the de
 
 # Where it shows
 
-- **Sidebar**: grouped by project since [threads-under-projects](threads-under-projects.md), which
-  replaced the groups by state described here. Each row keeps the state's mark in its corner, with
+- **Sidebar**: a stack of project cards since [threads-under-projects](threads-under-projects.md),
+  which replaced the groups by state described here; nothing in the list is grouped or ordered by
+  state, and a thread waiting for the person's answer glows. Each row keeps the state's mark in its corner, with
   at most a value: the elapsed time while working, the wake time beside the Activity mark; a Quiet
   row is the single grey line a Settled row was. The groups by state were: Pinned, Needs your
   answer, Your turn, Working (Background work running rows inside it), Quiet, Archived, each known

@@ -70,6 +70,12 @@ the surface in the padding box) and adds at most a `box-shadow`, so nothing move
 transcript canvas for the Next steps question). A tab or file dragged over the composer shows the
 drop ring instead of the glow.
 
+## In the sidebar
+
+The same pattern and setting mark a sidebar row whose thread waits for the person's answer, and a
+folded project card holding one ([threads-under-projects](threads-under-projects.md)); Your turn
+does not glow there. The row and the card set `--composer-glow-surface` to the card's surface.
+
 # Out of scope
 
 - Glowing terminals, the inbox or the tab strip (the tab's state dot says Your turn instead).
