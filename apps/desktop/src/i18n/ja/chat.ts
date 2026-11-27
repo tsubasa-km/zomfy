@@ -506,10 +506,9 @@ export const CHAT: Record<string, string> = {
   'Unsaved changes': '未保存の変更',
   'Close {title}': '{title} を閉じる',
 
-  // components/tab-layout/TabOmnibox.tsx
+  // components/tab-layout/NewTabMenu.tsx (the quick pick's field)
   'Search open tabs, files, URLs, agents…': '開いているタブ、ファイル、URL、エージェントを検索…',
   'Switch to tab': 'タブに切り替え',
-  'Launch agent': 'エージェントを起動',
   'Open file': 'ファイルを開く',
   'Open URL': 'URL を開く',
   'Search Google': 'Google で検索',
@@ -536,6 +535,8 @@ export const CHAT: Record<string, string> = {
   Browser: 'ブラウザー',
   Unpin: 'ピン留めを外す',
   'Keep open': '開いたままにする',
+  'Open the tool drawer': '引き出しを開く',
+  'Close the tool drawer': '引き出しを閉じる',
 
   // components/tab-layout/pane-split-commands.ts
   'Split terminal right': 'ターミナルを右に分割',
@@ -726,5 +727,8 @@ export const CHAT: Record<string, string> = {
   'Loading the thread…': 'スレッドを読み込み中…',
 
   // agent-notifications.ts (a helper's question, named by the thread it works for)
-  '{thread} · from {helper}': '{thread} · {helper} から'
+  '{thread} · from {helper}': '{thread} · {helper} から',
+
+  // NativeChatPermissionModePicker.tsx (Auto for Codex and ACP agents, codex-and-acp-parity.md)
+  'The agent reviews approval requests itself and asks only for what looks unsafe': 'エージェントが承認リクエストを自分で審査し、危なそうなものだけ確認します'
 }

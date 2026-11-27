@@ -7,6 +7,7 @@ import { imageTypeOf, readDroppedImage } from '@/lib/chat-file-drop'
 import { hostDropPath, registerComposerDropTarget } from '@/lib/terminal-file-drop'
 import { isSubmitShortcut } from '@/lib/terminal-shortcuts'
 import type { ChatImage, HostId } from '@/session-store'
+import { toChatFolder } from '@/lib/link-targets'
 import { patchChatSession, useChatSession, useChatStore } from '@/stores/chat-store'
 import { useSetting } from '@/stores/settings-store'
 import { mcpMentionText } from '@/lib/chat-mentions'
@@ -53,6 +54,8 @@ export interface ComposerSource {
   commands: { items: ChatCommand[]; status: 'loading' | 'ready' | 'error' } | null
   /** The workspace whose files the `@` menu lists; null leaves the menu out. */
   filesWorkspaceId: string | null
+  /** The chat's folder below that workspace's root, when it runs in a subfolder: picked files are written from there. */
+  filesFolder?: string | null
   /** The chat whose connected MCP servers the `@` menu lists too; null lists none. */
   connectorsSessionId?: string | null
   /** A guess at the next prompt, offered while the composer is empty; Tab takes it. */
@@ -70,6 +73,7 @@ export function useNativeChatComposer({
   editorRef,
   commands,
   filesWorkspaceId,
+  filesFolder = null,
   connectorsSessionId = null,
   suggestion: offered,
   history,
@@ -129,7 +133,7 @@ export function useNativeChatComposer({
     if (autocomplete.mode === 'slash') insert = `/${autocomplete.items[index]?.name ?? autocomplete.query} `
     else {
       const item = autocomplete.items[index]
-      insert = !item ? `@${autocomplete.query} ` : item.kind === 'mcp' ? mcpMentionText(item.server.name) : `@${item.path} `
+      insert = !item ? `@${autocomplete.query} ` : item.kind === 'mcp' ? mcpMentionText(item.server.name) : `@${toChatFolder(item.path, filesFolder)} `
     }
     setActiveIndex(0)
     editorRef.current?.replaceRange(autocomplete.start, autocomplete.end, insert)

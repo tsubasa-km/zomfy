@@ -531,7 +531,8 @@ export async function createSession(
     ...(agent && agent !== "claude" ? { agent } : {}),
     ...(extra.role ? { role: extra.role } : {}),
     ...(extra.parentId ? { parentId: extra.parentId } : {}),
-    ...(!agent || agent === "claude" ? { permissionMode: extra.permissionMode ?? getSetting("defaultPermissionMode") } : {}),
+    // Every agent starts in the person's mode (codex-and-acp-parity.md).
+    permissionMode: extra.permissionMode ?? getSetting("defaultPermissionMode"),
   };
   const info = await harnessRequest(HARNESS_METHODS.sessionCreate, params, hostId);
   addSession({ ...info, hostId, workspaceId, items: [], loaded: true }, extra.focus ?? true);

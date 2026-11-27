@@ -14,13 +14,16 @@ import {
 import { SplitLayout } from '@/components/tab-layout/SplitLayout'
 import { TabGroupPane } from '@/components/tab-layout/TabGroupPane'
 import { useTabKeyboard } from '@/components/tab-layout/use-tab-keyboard'
-import { syncWorkspaceFocus, useWorkspaceTabs } from '@/components/tab-layout/workspace-tab-model'
+import { usePaneContext } from '@/components/tab-layout/PaneContext'
+import { syncWorkspaceFocus, useWorkspaceTabs, type WorkspaceTab } from '@/components/tab-layout/workspace-tab-model'
 import { TerminalWorkspaceDialogs } from '@/components/terminal/TerminalWorkspaceDialogs'
 import { reconcileWorkspacePanes } from '@/components/terminal/terminal-pane-commands'
 import { paneOwnerTab, setActivePane, useTerminalPaneState } from '@/stores/terminal-pane-store'
 import { syncPaneSidebars } from '@/stores/pane-sidebar-store'
 import '@/components/tab-layout/tab-layout.css'
 import { t } from '@/i18n/i18n'
+
+const EMPTY_TABS: WorkspaceTab[] = []
 
 // A set of tabs, as Orca draws it: a split tree of tab groups (TabGroupSplitNodeTree), each with its
 // own tab strip (tab-bar/) and body. `workspaceId` names one workspace's tabs (the floating panel, a
@@ -40,9 +43,6 @@ export function WorkspaceTabs({
   sidebars?: boolean
 }) {
   const tabs = useWorkspaceTabs(workspaceId)
-  // The terminal menus' dialogs belong to a workspace: among the window's tabs, the one in front.
-  const front = useStore((s) => s.activeWorkspaceId)
-  const dialogsFor = workspaceId === WINDOW_TABS ? front : workspaceId
   const focusedId = useStore((s) => s.activeSessionByWorkspace[workspaceId])
   const panes = useTerminalPaneState()
   // Focusing a split pane's terminal (a notification, Jump to agent) focuses its tab and that pane.
@@ -91,6 +91,12 @@ export function WorkspaceTabs({
     [layout, byId]
   )
   const hasSplit = leafGroupIds(layout.root).length > 1
+  // The terminal menus' dialogs belong to a workspace: among the window's tabs, the focused pane's,
+  // whose "+" or pin asked for them (docs/specs/panes-as-workspaces.md).
+  const focusedGroup = layout.groups[layout.focusedGroupId]
+  const focusedTabs = tabsByGroup.get(layout.focusedGroupId) ?? EMPTY_TABS
+  const focusedContext = usePaneContext(workspaceId, layout.focusedGroupId, focusedTabs, focusedGroup?.activeTabId ?? null).context
+  const dialogsFor = workspaceId === WINDOW_TABS ? (focusedContext ?? WINDOW_TABS) : workspaceId
   const trailingGroup = topRightGroupId(layout.root)
 
   return (
@@ -124,7 +130,7 @@ export function WorkspaceTabs({
         }}
       />
       {switcher}
-      {dialogsFor && <TerminalWorkspaceDialogs workspaceId={dialogsFor} />}
+      <TerminalWorkspaceDialogs workspaceId={dialogsFor} />
     </div>
   )
 }

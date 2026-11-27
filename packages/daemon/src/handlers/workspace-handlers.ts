@@ -11,6 +11,8 @@ import { HARNESS_HOME, WORKSPACE_ROOT } from "../harness-home.ts";
 import { loadHostSettings } from "../host-settings.ts";
 import { WorkspaceSizes } from "../workspace-sizes.ts";
 import { projectWorktreeRoot, WorktreeCleanup } from "../worktree-cleanup.ts";
+import { folderAfterMove } from "../folder-paths.ts";
+import { existsSync } from "node:fs";
 import type { HandlerContext } from "./handler-context.ts";
 
 export function registerWorkspaceHandlers(ctx: HandlerContext): void {
@@ -109,11 +111,14 @@ export function registerWorkspaceHandlers(ctx: HandlerContext): void {
     return project;
   });
   handle(HARNESS_METHODS.projectRelocate, async (p) => {
+    const before = (await workspaces.snapshot()).workspaces.find((w) => w.projectId === p.projectId && w.isPrimary)?.path ?? null;
     const { project, primary } = await workspaces.relocateProject(p.projectId, expandHome(p.path));
     let waiting = 0;
     if (primary) {
       for (const session of sessions.all().filter((s) => s.workspaceId === primary.id)) {
-        if (await followFolder(session.id, primary.path)) waiting++;
+        // A chat in a subfolder (an imported conversation's own) follows to that subfolder when it is there.
+        const cwd = before ? folderAfterMove(session.cwd, before, primary.path) : primary.path;
+        if (await followFolder(session.id, existsSync(cwd) ? cwd : primary.path)) waiting++;
       }
     }
     return { project, waiting };

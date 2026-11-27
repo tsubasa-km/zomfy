@@ -21,9 +21,10 @@ import { t } from '@/i18n/i18n'
 // The "+" menu's pinned items as buttons beside it, in pin order (docs/specs/new-tab-menu-and-pins.md).
 // Each button calls only its own kind's hook; a pin whose item this workspace lacks shows nothing.
 
-type Props = { workspaceId: string; groupId: string; pin: string }
+/** `layoutKey` is the tab layout's workspace argument; `workspaceId` the pane's, null for none. */
+type Props = { layoutKey: string; workspaceId: string | null; groupId: string; pin: string }
 
-function PinnedButton({ workspaceId, groupId, pin, item }: Props & { item: NewTabItem | undefined }) {
+function PinnedButton({ layoutKey, groupId, pin, item }: Props & { item: NewTabItem | undefined }) {
   if (!item || item.disabled) return null
   return (
     <ContextMenu modal={false}>
@@ -38,7 +39,7 @@ function PinnedButton({ workspaceId, groupId, pin, item }: Props & { item: NewTa
             item.short ? 'max-w-[140px] px-1.5' : 'w-7 justify-center'
           )}
           onClick={() => {
-            focusGroup(workspaceId, groupId)
+            focusGroup(layoutKey, groupId)
             item.run()
           }}
         >
@@ -94,13 +95,13 @@ const BY_KIND = {
   panel: PanelPin
 } as const
 
-export function PinnedTabButtons({ workspaceId, groupId }: { workspaceId: string; groupId: string }) {
+export function PinnedTabButtons({ layoutKey, workspaceId, groupId }: { layoutKey: string; workspaceId: string | null; groupId: string }) {
   const pins = useNewTabPins()
   return (
     <>
       {pins.map((pin) => {
         const Button = BY_KIND[parsePin(pin).kind]
-        return <Button key={pin} workspaceId={workspaceId} groupId={groupId} pin={pin} />
+        return <Button key={pin} layoutKey={layoutKey} workspaceId={workspaceId} groupId={groupId} pin={pin} />
       })}
     </>
   )

@@ -1,4 +1,4 @@
-import { Bell, BookOpen, Bot, BotMessageSquare, Blocks, Cloud, Keyboard, Mic, Palette, Server, SlidersHorizontal, Smartphone, SquareTerminal, TextCursorInput, type LucideIcon } from 'lucide-react'
+import { Bell, BookOpen, Bot, BotMessageSquare, Blocks, Cloud, Keyboard, KeyRound, Mic, Palette, Server, SlidersHorizontal, Smartphone, SquareTerminal, TextCursorInput, type LucideIcon } from 'lucide-react'
 import { t } from '@/i18n/i18n'
 
 // Orca's settings sidebar groups and sections (hooks/settings-navigation-*-sections.ts), trimmed
@@ -41,6 +41,17 @@ export const SETTINGS_SECTIONS: readonly SettingsNavSection[] = [
         title: t('Chat agents'),
         keywords: ['codex', 'antigravity', 'gemini', 'opencode', 'copilot', 'acp', 'install', 'environment', 'account', 'CODEX_HOME']
       }
+    ]
+  },
+  {
+    id: 'secrets',
+    title: t('Secrets & environment'),
+    description: t('API keys agents use without seeing them, and the environment new processes start with.'),
+    icon: KeyRound,
+    group: 'capabilities',
+    entries: [
+      { title: t('Secrets'), keywords: ['secret', 'api key', 'token', 'credential', 'tunnel', 'XAI_API_KEY', 'OPENAI_API_KEY'] },
+      { title: t('Reload environment'), keywords: ['environment', 'reload', 'PATH', 'setx', 'variable', 'profile'] }
     ]
   },
   {
@@ -102,6 +113,7 @@ export const SETTINGS_SECTIONS: readonly SettingsNavSection[] = [
     entries: [
       { title: t('Theme'), keywords: ['dark', 'light', 'system', 'color'] },
       { title: t('UI Zoom'), keywords: ['zoom', 'scale', 'size'] },
+      { title: t('Tool drawer'), keywords: ['drawer', 'hover', 'click'] },
       { title: t('IDE Font'), keywords: ['font', 'typeface', 'typography'] },
       { title: t('Show Tasks Button'), keywords: ['tasks', 'sidebar', 'button', 'issues'] },
       { title: t('Show Automations Button'), keywords: ['automations', 'automation', 'schedule', 'sidebar'] },
@@ -109,7 +121,6 @@ export const SETTINGS_SECTIONS: readonly SettingsNavSection[] = [
       { title: t('Show Agent Dashboard Button'), keywords: ['dashboard', 'agents', 'sidebar'] },
       { title: t('Show Onboarding Checklist'), keywords: ['onboarding', 'setup', 'checklist', 'sidebar'] },
       { title: t('Enable Floating Workspace'), keywords: ['floating', 'workspace', 'terminal', 'quick panel'] },
-      { title: t('Open a Terminal When Empty'), keywords: ['floating', 'terminal', 'default', 'open', 'empty'] },
       { title: t('Toggle Button Location'), keywords: ['floating', 'status bar', 'button'] },
       { title: t('Colors in Dark Mode'), keywords: ['terminal', 'theme', 'color', 'colour', 'palette', 'dark', 'scheme'] },
       { title: t('Colors in Light Mode'), keywords: ['terminal', 'theme', 'color', 'colour', 'palette', 'light', 'scheme'] },

@@ -5,9 +5,9 @@ import { stdinWriter, withOutputText } from './acp-agent-session.ts'
 import { HANDOFF_OPEN } from './agent-handoff.ts'
 import { resolveChatAgent } from './chat-agent-launch-specs.ts'
 import { killTree, trackChild } from './process-tree.ts'
-import { hostPath } from './tui-agent-detection.ts'
 import { log } from './log.ts'
 import type { AgentConversation } from './agent-conversations.ts'
+import { spawnEnvironment } from './user-environment.ts'
 
 // An external agent's own conversations, asked of its ACP server: `session/list` names them and
 // `session/load` replays one as the updates a live turn sends, which is what a thread's transcript
@@ -166,7 +166,7 @@ async function start(agent: ExternalAgent): Promise<Reader | null> {
     stdin: 'pipe',
     stdout: 'pipe',
     stderr: 'pipe',
-    env: { ...process.env, PATH: await hostPath(), ...resolved.env },
+    env: { ...(await spawnEnvironment()), ...resolved.env },
     windowsHide: true,
     detached: process.platform !== 'win32'
   })

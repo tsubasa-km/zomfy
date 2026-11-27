@@ -3,6 +3,7 @@ import {
   DEFAULT_SETTINGS,
   setSetting,
   useSetting,
+  type DrawerOpenAction,
   type FloatingWorkspaceTriggerLocation,
   type TerminalCursorStyle,
   type ThemePreference
@@ -108,7 +109,6 @@ function SidebarSection() {
 function FloatingWorkspaceSection() {
   const enabled = useSetting('floatingWorkspaceEnabled')
   const location = useSetting('floatingWorkspaceTriggerLocation')
-  const openTerminal = useSetting('floatingWorkspaceOpenTerminal')
   return (
     <div className="space-y-2 not-has-[[data-setting-row]]:hidden">
       <SettingsSubsectionHeader title={t('Floating Workspace')} />
@@ -119,13 +119,6 @@ function FloatingWorkspaceSection() {
           keywords={['floating', 'workspace', 'terminal', 'quick panel']}
           checked={enabled}
           onChange={(v) => setSetting('floatingWorkspaceEnabled', v)}
-        />
-        <SettingsSwitchRow
-          label={t('Open a Terminal When Empty')}
-          description={t('Opening the floating workspace with no tabs starts a terminal in it.')}
-          keywords={['floating', 'terminal', 'default', 'open', 'empty']}
-          checked={openTerminal}
-          onChange={(v) => setSetting('floatingWorkspaceOpenTerminal', v)}
         />
         <SettingsRow
           label={t('Toggle Button Location')}
@@ -150,6 +143,7 @@ function FloatingWorkspaceSection() {
 
 export function AppearancePane() {
   const theme = useSetting('theme')
+  const drawerOpenAction = useSetting('drawerOpenAction')
   const appFont = useSetting('appFontFamily')
   const terminalFont = useSetting('terminalFontFamily')
   const terminalFontSize = useSetting('terminalFontSize')
@@ -185,6 +179,21 @@ export function AppearancePane() {
             keywords={['zoom', 'scale', 'size']}
             description={zoomIn && zoomOut ? t('{zoomIn} / {zoomOut} from anywhere in the app.', { zoomIn, zoomOut }) : undefined}
             control={<UIZoomControl />}
+          />
+          <SettingsRow
+            label={t('Tool drawer')}
+            keywords={['drawer', 'hover', 'click']}
+            control={
+              <SettingsSegmentedControl<DrawerOpenAction>
+                ariaLabel={t('Tool drawer')}
+                value={drawerOpenAction}
+                onChange={(value) => setSetting('drawerOpenAction', value)}
+                options={[
+                  { value: 'hover', label: t('Open on hover (default)') },
+                  { value: 'click', label: t('Open on click') }
+                ]}
+              />
+            }
           />
           <TextField
             label={t('IDE Font')}

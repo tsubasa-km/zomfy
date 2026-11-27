@@ -1,6 +1,8 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
+import { resumesAtLatest } from '@/lib/chat-scroll-resume'
 import { AlarmClock, Copy, CornerDownLeft, FileText, GitFork, MessagesSquare, Quote, Search, TextSelect } from 'lucide-react'
-import { markSeen, openEditorTab, useStore, type Session, type ThreadItem } from '@/session-store'
+import { allWorkspaces, markSeen, openEditorTab, useStore, type Session, type ThreadItem } from '@/session-store'
+import { chatFolderBelow } from '@/lib/link-targets'
 import { projectOfSession } from '@/lib/session-project'
 import { mainLocationOf } from '@/stores/project-catalog-store'
 import { runCommandInline } from '@/lib/terminal-command-run'
@@ -79,7 +81,8 @@ const isMac = navigator.userAgent.includes('Mac')
  * Where each chat was left, kept while its tab stays open: switching back to a tab finds the
  * transcript where it was, while a chat opened afresh starts at its latest message.
  */
-const leftAt = new Map<string, { top: number; stick: boolean }>()
+/** Where each chat was left, and how many items it had then (new ones since send it to the latest). */
+const leftAt = new Map<string, { top: number; stick: boolean; items: number }>()
 
 type PendingPermission = Extract<ThreadItem, { kind: 'permission' }>
 
@@ -98,7 +101,7 @@ export function ThreadView({ session, onSendToMain }: { session: Session; onSend
   const scrollRef = useRef<HTMLDivElement>(null)
   const columnRef = useRef<HTMLDivElement>(null)
   const composerRef = useRef<MarkdownEditorHandle>(null)
-  const stick = useRef(leftAt.get(session.id)?.stick ?? true)
+  const stick = useRef(resumesAtLatest(leftAt.get(session.id), session.items.length))
   const [atBottom, setAtBottom] = useState(stick.current)
   const [menuTarget, setMenuTarget] = useState<{ selection: string; markdown: string; message: string | null }>({
     selection: '',
@@ -157,6 +160,8 @@ export function ThreadView({ session, onSendToMain }: { session: Session; onSend
   const showLimitBanner = !running && (turnEnd?.reason === 'usage-limit' || Boolean(session.autoResume))
   const find = useNativeChatFind(columnRef, session.items)
   const shells = useStore((s) => s.hosts[session.hostId]?.shells)
+  // A chat imported from a subfolder runs there: its relative paths start from it.
+  const folder = useStore((s) => chatFolderBelow(session.cwd, allWorkspaces(s).find((w) => w.id === session.workspaceId)?.path))
   const commandRunner = useMemo(
     () => ({
       shells: shells ?? [],
@@ -179,7 +184,7 @@ export function ThreadView({ session, onSendToMain }: { session: Session; onSend
   useLayoutEffect(() => {
     const scroller = scrollRef.current
     const kept = leftAt.get(session.id)
-    stick.current = kept?.stick ?? true
+    stick.current = resumesAtLatest(kept, session.items.length)
     setAtBottom(stick.current)
     if (scroller) scroller.scrollTop = stick.current ? scroller.scrollHeight : (kept?.top ?? 0)
     return () => {
@@ -240,6 +245,7 @@ export function ThreadView({ session, onSendToMain }: { session: Session; onSend
       data-native-chat-root
       data-chat-session-id={session.id}
       data-link-workspace-id={session.workspaceId}
+      data-link-folder={folder ?? undefined}
       className="native-chat-appearance flex min-h-0 min-w-0 flex-1 flex-col bg-chat-canvas text-chat-foreground"
       onKeyDown={(event) => {
         if ((isMac ? event.metaKey : event.ctrlKey) && !event.shiftKey && !event.altKey && event.key.toLowerCase() === 'f') {
@@ -258,10 +264,12 @@ export function ThreadView({ session, onSendToMain }: { session: Session; onSend
               data-native-chat-scroll
               onScroll={(event) => {
                 const el = event.currentTarget
+                // A hidden transcript (another tab in front) has no height; its scroll events say nothing.
+                if (el.clientHeight === 0) return
                 const near = el.scrollHeight - el.scrollTop - el.clientHeight < STICK_DISTANCE_PX
                 stick.current = near
                 setAtBottom(near)
-                leftAt.set(session.id, { top: el.scrollTop, stick: near })
+                leftAt.set(session.id, { top: el.scrollTop, stick: near, items: session.items.length })
               }}
               onContextMenu={(event) => {
                 const row = event.target instanceof Element ? event.target.closest('[data-native-chat-message-text]') : null
@@ -271,7 +279,7 @@ export function ThreadView({ session, onSendToMain }: { session: Session; onSend
                   message: row?.getAttribute('data-native-chat-message-text') ?? null
                 })
               }}
-              className="scrollbar-sleek relative h-full overflow-y-auto pt-(--tab-top-inset) outline-none [overflow-anchor:none] [scrollbar-gutter:stable_both-edges]"
+              className="scrollbar-sleek relative h-full overflow-y-auto pt-(--tab-top-inset) pr-(--tab-right-inset) pl-(--tab-left-inset) outline-none [overflow-anchor:none] [scrollbar-gutter:stable_both-edges]"
             >
               {empty ? (
                 session.role === 'manager' ? (

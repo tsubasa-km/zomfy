@@ -2,19 +2,21 @@ import { lazy, memo, Suspense, useCallback, useEffect, useState } from 'react'
 import { filePathDrag, type DraggedPaths } from '@/lib/file-path-drag'
 import { ensureSessionLoaded } from '@/daemon-connection'
 import { getState, sidebarWorkspaceId, usePaneSidebarWorkspaceId, useStore } from '@/session-store'
-import { tabScope, WINDOW_TABS } from '@/stores/tab-layout-store'
+import { setGroupContext, tabScope, WINDOW_TABS } from '@/stores/tab-layout-store'
 import { paneSidebarKey } from '@/stores/pane-sidebar-store'
 import { QuickStart } from '@/components/QuickStart'
 import { ThreadView } from '@/components/ThreadView'
 import { TerminalTabBody } from '@/components/terminal/TerminalPaneTree'
 import { BrowserTabView } from './BrowserTabView'
-import { DRAWER_HANDLE_INSET, ToolDrawer } from './ToolDrawer'
+import { ToolDrawer } from './ToolDrawer'
+import { useDrawerEdge } from '@/stores/drawer-dock-store'
 import { EmptyPane } from './EmptyPane'
 import { WindowEmptyPane } from './WindowEmptyPane'
 import { ErrorBoundary, ViewError } from '@/components/ErrorBoundary'
 import { WorkspacePanelView } from './workspace-panels'
 import { TabStrip } from './TabStrip'
 import { PaneSidebar, PaneSidebarToggle } from './PaneSidebar'
+import { usePaneContext } from './PaneContext'
 import { dropHintRect } from './tab-drop-geometry'
 import { resolveTabDropTarget, setInsertionMark, tabDrag, type DraggedTab, type DropZone } from './tab-drag'
 import { focusGroup, moveTabTo, openChatAt, openFilesAt, splitTabTo } from './tab-group-commands'
@@ -59,7 +61,10 @@ const TabBody = memo(function TabBody({ tab }: { tab: WorkspaceTab }) {
     case 'panel':
       return (
         // The panel keeps clear of the drawer's handle itself; what it holds (a side chat) keeps no inset of its own.
-        <div key={tab.id} className="flex min-h-0 flex-1 flex-col overflow-hidden bg-sidebar pt-(--tab-top-inset) text-sidebar-foreground *:[--tab-top-inset:0px]">
+        <div
+          key={tab.id}
+          className="flex min-h-0 flex-1 flex-col overflow-hidden bg-sidebar pt-(--tab-top-inset) pr-(--tab-right-inset) pb-(--tab-bottom-inset) pl-(--tab-left-inset) text-sidebar-foreground *:[--tab-bottom-inset:0px] *:[--tab-left-inset:0px] *:[--tab-right-inset:0px] *:[--tab-top-inset:0px]"
+        >
           <WorkspacePanelView id={tab.panel.panel} workspaceId={tab.panel.workspaceId} />
         </div>
       )
@@ -119,20 +124,23 @@ export const TabGroupPane = memo(function TabGroupPane({
   if (active && active.kind !== 'start' && active.id !== lastShown) setLastShown(active.id)
   const behind = active?.kind === 'start' ? (tabs.find((t) => t.id === lastShown && t.kind === 'chat') ?? null) : null
   const activeChatId = active?.kind === 'chat' ? active.id : undefined
-  // Among the window's tabs, the pane works in the workspace of the tab it shows: that is where its
-  // "+" starts a terminal and whose drawer it pulls down. Showing none (or the "New thread" tab), it
-  // falls back to the workspace in front, and has no workspace when there is none.
-  const front = useStore((s) => s.activeWorkspaceId)
-  const home = workspaceId !== WINDOW_TABS ? workspaceId : ((active ? tabWorkspaceId(active) : null) ?? front)
-  const placed = home ?? workspaceId
-  // With no tab at all, the empty pane still offers the project the sidebar shows, as its drawer would.
-  const recent = useStore((s) => (home ? null : sidebarWorkspaceId(s)))
+  // The pane works in a workspace of its own (docs/specs/panes-as-workspaces.md): its "+", pins and
+  // sidebar act on it, whatever tab it shows. The drawer is the tab's: it holds that tab's terminals.
+  const { context, settle } = usePaneContext(workspaceId, groupId, tabs, active?.id ?? null)
+  useEffect(() => {
+    if (settle) setGroupContext(workspaceId, groupId, settle)
+  }, [settle, workspaceId, groupId])
+  const home = workspaceId !== WINDOW_TABS ? workspaceId : active ? tabWorkspaceId(active) : null
+  // With no tab and no context, the empty pane still offers the project the sidebar shows.
+  const recent = useStore((s) => (context ? null : sidebarWorkspaceId(s)))
   const [zone, setZone] = useState<DropZone | null>(null)
   const drawer = Boolean(active && home && active.kind !== 'start')
-  // The pane's own right sidebar, on the workspace of the tab it shows.
+  const drawerEdge = useDrawerEdge()
+  // The pane's own right sidebar, on the pane's workspace.
   const scope = tabScope(workspaceId)
   const sidebarKey = paneSidebarKey(scope, groupId)
-  const sidebarWorkspace = usePaneSidebarWorkspaceId(scope, active ? (active.kind === 'start' ? 'start' : tabWorkspaceId(active)) : null)
+  const ownSidebarWorkspace = usePaneSidebarWorkspaceId(scope, scope === WINDOW_TABS ? context : null)
+  const sidebarWorkspace = scope === WINDOW_TABS ? context : ownSidebarWorkspace
   const showSidebar = sidebar && sidebarWorkspace !== null
 
   useEffect(() => {
@@ -225,7 +233,8 @@ export const TabGroupPane = memo(function TabGroupPane({
         className="relative flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden"
       >
         <TabStrip
-          workspaceId={placed}
+          workspaceId={workspaceId}
+          context={context}
           groupId={groupId}
           tabs={tabs}
           activeId={active?.id ?? null}
@@ -244,11 +253,11 @@ export const TabGroupPane = memo(function TabGroupPane({
             )
           }
         />
-        {/* Under a drawer's handle the tab's content starts lower, each kind in its own way (--tab-top-inset). */}
+        {/* Under a drawer's handle the tab's content keeps clear of that edge, each kind in its own way (--tab-*-inset). */}
         <div
           data-tab-group-body-id={groupId}
           className="relative flex min-h-0 min-w-0 flex-1 flex-col"
-          style={drawer ? DRAWER_HANDLE_INSET : undefined}
+          data-drawer-content-edge={drawer ? drawerEdge : undefined}
         >
           {behind && <TabBodyFrame key={`body:${behind.id}`} tab={behind} hidden />}
           {active ? (
@@ -256,8 +265,8 @@ export const TabGroupPane = memo(function TabGroupPane({
             // view on screen. The same key keeps a chat mounted as it moves from behind the New
             // thread tab to the front.
             <TabBodyFrame key={`body:${active.id}`} tab={active} />
-          ) : home ? (
-            <EmptyPane workspaceId={home} groupId={groupId} hint={emptyHint} />
+          ) : context ? (
+            <EmptyPane workspaceId={context} groupId={groupId} hint={emptyHint} />
           ) : recent ? (
             <EmptyPane workspaceId={recent} groupId={groupId} hint={emptyHint} />
           ) : (

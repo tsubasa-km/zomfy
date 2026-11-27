@@ -4,6 +4,7 @@ import { basename, dirname, join, resolve } from 'node:path'
 import type { Project, ProjectHookInfo, ProjectHooks } from '@zomfy/protocol'
 import { git } from './git-cli.ts'
 import { log } from './log.ts'
+import { spawnEnvironment } from './user-environment.ts'
 
 // Orca's orca.yaml `scripts.setup` / `scripts.archive` (src/main/hooks.ts, worktree-runner-script.ts).
 // zomfy.yaml is read first so a repo can carry harness-specific hooks next to Orca's; repos set up
@@ -99,7 +100,7 @@ async function runHookUnattended(project: Project, kind: HookKind, worktreePath:
     const launch = await writeHookRunner(project, worktreePath, kind, script)
     const proc = Bun.spawn(launch.argv, {
       cwd: worktreePath,
-      env: { ...process.env, ...launch.env },
+      env: { ...(await spawnEnvironment()), ...launch.env },
       stdout: 'pipe',
       stderr: 'pipe',
       windowsHide: true

@@ -14,7 +14,7 @@ import {
   type ChatImage,
   type HostId
 } from '@/session-store'
-import { groupOfTab, layoutFor, placeTab, WINDOW_TABS } from '@/stores/tab-layout-store'
+import { groupOfTab, layoutFor, placeTab, setGroupContext, WINDOW_TABS } from '@/stores/tab-layout-store'
 import { setStartProject, useSidebarStore } from '@/stores/sidebar-store'
 import { patchChatSession } from '@/stores/chat-store'
 import { NEW_THREAD_DRAFT, type NewThreadStart } from '@/stores/new-thread-store'
@@ -115,6 +115,8 @@ export function QuickStart() {
       if (stay) announceSent(sessionId)
       else {
         if (slot && index !== -1) placeTab(WINDOW_TABS, sessionId, slot.id, index)
+        // The pane follows the chat it now shows (docs/specs/panes-as-workspaces.md).
+        if (slot) setGroupContext(WINDOW_TABS, slot.id, place.id)
         closeStartTab()
       }
     } catch (error) {

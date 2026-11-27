@@ -6,6 +6,7 @@ import type { LspServerHint, LspServerRole, LspServerStatus, LspSetServerParams 
 import { HARNESS_HOME } from './harness-home.ts'
 import { hostPath } from './tui-agent-detection.ts'
 import { log } from './log.ts'
+import { spawnEnvironment } from './user-environment.ts'
 
 // Which language servers Zomfy knows, as data: what each is called on a host, the languages it
 // serves and what marks a project of its kind. Nothing is ever installed; a server that is not on
@@ -392,7 +393,7 @@ async function runProbe(argv: string[], cwd: string): Promise<{ code: number; ou
   const stale = await pending?.then((probe) => probe.code !== 0 && Date.now() - probe.at > FAILED_PROBE_TTL_MS)
   if (!pending || stale) {
     pending = (async () => {
-      const proc = Bun.spawn(argv, { cwd, stdin: 'ignore', stdout: 'pipe', stderr: 'pipe', env: { ...process.env, PATH: await hostPath() }, windowsHide: true })
+      const proc = Bun.spawn(argv, { cwd, stdin: 'ignore', stdout: 'pipe', stderr: 'pipe', env: await spawnEnvironment(), windowsHide: true })
       const timer = setTimeout(() => proc.kill(), PROBE_TIMEOUT_MS)
       const [out, err, code] = await Promise.all([new Response(proc.stdout).text(), new Response(proc.stderr).text(), proc.exited])
       clearTimeout(timer)

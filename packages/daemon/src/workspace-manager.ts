@@ -23,6 +23,7 @@ import { moveToTrash } from './host-trash.ts'
 import { copyWorktreeIncludesSafely } from './worktree-include.ts'
 import { removeTree } from './safe-remove.ts'
 import { unlinkSkillLinks } from './bundled-skills.ts'
+import { sameFolder } from './folder-paths.ts'
 
 const STATE_PATH = join(HARNESS_HOME, 'state.json')
 const FLOATING_FALLBACK = join(HARNESS_HOME, 'floating-workspace')
@@ -499,7 +500,8 @@ export class WorkspaceManager {
     const absolute = await realpath(resolve(path)).catch(() => {
       throw new Error(`No folder at ${path}`)
     })
-    const existing = this.state.workspaces.find((w) => samePath(w.path, absolute))
+    // The folder as named, or as it resolves (a junction, a symlink): a workspace may be kept under either.
+    const existing = this.state.workspaces.find((w) => samePath(w.path, absolute) || samePath(w.path, path))
     if (existing) return existing
     const project = await this.addProject(absolute)
     const primary = this.state.workspaces.find((w) => w.projectId === project.id && w.isPrimary)
@@ -593,6 +595,7 @@ export function hostInfo(): HostInfo {
   return { id: 'local', label: process.platform === 'win32' ? 'Windows' : 'This computer', platform: process.platform }
 }
 
+/** One folder, however it was written down (case, slashes, a long-path prefix, a trailing separator). */
 function samePath(a: string, b: string): boolean {
-  return process.platform === 'win32' ? a.toLowerCase() === b.toLowerCase() : a === b
+  return sameFolder(a, b)
 }

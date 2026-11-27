@@ -1,16 +1,17 @@
 import { useEffect, useMemo, useState } from 'react'
-import { FolderGit2, FolderPlus, GitBranch, Search } from 'lucide-react'
+import { Folder, FolderGit2, FolderPlus, FolderSymlink, FolderX, GitBranch, Search } from 'lucide-react'
 import { HARNESS_METHODS, chatAgentLabel, type ChatAgentId } from '@zomfy/protocol'
 import { importThread, showThread } from '@/chat-actions'
 import { harnessRequest } from '@/daemon-connection'
 import { allProjects, allWorkspaces, useStore, type HostId, type HostedWorkspace } from '@/session-store'
 import { closeImport } from '@/stores/import-store'
-import { folderName, listedThreads, threadGroups, type ImportableThread } from '@/lib/thread-import'
+import { folderName, listedThreads, threadGroups, threadPlace, type ImportableThread } from '@/lib/thread-import'
 import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'
 import { DialogFooter } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
 import { cn } from '@/lib/utils'
+import { chatFolderBelow } from '@/lib/link-targets'
 import { t } from '@/i18n/i18n'
 import { projectLabel } from '@/components/sidebar/workspace-visibility'
 
@@ -103,7 +104,10 @@ export function AgentThreadsPanel({
     setChosen(next)
   }
 
-  /** Imports in the order listed and opens the first; `into` puts them in that workspace whatever their folder. */
+  /**
+   * Imports in the order listed and opens the first. Each goes to the workspace of its own folder;
+   * `into` (the person's Import into) puts them in that workspace instead.
+   */
   async function runImport(list: ImportableThread[], into?: string): Promise<void> {
     setBusy(true)
     let first: string | null = null
@@ -111,7 +115,7 @@ export function AgentThreadsPanel({
     for (const thread of list) {
       setRows((r) => ({ ...r, [thread.key]: 'importing' }))
       try {
-        const sessionId = await importThread(hostId, thread, into ?? thread.workspaceId ?? undefined)
+        const sessionId = await importThread(hostId, thread, into)
         first ??= sessionId
         setRows((r) => ({ ...r, [thread.key]: { sessionId } }))
       } catch (error) {
@@ -185,6 +189,11 @@ export function AgentThreadsPanel({
                   const open = shownBy(thread)
                   const workspace = workspaces.find((w) => w.id === thread.workspaceId && w.hostId === hostId)
                   const failure = typeof row === 'object' && 'error' in row ? row.error : null
+                  // Seen from this workspace: where the import would run when that is not its own folder.
+                  const where = scope === 'workspace' && here ? threadPlace(thread, here) : null
+                  const below = workspace ? chatFolderBelow(thread.cwd, workspace.path) : null
+                  // Placing it here is the person's choice, offered where its own folder is not this one.
+                  const offerHere = !!here && thread.workspaceId !== here.id && (!!failure || (where !== null && where.kind !== 'here' && where.kind !== 'below'))
                   return (
                     <li key={thread.key} data-import-thread={thread.key} data-imported={open ? '' : undefined}>
                       <label className={cn('flex items-start gap-2.5 rounded-md px-2 py-1.5', open ? 'opacity-70' : 'cursor-pointer hover:bg-accent')}>
@@ -202,11 +211,34 @@ export function AgentThreadsPanel({
                             </span>
                           </div>
                           <div className="flex min-w-0 items-center gap-2.5 text-xs text-muted-foreground">
+                            {where && where.kind === 'below' && (
+                              <span className="flex min-w-0 items-center gap-1" title={thread.cwd ?? undefined} data-import-thread-place="below">
+                                <Folder className="size-3 shrink-0" aria-label={t('Subfolder')} />
+                                <span className="truncate">{where.path}</span>
+                              </span>
+                            )}
+                            {where && where.kind === 'elsewhere' && (
+                              <span
+                                className="flex min-w-0 items-center gap-1 text-amber-600 dark:text-amber-400"
+                                title={thread.cwd ?? undefined}
+                                data-import-thread-place="elsewhere"
+                              >
+                                <FolderSymlink className="size-3 shrink-0" aria-label={t('Different folder')} />
+                                <span className="truncate">{workspace ? place(workspace) : thread.cwd ? folderName(thread.cwd) : ''}</span>
+                              </span>
+                            )}
+                            {thread.folderMissing && (
+                              <span className="flex min-w-0 items-center gap-1 text-destructive/70" title={thread.cwd ?? undefined} data-import-thread-place="gone">
+                                <FolderX className="size-3 shrink-0" aria-label={t('Folder is gone')} />
+                                <span className="truncate line-through">{thread.cwd ? folderName(thread.cwd) : ''}</span>
+                              </span>
+                            )}
                             {scope === 'all' &&
+                              !thread.folderMissing &&
                               (workspace ? (
-                                <span className="flex min-w-0 items-center gap-1">
+                                <span className="flex min-w-0 items-center gap-1" title={thread.cwd ?? undefined}>
                                   <FolderGit2 className="size-3 shrink-0" aria-hidden />
-                                  <span className="truncate">{place(workspace)}</span>
+                                  <span className="truncate">{below ? `${place(workspace)} / ${below}` : place(workspace)}</span>
                                 </span>
                               ) : thread.cwd ? (
                                 <span className="flex min-w-0 items-center gap-1" title={t('{path}: importing adds this folder as a project', { path: thread.cwd })}>
@@ -236,7 +268,7 @@ export function AgentThreadsPanel({
                           >
                             {t('Open')}
                           </Button>
-                        ) : failure && here && thread.workspaceId !== here.id ? (
+                        ) : offerHere && here ? (
                           <Button
                             size="xs"
                             variant="outline"

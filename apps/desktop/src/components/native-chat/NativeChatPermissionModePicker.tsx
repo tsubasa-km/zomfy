@@ -1,5 +1,5 @@
 import { ChevronDown, FilePenLine, Hand, NotebookPen, ShieldAlert, ShieldCheck, type LucideIcon } from 'lucide-react'
-import type { ChatPermissionMode } from '@zomfy/protocol'
+import type { ChatAgentId, ChatPermissionMode } from '@zomfy/protocol'
 import { Button } from '@/components/ui/button'
 import {
   DropdownMenu,
@@ -44,17 +44,29 @@ function ModeName({ mode, truncate }: { mode: ChatPermissionMode; truncate?: boo
   )
 }
 
+/** What Auto means for an agent other than Claude, which reviews approvals its own way. */
+const AGENT_AUTO_DESCRIPTION = t('The agent reviews approval requests itself and asks only for what looks unsafe')
+
 export function NativeChatPermissionModePicker({
   current,
   autoAvailable,
+  offered,
+  agent = 'claude',
   onSelect
 }: {
   current: ChatPermissionMode
   /** Auto runs only on a model whose listing says it supports it. */
   autoAvailable: boolean
+  /** The modes the chat's agent can be put in (codex-and-acp-parity.md); every mode when absent. */
+  offered?: readonly ChatPermissionMode[]
+  agent?: ChatAgentId
   onSelect: (mode: ChatPermissionMode) => void
 }) {
-  const modes = MODES.filter((mode) => mode !== 'auto' || autoAvailable || current === 'auto')
+  const modes = MODES.filter(
+    (mode) => mode === current || ((!offered || offered.includes(mode)) && (mode !== 'auto' || autoAvailable))
+  )
+  const description = (mode: ChatPermissionMode) =>
+    mode === 'auto' && agent !== 'claude' ? AGENT_AUTO_DESCRIPTION : MODE_COPY[mode].description
   const title = t('Permissions')
   return (
     <DropdownMenu>
@@ -89,7 +101,7 @@ export function NativeChatPermissionModePicker({
             >
               <div className="min-w-0 py-0.5">
                 <ModeName mode={mode} />
-                <div className="text-xs font-normal text-muted-foreground">{MODE_COPY[mode].description}</div>
+                <div className="text-xs font-normal text-muted-foreground">{description(mode)}</div>
               </div>
             </DropdownMenuRadioItem>
           ))}

@@ -310,11 +310,6 @@ export async function forkChat(sessionId: string, fromMessageId?: string): Promi
   }
 }
 
-export async function resumeConversation(workspaceId: string, claudeSessionId: string, hostId: string): Promise<void> {
-  const info = await harnessRequest(HARNESS_METHODS.sessionResume, { workspaceId, claudeSessionId }, hostId)
-  openSession(info, hostId)
-}
-
 /**
  * Imports a conversation an agent's own CLI recorded on `hostId` as a thread, or finds the thread
  * that already shows it. The thread joins the sidebar without taking focus (showThread opens it);

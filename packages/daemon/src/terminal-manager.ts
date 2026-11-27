@@ -6,7 +6,7 @@ import { forgetInlineTerminal, loadInlineTerminals, saveInlineTerminal, type Sav
 import { OscScanner } from './terminal-osc.ts'
 import { ReplayBuffer } from './terminal-replay.ts'
 import { buildAgentLaunchPlan } from './tui-agent-launch.ts'
-import { hostPath } from './tui-agent-detection.ts'
+import { spawnEnvironment } from './user-environment.ts'
 
 /** Enough scrollback for a reloaded window to repaint a busy screen. */
 const REPLAY_LIMIT = 256 * 1024
@@ -281,7 +281,6 @@ export class TerminalManager {
   }
 
   private async spawn(info: TerminalInfo, spec: ShellSpec, cols: number, rows: number): Promise<LiveTerminal> {
-    const PATH = await hostPath()
     const decoder = new TextDecoder()
     cols = Math.max(2, cols)
     rows = Math.max(2, rows)
@@ -293,7 +292,7 @@ export class TerminalManager {
     const proc = Bun.spawn(spec.argv, {
       cwd: info.cwd,
       terminal: pty,
-      env: { ...envWithoutPath(), PATH, ...spec.env, TERM: 'xterm-256color', COLORTERM: 'truecolor' },
+      env: { ...(await spawnEnvironment()), ...spec.env, TERM: 'xterm-256color', COLORTERM: 'truecolor' },
       // Typed only on the non-terminal overloads; ConPTY children still need it to stay hidden.
       ...({ windowsHide: true } as object)
     })
@@ -467,11 +466,6 @@ export class TerminalManager {
     const list = this.list()
     for (const listener of this.changeListeners) listener(list)
   }
-}
-
-/** Windows spells it `Path`; one key, so the merged PATH is the one the shell sees. */
-function envWithoutPath(): Record<string, string | undefined> {
-  return Object.fromEntries(Object.entries(process.env).filter(([key]) => key.toUpperCase() !== 'PATH'))
 }
 
 /** ConPTY titles a console with its program's full path; the file name is what a tab can show. */

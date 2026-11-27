@@ -2,6 +2,7 @@ import { query, type McpServerStatus, type Options, type Query, type SDKUserMess
 import type { ChatMcpAuthStart, ChatMcpServer } from "@zomfy/protocol";
 import { CLAUDE_CHROME_ARGS, resolveClaudeExecutable } from "./claude-executable.ts";
 import { log } from "./log.ts";
+import { spawnEnvironment } from "./user-environment.ts";
 
 // A Claude Code process with no turn in it, started for what only a running CLI can answer between
 // turns: its MCP servers' state, reconnecting or signing in to one, the account's usage limits. It
@@ -179,7 +180,7 @@ export class ClaudeControl {
         settingSources: ["user", "project", "local"],
         abortController: abort,
         stderr: (line) => log(`[claude control] ${line}`),
-        env: { ...process.env, ...launch.env },
+        env: { ...(await spawnEnvironment()), ...launch.env },
         ...(launch.mcpServers && Object.keys(launch.mcpServers).length > 0 ? { mcpServers: launch.mcpServers } : {}),
         ...(launch.noMcp ? { strictMcpConfig: true } : {}),
         ...(launch.chrome && !launch.noMcp ? { extraArgs: CLAUDE_CHROME_ARGS } : {}),

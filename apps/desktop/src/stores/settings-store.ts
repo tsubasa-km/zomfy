@@ -21,6 +21,7 @@ export type ChatWaitingGlow = 'rainbow' | 'pulse' | 'outline' | 'off'
 
 /** Orca's floatingTerminalTriggerLocation: where the floating workspace toggle lives. */
 export type FloatingWorkspaceTriggerLocation = 'floating-button' | 'status-bar'
+export type DrawerOpenAction = 'hover' | 'click'
 
 export interface AppSettings {
   theme: ThemePreference
@@ -72,8 +73,7 @@ export interface AppSettings {
   /** Orca's floatingTerminalEnabled. */
   floatingWorkspaceEnabled: boolean
   floatingWorkspaceTriggerLocation: FloatingWorkspaceTriggerLocation
-  /** Opening the floating workspace with no tabs starts a terminal in it. */
-  floatingWorkspaceOpenTerminal: boolean
+  drawerOpenAction: DrawerOpenAction
   /** Agent new chats start with (Orca's defaultTuiAgent); 'claude' unless onboarding or settings pick another. */
   defaultChatAgent: string
   /** The permission mode new Claude chats start in. */
@@ -159,7 +159,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
   // In the status bar, at the window's edge: a button floating over the page covered composers'
   // send buttons and panel rows wherever it was left.
   floatingWorkspaceTriggerLocation: 'status-bar',
-  floatingWorkspaceOpenTerminal: true,
+  drawerOpenAction: 'hover',
   defaultChatAgent: 'claude',
   defaultPermissionMode: 'auto',
   defaultHost: 'auto',
@@ -188,6 +188,20 @@ export type SettingKey = keyof AppSettings
 export const STORAGE_KEY = 'zomfy.settings.v1'
 
 /**
+ * Settings that hold one of a fixed set of strings, with the values allowed for each. A saved value
+ * outside its set falls back to the default; a string-union setting opts in by listing its values here.
+ */
+const SETTING_CHOICES: ReadonlyMap<string, readonly unknown[]> = new Map<SettingKey, readonly unknown[]>([
+  ['drawerOpenAction', ['hover', 'click'] satisfies DrawerOpenAction[]]
+])
+
+/** Whether `value` may be kept for `key`: always, unless the key lists its allowed values. */
+export function isAllowedSettingValue(key: string, value: unknown): boolean {
+  const choices = SETTING_CHOICES.get(key)
+  return !choices || choices.includes(value)
+}
+
+/**
  * Every key is saved, so a new default reaches a saved window only through a move here. Revision 1:
  * thinking starts expanded, where "expand when the reply is short" was the default before.
  */
@@ -208,6 +222,7 @@ function readSaved(): AppSettings {
     // Drop keys whose type no longer matches, so a stale value cannot break a reader.
     const merged: Record<string, unknown> = { ...DEFAULT_SETTINGS }
     for (const [key, value] of Object.entries(saved)) {
+      if (!isAllowedSettingValue(key, value)) continue
       const fallback = (DEFAULT_SETTINGS as unknown as Record<string, unknown>)[key]
       if (fallback !== undefined && typeof value === typeof fallback && Array.isArray(value) === Array.isArray(fallback)) {
         merged[key] = value

@@ -8,7 +8,7 @@ import { chatCatalog } from "../claude-catalog.ts";
 import { conversationBefore, conversationUpdates, forkConversation } from "../claude-history.ts";
 import { importConversation, pastConversations } from "../agent-conversations.ts";
 import { liveClaudeQueries } from "../live-claude-queries.ts";
-import { agentEras, agentSwitchNotice, answeredBefore, pendingHandoff, type AgentEra } from "../agent-handoff.ts";
+import { agentEras, agentSwitchNotice, answeredBefore, importHandoff, pendingHandoff, type AgentEra } from "../agent-handoff.ts";
 import { emptyAgentState } from "../acp-agent-session.ts";
 import { refuseUnattended, resolveChatAgent } from "../chat-agent-launch-specs.ts";
 import { releaseFinishedTurn } from "../claude-turn.ts";
@@ -109,7 +109,8 @@ export function registerSessionHandlers(ctx: HandlerContext): void {
       ...(p.agent && p.agent !== "claude" ? { agent: p.agent } : {}),
       ...(p.role === "manager" ? { role: p.role, title: "Manager" } : {}),
       ...(p.role === "lead" ? { role: p.role, title: "Lead" } : {}),
-      ...((!p.agent || p.agent === "claude") && p.permissionMode && PERMISSION_MODES.has(p.permissionMode)
+      // Every agent is held to the mode the chat starts in (codex-and-acp-parity.md).
+      ...(p.permissionMode && PERMISSION_MODES.has(p.permissionMode)
         ? { options: { ...DEFAULT_SESSION_OPTIONS, permissionMode: p.permissionMode } }
         : {}),
     });
@@ -153,6 +154,8 @@ export function registerSessionHandlers(ctx: HandlerContext): void {
     }
     if (live && options.model !== session.options.model) await live.setModel(options.model ?? undefined);
     sessions.update(session.id, { options });
+    // A Codex or ACP agent that is running takes the new mode now; one that is not, when it starts.
+    if (options.permissionMode !== session.options.permissionMode) await acpAgents.for(session)?.refreshPermissionMode();
     return publicInfo(session);
   });
 
@@ -217,7 +220,9 @@ export function registerSessionHandlers(ctx: HandlerContext): void {
               ...(p.permissionMode && PERMISSION_MODES.has(p.permissionMode) ? { permissionMode: p.permissionMode } : {}),
             },
           }
-        : {}),
+        : to !== "claude" && p.permissionMode && PERMISSION_MODES.has(p.permissionMode)
+          ? { options: { ...session.options, permissionMode: p.permissionMode } }
+          : {}),
     });
     await emit(session.id, notice);
     acpAgents.for(session)?.ensureStarted().catch((error) => log(`starting ${to} failed: ${String(error)}`));
@@ -236,6 +241,23 @@ export function registerSessionHandlers(ctx: HandlerContext): void {
         ? await forkThrough(source, source.claudeSessionId, p.fromMessageId)
         : await forkConversation(source.claudeSessionId, source.cwd)
       : null;
+    // Imported and not continued yet: Claude has no conversation of it to fork, so the fork copies
+    // the thread and hands Claude that copy with its first message, as the import would have.
+    const transcript = await sessions.transcript(source.id);
+    if (!claudeSessionId && awaitsImportHandoff(source, transcript)) {
+      const copied = p.fromMessageId ? throughExchange(transcript, p.fromMessageId) : transcript;
+      const fork = sessions.create({
+        workspaceId: source.workspaceId,
+        cwd: source.cwd,
+        title: `${source.title} (fork)`,
+        claudeSessionId: null,
+        options: { ...source.options },
+        importedFrom: source.importedFrom,
+        handoffContext: importHandoff(copied, { agent: "claude", cwd: source.cwd, origin: null }),
+      });
+      await sessions.replaceTranscript(fork.id, copied);
+      return publicInfo(fork);
+    }
     const fork = sessions.create({
       workspaceId: source.workspaceId,
       cwd: source.cwd,
@@ -272,6 +294,7 @@ export function registerSessionHandlers(ctx: HandlerContext): void {
       .flatMap((u) => (u.content.type === "text" ? [u.content.text] : []))
       .join("\n");
     const kept = transcript.slice(0, start);
+    const imported = !claudeSessionId && awaitsImportHandoff(session, transcript);
     await sessions.replaceTranscript(session.id, kept);
     // Other agents that ran this chat after that message hold what was just dropped, and ACP cannot
     // take it back out of their conversations: they start a new one when the chat returns to them.
@@ -281,7 +304,10 @@ export function registerSessionHandlers(ctx: HandlerContext): void {
       claudeSessionId,
       agentSessionIds,
       // The message Claude took the chat back with is gone: its next one carries what it missed again.
-      handoffContext: pendingHandoff(kept, { agent: "claude", cwd: session.cwd, resumes: claudeSessionId !== null }),
+      handoffContext: imported
+        ? // What is left of an import Claude was never handed yet is still to be handed.
+          importHandoff(kept, { agent: "claude", cwd: session.cwd, origin: null })
+        : pendingHandoff(kept, { agent: "claude", cwd: session.cwd, resumes: claudeSessionId !== null }),
     });
     return { text };
   });
@@ -289,6 +315,23 @@ export function registerSessionHandlers(ctx: HandlerContext): void {
   handle(HARNESS_METHODS.sessionHistory, (p) => pastConversations(ctx, p));
 
   handle(HARNESS_METHODS.sessionResume, async (p) => publicInfo(await importConversation(ctx, p)));
+
+  /**
+   * A Claude thread imported from a conversation Claude cannot reopen where it runs, with no message
+   * sent since: Claude holds none of it yet and is to be handed it (agent-conversations.ts).
+   */
+  function awaitsImportHandoff(session: SessionRecord, transcript: readonly acp.SessionUpdate[]): boolean {
+    return !!session.importedFrom && !session.claudeSessionId && !!session.handoffContext && agentEras(transcript, "claude").length === 1;
+  }
+
+  /** The transcript through one prompt's exchange: everything before the next prompt. */
+  function throughExchange(transcript: acp.SessionUpdate[], messageId: string): acp.SessionUpdate[] {
+    const isPrompt = (u: acp.SessionUpdate): u is UserChunk => u.sessionUpdate === "user_message_chunk";
+    const start = transcript.findIndex((u) => isPrompt(u) && u.messageId === messageId);
+    if (start === -1) throw new Error("That message is not in this conversation");
+    const next = transcript.findIndex((u, i) => i > start && isPrompt(u) && !!u.messageId && u.messageId !== messageId);
+    return next === -1 ? transcript : transcript.slice(0, next);
+  }
 
   /** A fork that ends with this prompt's exchange: everything before the next prompt. */
   async function forkThrough(source: SessionRecord, claudeSessionId: string, messageId: string): Promise<string> {

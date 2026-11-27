@@ -10,6 +10,7 @@ import { runManagerMcpBridge } from "./manager-mcp-bridge.ts";
 import { pruneChatAttachments } from "./chat-attachment-files.ts";
 import { takeHomeMigrationLog } from "./harness-home.ts";
 import { retireLegacyHomeAtStart } from "./legacy-home-retire.ts";
+import { liveEnvironment } from "./user-environment.ts";
 
 const DEFAULT_PORT = 7801;
 const bridgeIndex = process.argv.indexOf("--mcp-bridge");
@@ -26,6 +27,8 @@ await workspaces.load();
 const sessions = new SessionRegistry();
 await sessions.load();
 void pruneChatAttachments().catch((error) => log(`attachment cleanup failed: ${error}`));
+// The person's environment as the daemon starts, so a variable removed later is told from one the launcher set.
+liveEnvironment().prime();
 // Inline terminals of chats deleted while the host was down are dropped on restore.
 const agent = createHarnessAgent(workspaces, sessions, new TerminalManager((id) => sessions.get(id) !== undefined), {
   remoteGateway: !process.argv.includes("--stdio"),

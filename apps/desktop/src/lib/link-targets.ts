@@ -133,3 +133,48 @@ export function looksLikeFilePath(text: string): boolean {
 export function isImagePath(path: string): boolean {
   return /\.(png|jpe?g|gif|webp)$/i.test(path.replace(/(?::\d+){1,2}$/, ''))
 }
+
+/** Set on a container (a chat) whose links belong to that workspace rather than the active one. */
+export const LINK_WORKSPACE_ATTR = 'data-link-workspace-id'
+/** Set beside it when the chat runs in a folder below the workspace's root: its relative paths start there. */
+export const LINK_FOLDER_ATTR = 'data-link-folder'
+
+/** The workspace, and the chat's folder below its root, that the links inside `element` belong to. */
+export function linkScope(element: Element | null | undefined): { workspaceId: string | null; folder: string | null } {
+  const scope = element?.closest(`[${LINK_WORKSPACE_ATTR}]`)
+  return { workspaceId: scope?.getAttribute(LINK_WORKSPACE_ATTR) || null, folder: scope?.getAttribute(LINK_FOLDER_ATTR) || null }
+}
+
+/**
+ * Where a chat's folder lies below its workspace's root, `/` between parts: null at the root itself
+ * or outside it. A chat imported from a subfolder runs there (docs/specs/import-keeps-its-folder.md).
+ */
+export function chatFolderBelow(cwd: string | null | undefined, root: string | null | undefined): string | null {
+  if (!cwd || !root || !isAbsolutePath(cwd)) return null
+  return workspaceRelativePath(cwd, root)
+}
+
+/** A relative path the chat's agent wrote, made relative to the workspace root instead of the chat's folder. */
+export function fromChatFolder(path: string, below: string | null): string {
+  if (!below || isAbsolutePath(path)) return path
+  const parts = below.split('/').filter(Boolean)
+  const up: string[] = []
+  for (const part of path.replaceAll('\\', '/').split('/')) {
+    if (!part || part === '.') continue
+    if (part !== '..') parts.push(part)
+    else if (parts.length > 0) parts.pop()
+    else up.push('..')
+  }
+  return [...up, ...parts].join('/')
+}
+
+/** A workspace-relative path as the chat's agent reads it from its folder (`x.ts`, `../y.ts`). */
+export function toChatFolder(path: string, below: string | null): string {
+  if (!below || isAbsolutePath(path)) return path
+  const from = below.split('/').filter(Boolean)
+  const to = path.replaceAll('\\', '/').split('/').filter(Boolean)
+  let shared = 0
+  // Folder names as the chat's folder and the file list spell them may differ in case on Windows.
+  while (shared < from.length && shared < to.length - 1 && from[shared]!.toLowerCase() === to[shared]!.toLowerCase()) shared++
+  return [...from.slice(shared).map(() => '..'), ...to.slice(shared)].join('/')
+}

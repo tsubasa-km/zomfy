@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
-import { ChevronLeft, ChevronRight, Ellipsis, Plus, X } from 'lucide-react'
+import { ChevronLeft, ChevronRight, Ellipsis, X } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import {
   DropdownMenu,
@@ -8,9 +8,9 @@ import {
   DropdownMenuTrigger
 } from '@/components/ui/dropdown-menu'
 import { cn } from '@/lib/utils'
-import { showQuickStart } from '@/session-store'
-import { WINDOW_TABS } from '@/stores/tab-layout-store'
+import { tabScope, WINDOW_TABS } from '@/stores/tab-layout-store'
 import { NewTabMenu } from './NewTabMenu'
+import { PaneContextMark } from './PaneContext'
 import { PinnedTabButtons } from './PinnedTabButtons'
 import { QuickCommandsButton } from '@/components/terminal/QuickCommandsButton'
 import { TabItem } from './TabItem'
@@ -121,6 +121,7 @@ function PaneActionsMenu({ onCloseGroup }: { onCloseGroup: () => void }) {
 
 export function TabStrip({
   workspaceId,
+  context,
   groupId,
   tabs,
   activeId,
@@ -128,7 +129,10 @@ export function TabStrip({
   hasSplit,
   trailing
 }: {
+  /** The tab layout's workspace argument (WINDOW_TABS for the main window). */
   workspaceId: string
+  /** The workspace the pane works in, null for none (docs/specs/panes-as-workspaces.md). */
+  context: string | null
   groupId: string
   tabs: WorkspaceTab[]
   activeId: string | null
@@ -147,6 +151,10 @@ export function TabStrip({
       data-tab-group-strip-id={groupId}
       className="flex h-9 shrink-0 items-stretch border-b border-border bg-card"
     >
+      {/* Each of the window's panes says at its start which workspace it works in. */}
+      {tabScope(workspaceId) === WINDOW_TABS && (
+        <PaneContextMark layoutKey={workspaceId} groupId={groupId} context={context} named={hasSplit} />
+      )}
       {overflow.hasOverflow && (
         <ScrollButton direction="start" disabled={!overflow.canScrollStart} onClick={() => scrollBy('start')} />
       )}
@@ -177,28 +185,14 @@ export function TabStrip({
       {overflow.hasOverflow && (
         <ScrollButton direction="end" disabled={!overflow.canScrollEnd} onClick={() => scrollBy('end')} />
       )}
-      {workspaceId === WINDOW_TABS ? (
-        // No workspace in front, so nowhere to start a terminal or open a file: only a chat can start.
-        <button
-          type="button"
-          aria-label={t('New thread')}
-          title={t('New thread')}
-          data-new-chat-tab
-          className="my-auto ml-1 flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-muted-foreground hover:bg-accent/50 hover:text-foreground focus-visible:ring-2 focus-visible:ring-accent focus-visible:outline-none"
-          onClick={() => showQuickStart()}
-        >
-          <Plus className="size-4" />
-        </button>
-      ) : (
-        // In a narrow pane these give way, so the pane's own buttons at the end (its actions, its
-        // sidebar's toggle) stay in reach; but only after the tabs have scrolled down to their
-        // minimum, so a long row of tabs never clips a button in half.
-        <div className="flex min-w-0 shrink-[0.001] items-stretch overflow-hidden">
-          <NewTabMenu workspaceId={workspaceId} groupId={groupId} />
-          <PinnedTabButtons workspaceId={workspaceId} groupId={groupId} />
-          <QuickCommandsButton workspaceId={workspaceId} />
-        </div>
-      )}
+      {/* In a narrow pane these give way, so the pane's own buttons at the end (its actions, its
+          sidebar's toggle) stay in reach; but only after the tabs have scrolled down to their
+          minimum, so a long row of tabs never clips a button in half. */}
+      <div className="flex min-w-0 shrink-[0.001] items-stretch overflow-hidden">
+        <NewTabMenu layoutKey={workspaceId} workspaceId={context} groupId={groupId} />
+        <PinnedTabButtons layoutKey={workspaceId} workspaceId={context} groupId={groupId} />
+        {context && <QuickCommandsButton workspaceId={context} />}
+      </div>
       <div className="min-w-0 flex-1" />
       {hasSplit && (
         <div

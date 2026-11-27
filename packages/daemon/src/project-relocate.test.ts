@@ -52,3 +52,14 @@ describe("relocating a project", () => {
     await expect(manager.relocateProject(project!.id, other.path)).rejects.toThrow("is already the project");
   });
 });
+
+describe("finding a folder's workspace", () => {
+  test.if(process.platform === "win32")("finds it however the folder is written, without adding it again", async () => {
+    const before = (await manager.snapshot()).projects.length;
+    const folder = join(root, "new");
+    for (const written of [folder.toUpperCase(), folder.replaceAll("\\", "/"), `${folder}\\`, `\\\\?\\${folder}`]) {
+      expect((await manager.workspaceForFolder(written)).path).toBe(folder);
+    }
+    expect((await manager.snapshot()).projects).toHaveLength(before);
+  });
+});

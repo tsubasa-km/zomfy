@@ -1,6 +1,6 @@
 import { expect, test } from 'bun:test'
 import type { PastConversation } from '@zomfy/protocol'
-import { folderName, listedThreads, matchesSearch, threadGroups } from '../src/lib/thread-import.ts'
+import { folderName, listedThreads, matchesSearch, recentConversations, threadGroups, threadPlace } from '../src/lib/thread-import.ts'
 
 const conversation = (fields: Partial<PastConversation>): PastConversation => ({
   claudeSessionId: fields.conversationId ?? 'c1',
@@ -51,4 +51,23 @@ test('a folder is named by the last part of its path', () => {
   expect(folderName('C:\\work\\storefront\\')).toBe('storefront')
   expect(folderName('/home/me/api')).toBe('api')
   expect(folderName('/')).toBe('/')
+})
+
+test('seen from a workspace, a row says where its import runs when that is not the workspace’s own folder', () => {
+  const here = { id: 'w-repo', path: String.raw`C:\work\Repo` }
+  expect(threadPlace({ cwd: String.raw`C:\work\Repo`, workspaceId: 'w-repo' }, here)).toEqual({ kind: 'here' })
+  expect(threadPlace({ cwd: 'c:/work/repo/packages/App', workspaceId: 'w-repo' }, here)).toEqual({ kind: 'below', path: 'packages/App' })
+  expect(threadPlace({ cwd: String.raw`C:\work\Repo-wt`, workspaceId: 'w-wt' }, here)).toEqual({ kind: 'elsewhere', workspaceId: 'w-wt' })
+  expect(threadPlace({ cwd: String.raw`D:\loose`, workspaceId: null }, here)).toEqual({ kind: 'elsewhere', workspaceId: null })
+  expect(threadPlace({ cwd: String.raw`C:\work\Repo\old`, workspaceId: null, folderMissing: true }, here)).toEqual({ kind: 'gone' })
+})
+
+test('Recent conversations: what the workspace owns and no thread shows yet', () => {
+  const list = [
+    conversation({ conversationId: 'own', workspaceId: 'w-repo' }),
+    conversation({ conversationId: 'open', workspaceId: 'w-repo', openSessionId: 's1' }),
+    conversation({ conversationId: 'sibling', workspaceId: 'w-wt' }),
+    conversation({ conversationId: 'gone', workspaceId: null, folderMissing: true })
+  ]
+  expect(recentConversations(list, 'w-repo').map((c) => c.conversationId)).toEqual(['own'])
 })

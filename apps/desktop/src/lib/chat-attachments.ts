@@ -6,6 +6,7 @@ import { getState, openEditorTab, selectTab, selectTerminal, type Session, type 
 import { mentionText, type ChatMention } from '@/lib/chat-mentions'
 import { terminalScreenText } from '@/lib/terminal-screen-text'
 import { flashWhenShown } from '@/lib/flash-element'
+import { fromChatFolder } from '@/lib/link-targets'
 import { requestDrawer } from '@/stores/drawer-request-store'
 import { toast } from 'sonner'
 import { t } from '@/i18n/i18n'
@@ -60,7 +61,7 @@ function transcriptText(session: Session): string {
 }
 
 /** Shows what a mention names (the file, the chat, or the terminal) and briefly outlines it there. */
-export function openChatMention(mention: Pick<ChatMention, 'kind' | 'path' | 'sourceId'>, workspaceId: string | null): void {
+export function openChatMention(mention: Pick<ChatMention, 'kind' | 'path' | 'sourceId'>, workspaceId: string | null, folder: string | null = null): void {
   const state = getState()
   const id = CSS.escape(mention.sourceId ?? '')
   if (mention.kind === 'mcp') {
@@ -70,8 +71,10 @@ export function openChatMention(mention: Pick<ChatMention, 'kind' | 'path' | 'so
   }
   if (mention.kind === 'file') {
     if (!workspaceId) return
-    openEditorTab({ workspaceId, kind: 'file', path: mention.path, staged: false })
-    const tab = getState().editorTabs.find((t) => t.workspaceId === workspaceId && t.kind === 'file' && t.path === mention.path)
+    // Mentions are written as the chat's agent reads them, from the chat's own folder.
+    const path = fromChatFolder(mention.path, folder)
+    openEditorTab({ workspaceId, kind: 'file', path, staged: false })
+    const tab = getState().editorTabs.find((t) => t.workspaceId === workspaceId && t.kind === 'file' && t.path === path)
     if (tab) flashWhenShown(`[data-editor-tab="${CSS.escape(tab.id)}"]`)
     return
   }

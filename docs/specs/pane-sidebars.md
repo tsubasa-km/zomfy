@@ -19,7 +19,7 @@ which one changed with every click between panes.
 
 - **A sidebar per pane.** Every leaf of the split tree (components/tab-layout/TabGroupPane.tsx) draws
   its own right sidebar at its own right edge, beside its tab strip and body.
-- **What it shows.** The workspace of the tab the pane has in front. On the "New thread" tab it
+- **What it shows.** Since [panes-as-workspaces](panes-as-workspaces.md), the pane's context workspace; the rest of this point is what it showed before. The workspace of the tab the pane has in front. On the "New thread" tab it
   follows the rules of `sidebarWorkspaceId` in session-store: the workspace the thread was opened
   from, else the main checkout of the project picked there, else nothing. A pane with no tab shows
   the workspace last in front, as the single sidebar did. A pop-out window's panes show its workspace.

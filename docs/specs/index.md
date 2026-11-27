@@ -4,6 +4,8 @@
 * [One right sidebar per split pane](pane-sidebars.md) - each split pane has its own right sidebar, opened from its own tab strip
 * [UI principles - show, don't tell](ui-principles.md) - state and structure are shown with colour, shape, marks, glow and place, not explanatory words; words stay for content, field labels, errors and destructive warnings
 
+* [Docking the tool drawer](drawer-edge-docking.md) - Drag the tool drawer's handle along an edge or dock it to any edge of the pane.
+
 # Bots
 
 * [Zomfy Bots](bots/overview.md) - named agents in a folder on the person's computer, asked from Zomfy, Discord, Slack, GitHub, Linear, webhooks and schedules, copied from Orca Bots
@@ -48,7 +50,12 @@
 * [Save is offered only when something changed](save-buttons.md) - settings with a Save step compare the form with what is saved: Save is disabled or hidden until something differs, reads "Saving…" while it runs, and closes or says "Saved" when done
 * [Zomfy Relay settings, its features, and setting it up with an agent](relay-settings.md) - a top-level Settings page for the one relay: pairing, health, the features the person picks and what each needs, and a chat that deploys it with an agent
 * [Adding a tab: the "+" menu, pins, new chats and terminals that pick their place](new-tab-menu-and-pins.md) - any "+" menu item can be pinned beside it (Terminal by default), a new chat opens the New thread screen prefilled with the current workspace, a new terminal picks its host, folder and shell
+* [A split pane is a workspace, and its "+" is a quick pick](panes-as-workspaces.md) - each pane of the window keeps a workspace of its own (or none) that its "+", pins and sidebar act on, marked at its strip's start; "+" opens a filterable quick pick with Terminal, Agent and Panel scopes
 * [The window opens in one step](calm-startup.md) - the shell starts from a local snapshot of the hosts' projects and threads, Monaco loads with the first editor tab, and `record-startup.ts` records a startup filmstrip
 * [Child threads stay quiet and report to the thread that launched them](child-threads-report-home.md) - helpers raise no notification, Inbox entry, unread mark or tray dot of their own, and the daemon tells the launching thread in one batched turn when they stop
 * [Threads say whose turn it is](turn-taking-states.md) - Needs your answer, Your turn, Working, Background work running and Quiet replace "Done" and "Settled" in the sidebar, tabs, thread, session panel and phone
 * [Scheduled wake-ups fire in a Zomfy chat](scheduled-wake-ups.md) - a chat that ends its turn with ScheduleWakeup, CronCreate or /loop keeps its Claude process until the wake-up fires, and the daemon fires one-shot wake-ups itself if the process goes
+* [Secrets agents can use but not see](agent-secrets.md) - API keys in the OS credential store reach agents' tools through a local tunnel that adds the key on the way to the bound host, while the agent sees a placeholder and Zomfy redacts the value everywhere
+* [New terminals and agents get the current user environment](live-environment.md) - the daemon re-reads the Windows registry or a login-shell snapshot for each new terminal and agent process, and Reload environment forces it
+* [Codex and ACP agents follow the thread's permission mode, instructions, moves and titles](codex-and-acp-parity.md) - Zomfy's permission modes, its own instructions, chat moves and thread titles reach Codex (ACP and Direct) and other ACP agents as they reach Claude
+* [An imported conversation keeps its own folder](import-keeps-its-folder.md) - an import goes to the workspace that owns the recorded folder and runs in that folder, a subfolder included; only "Import into" places it elsewhere

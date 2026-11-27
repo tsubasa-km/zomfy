@@ -1,5 +1,6 @@
 import { t } from '@/i18n/i18n'
 import { getAppOverlays } from '@/stores/app-overlay-store'
+import { getSetting } from '@/stores/settings-store'
 import { getWorkflowsPage } from '@/stores/workflows-store'
 
 // The guided tour's stops, in order. Each points at a part of the real window by a selector; a stop
@@ -74,19 +75,28 @@ export const TOUR_STEPS: TourStep[] = [
   },
   {
     chapter: t('Layout'),
-    title: t('The pull-down drawer'),
-    body: t('The open tab has a small tab under the tab strip. It pulls down the workspace’s terminals, browsers and panels: files, search, source control, checks, ports, the side chat and the agent’s details.'),
+    title: t('The tool drawer'),
+    body: t('The small tab at the edge of the pane holds the workspace’s terminals, browsers and panels: files, search, source control, checks, ports, the side chat and the agent’s details.'),
     target: '[data-drawer-handle]',
     optional: true,
-    action: { prompt: t('Point at the tab and wait a moment.'), on: 'hover' }
+    action: {
+      get prompt() {
+        return getSetting('drawerOpenAction') === 'click' ? t('Click the drawer handle.') : t('Point at the tab and wait a moment.')
+      },
+      get on() {
+        return getSetting('drawerOpenAction')
+      }
+    }
   },
   {
     chapter: t('Layout'),
     title: t('Keep it open'),
-    body: t('The drawer closes when the pointer leaves it. The same tab, now under the drawer, pins it open.'),
-    target: DRAWER,
+    body: t('The drawer closes when the pointer leaves it. Click the pin tab on its inner edge to keep it open.'),
+    get target() {
+      return getSetting('drawerOpenAction') === 'click' ? [] : DRAWER
+    },
     optional: true,
-    action: { prompt: t('Click the tab under the drawer. (If the drawer closed, point at the tab again.)'), on: 'click', within: '[data-drawer-pin]' }
+    action: { prompt: t('Click the pin tab. If the drawer closed, reopen it with its handle.'), on: 'click', within: '[data-drawer-pin]' }
   },
   {
     chapter: t('Layout'),
@@ -99,10 +109,24 @@ export const TOUR_STEPS: TourStep[] = [
   {
     chapter: t('Layout'),
     title: t('Let it close'),
-    body: t('Unpinned, it slides away as soon as the pointer moves off it.'),
+    get body() {
+      return getSetting('drawerOpenAction') === 'click'
+        ? t('The drawer stays open until you close it.')
+        : t('Unpinned, it slides away as soon as the pointer moves off it.')
+    },
     target: DRAWER,
     optional: true,
-    action: { prompt: t('Click the tab again, then move away.'), on: 'click', within: '[data-drawer-pin]' }
+    action: {
+      get prompt() {
+        return getSetting('drawerOpenAction') === 'click'
+          ? t('Click the drawer’s close arrow.')
+          : t('Click the tab again, then move away.')
+      },
+      on: 'click',
+      get within() {
+        return getSetting('drawerOpenAction') === 'click' ? '[data-drawer-close]' : '[data-drawer-pin]'
+      }
+    }
   },
   {
     chapter: t('Layout'),
