@@ -109,7 +109,6 @@ export const SETTINGS_SECTIONS: readonly SettingsNavSection[] = [
       { title: t('Show Agent Dashboard Button'), keywords: ['dashboard', 'agents', 'sidebar'] },
       { title: t('Show Onboarding Checklist'), keywords: ['onboarding', 'setup', 'checklist', 'sidebar'] },
       { title: t('Enable Floating Workspace'), keywords: ['floating', 'workspace', 'terminal', 'quick panel'] },
-      { title: t('Open a Terminal When Empty'), keywords: ['floating', 'terminal', 'default', 'open', 'empty'] },
       { title: t('Toggle Button Location'), keywords: ['floating', 'status bar', 'button'] },
       { title: t('Colors in Dark Mode'), keywords: ['terminal', 'theme', 'color', 'colour', 'palette', 'dark', 'scheme'] },
       { title: t('Colors in Light Mode'), keywords: ['terminal', 'theme', 'color', 'colour', 'palette', 'light', 'scheme'] },
