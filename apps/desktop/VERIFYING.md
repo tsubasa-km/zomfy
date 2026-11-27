@@ -44,7 +44,8 @@ put the UI into a state that is hard to reach by clicking (a waiting chat, a lon
 ## Pointing at the UI: the feedback overlay
 
 In the dev server (`bun run dev`, a debug build or a preview, never a production build) a round
-button sits at the middle of the window's right edge. Click it, then click elements to pin them
+button sits at the middle of the window's right edge. Click it (or press Ctrl+Shift+., which also
+works with a dialog or menu open; the overlay leaves those open), then click elements to pin them
 (each gets a number and a comment box), or pick the pen, arrow or rectangle and draw; Send saves a
 bundle and copies a short summary with its path, to paste into the chat with the agent.
 

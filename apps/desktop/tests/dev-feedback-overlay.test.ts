@@ -2,7 +2,7 @@ import { describe, expect, test } from 'bun:test'
 import { mkdtemp, readFile, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { buildFeedbackMarkdown, buildFeedbackSummary, bundleFolderName, repoRelativePath, type FeedbackPayload } from '../src/dev/feedback/bundle.ts'
+import { buildFeedbackMarkdown, isFeedbackShortcut, buildFeedbackSummary, bundleFolderName, repoRelativePath, type FeedbackPayload } from '../src/dev/feedback/bundle.ts'
 import { writeFeedbackBundle } from '../feedback-plugin.ts'
 
 // docs/specs/dev-feedback-overlay.md
@@ -46,6 +46,15 @@ describe('dev feedback overlay', () => {
     expect(repoRelativePath('/@fs/C:/repo/packages/protocol/src/index.ts', vite, repo)).toBe('packages/protocol/src/index.ts')
     expect(repoRelativePath('file:///C:/repo/apps/desktop/src/x.tsx', vite, repo)).toBe('apps/desktop/src/x.tsx')
     expect(repoRelativePath('C:\\elsewhere\\y.ts', vite, repo)).toBe('C:/elsewhere/y.ts')
+  })
+
+  test('Ctrl+Shift+. (or Cmd+Shift+.) is the toggle, by key position', () => {
+    const key = { code: 'Period', ctrlKey: true, metaKey: false, shiftKey: true, altKey: false }
+    expect(isFeedbackShortcut(key)).toBe(true)
+    expect(isFeedbackShortcut({ ...key, ctrlKey: false, metaKey: true })).toBe(true)
+    expect(isFeedbackShortcut({ ...key, shiftKey: false })).toBe(false)
+    expect(isFeedbackShortcut({ ...key, altKey: true })).toBe(false)
+    expect(isFeedbackShortcut({ ...key, code: 'Comma' })).toBe(false)
   })
 
   test('a bundle folder name sorts by time and has no colons', () => {

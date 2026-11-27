@@ -5,10 +5,11 @@ import { useCallback, useEffect, useLayoutEffect, useRef, useState, type Pointer
 import { Check, MessageSquarePlus, MousePointer2, MoveUpRight, Pencil, Send, Square, Trash2, X } from "lucide-react";
 import { getStroke } from "perfect-freehand";
 import { domToPng } from "modern-screenshot";
-import { getElementAtPoint, getElementContext, getElementSelector, isElementGrabbable, type ReactGrabElementContext } from "react-grab/primitives";
+import { getElementContext, getElementSelector, isElementGrabbable, type ReactGrabElementContext } from "react-grab/primitives";
 import { WINDOW_ROLE } from "@/lib/window-role";
 import {
   FEEDBACK_ENDPOINT,
+  isFeedbackShortcut,
   type FeedbackBox,
   type FeedbackContext,
   type FeedbackDrawing,
@@ -174,8 +175,26 @@ function Shape({ kind, points }: { kind: DrawingMark["kind"]; points: Point[] })
   );
 }
 
-function scrollUnder(x: number, y: number, dx: number, dy: number): void {
-  let element: Element | null = getElementAtPoint(x, y);
+/**
+ * The topmost element of the app at a point, the overlay's own nodes skipped. An open Radix modal
+ * sets `pointer-events: none` on the body, which hides everything but the modal's layer from
+ * `elementsFromPoint`; it is lifted for the moment of the hit test, so the test sees what is on screen.
+ */
+function elementAt(x: number, y: number, host: HTMLElement): Element | null {
+  const body = document.body;
+  const blocked = getComputedStyle(body).pointerEvents === "none";
+  const inline = body.style.pointerEvents;
+  if (blocked) body.style.pointerEvents = "auto";
+  try {
+    const candidates = document.elementsFromPoint(x, y).filter((element) => !host.contains(element) && element !== document.documentElement && element !== body);
+    return candidates.find((element) => isElementGrabbable(element)) ?? candidates[0] ?? null;
+  } finally {
+    if (blocked) body.style.pointerEvents = inline;
+  }
+}
+
+function scrollUnder(x: number, y: number, dx: number, dy: number, host: HTMLElement): void {
+  let element: Element | null = elementAt(x, y, host);
   while (element) {
     const style = getComputedStyle(element);
     const canY = dy !== 0 && element.scrollHeight > element.clientHeight && /(auto|scroll)/.test(style.overflowY);
@@ -305,8 +324,7 @@ export function FeedbackOverlay({ host }: { host: HTMLElement }) {
     counter.current = 0;
   }, []);
 
-  const pick = (event: ReactPointerEvent): Element | null =>
-    getElementAtPoint(event.clientX, event.clientY, { filter: (candidate) => isElementGrabbable(candidate) && !host.contains(candidate) });
+  const pick = (event: ReactPointerEvent): Element | null => elementAt(event.clientX, event.clientY, host);
 
   const onPointerMove = (event: ReactPointerEvent) => {
     if (tool === "select") {
@@ -378,12 +396,26 @@ export function FeedbackOverlay({ host }: { host: HTMLElement }) {
     }
   };
 
-  // Escape closes the open comment, then leaves feedback mode.
+  // The shortcut works whatever has the focus: the window's capture phase runs before any layer's
+  // own key handling (Radix listens on the document).
+  useEffect(() => {
+    const onKey = (event: KeyboardEvent) => {
+      if (!isFeedbackShortcut(event)) return;
+      event.stopImmediatePropagation();
+      event.preventDefault();
+      setActive((on) => !on);
+    };
+    window.addEventListener("keydown", onKey, true);
+    return () => window.removeEventListener("keydown", onKey, true);
+  }, []);
+
+  // Escape closes the open comment, then leaves feedback mode; the dialog or menu under the
+  // overlay never sees it (Radix's Escape listener is on the document, after the window).
   useEffect(() => {
     if (!active) return;
     const onKey = (event: KeyboardEvent) => {
       if (event.key !== "Escape") return;
-      event.stopPropagation();
+      event.stopImmediatePropagation();
       event.preventDefault();
       if (open !== null) setOpen(null);
       else setActive(false);
@@ -414,7 +446,7 @@ export function FeedbackOverlay({ host }: { host: HTMLElement }) {
             onPointerDown={onPointerDown}
             onPointerUp={onPointerUp}
             onPointerLeave={() => setHover(null)}
-            onWheel={(event) => scrollUnder(event.clientX, event.clientY, event.deltaX, event.deltaY)}
+            onWheel={(event) => scrollUnder(event.clientX, event.clientY, event.deltaX, event.deltaY, host)}
           />
           <svg className="zf-marks">
             {marks.map((mark) =>
@@ -468,7 +500,7 @@ export function FeedbackOverlay({ host }: { host: HTMLElement }) {
       )}
       <div {...CHROME} className="zf-dock">
         <div className="zf-toolbar">
-          <ToolButton label={active ? "Leave feedback mode" : "Feedback mode"} active={active} onClick={() => setActive((on) => !on)}>
+          <ToolButton label={active ? "Leave feedback mode (Ctrl+Shift+.)" : "Feedback mode (Ctrl+Shift+.)"} active={active} onClick={() => setActive((on) => !on)}>
             {active ? <X size={16} /> : <MessageSquarePlus size={16} />}
             {!active && marks.length > 0 && <span className="zf-count">{marks.length}</span>}
           </ToolButton>
