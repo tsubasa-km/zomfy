@@ -1101,10 +1101,7 @@ export const PAGES: Record<string, string> = {
 
   // components/tour/tour-steps.ts (try-it stops)
   'Click the tab again, then move away.': 'もう一度つまみをクリックして、マウスを離してみましょう。',
-  'Click the tab under the drawer. (If the drawer closed, point at the tab again.)': '引き出しの下のつまみをクリックしてみましょう（閉じてしまったら、もう一度つまみにマウスを乗せてください）。',
-  'The drawer closes when the pointer leaves it. The same tab, now under the drawer, pins it open.': '引き出しはマウスが離れると閉じます。引き出しの下に移ったつまみを押すと、開いたまま固定されます。',
   'Point at the tab and wait a moment.': 'つまみにマウスを乗せて、少し待ってみましょう。',
-  'The open tab has a small tab under the tab strip. It pulls down the workspace’s terminals, browsers and panels: files, search, source control, checks, ports, the side chat and the agent’s details.': '開いているタブには、タブ列の下に小さなつまみがあります。ここからワークスペースのターミナル、ブラウザー、パネル（ファイル、検索、ソース管理、チェック、ポート、サイドチャット、エージェントの詳細）を引き出せます。',
   'Click the arrow to fold or unfold the threads under it.': '矢印をクリックして、下のスレッドを開いたり畳んだりしてみましょう。',
   'Click it to open the side chat panel.': 'クリックしてサイドチャットのパネルを開いてみましょう。',
   'Keep it open': '開いたままにする',
@@ -1114,6 +1111,9 @@ export const PAGES: Record<string, string> = {
   'Press {mod}+Shift+P to open it, look around, then press Esc.': '{mod}+Shift+P で開いて中を見たら、Esc で閉じてみましょう。',
   'Click it to open the Workflows page. Click it again to come back to the tour.': 'クリックしてワークフローのページを開いてみましょう。もう一度クリックするとツアーに戻ります。',
   'Nice, that’s it.': 'できました！',
+  'Click the drawer handle.': '引き出しのつまみをクリックしてみましょう。',
+  'Click the pin tab. If the drawer closed, reopen it with its handle.': 'ピンのつまみをクリックしてみましょう。引き出しが閉じてしまったら、つまみからもう一度開いてください。',
+  'Click the drawer’s close arrow.': '引き出しの閉じる矢印をクリックしてみましょう。',
   // components/tour/tour-steps.ts
   Welcome: 'ようこそ',
   'A quick look around': 'ひととおり見てみましょう',
@@ -1132,7 +1132,10 @@ export const PAGES: Record<string, string> = {
   Layout: 'レイアウト',
   'Side by side': '並べて表示',
   'Drag a thread or a project from the sidebar onto any edge of a pane to open its workspace beside it, or onto its middle to take its place. Drag a pane by its name bar to move it, or out of the window to give it a window of its own; drag the dividers to resize.': 'サイドバーのスレッドやプロジェクトを画面の上下左右の端へドラッグすると、その横に開きます。中央に落とすと入れ替わります。各画面は名前の帯を掴んで移動でき、ウィンドウの外へ出すと別ウィンドウになります。区切り線のドラッグでサイズを変えられます。',
-  'The pull-down drawer': 'プルダウンドロワー',
+  'The tool drawer': '引き出し',
+  'The small tab at the edge of the pane holds the workspace’s terminals, browsers and panels: files, search, source control, checks, ports, the side chat and the agent’s details.': 'ペインの端にある小さなつまみから、ワークスペースのターミナル、ブラウザー、パネル（ファイル、検索、ソース管理、チェック、ポート、サイドチャット、エージェントの詳細）を引き出せます。',
+  'The drawer closes when the pointer leaves it. Click the pin tab on its inner edge to keep it open.': '引き出しはマウスが離れると閉じます。内側の端にあるピンのつまみをクリックすると、開いたまま固定されます。',
+  'The drawer stays open until you close it.': '引き出しは閉じるまで開いたままです。',
   'Right sidebar': '右サイドバー',
   'Files, search, source control, checks, ports, the side chat and the agent’s details, for the workspace in focus.': 'フォーカス中のワークスペースのファイル、検索、ソース管理、チェック、ポート、サイドチャット、エージェントの詳細。',
   'Commands and shortcuts': 'コマンドとショートカット',

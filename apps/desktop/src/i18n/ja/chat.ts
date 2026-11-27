@@ -536,6 +536,8 @@ export const CHAT: Record<string, string> = {
   Browser: 'ブラウザー',
   Unpin: 'ピン留めを外す',
   'Keep open': '開いたままにする',
+  'Open the tool drawer': '引き出しを開く',
+  'Close the tool drawer': '引き出しを閉じる',
 
   // components/tab-layout/pane-split-commands.ts
   'Split terminal right': 'ターミナルを右に分割',

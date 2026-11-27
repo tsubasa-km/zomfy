@@ -114,8 +114,11 @@ function Pane({ terminalId, rect, active, dimmed, hidden, tabId }: { terminalId:
         height: pct(rect.h),
         opacity: dimmed ? INACTIVE_PANE_OPACITY : 1,
         zIndex: active ? 1 : 0,
-        // Only the panes along the top edge sit under the drawer's handle.
-        ['--terminal-top-inset' as string]: rect.y === 0 ? 'var(--tab-top-inset, 0px)' : '0px'
+        // Only the panes along the drawer's edge sit under its handle.
+        ['--terminal-top-inset' as string]: rect.y === 0 ? 'var(--tab-top-inset, 0px)' : '0px',
+        ['--terminal-bottom-inset' as string]: rect.y + rect.h > 0.999 ? 'var(--tab-bottom-inset, 0px)' : '0px',
+        ['--terminal-left-inset' as string]: rect.x === 0 ? 'var(--tab-left-inset, 0px)' : '0px',
+        ['--terminal-right-inset' as string]: rect.x + rect.w > 0.999 ? 'var(--tab-right-inset, 0px)' : '0px'
       }}
       onFocusCapture={() => setActivePane(tabId, terminalId)}
       onPointerDown={() => setActivePane(tabId, terminalId)}

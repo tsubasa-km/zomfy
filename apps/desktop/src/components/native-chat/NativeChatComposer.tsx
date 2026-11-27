@@ -234,7 +234,8 @@ function Composer({ session, editorRef, glow = false }: ComposerProps) {
 
   return (
     <div className="shrink-0 bg-chat-canvas select-none">
-      <div className="px-3 pt-2 pb-4 sm:px-4">
+      {/* Its bottom padding also keeps the box clear of a drawer handle docked below (--tab-bottom-inset). */}
+      <div className="px-3 pt-2 pb-[max(--spacing(4),var(--tab-bottom-inset,0px))] sm:px-4">
         {memos && memoOpen ? (
           <div className="mx-auto w-full max-w-(--chat-content-max-width)">
             <NativeChatMemoPanel

@@ -4,6 +4,8 @@
 * [One right sidebar per split pane](pane-sidebars.md) - each split pane has its own right sidebar, opened from its own tab strip
 * [UI principles - show, don't tell](ui-principles.md) - state and structure are shown with colour, shape, marks, glow and place, not explanatory words; words stay for content, field labels, errors and destructive warnings
 
+* [Docking the tool drawer](drawer-edge-docking.md) - Drag the tool drawer's handle along an edge or dock it to any edge of the pane.
+
 # Bots
 
 * [Zomfy Bots](bots/overview.md) - named agents in a folder on the person's computer, asked from Zomfy, Discord, Slack, GitHub, Linear, webhooks and schedules, copied from Orca Bots
