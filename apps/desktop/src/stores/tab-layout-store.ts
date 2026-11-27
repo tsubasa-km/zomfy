@@ -1,4 +1,5 @@
 import { useSyncExternalStore } from 'react'
+import { nextFrontTab } from '@/lib/pane-context'
 
 // Orca's tab-group model (shared/tab-types.ts, store/slices/tabs): a split tree whose leaves are tab
 // groups, each group its own tab order, active tab and MRU stack. The main window keeps one such
@@ -11,6 +12,16 @@ export const WINDOW_TABS = 'window'
 let scopeOf: (workspaceId: string) => string = (id) => id
 
 /** session-store says which workspaces share the window's layout; it cannot be imported from here. */
+/**
+ * The workspace whose set a tab belongs to in a pane (docs/specs/panes-as-workspaces.md), null for
+ * a tab of no workspace; session-store knows the tabs and sets it.
+ */
+let tabSetOf: (tabId: string) => string | null = () => null
+
+export function setTabSetResolver(resolve: (tabId: string) => string | null): void {
+  tabSetOf = resolve
+}
+
 export function setTabScopeResolver(resolve: (workspaceId: string) => string): void {
   scopeOf = resolve
 }
@@ -215,7 +226,9 @@ function withoutTabs(group: TabGroup, ids: Set<string>): TabGroup {
   let activeTabId = group.activeTabId
   if (activeTabId === null || ids.has(activeTabId)) {
     const index = activeTabId ? group.tabOrder.indexOf(activeTabId) : -1
-    activeTabId = recentTabIds.at(-1) ?? tabOrder[Math.min(Math.max(index, 0), tabOrder.length - 1)] ?? null
+    // The pane stays on the closed tab's set while it has a tab left there.
+    const closedSet = activeTabId ? tabSetOf(activeTabId) : null
+    activeTabId = nextFrontTab(closedSet, recentTabIds, tabSetOf) ?? tabOrder[Math.min(Math.max(index, 0), tabOrder.length - 1)] ?? null
   }
   return { ...group, tabOrder, recentTabIds, activeTabId }
 }

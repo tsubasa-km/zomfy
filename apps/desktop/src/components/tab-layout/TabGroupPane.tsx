@@ -16,7 +16,7 @@ import { ErrorBoundary, ViewError } from '@/components/ErrorBoundary'
 import { WorkspacePanelView } from './workspace-panels'
 import { TabStrip } from './TabStrip'
 import { PaneSidebar, PaneSidebarToggle } from './PaneSidebar'
-import { usePaneContext } from './PaneContext'
+import { usePaneSet } from './PaneContext'
 import { dropHintRect } from './tab-drop-geometry'
 import { resolveTabDropTarget, setInsertionMark, tabDrag, type DraggedTab, type DropZone } from './tab-drag'
 import { focusGroup, moveTabTo, openChatAt, openFilesAt, splitTabTo } from './tab-group-commands'
@@ -122,12 +122,13 @@ export const TabGroupPane = memo(function TabGroupPane({
   // and a browser tab's view is not hidden by its page's styles.
   const [lastShown, setLastShown] = useState<string | null>(null)
   if (active && active.kind !== 'start' && active.id !== lastShown) setLastShown(active.id)
-  const behind = active?.kind === 'start' ? (tabs.find((t) => t.id === lastShown && t.kind === 'chat') ?? null) : null
   const activeChatId = active?.kind === 'chat' ? active.id : undefined
   // The pane works in its front tab's workspace, else the last one it had
   // (docs/specs/panes-as-workspaces.md): its "+", pins and sidebar act on it. The drawer is the
   // tab's: it holds that tab's terminals.
-  const context = usePaneContext(workspaceId, groupId, tabs, active?.id ?? null)
+  // It shows only its context's tabs, and tabs of no workspace; the rest wait hidden in it.
+  const { context, shown } = usePaneSet(workspaceId, groupId, tabs, active?.id ?? null)
+  const behind = active?.kind === 'start' ? (shown.find((t) => t.id === lastShown && t.kind === 'chat') ?? null) : null
   const home = workspaceId !== WINDOW_TABS ? workspaceId : active ? tabWorkspaceId(active) : null
   // With no tab and no context, the empty pane still offers the project the sidebar shows.
   const recent = useStore((s) => (context ? null : sidebarWorkspaceId(s)))
@@ -161,7 +162,7 @@ export const TabGroupPane = memo(function TabGroupPane({
       const target = resolveTabDropTarget(drag, groupId, element, point)
       if (target.kind === 'insert') moveTabTo(workspaceId, drag.tabId, target.groupId, target.index)
       else if (target.kind === 'split') splitTabTo(workspaceId, drag.tabId, target.groupId, target.side)
-      else if (target.kind === 'move') moveTabTo(workspaceId, drag.tabId, target.groupId, tabs.length)
+      else if (target.kind === 'move') moveTabTo(workspaceId, drag.tabId, target.groupId, Number.MAX_SAFE_INTEGER)
     }
   })
 
@@ -234,7 +235,7 @@ export const TabGroupPane = memo(function TabGroupPane({
           workspaceId={workspaceId}
           context={context}
           groupId={groupId}
-          tabs={tabs}
+          tabs={shown}
           activeId={active?.id ?? null}
           isFocused={isFocused}
           hasSplit={hasSplit}

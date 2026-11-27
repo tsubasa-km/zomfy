@@ -14,7 +14,7 @@ import {
 import { SplitLayout } from '@/components/tab-layout/SplitLayout'
 import { TabGroupPane } from '@/components/tab-layout/TabGroupPane'
 import { useTabKeyboard } from '@/components/tab-layout/use-tab-keyboard'
-import { usePaneContext } from '@/components/tab-layout/PaneContext'
+import { usePaneSet } from '@/components/tab-layout/PaneContext'
 import { syncWorkspaceFocus, useWorkspaceTabs, type WorkspaceTab } from '@/components/tab-layout/workspace-tab-model'
 import { TerminalWorkspaceDialogs } from '@/components/terminal/TerminalWorkspaceDialogs'
 import { reconcileWorkspacePanes } from '@/components/terminal/terminal-pane-commands'
@@ -83,7 +83,6 @@ export function WorkspaceTabs({
   }, [sidebars, hostListed, workspaceId, layout])
 
   const rootRef = useRef<HTMLDivElement>(null)
-  const switcher = useTabKeyboard({ workspaceId, rootRef, tabs, layout })
   const byId = useMemo(() => new Map(tabs.map((t) => [t.id, t])), [tabs])
   // Each group's tabs, kept while neither the layout nor any tab changed, so its (memoised) pane does not redraw.
   const tabsByGroup = useMemo(
@@ -95,7 +94,14 @@ export function WorkspaceTabs({
   // whose "+" or pin asked for them (docs/specs/panes-as-workspaces.md).
   const focusedGroup = layout.groups[layout.focusedGroupId]
   const focusedTabs = tabsByGroup.get(layout.focusedGroupId) ?? EMPTY_TABS
-  const focusedContext = usePaneContext(workspaceId, layout.focusedGroupId, focusedTabs, focusedGroup?.activeTabId ?? null)
+  const focusedSet = usePaneSet(workspaceId, layout.focusedGroupId, focusedTabs, focusedGroup?.activeTabId ?? null)
+  const focusedContext = focusedSet.context
+  // The keyboard moves among the tabs the focused pane shows, not the sets it keeps hidden.
+  const keyboardTabs = useMemo(() => {
+    const hidden = new Set(focusedTabs.filter((tab) => !focusedSet.shown.includes(tab)).map((tab) => tab.id))
+    return hidden.size === 0 ? tabs : tabs.filter((tab) => !hidden.has(tab.id))
+  }, [tabs, focusedTabs, focusedSet.shown])
+  const switcher = useTabKeyboard({ workspaceId, rootRef, tabs: keyboardTabs, layout })
   const dialogsFor = workspaceId === WINDOW_TABS ? (focusedContext ?? WINDOW_TABS) : workspaceId
   const trailingGroup = topRightGroupId(layout.root)
 

@@ -30,6 +30,7 @@ import {
   setPreviewTab,
   setTabMeta,
   setTabScopeResolver,
+  setTabSetResolver,
   showChat,
   tabScope,
   WINDOW_TABS
@@ -516,6 +517,14 @@ function workspaceOfKnownTab(tabId: string, s: StoreState = state): string | nul
     null
   )
 }
+
+// A pane's set is a project's workspace; quick threads, the floating workspace and the New thread
+// tab with no place belong to every set (docs/specs/panes-as-workspaces.md).
+setTabSetResolver((tabId) => {
+  const id = tabId === START_TAB ? state.startTab.workspaceId : workspaceOfKnownTab(tabId)
+  const w = id ? allWorkspaces(state).find((x) => x.id === id) : undefined
+  return w && w.projectId !== null && !w.scratch ? w.id : null
+})
 
 /**
  * Brings a workspace to the front. In the main window that means one of its tabs: the one it last

@@ -1,7 +1,7 @@
 import { useEffect, useMemo } from 'react'
 import { allWorkspaces, inWindowTabs, useStore } from '@/session-store'
 import { tabScope, useTabLayout, WINDOW_TABS } from '@/stores/tab-layout-store'
-import { resolvePaneContext } from '@/lib/pane-context'
+import { paneTabSet, resolvePaneContext } from '@/lib/pane-context'
 import { tabWorkspaceId, type WorkspaceTab } from './workspace-tab-model'
 
 // The workspace a split pane works in (docs/specs/panes-as-workspaces.md): the one of the tab it
@@ -37,6 +37,19 @@ function tabContext(tab: WorkspaceTab, startWorkspace: string | null): string | 
  * a pop-out's or the floating panel's workspace, which is every one of its panes' context.
  */
 export function usePaneContext(layoutKey: string, groupId: string, tabs: WorkspaceTab[], activeId: string | null): string | null {
+  return usePaneSet(layoutKey, groupId, tabs, activeId).context
+}
+
+/**
+ * The pane's context and the tabs it shows: its context's set and the tabs of no workspace
+ * (docs/specs/panes-as-workspaces.md). The front tab is always among them.
+ */
+export function usePaneSet(
+  layoutKey: string,
+  groupId: string,
+  tabs: WorkspaceTab[],
+  activeId: string | null
+): { context: string | null; shown: WorkspaceTab[] } {
   const scope = tabScope(layoutKey)
   const recent = useTabLayout((s) => s.layouts[scope]?.groups[groupId]?.recentTabIds)
   const startWorkspace = useStore((s) => s.startTab.workspaceId)
@@ -57,5 +70,9 @@ export function usePaneContext(layoutKey: string, groupId: string, tabs: Workspa
   useEffect(() => {
     if (scope === WINDOW_TABS && context) lastContext.set(key, context)
   }, [scope, key, context])
-  return context
+  const shown = useMemo(
+    () => (scope === WINDOW_TABS ? paneTabSet(tabs, (tab) => tabContext(tab, startWorkspace), context, (id) => carries.has(id)) : tabs),
+    [scope, tabs, startWorkspace, context, carries]
+  )
+  return useMemo(() => ({ context, shown }), [context, shown])
 }

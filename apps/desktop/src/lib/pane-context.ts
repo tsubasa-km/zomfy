@@ -21,3 +21,35 @@ export function resolvePaneContext(input: PaneContextInput, carries: (workspaceI
   if (ok(input.last)) return input.last
   return input.others.find(ok) ?? null
 }
+
+/**
+ * The tabs a pane shows (docs/specs/panes-as-workspaces.md, "One workspace's tabs at a time"): those
+ * of its context's workspace, and those of no workspace (`contextOf` null, or a workspace that cannot
+ * be a context), which show in every set. The pane's other tabs stay in it, hidden.
+ */
+export function paneTabSet<T>(
+  tabs: readonly T[],
+  contextOf: (tab: T) => string | null,
+  context: string | null,
+  carries: (workspaceId: string) => boolean
+): T[] {
+  return tabs.filter((tab) => {
+    const own = contextOf(tab)
+    return own === null || !carries(own) || own === context
+  })
+}
+
+/**
+ * The tab a pane brings to the front when its front tab closes: the most recently shown one of the
+ * same set (its workspace's, or of no workspace), else the most recently shown one at all.
+ * `recent` runs oldest to most recent, without the closed tab.
+ */
+export function nextFrontTab(closedSet: string | null, recent: readonly string[], setOf: (tabId: string) => string | null): string | null {
+  if (closedSet !== null) {
+    for (let i = recent.length - 1; i >= 0; i--) {
+      const set = setOf(recent[i]!)
+      if (set === closedSet || set === null) return recent[i]!
+    }
+  }
+  return recent.at(-1) ?? null
+}
