@@ -733,7 +733,7 @@ export function createHarnessAgent(
         env: {
           ...claudeLaunch.env,
           ...(await hostingAccounts().projectEnv(projectOfSession(session.id))),
-          // Placeholders and the tunnel's address, or a value set to go in plain (docs/specs/agent-secrets.md).
+          // The secrets that apply to this chat, as plain variables (docs/specs/agent-secrets.md).
           ...(await secrets().envFor("claude", projectOfSession(session.id)?.id ?? null)),
         },
         chrome: claudeChromeOn(claudeLaunch, projectOfSession(session.id)),

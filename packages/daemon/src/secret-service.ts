@@ -1,16 +1,15 @@
 import { mkdir, readFile, rename, rm, writeFile } from 'node:fs/promises'
 import { dirname, join } from 'node:path'
-import { isChatAgentId, secretPlaceholder, type ChatAgentId, type SecretInfo, type SecretSaveParams } from '@zomfy/protocol'
+import { isChatAgentId, type ChatAgentId, type SecretInfo, type SecretSaveParams } from '@zomfy/protocol'
 import { HARNESS_HOME } from './harness-home.ts'
 import { bunKeyring, type Keyring } from './hosting-token-store.ts'
 import { log, setLogFilter } from './log.ts'
 import { secretRedactor, type SecretRedactor } from './secret-redaction.ts'
-import { SecretTunnel } from './secret-tunnel.ts'
 
-// Secrets agents can use but not see (docs/specs/agent-secrets.md). The list lives in
+// Secrets agents get as environment variables (docs/specs/agent-secrets.md). The list lives in
 // ~/.zomfy/secrets.json without values; values go to the OS credential store (the GitLab tokens'
 // store, service `zomfy-secrets`), or into that owner-only file on a host without one. Values are
-// held in memory to forward tunnel requests and to redact, and never leave the daemon.
+// held in memory to pass to agents and to redact, and never go to a client.
 
 const SERVICE = 'zomfy-secrets'
 const VARIABLE = /^[A-Za-z_][A-Za-z0-9_]*$/
@@ -24,13 +23,23 @@ interface StoreFile {
   secrets: StoredSecret[]
 }
 
+/** The fields a secret saved with the removed tunnel carried; dropped when the list loads. */
+const TUNNEL_FIELDS = ['exposure', 'upstream', 'baseUrlVariable'] as const
+
+/** A saved secret as this daemon keeps it; a tunnel secret becomes an environment one. */
+function migrated(raw: StoredSecret): { secret: StoredSecret; changed: boolean } {
+  const record = raw as StoredSecret & Partial<Record<(typeof TUNNEL_FIELDS)[number], unknown>>
+  if (!TUNNEL_FIELDS.some((field) => field in record)) return { secret: raw, changed: false }
+  const { exposure: _exposure, upstream: _upstream, baseUrlVariable: _baseUrlVariable, ...secret } = record
+  return { secret, changed: true }
+}
+
 const keyOf = (id: string) => `secret:${id}`
 
 export interface SecretServiceDeps {
   path: string
   keyring: Keyring
   redactor: SecretRedactor
-  fetchUpstream?: typeof fetch
   now?: () => Date
 }
 
@@ -39,15 +48,16 @@ export class SecretService {
   private readonly values = new Map<string, string>()
   private loaded: Promise<void> | null = null
   private writing = Promise.resolve()
-  readonly tunnel: SecretTunnel
 
-  constructor(private readonly deps: SecretServiceDeps) {
-    this.tunnel = new SecretTunnel((id) => this.target(id), deps.redactor, deps.fetchUpstream)
-  }
+  constructor(private readonly deps: SecretServiceDeps) {}
 
   private load(): Promise<void> {
     this.loaded ??= (async () => {
-      this.secrets = (await this.readFile()).secrets
+      const loaded = (await this.readFile()).secrets.map(migrated)
+      this.secrets = loaded.map((l) => l.secret)
+      if (loaded.some((l) => l.changed)) {
+        await this.writeFile().catch((error: unknown) => log(`rewriting ${this.deps.path} without tunnel fields failed: ${String(error)}`))
+      }
       await Promise.all(
         this.secrets.map(async (secret) => {
           const value = secret.storage === 'file' ? secret.value : await this.deps.keyring.get(keyOf(secret.id)).catch((error: unknown) => {
@@ -96,13 +106,6 @@ export class SecretService {
     this.deps.redactor.set(this.secrets.flatMap((s) => (this.values.has(s.id) ? [{ name: s.name, value: this.values.get(s.id)! }] : [])))
   }
 
-  private target(id: string) {
-    const secret = this.secrets.find((s) => s.id === id)
-    const value = this.values.get(id)
-    if (!secret || secret.exposure !== 'tunnel' || !secret.upstream || !value) return null
-    return { name: secret.name, value, upstream: secret.upstream }
-  }
-
   /** The secrets without their values. */
   async list(): Promise<SecretInfo[]> {
     await this.load()
@@ -118,12 +121,6 @@ export class SecretService {
       if (this.secrets.some((s) => s.id !== existing?.id && s.name.toUpperCase() === name.toUpperCase())) throw new Error(`A secret named ${name} exists`)
       const value = params.value?.trim()
       if (!existing && !value) throw new Error('Enter the value')
-      const exposure = params.exposure === 'env' ? 'env' : 'tunnel'
-      const upstream = exposure === 'tunnel' ? cleanUpstream(params.upstream) : null
-      const baseUrlVariable = exposure === 'tunnel' ? params.baseUrlVariable?.trim() || null : null
-      if (baseUrlVariable && (!VARIABLE.test(baseUrlVariable) || baseUrlVariable.toUpperCase() === name.toUpperCase())) {
-        throw new Error(`${baseUrlVariable} is not a variable name for the address`)
-      }
       const id = existing?.id ?? crypto.randomUUID()
       let storage: 'keyring' | 'file' = existing?.storage ?? 'keyring'
       let fileValue = existing?.value
@@ -141,9 +138,6 @@ export class SecretService {
       const secret: StoredSecret = {
         id,
         name,
-        exposure,
-        upstream,
-        baseUrlVariable,
         agents: [...new Set((params.agents ?? []).filter(isChatAgentId))],
         projectIds: [...new Set((params.projectIds ?? []).filter((p) => typeof p === 'string' && p))],
         storage,
@@ -159,7 +153,6 @@ export class SecretService {
         throw error
       }
       if (value) this.values.set(id, value)
-      if (exposure !== 'tunnel') this.tunnel.forget(id)
       this.refreshRedactor()
       return this.list()
     })
@@ -169,7 +162,6 @@ export class SecretService {
     return this.serial(async () => {
       const secret = this.secrets.find((s) => s.id === id)
       if (!secret) return this.list()
-      this.tunnel.forget(id)
       if (secret.storage === 'keyring') {
         await this.deps.keyring.delete(keyOf(id)).catch((error: unknown) => log(`removing ${secret.name} from the credential store failed: ${String(error)}`))
       }
@@ -182,8 +174,9 @@ export class SecretService {
   }
 
   /**
-   * The variables a chat's agent process starts with: environment secrets' values, and for tunnel
-   * secrets the placeholder and the tunnel's address. `projectId` null is a chat outside a project.
+   * The variables a chat's agent process starts with: each secret that applies, with its value. The
+   * agent can read them; redaction keeps them out of what Zomfy shows. `projectId` null is a chat
+   * outside a project.
    */
   async envFor(agent: ChatAgentId, projectId: string | null): Promise<Record<string, string>> {
     await this.load()
@@ -191,34 +184,11 @@ export class SecretService {
     for (const secret of this.secrets) {
       if (secret.agents.length && !secret.agents.includes(agent)) continue
       if (secret.projectIds.length && (!projectId || !secret.projectIds.includes(projectId))) continue
-      if (!this.values.has(secret.id)) continue
-      if (secret.exposure === 'env') {
-        env[secret.name] = this.values.get(secret.id)!
-        continue
-      }
-      env[secret.name] = secretPlaceholder(secret.name)
-      if (secret.baseUrlVariable) env[secret.baseUrlVariable] = this.tunnel.baseUrl(secret.id)
+      const value = this.values.get(secret.id)
+      if (value) env[secret.name] = value
     }
     return env
   }
-}
-
-/** `https`, or `http` to this computer; no trailing slash, no query or fragment. */
-function cleanUpstream(raw: string | null | undefined): string {
-  const text = raw?.trim() ?? ''
-  if (!text) throw new Error('Enter the URL the tunnel goes to')
-  let url: URL
-  try {
-    url = new URL(/^[a-z]+:\/\//i.test(text) ? text : `https://${text}`)
-  } catch {
-    throw new Error(`${text} is not a URL`)
-  }
-  const local = ['localhost', '127.0.0.1', '[::1]'].includes(url.hostname)
-  if (url.protocol !== 'https:' && !(url.protocol === 'http:' && local)) throw new Error('The tunnel goes to https URLs only (or http on this computer)')
-  if (url.username || url.password) throw new Error('Leave the user name and password out of the URL')
-  url.search = ''
-  url.hash = ''
-  return url.toString().replace(/\/+$/, '')
 }
 
 let service: SecretService | null = null

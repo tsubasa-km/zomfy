@@ -114,6 +114,9 @@ export interface AppSettings {
   newTabPins: string[]
   /** Hours a seen thread stays Your turn after its last activity before it goes Quiet; 0 never (docs/specs/turn-taking-states.md). */
   chatQuietAfterHours: number
+  /** The host and agent the host × agent settings pages show; empty falls back (docs/specs/settings-host-agent-scope.md). */
+  settingsHost: string
+  settingsAgent: string
 }
 
 /** Bumped with each move of a saved default; a window saved before it gets the move once. */
@@ -180,7 +183,9 @@ export const DEFAULT_SETTINGS: AppSettings = {
   relayFeatures: ['phone'],
   chatWaitingGlow: 'rainbow',
   newTabPins: ['terminal'],
-  chatQuietAfterHours: 24
+  chatQuietAfterHours: 24,
+  settingsHost: '',
+  settingsAgent: ''
 }
 
 export type SettingKey = keyof AppSettings

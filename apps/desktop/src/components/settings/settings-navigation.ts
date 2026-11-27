@@ -46,11 +46,11 @@ export const SETTINGS_SECTIONS: readonly SettingsNavSection[] = [
   {
     id: 'secrets',
     title: t('Secrets & environment'),
-    description: t('API keys agents use without seeing them, and the environment new processes start with.'),
+    description: t('API keys agents get as environment variables, and the environment new processes start with.'),
     icon: KeyRound,
     group: 'capabilities',
     entries: [
-      { title: t('Secrets'), keywords: ['secret', 'api key', 'token', 'credential', 'tunnel', 'XAI_API_KEY', 'OPENAI_API_KEY'] },
+      { title: t('Secrets'), keywords: ['secret', 'api key', 'token', 'credential', 'XAI_API_KEY', 'OPENAI_API_KEY'] },
       { title: t('Reload environment'), keywords: ['environment', 'reload', 'PATH', 'setx', 'variable', 'profile'] }
     ]
   },

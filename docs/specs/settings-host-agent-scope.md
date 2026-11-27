@@ -21,7 +21,7 @@ a lone block with a large empty area under it.
   and the **agent** (every chat agent that host knows, its icon and name; one not installed is
   listed greyed, its state the tooltip).
 - Below, only the picked pair's settings.
-- The pair is **remembered** (`settingsHostAgent` in the window's settings) and shared by the
+- The pair is **remembered** (`settingsHost` and `settingsAgent` in the window's settings) and shared by the
   pages, so picking Codex on the Windows host in Agents shows Codex's secrets on that host in
   Secrets. A remembered host that is not connected, or an agent the host does not list, falls back
   to the first connected host and its first ready agent, without overwriting what was remembered.

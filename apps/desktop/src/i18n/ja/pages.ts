@@ -642,7 +642,6 @@ export const PAGES: Record<string, string> = {
   'Needs adapter': 'アダプターが必要',
   'No chat mode': 'スレッドモードなし',
   'Can’t reach this host to list its agents: {reason}': 'このホストに接続できず、エージェントを一覧できません: {reason}',
-  'Not installed on this host ({count})': 'このホストに未インストール（{count}）',
   'Update available: {version}': '{version} に更新できます',
   'Install guide': 'インストール方法',
   'Get the adapter': 'アダプターの入手方法',
@@ -1382,21 +1381,16 @@ export const PAGES: Record<string, string> = {
 
   // components/settings/SecretsPane.tsx, settings-navigation.ts (docs/specs/agent-secrets.md, live-environment.md)
   'Secrets & environment': 'シークレットと環境変数',
-  'API keys agents use without seeing them, and the environment new processes start with.':
-    'エージェントが中身を見ずに使える API キーと、新しいプロセスが受け取る環境変数。',
+  'API keys agents get as environment variables, and the environment new processes start with.':
+    'エージェントに環境変数として渡す API キーと、新しいプロセスが受け取る環境変数。',
   Secrets: 'シークレット',
   'Reload environment': '環境変数を再読み込み',
   'Nothing changed': '変更なし',
-  'Add a secret': 'シークレットを追加',
-  Tunnel: 'トンネル',
-  'Environment variable': '環境変数',
-  Exposure: '渡し方',
-  'Upstream URL': '転送先 URL',
-  'Base URL variable': 'ベース URL の変数',
-  'Programs the agent runs can print this value.': 'エージェントが実行するプログラムはこの値を表示できます。',
-  'Saved value': '保存済みの値',
-  'Replace value': '値を置き換え',
   Subfolder: 'サブフォルダー',
   'Different folder': '別のフォルダー',
-  'Folder is gone': 'フォルダーがありません'
+  'Folder is gone': 'フォルダーがありません',
+
+  // components/settings/SecretsPane.tsx (docs/specs/settings-host-agent-scope.md)
+  '{agent} only': '{agent} のみ',
+  'Every agent': 'すべてのエージェント'
 }

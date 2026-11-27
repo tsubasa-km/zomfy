@@ -1,16 +1,15 @@
-import { afterAll, afterEach, beforeEach, describe, expect, test } from 'bun:test'
-import { mkdtempSync, readFileSync, rmSync } from 'node:fs'
+import { afterEach, beforeEach, describe, expect, test } from 'bun:test'
+import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { secretPlaceholder, type TerminalInfo } from '@zomfy/protocol'
+import type { TerminalInfo } from '@zomfy/protocol'
 import type { Keyring } from './hosting-token-store.ts'
 import { SecretRedactor, secretRedactor } from './secret-redaction.ts'
 import { SecretService } from './secret-service.ts'
 import { createTerminalTools } from './terminal-agent-tools.ts'
 import { TerminalScreens } from './terminal-screen.ts'
 
-// Fake credential stores and a fake upstream only: nothing here touches the OS credential store,
-// ~/.zomfy, or a real API.
+// Fake credential stores only: nothing here touches the OS credential store or ~/.zomfy.
 
 const KEY = 'xai-test-0123456789abcdef'
 
@@ -29,34 +28,12 @@ class FakeKeyring implements Keyring {
   }
 }
 
-interface Seen {
-  url: string
-  headers: Record<string, string>
-  body: string
-}
-
-/** Echoes what it got, the key included, as an API that reflects headers would. */
-const seen: Seen[] = []
-const upstream = Bun.serve({
-  hostname: '127.0.0.1',
-  port: 0,
-  async fetch(request) {
-    const headers = Object.fromEntries(request.headers)
-    const body = await request.text()
-    seen.push({ url: request.url, headers, body })
-    return Response.json({ echoed: headers.authorization ?? null, apiKey: headers['x-api-key'] ?? null }, { headers: { 'x-echo': headers.authorization ?? '' } })
-  }
-})
-afterAll(() => upstream.stop(true))
-
 let dir: string
 let services: SecretService[] = []
 beforeEach(() => {
   dir = mkdtempSync(join(tmpdir(), 'zomfy-secrets-'))
-  seen.length = 0
 })
 afterEach(() => {
-  for (const s of services) s.tunnel.stop()
   services = []
   rmSync(dir, { recursive: true, force: true })
 })
@@ -67,22 +44,20 @@ function service(keyring: Keyring = new FakeKeyring(), redactor = new SecretReda
   return { s, keyring, redactor }
 }
 
-const upstreamUrl = () => `http://127.0.0.1:${upstream.port}/v1`
-
 describe('SecretService', () => {
   test('keeps the value in the credential store and lists no values', async () => {
     const { s, keyring } = service()
-    const list = await s.save({ name: 'XAI_API_KEY', value: KEY, exposure: 'tunnel', upstream: upstreamUrl(), baseUrlVariable: 'XAI_BASE_URL', agents: [], projectIds: [] })
+    const list = await s.save({ name: 'XAI_API_KEY', value: KEY, agents: [], projectIds: [] })
     expect(list).toHaveLength(1)
     expect(JSON.stringify(list)).not.toContain(KEY)
-    expect(list[0]).toMatchObject({ name: 'XAI_API_KEY', exposure: 'tunnel', storage: 'keyring', upstream: upstreamUrl() })
+    expect(list[0]).toMatchObject({ name: 'XAI_API_KEY', storage: 'keyring' })
     expect([...(keyring as FakeKeyring).entries.values()]).toEqual([KEY])
     expect(readFileSync(join(dir, 'secrets.json'), 'utf8')).not.toContain(KEY)
   })
 
   test('falls back to the owner-only file without a credential store, and says so', async () => {
     const { s } = service(new FakeKeyring(true))
-    const [info] = await s.save({ name: 'TOKEN', value: KEY, exposure: 'env', agents: [], projectIds: [] })
+    const [info] = await s.save({ name: 'TOKEN', value: KEY, agents: [], projectIds: [] })
     expect(info!.storage).toBe('file')
     expect(JSON.stringify(await s.list())).not.toContain(KEY)
     // A fresh daemon reads it back from the file.
@@ -90,29 +65,48 @@ describe('SecretService', () => {
     expect(await again.envFor('claude', null)).toEqual({ TOKEN: KEY })
   })
 
-  test('refuses bad names, duplicates, a missing value and a plain-http upstream', async () => {
+  test('refuses bad names, duplicates and a missing value', async () => {
     const { s } = service()
-    const base = { exposure: 'tunnel' as const, upstream: upstreamUrl(), agents: [], projectIds: [] }
+    const base = { agents: [], projectIds: [] }
     await expect(s.save({ ...base, name: '1BAD', value: KEY })).rejects.toThrow('not a variable name')
     await expect(s.save({ ...base, name: 'KEY' })).rejects.toThrow('Enter the value')
-    await expect(s.save({ ...base, name: 'KEY', value: KEY, upstream: 'http://api.example.com' })).rejects.toThrow('https')
     await s.save({ ...base, name: 'KEY', value: KEY })
     await expect(s.save({ ...base, name: 'key', value: KEY })).rejects.toThrow('exists')
   })
 
-  test('an agent-visible environment holds only the placeholder and the tunnel address', async () => {
+  test('an agent gets the value itself in the variable', async () => {
     const { s } = service()
-    await s.save({ name: 'XAI_API_KEY', value: KEY, exposure: 'tunnel', upstream: upstreamUrl(), baseUrlVariable: 'XAI_BASE_URL', agents: [], projectIds: [] })
-    const env = await s.envFor('grok', 'project-1')
-    expect(env.XAI_API_KEY).toBe(secretPlaceholder('XAI_API_KEY'))
-    expect(env.XAI_BASE_URL).toMatch(/^http:\/\/127\.0\.0\.1:\d+\/t\/[A-Za-z0-9_-]{43}$/)
-    expect(JSON.stringify(env)).not.toContain(KEY)
+    await s.save({ name: 'XAI_API_KEY', value: KEY, agents: [], projectIds: [] })
+    expect(await s.envFor('grok', 'project-1')).toEqual({ XAI_API_KEY: KEY })
+  })
+
+  test('a secret saved with the removed tunnel loads as an environment secret, and the file loses its tunnel fields', async () => {
+    const keyring = new FakeKeyring()
+    keyring.entries.set('secret:old', KEY)
+    const path = join(dir, 'secrets.json')
+    const old = { id: 'old', name: 'XAI_API_KEY', exposure: 'tunnel', upstream: 'https://api.x.ai/v1', baseUrlVariable: 'XAI_BASE_URL', agents: [], projectIds: [], storage: 'keyring', updatedAt: '2026-11-01T00:00:00.000Z' }
+    writeFileSync(path, JSON.stringify({ secrets: [old] }))
+    const { s } = service(keyring)
+    expect(await s.envFor('claude', null)).toEqual({ XAI_API_KEY: KEY })
+    const [info] = await s.list()
+    expect(info).toEqual({ id: 'old', name: 'XAI_API_KEY', agents: [], projectIds: [], storage: 'keyring', updatedAt: '2026-11-01T00:00:00.000Z' })
+    const saved = readFileSync(path, 'utf8')
+    expect(saved).not.toContain('upstream')
+    expect(saved).not.toContain('exposure')
+  })
+
+  test('ignores the tunnel fields an older client still sends', async () => {
+    const { s } = service()
+    const legacy = { name: 'XAI_API_KEY', value: KEY, agents: [], projectIds: [], exposure: 'tunnel', upstream: 'https://api.x.ai/v1' }
+    const [info] = await s.save(legacy as Parameters<SecretService['save']>[0])
+    expect(Object.keys(info!).sort()).toEqual(['agents', 'id', 'name', 'projectIds', 'storage', 'updatedAt'])
+    expect(await s.envFor('claude', null)).toEqual({ XAI_API_KEY: KEY })
   })
 
   test('limits a secret to its agents and projects', async () => {
     const { s } = service()
-    await s.save({ name: 'ONLY_CODEX', value: KEY, exposure: 'env', agents: ['codex'], projectIds: [] })
-    await s.save({ name: 'ONLY_P1', value: `${KEY}-p1`, exposure: 'env', agents: [], projectIds: ['p1'] })
+    await s.save({ name: 'ONLY_CODEX', value: KEY, agents: ['codex'], projectIds: [] })
+    await s.save({ name: 'ONLY_P1', value: `${KEY}-p1`, agents: [], projectIds: ['p1'] })
     expect(Object.keys(await s.envFor('codex', null))).toEqual(['ONLY_CODEX'])
     expect(Object.keys(await s.envFor('claude', 'p1'))).toEqual(['ONLY_P1'])
     expect(await s.envFor('claude', null)).toEqual({})
@@ -120,61 +114,14 @@ describe('SecretService', () => {
 
   test('replacing keeps the settings and swaps the value; deleting forgets it', async () => {
     const { s, keyring } = service()
-    const [info] = await s.save({ name: 'TOKEN', value: KEY, exposure: 'env', agents: [], projectIds: [] })
-    await s.save({ id: info!.id, name: 'TOKEN', exposure: 'env', agents: ['claude'], projectIds: [] })
+    const [info] = await s.save({ name: 'TOKEN', value: KEY, agents: [], projectIds: [] })
+    await s.save({ id: info!.id, name: 'TOKEN', agents: ['claude'], projectIds: [] })
     expect(await s.envFor('claude', null)).toEqual({ TOKEN: KEY })
-    await s.save({ id: info!.id, name: 'TOKEN', value: 'replaced-value', exposure: 'env', agents: ['claude'], projectIds: [] })
+    await s.save({ id: info!.id, name: 'TOKEN', value: 'replaced-value', agents: ['claude'], projectIds: [] })
     expect(await s.envFor('claude', null)).toEqual({ TOKEN: 'replaced-value' })
     expect(await s.delete(info!.id)).toEqual([])
     expect((keyring as FakeKeyring).entries.size).toBe(0)
     expect(await s.envFor('claude', null)).toEqual({})
-  })
-})
-
-describe('the tunnel', () => {
-  async function tunnelled() {
-    const { s, redactor } = service()
-    const [info] = await s.save({ name: 'XAI_API_KEY', value: KEY, exposure: 'tunnel', upstream: upstreamUrl(), baseUrlVariable: 'XAI_BASE_URL', agents: [], projectIds: [] })
-    const env = await s.envFor('grok', null)
-    return { s, redactor, info: info!, base: env.XAI_BASE_URL!, placeholder: env.XAI_API_KEY! }
-  }
-
-  test('reaches the upstream with the real header, and redacts its echo', async () => {
-    const { base, placeholder } = await tunnelled()
-    const response = await fetch(`${base}/chat/completions?stream=false`, {
-      method: 'POST',
-      headers: { authorization: `Bearer ${placeholder}`, 'content-type': 'application/json' },
-      body: JSON.stringify({ model: 'grok' })
-    })
-    expect(response.status).toBe(200)
-    expect(seen).toHaveLength(1)
-    expect(seen[0]!.headers.authorization).toBe(`Bearer ${KEY}`)
-    expect(new URL(seen[0]!.url).pathname).toBe('/v1/chat/completions')
-    expect(new URL(seen[0]!.url).search).toBe('?stream=false')
-    expect(seen[0]!.body).toBe('{"model":"grok"}')
-    const text = await response.text()
-    expect(text).not.toContain(KEY)
-    expect(JSON.parse(text).echoed).toBe('Bearer [secret XAI_API_KEY]')
-    expect(response.headers.get('x-echo')).toBe('Bearer [secret XAI_API_KEY]')
-  })
-
-  test('swaps a placeholder in the query, and leaves other secrets\' placeholders alone', async () => {
-    const { s, base } = await tunnelled()
-    await s.save({ name: 'OTHER_KEY', value: 'other-secret-value', exposure: 'tunnel', upstream: upstreamUrl(), agents: [], projectIds: [] })
-    await fetch(`${base}/models?key=${encodeURIComponent(secretPlaceholder('XAI_API_KEY'))}`, {
-      headers: { 'x-api-key': secretPlaceholder('OTHER_KEY'), 'x-near-miss': `${secretPlaceholder('XAI_API_KEY')}2` }
-    })
-    expect(new URL(seen[0]!.url).searchParams.get('key')).toBe(KEY)
-    expect(seen[0]!.headers['x-api-key']).toBe(secretPlaceholder('OTHER_KEY'))
-    expect(seen[0]!.headers['x-near-miss']).toBe(`${secretPlaceholder('XAI_API_KEY')}2`)
-  })
-
-  test('an unknown route and a deleted secret\'s route answer 404', async () => {
-    const { s, base, info } = await tunnelled()
-    expect((await fetch(`${base.replace(/\/t\/.*/, '/t/nope')}/x`)).status).toBe(404)
-    await s.delete(info.id)
-    expect((await fetch(`${base}/x`)).status).toBe(404)
-    expect(seen).toHaveLength(0)
   })
 })
 
@@ -189,21 +136,6 @@ describe('redaction', () => {
     expect(out.other).toBe(update.other)
     const clean = { a: ['x'] }
     expect(r.deep(clean)).toBe(clean)
-  })
-
-  test('streams, catching a value split across chunks', async () => {
-    const r = new SecretRedactor()
-    r.set([{ name: 'TOKEN', value: KEY }])
-    const text = `before ${KEY} middle ${KEY} after`
-    const bytes = new TextEncoder().encode(text)
-    const chunks = [bytes.slice(0, 10), bytes.slice(10, 11), bytes.slice(11, 30), bytes.slice(30)]
-    const stream = new ReadableStream<Uint8Array>({
-      start(controller) {
-        for (const c of chunks) controller.enqueue(c)
-        controller.close()
-      }
-    }).pipeThrough(r.stream())
-    expect(await new Response(stream).text()).toBe('before [secret TOKEN] middle [secret TOKEN] after')
   })
 
   test("terminal_read gives the agent the secret's name, not its value", async () => {
