@@ -726,5 +726,8 @@ export const CHAT: Record<string, string> = {
   'Loading the thread…': 'スレッドを読み込み中…',
 
   // agent-notifications.ts (a helper's question, named by the thread it works for)
-  '{thread} · from {helper}': '{thread} · {helper} から'
+  '{thread} · from {helper}': '{thread} · {helper} から',
+
+  // NativeChatPermissionModePicker.tsx (Auto for Codex and ACP agents, codex-and-acp-parity.md)
+  'The agent reviews approval requests itself and asks only for what looks unsafe': 'エージェントが承認リクエストを自分で審査し、危なそうなものだけ確認します'
 }

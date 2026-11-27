@@ -1,5 +1,5 @@
 import { useEffect, useRef } from 'react'
-import { chatAgentLabel } from '@zomfy/protocol'
+import { agentPermissionModes, chatAgentLabel } from '@zomfy/protocol'
 import { toast } from 'sonner'
 import { appendToDraft, loadCatalog } from '@/chat-actions'
 import { useChatAgents } from '@/lib/chat-agents'
@@ -50,6 +50,8 @@ export function NewThreadComposer({
   // An agent picked on another host may not run on this one: Claude does everywhere.
   const agent = remembered.agent !== 'claude' && kind === 'ready' && agents.find((a) => a.id === remembered.agent)?.status !== 'ready' ? 'claude' : remembered.agent
   const claude = agent === 'claude'
+  // Codex offers every mode before its thread starts; other agents show theirs once it has (codex-and-acp-parity.md).
+  const permissionModes = claude ? null : agentPermissionModes(agent, [])
 
   // Models are the account's, not the folder's: any folder on the host can say which there are.
   const catalogWorkspaceId = useStore((s) => workspaceId ?? allWorkspaces(s).find((w) => w.hostId === hostId)?.id ?? null)
@@ -154,6 +156,14 @@ export function NewThreadComposer({
               current={options.permissionMode}
               // With no model list at all, Auto stays offered; Claude refuses it if the model cannot.
               autoAvailable={model ? model.supportsAutoMode === true : models.length === 0}
+              onSelect={(permissionMode) => setNewThreadOptions({ permissionMode })}
+            />
+          ) : permissionModes?.length ? (
+            <NativeChatPermissionModePicker
+              current={options.permissionMode}
+              autoAvailable
+              offered={permissionModes}
+              agent={agent}
               onSelect={(permissionMode) => setNewThreadOptions({ permissionMode })}
             />
           ) : null}
