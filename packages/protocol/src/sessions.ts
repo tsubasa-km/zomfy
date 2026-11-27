@@ -165,8 +165,13 @@ export interface PastConversation {
   gitBranch: string | null
   /** The folder it ran in, when the agent recorded one. Absent from older daemons. */
   cwd?: string | null
-  /** The workspace whose folder that is, if any: where importing it puts the thread. */
+  /**
+   * The workspace that owns that folder, if any: the one whose folder it is, else the deepest whose
+   * folder contains it. Importing it without naming a workspace puts the thread there.
+   */
   workspaceId?: string | null
+  /** The recorded folder no longer exists. Absent from older daemons. */
+  folderMissing?: boolean
   /** The harness session already showing it, if any. */
   openSessionId: string | null
 }
@@ -339,10 +344,11 @@ export interface SessionRequests {
   /**
    * Imports a listed conversation as a thread with its transcript, or returns the thread that
    * already shows it. `agent` defaults to Claude, and `claudeSessionId` is `conversationId` under
-   * its older name. The thread goes to `workspaceId`, else to the workspace of the conversation's
-   * own folder, which is added as a project when no workspace has it. In the conversation's own
-   * folder the next message continues the agent's conversation itself; in any other, the agent
-   * starts a new one and is handed a selection of the imported thread. The agent's files are only read.
+   * its older name. The thread goes to `workspaceId`, else to the workspace that owns the
+   * conversation's own folder, which is added as a project when no workspace has it. It runs in the
+   * recorded folder when that is the workspace's folder or lies below it: the next message continues
+   * the agent's conversation itself. In any other folder the agent starts a new one and is handed a
+   * selection of the imported thread. The agent's files are only read.
    */
   [SESSION_METHODS.sessionResume]: {
     params: { workspaceId?: string; agent?: ChatAgentId; conversationId?: string; claudeSessionId?: string }

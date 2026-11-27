@@ -5,7 +5,7 @@ import { harnessRequest } from '@/daemon-connection'
 import { LOCAL_HOST, findWorkspace, type ChatImage } from '@/session-store'
 import { readDroppedImage } from '@/lib/chat-file-drop'
 import { openHref } from '@/lib/link-routing'
-import { isImagePath, looksLikeFilePath, workspaceRelativePath } from '@/lib/link-targets'
+import { fromChatFolder, isImagePath, linkScope, looksLikeFilePath, workspaceRelativePath } from '@/lib/link-targets'
 import { toast } from 'sonner'
 import { ToolImages } from './NativeChatToolLine'
 import { chatImageSrc, openChatLightbox } from './ChatLightbox'
@@ -76,9 +76,9 @@ export function NativeChatPathImages({ paths }: { paths: string[] }) {
   const key = paths.join('\n')
   useEffect(() => {
     let cancelled = false
-    const workspaceId = ref.current?.closest<HTMLElement>('[data-link-workspace-id]')?.dataset.linkWorkspaceId ?? null
+    const { workspaceId, folder } = linkScope(ref.current)
     // One that cannot be read is simply not shown; its path stays a link.
-    const reads = paths.map((path) => pathImage(path, workspaceId).then((image) => ({ image, path }), () => null))
+    const reads = paths.map((path) => pathImage(fromChatFolder(path, folder), workspaceId).then((image) => ({ image, path }), () => null))
     void Promise.all(reads).then((list) => {
       if (!cancelled) setLoaded(list.filter((i) => i !== null))
     })
@@ -99,9 +99,9 @@ export function NativeChatPathCode({ path }: { path: string }) {
   const image = isImagePath(path)
   const open = (event: React.SyntheticEvent<HTMLElement>) => {
     event.preventDefault()
-    const workspaceId = event.currentTarget.closest<HTMLElement>('[data-link-workspace-id]')?.dataset.linkWorkspaceId ?? null
-    if (!image) return openHref(path, { inApp: false, workspaceId })
-    pathImage(path, workspaceId).then(
+    const { workspaceId, folder } = linkScope(event.currentTarget)
+    if (!image) return openHref(path, { inApp: false, workspaceId, folder })
+    pathImage(fromChatFolder(path, folder), workspaceId).then(
       (loaded) => openChatLightbox([{ src: chatImageSrc(loaded), title: path }]),
       (error: unknown) => toast.error(t('Could not show {path}: {error}', { path, error: imageError(error) }))
     )

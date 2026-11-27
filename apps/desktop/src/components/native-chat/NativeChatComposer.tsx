@@ -40,6 +40,7 @@ import { mainLocationOf } from '@/stores/project-catalog-store'
 import { upsertWorkflowRun } from '@/stores/workflow-runs-store'
 import { confirmWorkflowStart } from '@/components/workflows/WorkflowStartConfirm'
 import { allWorkspaces, getState, hostLabel, LOCAL_HOST, useStore } from '@/session-store'
+import { chatFolderBelow } from '@/lib/link-targets'
 import { useLasting } from '@/hooks/use-lasting'
 import { getBots, startBotChat } from '@/stores/bots-store'
 import { parseBotMention } from '@/lib/bot-mention'
@@ -119,6 +120,7 @@ function Composer({ session, editorRef, glow = false }: ComposerProps) {
     if (!external) void loadCatalog(session.workspaceId)
   }, [session.workspaceId, external])
 
+  const folder = useStore((s) => chatFolderBelow(session.cwd, allWorkspaces(s).find((w) => w.id === session.workspaceId)?.path))
   const composer = useNativeChatComposer({
     draftId: session.id,
     hostId: session.hostId,
@@ -127,6 +129,7 @@ function Composer({ session, editorRef, glow = false }: ComposerProps) {
       ? { items: agentState?.commands ?? [], status: agentState?.phase === 'starting' ? 'loading' : 'ready' }
       : { items: catalog?.value?.commands ?? [], status: catalog?.status ?? 'loading' },
     filesWorkspaceId: session.workspaceId,
+    filesFolder: folder,
     // The daemon lists a chat's MCP servers for Claude chats; other agents' get none.
     connectorsSessionId: external ? null : session.id,
     // Claude's guess at the next prompt shows in the empty composer.

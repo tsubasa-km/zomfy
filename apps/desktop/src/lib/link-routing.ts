@@ -8,7 +8,16 @@ import { t } from '@/i18n/i18n'
 import { openWorkspaceIn } from '@/components/sidebar/WorkspaceMenu'
 import { openBrowserTab, workspacePath } from '@/components/tab-layout/workspace-tab-model'
 import { IS_MAC } from '@/keybindings/keybinding-chords'
-import { classifyLinkHref, containingWorkspace, isAbsolutePath, workspaceRelativePath, type LinkTarget } from './link-targets'
+import {
+  LINK_WORKSPACE_ATTR,
+  classifyLinkHref,
+  containingWorkspace,
+  fromChatFolder,
+  isAbsolutePath,
+  linkScope,
+  workspaceRelativePath,
+  type LinkTarget
+} from './link-targets'
 
 // One route for every link the app shows, as Orca's http-link-routing: http(s) goes to the system
 // browser, Mod+click to an in-app browser tab, paths to the editor. The webview itself never
@@ -17,7 +26,7 @@ import { classifyLinkHref, containingWorkspace, isAbsolutePath, workspaceRelativ
 /** Marks a subtree whose path links its component resolves itself (the markdown preview). */
 export const SELF_ROUTED_PATHS_ATTR = 'data-link-paths-self'
 /** Set on a container (a chat) whose links belong to that workspace rather than the active one. */
-export const LINK_WORKSPACE_ATTR = 'data-link-workspace-id'
+export { LINK_WORKSPACE_ATTR }
 
 const nativeWindowOpen = window.open.bind(window)
 
@@ -34,7 +43,7 @@ export function openExternalUrl(url: string): void {
   void openUrl(url).catch(() => undefined)
 }
 
-export function openLinkTarget(target: LinkTarget, options: { inApp: boolean; workspaceId: string | null }): void {
+export function openLinkTarget(target: LinkTarget, options: { inApp: boolean; workspaceId: string | null; folder?: string | null }): void {
   switch (target.kind) {
     case 'web':
       if (options.inApp && options.workspaceId) openBrowserTab(options.workspaceId, target.url)
@@ -44,7 +53,7 @@ export function openLinkTarget(target: LinkTarget, options: { inApp: boolean; wo
       openExternalUrl(target.url)
       return
     case 'file':
-      void openFileLink(target, options.workspaceId)
+      void openFileLink({ ...target, path: fromChatFolder(target.path, options.folder ?? null) }, options.workspaceId)
       return
     case 'anchor':
     case 'blocked':
@@ -103,8 +112,8 @@ function openOutsideWorkspace(path: string, workspaceId: string | null): void {
 
 const IS_WINDOWS = navigator.userAgent.includes('Windows')
 
-export function openHref(href: string, options: { inApp: boolean; workspaceId?: string | null }): void {
-  openLinkTarget(classifyLinkHref(href), { inApp: options.inApp, workspaceId: options.workspaceId ?? getState().activeWorkspaceId })
+export function openHref(href: string, options: { inApp: boolean; workspaceId?: string | null; folder?: string | null }): void {
+  openLinkTarget(classifyLinkHref(href), { inApp: options.inApp, workspaceId: options.workspaceId ?? getState().activeWorkspaceId, folder: options.folder ?? null })
 }
 
 function onLinkClick(event: MouseEvent): void {
@@ -116,10 +125,11 @@ function onLinkClick(event: MouseEvent): void {
   if (target.kind === 'anchor') return
   if (target.kind === 'file' && anchor.closest(`[${SELF_ROUTED_PATHS_ATTR}]`)) return
   event.preventDefault()
-  const scoped = anchor.closest(`[${LINK_WORKSPACE_ATTR}]`)?.getAttribute(LINK_WORKSPACE_ATTR)
+  const scoped = linkScope(anchor)
   openLinkTarget(target, {
     inApp: isLinkModifier(event),
-    workspaceId: scoped || getState().activeWorkspaceId
+    workspaceId: scoped.workspaceId || getState().activeWorkspaceId,
+    folder: scoped.folder
   })
 }
 

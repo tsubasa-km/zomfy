@@ -2,8 +2,9 @@ import { useEffect, useState } from 'react'
 import { GitBranch, History, MessageSquare } from 'lucide-react'
 import { HARNESS_METHODS, chatAgentLabel, type PastConversation } from '@zomfy/protocol'
 import { harnessRequest } from '@/daemon-connection'
-import { selectSession, type Session } from '@/session-store'
-import { resumeConversation } from '@/chat-actions'
+import type { Session } from '@/session-store'
+import { importThread, showThread } from '@/chat-actions'
+import { recentConversations } from '@/lib/thread-import'
 import { isExternalAgentSession, sessionAgent } from '@/lib/chat-agents'
 import { t } from '@/i18n/i18n'
 
@@ -34,7 +35,8 @@ export function NativeChatEmptyState({ session }: { session: Session }) {
       live = false
     }
   }, [session.workspaceId, session.hostId, external])
-  const others = history?.filter((c) => c.openSessionId !== session.id) ?? []
+  // This folder's own (a subfolder's too) that no thread shows yet; the sidebar has the open ones.
+  const others = history ? recentConversations(history, session.workspaceId) : []
 
   return (
     <div className="flex h-full w-full flex-col items-center justify-center gap-3 p-6 text-center">
@@ -67,9 +69,8 @@ export function NativeChatEmptyState({ session }: { session: Session }) {
                   type="button"
                   data-claude-session={c.claudeSessionId}
                   onClick={() =>
-                    c.openSessionId
-                      ? selectSession(c.openSessionId)
-                      : void resumeConversation(session.workspaceId, c.claudeSessionId, session.hostId)
+                    // Into the workspace of its own folder, running there: the daemon places it.
+                    void importThread(session.hostId, { agent: 'claude', conversationId: c.conversationId ?? c.claudeSessionId }).then(showThread)
                   }
                   className="flex w-full min-w-0 items-center gap-2 rounded-md px-2 py-1.5 text-left text-sm text-chat-foreground hover:bg-accent hover:text-accent-foreground focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
                 >
@@ -81,7 +82,7 @@ export function NativeChatEmptyState({ session }: { session: Session }) {
                     </span>
                   ) : null}
                   <span className="shrink-0 text-xs text-muted-foreground tabular-nums">
-                    {c.openSessionId ? t('Open') : relativeTime(c.lastModified)}
+                    {relativeTime(c.lastModified)}
                   </span>
                 </button>
               </li>

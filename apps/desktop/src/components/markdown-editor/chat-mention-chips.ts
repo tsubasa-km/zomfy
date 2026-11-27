@@ -2,6 +2,7 @@ import { RangeSetBuilder } from '@codemirror/state'
 import { Decoration, EditorView, ViewPlugin, WidgetType, type DecorationSet, type ViewUpdate } from '@codemirror/view'
 import { MENTION_ICON_SVG, MENTION_TITLE, parseChatMentions, type ChatMention } from '@/lib/chat-mentions'
 import { openChatMention } from '@/lib/chat-attachments'
+import { linkScope } from '@/lib/link-targets'
 import { t } from '@/i18n/i18n'
 
 class MentionChip extends WidgetType {
@@ -25,8 +26,8 @@ class MentionChip extends WidgetType {
     chip.addEventListener('mousedown', (event) => {
       // Opening, not placing the caret; the chat's workspace comes from the surrounding chat view.
       event.preventDefault()
-      const workspaceId = chip.closest<HTMLElement>('[data-link-workspace-id]')?.dataset.linkWorkspaceId ?? null
-      openChatMention(this.mention, workspaceId)
+      const { workspaceId, folder } = linkScope(chip)
+      openChatMention(this.mention, workspaceId, folder)
     })
     return chip
   }

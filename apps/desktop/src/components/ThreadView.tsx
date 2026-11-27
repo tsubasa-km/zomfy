@@ -1,7 +1,8 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { resumesAtLatest } from '@/lib/chat-scroll-resume'
 import { AlarmClock, Copy, CornerDownLeft, FileText, GitFork, MessagesSquare, Quote, Search, TextSelect } from 'lucide-react'
-import { markSeen, openEditorTab, useStore, type Session, type ThreadItem } from '@/session-store'
+import { allWorkspaces, markSeen, openEditorTab, useStore, type Session, type ThreadItem } from '@/session-store'
+import { chatFolderBelow } from '@/lib/link-targets'
 import { projectOfSession } from '@/lib/session-project'
 import { mainLocationOf } from '@/stores/project-catalog-store'
 import { runCommandInline } from '@/lib/terminal-command-run'
@@ -159,6 +160,8 @@ export function ThreadView({ session, onSendToMain }: { session: Session; onSend
   const showLimitBanner = !running && (turnEnd?.reason === 'usage-limit' || Boolean(session.autoResume))
   const find = useNativeChatFind(columnRef, session.items)
   const shells = useStore((s) => s.hosts[session.hostId]?.shells)
+  // A chat imported from a subfolder runs there: its relative paths start from it.
+  const folder = useStore((s) => chatFolderBelow(session.cwd, allWorkspaces(s).find((w) => w.id === session.workspaceId)?.path))
   const commandRunner = useMemo(
     () => ({
       shells: shells ?? [],
@@ -242,6 +245,7 @@ export function ThreadView({ session, onSendToMain }: { session: Session; onSend
       data-native-chat-root
       data-chat-session-id={session.id}
       data-link-workspace-id={session.workspaceId}
+      data-link-folder={folder ?? undefined}
       className="native-chat-appearance flex min-h-0 min-w-0 flex-1 flex-col bg-chat-canvas text-chat-foreground"
       onKeyDown={(event) => {
         if ((isMac ? event.metaKey : event.ctrlKey) && !event.shiftKey && !event.altKey && event.key.toLowerCase() === 'f') {

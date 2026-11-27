@@ -1395,5 +1395,8 @@ export const PAGES: Record<string, string> = {
   'Base URL variable': 'ベース URL の変数',
   'Programs the agent runs can print this value.': 'エージェントが実行するプログラムはこの値を表示できます。',
   'Saved value': '保存済みの値',
-  'Replace value': '値を置き換え'
+  'Replace value': '値を置き換え',
+  Subfolder: 'サブフォルダー',
+  'Different folder': '別のフォルダー',
+  'Folder is gone': 'フォルダーがありません'
 }
