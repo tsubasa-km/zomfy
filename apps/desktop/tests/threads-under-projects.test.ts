@@ -1,7 +1,7 @@
 import { expect, test } from 'bun:test'
 import type { TurnPhase } from '@zomfy/protocol'
 import type { Session } from '../src/session-store.ts'
-import { mostPressing, projectGroups, waitsForAnswer, type ChatNode } from '../src/lib/chat-list.ts'
+import { mostPressing, projectGroups, rowGlows, type ChatNode } from '../src/lib/chat-list.ts'
 
 // docs/specs/threads-under-projects.md
 
@@ -44,11 +44,15 @@ test('nothing is ordered by state: a thread that needs an answer sorts by its ac
   expect(ids(projects[0]!.nodes)).toEqual(['new-quiet', 'old-question'])
 })
 
-test("only a thread waiting for the person's answer glows, not Your turn or a failed turn", () => {
-  expect(waitsForAnswer({ status: 'needs-you' })).toBe(true)
-  expect(waitsForAnswer({ status: 'idle' })).toBe(false)
-  expect(waitsForAnswer({ status: 'error' })).toBe(false)
-  expect(waitsForAnswer({ status: 'working' })).toBe(false)
+test('a row glows when its thread needs the person: an ask waits or it is their turn', () => {
+  expect(rowGlows('needs-answer', 'needs-you')).toBe(true)
+  expect(rowGlows('your-turn', 'idle')).toBe(true)
+  // A helper's ask shows in its parent's thread, so it lights the parent's row too.
+  expect(rowGlows('working', 'needs-you')).toBe(true)
+  expect(rowGlows('needs-answer', 'error')).toBe(false)
+  expect(rowGlows('working', 'working')).toBe(false)
+  expect(rowGlows('background', 'idle')).toBe(false)
+  expect(rowGlows('quiet', 'idle')).toBe(false)
 })
 
 test("a folded project shows its most pressing thread: an answer, then the person's turn, then work", () => {

@@ -1,5 +1,6 @@
 import { createContext } from 'react'
 import type { TurnPhase } from '@zomfy/protocol'
+import { threadNeedsPerson } from '@/lib/turn-phase'
 import type { NextStepsRow, TranscriptRowModel } from './native-chat-transcript-model'
 
 // docs/specs/composer-waiting-glow.md: the one place in a thread that glows, where the person acts
@@ -17,10 +18,13 @@ export function openNextStepsQuestion(rows: readonly TranscriptRowModel[]): Next
   return null
 }
 
-/** Where the glow goes: a card that waits wins, then on Your turn the Next steps question, else the composer. */
+/**
+ * Where the glow goes, when the thread needs the person (threadNeedsPerson, the sidebar's rule too):
+ * a card that waits wins, then on Your turn the Next steps question, else the composer.
+ */
 export function waitingGlowTarget(phase: TurnPhase, cardWaiting: boolean, rows: readonly TranscriptRowModel[]): WaitingGlowTarget {
+  if (!threadNeedsPerson(phase, cardWaiting)) return null
   if (cardWaiting) return { at: 'card' }
-  if (phase !== 'your-turn') return null
   const row = openNextStepsQuestion(rows)
   return row ? { at: 'next-steps', row } : { at: 'composer' }
 }

@@ -16,6 +16,15 @@ export function quietAfterMs(hours: number): number | null {
 }
 
 /** The thread's state now, with the Quiet after setting. */
+/**
+ * Whether a thread needs the person, which is when it glows (docs/specs/composer-waiting-glow.md):
+ * an ask waits in it (a question, an approval or a split confirmation, its own or a helper's), or
+ * it is their turn. One rule for the thread's composer and cards and for its sidebar row.
+ */
+export function threadNeedsPerson(phase: TurnPhase, askWaiting: boolean): boolean {
+  return askWaiting || phase === 'your-turn'
+}
+
 export function phaseOf(session: PhaseInput, now = Date.now(), hours = getSetting('chatQuietAfterHours')): TurnPhase {
   return turnPhase(session, now, quietAfterMs(hours))
 }

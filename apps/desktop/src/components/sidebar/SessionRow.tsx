@@ -102,7 +102,7 @@ export const SessionRow = memo(function SessionRow({
   muted?: boolean
   /** Draws the chat list's two-line row, with the rest of what is known on a hover card. */
   card?: ChatCardInfo
-  /** The thread waits for the person's answer: the row's border glows (docs/specs/threads-under-projects.md). */
+  /** The thread needs the person (rowGlows): the row's border glows (docs/specs/threads-under-projects.md). */
   glow?: boolean
 }) {
   const glowing = useWaitingGlow(Boolean(glow))

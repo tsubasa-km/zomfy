@@ -20,7 +20,7 @@ import { Button } from '@/components/ui/button'
 import { DropdownMenu, DropdownMenuContent, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { foldedTurnPhase } from '@zomfy/protocol'
-import { chatSectionLabel, chatSections, chatTree, mostPressing, projectGroups, searchTree, waitsForAnswer, useCoarseNow, type ChatNode, type ChatSectionId } from '@/lib/chat-list'
+import { chatSectionLabel, chatSections, chatTree, mostPressing, projectGroups, rowGlows, searchTree, useCoarseNow, type ChatNode, type ChatSectionId } from '@/lib/chat-list'
 import { phaseOf, turnPhaseDot, turnPhaseLabel, useQuietAfterHours } from '@/lib/turn-phase'
 import { startChat } from '@/lib/chat-worktree'
 import { defaultHostId } from '@/lib/default-host'
@@ -29,7 +29,7 @@ import { t } from '@/i18n/i18n'
 
 // The sidebar as a stack of project cards, each with its chats inside, pinned first, then most
 // recent; nothing is grouped or ordered by whose turn it is. Each row keeps its turn mark, and a
-// chat waiting for the person's answer glows, as does a folded card holding one
+// chat that needs the person glows under its composer's rule, as does a folded card holding one
 // (docs/specs/threads-under-projects.md). Archived chats sit on their shelf below.
 
 type HostedWorkspace = Workspace & { hostId: HostId }
@@ -218,7 +218,7 @@ export function ChatList({ actions }: { actions: SidebarActions }) {
           drag={dragOf(chat)}
           card={cardOf(chat)}
           phase={node.phase}
-          glow={waitsForAnswer(node)}
+          glow={rowGlows(phase(chat), node.status)}
           fold={children.length > 0 ? { count: children.length, expanded: open, phase: childPhase } : undefined}
         />
         {under.map((child) => (
@@ -229,7 +229,7 @@ export function ChatList({ actions }: { actions: SidebarActions }) {
             drag={dragOf(child)}
             card={cardOf(child)}
             phase={phase(child)}
-            glow={child.status === 'needs-you'}
+            glow={rowGlows(phase(child), child.status)}
             child
             muted={Boolean(needle)}
           />
@@ -299,6 +299,7 @@ export function ChatList({ actions }: { actions: SidebarActions }) {
             title={project.path}
             badge={<ProjectBadge name={label} />}
             nodes={list}
+            glows={list.some((n) => rowGlows(phase(n.chat), n.status))}
             collapsed={collapsed}
             extra={
               hostBadge && (
@@ -369,6 +370,7 @@ export function ChatList({ actions }: { actions: SidebarActions }) {
           label={t('No project')}
           badge={<span aria-hidden className="block h-4 w-[18px] shrink-0 rounded-[4px] border border-dashed border-muted-foreground/60" />}
           nodes={loose}
+          glows={loose.some((n) => rowGlows(phase(n.chat), n.status))}
           collapsed={looseCollapsed}
         >
           {!looseCollapsed && <div className="space-y-px">{loose.map(row)}</div>}
@@ -412,8 +414,7 @@ const CARD_GLOW_SURFACE = { '--composer-glow-surface': 'var(--card)', '--chat-co
 
 /**
  * A project's card (docs/specs/threads-under-projects.md): a contained region with the project's
- * badge and name on top and its chats inside. Folded, it glows when one of its chats waits for the
- * person's answer.
+ * badge and name on top and its chats inside. Folded, it glows when one of its chats does.
  */
 function ProjectCard({
   id,
@@ -421,6 +422,7 @@ function ProjectCard({
   title,
   badge,
   nodes,
+  glows,
   collapsed,
   extra,
   actions,
@@ -431,12 +433,14 @@ function ProjectCard({
   title?: string
   badge: ReactNode
   nodes: ChatNode[]
+  /** One of its threads glows (rowGlows): a folded card glows for it. */
+  glows: boolean
   collapsed: boolean
   extra?: ReactNode
   actions?: ReactNode
   children: ReactNode
 }) {
-  const glowing = useWaitingGlow(collapsed && nodes.some(waitsForAnswer))
+  const glowing = useWaitingGlow(collapsed && glows)
   return (
     <section
       className="group/project mb-1.5 rounded-lg border border-border bg-card px-1 pb-1 shadow-xs"

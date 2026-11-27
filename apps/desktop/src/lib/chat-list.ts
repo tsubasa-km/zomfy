@@ -1,7 +1,7 @@
 import { useSyncExternalStore } from 'react'
 import { foldedTurnPhase, type TurnPhase } from '@zomfy/protocol'
 import type { Session } from '@/session-store'
-import { phaseOf } from '@/lib/turn-phase'
+import { phaseOf, threadNeedsPerson } from '@/lib/turn-phase'
 import { t } from '@/i18n/i18n'
 
 // The sidebar's chat list: every chat of every project, under its project, with whose turn it is
@@ -122,11 +122,12 @@ export function mostPressing(nodes: readonly ChatNode[]): ChatNode | null {
 }
 
 /**
- * Whether the row glows (docs/specs/threads-under-projects.md): its thread, or one under it, waits
- * for the person's answer. Your turn and a failed turn do not glow.
+ * Whether a thread's row glows (docs/specs/threads-under-projects.md): exactly when its thread view
+ * would, by threadNeedsPerson. `ownPhase` is the thread's own phase, not lifted by the threads under
+ * it; `status` is lifted, as a helper's ask shows in its parent's thread.
  */
-export function waitsForAnswer(node: Pick<ChatNode, 'status'>): boolean {
-  return node.status === 'needs-you'
+export function rowGlows(ownPhase: TurnPhase, status: Session['status']): boolean {
+  return threadNeedsPerson(ownPhase, status === 'needs-you')
 }
 
 /**
