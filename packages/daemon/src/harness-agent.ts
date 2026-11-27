@@ -9,6 +9,8 @@ import {
   SESSION_REPLAY_META,
   PROMPT_ORIGIN_META,
   QUESTION_OPTION_IDS,
+  MCP_TOOL_APPROVAL_META,
+  type McpToolApproval,
   PROMPT_NOT_SENT_REPLY_META,
   promptNotSent,
   TURN_RECOVERY_META,
@@ -52,7 +54,7 @@ import { liveClaudeQueries } from "./live-claude-queries.ts";
 import { BackgroundTaskMarks } from "./background-task-marks.ts";
 import { HeldWakeUps } from "./held-wake-ups.ts";
 import { PROCESS_GONE_META, stopsOpenToolCalls, stoppedToolCallUpdates } from "./stopped-tool-calls.ts";
-import type { SessionRegistry } from "./session-registry.ts";
+import type { SessionRecord, SessionRegistry } from "./session-registry.ts";
 import { SessionMover } from "./session-move.ts";
 import type { TerminalManager } from "./terminal-manager.ts";
 import type { StepToolUse, HandlerContext } from "./handlers/handler-context.ts";
@@ -355,11 +357,17 @@ export function createHarnessAgent(
     const seq = await sessions.record(sessionId, update);
     broadcast(acp.methods.client.session.update, { sessionId, update, _meta: { [SESSION_REPLAY_META.seq]: seq } });
   }
-  const acpAgents = new AcpAgentSessions(sessions, emit, async (record) => ({
-    ...(await hostingAccounts().projectEnv(projectOfSession(record.id))),
-    ...(record.agent ? await secrets().envFor(record.agent, projectOfSession(record.id)?.id ?? null) : {}),
-  }));
-  const mover = new SessionMover({ workspaces, sessions, pendingTurns, emit });
+  const acpAgents = new AcpAgentSessions(
+    sessions,
+    emit,
+    async (record) => ({
+      ...(await hostingAccounts().projectEnv(projectOfSession(record.id))),
+      ...(record.agent ? await secrets().envFor(record.agent, projectOfSession(record.id)?.id ?? null) : {}),
+    }),
+    (record) => agentInstructions(record.id),
+  );
+  // A Codex or ACP chat's process stops when it moves; its next turn reopens the conversation there.
+  const mover = new SessionMover({ workspaces, sessions, pendingTurns, emit, releaseAgent: (sessionId) => acpAgents.release(sessionId) });
   /** Workflow step turns: their tool policy and result shape, picked up when the turn starts. */
   const stepTurns = new Map<
     string,
@@ -442,6 +450,53 @@ export function createHarnessAgent(
   }
 
   type Ask =(request: acp.RequestPermissionRequest) => Promise<acp.RequestPermissionResponse>;
+
+  /** The worktree rules, split hint, tools-off note and Next steps hint a chat's agent works by. */
+  function worktreeInstructions(sessionId: string): string | null {
+    const session = sessions.get(sessionId);
+    if (!session) return null;
+    const quickChat = workspaces.isScratch(session.workspaceId);
+    return (
+      [
+        // A helper's own instructions say what it may touch; the sibling-worktree rules are for chats.
+        quickChat || splits.isHelper(session.id) ? null : claims.prompt(session.workspaceId),
+        // Fixed for the chat's life, so it never breaks the prompt cache; a running split's state goes in the turn's own text.
+        splits.offered(session.id) && !projectToolRefusal(projectOfSession(session.id), "split_work") ? splitWorkHint(SPLIT_TOOL) : null,
+        // Changes only when the person changes the project's settings.
+        quickChat || splits.isHelper(session.id) ? null : projectToolsOffNote(projectOfSession(session.id)),
+        // A chat's turns end with the person; a helper's and a step's end with whoever started them.
+        splits.isHelper(session.id) || stepTurns.has(session.id) ? null : WRAP_UP_HINT,
+      ]
+        .filter((p): p is string => !!p)
+        .join("\n\n") || null
+    );
+  }
+
+  /** What Claude's system prompt adds for the chat; other agents get the same (codex-and-acp-parity.md). */
+  function agentInstructions(sessionId: string): string | null {
+    const session = sessions.get(sessionId);
+    if (!session) return null;
+    if (session.role === "manager") return MANAGER_SYSTEM_PROMPT;
+    if (workspaces.isScratch(session.workspaceId)) return QUICK_CHAT_SYSTEM_PROMPT;
+    return worktreeInstructions(sessionId);
+  }
+
+  /**
+   * What the daemon answers itself for a Codex or ACP agent, on top of the agent's own mode: every
+   * approval in bypassPermissions, and the harness's own tools Claude runs without asking.
+   */
+  function externalAllowed(session: SessionRecord, request: acp.RequestPermissionRequest): acp.RequestPermissionResponse | null {
+    if (request.options.some((option) => option.optionId === QUESTION_OPTION_IDS.answer)) return null;
+    const allow = request.options.find((o) => o.kind === "allow_once") ?? request.options.find((o) => o.kind === "allow_always");
+    if (!allow) return null;
+    const allowed = { outcome: { outcome: "selected" as const, optionId: allow.optionId } };
+    if (sessions.get(session.id)?.options.permissionMode === "bypassPermissions") return allowed;
+    const mcp = request._meta?.[MCP_TOOL_APPROVAL_META] as McpToolApproval | undefined;
+    if (!mcp || mcp.server !== MANAGER_MCP_SERVER_NAME) return null;
+    const managerBot = ctx.services.managerBotChat?.(session.id) === true;
+    const names = autoAllowedManagerTools(managerBot ? "manager" : session.role, MANAGER_MCP_SERVER_NAME);
+    return names.includes(`mcp__${MANAGER_MCP_SERVER_NAME}__${mcp.tool}`) ? allowed : null;
+  }
 
   const ASK_WAIT_MS = 5 * 60_000;
   const BOT_ASK_WAIT_MS = 24 * 60 * 60_000;
@@ -541,19 +596,20 @@ export function createHarnessAgent(
     const external = acpAgents.for(session);
     // Send now: the interrupted turn ends (and its last updates land) before this prompt shows.
     await external?.settled();
-    // A chat that changed agent before its first message has that notice in its transcript, and nothing said.
-    const firstTurn = external
-      ? isUntitledChat(session.title) &&
-        !(await sessions.transcript(session.id)).some((u) => u.sessionUpdate === "user_message_chunk")
-      : session.claudeSessionId === null && isUntitledChat(session.title);
+    // A thread still named New thread takes its name from what is said to it, whatever its agent;
+    // harness notes, resumed and woken turns never name it (codex-and-acp-parity.md).
+    const autoTitle =
+      isUntitledChat(session.title) && !resumed && !woken && origin?.kind !== "harness-note" && text.trim()
+        ? text.replace(/\s+/g, " ").trim().slice(0, 40)
+        : null;
     sessions.update(session.id, {
       status: "working",
       turnStartedAt: Date.now(),
       promptSuggestion: null,
       // Whatever started it, the turn is the agent's until it ends.
       yourTurnSince: null,
-      // Orca renames a fresh agent tab after its first message.
-      ...(firstTurn && text ? { title: text.replace(/\s+/g, " ").slice(0, 40) } : {}),
+      // Orca renames a fresh agent tab after its first message; the agent's own title may replace it.
+      ...(autoTitle ? { title: autoTitle, autoTitle } : {}),
     });
     // A split's report this turn takes from the saved context (the person spoke first) is shown too.
     const report = origin?.kind === "harness-note" || woken ? null : reportIn(session.seedContext);
@@ -584,7 +640,7 @@ export function createHarnessAgent(
 
     const askPermission = async (request: acp.RequestPermissionRequest) => {
       // Answered before the chat is marked as waiting: no window flags it or notifies the person.
-      const allowed = autoApproved({ ...request, sessionId: session.id });
+      const allowed = autoApproved({ ...request, sessionId: session.id }) ?? (external ? externalAllowed(session, request) : null);
       if (allowed) return allowed;
       sessions.update(session.id, { status: "needs-you" });
       try {
@@ -654,19 +710,7 @@ export function createHarnessAgent(
 
     const quickChat = workspaces.isScratch(session.workspaceId);
     const managerBot = ctx.services.managerBotChat?.(session.id) === true;
-    const worktreePrompt =
-      [
-        // A helper's own instructions say what it may touch; the sibling-worktree rules are for chats.
-        quickChat || splits.isHelper(session.id) ? null : claims.prompt(session.workspaceId),
-        // Fixed for the chat's life, so it never breaks the prompt cache; a running split's state goes in the turn's own text.
-        splits.offered(session.id) && !projectToolRefusal(projectOfSession(session.id), "split_work") ? splitWorkHint(SPLIT_TOOL) : null,
-        // Changes only when the person changes the project's settings.
-        quickChat || splits.isHelper(session.id) ? null : projectToolsOffNote(projectOfSession(session.id)),
-        // A chat's turns end with the person; a helper's and a step's end with whoever started them.
-        splits.isHelper(session.id) || stepTurns.has(session.id) ? null : WRAP_UP_HINT,
-      ]
-        .filter((p): p is string => !!p)
-        .join("\n\n") || null;
+    const worktreePrompt = worktreeInstructions(session.id);
     const claudeLaunch = await chatAgentLaunch("claude");
     try {
       const stopReason = external

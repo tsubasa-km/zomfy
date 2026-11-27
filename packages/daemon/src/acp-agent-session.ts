@@ -2,11 +2,18 @@ import * as acp from '@agentclientprotocol/sdk'
 import { killTree, trackChild } from './process-tree.ts'
 import {
   CHAT_AGENT_OPTION_IDS,
+  CODEX_PERMISSION_MODES,
+  MCP_TOOL_APPROVAL_META,
+  agentPermissionSettings,
   chatAgentLabel,
+  permissionModeOfAgent,
+  permissionOptionIds,
   type ChatAgentId,
   type ChatAgentOption,
   type ChatAgentSessionState,
+  type ChatPermissionMode,
   type CodexConnection,
+  type McpToolApproval,
   type WorkflowStepUsage
 } from '@zomfy/protocol'
 import { codexConnection, resolveChatAgent } from './chat-agent-launch-specs.ts'
@@ -46,6 +53,17 @@ export interface AcpAgentSessionHooks {
   ready?(): Promise<void>
   /** Laid over the agent's environment when its server starts (the project's GitHub/GitLab account). */
   env?(): Promise<Record<string, string>>
+  /**
+   * The permission mode the chat is held to (codex-and-acp-parity.md). `strict`: a turn must not
+   * run when the agent has no such mode (a scheduled bot run held read-only).
+   */
+  permissionMode?(): { mode: ChatPermissionMode; strict: boolean }
+  /** The agent changed its own mode (Codex leaving plan mode): the chat's stored mode follows. */
+  onPermissionMode?(mode: ChatPermissionMode): void
+  /** Zomfy's instructions: Direct's developer instructions, else ahead of a new conversation's first prompt. */
+  instructions?(): string | null
+  /** A title the agent gave its conversation. */
+  onTitle?(title: string): void
 }
 
 interface Running {
@@ -70,6 +88,14 @@ export class AcpAgentSession {
   private turn: Promise<void> | null = null
   private idleTimer: ReturnType<typeof setTimeout> | null = null
   private disposed = false
+  /** A conversation Zomfy just opened: its first prompt carries Zomfy's instructions. */
+  private instructionsDue = false
+  /** Set while Zomfy puts the session in the chat's mode; its own changes are not the agent's. */
+  private applyingMode = false
+  /** Whether this server's session was put in the chat's mode yet; until then its mode is its own default. */
+  private modeApplied = false
+  /** This turn's tool calls' titles, to tell which MCP tool a permission ask is for. */
+  private readonly toolTitles = new Map<string, string>()
 
   constructor(
     readonly agent: Exclude<ChatAgentId, 'claude'>,
@@ -118,8 +144,15 @@ export class AcpAgentSession {
       const running = await Promise.race([this.startForTurn(signal), aborted.promise])
       if (!running || signal.aborted) return 'cancelled'
       this.clearIdle()
-      const prompt = await this.promptFor(typeof blocks === 'function' ? blocks() : blocks, running.capabilities.promptCapabilities)
+      await this.holdPermissionMode()
+      let prompt = await this.promptFor(typeof blocks === 'function' ? blocks() : blocks, running.capabilities.promptCapabilities)
       if (signal.aborted) return 'cancelled'
+      // Direct takes them as the thread's developer instructions; an ACP agent once per conversation.
+      if (this.instructionsDue && !(running.conn instanceof CodexAppServer)) {
+        this.instructionsDue = false
+        const instructions = this.hooks.instructions?.()
+        if (instructions) prompt = [{ type: 'text', text: instructionsBlock(instructions) }, ...prompt]
+      }
       this.ask = ask
       this.turnSignal = signal
       const conn = running.conn
@@ -154,8 +187,51 @@ export class AcpAgentSession {
       aborted.dispose()
       this.ask = null
       this.turnSignal = null
+      this.toolTitles.clear()
       if (!this.disposed) this.armIdle()
     }
+  }
+
+  /** Puts the running session in the chat's permission mode now (the person changed it); a no-op while it is down. */
+  async refreshPermissionMode(): Promise<void> {
+    if (this.running) await this.applyPermissionMode()
+  }
+
+  /** Before a turn: the session is in the chat's mode, or a strict chat's turn does not start. */
+  private async holdPermissionMode(): Promise<void> {
+    const wanted = this.hooks.permissionMode?.()
+    if (!wanted) return
+    if (await this.applyPermissionMode()) return
+    if (wanted.strict) {
+      throw new Error(`${chatAgentLabel(this.agent)} has no mode Zomfy can hold to ${wanted.mode}, so this run did not start`)
+    }
+  }
+
+  /** Sets the agent's mode options for the chat's permission mode; false when the agent has no such mode. */
+  private async applyPermissionMode(): Promise<boolean> {
+    const wanted = this.hooks.permissionMode?.()
+    if (!wanted) return true
+    const settings = agentPermissionSettings(this.agent, wanted.mode, this.state.options)
+    if (!settings) return false
+    this.applyingMode = true
+    try {
+      for (const { optionId, value } of settings) {
+        if (this.state.options.find((o) => o.id === optionId)?.currentValue !== value) await this.setOption(optionId, value)
+      }
+      this.modeApplied = true
+    } finally {
+      this.applyingMode = false
+    }
+    return true
+  }
+
+  /** The agent changed its own mode: the chat's stored mode follows, by the mapping read backwards. */
+  private reportMode(): void {
+    if (this.applyingMode || !this.modeApplied) return
+    const wanted = this.hooks.permissionMode?.()
+    if (!wanted) return
+    const now = permissionModeOfAgent(this.agent, this.state.options, wanted.mode)
+    if (now && now !== wanted.mode) this.hooks.onPermissionMode?.(now)
   }
 
   /** Puts the session on `model`, and fails when the agent offers no such model. */
@@ -237,7 +313,7 @@ export class AcpAgentSession {
     const connection = resolved.codexConnection ?? 'acp'
     const input = stdinWriter(proc.stdin)
     const conn = connection === 'app-server'
-      ? new CodexAppServer(input, proc.stdout, (update) => this.hooks.emit(update), (request) => this.permission(request))
+      ? new CodexAppServer(input, proc.stdout, (update) => this.hooks.emit(update), (request) => this.permission(request), (title) => this.hooks.onTitle?.(title))
       : acp.client({ name: 'zomfy' })
         .onRequest('session/request_permission', (ctx) => this.permission(ctx.params))
         .onNotification('session/update', (ctx) => this.onUpdate(ctx.params))
@@ -270,9 +346,13 @@ export class AcpAgentSession {
         throw new Error('The chat closed while its agent started')
       }
       this.running = running
+      this.modeApplied = false
       const saved = this.state.options
       this.setState({ phase: 'ready', error: null, options, commands: connection === 'app-server' ? [] : this.state.commands })
-      await this.restoreOptions(saved)
+      // The chat's permission mode sets the mode options; the rest come back as the person left them.
+      const held = this.hooks.permissionMode ? permissionOptionIds(this.agent, options) : []
+      await this.restoreOptions(saved.filter((o) => !held.includes(o.id)))
+      await this.applyPermissionMode().catch((error) => log(`${this.agent}: setting the permission mode failed: ${String(error)}`))
       this.armIdle()
       return running
     } catch (error) {
@@ -285,7 +365,12 @@ export class AcpAgentSession {
   }
 
   private async openCodex(conn: CodexAppServer, capabilities: acp.AgentCapabilities): Promise<string> {
-    const id = await conn.open(this.cwd, this.agentSessionId, this.hooks.mcpServers?.(capabilities) ?? [])
+    const wanted = this.hooks.permissionMode?.()
+    const preset = wanted ? CODEX_PERMISSION_MODES[wanted.mode] : undefined
+    const id = await conn.open(this.cwd, this.agentSessionId, this.hooks.mcpServers?.(capabilities) ?? [], {
+      ...(preset ? { mode: preset.mode, collaboration: preset.collaboration } : {}),
+      developerInstructions: this.hooks.instructions?.() ?? null
+    })
     if (id !== this.agentSessionId) {
       this.agentSessionId = id
       this.hooks.onAgentSessionId(id)
@@ -333,6 +418,7 @@ export class AcpAgentSession {
       })
     }
     const created = await conn.agent.request(acp.methods.agent.session.new, { cwd: this.cwd, mcpServers })
+    this.instructionsDue = true
     this.agentSessionId = created.sessionId
     this.hooks.onAgentSessionId(created.sessionId)
     if (this.agent === 'codex') this.madeThread('acp')
@@ -361,10 +447,20 @@ export class AcpAgentSession {
     // ACP: once the turn is cancelled, its open asks are answered `cancelled`, or the agent waits on them.
     const aborted = whenAborted(turnSignal)
     try {
-      return await Promise.race([ask(params), aborted.promise.then((): acp.RequestPermissionResponse => ({ outcome: { outcome: 'cancelled' } }))])
+      return await Promise.race([ask(this.namedMcpApproval(params)), aborted.promise.then((): acp.RequestPermissionResponse => ({ outcome: { outcome: 'cancelled' } }))])
     } finally {
       aborted.dispose()
     }
+  }
+
+  /** An ask to run an MCP tool says which (`mcp.<server>.<tool>`), so the daemon can answer its own tools. */
+  private namedMcpApproval(params: acp.RequestPermissionRequest): acp.RequestPermissionRequest {
+    if (params._meta?.[MCP_TOOL_APPROVAL_META]) return params
+    const title = params.toolCall.title ?? this.toolTitles.get(params.toolCall.toolCallId) ?? ''
+    const named = /^mcp\.([^.]+)\.(.+)$/.exec(title)
+    if (!named) return params
+    const approval: McpToolApproval = { server: named[1]!, tool: named[2]! }
+    return { ...params, _meta: { ...params._meta, [MCP_TOOL_APPROVAL_META]: approval } }
   }
 
   private async onUpdate({ update }: acp.SessionNotification): Promise<void> {
@@ -372,9 +468,11 @@ export class AcpAgentSession {
     switch (update.sessionUpdate) {
       case 'config_option_update':
         this.setState({ options: optionsFrom({ configOptions: update.configOptions }) })
+        this.reportMode()
         return
       case 'current_mode_update':
         this.patchOption(CHAT_AGENT_OPTION_IDS.mode, update.currentModeId)
+        this.reportMode()
         return
       case 'available_commands_update':
         this.setState({
@@ -386,10 +484,17 @@ export class AcpAgentSession {
         })
         return
       case 'user_message_chunk':
+        // The daemon echoes the prompt itself.
+        return
       case 'session_info_update':
-        // The daemon echoes the prompt itself, and the tab keeps the title it was given.
+        if (typeof update.title === 'string' && update.title.trim()) this.hooks.onTitle?.(update.title.trim())
+        return
+      case 'tool_call':
+        if (update.title) this.toolTitles.set(update.toolCallId, update.title)
+        await this.hooks.emit(update)
         return
       case 'tool_call_update':
+        if (update.title) this.toolTitles.set(update.toolCallId, update.title)
         await this.hooks.emit(withOutputText(update))
         return
       default:
@@ -457,6 +562,11 @@ export class AcpAgentSession {
     this.stopping = stopped
     return stopped
   }
+}
+
+/** Zomfy's instructions ahead of a conversation's first prompt; the transcript never shows them. */
+function instructionsBlock(text: string): string {
+  return `<zomfy-instructions>\nZomfy, the app this conversation runs in, asks you to follow these instructions for the whole conversation.\n\n${text}\n</zomfy-instructions>`
 }
 
 export function emptyAgentState(): ChatAgentSessionState {

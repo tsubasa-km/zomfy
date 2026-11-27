@@ -1,5 +1,5 @@
 import type * as acp from '@agentclientprotocol/sdk'
-import { CHAT_META, QUESTION_OPTION_IDS } from '@zomfy/protocol'
+import { CHAT_META, MCP_TOOL_APPROVAL_META, QUESTION_OPTION_IDS, type McpToolApproval } from '@zomfy/protocol'
 import { answersOf, QUESTION_OPTIONS, QUESTION_TOOL } from './ask-user-question.ts'
 import { fields, list, string, type CodexFields } from './codex-app-server-rpc.ts'
 
@@ -156,10 +156,66 @@ const APPROVAL_OPTIONS: acp.PermissionOption[] = [
   { kind: 'reject_once', name: 'Cancel', optionId: 'cancel' }
 ]
 
+/** What an MCP elicitation needs to know of the turn: the tool call the server is running. */
+export interface McpElicitationContext {
+  mcpCall(server: string): { id: string; tool: string } | null
+  nextElicitationId(): string
+}
+
+const NO_MCP_CONTEXT: McpElicitationContext = { mcpCall: () => null, nextElicitationId: () => 'elicitation' }
+
+const MCP_APPROVAL_IDS = { once: 'accept', session: 'acceptForSession', cancel: 'cancel' } as const
+
+/**
+ * Codex asking to run an MCP tool comes as an elicitation with no fields: it is an approval card,
+ * which the daemon answers itself for the harness's own auto-allowed tools. Other elicitations
+ * (forms with fields, URLs) are declined.
+ */
+async function mcpElicitation(
+  params: CodexFields,
+  ask: (request: acp.RequestPermissionRequest) => Promise<acp.RequestPermissionResponse>,
+  context: McpElicitationContext
+): Promise<unknown> {
+  const declined = { action: 'decline', content: null, _meta: null }
+  const meta = fields(params._meta)
+  const schema = params.requestedSchema
+  const form = params.mode === 'form' || params.mode === 'openai/form' || params.mode === 'openaiForm'
+  const noFields = schema === null || schema === undefined
+    || (fields(schema).type === 'object' && Object.keys(fields(fields(schema).properties)).length === 0)
+  if (meta.codex_approval_kind !== 'mcp_tool_call' || !form || !noFields) return declined
+  const server = string(params.serverName)
+  const call = context.mcpCall(server)
+  const tool = call?.tool ?? ''
+  const persist = Array.isArray(meta.persist) ? list(meta.persist) : [meta.persist]
+  const options: acp.PermissionOption[] = [
+    { kind: 'allow_once', name: 'Allow', optionId: MCP_APPROVAL_IDS.once },
+    ...(persist.includes('session') ? [{ kind: 'allow_always' as const, name: 'Allow for this session', optionId: MCP_APPROVAL_IDS.session }] : []),
+    { kind: 'reject_once', name: 'Cancel', optionId: MCP_APPROVAL_IDS.cancel }
+  ]
+  const approval: McpToolApproval = { server, tool }
+  const response = await ask({
+    sessionId: string(params.threadId),
+    options,
+    toolCall: {
+      toolCallId: call?.id || context.nextElicitationId(),
+      title: tool ? `mcp.${server}.${tool}` : `mcp.${server}`,
+      kind: 'execute',
+      rawInput: { server, tool, message: string(params.message) }
+    },
+    _meta: { [MCP_TOOL_APPROVAL_META]: approval }
+  })
+  const outcome = response.outcome
+  if (outcome.outcome !== 'selected') return { action: 'cancel', content: null, _meta: null }
+  if (outcome.optionId === MCP_APPROVAL_IDS.once) return { action: 'accept', content: null, _meta: null }
+  if (outcome.optionId === MCP_APPROVAL_IDS.session && persist.includes('session')) return { action: 'accept', content: null, _meta: { persist: 'session' } }
+  return { action: 'cancel', content: null, _meta: null }
+}
+
 export async function codexServerRequest(
   method: string,
   params: CodexFields,
-  ask: (request: acp.RequestPermissionRequest) => Promise<acp.RequestPermissionResponse>
+  ask: (request: acp.RequestPermissionRequest) => Promise<acp.RequestPermissionResponse>,
+  mcp: McpElicitationContext = NO_MCP_CONTEXT
 ): Promise<unknown> {
   const sessionId = string(params.threadId)
   const toolCallId = string(params.itemId)
@@ -225,7 +281,7 @@ export async function codexServerRequest(
       })) }
     }
     case 'mcpServer/elicitation/request':
-      return { action: 'decline', content: null }
+      return mcpElicitation(params, ask, mcp)
     default:
       throw new Error(`Unsupported Codex App Server request: ${method}`)
   }
