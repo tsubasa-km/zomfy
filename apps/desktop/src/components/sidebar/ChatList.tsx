@@ -280,7 +280,7 @@ export function ChatList({ actions }: { actions: SidebarActions }) {
   const busy = new Set(allSessions.filter((s) => !s.archived).map((s) => s.workspaceId))
 
   return (
-    <div data-chat-list="project">
+    <div data-chat-list="project" className="flex flex-1 flex-col">
       {entries.map(({ primary: project, copies }) => {
         const members = [project, ...copies]
         const list = inProject.get(entryKey({ primary: project, copies })) ?? []
@@ -376,7 +376,8 @@ export function ChatList({ actions }: { actions: SidebarActions }) {
           {!looseCollapsed && <div className="space-y-px">{loose.map(row)}</div>}
         </ProjectCard>
       )}
-      {archivedSection && section('archived', archivedSection.nodes)}
+      {/* The shelf keeps to the sidebar's foot however short the list is (docs/specs/threads-under-projects.md). */}
+      {archivedSection && <div data-chat-list-bottom className="mt-auto pt-3">{section('archived', archivedSection.nodes)}</div>}
       {nodes.length === 0 && projects.length === 0 && empty}
     </div>
   )
