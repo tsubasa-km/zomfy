@@ -1,9 +1,9 @@
 ---
 type: Spec
 title: The thread list is a stack of project cards
-description: The left sidebar is a stack of cards, one per project in its own order and one for threads of no project, each holding its threads (pinned first, then most recent activity); rows keep their turn-taking marks, a thread that waits for the person's answer glows as the composer does, and a folded card glows when one of its threads does.
+description: The left sidebar is a stack of cards, one per project in its own order and one for threads of no project, each holding its threads (pinned first, then most recent activity); rows keep their turn-taking marks, a thread that needs the person glows under the same rule as its composer, and a folded card glows when one of its threads does.
 status: stable
-x-zomfy-implementation: done
+x-zomfy-implementation: in-progress
 tags: [desktop, sidebar, chat]
 generated: { by: "claude-code/opus-5.5", at: "2026-11-27T15:00:00Z" }
 ---
@@ -52,23 +52,20 @@ From top to bottom:
 
 ## The thread that needs the person glows
 
-A row whose thread **waits for the person's answer** (a question, an approval or a split
-confirmation, its own or a helper's under it: `status` `needs-you`) gets the waiting glow on its
-border, the same pattern the composer and the waiting cards use
-([composer-waiting-glow](composer-waiting-glow.md)): `data-waiting-glow` with the
-`chatWaitingGlow` setting (Rainbow by default, Accent pulse, Static outline, Off), still under
-reduced motion.
+A row glows exactly when its thread's composer or waiting card would
+([composer-waiting-glow](composer-waiting-glow.md), one predicate for both): when a question, an
+approval or a split confirmation waits in it (its own or a helper's under it), or when it is the
+person's turn. The glow is the composer's (`data-waiting-glow`, the `chatWaitingGlow` setting:
+Rainbow by default, Accent pulse, Static outline, Off), still under reduced motion. A failed turn
+keeps its red alert and does not glow, as in the thread.
 
-**Your turn does not glow.** Glow is the one signal for "you are holding something up": a waiting
-question blocks the agent, a finished turn does not, and a list where every handed-back thread
-glowed would glow all day and stop being seen. Your turn keeps its green dot, so the two stay
-distinct by shape and motion (a moving coloured border vs a still green dot). A failed turn keeps
-its red alert and does not glow, as in the thread.
+The two kinds stay told apart by the row's own mark, which the glow does not replace: the orange
+question bubble for a waiting answer, the green dot for Your turn.
 
 A **folded card** glows the same way when one of its threads glows, and its colour badge shows the
 mark of its most pressing thread in the turn order (Needs your answer, Your turn, Working,
 Background work running), the badge itself when every thread is quiet. Unfolded, the card does not
-glow; its row does.
+glow; its rows do.
 
 ## Search, pinning, archive
 
@@ -86,10 +83,10 @@ glow; its row does.
 
 - With threads in several projects, each project is a card holding its threads, pinned first, then
   newest activity first, each with its turn mark; quick threads sit in their own card below.
-- A thread with a waiting question glows in the pattern Settings picks (none with Off); a Your turn
-  thread shows only its green dot.
+- A thread with a waiting question, and a Your turn thread, glow in the pattern Settings picks
+  (none with Off), each keeping its own mark; a failed or quiet thread does not glow.
 - Folding a card that holds a waiting thread makes the card glow, with the question bubble on its
-  badge; a card whose most pressing thread is the person's turn shows the green dot and no glow.
+  badge; a card whose most pressing thread is the person's turn glows with the green dot.
 - Search narrows the cards to those with a match; pinning puts a thread at the top of its card;
   archiving moves it to Archived.
 - `bun run typecheck` and the tests pass; the card grouping, its ordering and the glow rule have

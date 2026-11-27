@@ -70,11 +70,20 @@ the surface in the padding box) and adds at most a `box-shadow`, so nothing move
 transcript canvas for the Next steps question). A tab or file dragged over the composer shows the
 drop ring instead of the glow.
 
-## In the sidebar
+## One rule for the thread and the sidebar
 
-The same pattern and setting mark a sidebar row whose thread waits for the person's answer, and a
-folded project card holding one ([threads-under-projects](threads-under-projects.md)); Your turn
-does not glow there. The row and the card set `--composer-glow-surface` to the card's surface.
+A thread **needs the person** when a question, an approval or a split confirmation waits in it
+(its own or a helper's), or when it is the person's turn (Your turn). One predicate,
+`threadNeedsPerson` in lib/turn-phase.ts, decides it for both places:
+
+- In the thread, it decides whether anything glows; the table above says where.
+- In the sidebar ([threads-under-projects](threads-under-projects.md)), the thread's row glows
+  under the same rule, and a folded project card glows when one of its threads does. A failed turn
+  glows in neither.
+
+The row keeps glowing while the person types a draft in the composer: the draft quiets the
+composer only, since the thread still waits on them until the prompt is sent. The row and the card
+set `--composer-glow-surface` to the card's surface.
 
 # Out of scope
 

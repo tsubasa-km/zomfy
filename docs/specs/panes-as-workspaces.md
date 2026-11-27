@@ -1,9 +1,9 @@
 ---
 type: Spec
-title: A split pane works in its front tab's workspace, and its "+" is a quick pick
-description: Each split pane of the window's tabs works in the workspace of the tab it has in front, keeping the last one while that tab has none, and its "+", pins and right sidebar act on it; the "+" opens a filterable quick pick with Terminal, Agent and Panel scopes.
+title: A split pane shows one workspace's tabs at a time, and its "+" is a quick pick
+description: Each split pane of the window's tabs works in the workspace of the tab it has in front and shows only that workspace's tabs (and tabs of no workspace), keeping every other workspace's tabs to bring back; its "+", pins and right sidebar act on it, and the "+" opens a filterable quick pick with Terminal, Agent and Panel scopes.
 status: stable
-x-zomfy-implementation: done
+x-zomfy-implementation: in-progress
 tags: [desktop, tabs, panes, sidebar]
 generated: { by: "claude-code/opus-5.5", at: "2026-11-27T12:00:00Z" }
 ---
@@ -69,6 +69,33 @@ context.
 
 Nothing at the start of the tab strip marks the context: the tab in front, and its sidebar, are the
 mark.
+
+## One workspace's tabs at a time
+
+A pane holds the tabs of one workspace at a time: its context's **set**. Several threads, terminals
+and files of that workspace sit side by side as tabs (two storefront threads, a storefront
+terminal). To see two workspaces at once, the person splits the pane.
+
+- **The strip shows the set**: the pane's tabs whose workspace is the context, plus its tabs of no
+  workspace (the New thread tab, browser tabs, quick threads and other chats of no project), which
+  belong to the pane and show in every set.
+- **Other sets are kept, not closed.** A pane keeps every tab it holds, in its order, with each
+  workspace's set remembered (`tabOrder` and `recentTabIds` of the pane, as before). The strip hides
+  the tabs of other workspaces.
+- **Going to another workspace replaces the set.** Opening a thread of billing-api in a pane showing
+  storefront (from the sidebar, the Inbox, search, a notification) brings billing-api's tab to the
+  front of that pane, so the pane now shows billing-api's set; storefront's tabs wait hidden.
+  Opening a storefront thread again brings storefront's set back, as it was left. The sidebar's
+  preview tab rule still holds: a thread only looked at replaces the pane's preview tab.
+- **Closing a tab** brings the most recently shown tab of the same set to the front; when the
+  set's last tab closes, the pane falls back to the set of its most recently shown other tab.
+- **Dragging a tab of another workspace into a pane** switches that pane to the dragged tab's
+  workspace (the dropped tab comes to the front, as any drop does). A drop is a deliberate act, so
+  it is honoured rather than refused; the pane's other set stays kept.
+- **Keyboard** tab switching (`Ctrl+Tab`, `Ctrl+1…9`) and the strip's own commands ("Close Other
+  Tabs", "Close Tabs to the Right") act on the set shown. The `+` quick pick's "Switch to tab" finds
+  the tabs of every set; picking a hidden one brings its set back.
+- The floating panel and a pop-out window are one workspace already: nothing is hidden there.
 
 # The "+" quick pick
 
@@ -143,6 +170,10 @@ beside `+`. A pinned item also comes first in the quick pick.
   context it had: `+` opens the quick pick and `New Claude Thread` opens the New thread screen
   prefilled with that project.
 - The tab strip has no mark or picker before the tabs.
+- A pane with storefront tabs open: opening a billing-api thread from the sidebar shows only
+  billing-api's tabs (and tabs of no workspace) in that pane; opening a storefront thread again
+  shows storefront's tabs as they were. Two storefront threads sit side by side as tabs.
+- Dragging a billing-api tab into a pane showing storefront switches that pane to billing-api.
 - The quick pick: typing filters; each chip narrows to its scope; `Tab` cycles the scopes; `$`,
   `@`, `#` pick them; `↑`/`↓`/`Enter` run an item; pinned items come first; pins still work.
 - `bun run typecheck` and the tests pass; the context resolution, the scope cycling and the
