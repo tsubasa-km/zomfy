@@ -3,7 +3,7 @@ type: Spec
 title: Secrets agents get as environment variables, redacted everywhere Zomfy shows them
 description: Settings keeps API keys in the OS credential store and gives them to the chosen agents' processes as environment variables; the agent can read them, and their values are redacted from everything Zomfy records or shows. The page is scoped to one host and one agent at a time.
 status: stable
-x-zomfy-implementation: in-progress
+x-zomfy-implementation: done
 tags: [secrets, security, agents, environment, daemon, desktop, settings]
 generated: { by: "claude-code/opus-5.5", at: "2026-11-27T18:00:00Z" }
 ---

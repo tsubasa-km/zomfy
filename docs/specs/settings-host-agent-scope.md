@@ -3,7 +3,7 @@ type: Spec
 title: Settings pages scoped to a host and an agent
 description: Settings pages whose settings belong to one host and one agent (Secrets & environment, and the Chat agents part of Agents) pick the host and the agent at the top, remember the pair, and show only that pair's settings below.
 status: stable
-x-zomfy-implementation: in-progress
+x-zomfy-implementation: done
 tags: [desktop, settings, agents, hosts]
 generated: { by: "claude-code/opus-5.5", at: "2026-11-27T18:00:00Z" }
 ---
