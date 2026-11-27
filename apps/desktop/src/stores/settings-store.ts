@@ -72,8 +72,6 @@ export interface AppSettings {
   /** Orca's floatingTerminalEnabled. */
   floatingWorkspaceEnabled: boolean
   floatingWorkspaceTriggerLocation: FloatingWorkspaceTriggerLocation
-  /** Opening the floating workspace with no tabs starts a terminal in it. */
-  floatingWorkspaceOpenTerminal: boolean
   /** Agent new chats start with (Orca's defaultTuiAgent); 'claude' unless onboarding or settings pick another. */
   defaultChatAgent: string
   /** The permission mode new Claude chats start in. */
@@ -159,7 +157,6 @@ export const DEFAULT_SETTINGS: AppSettings = {
   // In the status bar, at the window's edge: a button floating over the page covered composers'
   // send buttons and panel rows wherever it was left.
   floatingWorkspaceTriggerLocation: 'status-bar',
-  floatingWorkspaceOpenTerminal: true,
   defaultChatAgent: 'claude',
   defaultPermissionMode: 'auto',
   defaultHost: 'auto',

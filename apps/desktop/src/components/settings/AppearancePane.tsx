@@ -108,7 +108,6 @@ function SidebarSection() {
 function FloatingWorkspaceSection() {
   const enabled = useSetting('floatingWorkspaceEnabled')
   const location = useSetting('floatingWorkspaceTriggerLocation')
-  const openTerminal = useSetting('floatingWorkspaceOpenTerminal')
   return (
     <div className="space-y-2 not-has-[[data-setting-row]]:hidden">
       <SettingsSubsectionHeader title={t('Floating Workspace')} />
@@ -119,13 +118,6 @@ function FloatingWorkspaceSection() {
           keywords={['floating', 'workspace', 'terminal', 'quick panel']}
           checked={enabled}
           onChange={(v) => setSetting('floatingWorkspaceEnabled', v)}
-        />
-        <SettingsSwitchRow
-          label={t('Open a Terminal When Empty')}
-          description={t('Opening the floating workspace with no tabs starts a terminal in it.')}
-          keywords={['floating', 'terminal', 'default', 'open', 'empty']}
-          checked={openTerminal}
-          onChange={(v) => setSetting('floatingWorkspaceOpenTerminal', v)}
         />
         <SettingsRow
           label={t('Toggle Button Location')}

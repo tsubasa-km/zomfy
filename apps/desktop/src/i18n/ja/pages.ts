@@ -698,8 +698,6 @@ export const PAGES: Record<string, string> = {
   'Always expanded': '常に開く',
   // lib/chat-after-send.ts
   'Message sent. The thread keeps running in the sidebar.': '送信しました。スレッドはサイドバーで動き続けます。',
-  'Open a Terminal When Empty': '空のときはターミナルを開く',
-  'Opening the floating workspace with no tabs starts a terminal in it.': 'タブのないフローティングワークスペースを開くと、ターミナルが 1 つ開きます。',
   // components/settings/TerminalPane.tsx (right-click)
   'Right-click': '右クリック',
   'Copies the selection, or pastes when nothing is selected, as in Windows Terminal. Shift+right-click, Shift+F10 or the … button at the top right of a terminal opens the menu.':
