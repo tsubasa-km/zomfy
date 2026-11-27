@@ -42,10 +42,11 @@ export function drawerDragTarget(
   detached: boolean
 ): { dock: DrawerDock | null; detached: boolean } {
   const { clientX: x, clientY: y } = point
-  // Only a pull into the pane detaches; past the edge or beyond its ends the handle keeps sliding along it.
-  const inward = source === 'top' || source === 'left' ? 1 : -1
-  const perpendicular = (isDrawerSide(source) ? x - start.clientX : y - start.clientY) * inward
-  detached ||= perpendicular >= DETACH_DISTANCE
+  // Only a pull within the pane detaches; out past the edge or beyond its ends the handle keeps sliding along it.
+  const side = isDrawerSide(source)
+  const perpendicular = side ? x - start.clientX : y - start.clientY
+  const within = side ? x >= bounds.left && x <= bounds.right : y >= bounds.top && y <= bounds.bottom
+  detached ||= within && Math.abs(perpendicular) >= DETACH_DISTANCE
 
   let edge = source
   if (detached) {
@@ -63,9 +64,8 @@ export function drawerDragTarget(
     if (distances[edge] > SNAP_DISTANCE) return { dock: null, detached }
   }
 
-  const side = isDrawerSide(edge)
-  const length = side ? bounds.height : bounds.width
-  const along = drawerAlongEdge(edge, point) - (side ? bounds.top : bounds.left)
+  const along = drawerAlongEdge(edge, point) - (isDrawerSide(edge) ? bounds.top : bounds.left)
+  const length = isDrawerSide(edge) ? bounds.height : bounds.width
   const offset = edge === source ? grabOffset : 0
   const position = length > 0 ? Math.max(0, Math.min(1, (along - offset) / length)) : 0.5
   return { dock: { edge, position }, detached }

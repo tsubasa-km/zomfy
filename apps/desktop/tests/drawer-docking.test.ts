@@ -23,10 +23,13 @@ describe('tool drawer docking', () => {
       .toEqual({ dock: { edge: 'right', position: 1 }, detached: false })
   })
 
-  test('detaches only when pulled into the pane', () => {
+  test('detaches only when pulled within the pane', () => {
     const start = { clientX: 400, clientY: 490 }
     expect(drawerDragTarget(bounds, 'bottom', start, { clientX: 400, clientY: 560 }, 0, false).detached).toBe(false)
     expect(drawerDragTarget(bounds, 'bottom', start, { clientX: 400, clientY: 440 }, 0, false).detached).toBe(true)
+    // The open drawer's inner handle sits inside the pane: pulling it toward its own edge detaches it too.
+    const inner = { clientX: 400, clientY: 250 }
+    expect(drawerDragTarget(bounds, 'bottom', inner, { clientX: 400, clientY: 320 }, 0, false).detached).toBe(true)
   })
 
   test('detaches in the middle and snaps to another edge as the pointer approaches', () => {
