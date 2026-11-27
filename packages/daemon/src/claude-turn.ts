@@ -32,6 +32,7 @@ import { PROCESS_GONE_META } from "./stopped-tool-calls.ts";
 import { QUESTION_OPTIONS, QUESTION_TOOL, questionResult } from "./ask-user-question.ts";
 import { pathGuardHooks, type PathGuard } from "./step-path-guard.ts";
 import { nextCronTime } from "./cron-next.ts";
+import { spawnEnvironment } from "./user-environment.ts";
 
 export interface ClaudeSessionState {
   cwd: string;
@@ -499,7 +500,7 @@ async function spawn(input: TurnInput, userMessage: SDKUserMessage): Promise<acp
       permissionMode,
       promptSuggestions: true,
       // Headless runs on current models drop the task tools the TUI keeps; the chat draws their list.
-      env: { ...process.env, ...input.env, CLAUDE_CODE_ENABLE_TODO_TOOLS: "1" },
+      env: { ...(await spawnEnvironment()), ...input.env, CLAUDE_CODE_ENABLE_TODO_TOOLS: "1" },
       ...(permissionMode === "bypassPermissions" ? { allowDangerouslySkipPermissions: true } : {}),
       ...(mcpServers && Object.keys(mcpServers).length > 0 ? { mcpServers } : {}),
       ...(allowedTools.length ? { allowedTools } : {}),

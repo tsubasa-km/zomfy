@@ -16,14 +16,18 @@ export interface Keyring {
 
 const SERVICE = 'zomfy-hosting'
 
-/** Bun.secrets: Windows Credential Manager, macOS Keychain, libsecret. */
-export const osKeyring: Keyring = {
-  get: (name) => Bun.secrets.get({ service: SERVICE, name }),
-  set: (name, value) => Bun.secrets.set({ service: SERVICE, name, value }),
-  delete: async (name) => {
-    await Bun.secrets.delete({ service: SERVICE, name })
+/** Bun.secrets under one service: Windows Credential Manager, macOS Keychain, libsecret. */
+export function bunKeyring(service: string): Keyring {
+  return {
+    get: (name) => Bun.secrets.get({ service, name }),
+    set: (name, value) => Bun.secrets.set({ service, name, value }),
+    delete: async (name) => {
+      await Bun.secrets.delete({ service, name })
+    }
   }
 }
+
+export const osKeyring: Keyring = bunKeyring(SERVICE)
 
 export interface StoredAccount extends HostingAccountRef {
   storage: 'keyring' | 'file'

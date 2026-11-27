@@ -11,8 +11,8 @@ import {
 } from '@zomfy/protocol'
 import { codexConnection, resolveChatAgent } from './chat-agent-launch-specs.ts'
 import { CODEX_APP_SERVER_CAPABILITIES, CodexAppServer } from './codex-app-server.ts'
-import { hostPath } from './tui-agent-detection.ts'
 import { log } from './log.ts'
+import { spawnEnvironment } from './user-environment.ts'
 
 // One external agent process per harness session. The daemon forwards prompts, cancels and option
 // changes and records the resulting chat updates. Codex can use ACP or App Server.
@@ -227,7 +227,7 @@ export class AcpAgentSession {
       stdin: 'pipe',
       stdout: 'pipe',
       stderr: 'pipe',
-      env: { ...process.env, PATH: await hostPath(), ...resolved.env, ...(await this.hooks.env?.().catch(() => ({}))) },
+      env: { ...(await spawnEnvironment()), ...resolved.env, ...(await this.hooks.env?.().catch(() => ({}))) },
       windowsHide: true,
       // Its own process group, so stopping it reaches the CLI and MCP servers it starts.
       detached: process.platform !== 'win32'

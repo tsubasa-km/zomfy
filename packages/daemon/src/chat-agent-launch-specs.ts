@@ -14,6 +14,7 @@ import { hostPath } from './tui-agent-detection.ts'
 import { resolveClaudeExecutable } from './claude-executable.ts'
 import { log } from './log.ts'
 import { agentUpdate, checkAgentUpdates, type NpmPackage } from './chat-agent-updates.ts'
+import { spawnEnvironment } from './user-environment.ts'
 
 // How each external agent serves ACP, as data (Orca's acp-launch-specs.ts). An argument list with
 // a probe is only used when the installed CLI's help names it: ACP flags were renamed between
@@ -224,7 +225,7 @@ function helpText(base: string[], args: string[]): Promise<string> {
         stdin: 'ignore',
         stdout: 'pipe',
         stderr: 'pipe',
-        env: { ...process.env, PATH: await hostPath() },
+        env: await spawnEnvironment(),
         windowsHide: true
       })
       const timer = setTimeout(() => proc.kill(), PROBE_TIMEOUT_MS)

@@ -1,6 +1,7 @@
 import type { ManagerCallResult, TerminalInfo } from '@zomfy/protocol'
 import type { TerminalManager } from './terminal-manager.ts'
 import { asksForSecret, type TerminalScreens } from './terminal-screen.ts'
+import { secretRedactor } from './secret-redaction.ts'
 
 // The terminal_* harness tools: a chat's agent reads and types into the terminal tabs of its
 // workspace, which the person sees and can take back (TerminalManager.agentWrite). Approval is the
@@ -67,7 +68,8 @@ export function createTerminalTools(deps: TerminalToolDeps) {
     if (asksForSecret(screen.cursorLine)) {
       return { text: `The terminal is asking for a password or code ("${screen.cursorLine.trim()}"). Its screen is withheld; ask the person to type it.`, secret: true }
     }
-    return { text: screen.lines.join('\n'), secret: false }
+    // A saved secret's value on screen goes to the agent as its name (docs/specs/agent-secrets.md).
+    return { text: secretRedactor.text(screen.lines.join('\n')), secret: false }
   }
 
   const render = async (info: TerminalInfo, lines: number, note = ''): Promise<string> => {

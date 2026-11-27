@@ -1,4 +1,4 @@
-import { Bell, BookOpen, Bot, BotMessageSquare, Blocks, Cloud, Keyboard, Mic, Palette, Server, SlidersHorizontal, Smartphone, SquareTerminal, TextCursorInput, type LucideIcon } from 'lucide-react'
+import { Bell, BookOpen, Bot, BotMessageSquare, Blocks, Cloud, Keyboard, KeyRound, Mic, Palette, Server, SlidersHorizontal, Smartphone, SquareTerminal, TextCursorInput, type LucideIcon } from 'lucide-react'
 import { t } from '@/i18n/i18n'
 
 // Orca's settings sidebar groups and sections (hooks/settings-navigation-*-sections.ts), trimmed
@@ -41,6 +41,17 @@ export const SETTINGS_SECTIONS: readonly SettingsNavSection[] = [
         title: t('Chat agents'),
         keywords: ['codex', 'antigravity', 'gemini', 'opencode', 'copilot', 'acp', 'install', 'environment', 'account', 'CODEX_HOME']
       }
+    ]
+  },
+  {
+    id: 'secrets',
+    title: t('Secrets & environment'),
+    description: t('API keys agents use without seeing them, and the environment new processes start with.'),
+    icon: KeyRound,
+    group: 'capabilities',
+    entries: [
+      { title: t('Secrets'), keywords: ['secret', 'api key', 'token', 'credential', 'tunnel', 'XAI_API_KEY', 'OPENAI_API_KEY'] },
+      { title: t('Reload environment'), keywords: ['environment', 'reload', 'PATH', 'setx', 'variable', 'profile'] }
     ]
   },
   {

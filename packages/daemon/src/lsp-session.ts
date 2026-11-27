@@ -3,8 +3,8 @@ import { encodeLspMessage, LspMessageReader } from './lsp-framing.ts'
 import { HOST_FLAVOR, pathToFileUri, translateLspUris, type LspUriTranslator } from './lsp-uris.ts'
 import type { LspServerSpec } from './lsp-server-catalog.ts'
 import { killTree, trackChild } from './process-tree.ts'
-import { hostPath } from './tui-agent-detection.ts'
 import { log } from './log.ts'
+import { spawnEnvironment } from './user-environment.ts'
 
 // One language server process for one window's view of one workspace. The daemon is the server's
 // LSP client as far as the process goes (it starts it, initializes it, answers what a server asks
@@ -250,7 +250,7 @@ export class LspSession {
       stdin: 'pipe',
       stdout: 'pipe',
       stderr: 'pipe',
-      env: { ...process.env, PATH: await hostPath() },
+      env: await spawnEnvironment(),
       windowsHide: true,
       // Its own process group, so stopping it reaches what it starts (tsserver, cargo, a type checker).
       detached: process.platform !== 'win32'

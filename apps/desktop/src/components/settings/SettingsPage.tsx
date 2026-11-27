@@ -6,6 +6,7 @@ import { SETTINGS_SECTIONS, matchesSettingsSearch, sectionMatchesSearch } from '
 import { SettingsSearchProvider, SettingsSection } from './SettingsSection'
 import { SettingsSidebar } from './SettingsSidebar'
 import { AgentsPane } from './AgentsPane'
+import { SecretsPane } from './SecretsPane'
 import { AppearancePane } from './AppearancePane'
 import { GeneralPane } from './GeneralPane'
 import { HostsPane } from './HostsPane'
@@ -28,6 +29,8 @@ function renderPane(id: string, query: string): ReactNode {
   switch (id) {
     case 'agents':
       return <AgentsPane />
+    case 'secrets':
+      return <SecretsPane />
     case 'general':
       return <GeneralPane />
     case 'terminal':

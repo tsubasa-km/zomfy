@@ -1375,5 +1375,22 @@ export const PAGES: Record<string, string> = {
   // components/settings/NotificationsPane.tsx (threads another thread started)
   'Helper threads': 'ヘルパーのスレッド',
   'Notify and mark unread when a thread another thread started finishes. Off, you hear from the thread that started it, and only a helper that needs you notifies.':
-    '別のスレッドが始めたスレッドが完了したときも通知し、未読にします。オフのときは始めたスレッドから知らせが届き、ヘルパーからはあなたの対応が必要なときだけ通知します。'
+    '別のスレッドが始めたスレッドが完了したときも通知し、未読にします。オフのときは始めたスレッドから知らせが届き、ヘルパーからはあなたの対応が必要なときだけ通知します。',
+
+  // components/settings/SecretsPane.tsx, settings-navigation.ts (docs/specs/agent-secrets.md, live-environment.md)
+  'Secrets & environment': 'シークレットと環境変数',
+  'API keys agents use without seeing them, and the environment new processes start with.':
+    'エージェントが中身を見ずに使える API キーと、新しいプロセスが受け取る環境変数。',
+  Secrets: 'シークレット',
+  'Reload environment': '環境変数を再読み込み',
+  'Nothing changed': '変更なし',
+  'Add a secret': 'シークレットを追加',
+  Tunnel: 'トンネル',
+  'Environment variable': '環境変数',
+  Exposure: '渡し方',
+  'Upstream URL': '転送先 URL',
+  'Base URL variable': 'ベース URL の変数',
+  'Programs the agent runs can print this value.': 'エージェントが実行するプログラムはこの値を表示できます。',
+  'Saved value': '保存済みの値',
+  'Replace value': '値を置き換え'
 }
