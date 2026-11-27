@@ -1,10 +1,15 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { Bot, ChevronRight, Globe, MessageSquarePlus, PanelsTopLeft, Pin, PinOff, Plus, RefreshCw, Search, Server, SquareTerminal } from 'lucide-react'
+import { Bot, ChevronRight, FolderOpen, Globe, MessageSquarePlus, PanelsTopLeft, Pin, PinOff, Plus, RefreshCw, Search, Server, SquareTerminal } from 'lucide-react'
 import { LOCAL_HOST, allWorkspaces, openEditorTab, useStore } from '@/session-store'
+import { toast } from 'sonner'
+import { defaultTerminalWorkspace } from '@/lib/new-tab-pins'
+import { useAllHostSettings } from '@/stores/host-settings-store'
+import { sortedHosts } from '@/components/settings/HostsPane'
+import { ContextMenu, ContextMenuContent, ContextMenuItem, ContextMenuTrigger } from '@/components/ui/context-menu'
 import { openSshConnectionsDialog } from '@/lib/ssh-connections'
 import { loadDetectedAgents } from '@/lib/detected-agents'
 import { isImeOwnedKeyboardEvent } from '@/lib/ime-composition-keyboard-event'
-import { pushRecent, searchRows, treeKey, treeRows, type PickNode, type PickRow, type PickScope } from '@/lib/new-tab-pick'
+import { defaultShellFirst, pushRecent, searchRows, treeKey, treeRows, type PickNode, type PickRow, type PickScope } from '@/lib/new-tab-pick'
 import { cn } from '@/lib/utils'
 import { createExternalStore } from '@/stores/external-store'
 import { looksLikeSearchQuery, normalizeAddress } from '@/stores/browser-tab-store'
@@ -16,9 +21,11 @@ import { TuiAgentIcon } from '@/components/terminal/TuiAgentIcon'
 import { TabKindIcon } from './TabKindIcon'
 import { focusGroup } from './tab-group-commands'
 import { matchFiles, workspaceFiles } from './workspace-file-index'
-import { activateTab, openBrowserTab, tabTitle, useWorkspaceTabs } from './workspace-tab-model'
+import { activateTab, newTerminalTab, openBrowserTab, tabTitle, useWorkspaceTabs } from './workspace-tab-model'
+import { requestNewTerminal } from './NewTabDialogs'
 import {
   toggleNewTabPin,
+  unpinNewTabItem,
   useBrowserItems,
   useChatItems,
   useCommandItems,
@@ -91,22 +98,51 @@ type Node = PickNode<NewTabItem> & { icon?: React.ReactNode }
 
 const leaf = (item: NewTabItem, id = item.id, label = item.label): Node => ({ id, label, entry: item })
 
-/** The tree the pane's "+" offers: New thread, the pins, then Terminal, Agent and Panel. */
-function useTree(workspaceId: string | null, pins: string[]): Node[] {
-  const hostId = useStore((s) => allWorkspaces(s).find((w) => w.id === workspaceId)?.hostId ?? LOCAL_HOST)
-  const newThread = useNewThreadItem(workspaceId)
-  const chats = useChatItems(workspaceId)
-  const terminal = useTerminalItems(workspaceId)
-  const { items: tuiAgents } = useTuiAgentItems(workspaceId)
+const failedTerminal = (error: unknown) =>
+  toast.error(t("Couldn't open a terminal"), { description: error instanceof Error ? error.message : String(error) })
+
+/**
+ * The Terminal branch (docs/specs/panes-as-workspaces.md): each connected host's shells, the default
+ * first (a branch per host when there are several, the pane's host first), then the quick commands,
+ * the SSH logins, `SSH connections…` and `Other folder…`. A shell opens in the pane's workspace when
+ * it is on that host, else in the host's default folder. `defaultShell` is the pane's host's default.
+ */
+function useTerminalBranch(workspaceId: string | null): { branch: Node[]; defaultShell: Node | null } {
+  const hosts = useStore((s) => s.hosts)
+  const workspaces = useStore((s) => allWorkspaces(s))
+  const paneHost = workspaces.find((w) => w.id === workspaceId)?.hostId ?? null
+  const connected = useMemo(() => {
+    const list = sortedHosts(hosts).filter((h) => h.connection.kind === 'connected')
+    return paneHost ? [...list.filter((h) => h.id === paneHost), ...list.filter((h) => h.id !== paneHost)] : list
+  }, [hosts, paneHost])
+  const settings = useAllHostSettings(connected.map((h) => h.id))
   const commands = useCommandItems(workspaceId)
-  const workflows = useWorkflowItems(workspaceId, true)
   const ssh = useSshItems(workspaceId)
-  const browser = useBrowserItems(workspaceId)
-  const panels = usePanelItems(workspaceId)
   return useMemo(() => {
-    const terminalChildren: Node[] = [...terminal, ...commands, ...ssh].map((item) => leaf(item))
+    const several = connected.length > 1
+    let defaultShell: Node | null = null
+    const hostNodes: Node[] = []
+    for (const host of connected) {
+      const folder = host.id === paneHost && workspaceId ? workspaceId : defaultTerminalWorkspace(workspaces, host.id, workspaceId)
+      if (!folder || host.shells.length === 0) continue
+      const shells = defaultShellFirst(host.shells, settings[host.id]?.defaultShellId).map((shell) =>
+        leaf({
+          pin: null,
+          id: `shell:${host.id}:${shell.id}`,
+          scope: 'terminal',
+          keywords: `terminal shell ${shell.label} ${host.label}`,
+          icon: <SquareTerminal className="size-4" />,
+          label: shell.label,
+          run: () => void newTerminalTab(folder, shell.id).catch(failedTerminal)
+        })
+      )
+      if (!defaultShell && (host.id === paneHost || !paneHost)) defaultShell = shells[0]!
+      if (several) hostNodes.push({ id: `host:${host.id}`, label: host.label, icon: <Server className="size-4" />, children: shells })
+      else hostNodes.push(...shells)
+    }
+    const rest: Node[] = [...commands, ...ssh].map((item) => leaf(item))
     if (workspaceId) {
-      terminalChildren.push(
+      rest.push(
         leaf({
           pin: null,
           id: 'ssh-connections',
@@ -118,6 +154,35 @@ function useTree(workspaceId: string | null, pins: string[]): Node[] {
         })
       )
     }
+    rest.push(
+      leaf({
+        pin: null,
+        id: 'terminal-dialog',
+        scope: 'terminal',
+        keywords: 'new terminal other folder host shell dialog',
+        icon: <FolderOpen className="size-4" />,
+        label: t('Other folder…'),
+        run: () => requestNewTerminal(workspaceId)
+      })
+    )
+    return { branch: [...hostNodes, ...rest], defaultShell }
+  }, [connected, settings, workspaces, paneHost, workspaceId, commands, ssh])
+}
+
+/** The tree the pane's "+" offers: New thread, the pins, then Terminal, Agent and Panel. */
+function useTree(workspaceId: string | null, pins: string[]): Node[] {
+  const hostId = useStore((s) => allWorkspaces(s).find((w) => w.id === workspaceId)?.hostId ?? LOCAL_HOST)
+  const newThread = useNewThreadItem(workspaceId)
+  const chats = useChatItems(workspaceId)
+  const terminal = useTerminalItems(workspaceId)
+  const { branch: terminalChildren } = useTerminalBranch(workspaceId)
+  const { items: tuiAgents } = useTuiAgentItems(workspaceId)
+  const commands = useCommandItems(workspaceId)
+  const workflows = useWorkflowItems(workspaceId, true)
+  const ssh = useSshItems(workspaceId)
+  const browser = useBrowserItems(workspaceId)
+  const panels = usePanelItems(workspaceId)
+  return useMemo(() => {
     // One branch per agent: its chat, its CLI in a terminal, the CLI with a first prompt.
     const providers = new Map<string, { label: string; children: Node[] }>()
     const under = (provider: { id: string; label: string }) => {
@@ -178,8 +243,10 @@ function useTree(workspaceId: string | null, pins: string[]): Node[] {
       return item && !item.disabled ? [leaf(item, `pin:${pin}`)] : []
     })
     return [leaf(newThread), ...pinned, ...branch('terminal', terminalChildren), ...branch('agent', agentChildren), ...branch('panel', panelChildren)]
-  }, [workspaceId, hostId, pins, newThread, chats, terminal, tuiAgents, commands, workflows, ssh, browser, panels])
+  }, [workspaceId, hostId, pins, newThread, chats, terminal, terminalChildren, tuiAgents, commands, workflows, ssh, browser, panels])
 }
+
+const NO_EXTRA: { before: Row[]; after: Row[] } = { before: [], after: [] }
 
 /** What the field's text itself can open (an open tab, a file, an address), as rows of their own. */
 interface Row {
@@ -393,7 +460,20 @@ function TreeRow({
 
 // ── The quick pick ───────────────────────────────────────────────────────
 
-function QuickPick({ layoutKey, workspaceId, onClose }: { layoutKey: string; workspaceId: string | null; onClose: () => void }) {
+function QuickPick({
+  layoutKey,
+  workspaceId,
+  onClose,
+  nodes,
+  path = []
+}: {
+  layoutKey: string
+  workspaceId: string | null
+  onClose: () => void
+  /** A subtree to show instead of the whole tree (the Terminal pin's menu), and the path above it. */
+  nodes?: Node[]
+  path?: string[]
+}) {
   const [query, setQuery] = useState('')
   const [highlight, setHighlight] = useState(0)
   const input = useRef<HTMLInputElement>(null)
@@ -401,13 +481,15 @@ function QuickPick({ layoutKey, workspaceId, onClose }: { layoutKey: string; wor
   const recent = recentItems.use((list) => list)
   const openList = openBranches.use((list) => list)
   const open = useMemo(() => new Set(openList), [openList])
-  const tree = useTree(workspaceId, pins)
-  const extra = useQueryRows(layoutKey, workspaceId, query)
+  const fullTree = useTree(workspaceId, pins)
+  const tree = nodes ?? fullTree
+  const typed = useQueryRows(layoutKey, workspaceId, query)
+  const extra = nodes ? NO_EXTRA : typed
   const searching = query.trim() !== ''
 
   /** The rows on show: the tree, or with a query the open tabs, the matching leaves, then files and the address. */
   const rows = useMemo((): (PickRow<NewTabItem> & { extra?: Row })[] => {
-    if (!searching) return treeRows(tree, open)
+    if (!searching) return treeRows(tree, open, 0, path)
     const asRow = (row: Row): PickRow<NewTabItem> & { extra: Row } => ({
       node: { id: row.item.id, label: row.item.label, entry: row.item },
       depth: 0,
@@ -416,9 +498,9 @@ function QuickPick({ layoutKey, workspaceId, onClose }: { layoutKey: string; wor
       marks: row.marks,
       extra: row
     })
-    const matches = searchRows(tree, query, { pins, recent, pinOf: (item) => item.pin })
+    const matches = searchRows(tree, query, { pins, recent, pinOf: (item) => item.pin }).map((row) => ({ ...row, path: [...path, ...row.path] }))
     return [...extra.before.map(asRow), ...matches, ...extra.after.map(asRow)]
-  }, [searching, tree, open, query, pins, recent, extra])
+  }, [searching, tree, open, query, pins, recent, extra, path])
   const active = Math.min(highlight, Math.max(0, rows.length - 1))
 
   useEffect(() => {
@@ -469,7 +551,8 @@ function QuickPick({ layoutKey, workspaceId, onClose }: { layoutKey: string; wor
     }
   }
 
-  const placeholder = t('Search open tabs, files, URLs, agents…')
+  // A subtree's menu is named by its branch; the whole tree also finds tabs, files and addresses.
+  const placeholder = nodes && path.length > 0 ? path.join(' › ') : t('Search open tabs, files, URLs, agents…')
   return (
     <div data-new-tab-pick onKeyDown={(e) => e.key !== 'Escape' && e.stopPropagation()}>
       <div className="flex items-center gap-1 border-b border-border/70 px-2">
@@ -541,6 +624,62 @@ export function NewTabMenu({ layoutKey, workspaceId, groupId }: { layoutKey: str
         onOpenAutoFocus={(e) => e.preventDefault()}
       >
         <QuickPick layoutKey={layoutKey} workspaceId={workspaceId} onClose={() => setOpen(false)} />
+      </PopoverContent>
+    </Popover>
+  )
+}
+
+/**
+ * The pinned Terminal button (docs/specs/panes-as-workspaces.md): a click opens the Terminal branch
+ * as a small menu, the default shell of the pane's host first and highlighted, so Enter opens it.
+ */
+export function TerminalPinMenu({ layoutKey, workspaceId, groupId }: { layoutKey: string; workspaceId: string | null; groupId: string }) {
+  const [open, setOpen] = useState(false)
+  const { branch, defaultShell } = useTerminalBranch(workspaceId)
+  const nodes = useMemo(() => {
+    if (!defaultShell) return branch
+    // The default shell first; under a host branch it is listed there too.
+    const top: Node = { ...defaultShell, id: `default:${defaultShell.id}` }
+    return [top, ...branch.filter((n) => n.id !== defaultShell.id)]
+  }, [branch, defaultShell])
+  return (
+    <Popover
+      modal={false}
+      open={open}
+      onOpenChange={(next) => {
+        setOpen(next)
+        if (next) focusGroup(layoutKey, groupId)
+      }}
+    >
+      <ContextMenu modal={false}>
+        <ContextMenuTrigger asChild>
+          <PopoverTrigger asChild>
+            <button
+              type="button"
+              aria-label={t('New Terminal')}
+              title={t('New Terminal')}
+              data-pinned-tab="terminal"
+              className="my-auto ml-1 flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-muted-foreground hover:bg-accent/50 hover:text-foreground focus-visible:ring-2 focus-visible:ring-accent focus-visible:outline-none [&_svg]:size-3.5"
+            >
+              <SquareTerminal />
+            </button>
+          </PopoverTrigger>
+        </ContextMenuTrigger>
+        <ContextMenuContent>
+          <ContextMenuItem data-unpin-tab="terminal" onSelect={() => unpinNewTabItem('terminal')}>
+            <PinOff className="size-4" />
+            {t('Unpin')}
+          </ContextMenuItem>
+        </ContextMenuContent>
+      </ContextMenu>
+      <PopoverContent
+        align="start"
+        sideOffset={6}
+        className="w-80 max-w-[calc(100vw-1rem)] gap-0 overflow-hidden rounded-[11px] border-border/80 p-0 shadow-[0_16px_36px_rgba(0,0,0,0.24)]"
+        onOpenAutoFocus={(e) => e.preventDefault()}
+        data-terminal-pin-menu
+      >
+        <QuickPick layoutKey={layoutKey} workspaceId={workspaceId} nodes={nodes} path={[t('Terminal')]} onClose={() => setOpen(false)} />
       </PopoverContent>
     </Popover>
   )

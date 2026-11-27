@@ -3,6 +3,7 @@ import { ContextMenu, ContextMenuContent, ContextMenuItem, ContextMenuTrigger } 
 import { cn } from '@/lib/utils'
 import { parsePin } from '@/lib/new-tab-pins'
 import { focusGroup } from './tab-group-commands'
+import { TerminalPinMenu } from './NewTabMenu'
 import {
   unpinNewTabItem,
   useBrowserItems,
@@ -11,7 +12,6 @@ import {
   useNewTabPins,
   usePanelItems,
   useSshItems,
-  useTerminalItems,
   useTuiAgentItems,
   useWorkflowItems,
   type NewTabItem
@@ -59,8 +59,9 @@ function PinnedButton({ layoutKey, groupId, pin, item }: Props & { item: NewTabI
 
 const find = (items: NewTabItem[], pin: string) => items.find((i) => i.pin === pin)
 
+/** The Terminal pin opens the Terminal branch of the "+" tree as a menu (docs/specs/panes-as-workspaces.md). */
 function TerminalPin(p: Props) {
-  return <PinnedButton {...p} item={find(useTerminalItems(p.workspaceId), p.pin)} />
+  return <TerminalPinMenu layoutKey={p.layoutKey} workspaceId={p.workspaceId} groupId={p.groupId} />
 }
 function BrowserPin(p: Props) {
   return <PinnedButton {...p} item={find(useBrowserItems(p.workspaceId), p.pin)} />

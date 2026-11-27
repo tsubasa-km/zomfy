@@ -18,6 +18,16 @@ export function getHostSettings(hostId: HostId): HostSettings | null {
   return store.get()[hostId] ?? null
 }
 
+/** Every host's settings known so far, by host; loads the connected ones that have not answered. */
+export function useAllHostSettings(hostIds: readonly HostId[]): Record<HostId, HostSettings> {
+  const all = store.use((s) => s)
+  const missing = hostIds.filter((id) => !all[id]).join(' ')
+  useEffect(() => {
+    for (const id of missing.split(' ').filter(Boolean)) if (!loading.has(id)) loadHostSettings(id).catch(() => {})
+  }, [missing])
+  return all
+}
+
 /** Null until the host is connected and has answered. */
 export function useHostSettings(hostId: HostId): HostSettings | null {
   const connected = useStore((s) => s.hosts[hostId]?.connection.kind === 'connected')

@@ -735,5 +735,6 @@ export const CHAT: Record<string, string> = {
   // components/tab-layout/NewTabMenu.tsx (the quick pick's tree, panes-as-workspaces.md)
   'In a terminal': 'ターミナルで',
   'With a prompt…': 'プロンプトを指定…',
-  'Launch {agent} with a prompt…': 'プロンプトを指定して {agent} を起動…'
+  'Launch {agent} with a prompt…': 'プロンプトを指定して {agent} を起動…',
+  'Other folder…': '別のフォルダー…'
 }

@@ -1,6 +1,6 @@
 import { expect, test } from 'bun:test'
 import { nextFrontTab, paneTabSet, resolvePaneContext } from '../src/lib/pane-context.ts'
-import { matchEntry, matchLabel, pushRecent, searchRows, treeKey, treeRows, type PickEntry, type PickNode } from '../src/lib/new-tab-pick.ts'
+import { defaultShellFirst, matchEntry, matchLabel, pushRecent, searchRows, treeKey, treeRows, type PickEntry, type PickNode } from '../src/lib/new-tab-pick.ts'
 
 const carries = (ids: string[]) => (id: string) => ids.includes(id)
 
@@ -132,4 +132,12 @@ test('closing the front tab keeps the pane on its set while the set has a tab le
   expect(nextFrontTab('a', ['b1'], setOf)).toBe('b1')
   expect(nextFrontTab(null, ['a1', 'b1'], setOf)).toBe('b1')
   expect(nextFrontTab('a', [], setOf)).toBeNull()
+})
+
+test("a host's shells list its default first: the one its settings name, else the first found", () => {
+  const shells = [{ id: 'pwsh' }, { id: 'cmd' }, { id: 'wsl:Ubuntu' }]
+  expect(defaultShellFirst(shells, 'wsl:Ubuntu').map((s) => s.id)).toEqual(['wsl:Ubuntu', 'pwsh', 'cmd'])
+  expect(defaultShellFirst(shells, null).map((s) => s.id)).toEqual(['pwsh', 'cmd', 'wsl:Ubuntu'])
+  expect(defaultShellFirst(shells, 'gone').map((s) => s.id)).toEqual(['pwsh', 'cmd', 'wsl:Ubuntu'])
+  expect(defaultShellFirst([], 'pwsh')).toEqual([])
 })

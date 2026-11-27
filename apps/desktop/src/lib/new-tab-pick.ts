@@ -168,3 +168,9 @@ export function treeKey<T extends PickEntry>(
   const parent = rows.findIndex((r) => r.node.id === row.parentId)
   return { active: parent === -1 ? active : parent, open }
 }
+
+/** A host's shells with its default first: the one the host's settings name, else the first detected. */
+export function defaultShellFirst<T extends { id: string }>(shells: readonly T[], preferred: string | null | undefined): T[] {
+  const first = shells.find((s) => s.id === preferred) ?? shells[0]
+  return first ? [first, ...shells.filter((s) => s !== first)] : []
+}

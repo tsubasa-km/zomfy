@@ -20,7 +20,7 @@ import { newThreadStart, setNewThreadAgent } from '@/stores/new-thread-store'
 import { createExternalStore } from '@/stores/external-store'
 import { projectLabel } from '@/components/sidebar/workspace-visibility'
 import { shortcutLabel } from './tab-shortcuts'
-import { openBrowserTab, openPanelTab } from './workspace-tab-model'
+import { newTerminalTab, openBrowserTab, openPanelTab } from './workspace-tab-model'
 import { useWorkspacePanels } from './workspace-panels'
 import { requestNewTerminal, requestWorkflowRun } from './NewTabDialogs'
 import { t } from '@/i18n/i18n'
@@ -151,6 +151,10 @@ export function useChatItems(workspaceId: string | null): NewTabItem[] {
 
 // ── Terminal, agents, commands ───────────────────────────────────────────
 
+/**
+ * The Terminal pin: the default terminal of the pane's workspace at once (as Ctrl+Shift+`), or the
+ * New terminal dialog for a pane in no project. Its button opens the Terminal branch as a menu.
+ */
 export function useTerminalItems(workspaceId: string | null): NewTabItem[] {
   return [
     {
@@ -158,9 +162,12 @@ export function useTerminalItems(workspaceId: string | null): NewTabItem[] {
       id: 'terminal',
       scope: 'terminal',
       keywords: 'new terminal shell console',
-      label: t('New Terminal…'),
+      label: workspaceId ? t('New Terminal') : t('New Terminal…'),
       icon: <SquareTerminal className="size-4" />,
-      run: () => requestNewTerminal(workspaceId)
+      run: () =>
+        workspaceId
+          ? void newTerminalTab(workspaceId).catch(failed(t("Couldn't open a terminal")))
+          : requestNewTerminal(workspaceId)
     }
   ]
 }
