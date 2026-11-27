@@ -1,7 +1,8 @@
 import { expect, test } from 'bun:test'
 import type { TurnPhase } from '@zomfy/protocol'
 import type { Session } from '../src/session-store.ts'
-import { mostPressing, projectGroups, rowGlows, type ChatNode } from '../src/lib/chat-list.ts'
+import { turnPhase } from '@zomfy/protocol'
+import { chatTree, mostPressing, projectGroups, rowGlows, type ChatNode } from '../src/lib/chat-list.ts'
 
 // docs/specs/threads-under-projects.md
 
@@ -61,4 +62,19 @@ test("a folded project shows its most pressing thread: an answer, then the perso
   expect(mostPressing([node('b', 'A', 'background', 1), node('w', 'A', 'working', 1)])?.chat.id).toBe('w')
   expect(mostPressing([node('q', 'A', 'quiet', 1)])).toBeNull()
   expect(mostPressing([])).toBeNull()
+})
+
+test('a folded card shows the question over Your turn, also when the waiting thread had a turn end before', () => {
+  const now = 1_000_000
+  const session = (id: string, extra: Partial<Session>): Session =>
+    ({ id, title: id, status: 'idle', createdAt: 0, turnStartedAt: null, hostId: 'local', workspaceId: 'w', items: [], loaded: true, ...extra }) as Session
+  // The waiting thread still carries yourTurnSince from its last turn; the other is plainly Your turn.
+  const asking = session('asking', { status: 'needs-you', yourTurnSince: now - 5000, lastActivityAt: now - 5000 })
+  const yours = session('yours', { yourTurnSince: now - 100, lastActivityAt: now - 100 })
+  const failed = session('failed', { status: 'error', yourTurnSince: now - 50, lastActivityAt: now - 50 })
+  for (const order of [[asking, yours], [yours, asking]]) {
+    const nodes = chatTree(order, (s) => turnPhase(s, now))
+    expect(mostPressing(nodes)?.chat.id).toBe('asking')
+  }
+  expect(mostPressing(chatTree([yours, failed], (s) => turnPhase(s, now)))?.chat.id).toBe('failed')
 })

@@ -202,8 +202,11 @@ async function live(): Promise<void> {
     });
   }
   // Applied again whenever the host reports its threads, until it reports one working for real.
+  // After a hot reload of session-store the app runs the newest copy (`?t=…`); patching the first
+  // copy would leave the window showing two states for one thread.
   const script = `(async () => {
-    const m = await import('/src/session-store.ts')
+    const copies = performance.getEntriesByType('resource').map((e) => e.name).filter((n) => new URL(n).pathname === '/src/session-store.ts')
+    const m = await import(copies.at(-1) ?? '/src/session-store.ts')
     const patches = ${JSON.stringify(patches)}
     const released = new Set()
     const apply = () => {
