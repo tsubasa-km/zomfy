@@ -2,7 +2,7 @@ import { afterEach, describe, expect, test } from 'bun:test'
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { BOT_NOTIFICATIONS, type Bot, type BotChatFrom, type BotInput } from '@zomfy/protocol'
+import { BOT_NOTIFICATIONS, type Bot, type BotChatFrom, type BotInput, type ChatPermissionMode } from '@zomfy/protocol'
 import { deliveryFixtures } from '@zomfy/relay-contract/src/fixtures'
 import type { Delivery } from '@zomfy/relay-contract'
 import { BotService, type BotServiceChats, type BotServiceOptions } from './bot-service'
@@ -38,6 +38,7 @@ interface FakeChat {
   title: string
   from?: BotChatFrom
   seed?: string
+  permissionMode?: ChatPermissionMode
   prompts: string[]
 }
 
@@ -48,7 +49,7 @@ class FakeChats implements BotServiceChats {
   private readonly running = new Map<string, (result: BotTurnResult) => void>()
   private readonly idle = new Map<string, Array<() => void>>()
 
-  create(bot: Bot, init: { title: string; from?: BotChatFrom; seed?: string }) {
+  create(bot: Bot, init: { title: string; from?: BotChatFrom; seed?: string; permissionMode?: ChatPermissionMode }) {
     const id = `s-${this.chats.size + 1}`
     this.chats.set(id, { id, bot, ...init, prompts: [] })
     return id
@@ -932,6 +933,20 @@ function botAutomation(bot: Bot, extra: Partial<Automation>): Automation {
 }
 
 describe('schedules and triggers', () => {
+  test('a scheduled run of a Codex bot opens its chat in plan, which holds Codex read-only', async () => {
+    const s = makeService()
+    const bot = await s.service.create({ ...reviewer, agent: 'codex' })
+    const automation = botAutomation(bot, {
+      agent: 'codex',
+      permissionMode: 'bypassPermissions',
+      trigger: { kind: 'schedule', rrule: 'FREQ=DAILY;BYHOUR=9;BYMINUTE=0' }
+    })
+    const { fake } = fakeAutomations([automation])
+    s.service.setAutomations(fake)
+    fake.fireBotTrigger(automation.id, '')
+    expect(s.chats.only().permissionMode).toBe('plan')
+  })
+
   test('event automations go in hello as rules; a trigger runs the automation in the bot home and posts in the thread', async () => {
     const hub = await fakeHub()
     const s = makeService()
