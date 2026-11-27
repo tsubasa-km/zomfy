@@ -2,7 +2,7 @@ import { lazy, memo, Suspense, useCallback, useEffect, useState } from 'react'
 import { filePathDrag, type DraggedPaths } from '@/lib/file-path-drag'
 import { ensureSessionLoaded } from '@/daemon-connection'
 import { getState, sidebarWorkspaceId, usePaneSidebarWorkspaceId, useStore } from '@/session-store'
-import { setGroupContext, tabScope, WINDOW_TABS } from '@/stores/tab-layout-store'
+import { tabScope, WINDOW_TABS } from '@/stores/tab-layout-store'
 import { paneSidebarKey } from '@/stores/pane-sidebar-store'
 import { QuickStart } from '@/components/QuickStart'
 import { ThreadView } from '@/components/ThreadView'
@@ -124,12 +124,10 @@ export const TabGroupPane = memo(function TabGroupPane({
   if (active && active.kind !== 'start' && active.id !== lastShown) setLastShown(active.id)
   const behind = active?.kind === 'start' ? (tabs.find((t) => t.id === lastShown && t.kind === 'chat') ?? null) : null
   const activeChatId = active?.kind === 'chat' ? active.id : undefined
-  // The pane works in a workspace of its own (docs/specs/panes-as-workspaces.md): its "+", pins and
-  // sidebar act on it, whatever tab it shows. The drawer is the tab's: it holds that tab's terminals.
-  const { context, settle } = usePaneContext(workspaceId, groupId, tabs, active?.id ?? null)
-  useEffect(() => {
-    if (settle) setGroupContext(workspaceId, groupId, settle)
-  }, [settle, workspaceId, groupId])
+  // The pane works in its front tab's workspace, else the last one it had
+  // (docs/specs/panes-as-workspaces.md): its "+", pins and sidebar act on it. The drawer is the
+  // tab's: it holds that tab's terminals.
+  const context = usePaneContext(workspaceId, groupId, tabs, active?.id ?? null)
   const home = workspaceId !== WINDOW_TABS ? workspaceId : active ? tabWorkspaceId(active) : null
   // With no tab and no context, the empty pane still offers the project the sidebar shows.
   const recent = useStore((s) => (context ? null : sidebarWorkspaceId(s)))

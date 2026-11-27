@@ -95,7 +95,7 @@ export function WorkspaceTabs({
   // whose "+" or pin asked for them (docs/specs/panes-as-workspaces.md).
   const focusedGroup = layout.groups[layout.focusedGroupId]
   const focusedTabs = tabsByGroup.get(layout.focusedGroupId) ?? EMPTY_TABS
-  const focusedContext = usePaneContext(workspaceId, layout.focusedGroupId, focusedTabs, focusedGroup?.activeTabId ?? null).context
+  const focusedContext = usePaneContext(workspaceId, layout.focusedGroupId, focusedTabs, focusedGroup?.activeTabId ?? null)
   const dialogsFor = workspaceId === WINDOW_TABS ? (focusedContext ?? WINDOW_TABS) : workspaceId
   const trailingGroup = topRightGroupId(layout.root)
 

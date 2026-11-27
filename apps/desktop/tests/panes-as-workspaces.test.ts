@@ -2,26 +2,27 @@ import { expect, test } from 'bun:test'
 import { resolvePaneContext } from '../src/lib/pane-context.ts'
 import { matchLabel, nextScope, orderEntries, pushRecent, takeScopePrefix, type PickEntry } from '../src/lib/new-tab-pick.ts'
 
-const live = (ids: string[]) => (id: string) => ids.includes(id)
+const carries = (ids: string[]) => (id: string) => ids.includes(id)
 
-test('an unset pane takes the workspace of the tab it shows, else of its other tabs, and keeps it', () => {
-  expect(resolvePaneContext(undefined, ['a', 'b'], live(['a', 'b']))).toEqual({ context: 'a', settle: 'a' })
-  expect(resolvePaneContext(undefined, [null, 'b'], live(['b']))).toEqual({ context: 'b', settle: 'b' })
-  expect(resolvePaneContext(undefined, ['gone', 'b'], live(['b']))).toEqual({ context: 'b', settle: 'b' })
+test('a pane works in the workspace of the tab it has in front', () => {
+  expect(resolvePaneContext({ front: 'a', last: 'b', others: ['b'] }, carries(['a', 'b']))).toBe('a')
+  expect(resolvePaneContext({ front: 'b', last: 'a', others: ['a'] }, carries(['a', 'b']))).toBe('b')
 })
 
-test('an unset pane with nothing to take acts as no project and keeps nothing', () => {
-  expect(resolvePaneContext(undefined, [null], live(['a']))).toEqual({ context: null, settle: null })
-  expect(resolvePaneContext(undefined, [], live([]))).toEqual({ context: null, settle: null })
+test('a front tab with no workspace keeps the last context the pane had', () => {
+  // The New thread tab with no place, a browser tab, a quick thread's chat.
+  expect(resolvePaneContext({ front: null, last: 'a', others: ['b'] }, carries(['a', 'b']))).toBe('a')
+  expect(resolvePaneContext({ front: 'quick', last: 'a', others: [] }, carries(['a']))).toBe('a')
 })
 
-test('a set context stays whatever the pane shows', () => {
-  expect(resolvePaneContext('a', ['b', 'c'], live(['a', 'b', 'c']))).toEqual({ context: 'a', settle: null })
-  expect(resolvePaneContext(null, ['b'], live(['b']))).toEqual({ context: null, settle: null })
+test('with no last context the pane takes its most recently shown tab that has one', () => {
+  expect(resolvePaneContext({ front: null, last: undefined, others: [null, 'b', 'c'] }, carries(['b', 'c']))).toBe('b')
+  expect(resolvePaneContext({ front: null, last: 'gone', others: ['c'] }, carries(['c']))).toBe('c')
 })
 
-test('a set context not in the window now is kept, and the pane acts on its tabs meanwhile', () => {
-  expect(resolvePaneContext('a', ['b'], live(['b']))).toEqual({ context: 'b', settle: null })
+test('a pane with nothing to take has no context', () => {
+  expect(resolvePaneContext({ front: null, last: undefined, others: [] }, carries([]))).toBeNull()
+  expect(resolvePaneContext({ front: 'gone', last: undefined, others: [null] }, carries(['a']))).toBeNull()
 })
 
 test('Tab cycles all → Terminal → Agent → Panel → all, Shift+Tab back', () => {

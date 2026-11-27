@@ -27,7 +27,6 @@ import {
   previewTabOf,
   removeTabsFromLayout,
   seedWindowLayout,
-  setGroupContext,
   setPreviewTab,
   setTabMeta,
   setTabScopeResolver,
@@ -533,30 +532,15 @@ export function selectWorkspace(workspaceId: string): void {
   const last = state.activeSessionByWorkspace[workspaceId]
   const tab = last && open.includes(last) ? last : open.find((id) => workspaceOfKnownTab(id) === workspaceId)
   if (tab) {
-    set(withTabFocus(state, workspaceId, tab))
-    return repointPane(workspaceId, tab)
+    return set(withTabFocus(state, workspaceId, tab))
   }
   // A chat of its own first; a workspace another chat made may hold only that chat's child.
   const live = state.sessions.filter((s) => s.workspaceId === workspaceId && !s.sideOf && !s.archived)
   const chat = live.findLast((s) => !s.parentId) ?? live.findLast((s) => s.origin !== 'workflow')
   if (chat) {
-    focusTab(workspaceId, chat.id)
-    return repointPane(workspaceId, chat.id)
+    return focusTab(workspaceId, chat.id)
   }
-  repointPane(workspaceId, START_TAB)
   openStartTab(workspaceId)
-}
-
-/**
- * Going to a workspace's tab from outside the tab strip (the sidebar, the Inbox, a notification)
- * points the pane it shows in at that workspace (docs/specs/panes-as-workspaces.md): the pane that
- * holds the tab, else the focused one, which a new tab joins.
- */
-function repointPane(workspaceId: string, tabId: string): void {
-  if (WINDOW_ROLE !== 'main' || !inWindowTabs(workspaceId)) return
-  const layout = layoutFor(WINDOW_TABS)
-  const group = groupOfTab(layout, tabId) ?? layout.groups[layout.focusedGroupId]
-  if (group) setGroupContext(WINDOW_TABS, group.id, workspaceId)
 }
 
 /** `tabId` in front of its workspace's tabs: in the window when they live there, taking the window's focus with it. */
@@ -863,7 +847,6 @@ export function previewSession(sessionId: string): void {
     hideChats([old])
   }
   focusTab(session.workspaceId, sessionId)
-  repointPane(session.workspaceId, sessionId)
   setPreviewTab(WINDOW_TABS, sessionId)
   if (state.dashboardOpen) set({ ...state, dashboardOpen: false })
 }
@@ -881,7 +864,6 @@ export function selectSession(sessionId: string): void {
     setRightSidebar({ open: true, tab: 'side-chat' })
   } else if (session) {
     focusTab(session.workspaceId, sessionId)
-    repointPane(session.workspaceId, sessionId)
   }
   if (state.dashboardOpen) set({ ...state, dashboardOpen: false })
 }

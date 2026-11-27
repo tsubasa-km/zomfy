@@ -440,7 +440,6 @@ export const SHELL: Record<string, string> = {
   'No status': 'ステータスなし',
   Clear: 'クリア',
   'Edit filters ({n} active)': 'フィルターを編集（{n} 件適用中）',
-  'Filter workspaces': 'ワークスペースを絞り込む',
   'Edit filters': 'フィルターを編集',
   'Hide default branch': 'デフォルト ブランチを隠す',
   Hosts: 'ホスト',

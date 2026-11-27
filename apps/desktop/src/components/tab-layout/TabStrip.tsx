@@ -8,9 +8,7 @@ import {
   DropdownMenuTrigger
 } from '@/components/ui/dropdown-menu'
 import { cn } from '@/lib/utils'
-import { tabScope, WINDOW_TABS } from '@/stores/tab-layout-store'
 import { NewTabMenu } from './NewTabMenu'
-import { PaneContextMark } from './PaneContext'
 import { PinnedTabButtons } from './PinnedTabButtons'
 import { QuickCommandsButton } from '@/components/terminal/QuickCommandsButton'
 import { TabItem } from './TabItem'
@@ -151,10 +149,6 @@ export function TabStrip({
       data-tab-group-strip-id={groupId}
       className="flex h-9 shrink-0 items-stretch border-b border-border bg-card"
     >
-      {/* Each of the window's panes says at its start which workspace it works in. */}
-      {tabScope(workspaceId) === WINDOW_TABS && (
-        <PaneContextMark layoutKey={workspaceId} groupId={groupId} context={context} named={hasSplit} />
-      )}
       {overflow.hasOverflow && (
         <ScrollButton direction="start" disabled={!overflow.canScrollStart} onClick={() => scrollBy('start')} />
       )}

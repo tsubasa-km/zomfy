@@ -1,26 +1,23 @@
-// The workspace a split pane of the window works in (docs/specs/panes-as-workspaces.md). Pure, so
-// tests can run it.
+// The workspace a split pane of the window works in (docs/specs/panes-as-workspaces.md): the one of
+// the tab it has in front. Pure, so tests can run it.
 
-export interface PaneContext {
-  /** The workspace the pane acts on; null for no project. */
-  context: string | null
-  /** A workspace to keep as the pane's context from now on, when it had none set; else null. */
-  settle: string | null
+export interface PaneContextInput {
+  /** The workspace of the tab in front; null when that tab carries none. */
+  front: string | null | undefined
+  /** The context the pane had last, while the window has been open. */
+  last: string | null | undefined
+  /** The workspaces of the pane's other tabs, the most recently shown first. */
+  others: readonly (string | null | undefined)[]
 }
 
 /**
- * `stored` is the pane's saved context (null: no project, undefined: not set). `candidates` are, in
- * order, the workspaces of the tab it shows, of its other tabs, and of the New thread tab when it
- * holds that. A saved workspace that is not in the window now (its host not yet back, popped out,
- * deleted) is not overwritten: the pane acts on its first candidate meanwhile.
+ * The pane's context: the front tab's workspace when it carries one, else the last one the pane
+ * had, else that of its most recently shown tab that carries one, else none. `carries` says whether
+ * a workspace can be a context: in the window now and a project's (not a quick thread's).
  */
-export function resolvePaneContext(
-  stored: string | null | undefined,
-  candidates: readonly (string | null | undefined)[],
-  live: (workspaceId: string) => boolean
-): PaneContext {
-  if (stored === null) return { context: null, settle: null }
-  if (stored !== undefined && live(stored)) return { context: stored, settle: null }
-  const first = candidates.find((id): id is string => typeof id === 'string' && live(id)) ?? null
-  return { context: first, settle: stored === undefined ? first : null }
+export function resolvePaneContext(input: PaneContextInput, carries: (workspaceId: string) => boolean): string | null {
+  const ok = (id: string | null | undefined): id is string => typeof id === 'string' && carries(id)
+  if (ok(input.front)) return input.front
+  if (ok(input.last)) return input.last
+  return input.others.find(ok) ?? null
 }
