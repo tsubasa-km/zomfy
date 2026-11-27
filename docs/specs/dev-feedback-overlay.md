@@ -76,12 +76,32 @@ quick pick, so the overlay works on top of them and leaves them open:
   at a time; clicking a mark's number opens its box again. Enter (without Shift) or a click
   elsewhere closes it; the box's × removes the mark.
 
+## Marks on several screens
+
+The person often marks one screen, moves on (opens the "+" quick pick, closes it, opens Settings)
+and marks the next before sending, so one screenshot at send time is not enough:
+
+- **A shot per view.** When a mark is made, the overlay takes a screenshot of the viewport with that
+  mark drawn. Marks made while the screen stays the same (one *view*) share one shot, retaken with
+  each new mark so it holds them all; a different screen starts a new view. Two moments are one
+  view when the URL and the open layers (dialogs, menus, listboxes, popovers) are the same and at
+  least three quarters of a grid of points over the viewport hit the same elements.
+- **Marks belong to their view.** A drawing shows only while its view is on screen; a pin only
+  while its element can be seen: on the page, in the viewport, not hidden, and not covered by
+  another screen (Settings keeps the thread view in the DOM under it). So no mark is ever drawn
+  over a screen it was not made on.
+- **A crop per pin.** Each pinned element gets a small image cut from its shot: its box and a 24 px
+  margin, with the pin on it.
+- A pin's module paths are read when it is made, so its `file:line` keeps its directory after the
+  element leaves the page.
+
 ## Send
 
 Send produces one bundle:
 
-1. A PNG screenshot of the viewport with the pins and drawings on it (the toolbar and comment boxes
-   are left out).
+1. `screenshot-<n>.png`, one per view with marks, numbered in the order the views were first marked;
+   `screenshot.png`, the overview: the screen at send time with only the marks that belong on it;
+   and `element-<n>.png`, the crop of each pin (the toolbar and comment boxes are left out of all).
 2. `feedback.json` and `feedback.md`: for each pin its number, comment, CSS selector, React
    component name and owner stack with source `file:line`, the element's text (trimmed), its
    bounding box, a few computed styles; for each drawing its number, kind, comment and coordinates
@@ -90,8 +110,9 @@ Send produces one bundle:
    (`[role=tab][aria-selected=true]`) and the focused element.
 
 The overlay posts it to the dev server, which writes it to
-`<os temp>/zomfy-feedback/<timestamp>/` (`screenshot.png`, `feedback.md`, `feedback.json`) and
-answers with the folder. Source paths are written relative to the repository root
+`<os temp>/zomfy-feedback/<timestamp>/` and answers with the folder. `feedback.md` lists the
+screenshots with the marks each holds, and gives every mark its shot (and crop), noting the marks
+also on the overview. Source paths are written relative to the repository root
 (`apps/desktop/src/...`). The overlay copies a short Markdown summary to the clipboard (folder path,
 then one line per mark: number, component, `file:line`, comment) to paste into the chat with the
 lead agent.

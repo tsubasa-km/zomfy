@@ -10,6 +10,8 @@ import {
   buildFeedbackMarkdown,
   buildFeedbackSummary,
   bundleFolderName,
+  cropName,
+  viewShotName,
   withRepoPaths,
   type FeedbackRequest,
   type FeedbackResponse,
@@ -19,17 +21,24 @@ export function feedbackBaseDir(): string {
   return process.env.ZOMFY_FEEDBACK_DIR ?? join(tmpdir(), "zomfy-feedback");
 }
 
+function png(dataUrl: string, what: string): Buffer {
+  const match = /^data:image\/png;base64,(.+)$/s.exec(dataUrl);
+  if (!match) throw new Error(`The ${what} is not a PNG data URL.`);
+  return Buffer.from(match[1]!, "base64");
+}
+
 export async function writeFeedbackBundle(
   request: FeedbackRequest,
   options: { baseDir: string; viteRoot: string; repoRoot: string; now?: Date },
 ): Promise<FeedbackResponse> {
-  const match = /^data:image\/png;base64,(.+)$/s.exec(request.screenshot);
-  if (!match) throw new Error("The screenshot is not a PNG data URL.");
+  const files: Array<[string, Buffer]> = [["screenshot.png", png(request.screenshot, "screenshot")]];
+  for (const shot of request.viewShots ?? []) files.push([viewShotName(shot.n), png(shot.image, `screenshot of view ${shot.n}`)]);
+  for (const crop of request.crops ?? []) files.push([cropName(crop.n), png(crop.image, `crop of mark ${crop.n}`)]);
   const dir = join(options.baseDir, bundleFolderName(options.now ?? new Date()));
   await mkdir(dir, { recursive: true });
   const payload = withRepoPaths(request.payload, options.viteRoot, options.repoRoot);
   await Promise.all([
-    writeFile(join(dir, "screenshot.png"), Buffer.from(match[1]!, "base64")),
+    ...files.map(([name, data]) => writeFile(join(dir, name), data)),
     writeFile(join(dir, "feedback.json"), `${JSON.stringify({ ...payload, screenshot: "screenshot.png" }, null, 2)}\n`),
     writeFile(join(dir, "feedback.md"), buildFeedbackMarkdown(payload, dir)),
   ]);

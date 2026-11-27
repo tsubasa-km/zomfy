@@ -15,10 +15,12 @@ import {
   type FeedbackDrawing,
   type FeedbackFrame,
   type FeedbackPin,
+  type FeedbackRequest,
   type FeedbackResponse,
   type FeedbackSource,
   type Point,
 } from "./bundle";
+import { cropImage, onScreen, sameView, viewPrint, withPointerEvents, type ViewPrint } from "./views";
 
 type Tool = "select" | "stroke" | "arrow" | "rect";
 type SendState = { phase: "idle" | "sending" | "sent" } | { phase: "failed"; error: string };
@@ -30,15 +32,29 @@ interface ElementMark {
   /** Where the element was when pinned, for when it leaves the page. */
   box: FeedbackBox;
   context: Promise<ReactGrabElementContext | null>;
+  /** Module paths read when pinned, while the element was still on the page. */
+  paths: Map<string, string>;
+  /** A crop around the element from the shot taken when it was pinned. */
+  crop: Promise<string | null>;
+  view: number;
   comment: string;
 }
 interface DrawingMark {
   n: number;
   kind: FeedbackDrawing["kind"];
   points: Point[];
+  view: number;
   comment: string;
 }
 type Mark = ElementMark | DrawingMark;
+type NewMark = Pick<ElementMark, "kind" | "element" | "box" | "context"> | Pick<DrawingMark, "kind" | "points">;
+
+/** One screen the person marked, with the latest shot of it (taken as its latest mark was made). */
+interface View {
+  n: number;
+  print: ViewPrint;
+  shot: string | null;
+}
 
 /** The one colour that means "feedback": the frame, the marks and the active tool. */
 const INK = "#ec4899";
@@ -181,16 +197,22 @@ function Shape({ kind, points }: { kind: DrawingMark["kind"]; points: Point[] })
  * `elementsFromPoint`; it is lifted for the moment of the hit test, so the test sees what is on screen.
  */
 function elementAt(x: number, y: number, host: HTMLElement): Element | null {
-  const body = document.body;
-  const blocked = getComputedStyle(body).pointerEvents === "none";
-  const inline = body.style.pointerEvents;
-  if (blocked) body.style.pointerEvents = "auto";
-  try {
+  return withPointerEvents(() => {
+    const body = document.body;
     const candidates = document.elementsFromPoint(x, y).filter((element) => !host.contains(element) && element !== document.documentElement && element !== body);
     return candidates.find((element) => isElementGrabbable(element)) ?? candidates[0] ?? null;
-  } finally {
-    if (blocked) body.style.pointerEvents = inline;
-  }
+  });
+}
+
+/** The viewport as a PNG, the overlay's chrome (toolbar, frame, comment box, hover) left out. */
+function captureViewport(): Promise<string> {
+  return domToPng(document.documentElement, {
+    width: innerWidth,
+    height: innerHeight,
+    scale: Math.min(devicePixelRatio, 2),
+    backgroundColor: getComputedStyle(document.body).backgroundColor,
+    filter: (node) => !(node instanceof Element && node.hasAttribute("data-feedback-chrome")),
+  });
 }
 
 function scrollUnder(x: number, y: number, dx: number, dy: number, host: HTMLElement): void {
@@ -225,10 +247,10 @@ function pageContext(host: HTMLElement): FeedbackContext {
   };
 }
 
-async function pinOf(mark: ElementMark): Promise<FeedbackPin> {
+async function pinOf(mark: ElementMark, shot: Pick<FeedbackPin, "view" | "onOverview" | "crop">): Promise<FeedbackPin> {
   const context = await mark.context;
   const live = mark.element.isConnected;
-  const paths = live ? modulePaths(mark.element) : new Map<string, string>();
+  const paths = new Map([...mark.paths, ...(live ? modulePaths(mark.element) : [])]);
   const frames = (context?.stack ?? []).filter((frame) => !frame.isIgnoreListed && !(frame.fileName ?? "").includes("node_modules"));
   const stack: FeedbackFrame[] = frames.map((frame) => ({
     name: frame.functionName ?? null,
@@ -249,6 +271,7 @@ async function pinOf(mark: ElementMark): Promise<FeedbackPin> {
     text: ((mark.element as HTMLElement).innerText ?? mark.element.textContent ?? "").replace(/\s+/g, " ").trim().slice(0, 300),
     box: live ? boxOf(mark.element) : mark.box,
     styles: context?.styles ?? "",
+    ...shot,
   };
 }
 
@@ -286,6 +309,12 @@ export function FeedbackOverlay({ host }: { host: HTMLElement }) {
   const [send, setSend] = useState<SendState>({ phase: "idle" });
   const [, setLayout] = useState(0);
   const counter = useRef(0);
+  /** The view on screen now, whose drawings are shown; null on a screen no mark was made on. */
+  const [currentView, setCurrentView] = useState<number | null>(null);
+  const views = useRef<View[]>([]);
+  /** Shots are taken one at a time, in the order the marks were made. */
+  const shots = useRef<Promise<void>>(Promise.resolve());
+  const findView = useCallback((print: ViewPrint) => [...views.current].reverse().find((view) => sameView(view.print, print)) ?? null, []);
 
   const marksRef = useRef(marks);
   marksRef.current = marks;
@@ -312,16 +341,56 @@ export function FeedbackOverlay({ host }: { host: HTMLElement }) {
     return () => cancelAnimationFrame(frame);
   }, [active, elementMarks]);
 
-  const addMark = useCallback((mark: Omit<ElementMark, "n" | "comment"> | Omit<DrawingMark, "n" | "comment">) => {
-    const n = ++counter.current;
-    setMarks((current) => [...current, { ...mark, n, comment: "" } as Mark]);
-    setOpen(n);
-  }, []);
+  const addMark = useCallback(
+    (mark: NewMark) => {
+      const n = ++counter.current;
+      const print = viewPrint(host);
+      let view = findView(print);
+      if (!view) {
+        view = { n: views.current.length + 1, print, shot: null };
+        views.current.push(view);
+      }
+      view.print = print;
+      const target = view;
+      let settleCrop: (crop: string | null) => void = () => {};
+      const crop = new Promise<string | null>((settle) => (settleCrop = settle));
+      const full: Mark =
+        mark.kind === "element" ? { ...mark, n, comment: "", view: target.n, paths: modulePaths(mark.element), crop } : { ...mark, n, comment: "", view: target.n };
+      if (mark.kind !== "element") settleCrop(null);
+      setCurrentView(target.n);
+      setMarks((current) => [...current, full]);
+      setOpen(n);
+      // The view's shot, with this mark drawn; skipped if the screen changed before its turn came.
+      shots.current = shots.current.then(async () => {
+        await nextFrame();
+        await nextFrame();
+        if (!sameView(target.print, viewPrint(host))) return settleCrop(null);
+        setCurrentView(target.n);
+        await nextFrame();
+        await nextFrame();
+        const box = mark.kind === "element" && onScreen(mark.element, host) ? boxOf(mark.element) : null;
+        const shot = await captureViewport().catch(() => null);
+        if (shot) target.shot = shot;
+        settleCrop(shot && box ? await cropImage(shot, box, innerWidth).catch(() => null) : null);
+      });
+    },
+    [host, findView],
+  );
+
+  // Drawings belong to the view they were made on: while the screen shows another, they hide.
+  const anyMarks = marks.length > 0;
+  useEffect(() => {
+    if (!active || !anyMarks) return;
+    const timer = setInterval(() => setCurrentView(findView(viewPrint(host))?.n ?? null), 400);
+    return () => clearInterval(timer);
+  }, [active, anyMarks, host, findView]);
 
   const clear = useCallback(() => {
     setMarks([]);
     setOpen(null);
     counter.current = 0;
+    views.current = [];
+    setCurrentView(null);
   }, []);
 
   const pick = (event: ReactPointerEvent): Element | null => elementAt(event.clientX, event.clientY, host);
@@ -365,23 +434,45 @@ export function FeedbackOverlay({ host }: { host: HTMLElement }) {
     setOpen(null);
     setSend({ phase: "sending" });
     try {
+      await shots.current;
+      // The overview: the screen as it is now, with only the marks that belong on it.
+      const current = findView(viewPrint(host))?.n ?? null;
+      setCurrentView(current);
       await nextFrame();
       await nextFrame();
-      const screenshot = await domToPng(document.documentElement, {
-        width: innerWidth,
-        height: innerHeight,
-        scale: Math.min(devicePixelRatio, 2),
-        backgroundColor: getComputedStyle(document.body).backgroundColor,
-        filter: (node) => !(node instanceof Element && node.hasAttribute("data-feedback-chrome")),
-      });
-      const pins = await Promise.all(marks.filter((mark): mark is ElementMark => mark.kind === "element").map(pinOf));
+      const screenshot = await captureViewport();
+      const used = views.current.filter((view) => view.shot && marks.some((mark) => mark.view === view.n));
+      const number = new Map(used.map((view, index) => [view.n, index + 1]));
+      const elementMarks = marks.filter((mark): mark is ElementMark => mark.kind === "element");
+      const crops = await Promise.all(elementMarks.map(async (mark) => ({ n: mark.n, image: await mark.crop })));
+      const pins = await Promise.all(
+        elementMarks.map((mark, index) => pinOf(mark, { view: number.get(mark.view) ?? null, onOverview: onScreen(mark.element, host), crop: crops[index]!.image !== null })),
+      );
       const drawings: FeedbackDrawing[] = marks
         .filter((mark): mark is DrawingMark => mark.kind !== "element")
-        .map((mark) => ({ n: mark.n, kind: mark.kind, comment: mark.comment.trim(), points: mark.points.map(([x, y]) => [Math.round(x), Math.round(y)] as Point) }));
+        .map((mark) => ({
+          n: mark.n,
+          kind: mark.kind,
+          comment: mark.comment.trim(),
+          points: mark.points.map(([x, y]) => [Math.round(x), Math.round(y)] as Point),
+          view: number.get(mark.view) ?? null,
+          onOverview: mark.view === current,
+        }));
+      const request: FeedbackRequest = {
+        payload: {
+          context: pageContext(host),
+          pins,
+          drawings,
+          views: used.map((view) => ({ n: number.get(view.n)!, marks: marks.filter((mark) => mark.view === view.n).map((mark) => mark.n) })),
+        },
+        screenshot,
+        viewShots: used.map((view) => ({ n: number.get(view.n)!, image: view.shot! })),
+        crops: crops.filter((crop): crop is { n: number; image: string } => crop.image !== null),
+      };
       const response = await fetch(FEEDBACK_ENDPOINT, {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ payload: { context: pageContext(host), pins, drawings }, screenshot }),
+        body: JSON.stringify(request),
       });
       const body = (await response.json()) as FeedbackResponse & { error?: string };
       if (!response.ok) throw new Error(body.error ?? `The dev server answered ${response.status}.`);
@@ -433,6 +524,8 @@ export function FeedbackOverlay({ host }: { host: HTMLElement }) {
   }, [active]);
 
   const openMark = marks.find((mark) => mark.n === open) ?? null;
+  // A pin shows while its element is on screen; a drawing while its view is.
+  const shown = marks.filter((mark) => (mark.kind === "element" ? onScreen(mark.element, host) : mark.view === currentView));
 
   return (
     <>
@@ -449,7 +542,7 @@ export function FeedbackOverlay({ host }: { host: HTMLElement }) {
             onWheel={(event) => scrollUnder(event.clientX, event.clientY, event.deltaX, event.deltaY, host)}
           />
           <svg className="zf-marks">
-            {marks.map((mark) =>
+            {shown.map((mark) =>
               mark.kind === "element" ? (
                 <rect key={mark.n} x={mark.box.x} y={mark.box.y} width={mark.box.width} height={mark.box.height} rx={3} fill="none" stroke={INK} strokeWidth={2} />
               ) : (
@@ -468,7 +561,7 @@ export function FeedbackOverlay({ host }: { host: HTMLElement }) {
               )}
             </div>
           )}
-          {marks.map((mark) => {
+          {shown.map((mark) => {
             const [x, y] = anchorOf(mark);
             return (
               <button

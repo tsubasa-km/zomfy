@@ -4,6 +4,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { buildFeedbackMarkdown, isFeedbackShortcut, buildFeedbackSummary, bundleFolderName, repoRelativePath, type FeedbackPayload } from '../src/dev/feedback/bundle.ts'
 import { writeFeedbackBundle } from '../feedback-plugin.ts'
+import { sameView } from '../src/dev/feedback/views.ts'
 
 // docs/specs/dev-feedback-overlay.md
 
@@ -34,9 +35,19 @@ const payload: FeedbackPayload = {
       text: '  Fix   the sidebar ',
       box: { x: 10.4, y: 20, width: 200, height: 28 },
       styles: 'color: red;',
+      view: 1,
+      onOverview: false,
+      crop: true,
     },
   ],
-  drawings: [{ n: 2, kind: 'arrow', comment: 'Move it here', points: [[100, 100], [300, 120]] }],
+  drawings: [
+    { n: 2, kind: 'arrow', comment: 'Move it here', points: [[100, 100], [300, 120]], view: 1, onOverview: false },
+    { n: 3, kind: 'rect', comment: 'Settings row', points: [[10, 10], [50, 30]], view: 2, onOverview: true },
+  ],
+  views: [
+    { n: 1, marks: [1, 2] },
+    { n: 2, marks: [3] },
+  ],
 }
 
 describe('dev feedback overlay', () => {
@@ -57,13 +68,28 @@ describe('dev feedback overlay', () => {
     expect(isFeedbackShortcut({ ...key, code: 'Comma' })).toBe(false)
   })
 
+  test('one view: same URL, same open layers and most of the grid showing the same elements', () => {
+    const print = { url: 'http://localhost/', cells: Array.from({ length: 48 }, (_, i) => i + 1), layers: [] as number[] }
+    const someMoved = { ...print, cells: print.cells.map((cell, i) => (i < 10 ? 0 : cell)) }
+    const mostMoved = { ...print, cells: print.cells.map((cell, i) => (i < 20 ? 0 : cell)) }
+    expect(sameView(print, someMoved)).toBe(true)
+    expect(sameView(print, mostMoved)).toBe(false)
+    expect(sameView(print, { ...print, layers: [7] })).toBe(false)
+    expect(sameView(print, { ...print, url: 'http://localhost/?window=dashboard' })).toBe(false)
+  })
+
   test('a bundle folder name sorts by time and has no colons', () => {
     expect(bundleFolderName(new Date('2026-11-27T09:30:12.345Z'))).toBe('2026-11-27T09-30-12-345Z')
   })
 
   test('the Markdown lists marks in number order with component, source and comment', () => {
     const markdown = buildFeedbackMarkdown(payload, 'C:\\tmp\\fb')
-    expect(markdown).toContain('`C:/tmp/fb/screenshot.png`')
+    expect(markdown).toContain('Folder: `C:/tmp/fb`')
+    expect(markdown).toContain('- `screenshot-1.png`: the screen when marks 1, 2 were made, with them drawn')
+    expect(markdown).toContain('- `screenshot-2.png`: the screen when mark 3 was made, with it drawn')
+    expect(markdown).toContain('- `screenshot.png`: the screen at send time, with mark 3 (those still on it)')
+    expect(markdown).toContain('- Shot: `screenshot-1.png`\n- Crop: `element-1.png`')
+    expect(markdown).toContain('- Shot: `screenshot-2.png`, also on `screenshot.png`')
     expect(markdown).toContain('Selected tabs: "Fix the sidebar"')
     expect(markdown).toContain('## 1. Element: Too low')
     expect(markdown).toContain('Text: "Fix the sidebar"')
@@ -75,9 +101,10 @@ describe('dev feedback overlay', () => {
   test('the summary has the folder and one line per mark', () => {
     const summary = buildFeedbackSummary(payload, '/tmp/fb')
     expect(summary.split('\n')).toEqual([
-      'UI feedback: `/tmp/fb` (read `feedback.md` and look at `screenshot.png`)',
-      '1. `ThreadRow` `http://localhost:1433/src/components/ThreadRow.tsx?t=1:42:7`: Too low',
-      '2. arrow from (100, 100) to (300, 120): Move it here',
+      'UI feedback: `/tmp/fb` (read `feedback.md` and look at the screenshots it names)',
+      '1. `ThreadRow` `http://localhost:1433/src/components/ThreadRow.tsx?t=1:42:7` [screenshot-1.png]: Too low',
+      '2. arrow from (100, 100) to (300, 120) [screenshot-1.png]: Move it here',
+      '3. rectangle at (10, 10), 40×20 [screenshot-2.png]: Settings row',
     ])
   })
 
@@ -86,7 +113,12 @@ describe('dev feedback overlay', () => {
     try {
       const png = Buffer.from([0x89, 0x50, 0x4e, 0x47])
       const response = await writeFeedbackBundle(
-        { payload, screenshot: `data:image/png;base64,${png.toString('base64')}` },
+        {
+          payload,
+          screenshot: `data:image/png;base64,${png.toString('base64')}`,
+          viewShots: [1, 2].map((n) => ({ n, image: `data:image/png;base64,${png.toString('base64')}` })),
+          crops: [{ n: 1, image: `data:image/png;base64,${png.toString('base64')}` }],
+        },
         { baseDir: base, viteRoot: vite, repoRoot: repo, now: new Date('2026-11-27T09:30:12.345Z') },
       )
       expect(response.dir).toBe(join(base, '2026-11-27T09-30-12-345Z'))
@@ -95,6 +127,7 @@ describe('dev feedback overlay', () => {
       expect(json.pins[0].source.file).toBe('apps/desktop/src/components/ThreadRow.tsx')
       expect(json.pins[0].stack[0].source.file).toBe('apps/desktop/src/components/Sidebar.tsx')
       expect(json.screenshot).toBe('screenshot.png')
+      for (const name of ['screenshot-1.png', 'screenshot-2.png', 'element-1.png']) expect(await readFile(join(response.dir, name))).toEqual(png)
       expect(await readFile(join(response.dir, 'feedback.md'), 'utf8')).toContain('`ThreadRow` at `apps/desktop/src/components/ThreadRow.tsx:42:7`')
       expect(response.summary).toContain('Too low')
     } finally {
@@ -103,6 +136,6 @@ describe('dev feedback overlay', () => {
   })
 
   test('a screenshot that is not a PNG data URL is refused', async () => {
-    await expect(writeFeedbackBundle({ payload, screenshot: 'nope' }, { baseDir: tmpdir(), viteRoot: vite, repoRoot: repo })).rejects.toThrow('PNG')
+    await expect(writeFeedbackBundle({ payload, screenshot: 'nope', viewShots: [], crops: [] }, { baseDir: tmpdir(), viteRoot: vite, repoRoot: repo })).rejects.toThrow('PNG')
   })
 })
