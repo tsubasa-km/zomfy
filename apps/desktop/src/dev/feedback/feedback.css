@@ -1,0 +1,262 @@
+/* The dev feedback overlay (docs/specs/dev-feedback-overlay.md). Plain CSS on the app's tokens,
+   not Tailwind classes: Tailwind would generate the overlay's rules into the production CSS too,
+   while this file goes with the dev-only module that imports it. */
+
+#zomfy-feedback {
+  --zf-ink: #ec4899;
+  font-family: var(--font-sans, system-ui, sans-serif);
+}
+
+#zomfy-feedback button {
+  border: 0;
+  padding: 0;
+  cursor: pointer;
+  font: inherit;
+}
+
+.zf-frame {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  box-shadow: inset 0 0 0 2px var(--zf-ink);
+  z-index: 2147483000;
+}
+
+.zf-capture {
+  position: fixed;
+  inset: 0;
+  touch-action: none;
+  z-index: 2147483001;
+}
+
+.zf-marks {
+  position: fixed;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  z-index: 2147483002;
+}
+
+.zf-hover {
+  position: fixed;
+  pointer-events: none;
+  z-index: 2147483003;
+}
+
+.zf-hover-box {
+  position: absolute;
+  inset: 0;
+  border-radius: 3px;
+  background: color-mix(in srgb, var(--zf-ink) 12%, transparent);
+  outline: 1.5px dashed var(--zf-ink);
+}
+
+.zf-hover-name {
+  position: absolute;
+  left: 0;
+  max-width: 16rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  border-radius: 4px;
+  padding: 2px 6px;
+  font-family: var(--font-mono, ui-monospace, monospace);
+  font-size: 11px;
+  line-height: 16px;
+  color: #fff;
+  background: var(--zf-ink);
+  box-shadow: 0 1px 3px rgb(0 0 0 / 0.2);
+}
+
+.zf-pin {
+  position: fixed;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+  color: #fff;
+  background: var(--zf-ink) !important;
+  box-shadow: 0 0 0 2px #fff, 0 2px 6px rgb(0 0 0 / 0.25);
+  z-index: 2147483004;
+}
+
+.zf-number {
+  display: flex;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  margin-top: 2px;
+  border-radius: 999px;
+  font-size: 10px;
+  font-weight: 600;
+  color: #fff;
+  background: var(--zf-ink);
+}
+
+.zf-comment {
+  position: fixed;
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+  width: 240px;
+  padding: 6px;
+  border: 1px solid var(--zf-ink);
+  border-radius: 8px;
+  color: var(--popover-foreground);
+  background: var(--popover);
+  box-shadow: 0 10px 24px rgb(0 0 0 / 0.18);
+  z-index: 2147483005;
+}
+
+.zf-comment textarea {
+  flex: 1;
+  min-height: 40px;
+  resize: none;
+  border: 0;
+  outline: none;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  font-size: 12px;
+  line-height: 20px;
+}
+
+.zf-dock {
+  position: fixed;
+  right: 8px;
+  top: 50%;
+  display: flex;
+  flex-direction: row-reverse;
+  align-items: center;
+  gap: 8px;
+  transform: translateY(-50%);
+  z-index: 2147483006;
+}
+
+.zf-toolbar {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  padding: 2px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  color: var(--popover-foreground);
+  background: var(--popover);
+  box-shadow: 0 8px 20px rgb(0 0 0 / 0.15);
+}
+
+.zf-divider {
+  width: 16px;
+  height: 1px;
+  margin: 2px 0;
+  background: var(--border);
+}
+
+.zf-tool,
+.zf-remove {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  color: var(--muted-foreground);
+  background: transparent;
+  transition: background-color 120ms, color 120ms;
+}
+
+.zf-tool {
+  width: 28px;
+  height: 28px;
+}
+
+.zf-remove {
+  padding: 2px !important;
+  border-radius: 4px;
+}
+
+.zf-tool:hover,
+.zf-remove:hover {
+  color: var(--foreground);
+  background: var(--accent);
+}
+
+.zf-tool[aria-pressed="true"] {
+  color: #fff;
+  background: var(--zf-ink);
+}
+
+.zf-tool:disabled {
+  opacity: 0.4;
+  pointer-events: none;
+}
+
+.zf-send {
+  color: var(--foreground);
+}
+
+.zf-send[data-phase="sending"] {
+  animation: zf-pulse 1s ease-in-out infinite;
+}
+
+.zf-send[data-phase="sent"] {
+  color: #fff;
+  background: #10b981;
+}
+
+.zf-send[data-phase="failed"] {
+  color: #fff;
+  background: var(--destructive);
+}
+
+.zf-count {
+  position: absolute;
+  top: -4px;
+  right: -4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 16px;
+  height: 16px;
+  padding: 0 4px;
+  border-radius: 999px;
+  font-size: 10px;
+  font-weight: 600;
+  color: #fff;
+  background: var(--zf-ink);
+}
+
+.zf-error {
+  max-width: 24rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  padding: 4px 8px;
+  border: 1px solid color-mix(in srgb, var(--destructive) 40%, transparent);
+  border-radius: 6px;
+  font-size: 12px;
+  color: var(--destructive);
+  background: var(--popover);
+}
+
+@keyframes zf-pulse {
+  50% {
+    opacity: 0.4;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .zf-send[data-phase="sending"] {
+    animation: none;
+    opacity: 0.6;
+  }
+}

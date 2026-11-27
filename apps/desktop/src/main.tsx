@@ -11,6 +11,8 @@ import { ErrorBoundary, ViewError } from "./components/ErrorBoundary";
 // Both roots show links (chats, panels), and the webview has no opener of its own.
 installLinkRouting();
 followLanguageChanges(STORAGE_KEY);
+// The feedback overlay is a dev server tool; production builds drop this branch and its import.
+if (import.meta.env.DEV) void import("./dev/feedback/install");
 
 // Pop-outs (the dashboard, a workspace) load only their own root, so the app shell's startup work does not run twice.
 const Root =

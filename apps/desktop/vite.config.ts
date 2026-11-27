@@ -3,11 +3,12 @@ import react from "@vitejs/plugin-react";
 import tailwindcss from "@tailwindcss/vite";
 import { fileURLToPath } from "node:url";
 import { fileIcons } from "./file-icons-plugin";
+import { devFeedback } from "./feedback-plugin";
 
 const host = process.env.TAURI_DEV_HOST;
 
 export default defineConfig(() => ({
-  plugins: [react(), tailwindcss(), fileIcons()],
+  plugins: [react(), tailwindcss(), fileIcons(), devFeedback()],
   // `@/` matches Orca's renderer alias so ported components keep their imports.
   resolve: { alias: { "@": fileURLToPath(new URL("./src", import.meta.url)) } },
   clearScreen: false,

@@ -41,6 +41,19 @@ The full list is at the top of `scripts/cdp.ts`. In `eval`, the app's stores can
 the module URLs Vite serves (`performance.getEntriesByType('resource')` lists them), which lets you
 put the UI into a state that is hard to reach by clicking (a waiting chat, a long transcript).
 
+## Pointing at the UI: the feedback overlay
+
+In the dev server (`bun run dev`, a debug build or a preview, never a production build) a round
+button sits at the middle of the window's right edge. Click it, then click elements to pin them
+(each gets a number and a comment box), or pick the pen, arrow or rectangle and draw; Send saves a
+bundle and copies a short summary with its path, to paste into the chat with the agent.
+
+Bundles go to `%TEMP%/zomfy-feedback/<timestamp>/` (the OS temp dir elsewhere, or
+`ZOMFY_FEEDBACK_DIR`): `screenshot.png` with the numbered marks drawn on it, `feedback.md` (each
+mark's comment, selector, component and `apps/desktop/src/...:line`, the page's state) and
+`feedback.json`. An agent given the path reads `feedback.md` and looks at `screenshot.png`. The spec
+is [docs/specs/dev-feedback-overlay.md](../../docs/specs/dev-feedback-overlay.md).
+
 ## What to check
 
 - Look at every screenshot you take: alignment, spacing, truncation, overflow, and both light and
