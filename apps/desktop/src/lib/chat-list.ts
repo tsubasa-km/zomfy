@@ -122,9 +122,18 @@ export function mostPressing(nodes: readonly ChatNode[]): ChatNode | null {
 }
 
 /**
- * The live, unpinned threads cut by project (docs/specs/threads-under-projects.md), in `order`, each
- * project's threads most recent first; the threads of no project (`keyOf` null) after them. A
- * project with no thread is kept, so it still shows.
+ * Whether the row glows (docs/specs/threads-under-projects.md): its thread, or one under it, waits
+ * for the person's answer. Your turn and a failed turn do not glow.
+ */
+export function waitsForAnswer(node: Pick<ChatNode, 'status'>): boolean {
+  return node.status === 'needs-you'
+}
+
+/**
+ * The live threads cut by project card (docs/specs/threads-under-projects.md), in `order`, each
+ * card's threads pinned first (in pin order), then most recent first; the threads of no project
+ * (`keyOf` null, or a project not in `order`) after them. A project with no thread is kept, so it
+ * still shows.
  */
 export function projectGroups(
   nodes: readonly ChatNode[],
@@ -132,7 +141,8 @@ export function projectGroups(
   keyOf: (chat: Session) => string | null,
   order: readonly string[]
 ): { projects: { key: string; nodes: ChatNode[] }[]; loose: ChatNode[] } {
-  const live = nodes.filter((n) => !n.chat.archived && !pinned.includes(n.chat.id))
+  const pinOrder = new Map(pinned.map((id, i) => [id, i]))
+  const live = nodes.filter((n) => !n.chat.archived)
   const byKey = new Map<string, ChatNode[]>(order.map((key) => [key, []]))
   const loose: ChatNode[] = []
   for (const node of live) {
@@ -141,9 +151,13 @@ export function projectGroups(
     if (list) list.push(node)
     else loose.push(node)
   }
+  const sorted = (list: ChatNode[]) => {
+    const pins = list.filter((n) => pinOrder.has(n.chat.id)).sort((a, b) => pinOrder.get(a.chat.id)! - pinOrder.get(b.chat.id)!)
+    return [...pins, ...list.filter((n) => !pinOrder.has(n.chat.id)).sort(byRecency)]
+  }
   return {
-    projects: order.map((key) => ({ key, nodes: byKey.get(key)!.sort(byRecency) })),
-    loose: loose.sort(byRecency)
+    projects: order.map((key) => ({ key, nodes: sorted(byKey.get(key)!) })),
+    loose: sorted(loose)
   }
 }
 

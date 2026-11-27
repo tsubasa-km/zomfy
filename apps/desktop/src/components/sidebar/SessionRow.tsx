@@ -19,9 +19,14 @@ import { closePagesBesideSidebar } from '@/lib/app-pages'
 import { sidebarActions } from '@/components/sidebar/ProjectActionsMenu'
 import { HoverCard, HoverCardContent, HoverCardTrigger } from '@/components/ui/hover-card'
 import { ChatCardBody, ChatHoverDetails, type ChatCardInfo } from '@/components/sidebar/ChatCard'
+import { useWaitingGlow } from '@/components/native-chat/composer-waiting-glow'
+import '@/components/native-chat/composer-waiting-glow.css'
 import { t } from '@/i18n/i18n'
 
 const SCOPE = 'sidebar'
+
+/** A glowing row sits on its project card: the glow's inner surface is the card's. */
+const GLOW_SURFACE = { '--composer-glow-surface': 'var(--card)', '--chat-composer-border': 'var(--border)' } as React.CSSProperties
 
 /** Chat rows as the sidebar draws them, for Shift ranges; a chat listed twice counts once. */
 function renderedChats(row: Element): string[] {
@@ -76,7 +81,8 @@ export const SessionRow = memo(function SessionRow({
   phase,
   child,
   muted,
-  card
+  card,
+  glow
 }: {
   session: Session
   showWorkspace?: boolean
@@ -96,7 +102,10 @@ export const SessionRow = memo(function SessionRow({
   muted?: boolean
   /** Draws the chat list's two-line row, with the rest of what is known on a hover card. */
   card?: ChatCardInfo
+  /** The thread waits for the person's answer: the row's border glows (docs/specs/threads-under-projects.md). */
+  glow?: boolean
 }) {
+  const glowing = useWaitingGlow(Boolean(glow))
   const open = useStore((s) => Boolean(showActive) && s.activeWorkspaceId === session.workspaceId && s.activeSessionByWorkspace[session.workspaceId] === session.id)
   const workspaceName = useStore((s) => allWorkspaces(s).find((w) => w.id === session.workspaceId)?.name ?? '')
   // Most chats have no tab at any moment; clicking one opens it.
@@ -207,6 +216,8 @@ export const SessionRow = memo(function SessionRow({
       data-session-archived={session.archived || undefined}
       data-session-child={child || undefined}
       data-session-muted={muted || undefined}
+      data-waiting-glow={glowing}
+      style={glowing ? GLOW_SURFACE : undefined}
       title={!card && session.archived ? t('Archived: click to open it') : undefined}
       className={cn(
         'group/chat relative flex min-w-0 cursor-pointer rounded-md pr-1 text-muted-foreground hover:bg-worktree-sidebar-accent/60 hover:text-foreground',
@@ -214,6 +225,7 @@ export const SessionRow = memo(function SessionRow({
         card ? (child ? 'pl-7' : 'pl-2') : child ? 'pl-[34px]' : 'pl-[22px]',
         // A chat at work stands out as a card of its own, as T3 Code's does.
         working && 'my-0.5 border border-border bg-card shadow-xs hover:bg-card',
+        glowing && 'my-0.5 border border-border text-foreground',
         !card && session.archived && renaming === null && 'opacity-60',
         muted && 'opacity-60 hover:opacity-100',
         selected && 'bg-worktree-sidebar-accent text-foreground opacity-100',

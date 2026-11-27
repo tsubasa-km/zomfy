@@ -1,7 +1,7 @@
 import { expect, test } from 'bun:test'
 import type { TurnPhase } from '@zomfy/protocol'
 import type { Session } from '../src/session-store.ts'
-import { mostPressing, projectGroups, type ChatNode } from '../src/lib/chat-list.ts'
+import { mostPressing, projectGroups, waitsForAnswer, type ChatNode } from '../src/lib/chat-list.ts'
 
 // docs/specs/threads-under-projects.md
 
@@ -32,10 +32,23 @@ test('threads of no project, or of a project not listed, form their own group', 
   expect(ids(loose)).toEqual(['q2', 'x', 'q1'])
 })
 
-test('pinned and archived threads are left out of the projects', () => {
-  const nodes = [node('p', 'A', 'quiet', 1), node('z', 'A', 'quiet', 2, { archived: true }), node('k', 'A', 'quiet', 3)]
-  const { projects } = projectGroups(nodes, ['p'], () => 'A', ['A'])
-  expect(ids(projects[0]!.nodes)).toEqual(['k'])
+test('pinned threads sit first in their own card, in pin order; archived ones are left out', () => {
+  const nodes = [node('p1', 'A', 'quiet', 1), node('z', 'A', 'quiet', 9, { archived: true }), node('k', 'A', 'needs-answer', 3), node('p2', 'A', 'quiet', 2), node('n', 'A', 'quiet', 5)]
+  const { projects } = projectGroups(nodes, ['p2', 'p1'], () => 'A', ['A'])
+  expect(ids(projects[0]!.nodes)).toEqual(['p2', 'p1', 'n', 'k'])
+})
+
+test('nothing is ordered by state: a thread that needs an answer sorts by its activity like any other', () => {
+  const nodes = [node('old-question', 'A', 'needs-answer', 1), node('new-quiet', 'A', 'quiet', 9)]
+  const { projects } = projectGroups(nodes, [], () => 'A', ['A'])
+  expect(ids(projects[0]!.nodes)).toEqual(['new-quiet', 'old-question'])
+})
+
+test("only a thread waiting for the person's answer glows, not Your turn or a failed turn", () => {
+  expect(waitsForAnswer({ status: 'needs-you' })).toBe(true)
+  expect(waitsForAnswer({ status: 'idle' })).toBe(false)
+  expect(waitsForAnswer({ status: 'error' })).toBe(false)
+  expect(waitsForAnswer({ status: 'working' })).toBe(false)
 })
 
 test("a folded project shows its most pressing thread: an answer, then the person's turn, then work", () => {

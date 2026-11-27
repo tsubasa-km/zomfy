@@ -1,5 +1,5 @@
 import { Fragment, useMemo, type ReactNode } from 'react'
-import { ChevronRight, FolderGit2, FolderOpen, MessageSquare, MoreHorizontal, Plus } from 'lucide-react'
+import { ChevronRight, MessageSquare, MoreHorizontal, Plus } from 'lucide-react'
 import type { Workspace } from '@zomfy/protocol'
 import { floatingWorkspaceId, selectWorkspace, useStore, type HostedProject, type HostId, type Session } from '@/session-store'
 import { toggleProjectCollapsed, toggleSectionCollapsed, useSidebarStore } from '@/stores/sidebar-store'
@@ -8,7 +8,9 @@ import { useProjectCatalog } from '@/stores/project-catalog-store'
 import { useSetting } from '@/stores/settings-store'
 import { SessionRow } from '@/components/sidebar/SessionRow'
 import { TurnGroupMark } from '@/components/TurnGroupMark'
-import type { ChatCardInfo } from '@/components/sidebar/ChatCard'
+import { projectColor, projectInitials, type ChatCardInfo } from '@/components/sidebar/ChatCard'
+import { useWaitingGlow } from '@/components/native-chat/composer-waiting-glow'
+import '@/components/native-chat/composer-waiting-glow.css'
 import type { SidebarActions } from '@/components/sidebar/sidebar-actions'
 import { ProjectActionsMenuItems } from '@/components/sidebar/ProjectActionsMenu'
 import { projectEntries, shortHostNames, type ProjectEntry } from '@/components/sidebar/project-entries'
@@ -18,16 +20,17 @@ import { Button } from '@/components/ui/button'
 import { DropdownMenu, DropdownMenuContent, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { foldedTurnPhase } from '@zomfy/protocol'
-import { chatSectionLabel, chatSections, chatTree, mostPressing, projectGroups, searchTree, useCoarseNow, type ChatNode, type ChatSectionId } from '@/lib/chat-list'
+import { chatSectionLabel, chatSections, chatTree, mostPressing, projectGroups, searchTree, waitsForAnswer, useCoarseNow, type ChatNode, type ChatSectionId } from '@/lib/chat-list'
 import { phaseOf, turnPhaseDot, turnPhaseLabel, useQuietAfterHours } from '@/lib/turn-phase'
 import { startChat } from '@/lib/chat-worktree'
 import { defaultHostId } from '@/lib/default-host'
 import { cn } from '@/lib/utils'
 import { t } from '@/i18n/i18n'
 
-// The sidebar as a list of projects, each with its chats inside, most recent first; each row keeps
-// whose turn it is, and a folded project shows its most pressing chat's mark
-// (docs/specs/threads-under-projects.md). Pinned chats sit above the projects, archived ones below.
+// The sidebar as a stack of project cards, each with its chats inside, pinned first, then most
+// recent; nothing is grouped or ordered by whose turn it is. Each row keeps its turn mark, and a
+// chat waiting for the person's answer glows, as does a folded card holding one
+// (docs/specs/threads-under-projects.md). Archived chats sit on their shelf below.
 
 type HostedWorkspace = Workspace & { hostId: HostId }
 
@@ -165,8 +168,8 @@ export function ChatList({ actions }: { actions: SidebarActions }) {
     return {
       project: project ? projectLabel(project) : w?.scratch ? t('Quick thread') : w ? workspaceLabel(w) : '',
       quick: !project && Boolean(w?.scratch),
-      // Under its project's folder a row need not repeat the project.
-      foldered: !pinned.includes(session.id) && !session.archived,
+      // Inside its project's card a row need not repeat the project.
+      foldered: !session.archived,
       workspaceId: session.workspaceId,
       branch: w?.branch,
       worktree: Boolean(w && project && !w.isPrimary),
@@ -215,10 +218,21 @@ export function ChatList({ actions }: { actions: SidebarActions }) {
           drag={dragOf(chat)}
           card={cardOf(chat)}
           phase={node.phase}
+          glow={waitsForAnswer(node)}
           fold={children.length > 0 ? { count: children.length, expanded: open, phase: childPhase } : undefined}
         />
         {under.map((child) => (
-          <SessionRow key={child.id} session={child} showActive drag={dragOf(child)} card={cardOf(child)} phase={phase(child)} child muted={Boolean(needle)} />
+          <SessionRow
+            key={child.id}
+            session={child}
+            showActive
+            drag={dragOf(child)}
+            card={cardOf(child)}
+            phase={phase(child)}
+            glow={child.status === 'needs-you'}
+            child
+            muted={Boolean(needle)}
+          />
         ))}
       </Fragment>
     )
@@ -242,12 +256,11 @@ export function ChatList({ actions }: { actions: SidebarActions }) {
     </div>
   )
 
-  // By project: pinned chats stay on top and archived ones at the bottom, as in the state view.
+  // A card per project, pinned chats first in each; archived ones on their shelf at the bottom.
   const entryKey = (e: ProjectEntry) => `${e.primary.hostId}:${e.primary.id}`
   const unordered = projectEntries(projects, catalog)
   const rank = new Map(mergeOrder(unordered.map(entryKey), projectOrder).map((key, i) => [key, i]))
   const entries = [...unordered].sort((a, b) => rank.get(entryKey(a))! - rank.get(entryKey(b))!)
-  const pinnedSection = sections.find((s) => s.id === 'pinned')
   const archivedSection = sections.find((s) => s.id === 'archived')
   // A chat's project entry: copies of one project on other hosts share their primary's group.
   const entryOfProject = new Map(entries.flatMap((e) => [e.primary, ...e.copies].map((m) => [`${m.hostId}:${m.id}`, entryKey(e)] as const)))
@@ -268,7 +281,6 @@ export function ChatList({ actions }: { actions: SidebarActions }) {
 
   return (
     <div data-chat-list="project">
-      {pinnedSection && section('pinned', pinnedSection.nodes)}
       {entries.map(({ primary: project, copies }) => {
         const members = [project, ...copies]
         const list = inProject.get(entryKey({ primary: project, copies })) ?? []
@@ -280,40 +292,23 @@ export function ChatList({ actions }: { actions: SidebarActions }) {
           .filter(Boolean)
           .join(' ')
         return (
-          <section key={entryKey({ primary: project, copies })} className="group/project mb-1.5" data-chat-project={project.id}>
-            <div
-              role="button"
-              tabIndex={0}
-              aria-expanded={!collapsed}
-              className="flex h-7 min-w-0 cursor-pointer items-center gap-1 pt-1 pr-1 pl-1 select-none"
-              title={project.path}
-              data-project-header
-              onClick={() => toggleProjectCollapsed(project.id)}
-              onKeyDown={(e) => {
-                if (e.key !== 'Enter' && e.key !== ' ') return
-                e.preventDefault()
-                toggleProjectCollapsed(project.id)
-              }}
-            >
-              <ChevronRight className={cn('size-3 shrink-0 text-muted-foreground transition-transform', !collapsed && 'rotate-90')} />
-              <ProjectMark nodes={collapsed ? list : []}>
-                {project.kind === 'git' ? (
-                  <FolderGit2 className="size-3.5 shrink-0 text-muted-foreground" />
-                ) : (
-                  <FolderOpen className="size-3.5 shrink-0 text-muted-foreground" />
-                )}
-              </ProjectMark>
-              <div className="min-w-0 truncate pl-0.5 text-[13px] leading-none font-semibold">{label}</div>
-              <span className="text-[11px] text-muted-foreground tabular-nums">{list.length}</span>
-              {hostBadge && (
+          <ProjectCard
+            key={entryKey({ primary: project, copies })}
+            id={project.id}
+            label={label}
+            title={project.path}
+            badge={<ProjectBadge name={label} />}
+            nodes={list}
+            collapsed={collapsed}
+            extra={
+              hostBadge && (
                 <span className="shrink-0 rounded border border-worktree-sidebar-border px-1 text-[10px] leading-4 text-muted-foreground">
                   {hostBadge}
                 </span>
-              )}
-              <div
-                className="ml-auto flex items-center opacity-0 group-hover/project:opacity-100 has-[[data-state=open]]:opacity-100"
-                onClick={(e) => e.stopPropagation()}
-              >
+              )
+            }
+            actions={
+              <>
                 <Tooltip>
                   <TooltipTrigger asChild>
                     <Button
@@ -338,10 +333,11 @@ export function ChatList({ actions }: { actions: SidebarActions }) {
                     <ProjectActionsMenuItems project={project} actions={actions} copies={copies} badgeFor={(hostId) => names[hostId] ?? hostId} />
                   </DropdownMenuContent>
                 </DropdownMenu>
-              </div>
-            </div>
+              </>
+            }
+          >
             {!collapsed && (
-              <div className="space-y-px pr-1">
+              <div className="space-y-px">
                 {list.map(row)}
                 {/* A worktree no chat works in still needs a way in, and a way to be seen and cleaned up. */}
                 {!needle &&
@@ -364,33 +360,19 @@ export function ChatList({ actions }: { actions: SidebarActions }) {
                 )}
               </div>
             )}
-          </section>
+          </ProjectCard>
         )
       })}
       {loose.length > 0 && (
-        <section className="mb-1.5" data-chat-project={NO_PROJECT}>
-          <div
-            role="button"
-            tabIndex={0}
-            aria-expanded={!looseCollapsed}
-            className="flex h-7 min-w-0 cursor-pointer items-center gap-1 pt-1 pr-1 pl-1 select-none"
-            data-project-header
-            onClick={() => toggleProjectCollapsed(NO_PROJECT)}
-            onKeyDown={(e) => {
-              if (e.key !== 'Enter' && e.key !== ' ') return
-              e.preventDefault()
-              toggleProjectCollapsed(NO_PROJECT)
-            }}
-          >
-            <ChevronRight className={cn('size-3 shrink-0 text-muted-foreground transition-transform', !looseCollapsed && 'rotate-90')} />
-            <ProjectMark nodes={looseCollapsed ? loose : []}>
-              <span aria-hidden className="mx-px block size-3 shrink-0 rounded-[3px] border border-dashed border-muted-foreground/70" />
-            </ProjectMark>
-            <div className="min-w-0 truncate pl-0.5 text-[13px] leading-none font-semibold">{t('No project')}</div>
-            <span className="text-[11px] text-muted-foreground tabular-nums">{loose.length}</span>
-          </div>
-          {!looseCollapsed && <div className="space-y-px pr-1">{loose.map(row)}</div>}
-        </section>
+        <ProjectCard
+          id={NO_PROJECT}
+          label={t('No project')}
+          badge={<span aria-hidden className="block h-4 w-[18px] shrink-0 rounded-[4px] border border-dashed border-muted-foreground/60" />}
+          nodes={loose}
+          collapsed={looseCollapsed}
+        >
+          {!looseCollapsed && <div className="space-y-px">{loose.map(row)}</div>}
+        </ProjectCard>
       )}
       {archivedSection && section('archived', archivedSection.nodes)}
       {nodes.length === 0 && projects.length === 0 && empty}
@@ -398,17 +380,99 @@ export function ChatList({ actions }: { actions: SidebarActions }) {
   )
 }
 
+/** The project's colour, with its initials, as the rows of that project used to carry it. */
+function ProjectBadge({ name }: { name: string }) {
+  return (
+    <span
+      aria-hidden
+      className={cn('flex h-4 w-[18px] shrink-0 items-center justify-center rounded-[4px] text-[8.5px] leading-none font-bold tracking-tight', projectColor(name))}
+    >
+      {projectInitials(name)}
+    </span>
+  )
+}
+
 /**
- * Where a project's folder icon sits: a folded project shows there the mark of its most pressing
- * chat (docs/specs/threads-under-projects.md), the icon otherwise.
+ * Where a card's badge sits: a folded card shows there the mark of its most pressing chat
+ * (docs/specs/threads-under-projects.md), the badge otherwise.
  */
 function ProjectMark({ nodes, children }: { nodes: ChatNode[]; children: ReactNode }) {
   const top = mostPressing(nodes)
   const dot = top ? turnPhaseDot(top.phase, top.status) : null
   if (!top || !dot) return <>{children}</>
   return (
-    <span className="flex size-3.5 shrink-0 items-center justify-center" data-project-phase={top.phase}>
+    <span className="flex h-4 w-[18px] shrink-0 items-center justify-center" data-project-phase={top.phase}>
       <AgentStateDot state={dot} size="md" title={turnPhaseLabel(top.phase, top.status)} />
     </span>
+  )
+}
+
+/** The card's surface, which a glowing border (its own or a row's) is drawn around. */
+const CARD_GLOW_SURFACE = { '--composer-glow-surface': 'var(--card)', '--chat-composer-border': 'var(--border)' } as React.CSSProperties
+
+/**
+ * A project's card (docs/specs/threads-under-projects.md): a contained region with the project's
+ * badge and name on top and its chats inside. Folded, it glows when one of its chats waits for the
+ * person's answer.
+ */
+function ProjectCard({
+  id,
+  label,
+  title,
+  badge,
+  nodes,
+  collapsed,
+  extra,
+  actions,
+  children
+}: {
+  id: string
+  label: string
+  title?: string
+  badge: ReactNode
+  nodes: ChatNode[]
+  collapsed: boolean
+  extra?: ReactNode
+  actions?: ReactNode
+  children: ReactNode
+}) {
+  const glowing = useWaitingGlow(collapsed && nodes.some(waitsForAnswer))
+  return (
+    <section
+      className="group/project mb-1.5 rounded-lg border border-border bg-card px-1 pb-1 shadow-xs"
+      data-chat-project={id}
+      data-waiting-glow={glowing}
+      style={CARD_GLOW_SURFACE}
+    >
+      <div
+        role="button"
+        tabIndex={0}
+        aria-expanded={!collapsed}
+        className="flex h-8 min-w-0 cursor-pointer items-center gap-1.5 pl-1 select-none"
+        title={title}
+        data-project-header
+        onClick={() => toggleProjectCollapsed(id)}
+        onKeyDown={(e) => {
+          if (e.key !== 'Enter' && e.key !== ' ') return
+          e.preventDefault()
+          toggleProjectCollapsed(id)
+        }}
+      >
+        <ChevronRight className={cn('size-3 shrink-0 text-muted-foreground transition-transform', !collapsed && 'rotate-90')} />
+        <ProjectMark nodes={collapsed ? nodes : []}>{badge}</ProjectMark>
+        <div className="min-w-0 truncate text-[13px] leading-none font-semibold">{label}</div>
+        <span className="text-[11px] text-muted-foreground tabular-nums">{nodes.length}</span>
+        {extra}
+        {actions && (
+          <div
+            className="ml-auto flex items-center opacity-0 group-hover/project:opacity-100 has-[[data-state=open]]:opacity-100"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {actions}
+          </div>
+        )}
+      </div>
+      {children}
+    </section>
   )
 }
