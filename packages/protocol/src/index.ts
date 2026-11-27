@@ -71,6 +71,7 @@ export * from './remote-devices'
 export * from './phone-e2ee'
 export * from './turn-taking'
 export * from './secrets'
+export * from './agent-permissions'
 
 export const HARNESS_METHODS = {
   ...WORKSPACE_METHODS,
