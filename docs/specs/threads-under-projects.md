@@ -3,7 +3,7 @@ type: Spec
 title: The thread list is a stack of project cards
 description: The left sidebar is a stack of cards, one per project in its own order and one for threads of no project, each holding its threads (pinned first, then most recent activity); rows keep their turn-taking marks, a thread that needs the person glows under the same rule as its composer, and a folded card glows when one of its threads does.
 status: stable
-x-zomfy-implementation: in-progress
+x-zomfy-implementation: done
 tags: [desktop, sidebar, chat]
 generated: { by: "claude-code/opus-5.5", at: "2026-11-27T15:00:00Z" }
 ---
