@@ -16,7 +16,7 @@ import { ErrorBoundary, ViewError } from '@/components/ErrorBoundary'
 import { WorkspacePanelView } from './workspace-panels'
 import { TabStrip } from './TabStrip'
 import { PaneSidebar, PaneSidebarToggle } from './PaneSidebar'
-import { usePaneSet } from './PaneContext'
+import { usePaneSet, usePublishPaneWorkspace } from './PaneContext'
 import { dropHintRect } from './tab-drop-geometry'
 import { resolveTabDropTarget, setInsertionMark, tabDrag, type DraggedTab, type DropZone } from './tab-drag'
 import { focusGroup, moveTabTo, openChatAt, openFilesAt, splitTabTo } from './tab-group-commands'
@@ -128,6 +128,7 @@ export const TabGroupPane = memo(function TabGroupPane({
   // tab's: it holds that tab's terminals.
   // It shows only its context's tabs, and tabs of no workspace; the rest wait hidden in it.
   const { context, shown } = usePaneSet(workspaceId, groupId, tabs, active?.id ?? null)
+  usePublishPaneWorkspace(workspaceId, groupId, context)
   const behind = active?.kind === 'start' ? (shown.find((t) => t.id === lastShown && t.kind === 'chat') ?? null) : null
   const home = workspaceId !== WINDOW_TABS ? workspaceId : active ? tabWorkspaceId(active) : null
   // With no tab and no context, the empty pane still offers the project the sidebar shows.

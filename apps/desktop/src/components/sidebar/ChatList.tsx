@@ -10,6 +10,7 @@ import { SessionRow } from '@/components/sidebar/SessionRow'
 import { TurnGroupMark } from '@/components/TurnGroupMark'
 import { projectColor, projectInitials, type ChatCardInfo } from '@/components/sidebar/ChatCard'
 import { useWaitingGlow } from '@/components/native-chat/composer-waiting-glow'
+import { useOpenPaneWorkspaces } from '@/components/tab-layout/PaneContext'
 import '@/components/native-chat/composer-waiting-glow.css'
 import type { SidebarActions } from '@/components/sidebar/sidebar-actions'
 import { ProjectActionsMenuItems } from '@/components/sidebar/ProjectActionsMenu'
@@ -278,6 +279,14 @@ export function ChatList({ actions }: { actions: SidebarActions }) {
   const looseCollapsed = collapsedProjects.includes(NO_PROJECT) && !needle
   // Workspaces some chat works in, shown or not.
   const busy = new Set(allSessions.filter((s) => !s.archived).map((s) => s.workspaceId))
+  // Which cards a pane shows (docs/specs/threads-under-projects.md): the focused pane's most.
+  const panes = useOpenPaneWorkspaces()
+  const entryOfWorkspace = (id: string | null) => {
+    const w = id ? workspaceById.get(id) : undefined
+    return w?.projectId ? (entryOfProject.get(`${w.hostId}:${w.projectId}`) ?? null) : null
+  }
+  const openEntries = new Set([...panes.open].map(entryOfWorkspace).filter((k): k is string => k !== null))
+  const focusedEntry = entryOfWorkspace(panes.focused)
 
   return (
     <div data-chat-list="project" className="flex min-h-0 flex-1 flex-col">
@@ -301,6 +310,7 @@ export function ChatList({ actions }: { actions: SidebarActions }) {
               title={project.path}
               badge={<ProjectBadge name={label} />}
               nodes={list}
+              shown={entryKey({ primary: project, copies }) === focusedEntry ? 'focused' : openEntries.has(entryKey({ primary: project, copies })) ? 'open' : null}
               glows={list.some((n) => rowGlows(phase(n.chat), n.status))}
               collapsed={collapsed}
               extra={
@@ -429,6 +439,7 @@ function ProjectCard({
   title,
   badge,
   nodes,
+  shown = null,
   glows,
   collapsed,
   extra,
@@ -440,6 +451,8 @@ function ProjectCard({
   title?: string
   badge: ReactNode
   nodes: ChatNode[]
+  /** A pane shows the project: the focused one, or another. */
+  shown?: 'focused' | 'open' | null
   /** One of its threads glows (rowGlows): a folded card glows for it. */
   glows: boolean
   collapsed: boolean
@@ -450,11 +463,18 @@ function ProjectCard({
   const glowing = useWaitingGlow(collapsed && glows)
   return (
     <section
-      className="group/project mb-1.5 rounded-lg border border-border bg-card px-1 pb-1 shadow-xs"
+      className="group/project relative mb-1.5 rounded-lg border border-border bg-card px-1 pb-1 shadow-xs"
       data-chat-project={id}
+      data-project-shown={shown ?? undefined}
       data-waiting-glow={glowing}
       style={CARD_GLOW_SURFACE}
     >
+      {shown ? (
+        <span
+          aria-hidden
+          className={cn('pointer-events-none absolute top-2 bottom-2 -left-px w-[3px] rounded-full', shown === 'focused' ? 'bg-highlight' : 'bg-highlight/35')}
+        />
+      ) : null}
       <div
         role="button"
         tabIndex={0}

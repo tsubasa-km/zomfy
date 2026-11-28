@@ -1,6 +1,7 @@
 import { useEffect, useMemo } from 'react'
 import { allWorkspaces, inWindowTabs, useStore } from '@/session-store'
 import { tabScope, useTabLayout, WINDOW_TABS } from '@/stores/tab-layout-store'
+import { createExternalStore } from '@/stores/external-store'
 import { paneTabSet, resolvePaneContext } from '@/lib/pane-context'
 import { tabWorkspaceId, type WorkspaceTab } from './workspace-tab-model'
 
@@ -75,4 +76,37 @@ export function usePaneSet(
     [scope, tabs, startWorkspace, context, carries]
   )
   return useMemo(() => ({ context, shown }), [context, shown])
+}
+
+/** The workspace each pane of the window shows, by group id, for the sidebar's open-project marks. */
+const paneWorkspaces = createExternalStore<Record<string, string>>({})
+
+/** A pane of the window says which workspace it shows; it forgets it when it goes. */
+export function usePublishPaneWorkspace(layoutKey: string, groupId: string, context: string | null): void {
+  const inWindow = tabScope(layoutKey) === WINDOW_TABS
+  useEffect(() => {
+    if (!inWindow) return
+    paneWorkspaces.update((all) => {
+      if ((all[groupId] ?? null) === context) return all
+      const { [groupId]: _gone, ...rest } = all
+      return context ? { ...rest, [groupId]: context } : rest
+    })
+  }, [inWindow, groupId, context])
+  useEffect(
+    () => () => {
+      if (inWindow) paneWorkspaces.update(({ [groupId]: _gone, ...rest }) => rest)
+    },
+    [inWindow, groupId]
+  )
+}
+
+/**
+ * The workspaces the window's panes show (docs/specs/threads-under-projects.md), as a string so a
+ * fresh map of the same ones redraws nothing, and the focused pane's.
+ */
+export function useOpenPaneWorkspaces(): { open: Set<string>; focused: string | null } {
+  const focusedGroup = useTabLayout((s) => s.layouts[WINDOW_TABS]?.focusedGroupId ?? null)
+  const key = paneWorkspaces.use((all) => Object.values(all).sort().join(' '))
+  const focused = paneWorkspaces.use((all) => (focusedGroup ? (all[focusedGroup] ?? null) : null))
+  return useMemo(() => ({ open: new Set(key.split(' ').filter(Boolean)), focused }), [key, focused])
 }
