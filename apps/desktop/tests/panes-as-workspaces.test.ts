@@ -1,6 +1,6 @@
 import { expect, test } from 'bun:test'
 import { nextFrontTab, paneTabSet, resolvePaneContext } from '../src/lib/pane-context.ts'
-import { defaultShellFirst, matchEntry, matchLabel, pushRecent, searchRows, treeKey, treeRows, type PickEntry, type PickNode } from '../src/lib/new-tab-pick.ts'
+import { defaultShellFirst, matchEntry, matchLabel, pushRecent, searchRows, cascadeKey, cascadeNodes, type CascadeLevel, type PickEntry, type PickNode } from '../src/lib/new-tab-pick.ts'
 
 const carries = (ids: string[]) => (id: string) => ids.includes(id)
 
@@ -69,30 +69,28 @@ const tree: PickNode<PickEntry>[] = [
 ]
 const ids = (rows: { node: { id: string } }[]) => rows.map((r) => r.node.id)
 
-test('the tree shows New thread and the pins first, branches folded until opened', () => {
-  expect(ids(treeRows(tree, new Set()))).toEqual(['new-thread', 'pin:terminal', 'scope:terminal', 'scope:agent', 'scope:panel'])
-  const open = treeRows(tree, new Set(['scope:agent', 'provider:codex']))
-  expect(ids(open)).toEqual(['new-thread', 'pin:terminal', 'scope:terminal', 'scope:agent', 'provider:codex', 'chat:codex', 'agent:codex', 'refresh-agents', 'scope:panel'])
-  expect(open.find((r) => r.node.id === 'agent:codex')).toMatchObject({ depth: 2, path: ['Agent', 'Codex'], parentId: 'provider:codex' })
+test('the top menu lists New thread, the pins and the branches; a branch lists its children', () => {
+  expect(ids(cascadeNodes(tree, null).map((node) => ({ node })))).toEqual(['new-thread', 'pin:terminal', 'scope:terminal', 'scope:agent', 'scope:panel'])
+  expect(cascadeNodes(tree, 'provider:codex').map((n) => n.id)).toEqual(['chat:codex', 'agent:codex'])
+  expect(cascadeNodes(tree, 'gone')).toEqual([])
 })
 
-test('→ opens a branch then enters it; ← folds it, or from a child goes to its branch', () => {
-  let open: ReadonlySet<string> = new Set()
-  let rows = treeRows(tree, open)
-  let step = treeKey(rows, 3, 'ArrowRight', open)
-  expect(step.active).toBe(3)
-  open = step.open
-  expect([...open]).toEqual(['scope:agent'])
-  rows = treeRows(tree, open)
-  step = treeKey(rows, 3, 'ArrowRight', open)
-  expect(rows[step.active]!.node.id).toBe('provider:codex')
-  // ← on a closed child goes to its branch; ← on an open branch folds it.
-  step = treeKey(rows, 4, 'ArrowLeft', open)
-  expect(rows[step.active]!.node.id).toBe('scope:agent')
-  step = treeKey(rows, 3, 'ArrowLeft', open)
-  expect([...step.open]).toEqual([])
-  // → on a leaf does nothing.
-  expect(treeKey(rows, 0, 'ArrowRight', open)).toEqual({ active: 0, open })
+test('→ opens the highlighted branch beside it and moves in; ← and Escape close the deepest; Escape at the top closes', () => {
+  const top: CascadeLevel[] = [{ branchId: null, highlight: 3 }]
+  const agent = cascadeKey(tree, top, 'ArrowRight')
+  expect(agent).toEqual([{ branchId: null, highlight: 3 }, { branchId: 'scope:agent', highlight: 0 }])
+  const codex = cascadeKey(tree, agent as CascadeLevel[], 'Enter')
+  expect((codex as CascadeLevel[]).at(-1)).toEqual({ branchId: 'provider:codex', highlight: 0 })
+  // ↑/↓ act in the deepest menu, wrapping.
+  expect((cascadeKey(tree, codex as CascadeLevel[], 'ArrowUp') as CascadeLevel[]).at(-1)!.highlight).toBe(1)
+  expect(cascadeKey(tree, codex as CascadeLevel[], 'ArrowLeft')).toEqual(agent)
+  expect(cascadeKey(tree, agent as CascadeLevel[], 'Escape')).toEqual(top)
+  expect(cascadeKey(tree, top, 'Escape')).toBe('close')
+  // → on a leaf, ← at the top: nothing.
+  expect(cascadeKey(tree, [{ branchId: null, highlight: 0 }], 'ArrowRight')).toEqual([{ branchId: null, highlight: 0 }])
+  expect(cascadeKey(tree, top, 'ArrowLeft')).toEqual(top)
+  // A submenu opened by hovering has no highlight; ↓ starts at its first row.
+  expect(cascadeKey(tree, [...top, { branchId: 'scope:agent', highlight: -1 }], 'ArrowDown')).toEqual([...top, { branchId: 'scope:agent', highlight: 0 }])
 })
 
 test('a query lists the matching leaves flat with their path, once each, pinned first among equals', () => {

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { Bot, ChevronRight, FolderOpen, Globe, MessageSquarePlus, PanelsTopLeft, Pin, PinOff, Plus, RefreshCw, Search, Server, SquareTerminal } from 'lucide-react'
 import { LOCAL_HOST, allWorkspaces, openEditorTab, useStore } from '@/session-store'
 import { toast } from 'sonner'
@@ -9,7 +9,7 @@ import { ContextMenu, ContextMenuContent, ContextMenuItem, ContextMenuTrigger } 
 import { openSshConnectionsDialog } from '@/lib/ssh-connections'
 import { loadDetectedAgents } from '@/lib/detected-agents'
 import { isImeOwnedKeyboardEvent } from '@/lib/ime-composition-keyboard-event'
-import { defaultShellFirst, pushRecent, searchRows, treeKey, treeRows, type PickNode, type PickRow, type PickScope } from '@/lib/new-tab-pick'
+import { cascadeKey, cascadeNodes, defaultShellFirst, pushRecent, searchRows, type CascadeLevel, type PickNode, type PickRow, type PickScope } from '@/lib/new-tab-pick'
 import { cn } from '@/lib/utils'
 import { createExternalStore } from '@/stores/external-store'
 import { looksLikeSearchQuery, normalizeAddress } from '@/stores/browser-tab-store'
@@ -18,6 +18,7 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { FileIcon } from '@/components/FileIcon'
 import { requestAgentLaunchDialog } from '@/components/terminal/AgentLaunchDialog'
 import { TuiAgentIcon } from '@/components/terminal/TuiAgentIcon'
+import { HostIcon, ShellIcon } from '@/components/terminal/ShellIcon'
 import { TabKindIcon } from './TabKindIcon'
 import { focusGroup } from './tab-group-commands'
 import { matchFiles, workspaceFiles } from './workspace-file-index'
@@ -47,28 +48,6 @@ import { t } from '@/i18n/i18n'
 
 const SCOPE_ICON: Record<PickScope, typeof SquareTerminal> = { terminal: SquareTerminal, agent: Bot, panel: PanelsTopLeft }
 const scopeName = (scope: PickScope) => (scope === 'terminal' ? t('Terminal') : scope === 'agent' ? t('Agent') : t('Panel'))
-
-// ── Open branches ────────────────────────────────────────────────────────
-
-const OPEN_KEY = 'zomfy.new-tab-open.v1'
-
-function readOpen(): string[] {
-  try {
-    const raw = JSON.parse(localStorage.getItem(OPEN_KEY) ?? '[]')
-    return Array.isArray(raw) ? raw.filter((id): id is string => typeof id === 'string') : []
-  } catch {
-    return []
-  }
-}
-
-/** The branches open in the tree, kept for the next "+". */
-const openBranches = createExternalStore<string[]>(readOpen(), (list) => {
-  try {
-    localStorage.setItem(OPEN_KEY, JSON.stringify(list))
-  } catch {
-    // Storage can be unavailable; every branch then starts folded.
-  }
-})
 
 // ── Recently run ─────────────────────────────────────────────────────────
 
@@ -131,13 +110,13 @@ function useTerminalBranch(workspaceId: string | null): { branch: Node[]; defaul
           id: `shell:${host.id}:${shell.id}`,
           scope: 'terminal',
           keywords: `terminal shell ${shell.label} ${host.label}`,
-          icon: <SquareTerminal className="size-4" />,
+          icon: <ShellIcon shellId={shell.id} label={shell.label} />,
           label: shell.label,
           run: () => void newTerminalTab(folder, shell.id).catch(failedTerminal)
         })
       )
       if (!defaultShell && (host.id === paneHost || !paneHost)) defaultShell = shells[0]!
-      if (several) hostNodes.push({ id: `host:${host.id}`, label: host.label, icon: <Server className="size-4" />, children: shells })
+      if (several) hostNodes.push({ id: `host:${host.id}`, label: host.label, icon: <HostIcon hostId={host.id} platform={host.harness?.host.platform} />, children: shells })
       else hostNodes.push(...shells)
     }
     const rest: Node[] = [...commands, ...ssh].map((item) => leaf(item))
@@ -387,28 +366,29 @@ function Marked({ text, marks }: { text: string; marks?: number[] }) {
   )
 }
 
-/** A row of the list: a branch, a leaf of the tree, or (with a query) a match with its path. */
-function TreeRow({
+/** A row of a menu: a branch (its submenu opens to the side), a leaf, or (with a query) a match with its path. */
+function MenuRow({
   node,
   icon,
-  depth,
   path,
   marks,
   open,
   highlighted,
   pins,
+  rowRef,
   onHover,
   onRun
 }: {
   node: { id: string; label: string; entry?: NewTabItem; children?: unknown[] }
   icon?: React.ReactNode
-  depth: number
   /** The branches above a search result, shown before its name. */
   path?: string[]
   marks?: number[]
+  /** Its submenu is open. */
   open?: boolean
   highlighted: boolean
   pins: string[]
+  rowRef?: (el: HTMLDivElement | null) => void
   onHover: () => void
   onRun: () => void
 }) {
@@ -416,37 +396,33 @@ function TreeRow({
   const branch = Boolean(node.children)
   const disabled = item ? item.disabled === true : (node as Node).children?.every((c) => c.entry?.disabled) === true
   const pinned = item?.pin != null && pins.includes(item.pin)
-  const ref = useRef<HTMLDivElement>(null)
+  const ref = useRef<HTMLDivElement | null>(null)
   useEffect(() => {
     if (highlighted) ref.current?.scrollIntoView({ block: 'nearest' })
   }, [highlighted])
   return (
     <div
-      ref={ref}
-      role="treeitem"
-      aria-selected={highlighted}
-      aria-expanded={branch ? open : undefined}
+      ref={(el) => {
+        ref.current = el
+        rowRef?.(el)
+      }}
+      role="menuitem"
+      aria-haspopup={branch ? 'menu' : undefined}
+      aria-expanded={branch ? Boolean(open) : undefined}
       aria-disabled={disabled || undefined}
-      aria-level={depth + 1}
       data-new-tab={item ? (item.pin ?? item.id) : node.id}
       data-new-tab-branch={branch ? node.id : undefined}
       data-highlighted={highlighted || undefined}
       // Why an entry is off is its tooltip, never a line on the row.
       title={disabled && item?.detail ? item.detail : undefined}
       className={cn(
-        'group/new-tab flex h-7 cursor-default items-center gap-2 rounded-[7px] pr-2 text-xs outline-none select-none [&_svg]:shrink-0',
-        highlighted && 'bg-black/8 text-accent-foreground dark:bg-white/14',
+        'group/new-tab flex h-7 cursor-default items-center gap-2 rounded-[7px] px-2 text-xs outline-none select-none [&_svg]:shrink-0',
+        (highlighted || open) && 'bg-black/8 text-accent-foreground dark:bg-white/14',
         disabled ? 'text-muted-foreground/60' : 'text-foreground'
       )}
-      style={{ paddingLeft: 8 + depth * 14 }}
       onMouseMove={() => !highlighted && onHover()}
       onClick={() => !disabled && onRun()}
     >
-      {branch ? (
-        <ChevronRight className={cn('size-3 text-muted-foreground transition-transform', open && 'rotate-90')} />
-      ) : depth > 0 ? (
-        <span className="w-3" aria-hidden />
-      ) : null}
       <span className={cn('flex w-4 shrink-0 items-center justify-center text-muted-foreground [&_svg]:size-4', disabled && 'opacity-60')}>{icon ?? item?.icon}</span>
       <span className="min-w-0 flex-1 truncate">
         {path && path.length > 0 ? <span className="text-muted-foreground">{path.join(' › ')} › </span> : null}
@@ -454,6 +430,64 @@ function TreeRow({
       </span>
       {item?.shortcut && !highlighted ? <span className="shrink-0 text-[11px] text-muted-foreground group-hover/new-tab:hidden">{item.shortcut}</span> : null}
       {item && item.pin !== null && !item.disabled ? <PinButton id={item.pin} pinned={pinned} label={item.short ?? item.label} shown={highlighted} /> : null}
+      {branch ? <ChevronRight className="ml-auto size-3 text-muted-foreground" /> : null}
+    </div>
+  )
+}
+
+/** Escape closes an open submenu of the quick pick (its own key handler does) before the popover. */
+function keepOpenForSubmenu(event: KeyboardEvent): void {
+  if (document.querySelector('[data-new-tab-pick][data-submenu-open]')) event.preventDefault()
+}
+
+/** Wide enough for the longest names; a submenu flips left when this does not fit on the right. */
+const SUBMENU_WIDTH = 248
+/** How long a submenu stays while the pointer crosses other rows on its way into it. */
+const MENU_AIM_MS = 260
+
+/**
+ * A submenu beside its branch row (docs/specs/panes-as-workspaces.md): to the right, or to the left
+ * near the screen's edge, kept inside the window vertically. Positioned within the quick pick.
+ */
+function Submenu({
+  anchor,
+  root,
+  level,
+  children,
+  onEnter
+}: {
+  anchor: HTMLElement | null
+  root: HTMLElement | null
+  level: number
+  children: React.ReactNode
+  onEnter: () => void
+}) {
+  const ref = useRef<HTMLDivElement>(null)
+  const [place, setPlace] = useState<{ left: number; top: number } | null>(null)
+  useLayoutEffect(() => {
+    if (!anchor || !root) return
+    const a = anchor.getBoundingClientRect()
+    const r = root.getBoundingClientRect()
+    const height = ref.current?.offsetHeight ?? 0
+    // Once a submenu opened to the left, the ones under it keep going left while they fit.
+    const fitsRight = a.right + 4 + SUBMENU_WIDTH <= window.innerWidth - 8
+    const fitsLeft = a.left - 4 - SUBMENU_WIDTH >= 8
+    const goingLeft = a.right <= r.left + 2
+    const leftSide = goingLeft ? fitsLeft || !fitsRight : !fitsRight
+    const left = (leftSide ? a.left - 4 - SUBMENU_WIDTH : a.right + 4) - r.left
+    const top = Math.max(8, Math.min(a.top - 5, window.innerHeight - 8 - height)) - r.top
+    setPlace((p) => (p && p.left === left && p.top === top ? p : { left, top }))
+  })
+  return (
+    <div
+      ref={ref}
+      role="menu"
+      data-new-tab-submenu={level}
+      className="absolute z-50 max-h-[60vh] overflow-y-auto rounded-[11px] border border-border/80 bg-popover p-1 text-popover-foreground shadow-[0_16px_36px_rgba(0,0,0,0.24)]"
+      style={{ width: SUBMENU_WIDTH, left: place?.left ?? 0, top: place?.top ?? 0, visibility: place ? 'visible' : 'hidden' }}
+      onMouseEnter={onEnter}
+    >
+      {children}
     </div>
   )
 }
@@ -465,7 +499,8 @@ function QuickPick({
   workspaceId,
   onClose,
   nodes,
-  path = []
+  path = [],
+  placeholder: fieldPlaceholder
 }: {
   layoutKey: string
   workspaceId: string | null
@@ -473,23 +508,26 @@ function QuickPick({
   /** A subtree to show instead of the whole tree (the Terminal pin's menu), and the path above it. */
   nodes?: Node[]
   path?: string[]
+  placeholder?: string
 }) {
   const [query, setQuery] = useState('')
   const [highlight, setHighlight] = useState(0)
+  const [levels, setLevels] = useState<CascadeLevel[]>([{ branchId: null, highlight: 0 }])
   const input = useRef<HTMLInputElement>(null)
+  const root = useRef<HTMLDivElement>(null)
+  const rowEls = useRef(new Map<string, HTMLElement>())
+  const pending = useRef<ReturnType<typeof setTimeout> | null>(null)
   const pins = useNewTabPins()
   const recent = recentItems.use((list) => list)
-  const openList = openBranches.use((list) => list)
-  const open = useMemo(() => new Set(openList), [openList])
   const fullTree = useTree(workspaceId, pins)
   const tree = nodes ?? fullTree
   const typed = useQueryRows(layoutKey, workspaceId, query)
   const extra = nodes ? NO_EXTRA : typed
   const searching = query.trim() !== ''
 
-  /** The rows on show: the tree, or with a query the open tabs, the matching leaves, then files and the address. */
-  const rows = useMemo((): (PickRow<NewTabItem> & { extra?: Row })[] => {
-    if (!searching) return treeRows(tree, open, 0, path)
+  /** With a query: the open tabs, the matching leaves with their path, then files and the address. */
+  const matches = useMemo((): (PickRow<NewTabItem> & { extra?: Row })[] => {
+    if (!searching) return []
     const asRow = (row: Row): PickRow<NewTabItem> & { extra: Row } => ({
       node: { id: row.item.id, label: row.item.label, entry: row.item },
       depth: 0,
@@ -498,30 +536,31 @@ function QuickPick({
       marks: row.marks,
       extra: row
     })
-    const matches = searchRows(tree, query, { pins, recent, pinOf: (item) => item.pin }).map((row) => ({ ...row, path: [...path, ...row.path] }))
-    return [...extra.before.map(asRow), ...matches, ...extra.after.map(asRow)]
-  }, [searching, tree, open, query, pins, recent, extra, path])
-  const active = Math.min(highlight, Math.max(0, rows.length - 1))
+    const found = searchRows(tree, query, { pins, recent, pinOf: (item) => item.pin }).map((row) => ({ ...row, path: [...path, ...row.path] }))
+    return [...extra.before.map(asRow), ...found, ...extra.after.map(asRow)]
+  }, [searching, tree, query, pins, recent, extra, path])
+  const active = Math.min(highlight, Math.max(0, matches.length - 1))
 
   useEffect(() => {
     const timer = setTimeout(() => input.current?.focus(), 0)
-    return () => clearTimeout(timer)
+    return () => {
+      clearTimeout(timer)
+      if (pending.current) clearTimeout(pending.current)
+    }
   }, [])
 
-  const setOpen = (next: ReadonlySet<string>) => openBranches.update(() => [...next])
-  const toggleBranch = (id: string) => {
-    const next = new Set(open)
-    if (next.has(id)) next.delete(id)
-    else next.add(id)
-    setOpen(next)
+  const later = (apply: () => void, ms: number) => {
+    if (pending.current) clearTimeout(pending.current)
+    pending.current = null
+    if (ms <= 0) return apply()
+    pending.current = setTimeout(() => {
+      pending.current = null
+      apply()
+    }, ms)
   }
 
-  const run = (row: (typeof rows)[number] | undefined) => {
-    if (!row) return
-    if (row.node.children) return toggleBranch(row.node.id)
-    const item = row.node.entry
+  const runItem = (item: NewTabItem | undefined, remembered = true) => {
     if (!item || item.disabled) return
-    const remembered = row.extra ? row.extra.remembered : true
     if (remembered && !item.lead && item.id !== 'refresh-agents') recentItems.update((list) => pushRecent(list, item.id))
     if (item.id === 'refresh-agents') {
       item.run()
@@ -531,30 +570,82 @@ function QuickPick({
     item.run()
   }
 
+  /** The pointer on row `index` of menu `level`: it and (a branch) its submenu, after the menu-aim grace when a deeper one is open. */
+  const hover = (level: number, index: number, node: Node) => {
+    const deeperOpen = levels.length > level + 1
+    const apply = () =>
+      setLevels((current) => {
+        const kept = current.slice(0, level + 1).map((l, i) => (i === level ? { ...l, highlight: index } : l))
+        return node.children && node.children.length > 0 ? [...kept, { branchId: node.id, highlight: -1 }] : kept
+      })
+    // The row lights at once; opening or closing submenus waits while the pointer may be heading into one.
+    setLevels((current) => current.map((l, i) => (i === level ? { ...l, highlight: index } : l)))
+    const stays = deeperOpen && levels[level + 1]?.branchId === node.id
+    if (!stays) later(apply, deeperOpen ? MENU_AIM_MS : node.children ? 90 : 0)
+  }
+
   const onKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (isImeOwnedKeyboardEvent(e)) return
-    if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+    if (searching) {
+      if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+        e.preventDefault()
+        if (matches.length > 0) setHighlight((active + (e.key === 'ArrowDown' ? 1 : -1) + matches.length) % matches.length)
+      } else if (e.key === 'Enter') {
+        e.preventDefault()
+        const row = matches[active]
+        runItem(row?.node.entry, row?.extra ? row.extra.remembered : true)
+      }
+    } else if (['ArrowDown', 'ArrowUp', 'ArrowRight', 'ArrowLeft', 'Enter', 'Escape'].includes(e.key)) {
+      const deepest = levels.at(-1)!
+      const row = cascadeNodes(tree, deepest.branchId)[deepest.highlight]
+      if (e.key === 'Enter' && row && !row.children) {
+        e.preventDefault()
+        return runItem(row.entry)
+      }
+      // ← and → only move the caret while there is text; Escape at the top closes the quick pick.
+      if (e.key === 'Escape' && levels.length === 1) return
       e.preventDefault()
-      if (rows.length > 0) setHighlight((active + (e.key === 'ArrowDown' ? 1 : -1) + rows.length) % rows.length)
-    } else if ((e.key === 'ArrowRight' || e.key === 'ArrowLeft') && !searching) {
+      e.stopPropagation()
+      if (pending.current) clearTimeout(pending.current)
+      const next = cascadeKey(tree, levels, e.key as Parameters<typeof cascadeKey>[2])
+      if (next === 'close') onClose()
+      else setLevels(next)
+    }
+    if (e.altKey && e.code === 'KeyP') {
       e.preventDefault()
-      const next = treeKey(rows, active, e.key, open)
-      if (next.open !== open) setOpen(next.open)
-      setHighlight(next.active)
-    } else if (e.key === 'Enter') {
-      e.preventDefault()
-      run(rows[active])
-    } else if (e.altKey && e.code === 'KeyP') {
-      e.preventDefault()
-      const item = rows[active]?.node.entry
+      const deepest = levels.at(-1)!
+      const item = searching ? matches[active]?.node.entry : cascadeNodes(tree, deepest.branchId)[deepest.highlight]?.entry
       if (item?.pin && !item.disabled) toggleNewTabPin(item.pin)
     }
   }
 
-  // A subtree's menu is named by its branch; the whole tree also finds tabs, files and addresses.
-  const placeholder = nodes && path.length > 0 ? path.join(' › ') : t('Search open tabs, files, URLs, agents…')
+  const menu = (level: number, list: readonly Node[]) =>
+    list.map((node, index) => (
+      <MenuRow
+        key={node.id}
+        node={node}
+        icon={node.icon}
+        open={levels[level + 1]?.branchId === node.id}
+        highlighted={levels[level]?.highlight === index}
+        pins={pins}
+        rowRef={(el) => {
+          const key = `${level}:${node.id}`
+          if (el) rowEls.current.set(key, el)
+          else rowEls.current.delete(key)
+        }}
+        onHover={() => hover(level, index, node)}
+        onRun={() => {
+          if (node.children) {
+            if (pending.current) clearTimeout(pending.current)
+            setLevels((current) => [...current.slice(0, level + 1).map((l, i) => (i === level ? { ...l, highlight: index } : l)), { branchId: node.id, highlight: 0 }])
+          } else runItem(node.entry)
+        }}
+      />
+    ))
+
+  const placeholder = fieldPlaceholder ?? t('Search open tabs, files, URLs, agents…')
   return (
-    <div data-new-tab-pick onKeyDown={(e) => e.key !== 'Escape' && e.stopPropagation()}>
+    <div ref={root} className="relative" data-new-tab-pick data-submenu-open={levels.length > 1 && !searching ? '' : undefined} onKeyDown={(e) => e.key !== 'Escape' && e.stopPropagation()}>
       <div className="flex items-center gap-1 border-b border-border/70 px-2">
         <input
           ref={input}
@@ -569,27 +660,51 @@ function QuickPick({
           onChange={(e) => {
             setQuery(e.target.value)
             setHighlight(0)
+            setLevels([{ branchId: null, highlight: 0 }])
           }}
           onKeyDown={onKeyDown}
         />
       </div>
-      <div id="new-tab-pick-list" role="tree" className="max-h-[min(380px,60vh)] overflow-y-auto p-1">
-        {rows.map((row, at) => (
-          <TreeRow
-            key={`${row.parentId ?? ''}/${row.node.id}`}
-            node={row.node}
-            icon={(row.node as Node).icon}
-            depth={searching ? 0 : row.depth}
-            path={searching ? row.path : undefined}
-            marks={searching ? row.marks : undefined}
-            open={open.has(row.node.id)}
-            highlighted={at === active}
-            pins={pins}
-            onHover={() => setHighlight(at)}
-            onRun={() => run(row)}
-          />
-        ))}
+      <div id="new-tab-pick-list" role="menu" className="max-h-[min(380px,60vh)] overflow-y-auto p-1">
+        {searching
+          ? matches.map((row, at) => (
+              <MenuRow
+                key={`${row.parentId ?? ''}/${row.node.id}`}
+                node={row.node}
+                icon={(row.node as Node).icon}
+                path={row.path}
+                marks={row.marks}
+                highlighted={at === active}
+                pins={pins}
+                onHover={() => setHighlight(at)}
+                onRun={() => runItem(row.node.entry, row.extra ? row.extra.remembered : true)}
+              />
+            ))
+          : menu(0, tree)}
       </div>
+      {!searching &&
+        levels.slice(1).map((level, i) => {
+          const depth = i + 1
+          return (
+            <Submenu
+              key={`${depth}:${level.branchId}`}
+              level={depth}
+              anchor={rowEls.current.get(`${depth - 1}:${level.branchId}`) ?? null}
+              root={root.current}
+              onEnter={() => {
+                // The pointer reached the submenu: what it crossed on the way does not close it, and
+                // its branch row is the one lit again.
+                if (pending.current) clearTimeout(pending.current)
+                pending.current = null
+                const parentNodes = cascadeNodes(tree, levels[depth - 1]!.branchId)
+                const at = parentNodes.findIndex((n) => n.id === level.branchId)
+                setLevels((current) => current.map((l, i) => (i === depth - 1 && at !== -1 ? { ...l, highlight: at } : l)))
+              }}
+            >
+              {menu(depth, cascadeNodes(tree, level.branchId) as Node[])}
+            </Submenu>
+          )
+        })}
     </div>
   )
 }
@@ -620,8 +735,9 @@ export function NewTabMenu({ layoutKey, workspaceId, groupId }: { layoutKey: str
       <PopoverContent
         align="start"
         sideOffset={6}
-        className="w-96 max-w-[calc(100vw-1rem)] gap-0 overflow-hidden rounded-[11px] border-border/80 p-0 shadow-[0_16px_36px_rgba(0,0,0,0.24)]"
+        className="w-96 max-w-[calc(100vw-1rem)] gap-0 overflow-visible rounded-[11px] border-border/80 p-0 shadow-[0_16px_36px_rgba(0,0,0,0.24)]"
         onOpenAutoFocus={(e) => e.preventDefault()}
+        onEscapeKeyDown={keepOpenForSubmenu}
       >
         <QuickPick layoutKey={layoutKey} workspaceId={workspaceId} onClose={() => setOpen(false)} />
       </PopoverContent>
@@ -675,11 +791,12 @@ export function TerminalPinMenu({ layoutKey, workspaceId, groupId }: { layoutKey
       <PopoverContent
         align="start"
         sideOffset={6}
-        className="w-80 max-w-[calc(100vw-1rem)] gap-0 overflow-hidden rounded-[11px] border-border/80 p-0 shadow-[0_16px_36px_rgba(0,0,0,0.24)]"
+        className="w-80 max-w-[calc(100vw-1rem)] gap-0 overflow-visible rounded-[11px] border-border/80 p-0 shadow-[0_16px_36px_rgba(0,0,0,0.24)]"
         onOpenAutoFocus={(e) => e.preventDefault()}
+        onEscapeKeyDown={keepOpenForSubmenu}
         data-terminal-pin-menu
       >
-        <QuickPick layoutKey={layoutKey} workspaceId={workspaceId} nodes={nodes} path={[t('Terminal')]} onClose={() => setOpen(false)} />
+        <QuickPick layoutKey={layoutKey} workspaceId={workspaceId} nodes={nodes} path={[t('Terminal')]} placeholder={t('Filter shells…')} onClose={() => setOpen(false)} />
       </PopoverContent>
     </Popover>
   )

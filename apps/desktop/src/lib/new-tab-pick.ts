@@ -86,21 +86,6 @@ export interface PickRow<T extends PickEntry> {
   marks?: number[]
 }
 
-/** The rows on show with no query: every top-level node, and the children of open branches. */
-export function treeRows<T extends PickEntry>(
-  nodes: readonly PickNode<T>[],
-  open: ReadonlySet<string>,
-  depth = 0,
-  path: string[] = [],
-  parentId: string | null = null
-): PickRow<T>[] {
-  return nodes.flatMap((node) => {
-    const row: PickRow<T> = { node, depth, path, parentId }
-    if (!node.children || !open.has(node.id)) return [row]
-    return [row, ...treeRows(node.children, open, depth + 1, [...path, node.label], node.id)]
-  })
-}
-
 /**
  * With a query: the leaves that match, flat, each with its path, best first (a name starting with
  * the query, a word that does, one containing it, a scattered match), pinned then recent among
@@ -139,38 +124,61 @@ export function searchRows<T extends PickEntry>(
   return scored.map((s) => s.row)
 }
 
-/**
- * `→` and `←` on the highlighted row: `→` opens a branch, or on an open one moves to its first
- * child; `←` folds an open branch, or on a child moves to its branch. Returns the new highlight and
- * open set (the same set when nothing opened or folded).
- */
-export function treeKey<T extends PickEntry>(
-  rows: readonly PickRow<T>[],
-  active: number,
-  key: 'ArrowRight' | 'ArrowLeft',
-  open: ReadonlySet<string>
-): { active: number; open: ReadonlySet<string> } {
-  const row = rows[active]
-  if (!row) return { active, open }
-  const branch = Boolean(row.node.children)
-  const isOpen = branch && open.has(row.node.id)
-  if (key === 'ArrowRight') {
-    if (!branch) return { active, open }
-    if (!isOpen) return { active, open: new Set([...open, row.node.id]) }
-    return { active: row.node.children!.length > 0 ? active + 1 : active, open }
-  }
-  if (isOpen) {
-    const next = new Set(open)
-    next.delete(row.node.id)
-    return { active, open: next }
-  }
-  if (row.parentId === null) return { active, open }
-  const parent = rows.findIndex((r) => r.node.id === row.parentId)
-  return { active: parent === -1 ? active : parent, open }
-}
-
 /** A host's shells with its default first: the one the host's settings name, else the first detected. */
 export function defaultShellFirst<T extends { id: string }>(shells: readonly T[], preferred: string | null | undefined): T[] {
   const first = shells.find((s) => s.id === preferred) ?? shells[0]
   return first ? [first, ...shells.filter((s) => s !== first)] : []
+}
+
+// ── Cascading menus ──────────────────────────────────────────────────────
+
+/**
+ * One open menu: the top level (`branchId` null) or a branch's submenu, and its highlighted row
+ * (-1 for none, as a submenu opened by hovering its branch has).
+ */
+export interface CascadeLevel {
+  branchId: string | null
+  highlight: number
+}
+
+/** The nodes a level lists. */
+export function cascadeNodes<T extends PickEntry>(root: readonly PickNode<T>[], branchId: string | null): readonly PickNode<T>[] {
+  if (branchId === null) return root
+  const find = (list: readonly PickNode<T>[]): PickNode<T> | null => {
+    for (const node of list) {
+      if (node.id === branchId) return node
+      const inner = node.children ? find(node.children) : null
+      if (inner) return inner
+    }
+    return null
+  }
+  return find(root)?.children ?? []
+}
+
+/**
+ * A key in the cascading menus (docs/specs/panes-as-workspaces.md), acting on the deepest open
+ * menu: ↑/↓ move (wrapping), → or Enter on a branch opens its submenu and moves into it, ← closes
+ * the deepest submenu, Escape does too or closes the whole menu (`'close'`) at the top.
+ */
+export function cascadeKey<T extends PickEntry>(
+  root: readonly PickNode<T>[],
+  levels: readonly CascadeLevel[],
+  key: 'ArrowUp' | 'ArrowDown' | 'ArrowRight' | 'ArrowLeft' | 'Escape' | 'Enter'
+): CascadeLevel[] | 'close' {
+  const deepest = levels.at(-1) ?? { branchId: null, highlight: 0 }
+  const rest = levels.slice(0, -1)
+  const nodes = cascadeNodes(root, deepest.branchId)
+  if (key === 'ArrowUp' || key === 'ArrowDown') {
+    if (nodes.length === 0) return [...levels]
+    const from = deepest.highlight < 0 ? (key === 'ArrowDown' ? -1 : 0) : deepest.highlight
+    const next = (from + (key === 'ArrowDown' ? 1 : -1) + nodes.length) % nodes.length
+    return [...rest, { ...deepest, highlight: next }]
+  }
+  if (key === 'ArrowRight' || key === 'Enter') {
+    const row = nodes[deepest.highlight]
+    if (!row?.children || row.children.length === 0) return [...levels]
+    return [...levels, { branchId: row.id, highlight: 0 }]
+  }
+  if (levels.length > 1) return rest
+  return key === 'Escape' ? 'close' : [...levels]
 }

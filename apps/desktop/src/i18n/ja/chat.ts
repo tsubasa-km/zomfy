@@ -736,5 +736,6 @@ export const CHAT: Record<string, string> = {
   'In a terminal': 'ターミナルで',
   'With a prompt…': 'プロンプトを指定…',
   'Launch {agent} with a prompt…': 'プロンプトを指定して {agent} を起動…',
-  'Other folder…': '別のフォルダー…'
+  'Other folder…': '別のフォルダー…',
+  'Filter shells…': 'シェルを絞り込む…'
 }
